@@ -115,8 +115,10 @@ A handler of a typed sink gets the value, not its bytes: `SinkCredit::last_item_
 called with, what to `free()` once that value is consumed; `last_item_units()` its units as the host named them.
 
 - On `StreamOpen`, generated code calls `SinkCredit::open(cursor)` (the host's session: kept if it is the one the
-  device is in, else a new one at 0), answers with `StreamOpened` (where the device is, its buffer) and sends an `Ack`
-  with the grant. An open without the host's session is refused.
+  device is in, else a new one at 0); for a new session it calls `sideband_<name>` with `Open` first, so user code
+  sees where one logical write starts (it may change the capacity there; a resume of the same session doesn't call
+  it). Then it answers with `StreamOpened` (where the device is, its buffer) and sends an `Ack` with the grant. An
+  open without the host's session is refused.
 - On a write (`SinkWrite`, `SinkWriteUnits`), generated code checks its position, calls `write_<name>` for writes in
   order only, and after it returns sends an `Ack` with new credit if `free()` moved the limit far enough. A write
   after a lost one asks for a `Resend` (once per gap); a write while the device has no session (it rebooted, or the
@@ -163,7 +165,7 @@ order with the data. Generated code uses it for the protocol, user code may use 
 | Sideband | Used for |
 |---|---|
 | `Close` | the host closes a stream or sink (`close_<name>` on a stream, `sideband_<name>` on a sink); the device ends a stream |
-| `Open` | the host opens a plain sink, for its `sideband_<name>` (credit sinks are opened with `StreamOpen`) |
+| `Open` | the host opens a plain sink; a credit sink's handler gets it when a `StreamOpen` starts a new session |
 | `FrameSync`, `SizeHint(n)`, `User(n)` | free for the API's own meaning: frame boundaries in a byte stream, the size of what follows, application events |
 | `Ack`, `Resend`, `Query` | counted and reliable streams and credit sinks, handled by generated code |
 

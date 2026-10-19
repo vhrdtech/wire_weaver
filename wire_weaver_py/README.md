@@ -33,8 +33,9 @@ dev.disconnect()
 A sink marked `#[credit]` in the API (`sink.credit` is `True`) has flow control: `send()` waits until the device has
 room for all bytes of the value (a value bigger than the device's buffer raises `ww.WireWeaverError`), `flush()`
 waits until it accepted everything (lost values are sent again), `close()` flushes, `sink.progress` is
-`(accepted, sent)` bytes, `sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it
-to a slow link. See `docs/api/streams.md`.
+`(accepted, sent)` units (one per value, the bytes of a byte sink's payload, or what `send(value, units=n)` names),
+`sink.set_credit_config(query_interval=1.0, stall_timeout=30.0)` tunes it to a slow link. See
+`docs/api/credit_sinks.md`.
 
 A method returning `Result<T, E>` returns `T`, or raises `ww.RemoteError` with `E` in its `value` attribute and the
 errors every API shares (`ww_error::CommonError`, e.g. `{"InUse": {"by": "USART2"}}`) in `common` (`None` for an error

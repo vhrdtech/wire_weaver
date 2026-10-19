@@ -384,7 +384,7 @@ impl<T> Sink<T> {
         Some(credit.tx.query_now(now))
     }
 
-    async fn send_raw(&mut self, bytes: Vec<u8>, units: u64) -> Result<(), StreamError> {
+    pub(crate) async fn send_raw(&mut self, bytes: Vec<u8>, units: u64) -> Result<(), StreamError> {
         if self.credit.is_none() {
             self.transport_cmd_tx
                 .send_write_request_forget(self.path_kind.clone(), bytes)
@@ -398,7 +398,7 @@ impl<T> Sink<T> {
         .await
     }
 
-    fn send_raw_blocking(&mut self, bytes: Vec<u8>, units: u64) -> Result<(), StreamError> {
+    pub(crate) fn send_raw_blocking(&mut self, bytes: Vec<u8>, units: u64) -> Result<(), StreamError> {
         if self.credit.is_none() {
             self.transport_cmd_tx
                 .send_write_request_forget_blocking(self.path_kind.clone(), bytes)?;
@@ -410,7 +410,7 @@ impl<T> Sink<T> {
         })
     }
 
-    fn try_send_raw(&mut self, bytes: &[u8], units: u64) -> Result<bool, StreamError> {
+    pub(crate) fn try_send_raw(&mut self, bytes: &[u8], units: u64) -> Result<bool, StreamError> {
         if self.credit.is_none() {
             let Some(permit) = self.transport_cmd_tx.try_reserve()? else {
                 return Ok(false);
@@ -770,7 +770,7 @@ impl<T: wire_weaver::shrink_wrap::SerializeShrinkWrapOwned> Sink<T> {
 }
 
 /// Units of a byte sink's payload: its bytes, one for an empty one (every item takes a position).
-fn byte_units(bytes: &[u8]) -> u64 {
+pub(crate) fn byte_units(bytes: &[u8]) -> u64 {
     (bytes.len() as u64).max(1)
 }
 

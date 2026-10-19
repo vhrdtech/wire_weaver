@@ -36,6 +36,8 @@ mod tests {
         plain: Vec<Vec<u8>>,
         blocks: Vec<Vec<u8>>,
         closed: u32,
+        /// Sessions started (`Open` passed to the sideband handler)
+        opened: u32,
         /// Units of each `points` write, as the host named them
         point_units: Vec<u64>,
         /// Forget the `plan` session on the next write, as a reboot would
@@ -96,6 +98,9 @@ mod tests {
                     self.plan_credit.free(rest.len() as u32);
                     m.plan.extend(rest);
                     m.closed += 1;
+                }
+                if sideband == StreamSideband::Open {
+                    self.m.lock().unwrap().opened += 1;
                 }
                 None
             }
@@ -702,6 +707,7 @@ mod tests {
         plan.send_bytes(&[3; 50]).await.unwrap();
         plan.close().await.unwrap();
         eventually(&m, |m| m.closed == 2).await;
+        assert_eq!(m.lock().unwrap().opened, 2);
         assert_eq!(*positions.lock().unwrap(), [0, 100, 0]);
         assert_eq!(m.lock().unwrap().plan.len(), 250);
     }
@@ -1022,10 +1028,20 @@ mod tests {
         for x in 0..20 {
             sink.send(&point(x)).await.unwrap();
         }
+        sink.send_units(&point(20), 7).await.unwrap();
         sink.flush().await.unwrap();
         let got = m.lock().unwrap().points.clone();
-        assert_eq!(got.len(), 20);
+        assert_eq!(got.len(), 21);
         assert_eq!(got[19], Point { x: 19, y: -19 });
+        // one unit per value, as the typed client counts them
+        assert_eq!(sink.credit_progress(), Some((27, 27)));
+
+        // a byte sink counts the bytes of its payload
+        let mut plan = root.child("plan").unwrap().sink(client.cmd()).await.unwrap();
+        let bytes = ValueOwned::Vec(vec![ValueOwned::Numeric(NumericValue::U8(1)); 3]);
+        plan.send(&bytes).await.unwrap();
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((3, 3)));
     }
 
     #[test]

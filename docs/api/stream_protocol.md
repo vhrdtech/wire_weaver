@@ -5,7 +5,7 @@ level: nomicon
 # Stream protocol
 
 How streams and sinks work on the wire and inside: the head of counted and reliable stream events, their
-acknowledgements, the credit messages of credit sinks, and the `ww_stream` state machines generated code drives. For
+acknowledgements, the same messages for credit sinks, and the `ww_stream` state machines generated code drives. For
 using streams, read [Streams](streams.md), [Counted and reliable streams](counted_streams.md),
 [Stream delivery](stream_reliability.md) and [Credit sinks and sideband](credit_sinks.md) first. The wire types live
 in `ww_client_server` ([its page](../std_library/ww_client_server.md)).
@@ -108,64 +108,83 @@ stream costs almost nothing more than a counted one there, and adds backfill and
 ## Credit sinks on the wire
 
 A credit sink is its own resource kind (`ApiItemKind::FlowSink { ty, flow: FlowControl::Credit }` in `ww_self`), so
-turning a plain sink into a credit sink is an API break: its writes change. Each write is a
-`ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }` inside `RequestKind::Write`, `pos` being the byte
-position of the item's first byte since the session's `Open`, modulo 2^28 (see [below](#positions-wrap-at-256-mib)):
-1 byte for the first 128 bytes of a session, 2 up to 16 KiB, 3 up to 2 MiB, never more than 4. Three sideband
-messages carry the rest:
+turning a plain sink into a credit sink is an API break: its writes change. It speaks the streams' protocol the other
+way round: the host is the sender, the device the receiver, with the same `Ack`, `Resend` and `Query`. The state
+machines are `ww_stream::sink::SinkCredit` (device) and `ww_stream::sink::SinkTx` (host, sans-IO), both driven by
+generated code and the host runtime.
 
-| Sideband | Direction | Meaning |
+**Positions count units, named by the host**: one per item by default, the bytes of the payload on a byte sink, or
+what user code says (`send_units`), at least one per item, so an empty item takes a position too. **Grants count
+bytes** of items as written, the serialized value of each write, since what runs out on the device is its buffer.
+
+Each write is its own request kind: `RequestKind::SinkWrite { pos: UVlq32, data: TailBytes }` for an item of one
+unit, exactly as long as a plain `Write` of the same data in every request (a variant of its own costs nothing,
+a flag for the units would cost a byte whenever the discriminant ends a byte), and `SinkWriteUnits { units: UVlq64,
+pos, data }` otherwise. `pos` is the position of the item's first unit in the session, modulo 2^28 (see
+[below](#positions-wrap-at-256-mib)): 1 byte for the first 128 units of a session, 2 up to 16 Ki, 3 up to 2 Mi,
+never more than 4. The sideband messages carry the rest:
+
+| Message | Direction | Meaning |
 |---|---|---|
-| `Credit { have, grant }` | device → host | `have` bytes of items accepted in order; the host may send up to byte `have + grant` |
-| `CreditQuery { sent }` | host → device | "I have sent up to byte `sent`, where are you?", answered with `Credit` or `Resend` |
-| `Resend { have, grant }` | device → host | writes after `have` were lost: send again from byte `have` (an item boundary), up to `have + grant` |
+| `StreamOpen { resume: Some(StreamCursor { session, pos }) }` | host → device | opens the host's session: a new one at 0, or its own again |
+| `StreamOpened { session, live_from, capacity, .. }` | device → host | the answer: where the device is in that session (a full `u64` position) and its buffer in bytes |
+| `Ack { have, backfill: None, grant }` | device → host | every unit before `have` accepted in order; the host may have up to `grant` bytes in flight beyond them |
+| `Query { sent, backfill: None }` | host → device | "I have sent up to unit `sent`, where are you?", answered with `Ack` or `Resend` |
+| `Resend { from, grant }` | device → host | writes from unit `from` on were lost: send again from there (an item boundary), with up to `grant` bytes in flight |
+| `Close` | both | the host ends the session; from the device: it has no session for a write (rebooted, or closed), open again |
 
-All three carry the whole state, so losing one is harmless: the next one, or the answer to the next query, replaces
-it. Their positions are `UNib32`, modulo 2^28 as well.
+All of them carry the whole state, so losing one is harmless: the next one, or the answer to the next query,
+replaces it. Positions in `Ack`, `Query` and `Resend` are `UVlq64`, holding values below 2^28 for sinks.
 
-1. `Open` starts a session: the device resets its counters and answers with `Credit { have: 0, grant: capacity }`.
-   Credit events left over from an earlier session are ignored by the host until this one arrives.
-2. The host sends an item while `pos + its length <= have + grant`, keeping a copy of everything after `have` for a
-   resend (at most the device's capacity).
-3. The device counts accepted bytes (`have`) and bytes it **freed** (consumed, e.g. written to flash); its limit is
-   `freed + capacity`. When the limit has moved by at least `threshold` since the last grant, it sends a new
-   `Credit`: a large threshold means few acknowledgements over a slow link, a small one keeps the link full.
-4. When the host is out of credit and nothing arrives for `query_interval`, it sends `CreditQuery`. This recovers from a
-   lost `Credit`, from a device that freed less than `threshold`, and finds lost data at the end of a transfer.
-5. `flush()` sends `CreditQuery` and waits until `have == sent`: on a reliable link with a buffer that holds the whole
-   transfer, the one acknowledgement it needs.
+1. **The host names the session** (random, never 0, or picked by user code) and opens it with its cursor. The device
+   keeps a session it is in: the same session again (a reconnect, a repeated or late duplicate open on UDP) changes
+   nothing and answers where it is; any other session starts at 0. It answers with `StreamOpened`, then an `Ack`
+   with the grant. The host takes in sideband only after the answer, so an `Ack` before it is never mistaken for one
+   of an earlier session.
+2. A device answering behind what the host had acknowledged in that session has lost it (a reboot): the host reports
+   it (`StreamError::SinkSessionLost`) and user code decides. One answering ahead of what was sent is a host bug,
+   except for a restarted host that opens with a saved cursor: it continues from where the device is.
+3. The host sends an item while the bytes in flight plus its length stay within the grant, and while at most
+   `MAX_WINDOW` units are in flight, keeping a copy of everything not acknowledged for a resend.
+4. The device counts accepted units (`have`), accepted bytes and bytes it **freed** (consumed, e.g. written to
+   flash); its byte limit is `freed + capacity`. When the limit has moved by at least `threshold` since the last
+   grant, it sends a new `Ack`: a large threshold means few acknowledgements over a slow link, a small one keeps the
+   link full.
+5. When the host is out of credit and nothing arrives for `query_interval`, it sends `Query` (and the open again when
+   it wasn't answered). This recovers from a lost `Ack` or answer, from a device that freed less than `threshold`,
+   and finds lost data at the end of a transfer. `flush()` sends `Query` and waits until `have == sent`.
+6. `Close` ends the session on the device; a later write there answers `Close` once, and the host opens its session
+   again, nothing lost. A read on the sink returns its `StreamStatus` (open, session, position, bytes buffered,
+   capacity).
 
 On a lossy medium (UDP, LoRa, LTE-M) the device accepts a write only at `pos == have`: one before it is a duplicate
 from a resend and is dropped; one after it means something was lost, so it is dropped too and the device sends
-`Resend { have, grant }`, once per gap. A `CreditQuery { sent }` with `sent > have` means writes were lost after the
-last one that arrived; the device answers with `Resend` instead of `Credit`. On `Resend` the host goes back to `have`
-and sends everything again from its copy (go-back-N). Requests are processed in order, so when the device sees a
-`CreditQuery`, everything sent before it has arrived or is lost; a plain `Credit` never rewinds the host, the rest may
-still be in flight. An empty item takes one position, so its loss is noticed like any other.
+`Resend`, once per gap. A `Query { sent }` with `sent > have` means writes were lost after the last one that arrived;
+the device answers with `Resend` instead of `Ack`. On `Resend` the host goes back to `from` and sends everything again
+from its copy (go-back-N). Requests are processed in order, so when the device sees a `Query`, everything sent before
+it has arrived or is lost; an `Ack` never rewinds the host, the rest may still be in flight.
 
 ### Positions wrap at 256 MiB
 
 Both sides count positions in `u64`, so a session has no size limit. On the wire a position is sent modulo 2^28
-(`credit::POS_MODULUS`, `credit::wire_pos()`), the most a `UVlq32` holds in 4 bytes, and the receiver takes the full
-position nearest to the one it expects (`credit::extend_pos()`: from 2^27 behind it to 2^27 ahead, serial number
-arithmetic as in TCP). A value of 2^28 or more is no position: the device drops such a write (`CreditVerdict::Invalid`),
-the host ignores such a credit event.
+(`ww_stream::sink::POS_MODULUS`, `wire_pos()`), the most a `UVlq32` holds in 4 bytes, and the receiver takes the full
+position nearest to the one it expects (`extend_pos()`: from 2^27 behind it to 2^27 ahead, serial number arithmetic as
+in TCP). A value of 2^28 or more is no position: the device drops such a write (`SinkVerdict::Invalid`), the host
+ignores such an event.
 
-That reads every position right as long as it is less than 2^27 (128 MiB) away from what the receiver expects. Credit
-keeps it so: what the host has in flight, sent but not acknowledged, never exceeds the device's buffer, and the buffer
-is at most `credit::MAX_WINDOW`, 64 MiB, a quarter of the modulus. `SinkCredit::new` and `sized_for` refuse a larger
-one (a compile error in a `const`), `try_sized_for` and `set_capacity` return `SinkCreditError::BufferTooLarge`, and
-the host never puts more than `MAX_WINDOW` in flight whatever the device grants. One window on either side of the
-reference takes half the modulus; the other half is the margin for a late packet, a duplicate held back on UDP. Such a
-packet looks like a write from ahead (a gap, answered with a `Resend`) only when it arrives more than 64 MiB of traffic
-late, and like the expected write only when exactly a multiple of 256 MiB late: half a minute at 10 MB/s, far beyond
-how long a datagram lives on a network. Ordered links (USB, RTT, WebSocket) never deliver a late packet at all.
+That reads every position right as long as it is less than 2^27 away from what the receiver expects. The bound keeps
+it so, in two parts: what the host has in flight never exceeds the device's buffer in bytes, at most
+`ww_stream::sink::MAX_WINDOW` (64 MiB, a quarter of the modulus), and never more than `MAX_WINDOW` units either, which
+the host enforces since it names the units; an item of more is refused. `SinkCredit::new` and `sized_for` refuse a
+larger buffer (a compile error in a `const`), `try_sized_for` and `set_capacity` return
+`SinkCreditError::BufferTooLarge`. One window on either side of the reference takes half the modulus; the other half
+is the margin for a late packet, a duplicate held back on UDP. Such a packet looks like a write from ahead (a gap,
+answered with a `Resend`) only when it arrives more than 64 Mi units late, and like the expected write only when
+exactly a multiple of 256 Mi units late: far beyond how long a datagram lives on a network. Ordered links (USB, RTT,
+WebSocket) never deliver a late packet at all.
 
-The modulus is the same on every link and fixed by the protocol: nothing is announced at `Open`, there is nothing to
+The modulus is the same on every link and fixed by the protocol: nothing is announced at the open, there is nothing to
 configure.
-
-Credit sinks are planned to move onto the positions, acknowledgements and resume of counted and reliable streams
-(`API-34` in the [Feature tracker](../features.md)).
 
 ## Sending: producers, the event loop and priorities
 

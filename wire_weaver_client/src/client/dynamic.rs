@@ -1335,20 +1335,45 @@ impl DynSink {
         self.sink.try_flush()
     }
 
+    /// Send one item: one unit of a credit sink, or each byte of a byte sink's payload.
     pub async fn send(&mut self, value: &ValueOwned) -> Result<(), StreamError> {
         let bytes = self.encode(value)?;
-        self.sink.send_bytes(&bytes).await
+        let units = self.units(&bytes);
+        self.sink.send_raw(bytes, units).await
     }
 
     pub fn send_blocking(&mut self, value: &ValueOwned) -> Result<(), StreamError> {
         let bytes = self.encode(value)?;
-        self.sink.send_bytes_blocking(&bytes)
+        let units = self.units(&bytes);
+        self.sink.send_raw_blocking(bytes, units)
     }
 
     /// See [Sink::try_send].
     pub fn try_send(&mut self, value: &ValueOwned) -> Result<bool, StreamError> {
         let bytes = self.encode(value)?;
-        self.sink.try_send_bytes(&bytes)
+        let units = self.units(&bytes);
+        self.sink.try_send_raw(&bytes, units)
+    }
+
+    /// See [Sink::send_units].
+    pub async fn send_units(&mut self, value: &ValueOwned, units: u64) -> Result<(), StreamError> {
+        let bytes = self.encode(value)?;
+        self.sink.send_raw(bytes, units).await
+    }
+
+    /// See [Sink::send_units_blocking].
+    pub fn send_units_blocking(&mut self, value: &ValueOwned, units: u64) -> Result<(), StreamError> {
+        let bytes = self.encode(value)?;
+        self.sink.send_raw_blocking(bytes, units)
+    }
+
+    /// Units of an item when user code names none: the bytes of a byte sink's payload, else one.
+    fn units(&self, bytes: &[u8]) -> u64 {
+        if self.is_bytes {
+            crate::client::sink::byte_units(bytes)
+        } else {
+            1
+        }
     }
 
     fn encode(&self, value: &ValueOwned) -> Result<Vec<u8>, StreamError> {

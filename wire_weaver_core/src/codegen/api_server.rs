@@ -2232,7 +2232,17 @@ fn handle_stream(
                 quote! {
                     // the host names the session (API-34): a new one at 0, or its own again after a reconnect
                     RequestKind::StreamOpen { resume: Some(cursor), .. } => {
+                        let new_session = #credit.session() != Some(cursor.session.0);
                         let opened = #credit.open(*cursor);
+                        if new_session {
+                            // user code sees where a session (one logical write) starts, as `Open`; not on a resume
+                            let sideband = StreamSideband::Open;
+                            let sideband = &sideband;
+                            #call_user_sideband
+                            if let Some(sideband) = r {
+                                #send_sideband
+                            }
+                        }
                         // the grant: the host applies it once it has the answer
                         if let Some(sideband) = #credit.take_ack() {
                             #send_sideband

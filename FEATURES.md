@@ -389,20 +389,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **API-10 Type paths from Cargo**: trait source path, external types in API crates as full paths.
 - ✅ **API-11 Sync and async servers, async / blocking / promise clients** from the same trait.
 - ✅ **API-28 Credit-based flow control for sinks** — `#[credit] sink!(..)`: the device grants credit in bytes of
-  items (the serialized value of each write, never split; `StreamSideband::Credit { have, grant }`), so a receive
+  items (the serialized value of each write, never split; the grant of an `Ack` since API-34), so a receive
   buffer holds as many items as fit whatever their sizes; the host waits when out of credit (async, blocking,
   `try_send`), writes carry the byte position of their first byte so a lossy medium resumes with go-back-N from `have`
-  (`Resend`, `CreditQuery`), `flush()` waits for the final ack. No deadlock: generated `<SINK>_MAX_ITEM_BYTES` (from
+  (`Resend`, `Query`), `flush()` waits for the final ack. No deadlock: generated `<SINK>_MAX_ITEM_BYTES` (from
   `MAX_SIZE`, `MaxLen` bounds included) and `SinkCredit::sized_for()` check at compile time that the buffer holds the
   largest item and cap the re-grant threshold, the host fails an item bigger than the buffer with
-  `StreamError::ItemTooBig`. Device state in `ww_client_server::credit::SinkCredit`, dynamic and Python clients too.
+  `StreamError::ItemTooBig`. Device state in `ww_stream::sink::SinkCredit` (API-34), dynamic and Python clients too.
   Used by `ww_dfu` `StageBulk::plan`. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (`docs/api/credit_sinks.md`, `tests/credit_sink`).
-- ✅ **API-42 Credit-sink positions without a session limit** · `v0.5` — host (`CreditTx`) and device (`SinkCredit`)
-  count positions in `u64`, the wire carries them modulo 2^28 (`credit::POS_MODULUS`, at most 4 bytes as a `UVlq32`,
-  `UNib32` in the sideband), the receiver extends them from the position it expects (serial number arithmetic). The
+- ✅ **API-42 Credit-sink positions without a session limit** · `v0.5` — host (`SinkTx`) and device (`SinkCredit`)
+  count positions in `u64`, the wire carries them modulo 2^28 (`ww_stream::sink::POS_MODULUS`, at most 4 bytes as a
+  `UVlq32`), the receiver extends them from the position it expects (serial number arithmetic). The
   buffer is at most `MAX_WINDOW` (64 MiB, a quarter of the modulus), checked at compile time by `sized_for`, and the
-  host never has more in flight; one fixed modulus on every link, nothing negotiated at `Open`. Tested over a seeded
+  host never has more in flight; one fixed modulus on every link, nothing negotiated at the open. Tested over a seeded
   lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
   (`docs/api/stream_protocol.md#positions-wrap-at-256-mib`).
 - ✅ **API-43 Generic types in APIs** · `v0.5` — generic structs and enums (DER-14, `Timed<Ampere>`, `Window<4>`,
@@ -624,9 +624,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   bytes; positions stay as API-42 has them (`u64` in state, modulo 2^28 on the wire), the host keeps at most
   `MAX_WINDOW` bytes and units in flight; streams keep their full `UVlq64` positions (their gaps are unbounded). The
   host names the session in `StreamOpen`'s cursor, so a repeated or late duplicate open (UDP) no longer resets a
-  running session. Done: the protocol core, `ww_stream::sink` (`SinkCredit` on the device, `SinkTx` on the host)
-  and `RequestKind::SinkWrite`. Missing: generated code, the host runtime, `ww_dfu` and the tests on it (the old
-  `Credit` / `CreditQuery` / `Resend` still in use), resume in the host API.
+  running session. Done: the protocol core, `ww_stream::sink` (`SinkCredit` on the device, `SinkTx` on the host),
+  `RequestKind::SinkWrite` / `SinkWriteUnits`, and the switch-over: generated server code (open by `StreamOpen`, a
+  read returns `StreamStatus`), the host `Sink` (`send_units`, `open_session`, a device that lost the session is
+  reported), dynamic client and Python, `ww_dfu`, every test crate; the old `Credit` / `CreditQuery` / `Resend`,
+  `CreditWrite` and `ww_client_server::credit` are gone, `ResendFrom` is `Resend`. Missing: resume in the host API
+  (`Sink::cursor()`, sinks in `resume_streams()`, `<sink>_resume(cursor)`), the hardware check.
 - 💡 **API-53 Sink functions** — `#[sink(T, credit)] fn uart_tx(config: TxConfig) -> Result<A, E>`, the
   counterpart of stream functions (API-31): a sink opened with a configuration and a typed result, a new session
   exactly when the configuration changes. The wire has it (`StreamOpen { args }`); codegen and the host API are

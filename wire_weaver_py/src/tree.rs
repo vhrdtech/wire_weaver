@@ -919,14 +919,20 @@ impl Sink {
         Ok(())
     }
 
-    /// Send one item, `bytes` for a byte slice sink.
-    fn send(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+    /// Send one item, `bytes` for a byte slice sink. On a credit sink it takes `units` positions (at least 1): by
+    /// default one per value, the bytes of a byte sink's payload.
+    #[pyo3(signature = (value, units = None))]
+    fn send(&self, py: Python<'_>, value: &Bound<'_, PyAny>, units: Option<u64>) -> PyResult<()> {
         let value = to_value(value, &self.ty(), self.res.bundle())?;
         let mut guard = self.sink.lock().expect("not poisoned");
         let sink = guard.as_mut().ok_or_else(|| {
             WireWeaverError::new_err(format!("'{}' is not open", self.res.path()))
         })?;
-        py.detach(|| sink.send_blocking(&value)).map_err(stream_err)
+        match units {
+            Some(units) => py.detach(|| sink.send_units_blocking(&value, units)),
+            None => py.detach(|| sink.send_blocking(&value)),
+        }
+        .map_err(stream_err)
     }
 
     /// Credit sinks (`#[credit]`): wait until the device accepted everything sent so far, resending what was lost.
@@ -948,14 +954,15 @@ impl Sink {
         )
     }
 
-    /// Credit sinks: `(accepted, sent)` bytes (serialized values) in this session, None for other sinks or before `open()`.
+    /// Credit sinks: `(accepted, sent)` units in this session (one per value, the bytes of a byte sink's payloads),
+    /// None for other sinks or before `open()`.
     #[getter]
     fn progress(&self) -> Option<(u64, u64)> {
         let guard = self.sink.lock().expect("not poisoned");
         guard.as_ref().and_then(|sink| sink.credit_progress())
     }
 
-    /// Credit sinks: send `CreditQuery` after `query_interval` s without credit, fail after `stall_timeout` s
+    /// Credit sinks: send `Query` after `query_interval` s without credit, fail after `stall_timeout` s
     /// without progress (None waits forever). Call it after `open()`.
     #[pyo3(signature = (query_interval = 1.0, stall_timeout = Some(30.0)))]
     fn set_credit_config(&self, query_interval: f64, stall_timeout: Option<f64>) -> PyResult<()> {

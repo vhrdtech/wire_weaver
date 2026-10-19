@@ -1197,10 +1197,16 @@ impl TransportCommander {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
             path_kind,
-            kind: RequestKindOwned::SinkWrite {
-                units: write.units,
-                pos: write.pos,
-                data: TailBytesOwned(write.data.to_vec()),
+            kind: match write.units {
+                None => RequestKindOwned::SinkWrite {
+                    pos: write.pos,
+                    data: TailBytesOwned(write.data.to_vec()),
+                },
+                Some(units) => RequestKindOwned::SinkWriteUnits {
+                    units,
+                    pos: write.pos,
+                    data: TailBytesOwned(write.data.to_vec()),
+                },
             },
         };
         Ok(Command::SendMessage {

@@ -354,15 +354,18 @@ impl Decoder {
                     .collect();
                 format!("{}({})", res.name, args.join(", "))
             }
-            (RequestKind::SinkWrite { units, pos, data }, ApiItemKindOwned::FlowSink { ty, .. }) => {
-                let v = ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)
-                    .map_err(|e| format!("{e:#}"))?;
-                let units = units.map(|u| u.0).unwrap_or(1);
+            (
+                kind @ (RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. }),
+                ApiItemKindOwned::FlowSink { ty, .. },
+            ) => {
+                let (units, pos, data) = kind.as_sink_write().ok_or("not a sink write")?;
+                let v =
+                    ValueOwned::des_shrink_wrap_dyn(data, ty, &b).map_err(|e| format!("{e:#}"))?;
                 format!(
-                    "{} ⇐ {} (sink position {}, {units} units)",
+                    "{} ⇐ {} (sink position {pos}, {units} unit{})",
                     res.name,
                     fmt_value(&v),
-                    pos.0
+                    if units == 1 { "" } else { "s" },
                 )
             }
             (RequestKind::StreamOpen { resume: Some(cursor), .. }, ApiItemKindOwned::FlowSink { .. }) => {

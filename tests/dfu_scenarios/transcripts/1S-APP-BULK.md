@@ -25,14 +25,14 @@
          8 B  00 83 41 80 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
          9 B  05 80 01 00 00 40 90 0e 00
-→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 03 00 00 …] } (sink position 0, 1 units)
-        76 B  00 04 1a 00 00 00 00 00 00 01 …
-→ bulk.plan ⇐ { offset: 64, data: [64 B: d5 9c 54 49 47 df …] } (sink position 1, 1 units)
-        76 B  00 04 1a 00 01 40 00 00 00 d5 …
-→ bulk.plan ⇐ { offset: 128, data: [64 B: 33 3a 70 43 ac 9b …] } (sink position 2, 1 units)
-        76 B  00 04 1a 00 02 80 00 00 00 33 …
-→ bulk.plan ⇐ { offset: 192, data: [64 B: f6 b7 40 41 0b 58 …] } (sink position 3, 1 units)
-        76 B  00 04 1a 00 03 c0 00 00 00 f6 …
+→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 03 00 00 …] } (sink position 0, 1 unit)
+        75 B  00 04 1a 00 00 00 00 00 01 00 …
+→ bulk.plan ⇐ { offset: 64, data: [64 B: d5 9c 54 49 47 df …] } (sink position 1, 1 unit)
+        75 B  00 04 1a 01 40 00 00 00 d5 9c …
+→ bulk.plan ⇐ { offset: 128, data: [64 B: 33 3a 70 43 ac 9b …] } (sink position 2, 1 unit)
+        75 B  00 04 1a 02 80 00 00 00 33 3a …
+→ bulk.plan ⇐ { offset: 192, data: [64 B: f6 b7 40 41 0b 58 …] } (sink position 3, 1 unit)
+        75 B  00 04 1a 03 c0 00 00 00 f6 b7 …
 → bulk.plan: query: sent 4 units
          6 B  06 04 16 a0 04 02
 ← bulk.plan: ack: have 4 units, may send 2062 more bytes
@@ -50,14 +50,14 @@
          8 B  00 83 41 80 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
         10 B  08 80 82 01 00 00 40 90 0e 00
-→ bulk.plan ⇐ { offset: 256, data: [64 B: a8 09 c6 1b 42 94 …] } (sink position 0, 1 units)
-        76 B  00 04 1a 00 00 00 01 00 00 a8 …
-→ bulk.plan ⇐ { offset: 320, data: [64 B: 46 48 7b 9a 2b 96 …] } (sink position 1, 1 units)
-        76 B  00 04 1a 00 01 40 01 00 00 46 …
-→ bulk.plan ⇐ { offset: 384, data: [64 B: bd 9c c5 d5 84 ff …] } (sink position 2, 1 units)
-        76 B  00 04 1a 00 02 80 01 00 00 bd …
-→ bulk.plan ⇐ { offset: 448, data: [36 B: e2 ce f7 7b 10 ee …] } (sink position 3, 1 units)
-        47 B  00 04 1a 00 03 c0 01 00 00 e2 …
+→ bulk.plan ⇐ { offset: 256, data: [64 B: a8 09 c6 1b 42 94 …] } (sink position 0, 1 unit)
+        75 B  00 04 1a 00 00 01 00 00 a8 09 …
+→ bulk.plan ⇐ { offset: 320, data: [64 B: 46 48 7b 9a 2b 96 …] } (sink position 1, 1 unit)
+        75 B  00 04 1a 01 40 01 00 00 46 48 …
+→ bulk.plan ⇐ { offset: 384, data: [64 B: bd 9c c5 d5 84 ff …] } (sink position 2, 1 unit)
+        75 B  00 04 1a 02 80 01 00 00 bd 9c …
+→ bulk.plan ⇐ { offset: 448, data: [36 B: e2 ce f7 7b 10 ee …] } (sink position 3, 1 unit)
+        46 B  00 04 1a 03 c0 01 00 00 e2 ce …
 ← bulk.plan_ack ⇒ { have: 484, status: Complete }
          9 B  00 82 42 e4 01 00 00 20 02
 → bulk.plan: query: sent 4 units
@@ -108,26 +108,26 @@
 →   10 B  08 08 05 04 18 80 01 00 00 02
 ←   21 B  08 08 00 83 41 80 00 90 0e 02 08 09 05 80 01 00
           00 40 90 0e 00
-→  319 B  08 4c 00 04 1a 00 00 00 00 00 00 01 00 00 03 00
-          00 27 80 79 0d 97 ef cf f7 40 00 46 57 02 00 00
-          00 2f 86 5d 24 dc d1 cf 67 47 9e 75 3c f4 e9 e7
-          7f 5f b6 8d 54 0c 01 ff 97 77 ce a5 6c 24 19 17
-          af 8f e6 bd 84 3c 31 2f c7 a7 fe 00 89 02 08 4c
-          00 04 1a 00 01 40 00 00 00 d5 9c 54 49 47 df bf
-          16 ed b4 6c 61 5f f7 d7 2e 03 01 00 3c e2 93 64
-          32 07 b8 7c 40 00 68 61 6c d3 da 10 e3 4c 3b 40
-          72 eb f2 28 fb 64 53 58 8a 03 0a 40 13 7c 6b 70
-          a2 1b 22 58 2b 94 83 88 ba 00 89 02 08 4c 00 04
-          1a 00 02 80 00 00 00 33 3a 70 43 ac 9b a0 d2 4b
-          52 88 5b c4 b3 b8 ea 63 6a a0 73 dc cb d0 02 7b
-          82 b8 8b f4 01 01 00 03 02 00 ed cc 83 d5 b3 97
-          4a 90 40 00 61 70 70 20 76 32 11 db 28 16 4c de
-          9f 28 29 f3 40 2e 64 00 89 02 08 4c 00 04 1a 00
-          03 c0 00 00 00 f6 b7 40 41 0b 58 46 7c 0e cf 58
-          59 23 70 5e 94 26 e7 70 71 3b 88 76 ac 3e ff 88
-          89 53 a0 8e c4 56 17 a0 a1 6b b8 a6 dc 6e 2f b8
-          b9 83 02 03 00 05 00 1e c7 0f b2 57 d1 be fc 01
-          02 00 03 04 00 00 89 02 06 06 04 16 a0 04 02
+→  315 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 03 00 00
+          27 80 79 0d 97 ef cf f7 40 00 46 57 02 00 00 00
+          2f 86 5d 24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f
+          5f b6 8d 54 0c 01 ff 97 77 ce a5 6c 24 19 17 af
+          8f e6 bd 84 3c 31 2f c7 a7 fe 00 89 02 08 4b 00
+          04 1a 01 40 00 00 00 d5 9c 54 49 47 df bf 16 ed
+          b4 6c 61 5f f7 d7 2e 03 01 00 3c e2 93 64 32 07
+          b8 7c 40 00 68 61 6c d3 da 10 e3 4c 3b 40 72 eb
+          f2 28 fb 64 53 58 8a 03 0a 40 13 7c 6b 70 a2 1b
+          22 58 2b 94 83 88 ba 00 89 02 08 4b 00 04 1a 02
+          80 00 00 00 33 3a 70 43 ac 9b a0 d2 4b 52 88 5b
+          c4 b3 b8 ea 63 6a a0 73 dc cb d0 02 7b 82 b8 8b
+          f4 01 01 00 03 02 00 ed cc 83 d5 b3 97 4a 90 40
+          00 61 70 70 20 76 32 11 db 28 16 4c de 9f 28 29
+          f3 40 2e 64 00 89 02 08 4b 00 04 1a 03 c0 00 00
+          00 f6 b7 40 41 0b 58 46 7c 0e cf 58 59 23 70 5e
+          94 26 e7 70 71 3b 88 76 ac 3e ff 88 89 53 a0 8e
+          c4 56 17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83 02 03
+          00 05 00 1e c7 0f b2 57 d1 be fc 01 02 00 03 04
+          00 00 89 02 06 06 04 16 a0 04 02
 ←   10 B  08 08 06 83 41 80 04 90 0e 02
    ── half way: the app keeps doing its job and answers anything else
 →    5 B  04 07 00 00 02
@@ -137,25 +137,24 @@
 →   11 B  08 09 08 04 18 80 82 01 00 00 02
 ←   22 B  08 08 00 83 41 80 00 90 0e 02 08 0a 08 80 82 01
           00 00 40 90 0e 00
-→  290 B  08 4c 00 04 1a 00 00 00 01 00 00 a8 09 c6 1b 42
-          94 29 60 40 00 75 69 83 ee 6e 08 b6 b8 eb 0a 9b
-          06 86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b 3a cb
-          36 b6 50 fe 00 33 52 e3 4e ce 68 16 18 4b 6a fb
-          66 e6 80 2e 30 63 82 13 7e fe 98 00 89 02 08 4c
-          00 04 1a 00 01 40 01 00 00 46 48 7b 9a 2b 96 16
-          b0 5e 60 03 05 00 3b f9 a7 bd 49 c0 f8 87 40 00
-          6e 65 74 20 76 32 87 6d 7c 5d 3c 65 75 24 9f 85
-          94 75 54 7d 8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5
-          c4 a5 84 ad bd 6c e7 cd dc 00 89 02 08 4c 00 04
-          1a 00 02 80 01 00 00 bd 9c c5 d5 84 ff e5 f4 d5
-          b4 dd ed 9c 17 fd 0c ed cc f5 05 b4 2f 15 03 06
-          00 d1 8f 7c e6 80 78 12 57 40 00 6f 74 61 94 9a
-          86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be 02 c4 ca
-          b6 df 63 f8 d6 1a dc 00 89 02 08 2f 00 04 1a 00
-          03 c0 01 00 00 e2 ce f7 7b 10 ee 32 f4 fa e6 0f
-          93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f
-          c3 58 36 7a 3c 42 2e 57 db 4c 02 06 09 04 16 a0
-          04 02
+→  286 B  08 4b 00 04 1a 00 00 01 00 00 a8 09 c6 1b 42 94
+          29 60 40 00 75 69 83 ee 6e 08 b6 b8 eb 0a 9b 06
+          86 20 ce d0 03 22 b3 1e 9e 38 e6 e8 1b 3a cb 36
+          b6 50 fe 00 33 52 e3 4e ce 68 16 18 4b 6a fb 66
+          e6 80 2e 30 63 82 13 7e fe 98 00 89 02 08 4b 00
+          04 1a 01 40 01 00 00 46 48 7b 9a 2b 96 16 b0 5e
+          60 03 05 00 3b f9 a7 bd 49 c0 f8 87 40 00 6e 65
+          74 20 76 32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75
+          54 7d 8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5
+          84 ad bd 6c e7 cd dc 00 89 02 08 4b 00 04 1a 02
+          80 01 00 00 bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed
+          9c 17 fd 0c ed cc f5 05 b4 2f 15 03 06 00 d1 8f
+          7c e6 80 78 12 57 40 00 6f 74 61 94 9a 86 af 33
+          c8 a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63
+          f8 d6 1a dc 00 89 02 08 2e 00 04 1a 03 c0 01 00
+          00 e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a
+          0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a
+          3c 42 2e 57 db 4c 02 06 09 04 16 a0 04 02
 ←   21 B  08 09 00 82 42 e4 01 00 00 20 02 08 08 09 83 41
           80 04 90 0e 02
 →    5 B  04 0a 03 60 02

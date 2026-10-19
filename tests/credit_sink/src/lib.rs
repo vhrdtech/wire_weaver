@@ -445,10 +445,7 @@ mod tests {
     fn write_pos(request: &[u8]) -> Option<u32> {
         let mut rd = BufReader::new(request);
         let request = Request::des_shrink_wrap(&mut rd).ok()?;
-        let RequestKind::SinkWrite { pos, .. } = request.kind else {
-            return None;
-        };
-        Some(pos.0)
+        request.kind.as_sink_write().map(|(_, pos, _)| pos)
     }
 
     /// A credit sink's open: `StreamOpen` with the host's session

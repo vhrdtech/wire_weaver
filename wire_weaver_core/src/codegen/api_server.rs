@@ -2246,10 +2246,13 @@ fn handle_stream(
                     RequestKind::StreamOpen { resume: None, .. } => {
                         Err(Error::not_supported(#es_open))
                     }
-                    RequestKind::SinkWrite { units, pos, data } => {
+                    kind @ (RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. }) => {
+                        let Some((units, pos, data)) = kind.as_sink_write() else {
+                            return Err(Error::not_supported(#es_open));
+                        };
+                        let data = &TailBytes(data);
                         #credit_max_len_check
-                        let units = units.map(|u| u.0).unwrap_or(1);
-                        let verdict = #credit.on_write(pos.0, units, data.0.len() as u32);
+                        let verdict = #credit.on_write(pos, units, data.0.len() as u32);
                         match verdict {
                             ww_stream::sink::SinkVerdict::Accept => {
                                 #credit_des_data

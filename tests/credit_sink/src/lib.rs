@@ -905,6 +905,79 @@ mod tests {
         assert_eq!(consumed, [[1; 50].as_slice(), &[4; 10]].concat());
     }
 
+    /// The host program restarts: the generated `plan_resume(cursor)` continues the session from the cursor the
+    /// old one saved, from where the device is, and the device's handler doesn't see a new session.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn restarted_host_resumes_with_the_generated_client() {
+        let (device, m) = start(
+            "credit/restart",
+            Config::new(256, 128).drain_at(0, Duration::ZERO),
+        );
+        let bytes = data(1500);
+        let client = connect(&device).await;
+        let mut plan = client.plan().await.unwrap();
+        for chunk in bytes[..600].chunks(100) {
+            plan.send_bytes(chunk).await.unwrap();
+        }
+        plan.flush().await.unwrap();
+        let cursor = plan.cursor().unwrap();
+        assert_eq!(cursor.pos.0, 600);
+        drop(plan);
+        client.cmd.disconnect().asynch().await.unwrap();
+        drop(client);
+
+        let client = connect(&device).await;
+        let (mut plan, at) = client.plan_resume(cursor).await.unwrap();
+        assert_eq!(at, 600);
+        for chunk in bytes[at as usize..].chunks(100) {
+            plan.send_bytes(chunk).await.unwrap();
+        }
+        plan.flush().await.unwrap();
+        assert_eq!(plan.cursor().unwrap().session, cursor.session);
+        let m = m.lock().unwrap();
+        assert_eq!(m.plan, bytes);
+        assert_eq!(m.opened, 1, "one session");
+    }
+
+    #[test]
+    fn restarted_host_resumes_blocking() {
+        let (device, m) = start(
+            "credit/restart_blocking",
+            Config::new(256, 128).drain_at(0, Duration::ZERO),
+        );
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = rt.enter();
+        let connect = || {
+            Client::config(|c| c.in_process_path(device.path()))
+                .connect_blocking()
+                .expect("connect")
+        };
+        let client = connect();
+        let mut plan = client.plan_blocking().unwrap();
+        plan.send_bytes_blocking(&[1; 100]).unwrap();
+        plan.flush_blocking().unwrap();
+        let cursor = plan.cursor().unwrap();
+        drop(plan);
+        client.cmd.disconnect().blocking().unwrap();
+        drop(client);
+
+        let client = connect();
+        let (mut plan, at) = client.plan_resume_blocking(cursor).unwrap();
+        assert_eq!(at, 100);
+        plan.send_bytes_blocking(&[2; 100]).unwrap();
+        plan.flush_blocking().unwrap();
+        assert_eq!(
+            m.lock().unwrap().plan,
+            [[1u8; 100].as_slice(), &[2; 100]].concat()
+        );
+        // a plain sink has no session to resume
+        let mut plain = client.plain_blocking().unwrap();
+        assert!(matches!(
+            plain.resume_blocking(cursor),
+            Err(StreamError::NotCreditSink)
+        ));
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn array_of_credit_sinks() {
         let (device, m) = start("credit/array", Config::new(4, 2));

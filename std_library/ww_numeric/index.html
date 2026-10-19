@@ -5212,6 +5212,13 @@ three variants grow with the value:</p>
 <p><code>From&lt;u16&gt;</code>, <code>From&lt;f32&gt;</code>, <code>From&lt;UVlq32&gt;</code>, .. for <code>NumericValue</code> (each behind its type's feature), so APIs can take
 <code>impl Into&lt;NumericValue&gt;</code>. <code>to_f64()</code> and <code>as_f32()</code> give the value as a float, <code>to_i128()</code> the exact value of an
 integer variant, <code>unsigned_bits()</code> the width at which an unsigned counter wraps (<code>U32</code> and <code>UVlq32</code>: 32).</p>
+<p><code>to_integer()</code> gives the exact value of an integer variant as an <code>Integer</code>: a sign and a magnitude in the narrowest
+unsigned type that holds every enabled number type (<code>Magnitude</code>: <code>u32</code> with types up to 32 bits, <code>u64</code> with <code>u64</code> /
+<code>i64</code> / <code>uvlq64</code>, <code>u128</code> with <code>u128</code> / <code>i128</code>). It compares and scales by powers of ten exactly across number types
+(<code>cmp_pow10</code>, <code>checked_scale_pow10</code>, <code>exact_scale_pow10</code>), adds and multiplies with overflow checks, and goes back
+into any number type with <code>NumericBaseType::from_integer</code> or wrapping with <code>NumericValue::wrapping_add</code>. On a
+firmware with 32-bit numbers this is all <code>u32</code> code, where <code>to_i128()</code> would bring 128-bit arithmetic: <code>ww_si</code>'s
+comparisons and conversions are built on it.</p>
 
 
 

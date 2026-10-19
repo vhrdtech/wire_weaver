@@ -6361,6 +6361,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>AnyQuantity</code> like the typed quantity of its unit (CLT-31's <code>DynQuantity</code>, both rendered by the public <code>ww_si::tree</code>
   walk), a device's own unit with its dimension and scale; writes take any quantity whose unit has a dimension.
   <code>tests/quantities</code> (an <code>AnyQuantity</code> property through the in-process transport), <code>wire_weaver_py/tests</code>.</li>
+<li>✅ <strong>STD-43 <code>ww_si</code> without wide integers on small targets</strong> · <code>v0.5</code> — comparisons, <code>with_prefix</code>, the exact
+  arithmetic and the integer conversions of quantities work on <code>ww_numeric::Integer</code> (sign and a magnitude as wide as
+  the widest enabled number type): with types up to 32 bits only <code>u32</code> code, no <code>i64</code> / <code>i128</code> and no <code>f64</code> without
+  float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
+  less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>,
+  <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for

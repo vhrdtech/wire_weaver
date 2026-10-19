@@ -5404,7 +5404,7 @@ voltage", each device decides whether that is a <code>u16</code> of mV or an <co
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">from_f32</span><span class="p">(</span><span class="mf">3.3</span><span class="p">);</span><span class="w">           </span><span class="c1">// prefix Unit, value F32(3.3)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">1500</span><span class="k">u16</span><span class="p">),</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mf">1.5</span><span class="k">f32</span><span class="p">));</span><span class="w"> </span><span class="c1">// compares values, not representations</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_f64</span><span class="p">(),</span><span class="w"> </span><span class="mf">3.3</span><span class="p">);</span><span class="w">           </span><span class="c1">// in V</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">w</span><span class="p">.</span><span class="n">to_i128_in</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">w</span><span class="p">.</span><span class="n">to_i32_in</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">500</span><span class="k">u16</span><span class="p">);</span><span class="w">              </span><span class="c1">// the compiler checks the units</span>
 </span></code></pre></div>
@@ -5542,15 +5542,26 @@ takes the value as is). It computes in <code>f32</code>, no <code>f64</code> cod
 <ul>
 <li><code>to_f64()</code> / <code>to_f32()</code>: the value in the unit itself (V, A, Hz, s, °, g);</li>
 <li><code>to_f64_in(prefix)</code>: in another prefix, <code>Volt::from_f32(3.3).to_f64_in(Prefix::Milli)</code> is about 3300.0;</li>
-<li><code>to_i128_in(prefix)</code>: as an integer, exact for integer storage (truncated toward zero when going to a bigger
-  prefix), rounded for floats; <code>None</code> when it doesn't fit;</li>
+<li><code>to_i32_in(prefix)</code> / <code>to_u32_in(prefix)</code>: as an integer, exact for integer storage (truncated toward zero when
+  going to a bigger prefix), rounded for floats; <code>None</code> when it doesn't fit. <code>Second::milli(5u16).to_u32_in(Prefix::Micro)</code>
+  is <code>Some(5000)</code>;</li>
+<li><code>to_u32_wrapping_in(prefix)</code>: the same modulo 2^32, what a wrapping 32-bit counter of that unit shows, to compare a
+  timestamp with a device clock;</li>
+<li><code>to_i128_in(prefix)</code>: like <code>to_i32_in</code> up to <code>i128</code>, only with a 64- or 128-bit number type enabled (<code>std</code> has
+  them);</li>
 <li><code>to_si_f64()</code>: in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005 (kg);</li>
 <li><code>with_prefix(prefix)</code>: the same value in another prefix and the same number type, if that is exact
   (<code>Volt::milli(3000u16)</code> to <code>Unit</code> is 3 V; 3300 mV is <code>None</code>), for autoranging before sending;</li>
 <li><code>same_repr(&amp;other)</code>: same prefix and the same number in the same type, a cheap "did it change since I sent it".</li>
 </ul>
 <p><code>PartialEq</code> and <code>PartialOrd</code> compare values across prefixes and number types: <code>Volt::milli(1000u16) == Volt::base(1u8)</code>.
-Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through <code>f64</code>.</p>
+Two integers are compared exactly, even 60 orders of magnitude apart; through <code>f64</code> when one is a float.</p>
+<p>On a small MCU the integer conversions, comparisons and the exact arithmetic below take no wider arithmetic than the
+enabled number types need: with types up to 32 bits (<code>u32</code>, <code>i32</code>, ..) everything is <code>u32</code> code, nothing of 64 or
+128 bits is linked, and <code>ww_numeric::Integer</code> (sign and magnitude) does the work. The same prefix compares the stored
+numbers; across prefixes the value with the bigger prefix is scaled by powers of ten with an overflow check, and an
+overflow means it is the bigger one. On a Cortex-M0+ (Donguru, opt-level <code>z</code>) this took 6 KiB of flash off what
+widening to <code>i128</code> cost.</p>
 <p><code>Display</code> writes the number as stored with its prefix, <code>{:#}</code> in the unit itself; <code>Debug</code> adds the unit's name and
 the number type, <code>defmt::Format</code> is like <code>Display</code>:</p>
 <table>
@@ -5676,7 +5687,7 @@ keep integer storage and never round:</p>
 </tr>
 <tr>
 <td><code>a.checked_mul_int(n)</code></td>
-<td><code>a * n</code> (an <code>i64</code>) in <code>a</code>'s prefix and number type</td>
+<td><code>a * n</code> (any integer up to the widest enabled type) in <code>a</code>'s prefix and number type</td>
 </tr>
 <tr>
 <td><code>a.wrapping_add(&amp;b)</code></td>
@@ -5694,7 +5705,7 @@ keep integer storage and never round:</p>
 </table>
 <p>The <code>checked_*</code> ones give <code>None</code> when the result doesn't fit the number type; all of them give <code>None</code> for floats
 (their operators are <code>+</code>, <code>-</code>, <code>*</code>) and the <code>wrapping_*</code> ones and <code>steps</code> when <code>b</code> is not a whole number of <code>a</code>'s
-prefix (40 µs added to a time in ms).</p>
+prefix (40 µs added to a time in ms), or when <code>b</code> in <code>a</code>'s prefix is beyond the widest enabled integer type.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Second</span><span class="p">;</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">5</span><span class="k">u32</span><span class="p">).</span><span class="n">checked_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u16</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5040</span><span class="k">u32</span><span class="p">)));</span>

@@ -62,6 +62,7 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+- `err_seq` module (SRV-22): the numbers of the error sites of a generated server (item steps, level, request and deferred return sites), `err_seq::Site` with `Site::of` and a `Display` (`item site 2 (handler)`); `Error::err_seq()`, `Error::site()`, `Error::kind()`, `ErrorOwned::err_seq()` / `site()`, and `Display` for `ErrorOwned` (`Unimplemented at item site 2 (handler)`). No wire change.
 * `observe` module (API-38): `RequestKind::Observe { cfg: ObserveRequest }` asks the device to send a trait
   level's properties per `ObserveMode` (`Off`, `OnChange`, `Periodic`, `OnChangeOrBeat`) within a byte budget,
   answered with `ObserveGranted` (the clamped settings and the `ObserveRefused` entries);

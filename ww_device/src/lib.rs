@@ -52,8 +52,9 @@ pub use transport::{
 };
 pub use ww_link::{self, DisconnectReason};
 
-/// `err_seq` used in [generic_error_reply], outside of the range used by generated code.
-pub const GENERIC_ERROR_SEQ: u32 = u32::MAX;
+/// `err_seq` used in [generic_error_reply], outside of the ranges used by generated code
+/// (`ww_client_server::err_seq::GENERIC`).
+pub const GENERIC_ERROR_SEQ: u32 = ww_client_server::err_seq::GENERIC;
 
 /// When the backend fails to process a request completely (it could not even serialize an error),
 /// reply with a generic error, so that the host does not wait for a timeout.

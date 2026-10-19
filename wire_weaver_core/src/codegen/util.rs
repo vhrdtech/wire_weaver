@@ -31,16 +31,22 @@ pub fn add_prefix(prefix: Option<&String>, ident: &Ident) -> Ident {
     }
 }
 
-#[derive(Default)]
-pub(crate) struct ErrorSeq(u32);
-
-impl ErrorSeq {
-    pub(crate) fn next(&mut self) -> TokenStream {
-        let seq = self.0;
-        let ts = quote! { #seq };
-        self.0 += 1;
-        ts
+/// Step `step` of an item of `kind` (`method`, `property`, ..), a constant of `ww_client_server::err_seq::<kind>`,
+/// or `KIND_NOT_TAKEN` (SRV-22).
+pub(crate) fn item_err_seq(kind: &str, step: &str) -> TokenStream {
+    let step = Ident::new(step, Span::call_site());
+    if kind.is_empty() {
+        quote! { ww_client_server::err_seq::#step }
+    } else {
+        let kind = Ident::new(kind, Span::call_site());
+        quote! { ww_client_server::err_seq::#kind::#step }
     }
+}
+
+/// A level or request site, a constant of `ww_client_server::err_seq` (SRV-22): `LEVEL_BAD_PATH`, ..
+pub(crate) fn fixed_err_seq(name: &str) -> TokenStream {
+    let name = Ident::new(name, Span::call_site());
+    quote! { ww_client_server::err_seq::#name }
 }
 
 pub(crate) fn mod_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {

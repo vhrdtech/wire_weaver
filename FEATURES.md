@@ -700,6 +700,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   other kind is a compile error (`wire_weaver::handler` checks), so is a pattern that matches nothing.
   `ww api scaffold --handler-model`. Donguru: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
   `tests/observe` (a mixed server).
+- ✅ **SRV-22 error-seq-per-item Error sites numbered the same in every server** — `err_seq` of an `Error` is no
+  longer one counter across the generated server (705 numbers on Donguru) but fixed per site
+  (`ww_client_server::err_seq`): item steps in step order and the same for every item (0 kind not taken, 1 decode,
+  2 handler, 3 encode, ..), level sites (40..), request sites (48..), deferred return (32..). With the build, the
+  request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
+  -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
+  `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature

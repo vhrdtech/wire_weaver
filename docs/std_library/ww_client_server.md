@@ -44,8 +44,9 @@ ww_client_server = { version = "0.2", default-features = false }
   (plain stream/property update), `StreamSideband { path, sideband }`, `StreamItem { path, head: StreamHead, data
   }` (one event of a counted/reliable stream, see [below](#counted-and-reliable-streams)), `PropertyUpdate { path,
   t, missed, data }` (observed properties of one trait level, see [below](#observing-properties)).
-* `Error<'i>` / `ErrorKind<'i>` - `err_seq` (a per-call-site id for mapping an error back to the generated code
-  that raised it) plus a kind: path/argument/property deserialization failures, `Unimplemented` (an
+* `Error<'i>` / `ErrorKind<'i>` - `err_seq` (the site in the generated server that raised it, numbered the same in
+  every server: see `err_seq` and [where an error came from](../api/errors.md#where-on-the-device-an-error-came-from))
+  plus a kind: path/argument/property deserialization failures, `Unimplemented` (an
   [optional item](../api/optional_items.md) the device leaves out), `TraitNotFound` (a global path to a trait the
   device doesn't implement in a compatible version), `UserBytes`/`UserStr` (an API's own error, forwarded
   verbatim), stream session errors, and more.

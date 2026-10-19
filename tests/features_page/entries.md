@@ -135,6 +135,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 ## Advanced
 
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
+- SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros instead of crashing. | api/ecc_flash.md

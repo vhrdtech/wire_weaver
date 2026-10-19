@@ -9,7 +9,9 @@
 use crate::codegen::omit::Omissions;
 use crate::codegen::server::scaffold::DEFAULT_BATCH;
 use crate::codegen::ty_def::{TyPos, ty_def};
-use crate::codegen::util::{ErrorSeq, Handlers, add_prefix, dotted, maybe_quote, maybe_quote_cl};
+use crate::codegen::util::{
+    Handlers, add_prefix, dotted, fixed_err_seq, maybe_quote, maybe_quote_cl,
+};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -1150,12 +1152,11 @@ impl Observe {
         api_bundle: &ApiBundleOwned,
         handlers: Handlers<'_>,
         medium_ty: &TokenStream,
-        error_seq: &mut ErrorSeq,
     ) -> TokenStream {
         if !self.is_enabled() {
             return quote! {};
         }
-        let observe_request = self.observe_request(error_seq);
+        let observe_request = self.observe_request();
         let mark_changed = self.tables().map(|level| {
             let field = &level.field;
             let fns = level.props.iter().enumerate().map(|(k, p)| {
@@ -1182,13 +1183,13 @@ impl Observe {
         }
     }
 
-    fn observe_request(&self, error_seq: &mut ErrorSeq) -> TokenStream {
+    fn observe_request(&self) -> TokenStream {
         let (es_malformed, es_refused, es_ser, es_array, es_path) = (
-            error_seq.next(),
-            error_seq.next(),
-            error_seq.next(),
-            error_seq.next(),
-            error_seq.next(),
+            fixed_err_seq("OBSERVE_MALFORMED"),
+            fixed_err_seq("OBSERVE_REFUSED"),
+            fixed_err_seq("OBSERVE_SER"),
+            fixed_err_seq("OBSERVE_ARRAY"),
+            fixed_err_seq("OBSERVE_PATH"),
         );
         let arms = self.levels.iter().map(|level| {
             let path = &level.path;

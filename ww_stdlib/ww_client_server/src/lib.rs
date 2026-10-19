@@ -3,6 +3,7 @@
 
 pub mod builder;
 pub mod credit;
+pub mod err_seq;
 pub mod max_len;
 pub mod multi_req;
 pub mod observe;
@@ -359,7 +360,8 @@ pub struct CreditWrite<'i> {
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
 pub struct Error<'i> {
-    /// Unique error ID for each error in generated code. Can be used to map an error back to source code.
+    /// Which site of the generated server raised it: with the firmware build, the request's path and the kind it
+    /// pinpoints one place, see [err_seq] for the numbering (SRV-22).
     err_seq: UNib32,
     /// Actual error kind.
     kind: ErrorKind<'i>,
@@ -452,6 +454,20 @@ impl PathKind<'_> {
 }
 
 impl<'i> Error<'i> {
+    /// The site number, see [err_seq].
+    pub fn err_seq(&self) -> u32 {
+        self.err_seq.0
+    }
+
+    /// The part of the generated server [Error::err_seq] comes from.
+    pub fn site(&self) -> err_seq::Site {
+        err_seq::Site::of(self.err_seq.0)
+    }
+
+    pub fn kind(&self) -> &ErrorKind<'i> {
+        &self.kind
+    }
+
     pub fn new(err_seq: u32, kind: ErrorKind<'i>) -> Error<'i> {
         Self {
             err_seq: UNib32(err_seq),
@@ -485,6 +501,27 @@ impl<'i> Error<'i> {
             err_seq: UNib32(err_seq),
             kind: ErrorKind::Unimplemented,
         }
+    }
+}
+
+#[cfg(feature = "std")]
+impl ErrorOwned {
+    /// The site number, see [err_seq].
+    pub fn err_seq(&self) -> u32 {
+        self.err_seq.0
+    }
+
+    /// The part of the generated server [ErrorOwned::err_seq] comes from.
+    pub fn site(&self) -> err_seq::Site {
+        err_seq::Site::of(self.err_seq.0)
+    }
+}
+
+/// `Unimplemented at item site 2 (handler)`, `BadIndex at level site 42 (index not valid)`.
+#[cfg(feature = "std")]
+impl core::fmt::Display for ErrorOwned {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?} at {}", self.kind, self.site())
     }
 }
 

@@ -45,5 +45,3 @@ Goal (Roman, 19 Oct): shrink WireWeaver's generated server and observe code, ado
 - Flaky ww_stream batch::cells_tests::threaded_writer_and_reader under load: filed P2401#19oct-1446.
 - `{{project-name}}_bootloader` errors in the fw build output are noise from a template dir, the build finishes.
 - tpm work spawn --from-here with two repos uses the cwd repo's SHA for both: ops#19oct-1522.
-- /tmp/server-size-x holds a detached typec_dongle worktree at 55a4537 used for measuring; remove with
-  `git -C ~/git/typec_dongle worktree remove /tmp/server-size-x/typec_dongle`.

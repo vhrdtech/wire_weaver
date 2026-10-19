@@ -140,6 +140,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
 - SRV-25 | Event-driven observe | The device sleeps until an observed property is due, and wakes at once when one changes. | api/observing.md#the-server-loop
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros instead of crashing. | api/ecc_flash.md
+- SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | api/bus_slave.md
 
 ## Nomicon
 

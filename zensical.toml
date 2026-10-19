@@ -59,7 +59,8 @@ nav = [
                     "api/batching.md",
                     "api/versioning.md",
                     "api/settings.md",
-                    { "ECC-safe flash" = "api/ecc_flash.md" }
+                    { "ECC-safe flash" = "api/ecc_flash.md" },
+                    { "I2C and SPI slave engine" = "api/bus_slave.md" }
                 ]
             },
             { "Nomicon" = [

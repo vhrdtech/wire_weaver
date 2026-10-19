@@ -718,6 +718,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
   `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
+- ✅ **SRV-26 Device-side engine for I2C and SPI slaves** — `ww_bus_slave`, no_std, sans-IO, no alloc: `I2cSlave` and
+  `SpiSlave` do what STD-35's API promises, so a firmware only wires its peripheral's interrupts to them. I2C: the
+  register map (pointer bytes, auto-increment, wrap at `len`, page wrap, `read_only`), host updates staged until the
+  stop, the answer queue with `Fill`, `Stretch { max }` (deadline, `resume`, `ReadWaiting`) and `Nack`
+  (`acks_address`), `unsent` for a TX FIFO loaded ahead. SPI: queue answers (`idle`, `repeat_last`, `underrun`) and
+  `SpiRegisters` frames (address, `rw` bit, dummy bytes before read data), the answer picked at the first `miso()`
+  (FIFO preload, `rewind`); 8-bit words only. Events built as `I2cSlaveEvent` / `SpiSlaveFrame`. `const fn new` for a
+  `static`; 58-100 instructions per byte on a Cortex-M3 (`examples_mcu/mcu_qemu` bin `qemu-bus-slave`).
+  `docs/api/bus_slave.md`, tests `ww_bus_slave/tests`. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
@@ -741,13 +750,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
-- 📋 **SRV-26 Device-side engine for I2C and SPI slaves** · `v0.5.x` — a no_std, sans-IO crate (`ww_bus_slave`)
-  doing what STD-35's API promises, so every firmware (rePort RP2350, STM32 boards) only wires its peripheral to it:
-  the register map with pointer bytes, auto-increment, page wrap and host updates applied between two transfers; the
-  answer queue with I2C underrun policies and the stretch deadline; SPI frame answers and the register frame layout
-  (address, `rw` bit, dummy bytes); building `I2cSlaveEvent` / `SpiSlaveFrame` records. Byte-level hooks callable
-  from an interrupt (address, byte written, byte wanted, stop; CS edges), state in a `static` set up in place,
-  instruction counts per byte on QEMU.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
 - 💡 **SRV-12 std server on Tower** · `v0.5`.
@@ -1272,9 +1274,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   slow: I2C `I2cSlaveUnderrun` (`Fill`, `Stretch { max }` with `ReadWaiting` sent at once, `Nack` while empty), SPI
   the idle byte or the last answer again, flagged `underrun`. Limits of clock stretching (SMBus 25 ms, masters
   without it) in the crate docs and `docs/std_library/ww_i2c.md#slave-mode`. `I2cMode::Slave`, `SpiRole::Slave` and
-  the `slave` capability flags are gone. API, snapshots and docs done; open: the shared device-side engine (SRV-26)
-  and an end-to-end test of both slaves in `tests/io_i2c` / `tests/io_spi` against a simulated master. First user:
-  the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
+  the `slave` capability flags are gone. API, snapshots, docs and the device-side engine (SRV-26, `ww_bus_slave`)
+  done; open: an end-to-end test of both slaves in `tests/io_i2c` / `tests/io_spi` against a simulated master. First
+  user: the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 - 💡 **STD-44 SPI slave data-ready line** — a GPIO the slave asserts while an answer is queued (or the register map
   changed), as most SPI slave protocols with a computed answer have (ESP32 handshake, nRF IRQ); the master reads only
   when it is set, so the answer queue needs no polling. Part of `SpiSlaveConfig`, the pin named by the board.

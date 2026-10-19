@@ -76,11 +76,15 @@ pub enum StreamError {
     /// The device answered the open of a credit sink session behind what it acknowledged before: it lost the
     /// session (a reboot) and started it again at `device_at`. Everything sent from `device_at` on is gone with it,
     /// the sink is closed; the next value opens a new session.
-    #[error("the device lost the credit sink session: it is at {device_at}, it had acknowledged {acked}")]
+    #[error(
+        "the device lost the credit sink session: it is at {device_at}, it had acknowledged {acked}"
+    )]
     SinkSessionLost { device_at: u64, acked: u64 },
     /// The device answered the open of a credit sink session ahead of what was sent in it, no device does that.
     /// The sink is closed.
-    #[error("the device is ahead in the credit sink session: at {device_at}, only {sent} were sent")]
+    #[error(
+        "the device is ahead in the credit sink session: at {device_at}, only {sent} were sent"
+    )]
     SinkAhead { device_at: u64, sent: u64 },
     #[error(transparent)]
     Other(#[from] Error),

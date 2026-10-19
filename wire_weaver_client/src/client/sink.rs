@@ -8,8 +8,8 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
-use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
 use ww_client_server::stream::StreamOpened;
 use ww_client_server::{PathKindOwned, StreamSideband};
 use ww_stream::sink::{SinkConfig, SinkDue, SinkOpenError, SinkSideband, SinkTx, SinkTxError};
@@ -398,7 +398,11 @@ impl<T> Sink<T> {
         .await
     }
 
-    pub(crate) fn send_raw_blocking(&mut self, bytes: Vec<u8>, units: u64) -> Result<(), StreamError> {
+    pub(crate) fn send_raw_blocking(
+        &mut self,
+        bytes: Vec<u8>,
+        units: u64,
+    ) -> Result<(), StreamError> {
         if self.credit.is_none() {
             self.transport_cmd_tx
                 .send_write_request_forget_blocking(self.path_kind.clone(), bytes)?;
@@ -492,9 +496,7 @@ impl<T> Sink<T> {
         match rx.try_recv() {
             Ok(answer) => self.on_open_answer(Ok(answer)),
             Err(oneshot::error::TryRecvError::Empty) => Ok(()),
-            Err(oneshot::error::TryRecvError::Closed) => {
-                Err(Error::EventLoopNotRunning.into())
-            }
+            Err(oneshot::error::TryRecvError::Closed) => Err(Error::EventLoopNotRunning.into()),
         }
     }
 
@@ -547,8 +549,7 @@ impl<T> Sink<T> {
             Some(SinkDue::Stalled) => Err(Error::Timeout.into()),
             Some(SinkDue::Open(cursor)) => Ok(Step::Send(self.open_command(cursor)?)),
             Some(SinkDue::Query(query)) => Ok(Step::Send(
-                self.transport_cmd_tx
-                    .sideband_command(path_kind, query)?,
+                self.transport_cmd_tx.sideband_command(path_kind, query)?,
             )),
         }
     }

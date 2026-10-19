@@ -21,7 +21,6 @@ mod tracing;
 
 pub use client::attachment::Attachment;
 pub use client::batch::{Batch, BatchItem, Unpack, unpack_timed, unpack_untimed};
-pub use client::sink::CreditConfig;
 pub use client::dyn_client::DynClient;
 pub use client::dyn_observe::{DynConfig, DynObserved, DynObserver, DynSamples};
 pub use client::dyn_positioned::{DynPositionedStream, DynStreamOpen, seconds};
@@ -41,6 +40,7 @@ pub use client::prepared_read::PreparedRead;
 pub use client::prepared_stream_open::{PreparedStreamOpen, StreamHandle, StreamOpenResult};
 pub use client::prepared_write::PreparedWrite;
 pub use client::promise::{Promise, PromiseState};
+pub use client::sink::CreditConfig;
 pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use config::ClientConfig;

@@ -9,8 +9,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::{CreditConfig, Error, StreamError};
-    use ww_stream::sink::SinkCredit;
     use ww_client_server::{Request, RequestKind, StreamSideband};
+    use ww_stream::sink::SinkCredit;
 
     /// Device behaviour and what it received, shared with the test.
     #[derive(Default)]
@@ -456,8 +456,15 @@ mod tests {
     /// A credit sink's open: `StreamOpen` with the host's session
     fn is_open(request: &[u8]) -> bool {
         let mut rd = BufReader::new(request);
-        Request::des_shrink_wrap(&mut rd)
-            .is_ok_and(|request| matches!(request.kind, RequestKind::StreamOpen { resume: Some(_), .. }))
+        Request::des_shrink_wrap(&mut rd).is_ok_and(|request| {
+            matches!(
+                request.kind,
+                RequestKind::StreamOpen {
+                    resume: Some(_),
+                    ..
+                }
+            )
+        })
     }
 
     fn sideband_of(request: &[u8]) -> Option<StreamSideband> {
@@ -818,7 +825,10 @@ mod tests {
         assert_eq!(m.lock().unwrap().point_units, [1, 5, 1000]);
         assert_eq!(points.credit_progress(), Some((1006, 1006)));
         let r = points.send_units(Point { x: 4, y: 4 }, 0).await;
-        assert!(matches!(r, Err(StreamError::BadUnits { units: 0 })), "{r:?}");
+        assert!(
+            matches!(r, Err(StreamError::BadUnits { units: 0 })),
+            "{r:?}"
+        );
 
         // byte sinks count bytes, an empty item takes one position
         let mut plan = client.plan().await.unwrap();
@@ -1037,7 +1047,12 @@ mod tests {
         assert_eq!(sink.credit_progress(), Some((27, 27)));
 
         // a byte sink counts the bytes of its payload
-        let mut plan = root.child("plan").unwrap().sink(client.cmd()).await.unwrap();
+        let mut plan = root
+            .child("plan")
+            .unwrap()
+            .sink(client.cmd())
+            .await
+            .unwrap();
         let bytes = ValueOwned::Vec(vec![ValueOwned::Numeric(NumericValue::U8(1)); 3]);
         plan.send(&bytes).await.unwrap();
         plan.flush().await.unwrap();

@@ -1362,7 +1362,11 @@ impl DynSink {
     }
 
     /// See [Sink::send_units_blocking].
-    pub fn send_units_blocking(&mut self, value: &ValueOwned, units: u64) -> Result<(), StreamError> {
+    pub fn send_units_blocking(
+        &mut self,
+        value: &ValueOwned,
+        units: u64,
+    ) -> Result<(), StreamError> {
         let bytes = self.encode(value)?;
         self.sink.send_raw_blocking(bytes, units)
     }

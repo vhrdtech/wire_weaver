@@ -368,11 +368,14 @@ impl Decoder {
                     if units == 1 { "" } else { "s" },
                 )
             }
-            (RequestKind::StreamOpen { resume: Some(cursor), .. }, ApiItemKindOwned::FlowSink { .. }) => {
-                format!(
-                    "{}: open its session at {}",
-                    res.name, cursor.pos.0
-                )
+            (
+                RequestKind::StreamOpen {
+                    resume: Some(cursor),
+                    ..
+                },
+                ApiItemKindOwned::FlowSink { .. },
+            ) => {
+                format!("{}: open its session at {}", res.name, cursor.pos.0)
             }
             (RequestKind::Write { data }, ApiItemKindOwned::Stream { ty, .. }) => {
                 let v = ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)
@@ -463,13 +466,19 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
             have,
             backfill: None,
             grant,
-        } => format!("ack: have {} units, may send {} more bytes", have.0, grant.0),
+        } => format!(
+            "ack: have {} units, may send {} more bytes",
+            have.0, grant.0
+        ),
         Query {
             sent,
             backfill: None,
         } => format!("query: sent {} units", sent.0),
         Resend { from, grant } => {
-            format!("resend from unit {}, may send {} more bytes", from.0, grant.0)
+            format!(
+                "resend from unit {}, may send {} more bytes",
+                from.0, grant.0
+            )
         }
         other => format!("{other:?}"),
     }

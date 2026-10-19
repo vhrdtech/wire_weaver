@@ -18,7 +18,7 @@
 use atomic_waker::AtomicWaker;
 use core::future::poll_fn;
 use core::task::Poll;
-use portable_atomic::{AtomicBool, Ordering};
+use portable_atomic::{AtomicBool, AtomicU32, Ordering};
 
 /// A wake flag with one waiting task, `const`-constructible for a `static`.
 #[derive(Debug, Default)]
@@ -62,6 +62,67 @@ impl Wake {
     #[inline]
     pub fn take(&self) -> bool {
         self.pending.swap(false, Ordering::Acquire)
+    }
+}
+
+/// A [Wake] with `32 * W` changed bits (SRV-25): what the generated `ObserveSignal` is, one bit per observable
+/// property. [mark](Self::mark) sets a bit and wakes the server task; the server takes the bits word by word before
+/// it looks at what is due. A bit set after the take wakes again, so no change is lost between the take and the
+/// sleep.
+#[derive(Debug)]
+pub struct Signal<const W: usize> {
+    wake: Wake,
+    changed: [AtomicU32; W],
+}
+
+impl<const W: usize> Signal<W> {
+    pub const fn new() -> Self {
+        Signal {
+            wake: Wake::new(),
+            changed: [const { AtomicU32::new(0) }; W],
+        }
+    }
+
+    /// Sets bit `i` and wakes the server task. Callable from an interrupt; a bit past the words does nothing but
+    /// wake.
+    #[inline]
+    pub fn mark(&self, i: usize) {
+        if let Some(word) = self.changed.get(i / 32) {
+            word.fetch_or(1 << (i % 32), Ordering::Relaxed);
+        }
+        // Release: the bit before the flag the server task takes with Acquire
+        self.wake.wake();
+    }
+
+    /// Takes and clears word `w` of the changed bits.
+    #[inline]
+    pub fn take(&self, w: usize) -> u32 {
+        self.changed
+            .get(w)
+            .map_or(0, |word| word.swap(0, Ordering::Acquire))
+    }
+
+    /// The wake alone, for what else wakes the server task: a sampler or a cells writer (`with_wake`), a deferred
+    /// answer.
+    pub fn as_wake(&self) -> &Wake {
+        &self.wake
+    }
+
+    /// [Wake::wake].
+    #[inline]
+    pub fn wake(&self) {
+        self.wake.wake();
+    }
+
+    /// [Wake::wait].
+    pub async fn wait(&self) {
+        self.wake.wait().await
+    }
+}
+
+impl<const W: usize> Default for Signal<W> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -144,5 +205,19 @@ mod tests {
                 w.take();
             }
         }
+    }
+
+    #[test]
+    fn signal_bits_and_wake() {
+        let s = Signal::<2>::new();
+        let (_, waker) = waker();
+        let mut cx = Context::from_waker(&waker);
+        assert!(pin!(s.wait()).as_mut().poll(&mut cx).is_pending());
+        s.mark(3);
+        s.mark(33);
+        s.mark(99);
+        assert!(pin!(s.wait()).as_mut().poll(&mut cx).is_ready());
+        assert_eq!((s.take(0), s.take(1), s.take(2)), (1 << 3, 1 << 1, 0));
+        assert_eq!(s.take(0), 0);
     }
 }

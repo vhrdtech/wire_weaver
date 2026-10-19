@@ -5,7 +5,7 @@
 //!
 //! | Trait          | What it is for                                                         | Who implements it    |
 //! |----------------|------------------------------------------------------------------------|----------------------|
-//! | `I2c`          | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery. | Every I2C master |
+//! | `I2c`          | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery; optionally be a slave. | Every I2C master |
 //! | `I2cWatch`     | Autonomous reads: the device repeats configured reads and reports only changes. | Adapters that offload polling |
 //! | `I2cMonitor`   | Every transaction on the bus as a stream, without taking part in it.   | Sniffers, debug adapters |
 //!
@@ -41,6 +41,35 @@
 //! device picks (usually a `u32` of microseconds). A fixed-width value wraps (a `u32` of µs every 71.6 minutes) and
 //! the host unwraps it. All timestamps of one device come from the same clock, so I2C transfers line up with the
 //! device's other data.
+//!
+//! # Slave mode
+//!
+//! A device with the `slave` group of `I2c` (`#[optional(slave)]`, left out with `omit = ["i2c.slave"]`) answers
+//! another master on its bus at an address of its own, as a chip it stands in for. Opening `I2c::slave_events`
+//! with an [I2cSlaveConfig] starts it, closing the stream stops it (the address is not acknowledged any more). What
+//! the device answers when the master reads comes from one of two sources ([I2cSlaveAnswers]):
+//!
+//! - **Register map**: a byte array on the device that the host fills and reads back with `I2c::slave_map_write` /
+//!   `I2c::slave_map_read`, before and while the slave runs. The master's first bytes of a write set a pointer, the
+//!   rest are stored from it; reads come from the pointer; both go up by one per byte. The device answers at bus
+//!   speed, the host is never in the loop. For EEPROMs, sensors, PMICs and any register-based chip.
+//! - **Answer queue**: answers the host sends on the `I2c::slave_answers` credit sink, one per read transaction.
+//!   For command-response protocols where the host computes each answer. When the master reads and no answer is
+//!   queued ([I2cSlaveUnderrun]), the device sends a fill byte, holds SCL low (clock stretching) until the host
+//!   answers or a time limit passes, or does not acknowledge its address while the queue is empty.
+//!
+//! Every transaction addressed to the device comes back on `I2c::slave_events` as an [I2cSlaveTransfer] with the
+//! bytes written or sent, so the host sees what the master did either way.
+//!
+//! ## Clock stretching and its limits
+//!
+//! A host answer takes a round trip over the link: on USB full speed a few milliseconds, longer on a busy host
+//! (measure it on the device at hand: [I2cSlaveTransfer::stretched]). The I2C specification puts no limit on
+//! stretching, but SMBus devices give up after 25 ms (`tTIMEOUT`), many masters have a timeout of their own, and
+//! some don't support stretching at all (the Raspberry Pi's BCM2835 I2C controller corrupts the transfer). So
+//! [I2cSlaveUnderrun::Stretch] has a limit, after which the device sends the fill byte and reports the late answer
+//! ([I2cSlaveTransfer::filled]); a late answer then goes to the next read. Prefer the register map whenever the
+//! answer can be prepared ahead.
 //!
 //! # Errors
 //!
@@ -175,6 +204,59 @@ pub trait I2c {
 
     /// Whether the adapter's pull-ups are on (false if it has none).
     fn i2c_pullups() -> bool;
+
+    /// What slave mode supports: register map size, answer queue depth, clock stretching, address NACK.
+    #[optional(slave)]
+    fn slave_capabilities() -> I2cSlaveCapabilities;
+
+    /// Slave mode: opening the stream makes this device a slave at [I2cSlaveConfig::addr] answering from
+    /// [I2cSlaveConfig::answers], closing it stops that (the address is not acknowledged any more). One event per
+    /// transaction addressed to this device, in bus order, and [I2cSlaveEvent::ReadWaiting] when the master waits for
+    /// an answer the host has not sent yet. A counted stream, unit: event; the head's time is the start condition,
+    /// and the host learns exactly how many events the device dropped.
+    ///
+    /// `InUse` while the bus is a master or monitor (or another slave), `Unsupported` for a source, underrun
+    /// policy, pointer width or 10-bit address the device can't do ([I2cSlaveCapabilities]), `InvalidArgument` for
+    /// a stretch limit above [I2cSlaveCapabilities::max_stretch], `BufferTooBig` for a register map larger than
+    /// [I2cSlaveCapabilities::map_len].
+    #[optional(slave)]
+    #[errors(
+        Common(InUse, Unsupported, InvalidArgument, Refused, NoPower),
+        BufferTooBig
+    )]
+    #[stream(I2cSlaveEvent<'i>, counted)]
+    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError<'i>>;
+
+    /// Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps
+    /// its contents between runs). Takes effect between two master transactions, never inside one, so a master
+    /// never reads half of an update. `BufferTooBig` past [I2cSlaveCapabilities::map_len].
+    #[optional(slave)]
+    #[errors(BufferTooBig)]
+    fn slave_map_write(
+        offset: u32,
+        data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
+    ) -> Result<(), I2cError<'i>>;
+
+    /// Reads `len` bytes of the register map from `offset`: what the master wrote, or what the host put there.
+    /// `BufferTooBig` past [I2cSlaveCapabilities::map_len] or for `len` above [MAX_READ_LEN].
+    #[optional(slave)]
+    #[errors(BufferTooBig)]
+    fn slave_map_read(
+        offset: u32,
+        len: u16,
+    ) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError<'i>>;
+
+    /// Answers for [I2cSlaveAnswers::Queue], one item per read transaction of the master, in order. A master that
+    /// reads fewer bytes than the answer has leaves the rest unsent (dropped at the stop or repeated start), one that
+    /// reads more gets the fill byte for the rest. Credit-based (API-28): the host never sends more than the device
+    /// has room for ([I2cSlaveCapabilities::queue_len] answers).
+    #[optional(slave)]
+    #[credit]
+    sink!(slave_answers: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>);
+
+    /// Drops every queued answer (after the master gave up on a request, say) and returns how many there were.
+    #[optional(slave)]
+    fn slave_clear_answers() -> u32;
 }
 
 /// Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for
@@ -353,7 +435,7 @@ pub struct I2cConfig {
     pub io_level: Option<Volt>,
 }
 
-/// Bus mode, part of [I2cConfig].
+/// Bus mode, part of [I2cConfig]. Slave mode is `I2c::slave_events`, not a mode here.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -366,8 +448,6 @@ pub enum I2cMode {
     Disabled,
     /// Master at `speed` SCL; `monitor` also streams the adapter's own transfers to `I2cMonitor`.
     Master { speed: Hertz, monitor: bool },
-    /// Slave at `addr`; `monitor` as above. Data paths for slave mode are not defined yet.
-    Slave { addr: u8, monitor: bool },
     /// Only watch the bus, see `I2cMonitor`.
     MonitorOnly,
 }
@@ -515,7 +595,6 @@ pub struct I2cCapabilities<'i> {
     /// Driver or controller, for the user: "STM32 I2C1", "RP2350 I2C0 + PIO monitor".
     pub driver_name: MaxLen<&'i str, MAX_NAME_LEN>,
     pub master_supported: bool,
-    pub slave_supported: bool,
     pub monitor_supported: bool,
     /// 10-bit addresses work.
     pub ten_bit_addresses: bool,
@@ -523,6 +602,133 @@ pub struct I2cCapabilities<'i> {
     pub pullups: bool,
     /// `I2c::i2c_wiggle_clock` works.
     pub bus_recovery: bool,
+}
+
+/// Slave mode, see `I2c::slave_events`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Copy, Clone)
+)]
+pub struct I2cSlaveConfig {
+    /// This device's address on the bus.
+    pub addr: I2cAddress,
+    /// As in [I2cConfig::io_level].
+    pub io_level: Option<Volt>,
+    /// Where the answers to the master's reads come from.
+    pub answers: I2cSlaveAnswers,
+}
+
+/// Where a slave's answers come from, see [I2cSlaveConfig::answers].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Copy, Clone),
+    ww_repr = unib32
+)]
+pub enum I2cSlaveAnswers {
+    /// The register map (`I2c::slave_map_write`): the first `pointer_bytes` bytes of each master write set the
+    /// pointer (big-endian, 0 for a chip without one: the pointer then only moves by reading and writing), the
+    /// rest are stored from it. Reads come from the pointer. Both go up by one per byte and wrap at `len` (the
+    /// first `len` bytes of the map); with `page`, writes wrap within their page of that many bytes, as in an
+    /// EEPROM. With `read_only` the master's data bytes are acknowledged but not stored (they are still reported).
+    Registers {
+        pointer_bytes: u8,
+        len: u32,
+        page: Option<u16>,
+        read_only: bool,
+    },
+    /// The answer queue (`I2c::slave_answers`): each master read takes the next answer; `empty` says what happens
+    /// when there is none.
+    Queue { empty: I2cSlaveUnderrun },
+}
+
+/// What a slave does when the master reads and no answer is queued: the host is too slow or sent nothing.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Copy, Clone),
+    ww_repr = unib32
+)]
+pub enum I2cSlaveUnderrun {
+    /// Send `fill` for every byte the master reads (`0xFF` is what a released bus reads).
+    Fill(u8),
+    /// Hold SCL low until an answer comes, for at most `max` per read, then send `fill` for the rest. The device
+    /// sends [I2cSlaveEvent::ReadWaiting] as soon as it starts to wait. See the crate docs for the limits of
+    /// stretching.
+    Stretch { max: Second, fill: u8 },
+    /// Don't acknowledge the address while the queue is empty, writes included, as a busy EEPROM does; a master
+    /// polling for an acknowledge gets one once an answer is queued.
+    Nack,
+}
+
+/// An event of `I2c::slave_events`; the start condition's time is the time in the event head.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone),
+    ww_repr = unib32
+)]
+pub enum I2cSlaveEvent<'i> {
+    /// A transaction addressed to this device ended.
+    Transfer(I2cSlaveTransfer<'i>),
+    /// The master reads and no answer is queued: the device holds SCL low ([I2cSlaveUnderrun::Stretch]) until an
+    /// answer comes on `I2c::slave_answers` or the limit passes. Sent at once, not held back for batching. The
+    /// write before it (a command, a register address) is the [I2cSlaveEvent::Transfer] just before.
+    ReadWaiting,
+}
+
+/// One transaction addressed to this device: from the start (or repeated start) to the stop (or the next repeated
+/// start).
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
+)]
+pub struct I2cSlaveTransfer<'i> {
+    /// Time of the stop (or repeated start); the start condition's is the time in the event head.
+    pub end: Second,
+    /// Master read (true) or write (false).
+    pub read: bool,
+    /// How it ended; [I2cRecordKind::Truncated] when more than [MAX_RECORD_LEN] bytes went by.
+    pub kind: I2cRecordKind,
+    /// [I2cSlaveAnswers::Registers]: the pointer at the first data byte (after the pointer bytes of a write).
+    pub pointer: Option<u32>,
+    /// The data bytes: what the master wrote (pointer bytes included), or what this device sent.
+    pub bytes: MaxLen<RefVec<'i, u8>, MAX_RECORD_LEN>,
+    /// Bytes of a read sent as the fill byte because no answer was there (or came too late); 0 when all came from
+    /// an answer or the map.
+    pub filled: u16,
+    /// How long this device held SCL low in the transaction, waiting for an answer or for room; `None` if it
+    /// didn't.
+    pub stretched: Option<Second>,
+}
+
+/// What slave mode supports, see `I2c::slave_capabilities`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Copy, Clone)
+)]
+pub struct I2cSlaveCapabilities {
+    /// Size of the register map in bytes, 0 if there is none ([I2cSlaveAnswers::Registers] unsupported).
+    pub map_len: u32,
+    /// Widest register pointer, in bytes.
+    pub max_pointer_bytes: u8,
+    /// Answers the queue holds, 0 if there is none ([I2cSlaveAnswers::Queue] unsupported).
+    pub queue_len: u32,
+    /// Longest [I2cSlaveUnderrun::Stretch], `None` if the device can't stretch while it waits for the host.
+    pub max_stretch: Option<Second>,
+    /// [I2cSlaveUnderrun::Nack] works.
+    pub nack_when_empty: bool,
+    /// A 10-bit slave address works.
+    pub ten_bit_address: bool,
+    /// Fastest SCL the slave keeps up with.
+    pub max_freq: Hertz,
 }
 
 /// Errors of every trait in this crate: the common ones first, then what is specific to I2C. Each method lists the

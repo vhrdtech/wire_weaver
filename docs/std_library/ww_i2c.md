@@ -6,7 +6,7 @@ level: basic
 
 Part of the [IO trait family](io_family.md). `ww_i2c` is a global WireWeaver trait family for an I2C bus reachable through a device: a USB adapter, a dev board,
 or an instrument. A host can configure the bus, run write/read/transaction calls against a slave address, scan the
-bus, see and recover stuck lines, let the device poll a few registers on its own ([`I2cWatch`](#i2cwatch)), or watch
+bus, see and recover stuck lines, make the device a slave answering another master ([slave mode](#slave-mode)), let the device poll a few registers on its own ([`I2cWatch`](#i2cwatch)), or watch
 every transaction on the bus without taking part in it ([`I2cMonitor`](#i2cmonitor)). It is `no_std` by default and
 depends only on `wire_weaver` and `ww_si` (for the `Second` and `Volt` reference types).
 
@@ -21,7 +21,7 @@ ww_i2c = "0.1"
 
 | Trait        | What it is for                                                                          | Who implements it            |
 |--------------|------------------------------------------------------------------------------------------|-------------------------------|
-| `I2c`        | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery.  | Every I2C master             |
+| `I2c`        | Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery; optionally a slave. | Every I2C master |
 | `I2cWatch`   | Autonomous reads: the device repeats configured reads and reports only changes.          | Adapters that offload polling |
 | `I2cMonitor` | Every transaction on the bus as a stream, without taking part in it.                     | Sniffers, debug adapters      |
 
@@ -146,6 +146,70 @@ pub trait I2cMonitor {
 stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
 records the device dropped and where ([stream delivery](../api/stream_reliability.md)).
 
+### Slave mode
+
+A device with the `slave` group of `I2c` ([optional](../api/optional_items.md), left out with
+`omit = ["i2c.slave"]`) stands in for a chip on another master's bus, at an address of its own:
+
+```rust
+#[ww_trait]
+pub trait I2c {
+    // ...
+    #[optional(slave)]
+    fn slave_capabilities() -> I2cSlaveCapabilities;
+    #[optional(slave)]
+    #[stream(I2cSlaveEvent<'i>, counted)]
+    fn slave_events(config: I2cSlaveConfig) -> Result<(), I2cError<'i>>;
+    #[optional(slave)]
+    fn slave_map_write(offset: u32, data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>) -> Result<(), I2cError<'i>>;
+    #[optional(slave)]
+    fn slave_map_read(offset: u32, len: u16) -> Result<MaxLen<RefVec<'i, u8>, MAX_READ_LEN>, I2cError<'i>>;
+    #[optional(slave)]
+    #[credit]
+    sink!(slave_answers: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>);
+    #[optional(slave)]
+    fn slave_clear_answers() -> u32;
+}
+```
+
+Opening `slave_events` with an `I2cSlaveConfig { addr, io_level, answers }` starts it, closing the stream stops it
+(the address is not acknowledged any more). `answers` picks where the bytes of the master's reads come from:
+
+* `I2cSlaveAnswers::Registers { pointer_bytes, len, page, read_only }` - a register map on the device, filled and
+  read back by the host with `slave_map_write` / `slave_map_read`, before and while the slave runs. The first
+  `pointer_bytes` bytes of each master write set the pointer (big-endian), the rest are stored from it; reads come
+  from the pointer; both go up by one per byte and wrap at `len`, writes within their `page` as in an EEPROM. The
+  device answers at bus speed with the host out of the loop, and a host update takes effect between two master
+  transactions, never inside one, so the master never reads half of a multi-byte value. EEPROMs, sensors, PMICs,
+  anything register-based.
+* `I2cSlaveAnswers::Queue { empty }` - answers the host sends on the `slave_answers` [credit
+  sink](../api/credit_sinks.md), one per master read: a shorter read leaves the rest unsent, a longer one gets the
+  fill byte. For command-response protocols where the host computes each answer.
+
+`slave_events` returns one `I2cSlaveEvent::Transfer` per transaction addressed to the device (what the master wrote
+or what the device sent, the register pointer, how many bytes were fill and how long SCL was held), and
+`I2cSlaveEvent::ReadWaiting` as soon as the master reads with no answer queued. The write just before it (a command,
+a register address) is the previous event, so a host answering live reads the request, computes the answer and sends
+it on `slave_answers`.
+
+#### Clock stretching and a host that is too slow
+
+`I2cSlaveUnderrun` (`empty` above) says what the device does when the master reads and no answer is there:
+
+* `Fill(byte)` - sends `byte` for every byte read (`0xFF` is what a released bus reads); the master never waits.
+* `Stretch { max, fill }` - holds SCL low until an answer comes, at most `max` per read, then sends `fill` for the
+  rest. The answer that comes late goes to the next read, and `I2cSlaveTransfer::filled` tells the host it was late.
+* `Nack` - doesn't acknowledge the address while the queue is empty, writes included, as an EEPROM busy with a page
+  write does; a master polling for an acknowledge gets one once an answer is queued.
+
+A host answer takes a round trip over the link: a few milliseconds on USB full speed, more on a busy host (measure
+it on the device at hand with `I2cSlaveTransfer::stretched`). The I2C specification puts no limit on stretching, but
+SMBus devices give up after 25 ms (`tTIMEOUT`), many masters have timeouts of their own, and some can't be stretched
+at all (the Raspberry Pi's BCM2835 controller corrupts the transfer). Use `Stretch` only with a master that takes it,
+with `max` below its timeout, and the register map whenever an answer can be prepared ahead.
+`I2cSlaveCapabilities` tells the map size, the queue depth, the longest stretch (`None`: none on demand), whether
+`Nack` works, 10-bit addresses and the fastest SCL the slave keeps up with.
+
 ## Addresses
 
 `I2cAddress` is 7-bit (`0x50` for a 24C02 EEPROM, not `0xA0`) or 10-bit, as in the I2C specification and
@@ -175,8 +239,17 @@ up with the device's other data.
 ## Types
 
 * `I2cConfig` - `mode: I2cMode`, `io_level: Option<Volt>`; the argument and the answer of `i2c_configure`.
-* `I2cMode` - `Disabled` (pins released), `Master { speed: Hertz, monitor }`, `Slave { addr, monitor }` (data paths
-  for slave mode are not defined yet), `MonitorOnly`.
+* `I2cMode` - `Disabled` (pins released), `Master { speed: Hertz, monitor }`, `MonitorOnly`. Slave mode is
+  `slave_events`, not a mode.
+* `I2cSlaveConfig` - `addr: I2cAddress`, `io_level: Option<Volt>`, `answers: I2cSlaveAnswers`.
+* `I2cSlaveAnswers` - `Registers { pointer_bytes: u8, len: u32, page: Option<u16>, read_only: bool }` or
+  `Queue { empty: I2cSlaveUnderrun }`, see [slave mode](#slave-mode).
+* `I2cSlaveUnderrun` - `Fill(u8)`, `Stretch { max: Second, fill: u8 }`, `Nack`.
+* `I2cSlaveEvent<'i>` - `Transfer(I2cSlaveTransfer)` or `ReadWaiting`.
+* `I2cSlaveTransfer<'i>` - `end: Second`, `read: bool`, `kind: I2cRecordKind`, `pointer: Option<u32>`, `bytes`
+  (bounded by `MAX_RECORD_LEN`), `filled: u16`, `stretched: Option<Second>`.
+* `I2cSlaveCapabilities` - `map_len`, `max_pointer_bytes`, `queue_len`, `max_stretch: Option<Second>`,
+  `nack_when_empty`, `ten_bit_address`, `max_freq: Hertz`.
 * `I2cReadKind<'i>` - `Plain` (start, address+read, `len` bytes, stop) or `RepeatedStart { write }` (start,
   address+write, `write`, repeated start, address+read, `len` bytes, stop), bounded by `MAX_WRITE_READ_LEN`.
 * `I2cOp<'i>` - `Write(MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>)` or `Read(u16)`, one operation of `i2c_transaction`.
@@ -187,7 +260,8 @@ up with the device's other data.
   adapter can).
 * `I2cCapabilities<'i>` - `io_levels`, `io_level_min` / `io_level_max`, `max_write_len`, `max_read_len`,
   `min_freq` / `max_freq: Hertz`, `driver_name` (bounded by `MAX_NAME_LEN`), `master_supported` /
-  `slave_supported` / `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`.
+  `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`. Slave mode is in the device's introspection
+  (the `slave` group) and `I2cSlaveCapabilities`.
 * `I2cWatchCapabilities` - `max_watches: u32` (at most `MAX_WATCHES`, 512), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
 * `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { bytes }`, see [`I2cWatch`](#i2cwatch) above.

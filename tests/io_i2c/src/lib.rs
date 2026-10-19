@@ -205,7 +205,6 @@ mod tests {
                     max_freq: Hertz::kilo(400u16),
                     driver_name: MaxLen::new_unchecked("mock"),
                     master_supported: true,
-                    slave_supported: false,
                     monitor_supported: true,
                     ten_bit_addresses: true,
                     pullups: true,
@@ -228,7 +227,7 @@ mod tests {
                         speed: max,
                         monitor,
                     },
-                    I2cMode::Slave { .. } | I2cMode::Unknown(_) => {
+                    I2cMode::Unknown(_) => {
                         return Ready(Err(unsupported()));
                     }
                     mode => mode,
@@ -639,6 +638,7 @@ mod tests {
             wire_weaver::ww_codegen!(
                 io_i2c_api :: IoI2cTest for super::Server,
                 server = true, no_alloc = true, use_async = false,
+                omit = ["i2c.slave"],
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 // debug_to_file = "../../target/tests_io_i2c_server.rs"

@@ -741,6 +741,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
+- 📋 **SRV-26 Device-side engine for I2C and SPI slaves** · `v0.5.x` — a no_std, sans-IO crate (`ww_bus_slave`)
+  doing what STD-35's API promises, so every firmware (rePort RP2350, STM32 boards) only wires its peripheral to it:
+  the register map with pointer bytes, auto-increment, page wrap and host updates applied between two transfers; the
+  answer queue with I2C underrun policies and the stretch deadline; SPI frame answers and the register frame layout
+  (address, `rw` bit, dummy bytes); building `I2cSlaveEvent` / `SpiSlaveFrame` records. Byte-level hooks callable
+  from an interrupt (address, byte written, byte wanted, stop; CS edges), state in a `static` set up in place,
+  instruction counts per byte on QEMU.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
 - 💡 **SRV-12 std server on Tower** · `v0.5`.
@@ -1257,11 +1264,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   checksum, COBS, SLIP, Modbus RTU, NMEA; picked by the host when it opens the stream (`Uart::frames(cfg)`), no new
   firmware. Frames of a bounded length are what a batched stream can take, where a raw byte stream can't (no size
   bound); with API-51, each frame XOR'd with the last one of the same key (Modbus address, NMEA sentence, CAN ID).
-- 📋 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`**: `I2cMode::Slave { addr, monitor }` and `SpiRole::Slave`
-  exist and capabilities say `slave_supported`, but nothing carries the data yet. Needed: what the device answers
-  (a register map or buffer the host fills, or a request the host answers in time), what it received (a stream of
-  writes with timestamps, like the monitors), clock stretching and its limits for I2C, and what happens when the
-  host is too slow (NACK, idle bytes). First user: the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
+- 🚧 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`** · `v0.5.x` — an `#[optional(slave)]` group in `I2c` and
+  in `Spi`: opening the counted `slave_events` / `slave_frames` stream with a config starts slave mode (closing stops
+  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
+  answers come from a register map the host fills and reads back (`slave_map_write` / `slave_map_read`, applied
+  between two transfers) or from the `slave_answers` credit sink, one answer per read or frame. A host that is too
+  slow: I2C `I2cSlaveUnderrun` (`Fill`, `Stretch { max }` with `ReadWaiting` sent at once, `Nack` while empty), SPI
+  the idle byte or the last answer again, flagged `underrun`. Limits of clock stretching (SMBus 25 ms, masters
+  without it) in the crate docs and `docs/std_library/ww_i2c.md#slave-mode`. `I2cMode::Slave`, `SpiRole::Slave` and
+  the `slave` capability flags are gone. API, snapshots and docs done; open: the shared device-side engine (SRV-26)
+  and an end-to-end test of both slaves in `tests/io_i2c` / `tests/io_spi` against a simulated master. First user:
+  the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
+- 💡 **STD-44 SPI slave data-ready line** — a GPIO the slave asserts while an answer is queued (or the register map
+  changed), as most SPI slave protocols with a computed answer have (ESP32 handshake, nRF IRQ); the master reads only
+  when it is set, so the answer queue needs no polling. Part of `SpiSlaveConfig`, the pin named by the board.
+- 💡 **STD-45 Live registers in a slave's register map** — address ranges of the I2C or SPI register map whose reads
+  the host answers (I2C stretching meanwhile) or that change on read (clear-on-read status, FIFO data registers),
+  so a chip with a few such registers can be emulated without moving it all to the answer queue.
+- 💡 **STD-46 More I2C slave addressing** — a second address or an address mask (one emulator answering for several
+  chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
+  so this is per-device capability.
 
 ## Examples (`EX`)
 

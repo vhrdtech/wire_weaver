@@ -27,9 +27,24 @@
 //!
 //! # Slave mode
 //!
-//! `SpiConfig::role` can be [SpiRole::Slave], but data paths for slave mode (what this device sends on the next
-//! select, what it received) are not defined yet; `Spi::transfer`, `Spi::transaction` and `Spi::write` assume this
-//! device is the bus master.
+//! A device with the `slave` group of `Spi` (`#[optional(slave)]`, left out with `omit = ["spi.slave"]`) answers
+//! another master on its bus, as a chip it stands in for. Opening `Spi::slave_frames` with a [SpiSlaveConfig]
+//! starts it, closing the stream stops it (MISO released). `Spi::transfer`, `Spi::transaction` and `Spi::write` are
+//! for a master and answer `WrongState` meanwhile.
+//!
+//! SPI has no clock stretching: the master clocks whenever it likes, so what this device sends has to be ready
+//! before CS goes active. What it sends comes from one of two sources ([SpiSlaveAnswers]):
+//!
+//! - **Answer queue**: answers the host sends on the `Spi::slave_answers` credit sink, one per frame (CS assertion).
+//!   With none queued, the frame gets the idle byte (or the last answer again), and an answer that comes during a
+//!   frame waits for the next one. Fits protocols where the master sends a command, waits, and reads the answer in
+//!   a frame of its own, or polls until it is there.
+//! - **Register map**: a byte array on the device that the host fills with `Spi::slave_map_write`; the first bytes
+//!   of a frame are the address, the rest are read from or written to the map from there. The device has to turn
+//!   the address around into data within a bit time or a few dummy bytes, so this works up to
+//!   [SpiSlaveCapabilities::map_max_freq].
+//!
+//! Every frame comes back on `Spi::slave_frames` with what the master sent and what this device answered.
 //!
 //! # Errors
 //!
@@ -83,9 +98,9 @@ pub trait Spi {
 
     /// Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it
     /// can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.
-    /// `Unsupported` for [SpiRole::Slave], a `word_bits`, a [CsMode] or an IO level the adapter doesn't have,
-    /// `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when e.g. the bus already sits at a higher
-    /// voltage than `io_level`.
+    /// `InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word_bits`, a [CsMode] or an
+    /// IO level the adapter doesn't have, `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when
+    /// e.g. the bus already sits at a higher voltage than `io_level`.
     #[errors(Common(Unsupported, InvalidArgument, InUse, Refused))]
     fn configure(config: SpiConfig) -> Result<SpiConfig, SpiError<'i>>;
 
@@ -104,6 +119,58 @@ pub trait Spi {
     #[errors(Common(InUse, Unsupported, Refused))]
     #[stream(SpiFrame<'i>, counted)]
     fn monitor(config: SpiMonitorConfig) -> Result<(), SpiError<'i>>;
+
+    /// What slave mode supports: queue depth, register map, how fast.
+    #[optional(slave)]
+    fn slave_capabilities() -> SpiSlaveCapabilities;
+
+    /// Slave mode: opening the stream makes this device a slave answering from [SpiSlaveConfig::answers], closing
+    /// it stops that (MISO released). One [SpiSlaveFrame] per CS assertion, in bus order. A counted stream, unit:
+    /// frame; the head's time is when CS was asserted, and the host learns exactly how many frames the device
+    /// dropped.
+    ///
+    /// `InUse` while the bus is a master or monitor, `Unsupported` for a source, `word_bits` or address width the
+    /// device can't do ([SpiSlaveCapabilities]), `BufferTooBig` for a register map larger than
+    /// [SpiSlaveCapabilities::map_len].
+    #[optional(slave)]
+    #[errors(
+        Common(InUse, Unsupported, InvalidArgument, Refused, NoPower),
+        BufferTooBig
+    )]
+    #[stream(SpiSlaveFrame<'i>, counted)]
+    fn slave_frames(config: SpiSlaveConfig) -> Result<(), SpiError<'i>>;
+
+    /// Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps
+    /// its contents between runs). Takes effect between two frames, never inside one. `BufferTooBig` past
+    /// [SpiSlaveCapabilities::map_len].
+    #[optional(slave)]
+    #[errors(BufferTooBig)]
+    fn slave_map_write(
+        offset: u32,
+        data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
+    ) -> Result<(), SpiError<'i>>;
+
+    /// Reads `len` bytes of the register map from `offset`. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or
+    /// for `len` above [SPI_MAX].
+    #[optional(slave)]
+    #[errors(BufferTooBig)]
+    fn slave_map_read(
+        offset: u32,
+        len: u16,
+    ) -> Result<MaxLen<RefVec<'i, u8>, SPI_MAX>, SpiError<'i>>;
+
+    /// Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves
+    /// the rest unsent (dropped when CS goes inactive), a longer one gets the idle byte for the rest. An answer is
+    /// sent from the start of a frame only: one that comes while CS is active waits for the next frame.
+    /// Credit-based (API-28): the host never sends more than the device has room for
+    /// ([SpiSlaveCapabilities::queue_len] answers).
+    #[optional(slave)]
+    #[credit]
+    sink!(slave_answers: MaxLen<RefVec<'i, u8>, SPI_MAX>);
+
+    /// Drops every queued answer and returns how many there were.
+    #[optional(slave)]
+    fn slave_clear_answers() -> u32;
 }
 
 /// Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set
@@ -134,7 +201,7 @@ pub struct SpiMonitorConfig {
     pub io_level: Option<Volt>,
 }
 
-/// Bus role, set with `Spi::configure`.
+/// Bus role, set with `Spi::configure`. Slave mode is `Spi::slave_frames`, not a role here.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -145,8 +212,6 @@ pub enum SpiRole {
     /// Controller off, pins released.
     Disabled,
     Master,
-    /// Data paths are not defined yet, see the crate-level docs.
-    Slave,
 }
 
 /// Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering.
@@ -231,7 +296,6 @@ pub struct SpiCapabilities<'i> {
     pub min_word_bits: u8,
     pub max_word_bits: u8,
     pub master: bool,
-    pub slave: bool,
     /// Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.
     pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
     /// Lowest IO level of an adjustable supply, if the adapter has one.
@@ -240,6 +304,112 @@ pub struct SpiCapabilities<'i> {
     pub io_level_max: Option<Volt>,
     /// Largest transfer this device does, at most [SPI_MAX].
     pub max_len: u32,
+}
+
+/// Slave mode, see `Spi::slave_frames`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
+pub struct SpiSlaveConfig {
+    pub mode: SpiMode,
+    pub bit_order: BitOrder,
+    /// As in [SpiConfig::word_bits].
+    pub word_bits: u8,
+    /// As in [SpiConfig::io_level].
+    pub io_level: Option<Volt>,
+    /// What this device sends on MISO.
+    pub answers: SpiSlaveAnswers,
+}
+
+/// Where a slave's answers come from, see [SpiSlaveConfig::answers].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq),
+    ww_repr = unib32
+)]
+pub enum SpiSlaveAnswers {
+    /// The answer queue (`Spi::slave_answers`): each frame sends the next answer. With none queued the frame sends
+    /// `idle` (the host was too slow, or there is nothing to say), or with `repeat_last` the last answer again (a
+    /// status the master polls).
+    Queue { idle: u8, repeat_last: bool },
+    /// The register map (`Spi::slave_map_write`), see [SpiRegisters].
+    Registers(SpiRegisters),
+}
+
+/// The register map layout of a frame: address, optional dummy bytes, data.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
+pub struct SpiRegisters {
+    /// Address bytes at the start of each frame (big-endian), without the bits of `rw`. This device sends `idle`
+    /// while they come in.
+    pub addr_bytes: u8,
+    /// Which frames read and which write.
+    pub rw: SpiRwBit,
+    /// Bytes the master clocks between the address and the data, giving this device time to fetch it; it sends
+    /// `idle` meanwhile. More of them allow a faster clock, see [SpiSlaveCapabilities::map_max_freq].
+    pub dummy_bytes: u8,
+    /// Sent while there is no data: during the address and dummy bytes, in a write frame, and past the map's end.
+    pub idle: u8,
+    /// Size of the map in use, in bytes (at most [SpiSlaveCapabilities::map_len]); the address wraps at it.
+    pub len: u32,
+}
+
+/// How a register frame says whether it reads or writes, see [SpiRegisters::rw].
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum SpiRwBit {
+    /// Every frame reads; the master can't write the map.
+    ReadOnly,
+    /// Bit `bit` (0-7) of the first address byte: set reads, clear writes (bit 7 in most sensors).
+    SetIsRead { bit: u8 },
+    /// Bit `bit` of the first address byte: clear reads, set writes.
+    ClearIsRead { bit: u8 },
+}
+
+/// One frame of `Spi::slave_frames`: from CS asserted to released.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
+pub struct SpiSlaveFrame<'i> {
+    /// When CS was released; when it was asserted is the time in the event head.
+    pub end: Second,
+    /// Longer than [SPI_MAX] bytes, the rest was cut.
+    pub truncated: bool,
+    /// The master sent bytes faster than this device could take them; some of `mosi` is missing.
+    pub overrun: bool,
+    /// [SpiSlaveAnswers::Queue]: no answer was queued when the frame started, it got the idle byte (or the last
+    /// answer with `repeat_last`).
+    pub underrun: bool,
+    /// [SpiSlaveAnswers::Registers]: the address of the frame.
+    pub addr: Option<u32>,
+    /// What the master sent.
+    pub mosi: MaxLen<RefVec<'i, u8>, SPI_MAX>,
+    /// What this device sent.
+    pub miso: MaxLen<RefVec<'i, u8>, SPI_MAX>,
+}
+
+/// What slave mode supports, see `Spi::slave_capabilities`.
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
+pub struct SpiSlaveCapabilities {
+    /// Fastest SCK the slave takes with the answer queue.
+    pub max_freq: Hertz,
+    /// Answers the queue holds, 0 if there is none ([SpiSlaveAnswers::Queue] unsupported).
+    pub queue_len: u32,
+    /// Size of the register map in bytes, 0 if there is none ([SpiSlaveAnswers::Registers] unsupported).
+    pub map_len: u32,
+    /// Widest address, in bytes.
+    pub max_addr_bytes: u8,
+    /// Fastest SCK at which register reads come out right without dummy bytes; each dummy byte gives the device
+    /// 8 more bit times.
+    pub map_max_freq: Option<Hertz>,
 }
 
 /// Errors of `Spi`: the common ones first, then what is specific to SPI. Each method lists the variants it returns.

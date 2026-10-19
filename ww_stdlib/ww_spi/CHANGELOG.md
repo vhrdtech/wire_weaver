@@ -2,6 +2,10 @@
 
 ### ⚠️ Breaking
 
+- `SpiRole::Slave` and `SpiCapabilities::slave` are removed (STD-35): slave mode is the new `slave` group of `Spi`
+  (below), opened with `Spi::slave_frames`; whether a device has it is in its introspection and
+  `Spi::slave_capabilities`.
+
 - `SpiError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`, `InvalidArgument`,
   `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`; `BufferTooBig`
   stays. It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`SpiErrorOwned` on
@@ -16,6 +20,14 @@
   `io_level`; `SpiCapabilities::io_levels` is bounded by `MAX_IO_LEVELS` and gets `io_level_min` / `io_level_max`.
 
 ### 🚀 Features
+
+- Slave mode (STD-35): an `#[optional(slave)]` group in `Spi` (`omit = ["spi.slave"]` without it).
+  `slave_frames(SpiSlaveConfig)` is a counted stream function: opening it makes the device a slave, and it reports
+  every frame as a `SpiSlaveFrame` (MOSI, MISO, address, `underrun`, `overrun`). Answers come from the
+  `slave_answers` credit sink, one per frame (`SpiSlaveAnswers::Queue { idle, repeat_last }`, cleared with
+  `slave_clear_answers`), or from a register map (`SpiSlaveAnswers::Registers(SpiRegisters)`: address bytes, a
+  `SpiRwBit`, dummy bytes; filled with `slave_map_write`, read with `slave_map_read`); `slave_capabilities` answers
+  `SpiSlaveCapabilities`.
 
 - `Spi::monitor` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can carry one,
   instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an unlisted error see

@@ -12,7 +12,7 @@ mod tests {
     use ww_si::{Prefix, Second, Volt};
     use ww_spi::{
         BitOrder, CsMode, SpiCapabilities, SpiConfig, SpiError, SpiErrorOwned, SpiFrame, SpiMode,
-        SpiMonitorConfig, SpiOp, SpiRole,
+        SpiMonitorConfig, SpiOp, SpiRole, SpiSlaveAnswers, SpiSlaveConfig,
     };
     use ww_stream::tx::Counted;
 
@@ -173,7 +173,6 @@ mod tests {
                     min_word_bits: 8,
                     max_word_bits: 8,
                     master: true,
-                    slave: false,
                     io_levels: MaxLen::new(RefVec::Slice { slice: &IO_LEVELS }).unwrap(),
                     io_level_min: None,
                     io_level_max: None,
@@ -186,9 +185,6 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
                 config: SpiConfig,
             ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
-                if matches!(config.role, SpiRole::Slave) {
-                    return Ready(Err(CommonError::Unsupported.into()));
-                }
                 if config.word_bits != 8 {
                     return Ready(Err(CommonError::InvalidArgument {
                         arg: 0,
@@ -249,6 +245,7 @@ mod tests {
             wire_weaver::ww_codegen!(
                 io_spi_api :: IoSpiTest for super::NoStdSyncServer,
                 server = true, no_alloc = true, use_async = false,
+                omit = ["spi.slave"],
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 // debug_to_file = "../../target/tests_io_spi_server.rs"
@@ -354,7 +351,6 @@ mod tests {
 
         let caps = client.spi().capabilities().call().await.unwrap();
         assert!(caps.master);
-        assert!(!caps.slave);
         assert_eq!(caps.max_len, MAX_LEN as u32);
 
         let actual = client
@@ -366,14 +362,21 @@ mod tests {
         assert_eq!(actual.freq.value, NumericValue::U32(1));
         assert_eq!(actual.freq.prefix, Prefix::Mega);
 
-        // this mock has no slave mode
-        let mut slave = configured_master(CsMode::Auto);
-        slave.role = SpiRole::Slave;
-        let err = client.spi().configure(slave).call().await;
-        assert!(matches!(
-            err.unwrap_err().device(),
-            Some(SpiErrorOwned::Common(CommonErrorOwned::Unsupported))
-        ));
+        // this mock has no slave mode: the `slave` group is left out, the call fails without a round trip
+        let slave = SpiSlaveConfig {
+            mode: SpiMode::Mode0,
+            bit_order: BitOrder::MsbFirst,
+            word_bits: 8,
+            io_level: None,
+            answers: SpiSlaveAnswers::Queue {
+                idle: 0xFF,
+                repeat_last: false,
+            },
+        };
+        match client.spi().slave_frames(slave).call().await {
+            Err(e) => assert!(e.is_unimplemented(), "{e:?}"),
+            Ok(_) => panic!("slave_frames is left out"),
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

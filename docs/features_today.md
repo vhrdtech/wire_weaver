@@ -297,6 +297,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
 - **[PWM](std_library/ww_pwm.md)**: Outputs and input capture.
 - **[Device time](std_library/ww_timebase.md)**: A clock with sync to a shared time source.
+- **[I2C and SPI slave](std_library/ww_i2c.md#slave-mode)**: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">in progress</span>
 - **[Logic analyzer](std_library/ww_logic_analyzer.md)**: Triggered captures, transitions compressed. <span class="ww-status">in progress</span>
 - **[Signal generator](std_library/ww_signal_generator.md)**: Replays captures, drives DAC channels. <span class="ww-status">in progress</span>
 - **[Counters](std_library/ww_counters.md)**: A device's `cnt` counters, named on the host from its firmware file.

@@ -4,6 +4,10 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- `I2cMode::Slave` and `I2cCapabilities::slave_supported` are removed (STD-35): slave mode is the new `slave` group of
+  `I2c` (below), opened with `I2c::slave_events`; whether a device has it is in its introspection and
+  `I2c::slave_capabilities`. `I2cMode::MonitorOnly` moves to discriminant 2.
+
 - `I2cError<'i>`: the first variant is `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`, `InvalidArgument`,
   `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError` instead of the
   crate's `UnsupportedMode`, `WrongMode`, `UnsupportedSpeed`, `MalformedRequest`, `UnsupportedIoLevel`, `Timeout`,
@@ -37,6 +41,15 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
   `bus_recovery`.
 
 ### 🚀 Features
+
+- Slave mode (STD-35): an `#[optional(slave)]` group in `I2c` (`omit = ["i2c.slave"]` without it).
+  `slave_events(I2cSlaveConfig)` is a counted stream function: opening it makes the device a slave at
+  `I2cSlaveConfig::addr`, and it reports every transaction as `I2cSlaveEvent::Transfer(I2cSlaveTransfer)` (bytes,
+  register pointer, fill bytes, stretch time) and `I2cSlaveEvent::ReadWaiting` when the master waits for an answer.
+  Answers come from a register map (`I2cSlaveAnswers::Registers`, filled with `slave_map_write`, read with
+  `slave_map_read`) or from the `slave_answers` credit sink (`I2cSlaveAnswers::Queue`, cleared with
+  `slave_clear_answers`), with `I2cSlaveUnderrun` (`Fill`, `Stretch { max, fill }`, `Nack`) for a host that is too
+  slow; `slave_capabilities` answers `I2cSlaveCapabilities`. The crate docs explain the limits of clock stretching.
 
 - `I2cMonitor::records` lists its errors with `#[errors(..)]` (API-32), now that stream functions and properties can
   carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the client's warning about an

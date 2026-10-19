@@ -30,9 +30,24 @@
     "",
     "# Slave mode",
     "",
-    "`SpiConfig::role` can be [SpiRole::Slave], but data paths for slave mode (what this device sends on the next",
-    "select, what it received) are not defined yet; `Spi::transfer`, `Spi::transaction` and `Spi::write` assume this",
-    "device is the bus master.",
+    "A device with the `slave` group of `Spi` (`#[optional(slave)]`, left out with `omit = [\"spi.slave\"]`) answers",
+    "another master on its bus, as a chip it stands in for. Opening `Spi::slave_frames` with a [SpiSlaveConfig]",
+    "starts it, closing the stream stops it (MISO released). `Spi::transfer`, `Spi::transaction` and `Spi::write` are",
+    "for a master and answer `WrongState` meanwhile.",
+    "",
+    "SPI has no clock stretching: the master clocks whenever it likes, so what this device sends has to be ready",
+    "before CS goes active. What it sends comes from one of two sources ([SpiSlaveAnswers]):",
+    "",
+    "- **Answer queue**: answers the host sends on the `Spi::slave_answers` credit sink, one per frame (CS assertion).",
+    "  With none queued, the frame gets the idle byte (or the last answer again), and an answer that comes during a",
+    "  frame waits for the next one. Fits protocols where the master sends a command, waits, and reads the answer in",
+    "  a frame of its own, or polls until it is there.",
+    "- **Register map**: a byte array on the device that the host fills with `Spi::slave_map_write`; the first bytes",
+    "  of a frame are the address, the rest are read from or written to the map from there. The device has to turn",
+    "  the address around into data within a bit time or a few dummy bytes, so this works up to",
+    "  [SpiSlaveCapabilities::map_max_freq].",
+    "",
+    "Every frame comes back on `Spi::slave_frames` with what the master sent and what this device answered.",
     "",
     "# Errors",
     "",
@@ -141,7 +156,6 @@
         (ident: Some("min_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("max_word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("master"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("slave"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 3, args: [
             Type(OutOfLine(type_idx: 6)),
         ]))), docs: [
@@ -162,15 +176,12 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "Bus role, set with `Spi::configure`.",
+        "Bus role, set with `Spi::configure`. Slave mode is `Spi::slave_frames`, not a role here.",
     ], ident: "SpiRole", generics: [], variants: [
         (docs: [
             "Controller off, pins released.",
         ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Master", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "Data paths are not defined yet, see the crate-level docs.",
-        ], ident: "Slave", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
         "Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering.",
@@ -261,6 +272,130 @@
             "What the device side (peripheral) drove, if monitored.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "What slave mode supports, see `Spi::slave_capabilities`.",
+    ], ident: "SpiSlaveCapabilities", generics: [], fields: Named([
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 5)),
+        ]), docs: [
+            "Fastest SCK the slave takes with the answer queue.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("queue_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Answers the queue holds, 0 if there is none ([SpiSlaveAnswers::Queue] unsupported).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("map_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Size of the register map in bytes, 0 if there is none ([SpiSlaveAnswers::Registers] unsupported).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("max_addr_bytes"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Widest address, in bytes.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("map_max_freq"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 5)),
+        ])), docs: [
+            "Fastest SCK at which register reads come out right without dummy bytes; each dummy byte gives the device",
+            "8 more bit times.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "How a register frame says whether it reads or writes, see [SpiRegisters::rw].",
+    ], ident: "SpiRwBit", generics: [], variants: [
+        (docs: [
+            "Every frame reads; the master can\'t write the map.",
+        ], ident: "ReadOnly", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Bit `bit` (0-7) of the first address byte: set reads, clear writes (bit 7 in most sensors).",
+        ], ident: "SetIsRead", fields: Named([
+            (ident: Some("bit"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Bit `bit` of the first address byte: clear reads, set writes.",
+        ], ident: "ClearIsRead", fields: Named([
+            (ident: Some("bit"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The register map layout of a frame: address, optional dummy bytes, data.",
+    ], ident: "SpiRegisters", generics: [], fields: Named([
+        (ident: Some("addr_bytes"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Address bytes at the start of each frame (big-endian), without the bits of `rw`. This device sends `idle`",
+            "while they come in.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rw"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [
+            "Which frames read and which write.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("dummy_bytes"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Bytes the master clocks between the address and the data, giving this device time to fetch it; it sends",
+            "`idle` meanwhile. More of them allow a faster clock, see [SpiSlaveCapabilities::map_max_freq].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("idle"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "Sent while there is no data: during the address and dummy bytes, in a write frame, and past the map\'s end.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "Size of the map in use, in bytes (at most [SpiSlaveCapabilities::map_len]); the address wraps at it.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Where a slave\'s answers come from, see [SpiSlaveConfig::answers].",
+    ], ident: "SpiSlaveAnswers", generics: [], variants: [
+        (docs: [
+            "The answer queue (`Spi::slave_answers`): each frame sends the next answer. With none queued the frame sends",
+            "`idle` (the host was too slow, or there is nothing to say), or with `repeat_last` the last answer again (a",
+            "status the master polls).",
+        ], ident: "Queue", fields: Named([
+            (ident: Some("idle"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("repeat_last"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "The register map (`Spi::slave_map_write`), see [SpiRegisters].",
+        ], ident: "Registers", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Slave mode, see `Spi::slave_frames`.",
+    ], ident: "SpiSlaveConfig", generics: [], fields: Named([
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
+        (ident: Some("bit_order"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+        (ident: Some("word_bits"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
+            "As in [SpiConfig::word_bits].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 6)),
+        ])), docs: [
+            "As in [SpiConfig::io_level].",
+        ], slot: None, series_opaque: false),
+        (ident: Some("answers"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [
+            "What this device sends on MISO.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One frame of `Spi::slave_frames`: from CS asserted to released.",
+    ], ident: "SpiSlaveFrame", generics: [], fields: Named([
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 2)),
+        ]), docs: [
+            "When CS was released; when it was asserted is the time in the event head.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
+            "Longer than [SPI_MAX] bytes, the rest was cut.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("overrun"), default: None, since: None, ty: Bool, docs: [
+            "The master sent bytes faster than this device could take them; some of `mosi` is missing.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("underrun"), default: None, since: None, ty: Bool, docs: [
+            "[SpiSlaveAnswers::Queue]: no answer was queued when the frame started, it got the idle byte (or the last",
+            "answer with `repeat_last`).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("addr"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
+            "[SpiSlaveAnswers::Registers]: the address of the frame.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("mosi"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
+            "What the master sent.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("miso"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
+            "What this device sent.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "An SPI master: configure the bus, full-duplex transfer, transactions with CS held, and plain writes.",
@@ -326,9 +461,9 @@
         ])), multiplicity: Flat, since: None, ident: "configure", docs: [
             "Configures the bus and returns what was actually set: the frequency the hardware settled on (the nearest it",
             "can do, never above the one asked for) and the IO level in effect. [SpiRole::Disabled] releases the pins.",
-            "`Unsupported` for [SpiRole::Slave], a `word_bits`, a [CsMode] or an IO level the adapter doesn\'t have,",
-            "`InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when e.g. the bus already sits at a higher",
-            "voltage than `io_level`.",
+            "`InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word_bits`, a [CsMode] or an",
+            "IO level the adapter doesn\'t have, `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when",
+            "e.g. the bus already sits at a higher voltage than `io_level`.",
         ], optional: None),
         (id: 5, kind: Method(args: [
             (ident: "active", ty: Bool),
@@ -347,7 +482,7 @@
                 "Unsupported",
                 "Refused",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "monitor", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "monitor", docs: [
             "Watches the bus without taking part: one [SpiFrame] per CS assertion, in bus order, decoded with `config` (the",
             "monitor doesn\'t drive CS or clock, it only listens). Opening starts monitoring, closing stops it. A counted",
             "stream, unit: frame; the head\'s time is when CS was asserted, and the host learns exactly how many frames the",
@@ -356,6 +491,59 @@
             "Optional: an adapter without monitoring hardware leaves it out (`omit = [\"spi.monitor\"]`), and a host sees",
             "that in the device\'s introspection. `Unsupported` for a `word_bits` the monitor can\'t decode.",
         ], optional: Some((group: None))),
+        (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "slave_capabilities", docs: [
+            "What slave mode supports: queue depth, register map, how fast.",
+        ], optional: Some((group: Some("slave")))),
+        (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 20), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 19)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
+            (ident: "Common", nested: Some([
+                "InUse",
+                "Unsupported",
+                "InvalidArgument",
+                "Refused",
+                "NoPower",
+            ])),
+            (ident: "BufferTooBig", nested: None),
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "slave_frames", docs: [
+            "Slave mode: opening the stream makes this device a slave answering from [SpiSlaveConfig::answers], closing",
+            "it stops that (MISO released). One [SpiSlaveFrame] per CS assertion, in bus order. A counted stream, unit:",
+            "frame; the head\'s time is when CS was asserted, and the host learns exactly how many frames the device",
+            "dropped.",
+            "",
+            "`InUse` while the bus is a master or monitor, `Unsupported` for a source, `word_bits` or address width the",
+            "device can\'t do ([SpiSlaveCapabilities]), `BufferTooBig` for a register map larger than",
+            "[SpiSlaveCapabilities::map_len].",
+        ], optional: Some((group: Some("slave")))),
+        (id: 9, kind: Method(args: [
+            (ident: "offset", ty: NumericAny(Base(U32))),
+            (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
+            (ident: "BufferTooBig", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "slave_map_write", docs: [
+            "Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps",
+            "its contents between runs). Takes effect between two frames, never inside one. `BufferTooBig` past",
+            "[SpiSlaveCapabilities::map_len].",
+        ], optional: Some((group: Some("slave")))),
+        (id: 10, kind: Method(args: [
+            (ident: "offset", ty: NumericAny(Base(U32))),
+            (ident: "len", ty: NumericAny(Base(U16))),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
+            (ident: "BufferTooBig", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "slave_map_read", docs: [
+            "Reads `len` bytes of the register map from `offset`. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or",
+            "for `len` above [SPI_MAX].",
+        ], optional: Some((group: Some("slave")))),
+        (id: 11, kind: FlowSink(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "slave_answers", docs: [
+            "Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves",
+            "the rest unsent (dropped when CS goes inactive), a longer one gets the idle byte for the rest. An answer is",
+            "sent from the start of a frame only: one that comes while CS is active waits for the next frame.",
+            "Credit-based (API-28): the host never sends more than the device has room for",
+            "([SpiSlaveCapabilities::queue_len] answers).",
+        ], optional: Some((group: Some("slave")))),
+        (id: 12, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "slave_clear_answers", docs: [
+            "Drops every queued answer and returns how many there were.",
+        ], optional: Some((group: Some("slave")))),
     ]), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

@@ -278,6 +278,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md
+- STD-35 | I2C and SPI slave | The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. | std_library/ww_i2c.md#slave-mode
 - STD-21 | Logic analyzer | Triggered captures, transitions compressed. | std_library/ww_logic_analyzer.md
 - STD-22 | Signal generator | Replays captures, drives DAC channels. | std_library/ww_signal_generator.md
 - STD-25 | Counters | A device's `cnt` counters, named on the host from its firmware file. | std_library/ww_counters.md

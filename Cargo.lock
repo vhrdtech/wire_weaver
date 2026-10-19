@@ -3394,9 +3394,9 @@ dependencies = [
 [[package]]
 name = "picoboot_host"
 version = "0.1.0"
-source = "git+https://github.com/vhrdtech/picoboot_host?branch=main#e32ef08bc06bdf35ff9d56162e0cb5c6047539e5"
 dependencies = [
  "nusb",
+ "object 0.40.0",
  "thiserror 2.0.20",
  "tokio",
 ]

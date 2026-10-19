@@ -553,17 +553,23 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (`
 ww bootsel list                                   # boot ROMs in BOOTSEL mode with their serial numbers
 ww bootsel info -s E661                           # chip id (RP2350)
 ww bootsel flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
+ww bootsel flash target/thumbv8m.main-none-eabihf/release/app -s E661  # an ELF works too, no objcopy needed
 ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
 ww bootsel reboot -s E661 [--bootsel]             # reboot (RP2350), into BOOTSEL again with --bootsel
 ```
 
 | `flash` option        | Default      | Description                                                                 |
 |-----------------------|--------------|-----------------------------------------------------------------------------|
-| `--addr <ADDR>`       | `0x10000000` | Flash address of a raw binary (any file that isn't `.uf2`)                  |
+| `--addr <ADDR>`       | `0x10000000` | Flash address of a raw binary (any file that isn't `.uf2` or an ELF)        |
 | `--family <F>`        | `rp2350`     | UF2 family to take blocks of: `rp2350`, `rp2040` or `any`                   |
 | `--wait <SECONDS>`    |              | Wait this long for the BOOTSEL device with the `--serial` to appear         |
 | `--follow`            |              | After the reboot, wait for a WireWeaver device with the same serial and show it |
 | `--no-reboot`         |              | Don't reboot after writing                                                  |
+
+The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — `target/.../release/app`
+works straight from `cargo build`, no `objcopy`/`elf2uf2`), or otherwise a raw binary written at `--addr`. An ELF
+is taken by its `PT_LOAD` segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
+an error.
 
 `--serial` selects the device as for other commands; part of it is enough when only one matches, `--wait` and
 `--follow` need the full one. See [following a reboot](transport/follow_reboot.md).

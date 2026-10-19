@@ -138,6 +138,10 @@
   escaped for an already open quote), and values after `@`, `:` or `=` (`--api name@^0.1`, `--vid-pid c0de:cafe`,
   `--label=...`) complete as well.
 
+- `ww bootsel flash` takes an ELF file straight from `cargo build`, detected by its magic bytes rather than its
+  extension (CLT-21): `PT_LOAD` segments are written at their flash physical address, no `objcopy`/`elf2uf2` step
+  needed; UF2 and raw binaries still work as before.
+
 ### 🐛 Fixes
 
 - `ww api scaffold` names types by their module path (`my_api::units::Volt`), like generated code (API-46).

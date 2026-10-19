@@ -65,7 +65,8 @@ The pieces work on their own too:
 - `ww_picoboot` is the PICOBOOT host on its own: `usb::open(Some(serial))` gives a `Picoboot` with `flash()` (erase
   the touched 4 KiB sectors, write 256-byte pages, read back, with a progress callback), `read`, `write`,
   `flash_erase`, `chip_id`, `reboot2`. `Image` comes from a UF2 file (blocks of the given families; picotool's
-  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
+  RP2350-E10 dummy block is skipped), an ELF file (`PT_LOAD` segments by their flash physical address, straight
+  from `cargo build`, no `objcopy`), or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
   repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host) (crate name `picoboot_host`, re-exported here as
   `ww_picoboot`), with no WireWeaver dependency of its own.
 
@@ -82,8 +83,9 @@ ww bootsel reboot -s E661 [--bootsel]
 ```
 
 `-s` / `--serial` selects the device as for every other command (flag, `WW_SERIAL`, `ww.toml`), a part of the serial
-number is enough when only one device matches; `--wait` and `--follow` need the full one. A raw binary (any extension
-other than `.uf2`) is written at `--addr`, `0x10000000` by default. On Linux the boot ROM (`2e8a:000f`) needs a udev
+number is enough when only one device matches; `--wait` and `--follow` need the full one. An ELF file (detected by
+its magic bytes, so `target/.../release/app` works directly) is taken by its flash physical address; otherwise a
+raw binary (any extension other than `.uf2`) is written at `--addr`, `0x10000000` by default. On Linux the boot ROM (`2e8a:000f`) needs a udev
 rule for access without root, as picotool does.
 
 The app is asked to reboot into BOOTSEL with [`ww dfu reboot`](../cli_reference.md#ww-dfu), which calls

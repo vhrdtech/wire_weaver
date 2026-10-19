@@ -56,6 +56,9 @@
   unit with its dimension and scale) and `DynUnit::Pow`. `DynUnit` and `DynQuantity` are shown and converted by
   `ww_si::tree`, the code of the typed `Display`, instead of a copy of it; `MAX_UNIT_DEPTH` is `ww_si`'s.
 
+- The `picoboot` feature's `ww_picoboot` now also enables its `elf` feature (CLT-21): `ww_picoboot::Image::from_elf`
+  is usable from `follow::rp2_update()` and `ww bootsel flash` without an extra feature flag.
+
 ### 🐛 Fixes
 
 - A property observer keeps the `missed` of updates without its property (one that carries only the count, API-39)

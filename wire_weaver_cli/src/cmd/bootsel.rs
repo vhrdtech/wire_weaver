@@ -22,11 +22,13 @@ pub(crate) enum BootselCommand {
     /// Show the chip id of a BOOTSEL device (RP2350)
     Info,
 
-    /// Write a UF2 file or a binary into flash, verify it and reboot
+    /// Write a UF2 file, an ELF file or a binary into flash, verify it and reboot
     ///
     /// The device is chosen with --serial (part of it is enough when only one matches), or the only one connected.
     /// To update a WireWeaver device that rebooted itself into BOOTSEL (ww_dfu BootControl::reboot(Updater)), give
     /// its full serial number with --wait to wait for the boot ROM and --follow to wait for the firmware to come back.
+    ///
+    /// Example: ww bootsel flash target/thumbv8m.main-none-eabihf/release/app --wait 10 --follow -s E661640843522C2F
     Flash(FlashArgs),
 
     /// Reboot a BOOTSEL device (RP2350)
@@ -39,7 +41,8 @@ pub(crate) enum BootselCommand {
 
 #[derive(Args)]
 pub(crate) struct FlashArgs {
-    /// UF2 file, or a raw binary (any other extension) written at --addr
+    /// UF2 file, ELF file (detected by its magic bytes, any extension), or a raw binary (any other extension)
+    /// written at --addr
     #[arg(value_hint = ValueHint::FilePath)]
     file: PathBuf,
 
@@ -168,6 +171,10 @@ async fn open(serial: Option<&str>) -> Result<Picoboot<NusbIo>> {
     Ok(Picoboot::new(NusbIo::open(&info).await?).await?)
 }
 
+/// ELF magic (`\x7fELF`): detected by content, not extension — unlike pico-sdk's `.elf`, other toolchains name
+/// their ELF output `.axf` or leave it without an extension.
+const ELF_MAGIC: &[u8] = &[0x7f, b'E', b'L', b'F'];
+
 fn load(args: &FlashArgs) -> Result<Image> {
     let bytes =
         std::fs::read(&args.file).with_context(|| format!("reading {}", args.file.display()))?;
@@ -175,7 +182,9 @@ fn load(args: &FlashArgs) -> Result<Image> {
         .file
         .extension()
         .is_some_and(|e| e.eq_ignore_ascii_case("uf2"));
-    let image = if is_uf2 {
+    let image = if bytes.starts_with(ELF_MAGIC) {
+        Image::from_elf(&bytes)?
+    } else if is_uf2 {
         let families: &[u32] = match args.family {
             Family::Rp2350 => &[
                 family::RP2350_ARM_S,

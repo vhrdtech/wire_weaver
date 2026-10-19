@@ -5,9 +5,10 @@ use crate::codegen::omit::{Omission, Omissions, Omit};
 use crate::codegen::server::observe::{Observe, mark_changed_ident};
 use crate::codegen::server::stream::stream_ser_methods_recursive;
 use crate::codegen::ty_def::{TyPos, ty_def};
-use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
+use crate::codegen::util::{ErrorSeq, Handlers, add_prefix, dotted, maybe_quote, maybe_quote_cl};
 use crate::codegen::{api_common, util};
 use crate::const_model::{ConstModel, ConstModelKind};
+use crate::handler_model::HandlerModel;
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
@@ -26,8 +27,10 @@ use ww_version::FullVersionOwned;
 pub struct GenServerConfig {
     /// Set to false to generate no_std no-alloc compatible code.
     pub no_alloc: bool,
-    /// Set to true to expect all user handlers be async fn's.
+    /// Set to true for an async server: handlers are async fn's, except those `handler_model` makes sync.
     pub use_async: bool,
+    /// Which user handlers are `async fn` and which plain `fn` (SRV-21); empty: all follow `use_async`.
+    pub handler_model: HandlerModel,
     /// Configure which user handlers return immediate response or answer later by using request id.
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
@@ -69,8 +72,10 @@ pub enum IntrospectMode {
 pub struct GenServerConfigRaw {
     /// Set to false to generate no_std no-alloc compatible code.
     pub no_alloc: bool,
-    /// Set to true to expect all user handlers be async fn's.
+    /// Set to true for an async server: handlers are async fn's, except those `handler_model` makes sync.
     pub use_async: bool,
+    /// Which user handlers are `async fn` and which plain `fn` (SRV-21); empty: all follow `use_async`.
+    pub handler_model: HandlerModel,
     /// Configure which user handlers return immediate response or answer later by using request id.
     pub method_model: MethodModel,
     /// Configure which properties are using get-set model and which are direct struct field access + on_changed fn model.
@@ -105,6 +110,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
         Self {
             no_alloc: config.no_alloc,
             use_async: config.use_async,
+            handler_model: config.handler_model,
             method_model: config.method_model,
             property_model: config.property_model,
             const_model: config.const_model,
@@ -139,7 +145,18 @@ pub fn gen_server(
         quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
     );
     let maybe_async = maybe_quote(config.use_async, quote! { async });
-    let maybe_await = maybe_quote(config.use_async, quote! { .await });
+    let handlers = Handlers {
+        model: &config.handler_model,
+        use_async: config.use_async,
+    };
+    let mut item_paths = vec![];
+    collect_item_paths(api_bundle, &api_bundle.root, &mut vec![], &mut item_paths);
+    let handler_model_errors = config
+        .handler_model
+        .check(item_paths.iter().map(String::as_str), config.use_async);
+    if !handler_model_errors.is_empty() {
+        return quote! { #(compile_error!(#handler_model_errors);)* };
+    }
     let mut error_seq = ErrorSeq::default();
     let api_level = &api_bundle.root;
     let deferred_return_methods = deferred_method_return_ser_methods(
@@ -165,8 +182,10 @@ pub fn gen_server(
     let cx = ApiServerCGContext {
         observable: observe.observable(),
         ident_prefix: None,
+        level_path: vec![],
         no_alloc: config.no_alloc,
         use_async: config.use_async,
+        handlers,
         method_model: &config.method_model,
         property_model: &config.property_model,
         const_model: &config.const_model,
@@ -179,6 +198,12 @@ pub fn gen_server(
         IntrospectMode::NoDocs => (true, false),
         IntrospectMode::WithDocs => (true, true),
     };
+    // the root level awaits when anything below it does, or to send the introspection events
+    let root_await = maybe_quote(
+        level_awaits(api_bundle, &api_bundle.root, &mut vec![], &cx)
+            || (introspect_enabled && cx.use_async),
+        quote! { .await },
+    );
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
         &omissions,
@@ -227,14 +252,14 @@ pub fn gen_server(
             &mut max_len_consts,
         );
     }
-    let poll_streams = poll_streams(api_bundle, cx.use_async);
+    let poll_streams = poll_streams(api_bundle, cx.handlers);
     let observe_items = observe.items(
         api_bundle,
         config.no_alloc,
         config.observe_batch,
         config.observe_outbox,
     );
-    let observe_methods = observe.methods(api_bundle, cx.use_async, &medium_ty, &mut error_seq);
+    let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, &mut error_seq);
     let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
         quote! {
             RequestKind::Observe { cfg } => {
@@ -262,7 +287,7 @@ pub fn gen_server(
     let server_struct_path = config.server_struct_path;
     let maybe_in_multi_false = maybe_quote_cl(cx.multi_req, || quote! { false, });
     let maybe_multi_req = maybe_quote_cl(cx.multi_req, || {
-        multi_req_handlers(&maybe_await, &mut error_seq)
+        multi_req_handlers(&root_await, &mut error_seq)
     });
     let written_ok_variant = if cx.multi_req {
         quote! { WrittenOk(Option<EventKindBuilder>) }
@@ -375,7 +400,7 @@ pub fn gen_server(
                     #maybe_multi_req
                     #observe_arm
                     _ => {
-                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_in_multi_false &mut cx)#maybe_await {
+                        match self.process_root(path, &mut iter, &request, &mut wr, #maybe_in_multi_false &mut cx)#root_await {
                             Ok(WrAction::WrittenOk(event_kind_builder)) => {
                                 if request.seq.0 == 0 {
                                     return Ok(&[])
@@ -435,6 +460,8 @@ pub fn gen_server(
 struct PolledStream {
     /// Handler name with the trait chain prefix
     ident: Ident,
+    /// Dotted item path, for `handler_model`
+    dotted: String,
     path: Vec<u32>,
     delivery: Delivery,
     batched: bool,
@@ -445,6 +472,7 @@ fn polled_streams_recursive(
     api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     prefix: Option<&String>,
+    names: &mut Vec<String>,
     path: &mut Vec<u32>,
     under_array: bool,
     out: &mut Vec<Result<PolledStream, String>>,
@@ -470,6 +498,7 @@ fn polled_streams_recursive(
                     let ident = Ident::new(&item.ident, Span::call_site());
                     out.push(Ok(PolledStream {
                         ident: add_prefix(prefix, &ident),
+                        dotted: dotted(names, &item.ident),
                         path: path.clone(),
                         delivery: *delivery,
                         batched: batched.is_some(),
@@ -482,14 +511,17 @@ fn polled_streams_recursive(
                     Some(prefix) => format!("{prefix}_{}", item.ident),
                     None => item.ident.clone(),
                 };
+                names.push(item.ident.clone());
                 polled_streams_recursive(
                     api_bundle,
                     child,
                     Some(&prefix),
+                    names,
                     path,
                     under_array || is_array,
                     out,
                 );
+                names.pop();
             }
             _ => {}
         }
@@ -502,12 +534,14 @@ fn polled_streams_recursive(
 /// `ww_stream` picks (priority, live before backfill, round-robin), and their queries. Not generated without
 /// reliable or batched streams. A blocking server gets a blocking one for batched counted and plain streams
 /// (reliable streams need an async server).
-fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
+fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStream {
+    let use_async = handlers.use_async;
     let mut streams = vec![];
     polled_streams_recursive(
         api_bundle,
         &api_bundle.root,
         None,
+        &mut vec![],
         &mut vec![],
         false,
         &mut streams,
@@ -528,8 +562,11 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
         return errors;
     }
     let maybe_async = maybe_quote(use_async, quote! { async });
-    let maybe_await = maybe_quote(use_async, quote! { .await });
-    let state_fn = |s: &PolledStream| Ident::new(&format!("stream_{}", s.ident), s.ident.span());
+    // `self.stream_<name>()`, the stream's state
+    let state_of = |s: &PolledStream| {
+        let state_fn = Ident::new(&format!("stream_{}", s.ident), s.ident.span());
+        handlers.call(&s.dotted, quote! { self.#state_fn() })
+    };
     let path_of = |s: &PolledStream| {
         let path = &s.path;
         quote! { [#(UNib32(#path)),*] }
@@ -548,7 +585,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
     // batched reliable streams: sealed batches go into the store
     let mut batched_store = TokenStream::new();
     for s in ok.iter().filter(|s| s.batched) {
-        let state_fn = state_fn(s);
+        let state = state_of(s);
         let path = path_of(s);
         match s.delivery {
             Delivery::Counted => {
@@ -566,7 +603,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
                 });
                 batched_direct.extend(quote! {
                     loop {
-                        let state = self.#state_fn()#maybe_await;
+                        let state = #state;
                         let max_age = Some(state.max_age_us() as u64);
                         // a batch the series writer can't write stays sealed until the next turn
                         let Ok(Some((head, bytes))) = state.poll(now_us, max_age, scratch, buf) else {
@@ -575,7 +612,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
                         let path = #path;
                         let r = #send;
                         if let Err(e) = r {
-                            self.#state_fn()#maybe_await.stream.unsent(&head);
+                            #state.stream.unsent(&head);
                             return Err(e);
                         }
                     }
@@ -596,7 +633,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
                 });
                 batched_direct.extend(quote! {
                     loop {
-                        let state = self.#state_fn()#maybe_await;
+                        let state = #state;
                         let max_age = Some(state.max_age_us() as u64);
                         let Ok(Some((_items, bytes))) = state.poll(now_us, max_age, scratch, buf) else {
                             break;
@@ -609,7 +646,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
             Delivery::Reliable => {
                 batched_store.extend(quote! {
                     {
-                        let state = self.#state_fn().await;
+                        let state = #state;
                         let max_age = Some(state.max_age_us() as u64);
                         // losses are counted in the stream, a store error shows in its status
                         let _ = state.poll(now_us, max_age, scratch, buf).await;
@@ -630,9 +667,9 @@ fn poll_streams(api_bundle: &ApiBundleOwned, use_async: bool) -> TokenStream {
         let states: Vec<TokenStream> = reliable
             .iter()
             .map(|s| {
-                let state_fn = state_fn(s);
+                let state = state_of(s);
                 let inner = maybe_quote(s.batched, quote! { .stream });
-                quote! { self.#state_fn().await #inner }
+                quote! { #state #inner }
             })
             .collect();
         let paths: Vec<TokenStream> = reliable.iter().map(|s| path_of(s)).collect();
@@ -954,8 +991,11 @@ struct ApiServerCGContext<'i> {
     /// Prefixed names of observable properties (SRV-18), they have a `mark_changed_<name>()`
     observable: BTreeSet<String>,
     ident_prefix: Option<String>,
+    /// Names of the trait items on the way to this level, for `handler_model` paths
+    level_path: Vec<String>,
     no_alloc: bool,
     use_async: bool,
+    handlers: Handlers<'i>,
     method_model: &'i MethodModel,
     property_model: &'i PropertyModel,
     const_model: &'i ConstModel,
@@ -973,7 +1013,75 @@ impl<'i> ApiServerCGContext<'i> {
         } else {
             self.ident_prefix = Some(suffix.to_string());
         }
+        self.level_path.push(suffix.to_string());
     }
+
+    /// The call of a handler of item `ident` of this level, awaited if it's async (SRV-21).
+    fn call(&self, ident: &Ident, call: TokenStream) -> TokenStream {
+        self.handlers
+            .call(&dotted(&self.level_path, &ident.to_string()), call)
+    }
+}
+
+/// Dotted paths of every method, property and stream of the API, for checking `handler_model` patterns.
+fn collect_item_paths(
+    api_bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
+    level_path: &mut Vec<String>,
+    out: &mut Vec<String>,
+) {
+    for item in &level.items {
+        if let ApiItemKindOwned::Trait { .. } = item.kind {
+            level_path.push(item.ident.clone());
+            collect_item_paths(
+                api_bundle,
+                item.get_as_level(api_bundle).unwrap(),
+                level_path,
+                out,
+            );
+            level_path.pop();
+        } else {
+            out.push(dotted(level_path, &item.ident));
+        }
+    }
+}
+
+/// Whether the dispatch of `level` (`process_<level>`) awaits anything, so has to be an `async fn`: an async
+/// handler (SRV-21) or a store / event send of the generated code itself, in it or in a level below.
+fn level_awaits(
+    api_bundle: &ApiBundleOwned,
+    level: &ApiLevelOwned,
+    level_path: &mut Vec<String>,
+    cx: &ApiServerCGContext<'_>,
+) -> bool {
+    level.items.iter().any(|item| match &item.kind {
+        ApiItemKindOwned::Trait { .. } => {
+            level_path.push(item.ident.clone());
+            let awaits = level_awaits(
+                api_bundle,
+                item.get_as_level(api_bundle).unwrap(),
+                level_path,
+                cx,
+            );
+            level_path.pop();
+            awaits
+        }
+        ApiItemKindOwned::Property {
+            access: PropertyAccess::Const,
+            ..
+        } => false,
+        // a reliable stream's store is async
+        ApiItemKindOwned::StreamFn {
+            delivery: Delivery::Reliable,
+            ..
+        } => cx.use_async,
+        // credit sideband events are sent from the dispatch
+        ApiItemKindOwned::FlowSink {
+            flow: FlowControl::Credit,
+            ..
+        } => cx.use_async,
+        _ => cx.handlers.is_async(&dotted(level_path, &item.ident)),
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -989,7 +1097,11 @@ fn process_request_inner_recursive(
     error_seq: &mut ErrorSeq,
     introspect: Option<TokenStream>,
 ) -> TokenStream {
-    let maybe_async = maybe_quote(cx.use_async, quote! { async });
+    let maybe_async = maybe_quote(
+        level_awaits(api_bundle, api_level, &mut item_path.to_vec(), cx)
+            || (introspect.is_some() && cx.use_async),
+        quote! { async },
+    );
     let level_matchers = level_matchers(
         api_bundle,
         api_level,
@@ -1260,7 +1372,13 @@ fn level_matcher(
                 format!("process_{level_name_chain}_{}", api_item.ident).as_str(),
                 Span::call_site(),
             );
-            let maybe_await = maybe_quote(cx.use_async, quote! { .await });
+            let mut level_path = cx.level_path.clone();
+            level_path.push(api_item.ident.clone());
+            let child = api_item.get_as_level(api_bundle).unwrap();
+            let maybe_await = maybe_quote(
+                level_awaits(api_bundle, child, &mut level_path, cx),
+                quote! { .await },
+            );
             let maybe_index_chain_arg = index_chain.fun_argument_call();
             let maybe_in_multi = maybe_quote_cl(cx.multi_req, || quote! { in_multi, });
             quote! {
@@ -1309,7 +1427,6 @@ fn handle_method(
     return_type: &Option<TypeOwned>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
-    let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_enforce_ty = if let Some(ty) = return_type {
         let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
         quote! {
@@ -1345,7 +1462,13 @@ fn handle_method(
     } else {
         quote! {}
     };
-    let ident = add_prefix(cx.ident_prefix.as_ref(), ident);
+    let call = {
+        let prefixed = add_prefix(cx.ident_prefix.as_ref(), ident);
+        cx.call(
+            ident,
+            quote! { self.#prefixed(cx, #maybe_index_chain_arg #args_list) },
+        )
+    };
     let es = error_seq.next();
     let ser_output = ser_value(cx.multi_req, quote! { output }, error_seq);
     let ev_kind_builder = cx.prepare_event_kind_builder();
@@ -1354,7 +1477,7 @@ fn handle_method(
             RequestKind::Call { #maybe_args } => {
                 #maybe_refuse_in_multi
                 #args_des
-                match self.#ident(cx, #maybe_index_chain_arg #args_list)#maybe_await {
+                match #call {
                     RpcResult::Ready(output) => {
                         #ev_kind_builder
                         if request.seq.0 != 0 {
@@ -1392,7 +1515,6 @@ fn handle_property(
     if matches!(access, PropertyAccess::Const) {
         return handle_const(api_bundle, index_chain, cx, ident, ty, error_seq);
     }
-    let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
     let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
@@ -1430,12 +1552,16 @@ fn handle_property(
                         format!("set_{}", prefixed_ident).as_str(),
                         Span::call_site(),
                     );
+                    let set_call = cx.call(
+                        ident,
+                        quote! { self.#set_property(cx, #maybe_index_chain_arg value) },
+                    );
                     let es = error_seq.next();
                     let ev_kind_builder = cx.prepare_event_kind_builder();
                     quote! {
                         let mut rd = BufReader::new(data.as_slice());
                         let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
-                        match self.#set_property(cx, #maybe_index_chain_arg value)#maybe_await {
+                        match #set_call {
                             SetResult::Set => {
                                 #ev_kind_builder
                                 Ok(WrAction::WrittenOk(event_kind_builder))
@@ -1462,6 +1588,10 @@ fn handle_property(
                         format!("changed_{}", prefixed_ident).as_str(),
                         Span::call_site(),
                     );
+                    let changed_call = cx.call(
+                        ident,
+                        quote! { self.#changed_property(cx, #maybe_index_chain_arg) },
+                    );
                     let es = error_seq.next();
                     let ev_kind_builder = cx.prepare_event_kind_builder();
                     quote! {
@@ -1471,7 +1601,7 @@ fn handle_property(
                         if self.#prefixed_ident #maybe_index_chain_indices != value {
                             self.#prefixed_ident #maybe_index_chain_indices = value;
                             #mark_changed
-                            self.#changed_property(cx, #maybe_index_chain_arg)#maybe_await;
+                            #changed_call;
                         }
                         Ok(WrAction::WrittenOk(event_kind_builder))
                     }
@@ -1500,8 +1630,12 @@ fn handle_property(
                         format!("get_{}", prefixed_ident).as_str(),
                         Span::call_site(),
                     );
+                    let get_call = cx.call(
+                        ident,
+                        quote! { self.#get_property(cx, #maybe_index_chain_arg) },
+                    );
                     quote! {
-                        match self.#get_property(cx, #maybe_index_chain_arg)#maybe_await {
+                        match #get_call {
                             GetResult::Value(value) => {
                                 #ev_kind_builder
                                 let value: #enforce_ty = value;
@@ -1717,11 +1851,12 @@ fn handle_stream_fn(
     stream: StreamFnRef<'_>,
     error_seq: &mut ErrorSeq,
 ) -> TokenStream {
-    let maybe_await = maybe_quote(cx.use_async, quote! { .await });
     let idx = index_chain.fun_argument_call();
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let close_fn = Ident::new(&format!("close_{prefixed_ident}"), ident.span());
     let state_fn = Ident::new(&format!("stream_{prefixed_ident}"), ident.span());
+    // the stream's state, from `stream_<name>()`
+    let state = cx.call(ident, quote! { self.#state_fn(#idx) });
     let delivery = stream.delivery;
     if delivery == Delivery::Reliable && !cx.use_async {
         return quote! {
@@ -1736,7 +1871,7 @@ fn handle_stream_fn(
     let grant = maybe_quote(
         batched,
         quote! {
-            let granted = self.#state_fn(#idx)#maybe_await.grant_max_age(max_age_us.as_ref().map(|a| a.0));
+            let granted = #state.grant_max_age(max_age_us.as_ref().map(|a| a.0));
         },
     );
     let with_granted = maybe_quote(batched, quote! { .with_max_age_us(Some(granted)) });
@@ -1768,19 +1903,19 @@ fn handle_stream_fn(
     let new_session = match delivery {
         Delivery::Plain if batched => quote! {
             #grant
-            self.#state_fn(#idx)#maybe_await.stream.open();
+            #state.stream.open();
             #closed_opened #with_granted
         },
         Delivery::Plain => quote! {},
         Delivery::Counted => quote! {
             #grant
             let session = self.new_stream_session();
-            self.#state_fn(#idx)#maybe_await #inner .open(session).to_wire(&[]) #with_granted
+            #state #inner .open(session).to_wire(&[]) #with_granted
         },
         Delivery::Reliable => quote! {
             #grant
             let session = self.new_stream_session();
-            match self.#state_fn(#idx).await #inner .open(session).await {
+            match #state #inner .open(session).await {
                 Ok(opened) => opened.to_wire(&[]) #with_granted,
                 Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
             }
@@ -1801,10 +1936,11 @@ fn handle_stream_fn(
     };
     let ev_kind_builder = cx.prepare_event_kind_builder();
     let es_open = error_seq.next();
+    let open_call = cx.call(ident, quote! { self.#prefixed_ident(cx, #idx #args_list) });
     let open = quote! {
         RequestKind::StreamOpen { resume: None, #max_age_arg #maybe_args } => {
             #args_des
-            match self.#prefixed_ident(cx, #idx #args_list)#maybe_await {
+            match #open_call {
                 RpcResult::Ready(output) => {
                     let output: #enforce_ty = output;
                     #open_state
@@ -1837,7 +1973,7 @@ fn handle_stream_fn(
         quote! {
             RequestKind::StreamOpen { resume: Some(cursor), #max_age_arg .. } => {
                 #grant
-                let r = self.#state_fn(#idx)#maybe_await #inner .resume(*cursor)#store_await;
+                let r = #state #inner .resume(*cursor)#store_await;
                 let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
                 #ev_kind_builder
                 opened.to_wire(&[]) #with_granted .ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
@@ -1846,14 +1982,15 @@ fn handle_stream_fn(
         }
     };
     let detach = match delivery {
-        Delivery::Plain if batched => quote! { self.#state_fn(#idx)#maybe_await.stream.close(); },
+        Delivery::Plain if batched => quote! { #state.stream.close(); },
         Delivery::Plain => quote! {},
-        _ => quote! { self.#state_fn(#idx)#maybe_await #inner .detach(); },
+        _ => quote! { #state #inner .detach(); },
     };
+    let close_call = cx.call(ident, quote! { self.#close_fn(cx, #idx) });
     let close = quote! {
         RequestKind::StreamSideband { sideband: StreamSideband::Close } => {
             #detach
-            self.#close_fn(cx, #idx)#maybe_await;
+            #close_call;
             Ok(WrAction::Acknowledged)
         }
     };
@@ -1861,11 +1998,12 @@ fn handle_stream_fn(
     let sideband = match delivery {
         Delivery::Plain => {
             let sideband_fn = Ident::new(&format!("sideband_{prefixed_ident}"), ident.span());
+            let sideband_call = cx.call(ident, quote! { self.#sideband_fn(cx, #idx *sideband) });
             let ev_kind_builder = cx.prepare_event_kind_builder();
             quote! {
                 RequestKind::StreamSideband { sideband } => {
                     // user fn returns Option<StreamSideband>
-                    match self.#sideband_fn(cx, #idx *sideband)#maybe_await {
+                    match #sideband_call {
                         Some(sideband) => {
                             #ev_kind_builder
                             wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
@@ -1888,7 +2026,7 @@ fn handle_stream_fn(
             RequestKind::StreamSideband {
                 sideband: sideband @ (StreamSideband::Ack { .. } | StreamSideband::ResendFrom { .. })
             } => {
-                self.#state_fn(#idx).await #inner .on_host_sideband(sideband).await
+                #state #inner .on_host_sideband(sideband).await
                     .map_err(|_| Error::new(#es_store, ErrorKind::StreamStoreFailed))?;
                 Ok(WrAction::Acknowledged)
             }
@@ -1901,7 +2039,7 @@ fn handle_stream_fn(
         let ser_status = ser_value(cx.multi_req, quote! { status }, error_seq);
         quote! {
             RequestKind::Read => {
-                let status: ww_client_server::stream::StreamStatus = self.#state_fn(#idx)#maybe_await #inner .status();
+                let status: ww_client_server::stream::StreamStatus = #state #inner .status();
                 #ev_kind_builder
                 #ser_status
                 Ok(WrAction::WrittenOk(event_kind_builder))
@@ -1933,7 +2071,6 @@ fn handle_stream(
     err_seq: &mut ErrorSeq,
 ) -> TokenStream {
     let maybe_index_chain_call = index_chain.fun_argument_call();
-    let maybe_await = maybe_quote(cx.use_async, quote! { .await });
 
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
     let sideband_fn = Ident::new(
@@ -1948,9 +2085,13 @@ fn handle_stream(
         wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
         Ok(WrAction::WrittenOk(event_kind_builder))
     };
+    let sideband_call = cx.call(
+        ident,
+        quote! { self.#sideband_fn(cx, #maybe_index_chain_call *sideband) },
+    );
     let call_user_sideband = quote! {
         // user fn returns Option<StreamSideband>
-        let r = self.#sideband_fn(cx, #maybe_index_chain_call *sideband)#maybe_await;
+        let r = #sideband_call;
     };
     let match_user_sideband = quote! {
         match r {
@@ -2019,12 +2160,16 @@ fn handle_stream(
             }
             _ => other_des(),
         };
+        let write_call = cx.call(
+            ident,
+            quote! { self.#write(cx, #maybe_index_chain_call #arg) },
+        );
         let ev_kind_builder = cx.prepare_event_kind_builder();
         match flow {
             None => quote! {
                 RequestKind::Write { data } => {
                     #des_data
-                    self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
+                    #write_call;
                     #ev_kind_builder
                     Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
                 }
@@ -2072,7 +2217,7 @@ fn handle_stream(
                         match verdict {
                             ww_client_server::credit::CreditVerdict::Accept => {
                                 #credit_des_data
-                                self.#write(cx, #maybe_index_chain_call #arg)#maybe_await;
+                                #write_call;
                                 if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
                                     #send_sideband
                                 }

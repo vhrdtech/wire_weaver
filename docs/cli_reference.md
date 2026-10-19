@@ -138,6 +138,7 @@ options, so pass the same ones the `ww_codegen!` call uses:
 | `--name <Trait>`           |                 | The trait, when the crate defines more than one                             |
 | `--server <Struct>`        | `Server`        | Name of the server struct                                                   |
 | `--use-async`              |                 | Async handlers                                                              |
+| `--handler-model <M>`      |                 | With `--use-async`: which handlers are `async fn`, the rest plain `fn`, see [sync and async handlers](api/handlers.md) |
 | `--alloc`                  |                 | Handlers for `no_alloc = false`, taking owned arguments (`String` instead of `&str`) |
 | `--method-model <M>`       | `_=immediate`   | As `method_model` in `ww_codegen!`, see [methods](api/methods.md)           |
 | `--property-model <M>`     | `_=get_set`     | As `property_model`, see [properties](api/properties.md)                    |

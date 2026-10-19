@@ -693,6 +693,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `_send_return_blocking` and `_ser_return_event` are generated for deferred methods on nested trait levels too, named
   like the handler (`plug_vbus_cycle_send_return`); `method_model` patterns match the prefixed name. Test
   `tests/methods` (`deferred_on_nested_level`), `docs/api/methods.md#deferred`.
+- ✅ **SRV-21 handler-model Sync handlers in an async server** — `ww_codegen!(.., handler_model =
+  "device.settings.*|meter.reading=async, _=sync")`: per item (regex over its dotted path, first match, `_` the
+  default, `use_async` without one) its handlers are `async fn` or plain `fn`; the dispatcher and `poll_properties`
+  call sync ones without `.await`, a level whose items are all sync gets a plain `fn` dispatcher. A handler of the
+  other kind is a compile error (`wire_weaver::handler` checks), so is a pattern that matches nothing.
+  `ww api scaffold --handler-model`. Donguru: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
+  `tests/observe` (a mixed server).
 - ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
 - ✅ **SRV-25 event-driven-observe No fixed observe tick** — a device sleeps until something observed is due
   instead of polling every millisecond. `ObserveState::next_wake(now_us)` (`ObserveTable::next_wake` per level: the

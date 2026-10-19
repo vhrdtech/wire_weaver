@@ -10,6 +10,8 @@ use wire_weaver_core::ServerScaffoldConfig;
 use clap::{Subcommand, ValueHint};
 use std::path::PathBuf;
 
+// parsed once from the command line, its size doesn't matter
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 pub enum ApiCommand {
     /// Print API tree
@@ -56,6 +58,11 @@ pub enum ApiCommand {
         /// Generate async handlers
         #[arg(long)]
         use_async: bool,
+
+        /// Which handlers are `async fn` and which plain `fn` with --use-async, e.g.
+        /// "device.settings.*|meter.reading=async, _=sync"; empty: all follow --use-async (see ww_codegen! docs)
+        #[arg(long, default_value = "")]
+        handler_model: String,
 
         /// Method model, see ww_codegen! docs
         #[arg(long, default_value = "_=immediate")]
@@ -171,6 +178,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             server,
             alloc,
             use_async,
+            handler_model,
             method_model,
             property_model,
             const_model,
@@ -185,6 +193,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 server_struct: server,
                 no_alloc: !alloc,
                 use_async,
+                handler_model,
                 method_model,
                 property_model,
                 const_model,

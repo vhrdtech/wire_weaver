@@ -1,3 +1,4 @@
+use crate::handler_model::{HandlerKind, HandlerModel};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -79,4 +80,39 @@ pub(crate) fn str_to_path(path: &str) -> Path {
             })
             .collect(),
     }
+}
+
+/// How the generated server calls user handlers (SRV-21): `async fn` ones with `.await`, plain `fn` ones without,
+/// as `handler_model` (or `use_async` for all) says, through the checks in `wire_weaver::handler`.
+#[derive(Copy, Clone)]
+pub(crate) struct Handlers<'a> {
+    pub(crate) model: &'a HandlerModel,
+    pub(crate) use_async: bool,
+}
+
+impl Handlers<'_> {
+    /// Whether the handlers of the item at the dotted `path` are `async fn`.
+    pub(crate) fn is_async(&self, path: &str) -> bool {
+        self.model.pick(path, self.use_async) == HandlerKind::Async
+    }
+
+    /// `call` (`self.get_x(cx)`) of a handler of the item at `path`, awaited if it's async.
+    pub(crate) fn call(&self, path: &str, call: TokenStream) -> TokenStream {
+        if self.is_async(path) {
+            quote! { wire_weaver::handler::r#async(#call).await }
+        } else {
+            quote! { wire_weaver::handler::sync(#call) }
+        }
+    }
+}
+
+/// Dotted path of an item, as `handler_model` and `omit` see it: `device.settings.vbus_mode`.
+pub(crate) fn dotted(level_path: &[String], ident: &str) -> String {
+    let mut s = String::new();
+    for name in level_path {
+        s.push_str(name);
+        s.push('.');
+    }
+    s.push_str(ident);
+    s
 }

@@ -346,6 +346,7 @@ mod tests {
             server_struct: "Server".into(),
             no_alloc: true,
             use_async: false,
+            handler_model: String::new(),
             method_model: String::new(),
             property_model: String::new(),
             const_model: "SERIAL|GAIN=fn".into(),

@@ -1,5 +1,6 @@
 pub mod codegen;
 pub mod const_model;
+pub mod handler_model;
 // pub mod eval;
 pub mod layout;
 mod local_registry;
@@ -18,6 +19,7 @@ pub mod prelude {
     pub use crate::codegen::api_client::{ClientModel, GenClientConfig, gen_client};
     pub use crate::codegen::api_server::{GenServerConfig, gen_server};
     pub use crate::const_model::{ConstModel, ConstModelItem, ConstModelKind};
+    pub use crate::handler_model::{HandlerKind, HandlerModel, HandlerModelItem};
     pub use crate::property_model::{PropertyModel, PropertyModelItem, PropertyModelKind};
     pub use crate::transform::{load, load_crate, load_dep};
 }

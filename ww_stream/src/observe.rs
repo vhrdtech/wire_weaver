@@ -288,6 +288,9 @@ pub struct ObserveTable<S: ?Sized = [Slot]> {
     /// Bytes the level waits for in its bucket (SRV-25): what its last update held back for (`Selection` held), or
     /// a missed count waiting alone; 0 when it waits for nothing.
     need: u32,
+    /// Any slot not `Off` (SRV-25): kept by `apply` and `reset`, the only places modes change, so the server task's
+    /// `next_wake` after every wake reads a flag instead of walking the slots of every level (FW-40 on Donguru).
+    active: bool,
     slots: S,
 }
 
@@ -306,6 +309,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
             last_refill: None,
             missed: 0,
             need: 0,
+            active: false,
             slots: [Slot::OFF; N],
         }
     }
@@ -321,6 +325,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
                 last_refill: _,
                 missed: _,
                 need: _,
+                active: _,
                 slots: _,
             } = t;
         };
@@ -337,6 +342,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
             core::ptr::addr_of_mut!((*at).last_refill).write(None);
             core::ptr::addr_of_mut!((*at).missed).write(0);
             core::ptr::addr_of_mut!((*at).need).write(0);
+            core::ptr::addr_of_mut!((*at).active).write(false);
             slot.assume_init_mut()
         }
     }
@@ -365,6 +371,7 @@ impl ObserveTable {
         self.last_refill = None;
         self.missed = 0;
         self.need = 0;
+        self.active = false;
     }
 
     /// Number of observable properties of the level.
@@ -391,7 +398,7 @@ impl ObserveTable {
 
     /// Whether any property of the level is observed.
     pub fn is_active(&self) -> bool {
-        self.slots.iter().any(|s| s.mode != Mode::Off)
+        self.active
     }
 
     /// Apply an `Observe` request from the host: validate all of it first (nothing changes when it fails), then
@@ -459,6 +466,7 @@ impl ObserveTable {
                 }
             }
         }
+        self.active = self.slots.iter().any(|s| s.mode != Mode::Off);
         if self.is_active() {
             let wanted = req.budget.map_or(limits.default_budget, |b| b.0);
             self.budget = wanted

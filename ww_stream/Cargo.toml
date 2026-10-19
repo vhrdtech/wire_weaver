@@ -9,7 +9,9 @@ repository.workspace = true
 
 [features]
 default = []
-std = ["ww_client_server/std", "ww_si/std"]
+std = ["alloc", "ww_client_server/std", "ww_si/std"]
+# sink::SinkTx, the host side of credit sinks
+alloc = []
 # typed per-stream instance counters (cnt::Counters<StreamCnt>)
 cnt = ["dep:cnt"]
 # store::LogStore: a power-cut safe log on a block device

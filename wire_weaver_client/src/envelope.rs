@@ -519,6 +519,7 @@ pub(crate) fn request_variant(kind: &RequestKind) -> &'static str {
         RequestKind::Introspect => "Introspect",
         RequestKind::StreamOpen { .. } => "StreamOpen",
         RequestKind::Observe { .. } => "Observe",
+        RequestKind::SinkWrite { .. } => "SinkWrite",
     }
 }
 

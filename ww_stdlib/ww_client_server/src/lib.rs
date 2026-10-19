@@ -163,6 +163,22 @@ pub enum RequestKind<'i> {
     /// [observe]. Answered with [EventKind::Value] holding [observe::ObserveGranted]; updates arrive as
     /// [EventKind::PropertyUpdate].
     Observe { cfg: ObserveRequest<'i> },
+
+    /// Write an item to a credit sink (API-34): its position in units from the start of the session, modulo 2^28
+    /// (`ww_stream::sink::wire_pos`), its units when not 1, and the item itself, the serialized value. Not
+    /// answered; the device acknowledges with [StreamSideband::Ack] and asks for lost writes with
+    /// [StreamSideband::ResendFrom].
+    ///
+    /// `units` comes first, so that its flag fills the nibble after the discriminant: a write of one unit costs
+    /// exactly what a plain [RequestKind::Write] of the position and the item would.
+    SinkWrite {
+        /// Units of the item, `None` for one (the default of typed sinks); a byte sink names the bytes of its
+        /// payload. Never 0.
+        units: Option<UVlq64>,
+        /// Position of the item's first unit, modulo 2^28.
+        pos: UVlq32,
+        data: TailBytes<'i>,
+    },
 }
 
 /// Index for a multi request. Two kinds of multi requests are possible:
@@ -628,6 +644,8 @@ impl RequestKind<'_> {
             RequestKind::Introspect => EventKindDiscriminants::StreamData,
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
             RequestKind::Observe { .. } => EventKindDiscriminants::Value,
+            // not answered: acknowledged by sideband, only an error comes back
+            RequestKind::SinkWrite { .. } => EventKindDiscriminants::Written,
         }
     }
 }
@@ -680,6 +698,11 @@ impl RequestKind<'_> {
                 resume: *resume,
                 max_age_us: *max_age_us,
                 args: args.make_owned(),
+            },
+            RequestKind::SinkWrite { units, pos, data } => RequestKindOwned::SinkWrite {
+                units: *units,
+                pos: *pos,
+                data: data.make_owned(),
             },
             RequestKind::Observe { cfg } => RequestKindOwned::Observe {
                 cfg: cfg.make_owned()?,

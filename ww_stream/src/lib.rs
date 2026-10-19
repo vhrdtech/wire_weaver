@@ -14,6 +14,7 @@
 //! | [store] | [StreamStore](store::StreamStore), [RamRing](store::RamRing) | device |
 //! | [observe] | [ObserveTable](observe::ObserveTable): observed properties, budget, earliest deadline first (SRV-18) | device |
 //! | [sched] | [Scheduler](sched::Scheduler): which stream sends next, by priority | device |
+//! | [sink] | [SinkCredit](sink::SinkCredit), [SinkTx](sink::SinkTx): credit sinks, host to device, on the same messages (API-34) | device, host |
 //! | [batch] | [Batcher](batch::Batcher), [Outbox](batch::Outbox), [Batched](batch::Batched): items as a struct of arrays, sent as one `Series` per event (API-41) | device |
 //! | [counters] | [StreamCnt](counters::StreamCnt) (`cnt` instance counters with the `cnt` feature), [TxStats](counters::TxStats) | device |
 //!
@@ -27,6 +28,7 @@ pub mod counters;
 pub mod observe;
 pub mod rx;
 pub mod sched;
+pub mod sink;
 pub mod store;
 pub mod tx;
 pub mod wake;

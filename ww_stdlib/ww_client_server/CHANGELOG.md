@@ -62,6 +62,8 @@ Wire-incompatible with 0.1.0.
 
 ### 🚀 Features
 
+- `RequestKind::SinkWrite { units, pos, data }` (API-34): a write to a credit sink with its position in units (modulo 2^28) and its units when not 1. `units` comes first, so its flag fills the nibble after the discriminant: a write of one unit is as long as a `Write` of a `CreditWrite` was (`a0 05 ..` instead of `40 05 ..`), a byte sink's chunk of up to 127 bytes one byte longer. `StreamCursor::session` is named by the sender: the host for credit sinks.
+
 - `err_seq` module (SRV-22): the numbers of the error sites of a generated server (item steps, level, request and deferred return sites), `err_seq::Site` with `Site::of` and a `Display` (`item site 2 (handler)`); `Error::err_seq()`, `Error::site()`, `Error::kind()`, `ErrorOwned::err_seq()` / `site()`, and `Display` for `ErrorOwned` (`Unimplemented at item site 2 (handler)`). No wire change.
 * `observe` module (API-38): `RequestKind::Observe { cfg: ObserveRequest }` asks the device to send a trait
   level's properties per `ObserveMode` (`Off`, `OnChange`, `Periodic`, `OnChangeOrBeat`) within a byte budget,

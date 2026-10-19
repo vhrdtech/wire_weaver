@@ -618,12 +618,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
   `ww_self::ApiItemKind::StreamFn`, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).
-- 📋 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `Resend` shared with reliable
-  streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect; `SinkCredit` moves into
-  `ww_stream` (`docs/api/stream_reliability.md`). Sink positions stay as API-42 has them (`u64` in state, modulo
-  2^28 on the wire, bounded by the window), streams keep their full `UVlq64` positions (their gaps are unbounded);
-  a resume cursor for a sink would carry a full position. A session id in `Open` and its answer would also stop a
-  late duplicate `Open` (UDP) from resetting a running session.
+- 🚧 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `ResendFrom` shared with reliable
+  streams, sessions and resume for credit sinks, so a sink (UART tx, a DFU plan) continues after a reconnect.
+  Positions count units the host names per item (1 by default, the payload's bytes for a byte sink), grants count
+  bytes; positions stay as API-42 has them (`u64` in state, modulo 2^28 on the wire), the host keeps at most
+  `MAX_WINDOW` bytes and units in flight; streams keep their full `UVlq64` positions (their gaps are unbounded). The
+  host names the session in `StreamOpen`'s cursor, so a repeated or late duplicate open (UDP) no longer resets a
+  running session. Done: the protocol core, `ww_stream::sink` (`SinkCredit` on the device, `SinkTx` on the host)
+  and `RequestKind::SinkWrite`. Missing: generated code, the host runtime, `ww_dfu` and the tests on it (the old
+  `Credit` / `CreditQuery` / `Resend` still in use), resume in the host API.
+- 💡 **API-53 Sink functions** — `#[sink(T, credit)] fn uart_tx(config: TxConfig) -> Result<A, E>`, the
+  counterpart of stream functions (API-31): a sink opened with a configuration and a typed result, a new session
+  exactly when the configuration changes. The wire has it (`StreamOpen { args }`); codegen and the host API are
+  missing.
 - 💡 **API-24 Guarded calls for critical resources** · `v0.5.x` — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a

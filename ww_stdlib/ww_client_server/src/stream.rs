@@ -79,6 +79,9 @@ pub struct HeadExt {
 
 /// A point in a stream: a position in a session. The host keeps one per open stream and passes it back to resume
 /// after a reconnect or a restart ([RequestKind::StreamOpen](crate::RequestKind::StreamOpen)).
+///
+/// The sender of the data names the session: the device for a stream, the host for a credit sink (API-34), which
+/// opens every session with a cursor, `pos` 0 for a new one.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -86,7 +89,7 @@ pub struct HeadExt {
     final_structure
 )]
 pub struct StreamCursor {
-    /// Session as numbered by the device.
+    /// Session as numbered by the sender (the device for streams, the host for credit sinks).
     pub session: UVlq32,
     /// Position: every unit before it was received (or reported lost).
     pub pos: UVlq64,

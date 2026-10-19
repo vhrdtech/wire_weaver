@@ -2,42 +2,53 @@
 //! integer storage, for timestamps and durations above all (`t0 + i * dt`). The operators (`+`, `*`, ..) compute in
 //! floats instead, see [Quantity].
 
-use crate::ops::scale_i128;
 use crate::unit::Unit;
 use crate::{Prefix, Quantity};
+use ww_numeric::Integer;
+
+// Everything in ww_numeric::Integer: no wider arithmetic than the enabled number types need (u32 with types up to 32
+// bits), so a firmware that adds timestamps links no 64- or 128-bit code.
 
 impl<U: Unit> Quantity<U> {
     /// `self + rhs` exactly, in the finer prefix of the two and in `self`'s number type: `Second::milli(5u32)` plus
     /// `Second::micro(40u16)` is `Second::micro(5040u32)`. `None` when either is a float (use `+`) or `UN` / `IN`,
     /// or when the sum doesn't fit `self`'s number type.
     pub fn checked_add(&self, rhs: &Self) -> Option<Self> {
-        self.checked_combine(rhs, i128::checked_add)
+        self.checked_combine(rhs, Integer::checked_add)
     }
 
     /// `self - rhs` exactly, like [checked_add](Self::checked_add): `None` below zero for an unsigned number type.
     pub fn checked_sub(&self, rhs: &Self) -> Option<Self> {
-        self.checked_combine(rhs, i128::checked_sub)
+        self.checked_combine(rhs, Integer::checked_sub)
     }
 
     /// `self * n` exactly, in `self`'s prefix and number type: `Second::micro(40u16).checked_mul_int(3)` is
-    /// `Second::micro(120u16)`. `None` for a float (use `*`) or `UN` / `IN`, and when the product doesn't fit.
-    pub fn checked_mul_int(&self, n: i64) -> Option<Self> {
-        let x = self.value.to_i128()?.checked_mul(n as i128)?;
-        Some(Self::from_parts(self.prefix, self.value.ty().from_i128(x)?))
+    /// `Second::micro(120u16)`. `n` is any integer that fits an [Integer] (`i32`, `u32`, .., `i64` with a 64-bit number
+    /// type enabled). `None` for a float (use `*`) or `UN` / `IN`, and when the product doesn't fit.
+    pub fn checked_mul_int(&self, n: impl Into<Integer>) -> Option<Self> {
+        let x = self.value.to_integer()?.checked_mul(n.into())?;
+        Some(Self::from_parts(
+            self.prefix,
+            self.value.ty().from_integer(x)?,
+        ))
     }
 
     /// `self + rhs` in `self`'s prefix and number type, wrapping around at the type's width like the counter of a
     /// device clock: `Second::micro(u32::MAX)` plus 2 µs is `Second::micro(1u32)`. `None` when `rhs` is not a whole
-    /// number of `self`'s prefix (40 µs to a value in ms), when either is a float or `UN` / `IN`.
+    /// number of `self`'s prefix (40 µs to a value in ms), when either is a float or `UN` / `IN`, and when `rhs` in
+    /// `self`'s prefix is beyond the widest enabled integer type (`u32::MAX` with types up to 32 bits).
     pub fn wrapping_add(&self, rhs: &Self) -> Option<Self> {
         let rhs = rhs.exact_in(self.prefix)?;
-        self.wrapped(self.value.to_i128()? + rhs)
+        Some(Self::from_parts(self.prefix, self.value.wrapping_add(rhs)?))
     }
 
     /// `self - rhs`, wrapping like [wrapping_add](Self::wrapping_add).
     pub fn wrapping_sub(&self, rhs: &Self) -> Option<Self> {
         let rhs = rhs.exact_in(self.prefix)?;
-        self.wrapped(self.value.to_i128()? - rhs)
+        Some(Self::from_parts(
+            self.prefix,
+            self.value.wrapping_add(-rhs)?,
+        ))
     }
 
     /// `self`, `self + step`, `self + 2 * step`, .. without end, each computed exactly in `self`'s prefix and number
@@ -55,37 +66,28 @@ impl<U: Unit> Quantity<U> {
     pub fn steps(&self, step: &Self) -> Option<Steps<U>> {
         let step = step.exact_in(self.prefix)?;
         // checks that self is an integer of a type that wraps
-        self.wrapped(self.value.to_i128()?)?;
+        self.value.wrapping_add(Integer::ZERO)?;
         Some(Steps { next: *self, step })
     }
 
-    /// The value in units of `prefix`, if that is an integer (scaling down to a finer prefix always is).
-    fn exact_in(&self, prefix: Prefix) -> Option<i128> {
-        let x = self.value.to_i128()?;
+    /// The value in units of `prefix`, if that is an integer (scaling down to a finer prefix always is, if it fits).
+    fn exact_in(&self, prefix: Prefix) -> Option<Integer> {
         let exp = i8::from(self.prefix) - i8::from(prefix);
-        let scaled = scale_i128(x, exp)?;
-        if exp < 0 && scale_i128(scaled, -exp) != Some(x) {
-            return None;
-        }
-        Some(scaled)
+        self.value.to_integer()?.exact_scale_pow10(exp)
     }
 
-    /// `x` in `self`'s prefix and number type, wrapped.
-    fn wrapped(&self, x: i128) -> Option<Self> {
-        Some(Self::from_parts(
-            self.prefix,
-            self.value.ty().from_i128_wrapping(x)?,
-        ))
-    }
-
-    fn checked_combine(&self, rhs: &Self, op: fn(i128, i128) -> Option<i128>) -> Option<Self> {
+    fn checked_combine(
+        &self,
+        rhs: &Self,
+        op: fn(Integer, Integer) -> Option<Integer>,
+    ) -> Option<Self> {
         let prefix = if i8::from(self.prefix) <= i8::from(rhs.prefix) {
             self.prefix
         } else {
             rhs.prefix
         };
         let x = op(self.exact_in(prefix)?, rhs.exact_in(prefix)?)?;
-        Some(Self::from_parts(prefix, self.value.ty().from_i128(x)?))
+        Some(Self::from_parts(prefix, self.value.ty().from_integer(x)?))
     }
 }
 
@@ -94,7 +96,7 @@ impl<U: Unit> Quantity<U> {
 pub struct Steps<U: Unit> {
     next: Quantity<U>,
     /// In `next`'s prefix.
-    step: i128,
+    step: Integer,
 }
 
 impl<U: Unit> Iterator for Steps<U> {
@@ -102,10 +104,8 @@ impl<U: Unit> Iterator for Steps<U> {
 
     fn next(&mut self) -> Option<Quantity<U>> {
         let current = self.next;
-        // checked in `steps`: an integer that wraps; the step is below 2^127 in practice (a `u64` scaled by at most
-        // 10^19 is not), a step that big ends the iterator
-        let x = current.value.to_i128()?.checked_add(self.step)?;
-        self.next = current.wrapped(x)?;
+        // checked in `steps`: an integer that wraps
+        self.next = Quantity::from_parts(current.prefix, current.value.wrapping_add(self.step)?);
         Some(current)
     }
 

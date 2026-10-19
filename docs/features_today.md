@@ -289,6 +289,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
+- **[Quantities without wide integers](std_library/ww_si.md#conversions-and-comparisons)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
 - **[PWM](std_library/ww_pwm.md)**: Outputs and input capture.
 - **[Device time](std_library/ww_timebase.md)**: A clock with sync to a shared time source.

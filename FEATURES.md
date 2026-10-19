@@ -1072,6 +1072,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `AnyQuantity` like the typed quantity of its unit (CLT-31's `DynQuantity`, both rendered by the public `ww_si::tree`
   walk), a device's own unit with its dimension and scale; writes take any quantity whose unit has a dimension.
   `tests/quantities` (an `AnyQuantity` property through the in-process transport), `wire_weaver_py/tests`.
+- ✅ **STD-43 `ww_si` without wide integers on small targets** · `v0.5` — comparisons, `with_prefix`, the exact
+  arithmetic and the integer conversions of quantities work on `ww_numeric::Integer` (sign and a magnitude as wide as
+  the widest enabled number type): with types up to 32 bits only `u32` code, no `i64` / `i128` and no `f64` without
+  float types. `to_i32_in` / `to_u32_in` / `to_u32_wrapping_in`; `to_i128_in` only with 64- or 128-bit types. 6 KiB
+  less flash on Donguru (thumbv6m, `opt-level = "z"`). `docs/std_library/ww_si.md#conversions-and-comparisons`,
+  `ww_stdlib/ww_si/tests/narrow.rs` and `ww_stdlib/ww_numeric/tests/integer.rs` (run with 32-bit types only too).
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for

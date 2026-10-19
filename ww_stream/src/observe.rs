@@ -960,11 +960,10 @@ impl GateCursor {
         if every == 0 {
             return true;
         }
-        let Some(us) = t.to_i128_in(ww_si::Prefix::Micro) else {
+        // wrapping microseconds: the device clock and the grid wrap together
+        let Some(us) = t.to_u32_wrapping_in(ww_si::Prefix::Micro) else {
             return true;
         };
-        // wrapping microseconds: the device clock and the grid wrap together
-        let us = us as u32;
         if let Some(next) = self.next {
             // before the next point of the grid, by at most a period
             let ahead = next.wrapping_sub(us);

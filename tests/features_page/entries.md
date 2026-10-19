@@ -270,6 +270,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 ## Advanced
 
+- STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/ww_si.md#conversions-and-comparisons
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md

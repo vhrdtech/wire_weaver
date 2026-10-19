@@ -15,7 +15,7 @@ let v = Volt::milli(3300u16);          // prefix Milli, value U16(3300)
 let w = Volt::from_f32(3.3);           // prefix Unit, value F32(3.3)
 assert_eq!(Volt::milli(1500u16), Volt::base(1.5f32)); // compares values, not representations
 assert_eq!(v.to_f64(), 3.3);           // in V
-assert_eq!(w.to_i128_in(Prefix::Milli), Some(3300));
+assert_eq!(w.to_i32_in(Prefix::Milli), Some(3300));
 assert_eq!(v.to_string(), "3300 mV");
 let p: Watt = v * Ampere::milli(500u16);              // the compiler checks the units
 ```
@@ -95,15 +95,27 @@ takes the value as is). It computes in `f32`, no `f64` code on a device.
 
 - `to_f64()` / `to_f32()`: the value in the unit itself (V, A, Hz, s, °, g);
 - `to_f64_in(prefix)`: in another prefix, `Volt::from_f32(3.3).to_f64_in(Prefix::Milli)` is about 3300.0;
-- `to_i128_in(prefix)`: as an integer, exact for integer storage (truncated toward zero when going to a bigger
-  prefix), rounded for floats; `None` when it doesn't fit;
+- `to_i32_in(prefix)` / `to_u32_in(prefix)`: as an integer, exact for integer storage (truncated toward zero when
+  going to a bigger prefix), rounded for floats; `None` when it doesn't fit. `Second::milli(5u16).to_u32_in(Prefix::Micro)`
+  is `Some(5000)`;
+- `to_u32_wrapping_in(prefix)`: the same modulo 2^32, what a wrapping 32-bit counter of that unit shows, to compare a
+  timestamp with a device clock;
+- `to_i128_in(prefix)`: like `to_i32_in` up to `i128`, only with a 64- or 128-bit number type enabled (`std` has
+  them);
 - `to_si_f64()`: in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005 (kg);
 - `with_prefix(prefix)`: the same value in another prefix and the same number type, if that is exact
   (`Volt::milli(3000u16)` to `Unit` is 3 V; 3300 mV is `None`), for autoranging before sending;
 - `same_repr(&other)`: same prefix and the same number in the same type, a cheap "did it change since I sent it".
 
 `PartialEq` and `PartialOrd` compare values across prefixes and number types: `Volt::milli(1000u16) == Volt::base(1u8)`.
-Two integers are compared exactly, even 60 orders of magnitude apart; otherwise through `f64`.
+Two integers are compared exactly, even 60 orders of magnitude apart; through `f64` when one is a float.
+
+On a small MCU the integer conversions, comparisons and the exact arithmetic below take no wider arithmetic than the
+enabled number types need: with types up to 32 bits (`u32`, `i32`, ..) everything is `u32` code, nothing of 64 or
+128 bits is linked, and `ww_numeric::Integer` (sign and magnitude) does the work. The same prefix compares the stored
+numbers; across prefixes the value with the bigger prefix is scaled by powers of ten with an overflow check, and an
+overflow means it is the bigger one. On a Cortex-M0+ (Donguru, opt-level `z`) this took 6 KiB of flash off what
+widening to `i128` cost.
 
 `Display` writes the number as stored with its prefix, `{:#}` in the unit itself; `Debug` adds the unit's name and
 the number type, `defmt::Format` is like `Display`:
@@ -167,14 +179,14 @@ keep integer storage and never round:
 |---------------------------|---------------------------------------------------------------------------------------|
 | `a.checked_add(&b)`       | `a + b` in the finer prefix of the two and `a`'s number type                          |
 | `a.checked_sub(&b)`       | `a - b`, the same way                                                                 |
-| `a.checked_mul_int(n)`    | `a * n` (an `i64`) in `a`'s prefix and number type                                    |
+| `a.checked_mul_int(n)`    | `a * n` (any integer up to the widest enabled type) in `a`'s prefix and number type   |
 | `a.wrapping_add(&b)`      | `a + b` in `a`'s prefix and number type, wrapping at its width like a device clock    |
 | `a.wrapping_sub(&b)`      | `a - b`, the same way                                                                 |
 | `t0.steps(&dt)`           | `t0`, `t0 + dt`, `t0 + 2·dt`, .. without end, each as `wrapping_add` computes it      |
 
 The `checked_*` ones give `None` when the result doesn't fit the number type; all of them give `None` for floats
 (their operators are `+`, `-`, `*`) and the `wrapping_*` ones and `steps` when `b` is not a whole number of `a`'s
-prefix (40 µs added to a time in ms).
+prefix (40 µs added to a time in ms), or when `b` in `a`'s prefix is beyond the widest enabled integer type.
 
 ```rust
 use ww_si::Second;

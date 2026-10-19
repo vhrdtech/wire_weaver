@@ -2,6 +2,15 @@
 
 ### 🚀 Features
 
+* `Integer` (STD-43): the exact value of any integer variant as sign and `Magnitude`, the narrowest unsigned type that
+  holds every enabled number type (`u32` with types up to 32 bits, `u64` with `u64` / `i64` / `uvlq64`, `u128` with
+  `u128` / `i128`). `NumericValue::to_integer`, `NumericBaseType::from_integer`, `NumericValue::wrapping_add(Integer)`;
+  `Integer::cmp_pow10` (compares `a * 10^p` with `b * 10^q` exactly at any distance: the bigger power is scaled in `u32`
+  when both fit one, an overflow decides), `checked_scale_pow10`, `exact_scale_pow10`, `to_u32_wrapping_pow10`,
+  `checked_add` / `checked_sub` / `checked_mul`, `to_i32` / `to_u32`, `Ord`, `Display`, `defmt::Format`. With types up
+  to 32 bits it is all `u32` code: no 64- or 128-bit arithmetic, not even the 64-bit multiply that `u32::checked_mul` is
+  on Cortex-M0 (multiplying by ten checks against `MAX / 10`).
+* `NumericValue::is_float` is `#[inline]`, so code behind it folds away without float types.
 * `SeriesStore::set` of `NumericValue` is `#[inline(always)]`: a known variant folds to two stores at `opt-level = "z"` too.
 * `NumericValueStore` is built in place by `SeriesStore::init_store` (API-39).
 * `NumericValueCells`, the `shrink_wrap::series::SeriesCells` of `NumericValue` (API-50, observe cells): the

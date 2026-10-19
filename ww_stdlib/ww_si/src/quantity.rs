@@ -1,6 +1,8 @@
 //! Constructors, conversions, comparisons and formatting, written once for every [Quantity].
 
-use crate::ops::{compare, scale_f32, scale_f64, to_i128_scaled};
+use crate::ops::{
+    compare, scale_f32, scale_f64, to_i32_scaled, to_u32_scaled, to_u32_wrapping_scaled,
+};
 use crate::tree::{self, write_unit};
 use crate::unit::{Unit, UnitExpr};
 use crate::{Prefix, Quantity};
@@ -108,10 +110,40 @@ impl<U: Unit> Quantity<U> {
         )
     }
 
+    /// The value in units of `prefix` as an `i32`: exact for integer storage (truncated toward zero when `prefix` is
+    /// bigger than the stored one), rounded for floats (`f32` arithmetic for an `F32`). `None` when it doesn't fit or is
+    /// `NaN`. `u32` arithmetic only with number types up to 32 bits: `Second::milli(5u16).to_i32_in(Prefix::Micro)` is
+    /// `Some(5000)`.
+    pub fn to_i32_in(&self, prefix: Prefix) -> Option<i32> {
+        to_i32_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+    }
+
+    /// The value in units of `prefix` as a `u32`, like [to_i32_in](Self::to_i32_in): `None` below zero.
+    pub fn to_u32_in(&self, prefix: Prefix) -> Option<u32> {
+        to_u32_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+    }
+
+    /// The value in units of `prefix` modulo `2^32` (two's complement below zero): what a wrapping 32-bit counter of
+    /// that unit shows, for comparing a timestamp with a device clock (`Second::micro(u64)` past `u32::MAX` wraps).
+    /// Truncated toward zero when `prefix` is bigger than the stored one. Floats are rounded and taken from `-2^31`
+    /// up to below `2^32` only, `None` beyond, for `NaN` and `UN` / `IN`.
+    pub fn to_u32_wrapping_in(&self, prefix: Prefix) -> Option<u32> {
+        to_u32_wrapping_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+    }
+
     /// The value in units of `prefix` as an integer: exact for integer storage (truncated toward zero when `prefix` is
-    /// bigger than the stored one), rounded for floats. `None` when it doesn't fit in `i128` or is `NaN`.
+    /// bigger than the stored one), rounded for floats. `None` when it doesn't fit in `i128` or is `NaN`. Only with a
+    /// 64- or 128-bit number type enabled (`u64`, `i64`, `uvlq64`, `u128`, `i128`, or `std`): with types up to 32 bits,
+    /// [to_i32_in](Self::to_i32_in) and [to_u32_in](Self::to_u32_in) do it without 128-bit code.
+    #[cfg(any(
+        feature = "u64",
+        feature = "i64",
+        feature = "uvlq64",
+        feature = "u128",
+        feature = "i128"
+    ))]
     pub fn to_i128_in(&self, prefix: Prefix) -> Option<i128> {
-        to_i128_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+        crate::ops::to_i128_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
     }
 
     /// The value in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005
@@ -132,13 +164,8 @@ impl<U: Unit> Quantity<U> {
             #[cfg(feature = "f64")]
             NumericValue::F64(x) => NumericValue::F64(scale_f64(x, from - to)),
             value => {
-                let x = value.to_i128()?;
-                let scaled = crate::ops::scale_i128(x, from - to)?;
-                // truncated going to a bigger prefix: not exact
-                if crate::ops::scale_i128(scaled, to - from) != Some(x) {
-                    return None;
-                }
-                value.ty().from_i128(scaled)?
+                let x = value.to_integer()?.exact_scale_pow10(from - to)?;
+                value.ty().from_integer(x)?
             }
         };
         Some(Self::from_parts(prefix, value))
@@ -164,7 +191,8 @@ impl<U: Unit> PartialEq for Quantity<U> {
 }
 
 /// Compares the values across prefixes and number types: exactly when both are integers (no overflow even 60 orders
-/// of magnitude apart), through `f64` otherwise.
+/// of magnitude apart, and no wider arithmetic than the enabled number types need: `u32` with types up to 32 bits),
+/// through `f64` when one is a float.
 impl<U: Unit> PartialOrd for Quantity<U> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         compare(
@@ -220,8 +248,8 @@ pub(crate) fn defmt_number(value: &NumericValue, f: defmt::Formatter<'_>) {
         NumericValue::F32(x) => defmt::write!(f, "{=f32}", x),
         #[cfg(feature = "f64")]
         NumericValue::F64(x) => defmt::write!(f, "{=f64}", x),
-        value => match value.to_i128() {
-            Some(x) => defmt::write!(f, "{=i128}", x),
+        value => match value.to_integer() {
+            Some(x) => defmt::write!(f, "{}", x),
             None => defmt::write!(f, "?"),
         },
     }

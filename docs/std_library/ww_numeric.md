@@ -44,3 +44,11 @@ three variants grow with the value:
 `From<u16>`, `From<f32>`, `From<UVlq32>`, .. for `NumericValue` (each behind its type's feature), so APIs can take
 `impl Into<NumericValue>`. `to_f64()` and `as_f32()` give the value as a float, `to_i128()` the exact value of an
 integer variant, `unsigned_bits()` the width at which an unsigned counter wraps (`U32` and `UVlq32`: 32).
+
+`to_integer()` gives the exact value of an integer variant as an `Integer`: a sign and a magnitude in the narrowest
+unsigned type that holds every enabled number type (`Magnitude`: `u32` with types up to 32 bits, `u64` with `u64` /
+`i64` / `uvlq64`, `u128` with `u128` / `i128`). It compares and scales by powers of ten exactly across number types
+(`cmp_pow10`, `checked_scale_pow10`, `exact_scale_pow10`), adds and multiplies with overflow checks, and goes back
+into any number type with `NumericBaseType::from_integer` or wrapping with `NumericValue::wrapping_add`. On a
+firmware with 32-bit numbers this is all `u32` code, where `to_i128()` would bring 128-bit arithmetic: `ww_si`'s
+comparisons and conversions are built on it.

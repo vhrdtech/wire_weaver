@@ -2,6 +2,22 @@
 
 ### 🚀 Features
 
+* No 64- or 128-bit code on small targets (STD-43): comparisons (`PartialEq` / `PartialOrd` of `Quantity`, `DeciBel`,
+  `DeciBelmW`), `with_prefix`, the exact arithmetic (`checked_add`, `checked_sub`, `checked_mul_int`, `wrapping_add`,
+  `wrapping_sub`, `steps`), `Display` and `defmt::Format` work on `ww_numeric::Integer` instead of widening every value
+  to `i128`. The same prefix compares the stored numbers; across prefixes the value with the bigger prefix is scaled by
+  powers of ten in `u32` with an overflow check, an overflow means it is the bigger one; signs and `u32` against `i32`
+  go by sign and magnitude. Results are the same and exact. The `f64` fallback is only reached when one value is a
+  float, so a firmware without float types has no `f64` code from it either. Donguru (STM32G0B1, thumbv6m, number types
+  `u16` / `u32` / `i32`, `PartialEq` of settings and observe values), flash `.text`: 286 448 → 280 292 B (−6 156 B) at
+  `opt-level = "z"`, where `scale_i128` (1 720 B), `i128::checked_pow` (1 278 B), `NumericValue::to_i128`, `__muldf3`
+  and `__divdf3` are gone and `ops::compare` with its helpers is 316 B; 405 144 → 401 924 B (−3 220 B) at
+  `opt-level = 3`, `ops::compare` 4 006 → 760 B, none of them calling `__aeabi_lmul` or another 64-bit helper (`llvm-nm` /
+  `llvm-objdump`).
+* `Quantity::to_i32_in(prefix)` and `to_u32_in(prefix)`: the value in units of `prefix` as `i32` / `u32`, exact for
+  integers (truncated toward zero to a bigger prefix), rounded for floats (in `f32` for an `F32`), `None` when it
+  doesn't fit; `u32` arithmetic only. `Quantity::to_u32_wrapping_in(prefix)`: the same modulo 2^32, to compare a
+  timestamp with a wrapping 32-bit device clock.
 * `Quantity`, `Prefix`, `Timed` and the other `series` types derive `shrink_wrap::series::SeriesCells` (API-50,
   observe cells), so quantities can be properties of an observe cells level.
 
@@ -31,6 +47,14 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   `SIExpr::of::<units::Volt>()`, `BaseUnit::Named { name, symbol, exp }` becomes
   `SIExpr::Named { name, symbol, dim, scale }`.
 * `DeciBel` and `DeciBelmW` stay plain structs without a prefix.
+* `Quantity::to_i128_in` exists only with a 64- or 128-bit number type enabled (`u64`, `i64`, `uvlq64`, `u128`, `i128`,
+  or `std`). With types up to 32 bits use `to_i32_in` / `to_u32_in` (STD-43).
+* `Quantity::checked_mul_int(n)` takes `impl Into<ww_numeric::Integer>` instead of an `i64`: literals and `i32` / `u32`
+  / smaller integers work as before, an `i64` only with a 64-bit number type enabled. `Steps` keeps its step as an
+  `Integer`.
+* `wrapping_add`, `wrapping_sub` and `steps` give `None` when `rhs` in `self`'s prefix is beyond the widest enabled
+  integer type (`u32::MAX` with types up to 32 bits); `Steps` no longer ends when a value plus the step would leave
+  `i128`, it wraps in its number type as every other step does.
 
 ### 🚀 Features
 

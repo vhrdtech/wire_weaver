@@ -159,9 +159,9 @@ pub(crate) fn write_number(value: &NumericValue, f: &mut fmt::Formatter<'_>) -> 
         NumericValue::F32(x) => write!(f, "{x}"),
         #[cfg(feature = "f64")]
         NumericValue::F64(x) => write!(f, "{x}"),
-        value => match value.to_i128() {
+        value => match value.to_integer() {
             Some(x) => write!(f, "{x}"),
-            // u128 above i128::MAX, UN / IN
+            // UN / IN
             None => write!(f, "{}", value.to_f64()),
         },
     }

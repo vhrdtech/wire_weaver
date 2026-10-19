@@ -2,8 +2,10 @@
 
 #[cfg(feature = "std")]
 mod alloc;
+mod integer;
 mod store;
 
+pub use integer::{Integer, Magnitude};
 use shrink_wrap::prelude::*;
 pub use shrink_wrap::{UVlq32, UVlq64};
 pub use store::NumericValueStore;
@@ -362,6 +364,7 @@ impl NumericValue {
     }
 
     /// True for `F32` and `F64`.
+    #[inline]
     pub fn is_float(&self) -> bool {
         match self {
             #[cfg(feature = "f32")]

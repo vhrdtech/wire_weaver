@@ -5,6 +5,7 @@ mod ram_ring;
 mod receiver;
 mod reliable;
 mod sim;
+mod sink;
 
 use core::future::Future;
 use core::pin::pin;

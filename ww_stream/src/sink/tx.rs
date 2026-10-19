@@ -394,7 +394,8 @@ impl SinkTx {
         if units == 0 || units > MAX_WINDOW as u64 {
             return Err(SinkTxError::BadUnits { units });
         }
-        if !self.synced || self.resend_from.is_some() {
+        // no grant seen yet: the device's Ack follows the answer to the open
+        if !self.synced || self.window == 0 || self.resend_from.is_some() {
             return Ok(None);
         }
         let len = data.len();

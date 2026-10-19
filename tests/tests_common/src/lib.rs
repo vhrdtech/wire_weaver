@@ -2,6 +2,7 @@
 //! `in_process` transport. Tests drive it with a generated client, exactly as a real device over USB, link setup,
 //! timeouts and streams included.
 
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -48,6 +49,49 @@ pub trait TestProcessEventsAsync {
     fn poll(&mut self, out: &mut impl EventOut, now_ms: u64) -> impl Future<Output = ()> {
         let _ = (out, now_ms);
         async {}
+    }
+
+    /// An event-driven device (SRV-25): what the device waits for before its next [poll](Self::poll), asked anew
+    /// before every wait (its next-wake timer on a [FakeClock], its wake signal). `None`, the default: a poll every
+    /// millisecond.
+    fn wakeup(&mut self) -> Option<Wakeup> {
+        None
+    }
+}
+
+/// What an event-driven test device waits for before its next poll, see [TestProcessEventsAsync::wakeup].
+pub type Wakeup = Pin<Box<dyn Future<Output = ()> + Send>>;
+
+/// A microsecond clock the test moves, with timers on it: the device's clock for observe tests.
+#[derive(Clone)]
+pub struct FakeClock(Arc<tokio::sync::watch::Sender<u64>>);
+
+impl Default for FakeClock {
+    fn default() -> Self {
+        FakeClock(Arc::new(tokio::sync::watch::Sender::new(0)))
+    }
+}
+
+impl FakeClock {
+    pub fn now(&self) -> u64 {
+        *self.0.borrow()
+    }
+
+    /// Moves the clock to `us` (never back), firing the timers that are due.
+    pub fn set(&self, us: u64) {
+        self.0.send_modify(|t| *t = (*t).max(us));
+    }
+
+    pub fn advance(&self, us: u64) {
+        self.0.send_modify(|t| *t += us);
+    }
+
+    /// Resolves once the clock is at `at` or later.
+    pub fn until(&self, at: u64) -> impl Future<Output = ()> + Send + 'static {
+        let mut rx = self.0.subscribe();
+        async move {
+            _ = rx.wait_for(|t| *t >= at).await;
+        }
     }
 }
 
@@ -136,6 +180,8 @@ trait Process {
         out: &mut EventWriter<'_, impl MessageSink>,
         now_ms: u64,
     ) -> impl Future<Output = ()>;
+
+    fn wakeup(&mut self) -> Option<Wakeup>;
 }
 
 struct SyncServer<S>(S);
@@ -156,6 +202,10 @@ impl<S: TestProcessEvents> Process for SyncServer<S> {
     }
 
     async fn poll(&mut self, _out: &mut EventWriter<'_, impl MessageSink>, _now_ms: u64) {}
+
+    fn wakeup(&mut self) -> Option<Wakeup> {
+        None
+    }
 }
 
 struct AsyncServer<S>(S);
@@ -177,6 +227,10 @@ impl<S: TestProcessEventsAsync> Process for AsyncServer<S> {
 
     async fn poll(&mut self, out: &mut EventWriter<'_, impl MessageSink>, now_ms: u64) {
         self.0.poll(out, now_ms).await
+    }
+
+    fn wakeup(&mut self) -> Option<Wakeup> {
+        self.0.wakeup()
     }
 }
 
@@ -301,11 +355,21 @@ async fn serve<S: Process>(
     let started = std::time::Instant::now();
     let mut tick = tokio::time::interval(std::time::Duration::from_millis(1));
     loop {
+        // an event-driven device sleeps until its own wakeup, the others poll every millisecond
+        let wakeup = backend.server.wakeup();
+        let due = async {
+            match wakeup {
+                Some(wakeup) => wakeup.await,
+                None => {
+                    tick.tick().await;
+                }
+            }
+        };
         tokio::select! {
             ready = server.wait() => {
                 _ = server.handle(ready, &mut backend).await;
             }
-            _ = tick.tick() => {
+            _ = due => {
                 if server.is_up() {
                     let now_ms = started.elapsed().as_millis() as u64;
                     backend.server.poll(&mut server.sink(), now_ms).await;

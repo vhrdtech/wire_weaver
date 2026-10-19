@@ -419,6 +419,7 @@ impl Observe {
         } else {
             quote! {}
         };
+        let signal_items = self.signal_items(&state_impl, &state_ty);
         quote! {
             /// What the server keeps about observed properties (SRV-18): one table per trait level with `+observe`
             /// properties, and the limits every `Observe` request is clamped to. The server struct holds it and
@@ -497,6 +498,90 @@ impl Observe {
 
             #updates
             #batch_items
+            #signal_items
+        }
+    }
+
+    /// `ObserveSignal` (SRV-25): a changed bit per observable property and the server task's wake, for a `static`
+    /// any task or interrupt marks changes through; `ObserveState::take_changes` moves the bits into the tables.
+    fn signal_items(&self, state_impl: &TokenStream, state_ty: &TokenStream) -> TokenStream {
+        let mut marks = vec![];
+        let mut takes = vec![];
+        let mut i = 0usize;
+        for level in self.tables() {
+            let field = &level.field;
+            for (k, p) in level.props.iter().enumerate() {
+                let name = mark_changed_ident(&p.prefixed);
+                let doc = format!(
+                    " `{}` changed outside the server state: sent to hosts that observe it on change, the server \
+                    task woken for it. Callable from any task or interrupt.",
+                    p.ident
+                );
+                marks.push(quote! {
+                    #[doc = #doc]
+                    #[inline]
+                    pub fn #name(&self) {
+                        self.0.mark(#i);
+                    }
+                });
+                let (w, bit) = (i / 32, 1u32 << (i % 32));
+                takes.push((
+                    w,
+                    quote! {
+                        if bits & #bit != 0 {
+                            self.#field.mark_changed(#k);
+                        }
+                    },
+                ));
+                i += 1;
+            }
+        }
+        let words = i.div_ceil(32);
+        let takes = (0..words).map(|w| {
+            let ifs = takes.iter().filter(|(tw, _)| *tw == w).map(|(_, t)| t);
+            quote! {
+                let bits = signal.take(#w);
+                if bits != 0 {
+                    #(#ifs)*
+                }
+            }
+        });
+        quote! {
+            /// Changes to observed properties made outside the server state, and the server task's wake (SRV-25):
+            /// a `static` that any task or interrupt marks a property changed through
+            /// (`SIGNAL.mark_changed_<name>()`) or wakes the server task with (`wake()`, `as_wake()` for a sampler
+            /// or a cells writer). The server task selects on `wait()` next to the server's `wait_until(next_wake)`,
+            /// and `poll_properties` takes the changes (`ObserveState::with_signal`).
+            pub struct ObserveSignal(ww_stream::wake::Signal<#words>);
+
+            impl ObserveSignal {
+                pub const fn new() -> Self {
+                    ObserveSignal(ww_stream::wake::Signal::new())
+                }
+
+                #(#marks)*
+            }
+
+            impl Default for ObserveSignal {
+                fn default() -> Self {
+                    Self::new()
+                }
+            }
+
+            impl core::ops::Deref for ObserveSignal {
+                type Target = ww_stream::wake::Signal<#words>;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.0
+                }
+            }
+
+            impl #state_impl ObserveState #state_ty {
+                /// Marks the properties `signal` says changed since the last call, and clears them.
+                pub fn take_changes(&mut self, signal: &ObserveSignal) {
+                    #(#takes)*
+                }
+            }
         }
     }
 

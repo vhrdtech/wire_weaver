@@ -1908,7 +1908,7 @@ impl Observe {
                         #(#caches)*
                         #read_unbounded
                         #batch_offer
-                        let Some(round) = ww_stream::observe::select(
+                        let round = match ww_stream::observe::select(
                             &plan,
                             desc,
                             path,
@@ -1919,8 +1919,14 @@ impl Observe {
                                 #(#measure)*
                                 _ => None,
                             },
-                        )? else {
-                            break;
+                        )? {
+                            ww_stream::observe::Selected::Round(round) => round,
+                            ww_stream::observe::Selected::Nothing => break,
+                            // a missed count waiting alone for budget: `next_wake` waits for its bytes (SRV-25)
+                            ww_stream::observe::Selected::Hold(need) => {
+                                self.observe_state().level(level).0.hold(need);
+                                break;
+                            }
                         };
                         #read_chosen
                         #column_cursor

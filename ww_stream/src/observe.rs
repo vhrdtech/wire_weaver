@@ -1225,7 +1225,9 @@ impl Update {
 /// What goes into the next update of a level (SRV-24), chosen from `plan` within the budget and `buf`: due
 /// properties earliest deadline first, `size(k, scratch)` the upper bound of the bytes slot `k` takes (None: its
 /// value can't be had), a slot in `Samples` mode offering `batch`, the level's oldest batch, with all its columns.
-/// `marks` keeps the choice (one per slot). None when the level has nothing to send at this poll.
+/// `marks` keeps the choice (one per slot). [Selected::Nothing] when the level has nothing to send at this poll,
+/// [Selected::Hold] when only a missed count is due and waits for the bytes it takes (SRV-25: give them to
+/// [ObserveTable::hold], so `next_wake` waits for the bucket).
 pub fn select<'m>(
     plan: &Plan<'_>,
     desc: &LevelDesc<'_>,
@@ -1234,15 +1236,15 @@ pub fn select<'m>(
     marks: &'m mut [Mark],
     batch: Option<&BatchOffer<'_>>,
     size: &mut dyn FnMut(usize, &mut [u8]) -> Option<usize>,
-) -> Result<Option<Round<'m>>, ShrinkWrapError> {
+) -> Result<Selected<'m>, ShrinkWrapError> {
     if plan.is_empty() && plan.missed == 0 {
-        return Ok(None);
+        return Ok(Selected::Nothing);
     }
     let overhead = event_overhead(buf, path, plan.t(), plan.missed())?;
     // nothing due: the missed count goes alone, or waits for budget
     let missed_only = plan.report_missed(desc, overhead);
     if plan.is_empty() && !missed_only {
-        return Ok(None);
+        return Ok(Selected::Hold(plan.missed_need(desc, overhead)));
     }
     let mut sel = plan.selection(desc, overhead, buf.len(), marks);
     let mut batch_offered = false;
@@ -1268,11 +1270,32 @@ pub fn select<'m>(
             break;
         }
     }
-    Ok(Some(Round {
+    Ok(Selected::Round(Round {
         sel,
         missed_only,
         batch_dropped,
     }))
+}
+
+/// What [select] made of a level's plan.
+#[derive(Debug)]
+pub enum Selected<'m> {
+    /// An update to write, send and commit.
+    Round(Round<'m>),
+    /// Nothing to send at this poll.
+    Nothing,
+    /// Only a missed count is due, and it waits for this many bytes in the bucket: [ObserveTable::hold] them.
+    Hold(usize),
+}
+
+impl<'m> Selected<'m> {
+    /// The update, if there is one.
+    pub fn into_round(self) -> Option<Round<'m>> {
+        match self {
+            Selected::Round(round) => Some(round),
+            Selected::Nothing | Selected::Hold(_) => None,
+        }
+    }
 }
 
 /// The values of the update `round` chose, into `buf`: `value(k, column, wr)` writes slot `k`'s value (`column`:

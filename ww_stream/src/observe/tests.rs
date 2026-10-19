@@ -767,8 +767,8 @@ fn batch_of_samples_is_offered_whole() {
     assert_eq!(sel.present(&DESC_BB).count(), 0);
 }
 
-/// One poll as the generated `poll_properties` does it, with the missed count going alone and the hold for it:
-/// the chosen slots and the event length, None when nothing was sent.
+/// One poll as the generated `poll_properties` does it, through the shared [select] (SRV-24), with the missed
+/// count going alone and the hold for it: the chosen slots and the event length, None when nothing was sent.
 fn poll_server(
     table: &mut ObserveTable,
     desc: &LevelDesc<'_>,
@@ -777,29 +777,28 @@ fn poll_server(
 ) -> Option<(Vec<usize>, usize)> {
     let mut due = vec![Due::EMPTY; table.len()];
     let mut marks = vec![Mark::NONE; table.len()];
+    let mut buf = [0u8; 1024];
     let plan = table.plan(now, &LIMITS, &mut due);
-    if plan.is_empty() && plan.missed().is_none() {
-        return None;
-    }
-    let missed_only = plan.report_missed(desc, 4);
-    if plan.is_empty() && !missed_only {
-        let need = plan.missed_need(desc, 4);
-        table.hold(need);
-        return None;
-    }
-    let mut sel = plan.selection(desc, 4, 1024, &mut marks);
-    for k in plan.edf() {
-        if !sel.offer(k, Some(size(k))) {
-            break;
+    let round = match select(&plan, desc, &[], &mut buf, &mut marks, None, &mut |k, _| {
+        Some(size(k))
+    })
+    .unwrap()
+    {
+        Selected::Round(round) => round,
+        Selected::Nothing => return None,
+        Selected::Hold(need) => {
+            table.hold(need);
+            return None;
         }
-    }
+    };
+    let sel = round.selection();
     let chosen: Vec<usize> = (0..table.len()).filter(|k| sel.is_chosen(*k)).collect();
-    let len = if chosen.is_empty() && !missed_only {
+    let len = if chosen.is_empty() && !round.missed_only {
         0
     } else {
         4 + chosen.iter().map(|k| size(*k)).sum::<usize>()
     };
-    table.commit(&plan, &sel, now, (len > 0).then_some(len));
+    table.commit(&plan, sel, now, (len > 0).then_some(len));
     (len > 0).then_some((chosen, len))
 }
 
@@ -981,6 +980,7 @@ fn shared_loop_writes_the_chosen_values() {
         },
     )
     .unwrap()
+    .into_round()
     .expect("both due");
     assert_eq!(measured, [0, 2]);
     assert!(round.needs_value(0) && !round.needs_value(1) && round.needs_value(2));
@@ -1026,6 +1026,7 @@ fn shared_loop_writes_the_chosen_values() {
         &mut |_, _| Some(8),
     )
     .unwrap()
+    .into_round()
     .unwrap();
     assert!(write(&round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
     t.commit(&plan, round.selection(), 1_000, None);

@@ -42,8 +42,7 @@ pub const STORE: u32 = 5;
 pub const RESUME: u32 = 6;
 /// The data is longer than the item's bound.
 pub const TOO_LONG: u32 = 7;
-/// A credit sink's write position doesn't decode (API-28).
-pub const CREDIT_POS: u32 = 8;
+// 8 was `CREDIT_POS`, a credit sink's write position that didn't decode (API-28, gone with API-34): not reused
 /// A deferred method in a multi request (CLT-15), refused before the handler runs.
 pub const DEFERRED_IN_MULTI: u32 = 9;
 
@@ -93,7 +92,7 @@ pub mod stream {
 
 /// Sites of a sink (host to device), by step.
 pub mod sink {
-    pub use super::{CREDIT_POS, KIND_NOT_TAKEN};
+    pub use super::KIND_NOT_TAKEN;
     /// Write: the data is longer than the sink's bound.
     pub const DATA_TOO_LONG: u32 = super::TOO_LONG;
     /// Write: the data doesn't decode.
@@ -200,7 +199,8 @@ impl Site {
                     STORE => "stream store",
                     RESUME => "stream resume",
                     TOO_LONG => "data too long",
-                    CREDIT_POS => "credit position",
+                    // `CREDIT_POS` until API-34: still named for errors of older firmware
+                    8 => "credit sink position (firmware before API-34)",
                     DEFERRED_IN_MULTI => "deferred method in a multi request",
                     _ => return None,
                 });

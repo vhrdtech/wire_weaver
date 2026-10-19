@@ -27,7 +27,7 @@ fn ack(have: u64, grant: u32) -> StreamSideband {
 }
 
 fn resend(from: u64, grant: u32) -> StreamSideband {
-    StreamSideband::ResendFrom {
+    StreamSideband::Resend {
         from: UVlq64(wire_pos(from) as u64),
         grant: UVlq32(grant),
     }

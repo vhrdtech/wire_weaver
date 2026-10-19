@@ -28,6 +28,16 @@ one write, as sent. The host sends an item only when all of it fits into the cre
 credit, `send()` waits, `send_blocking()` blocks and `try_send()` returns `Ok(false)`, so the host never outruns the
 device's receive buffer, however slow the device or fast the link.
 
+**Positions count units**, which the host names for each item: one per value by default, the bytes of the payload
+on a byte sink (`[u8]`, a UART's tx), or what `send_units(value, units)` says (at least one). So the device's
+position, its `have`, means something to user code on both sides: bytes on the line, samples, segments. Credit stays
+in bytes, positions in units.
+
+**The host names the session**: every open is a `StreamOpen` with the host's session and position, a new random one
+at 0 for `open()` and the first `send()`, or one user code picks with `open_session(session)` (from a hash of the data,
+say). The device keeps a session it is in: an open of the same session (a repeated or late one, a reconnect)
+changes nothing and answers where it is; any other starts at 0.
+
 ### Why bytes and not values
 
 What runs out on a device is RAM: the bytes of its receive buffer. Counting values (one slot per write) would make
@@ -47,20 +57,21 @@ item**, or the host could never send it. Three things keep a transfer from getti
 - **A re-grant lets the largest item in.** The device re-grants once it freed `threshold` bytes (half the buffer by
   default); `sized_for` caps the threshold at `buffer - largest item + 1`, so a host waiting for room for a big item
   always gets it with the next grant. With an unbounded type, set the threshold that way yourself
-  (`with_threshold`), or a waiting host only learns of the room from its next `CreditQuery`.
+  (`with_threshold`), or a waiting host only learns of the room from its next `Query`.
 - **The device consumes without waiting for more.** A device that collects data before writing it out (a flash page)
   has to write it once less room than the largest item is left: the host can't send the next item before that.
 
-At the other end, a buffer is at most 64 MiB (`credit::MAX_WINDOW`): `sized_for` doesn't compile with a larger one,
+At the other end, a buffer is at most 64 MiB (`ww_stream::sink::MAX_WINDOW`): `sized_for` doesn't compile with a larger one,
 `try_sized_for` and `set_capacity` return `SinkCreditError::BufferTooLarge`. That keeps positions on the wire short
 and unambiguous ([positions wrap at 256 MiB](stream_protocol.md#positions-wrap-at-256-mib)); a session itself has no
-size limit.
+size limit. The host also keeps at most `MAX_WINDOW` units in flight, and refuses an item of more.
 
 ### Device side
 
 Generated server code does the bookkeeping; user code says how many bytes it can buffer and when it frees some. A
-credit sink has one more handler, `credit_<name>()`, returning its state, a `ww_client_server::credit::SinkCredit`,
-usually a field of the server (arrays of sinks get the index chain and need one state per index):
+credit sink has one more handler, `credit_<name>()`, returning its state, a `ww_stream::sink::SinkCredit` (so the
+firmware crate depends on `ww_stream`), usually a field of the server (arrays of sinks get the index chain and need
+one state per index):
 
 ```rust
 const BUF: usize = 4096;
@@ -101,28 +112,42 @@ impl Server {
 ```
 
 A handler of a typed sink gets the value, not its bytes: `SinkCredit::last_item_len()` is the size of the item it was
-called with, what to `free()` once that value is consumed.
+called with, what to `free()` once that value is consumed; `last_item_units()` its units as the host named them.
 
-- On `Open`, generated code calls `SinkCredit::open()` (a new session), then `sideband_<name>` as for any sideband
-  (it may change the capacity there), then sends the initial credit.
-- On a write, generated code checks its position, calls `write_<name>` for writes in order only, and after it
-  returns sends new credit if `free()` moved the limit far enough.
-- `CreditQuery` is answered by generated code, `sideband_<name>` doesn't see it.
+- On `StreamOpen`, generated code calls `SinkCredit::open(cursor)` (the host's session: kept if it is the one the
+  device is in, else a new one at 0), answers with `StreamOpened` (where the device is, its buffer) and sends an `Ack`
+  with the grant. An open without the host's session is refused.
+- On a write (`SinkWrite`, `SinkWriteUnits`), generated code checks its position, calls `write_<name>` for writes in
+  order only, and after it returns sends an `Ack` with new credit if `free()` moved the limit far enough. A write
+  after a lost one asks for a `Resend` (once per gap); a write while the device has no session (it rebooted, or the
+  host closed) answers `Close` once, and the host opens its session again.
+- `Query` is answered by generated code, `sideband_<name>` doesn't see it; `Close` ends the session
+  (`SinkCredit::close()`), then goes to `sideband_<name>` like any other sideband (it may free what is left there).
+- A read on the sink (`<name>_status()` on the host) returns its `StreamStatus`: open or not, the session, the
+  position, bytes buffered and the capacity.
 - Data freed outside a handler (e.g. after a flash write in the event loop):
-  `if let Some(sb) = state.plan_credit.take_credit()`, send it with
+  `if let Some(sb) = state.plan_credit.take_ack()`, send it with
   `stream_data_ser().plan_sideband_send_blocking(sb, out)` (`plan_sideband_send` in an async server).
-  If that is skipped, the host's next `CreditQuery` picks it up after its query interval.
+  If that is skipped, the host's next `Query` picks it up after its query interval.
 - `SinkCredit::overruns()` counts bytes the host sent beyond its credit (should stay 0; such writes still reach the
   handler).
 
 ### Host side
 
-`Sink<T>` of a credit sink works like any other: `send()` opens the session if needed and waits for credit. Besides:
+`Sink<T>` of a credit sink works like any other: `send()` opens a session if needed and waits for credit. Besides:
 
+- `open()` starts a new session and returns once the device answered; `open_session(session)` the same with the
+  session named by user code.
+- `send_units(value, units)` (`_blocking`, `try_send_units`) sends a value that takes `units` positions;
+  `send_bytes()` on a byte sink counts its bytes.
 - `flush()` / `flush_blocking()` / `try_flush()` waits until the device accepted everything sent so far, resending
   what was lost; `close()` flushes first, then sends `Close`.
-- `credit_progress()` returns `(accepted, sent)` bytes of the session (`u64`, a session has no size limit), e.g. for
+- `credit_progress()` returns `(accepted, sent)` units of the session (`u64`, a session has no size limit), e.g. for
   a progress bar.
+- A device that lost the session (it answers an open behind what it had acknowledged, after a reboot) fails the call
+  with `StreamError::SinkSessionLost { device_at, acked }`: what was sent from `device_at` on is gone, user code
+  decides what to do (a DFU plan starts over); the next value opens a new session. A link that went down fails the
+  call with `UnexpectedEvent(Disconnected)` as before.
 - `set_credit_config(CreditConfig { query_interval, stall_timeout })` tunes it to the link: `query_interval` (1 s by
   default) longer than the link's round trip, `stall_timeout` (30 s by default) longer than the device's worst stall
   (a flash sector erase takes 1-2 s); with no progress for that long, `send()` fails with a timeout.
@@ -138,10 +163,9 @@ order with the data. Generated code uses it for the protocol, user code may use 
 | Sideband | Used for |
 |---|---|
 | `Close` | the host closes a stream or sink (`close_<name>` on a stream, `sideband_<name>` on a sink); the device ends a stream |
-| `Open` | the host opens a sink (credit sinks: a new session) |
+| `Open` | the host opens a plain sink, for its `sideband_<name>` (credit sinks are opened with `StreamOpen`) |
 | `FrameSync`, `SizeHint(n)`, `User(n)` | free for the API's own meaning: frame boundaries in a byte stream, the size of what follows, application events |
-| `Credit`, `CreditQuery`, `Resend` | credit sinks, handled by generated code |
-| `Ack`, `ResendFrom`, `Query` | counted and reliable streams, handled by generated code |
+| `Ack`, `Resend`, `Query` | counted and reliable streams and credit sinks, handled by generated code |
 
 From the host, plain streams and sinks pass a sideband to the device's `sideband_<name>(cx, sideband)`: returning
 `Some(sideband)` sends it back as a sideband event on the same stream, `None` only acknowledges the request. Either way

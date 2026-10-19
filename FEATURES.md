@@ -439,12 +439,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_core` unit tests, `ww api tree` (`docs/types.md#type-aliases`). `use .. as ..` renames are followed
   (API-46).
 - ✅ **API-47 Resend and resume from inside a multi-unit event** · `v0.5` — an event of several units (a block, a
-  batch, API-41) may be asked for again from a position inside it: a `ResendFrom` there, or a resume from a cursor
+  batch, API-41) may be asked for again from a position inside it: a `Resend` there, or a resume from a cursor
   user code confirmed in the middle of it (`AckMode::Explicit`). The device sends the event that holds the position
   whole (`StreamStore::read` returns it for every store), the host's `Receiver` takes it with
   `Verdict::Accept { skip }` (also for ranges it had before a resume), `PositionedStream` gives the new units. Fixed
-  with it: `ResendFrom` no longer counts as an acknowledgement on the device (the store kept less than an explicit
-  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late `ResendFrom`
+  with it: `Resend` no longer counts as an acknowledgement on the device (the store kept less than an explicit
+  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late `Resend`
   on a reordering link stalled a backfill), the store is released when the backfill run ends in `next_event`. Tests
   `ww_stream` `tests/sim.rs` (batches of 1..64 units, a resend from every position inside, a resume cursor inside a
   batch, chaos with acks inside batches), `wire_weaver_client` `stream_e2e_tests`
@@ -470,7 +470,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`ww_stream::tx::Counted` / `Reliable`), resume by cursor (`name_resume(cursor)`), answer a read with their
   `StreamStatus` (`name_status()`), send with `stream_data_ser().<name>_send` (counted) or push into the store with
   `<name>_push` (reliable), which the generated `poll_streams` sends by priority between requests and resends on the
-  host's `ResendFrom`; `ww api scaffold`, introspection (`ApiItemKind::StreamFn`), compatibility check and API diff
+  host's `Resend`; `ww api scaffold`, introspection (`ApiItemKind::StreamFn`), compatibility check and API diff
   know them. Includes API-15. Not yet: reliable streams in resource arrays (`poll_streams` refuses them), the open
   arguments in `StreamStatus`, stream functions in the dynamic client and Python (CLT-23), streams that detach by
   themselves when the link goes down (a resume re-attaches) (`docs/api/stream_reliability.md`,
@@ -609,7 +609,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **API-30 Counted and reliable streams** · `v0.5` — counted streams put a head in every event (flags and a
   length-coded 64-bit `pos` in units the device names when it sends, the event's `units`, `lost`, optional device time
   `t`), so drops on the device, link losses and duplicates are reported exactly and item types carry no `seq` /
-  `lost` / `t` fields (IO family D4, D5). Reliable streams add `Ack` / `ResendFrom` / `Query` (go-back-N, grants in
+  `lost` / `t` fields (IO family D4, D5). Reliable streams add `Ack` / `Resend` / `Query` (go-back-N, grants in
   bytes), keep unacknowledged events in a store, resume by cursor after a reconnect with the latest values first and
   the backlog beside them; a send scheduler with priorities between streams; typed `cnt` counters
   (`docs/api/stream_reliability.md`). Done, the protocol core: wire types in `ww_client_server::stream`
@@ -618,7 +618,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
   `ww_self::ApiItemKind::StreamFn`, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).
-- 🚧 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `ResendFrom` shared with reliable
+- 🚧 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `Resend` shared with reliable
   streams, sessions and resume for credit sinks, so a sink (UART tx, a DFU plan) continues after a reconnect.
   Positions count units the host names per item (1 by default, the payload's bytes for a byte sink), grants count
   bytes; positions stay as API-42 has them (`u64` in state, modulo 2^28 on the wire), the host keeps at most

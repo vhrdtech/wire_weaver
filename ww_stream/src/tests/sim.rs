@@ -827,7 +827,7 @@ fn reliable_batches_lossy_link() {
     }
 }
 
-/// A `ResendFrom` from every position inside a batch: the device sends the whole batch again with its own position
+/// A `Resend` from every position inside a batch: the device sends the whole batch again with its own position
 /// (no `lost`), the receiver takes it without the units before the position.
 #[test]
 fn reliable_resend_from_every_position_inside_a_batch() {
@@ -847,7 +847,7 @@ fn reliable_resend_from_every_position_inside_a_batch() {
             assert_eq!(sent.len(), 3);
             // the host got the first event and the batch up to `from`, then lost the rest of it
             let from = 3 + k;
-            let resend = StreamSideband::ResendFrom {
+            let resend = StreamSideband::Resend {
                 from: UVlq64(from),
                 grant: UVlq32(10_000),
             };
@@ -898,7 +898,7 @@ fn reliable_resend_from_every_position_inside_a_batch() {
 }
 
 /// A host that saved part of a batch crashes and resumes from a cursor inside it: from there on every unit
-/// arrives exactly once (`ResendFrom`s inside the batch too, on a lossy link), nothing is reported missing.
+/// arrives exactly once (`Resend`s inside the batch too, on a lossy link), nothing is reported missing.
 fn resume_inside(n: u64, k: u64, after: usize, faults: Faults, seed: u64) {
     use wire_weaver::shrink_wrap::{UVlq32, UVlq64};
     let mut sim = ReliableSim::new(seed, RamRing::<32768>::new(), faults, faults);

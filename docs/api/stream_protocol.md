@@ -74,14 +74,14 @@ bytes, since what runs out on the receiving side is memory:
 | Sideband | Direction | Meaning |
 |---|---|---|
 | `Ack { have, backfill, grant }` | receiver → sender | received every unit before `have` (live run) and before `backfill` (backfill run, while there is one); the sender may have up to `grant` bytes of events in flight beyond them |
-| `ResendFrom { from, grant }` | receiver → sender | units from `from` on are missing, in whichever run `from` falls: send again from there |
-| `Query { sent, backfill }` | sender → receiver | "I have sent up to here, where are you?", when out of credit or nothing was heard for a while; answered with `Ack` or `ResendFrom` |
+| `Resend { from, grant }` | receiver → sender | units from `from` on are missing, in whichever run `from` falls: send again from there |
+| `Query { sent, backfill }` | sender → receiver | "I have sent up to here, where are you?", when out of credit or nothing was heard for a while; answered with `Ack` or `Resend` |
 
 All three carry the whole state, so losing one is harmless: the next one replaces it.
 
 - **The device** keeps every event in its store until an `Ack` passes it, sends while the bytes in flight before the
   next event are below the grant (so a grant smaller than an item can't stall the stream), and goes back on
-  `ResendFrom` (go-back-N). A `ResendFrom` acknowledges nothing (with `Explicit` the host may have received more
+  `Resend` (go-back-N). A `Resend` acknowledges nothing (with `Explicit` the host may have received more
   than its user code confirmed); the host sends an `Ack` right before it when its position moved. With no host,
   nothing is acknowledged: the store fills, then data is dropped and counted.
 - **The host** accepts events of each run in order only, drops duplicates, asks for a resend once per gap, and
@@ -96,13 +96,13 @@ All three carry the whole state, so losing one is harmless: the next one replace
 
 An event of several units (a block of samples, a batch) has positions inside it, and the host can stand at one of
 them: user code confirmed part of a batch (`ack(pos)` with `Explicit`, items saved one by one) and resumes from that
-cursor, or a `ResendFrom` comes from such a position. The device never splits an event: it sends the event that holds
+cursor, or a `Resend` comes from such a position. The device never splits an event: it sends the event that holds
 the position, whole and with its own `pos` (a store reads "the event that holds `pos`, or the first one after it").
 The host takes it without the units it has (`Verdict::Accept { skip }` of `ww_stream::rx::Receiver`): a typed
 `PositionedStream` gives it with `pos` and `units` of the new part, the value is the whole item. The same holds for
 ranges the host had before a resume (they may end inside an event). An event that is all had is a duplicate.
 
-On USB the link doesn't lose, so `ResendFrom` never happens and an `Ack` is a few bytes every half window: a reliable
+On USB the link doesn't lose, so `Resend` never happens and an `Ack` is a few bytes every half window: a reliable
 stream costs almost nothing more than a counted one there, and adds backfill and bounded host memory.
 
 ## Credit sinks on the wire
@@ -186,7 +186,7 @@ let mut samples: Reliable<RamRing<{ 256 * 1024 }>> = Reliable::new(RamRing::new(
 if samples.push(&block_bytes, sets, Some(t)).await? == Pushed::Lost { /* counted, reported to the host */ }
 samples.lost(dropped_sets); // the producer's own ring overflowed: goes into the next event's `lost`
 
-// event loop: what may go out now, the host's Ack / ResendFrom, a Query when the host went silent
+// event loop: what may go out now, the host's Ack / Resend, a Query when the host went silent
 if let Some(ev) = samples.next_event(Run::Live, &mut buf).await? { /* send ev.head and ev.item */ }
 samples.on_host_sideband(&sideband).await?;
 if let Some(query) = samples.poll_query(now_ms) { /* send it */ }
@@ -204,7 +204,7 @@ needs a priority is counted or reliable.
 
 On the host, `ww_stream::rx::Receiver` takes each event's head (`on_item`) and returns a `Verdict`: accept (with the
 gaps before it, each with its run, position, size and cause: `Device`, `Link`, `Store` or `Host`), duplicate, already
-had, late or out of order; `poll(now_ms)` returns the next `Ack` or `ResendFrom` to send. It runs in the client's
+had, late or out of order; `poll(now_ms)` returns the next `Ack` or `Resend` to send. It runs in the client's
 event loop behind every `PositionedStream`, see [Counted and reliable streams on the
 host](counted_streams.md#host-side-positionedstreamt).
 

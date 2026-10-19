@@ -349,7 +349,7 @@ impl RxCore {
 
     // Helpers
 
-    /// Freed seq numbers, and what streams send (`Ack`, `ResendFrom`), to tx.
+    /// Freed seq numbers, and what streams send (`Ack`, `Resend`), to tx.
     fn forward_freed(&mut self, now: Instant) {
         for seq in self.dispatcher.take_freed() {
             self.output.push_back(RxOutput::ToTx(ToTx::Freed(seq)));

@@ -202,7 +202,7 @@ pub enum Verdict {
     Had { gaps: Gaps, backfill_done: bool },
     /// Counted streams: arrived after its units were reported as a link gap: drop it.
     Late,
-    /// Reliable streams: something before it is missing, drop it; a `ResendFrom` is on its way.
+    /// Reliable streams: something before it is missing, drop it; a `Resend` is on its way.
     OutOfOrder,
     /// The stream isn't open.
     NotOpen,
@@ -239,7 +239,7 @@ impl RxStats {
 pub const DEFAULT_WINDOW: u32 = 4 << 20;
 /// A reliable stream acknowledges at least this often while data comes in.
 pub const DEFAULT_ACK_INTERVAL_MS: u64 = 100;
-/// A `ResendFrom` that brought nothing is asked again after this long.
+/// A `Resend` that brought nothing is asked again after this long.
 pub const DEFAULT_RESEND_TIMEOUT_MS: u64 = 500;
 
 #[derive(Debug, Clone)]
@@ -295,7 +295,7 @@ pub struct Receiver {
     backfill_progress: bool,
     /// What the last Ack said
     last_acked: (u64, Option<u64>),
-    /// Position a ResendFrom is owed for (or was sent for, and when)
+    /// Position a Resend is owed for (or was sent for, and when)
     /// Per run (live, backfill)
     resend: [Option<Resend>; 2],
     stats: RxStats,
@@ -669,7 +669,7 @@ impl Receiver {
         gaps
     }
 
-    /// Sideband to send now: a `ResendFrom` (reliable, after a gap), or an `Ack` (reliable: after opening, every
+    /// Sideband to send now: a `Resend` (reliable, after a gap), or an `Ack` (reliable: after opening, every
     /// half window of bytes taken, at least every ack interval while acknowledgements move on, and when the device
     /// asked).
     pub fn poll(&mut self, now_ms: u64) -> Option<StreamSideband> {
@@ -683,14 +683,14 @@ impl Receiver {
             r.sent_ms
                 .is_none_or(|t| now_ms.saturating_sub(t) >= self.resend_timeout_ms)
         };
-        // a ResendFrom acknowledges nothing (user code may not have confirmed what came before it): an Ack that
+        // a Resend acknowledges nothing (user code may not have confirmed what came before it): an Ack that
         // moved goes first, so the device frees its store as soon as it may
         let ack_first = moved && self.resend.iter().flatten().any(resend_due);
         for resend in self.resend.iter_mut().flatten() {
             if !ack_first && resend_due(resend) {
                 resend.sent_ms = Some(now_ms);
                 self.stats.resend_requests += 1;
-                return Some(StreamSideband::ResendFrom {
+                return Some(StreamSideband::Resend {
                     from: UVlq64(resend.from),
                     grant,
                 });

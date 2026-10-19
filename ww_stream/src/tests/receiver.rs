@@ -92,7 +92,7 @@ fn reliable_gap_asks_once_and_again_after_timeout() {
     // 4..8 lost: dropped, one resend for both events after it
     assert_eq!(rx.on_item(&head(8, 4, 0)), Verdict::OutOfOrder);
     assert_eq!(rx.on_item(&head(12, 4, 0)), Verdict::OutOfOrder);
-    let resend = Some(StreamSideband::ResendFrom {
+    let resend = Some(StreamSideband::Resend {
         from: UVlq64(4),
         grant: UVlq32(1000),
     });
@@ -308,7 +308,7 @@ fn two_runs() {
     assert_eq!(rx.on_item(&head(16, 4, 0)), Verdict::OutOfOrder);
     assert!(matches!(
         rx.poll(1),
-        Some(StreamSideband::ResendFrom {
+        Some(StreamSideband::Resend {
             from: UVlq64(15),
             ..
         })
@@ -377,7 +377,7 @@ fn query_finds_tail_loss_and_dropped_backlog() {
     assert!(rx.on_query(70, Some(10)).is_empty());
     assert!(matches!(
         rx.poll(1),
-        Some(StreamSideband::ResendFrom {
+        Some(StreamSideband::Resend {
             from: UVlq64(60),
             ..
         })

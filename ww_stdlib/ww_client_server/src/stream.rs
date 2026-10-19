@@ -783,7 +783,7 @@ mod tests {
         };
         let b = q.to_ww_bytes(&mut buf).unwrap().to_vec();
         assert_eq!(StreamSideband::from_ww_bytes(&b).unwrap(), q);
-        let r = StreamSideband::ResendFrom {
+        let r = StreamSideband::Resend {
             from: UVlq64(u64::MAX),
             grant: UVlq32(1),
         };

@@ -468,7 +468,7 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
             sent,
             backfill: None,
         } => format!("query: sent {} units", sent.0),
-        ResendFrom { from, grant } => {
+        Resend { from, grant } => {
             format!("resend from unit {}, may send {} more bytes", from.0, grant.0)
         }
         other => format!("{other:?}"),

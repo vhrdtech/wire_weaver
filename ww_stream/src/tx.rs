@@ -4,7 +4,7 @@
 //! while no host is there, so the first event after a reconnect says exactly what the host missed.
 //!
 //! [Reliable] keeps every event in a [StreamStore] until the host acknowledges it, sends while the bytes in flight
-//! stay within the host's grant, goes back to where the host asks on `ResendFrom` (go-back-N), and after a resume
+//! stay within the host's grant, goes back to where the host asks on `Resend` (go-back-N), and after a resume
 //! sends two runs: the live run from the newest event on, and the backlog (backfill run) with what the live run
 //! leaves of the link.
 
@@ -705,7 +705,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
         }))
     }
 
-    /// The host's `Ack` or `ResendFrom` (other sideband commands are ignored). Acknowledged events are released
+    /// The host's `Ack` or `Resend` (other sideband commands are ignored). Acknowledged events are released
     /// from the store.
     pub async fn on_sideband(
         &mut self,
@@ -753,7 +753,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
                 }
                 self.grant = grant.0 as u64;
             }
-            StreamSideband::ResendFrom { from, grant } => {
+            StreamSideband::Resend { from, grant } => {
                 self.last_heard_ms = now_ms;
                 self.last_query_ms = None;
                 self.counting.add(StreamCnt::ResendRequests, 1);
@@ -804,7 +804,7 @@ impl<S: StreamStore, const K: usize> Reliable<S, K> {
 
     /// Returns false for an acknowledgement beyond what was sent (ignored, counted as an overrun).
     ///
-    /// What was sent goes up to `high`: after a go-back (a late `ResendFrom` on a reordering link) `next` may be
+    /// What was sent goes up to `high`: after a go-back (a late `Resend` on a reordering link) `next` may be
     /// below what the host has, sending goes on after what it acknowledges.
     fn ack_live(&mut self, have: u64) -> bool {
         if have > self.live.high {

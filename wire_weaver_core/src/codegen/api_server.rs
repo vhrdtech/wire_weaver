@@ -1845,7 +1845,7 @@ fn consts_trait_recursive(
 /// handler named like the stream gets the arguments, `Ok` starts a new session), resumed with a cursor (counted and
 /// reliable), closed with sideband `Close` (`close_<name>`). Counted and reliable streams keep their state in
 /// what `stream_<name>()` returns (`ww_stream::tx::Counted` / `Reliable`), a read on them returns its
-/// `StreamStatus`, and a reliable stream takes the host's `Ack` / `ResendFrom`. Plain streams pass other sideband
+/// `StreamStatus`, and a reliable stream takes the host's `Ack` / `Resend`. Plain streams pass other sideband
 /// commands to `sideband_<name>` as before.
 #[allow(clippy::too_many_arguments)]
 fn handle_stream_fn(
@@ -2036,7 +2036,7 @@ fn handle_stream_fn(
         },
         Delivery::Reliable => quote! {
             RequestKind::StreamSideband {
-                sideband: sideband @ (StreamSideband::Ack { .. } | StreamSideband::ResendFrom { .. })
+                sideband: sideband @ (StreamSideband::Ack { .. } | StreamSideband::Resend { .. })
             } => {
                 #state #inner .on_host_sideband(sideband).await
                     .map_err(|_| Error::new(#es_store, ErrorKind::StreamStoreFailed))?;

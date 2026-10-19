@@ -82,7 +82,7 @@ pub enum SinkVerdict {
     Accept,
     /// Already accepted before (a resend overlapping what arrived), drop it.
     Duplicate,
-    /// Something before it was lost, drop it and send the event if there is one (a `ResendFrom`, once per gap).
+    /// Something before it was lost, drop it and send the event if there is one (a `Resend`, once per gap).
     Gap(Option<StreamSideband>),
     /// Not open: the host didn't open the sink, closed it, or the device lost its session (a reboot). Drop it and
     /// send the event if there is one (a `Close`, once until the next open), so a host that thinks it is open opens
@@ -401,7 +401,7 @@ impl SinkCredit {
         }
     }
 
-    /// Answer to `Query { sent }` from the host (called by generated code, `sent` as on the wire): `ResendFrom` if
+    /// Answer to `Query { sent }` from the host (called by generated code, `sent` as on the wire): `Resend` if
     /// writes before `sent` are missing, `Ack` otherwise; `Close` (once) without a session. None for a position
     /// no host sends.
     pub fn on_query(&mut self, sent: u64) -> Option<StreamSideband> {
@@ -457,7 +457,7 @@ impl SinkCredit {
     fn resend(&mut self) -> StreamSideband {
         self.granted = self.granted.max(self.limit());
         self.owed = false;
-        StreamSideband::ResendFrom {
+        StreamSideband::Resend {
             from: UVlq64(wire_pos(self.have) as u64),
             grant: UVlq32(self.grant()),
         }

@@ -311,7 +311,7 @@ impl SinkTx {
     pub fn on_sideband(&mut self, sideband: &StreamSideband, now_ms: u64) -> SinkSideband {
         let (have, grant, is_resend) = match *sideband {
             StreamSideband::Ack { have, grant, .. } => (have.0, grant.0, false),
-            StreamSideband::ResendFrom { from, grant } => (from.0, grant.0, true),
+            StreamSideband::Resend { from, grant } => (from.0, grant.0, true),
             StreamSideband::Close => {
                 return if self.session.is_some() {
                     self.link_lost();
@@ -371,7 +371,7 @@ impl SinkTx {
             .sum()
     }
 
-    /// Next item to send again after a `ResendFrom` or a resume, if there is credit for it.
+    /// Next item to send again after a `Resend` or a resume, if there is credit for it.
     pub fn next_resend(&mut self) -> Option<SinkWriteOut<'_>> {
         let from = self.resend_from?;
         if !self.synced {

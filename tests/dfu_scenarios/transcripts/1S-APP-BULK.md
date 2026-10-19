@@ -22,7 +22,7 @@
 → bulk.plan: open its session at 0
          8 B  05 04 18 80 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 80 00 90 0e 02
+         8 B  00 83 41 50 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
          9 B  05 80 01 00 00 40 90 0e 00
 → bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 03 00 00 …] } (sink position 0, 1 unit)
@@ -34,9 +34,9 @@
 → bulk.plan ⇐ { offset: 192, data: [64 B: f6 b7 40 41 0b 58 …] } (sink position 3, 1 unit)
         75 B  00 04 1a 03 c0 00 00 00 f6 b7 …
 → bulk.plan: query: sent 4 units
-         6 B  06 04 16 a0 04 02
+         6 B  06 04 16 70 04 02
 ← bulk.plan: ack: have 4 units, may send 2062 more bytes
-         8 B  06 83 41 80 04 90 0e 02
+         8 B  06 83 41 50 04 90 0e 02
    ── half way: the app keeps doing its job and answers anything else
 → node.node()
          4 B  07 00 00 02
@@ -47,7 +47,7 @@
 → bulk.plan: open its session at 0
          9 B  08 04 18 80 82 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 80 00 90 0e 02
+         8 B  00 83 41 50 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
         10 B  08 80 82 01 00 00 40 90 0e 00
 → bulk.plan ⇐ { offset: 256, data: [64 B: a8 09 c6 1b 42 94 …] } (sink position 0, 1 unit)
@@ -61,9 +61,9 @@
 ← bulk.plan_ack ⇒ { have: 484, status: Complete }
          9 B  00 82 42 e4 01 00 00 20 02
 → bulk.plan: query: sent 4 units
-         6 B  09 04 16 a0 04 02
+         6 B  09 04 16 70 04 02
 ← bulk.plan: ack: have 4 units, may send 2062 more bytes
-         8 B  09 83 41 80 04 90 0e 02
+         8 B  09 83 41 50 04 90 0e 02
 → stage.finish()
          4 B  0a 03 60 02
 ← Ok(PlanStored)
@@ -106,7 +106,7 @@
 →    6 B  05 04 04 28 00 02
 ←    7 B  06 04 80 00 00 00 00
 →   10 B  08 08 05 04 18 80 01 00 00 02
-←   21 B  08 08 00 83 41 80 00 90 0e 02 08 09 05 80 01 00
+←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 05 80 01 00
           00 40 90 0e 00
 →  315 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 03 00 00
           27 80 79 0d 97 ef cf f7 40 00 46 57 02 00 00 00
@@ -127,15 +127,15 @@
           94 26 e7 70 71 3b 88 76 ac 3e ff 88 89 53 a0 8e
           c4 56 17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83 02 03
           00 05 00 1e c7 0f b2 57 d1 be fc 01 02 00 03 04
-          00 00 89 02 06 06 04 16 a0 04 02
-←   10 B  08 08 06 83 41 80 04 90 0e 02
+          00 00 89 02 06 06 04 16 70 04 02
+←   10 B  08 08 06 83 41 50 04 90 0e 02
    ── half way: the app keeps doing its job and answers anything else
 →    5 B  04 07 00 00 02
 ←   43 B  08 29 07 80 01 73 69 6d 2d 64 66 75 92 10 00 00
           80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
           02 14 00 00 00 00 00 00 f0 01 57
 →   11 B  08 09 08 04 18 80 82 01 00 00 02
-←   22 B  08 08 00 83 41 80 00 90 0e 02 08 0a 08 80 82 01
+←   22 B  08 08 00 83 41 50 00 90 0e 02 08 0a 08 80 82 01
           00 00 40 90 0e 00
 →  286 B  08 4b 00 04 1a 00 00 01 00 00 a8 09 c6 1b 42 94
           29 60 40 00 75 69 83 ee 6e 08 b6 b8 eb 0a 9b 06
@@ -154,9 +154,9 @@
           f8 d6 1a dc 00 89 02 08 2e 00 04 1a 03 c0 01 00
           00 e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a
           0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a
-          3c 42 2e 57 db 4c 02 06 09 04 16 a0 04 02
+          3c 42 2e 57 db 4c 02 06 09 04 16 70 04 02
 ←   21 B  08 09 00 82 42 e4 01 00 00 20 02 08 08 09 83 41
-          80 04 90 0e 02
+          50 04 90 0e 02
 →    5 B  04 0a 03 60 02
 ←    4 B  03 0a 80 84
 →    6 B  05 0b 01 30 00 02

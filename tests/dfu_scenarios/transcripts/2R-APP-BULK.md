@@ -23,7 +23,7 @@
 → bulk.plan: open its session at 0
          8 B  05 04 18 80 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 80 00 90 0e 02
+         8 B  00 83 41 50 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
          9 B  05 80 01 00 00 40 90 0e 00
 → bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
@@ -41,9 +41,9 @@
 ← bulk.plan_ack ⇒ { have: 359, status: Complete }
          9 B  00 82 42 67 01 00 00 20 02
 → bulk.plan: query: sent 6 units
-         6 B  06 04 16 a0 06 02
+         6 B  06 04 16 70 06 02
 ← bulk.plan: ack: have 6 units, may send 2062 more bytes
-         8 B  06 83 41 80 06 90 0e 02
+         8 B  06 83 41 50 06 90 0e 02
 → stage.finish()
          4 B  07 03 60 02
 ← Ok(Staged)
@@ -108,7 +108,7 @@
 →    6 B  05 04 04 28 00 02
 ←    7 B  06 04 80 00 00 00 00
 →   10 B  08 08 05 04 18 80 01 00 00 02
-←   21 B  08 08 00 83 41 80 00 90 0e 02 08 09 05 80 01 00
+←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 05 80 01 00
           00 40 90 0e 00
 →  443 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01 00
           01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
@@ -137,9 +137,9 @@
           02 08 31 00 04 1a 05 40 01 00 00 d6 1a dc e2 ce
           f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a 0c 12 fe
           27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a 3c 42 2e
-          57 db 7c 02 06 06 04 16 a0 06 02
+          57 db 7c 02 06 06 04 16 70 06 02
 ←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
-          80 06 90 0e 02
+          50 06 90 0e 02
 →    5 B  04 07 03 60 02
 ←    4 B  03 07 80 82
 →    6 B  05 08 01 30 00 02

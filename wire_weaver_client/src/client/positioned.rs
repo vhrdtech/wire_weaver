@@ -97,7 +97,7 @@ pub struct StreamStats {
     pub late: u64,
     /// Reliable: events dropped because something before them was missing (resent after).
     pub out_of_order: u64,
-    /// Reliable: `ResendFrom` requests sent.
+    /// Reliable: `Resend` requests sent.
     pub resend_requests: u64,
     /// Events in the queue now, and their bytes.
     pub queued: usize,
@@ -341,7 +341,7 @@ impl Inner {
         }
     }
 
-    /// Sideband to send now (`Ack`, `ResendFrom`).
+    /// Sideband to send now (`Ack`, `Resend`).
     pub(crate) fn poll(&mut self, now_ms: u64) -> Option<StreamSideband> {
         if self.closed || self.device_closed {
             return None;

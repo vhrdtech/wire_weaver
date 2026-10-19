@@ -19,7 +19,7 @@
 → bulk.plan: open its session at 0
          8 B  04 04 18 80 01 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 80 00 90 0e 02
+         8 B  00 83 41 50 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
          9 B  04 80 01 00 00 40 90 0e 00
 → bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
@@ -29,9 +29,9 @@
 → bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 2, 1 unit)
         75 B  00 04 1a 02 80 00 00 00 28 29 …
 → bulk.plan: query: sent 3 units
-         6 B  05 04 16 a0 03 02
+         6 B  05 04 16 70 03 02
 ← bulk.plan: ack: have 3 units, may send 2062 more bytes
-         8 B  05 83 41 80 03 90 0e 02
+         8 B  05 83 41 50 03 90 0e 02
    ── host restarts; the device keeps its session
 → Disconnect(RequestByUser)
          1 B  02
@@ -47,7 +47,7 @@
 → bulk.plan: open its session at 0
          9 B  03 04 18 80 81 41 00 00 02
 ← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 80 00 90 0e 02
+         8 B  00 83 41 50 00 90 0e 02
 ← bulk.plan: opened at 0, buffer of 2062 bytes
         10 B  03 80 81 41 00 00 40 90 0e 00
 → bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 0, 1 unit)
@@ -59,9 +59,9 @@
 ← bulk.plan_ack ⇒ { have: 359, status: Complete }
          9 B  00 82 42 67 01 00 00 20 02
 → bulk.plan: query: sent 3 units
-         6 B  04 04 16 a0 03 02
+         6 B  04 04 16 70 03 02
 ← bulk.plan: ack: have 3 units, may send 2062 more bytes
-         8 B  04 83 41 80 03 90 0e 02
+         8 B  04 83 41 50 03 90 0e 02
 → stage.finish()
          4 B  05 03 60 02
 ← Ok(Staged)
@@ -106,7 +106,7 @@
           00 3c 02
 ←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
 →   10 B  08 08 04 04 18 80 01 00 00 02
-←   21 B  08 08 00 83 41 80 00 90 0e 02 08 09 04 80 01 00
+←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 04 80 01 00
           00 40 90 0e 00
 →  238 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01 00
           01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
@@ -122,8 +122,8 @@
           46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
           76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
           a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f b2
-          57 d1 be fc 00 89 02 06 05 04 16 a0 03 02
-←   10 B  08 08 05 83 41 80 03 90 0e 02
+          57 d1 be fc 00 89 02 06 05 04 16 70 03 02
+←   10 B  08 08 05 83 41 50 03 90 0e 02
    ── host restarts; the device keeps its session
 →    3 B  30 c1 02
 →   51 B  08 31 01 04 00 00 57 57 44 50 01 92 10 00 00 02
@@ -134,7 +134,7 @@
 →    6 B  05 02 04 28 00 02
 ←    7 B  06 02 80 00 00 00 00
 →   11 B  08 09 03 04 18 80 81 41 00 00 02
-←   22 B  08 08 00 83 41 80 00 90 0e 02 08 0a 03 80 81 41
+←   22 B  08 08 00 83 41 50 00 90 0e 02 08 0a 03 80 81 41
           00 00 40 90 0e 00
 →  212 B  08 4b 00 04 1a 00 c0 00 00 00 02 04 00 04 00 a8
           09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49 c0
@@ -149,9 +149,9 @@
           40 01 00 00 d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa
           e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a
           16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 04 04
-          16 a0 03 02
+          16 70 03 02
 ←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 04 83 41
-          80 03 90 0e 02
+          50 03 90 0e 02
 →    5 B  04 05 03 60 02
 ←    4 B  03 05 80 82
 →    6 B  05 06 01 30 00 02

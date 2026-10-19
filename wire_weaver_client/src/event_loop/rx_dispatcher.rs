@@ -21,7 +21,7 @@ pub(crate) type StreamUpdateReceiver = EventReceiver;
 
 const IGNORE_TIMER_DURATION: Duration = Duration::from_millis(1);
 
-/// How often reliable streams' receivers are polled for `Ack` / `ResendFrom` (they decide when to send).
+/// How often reliable streams' receivers are polled for `Ack` / `Resend` (they decide when to send).
 const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 /// The seq of a timed out request stays in use until a reply to it arrives or this long after it was sent
@@ -411,7 +411,7 @@ impl RxDispatcher {
         }
     }
 
-    /// Sideband the streams' receivers want to send now (`Ack`, `ResendFrom`), as requests.
+    /// Sideband the streams' receivers want to send now (`Ack`, `Resend`), as requests.
     pub fn poll_streams(&mut self, now: Instant) -> Vec<Vec<u8>> {
         let epoch = *self.epoch.get_or_insert(now);
         let now_ms = now.saturating_duration_since(epoch).as_millis() as u64;

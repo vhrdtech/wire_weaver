@@ -2,7 +2,6 @@
 #![doc = include_str!("../README.md")]
 
 pub mod builder;
-pub mod credit;
 pub mod err_seq;
 pub mod max_len;
 pub mod multi_req;
@@ -166,7 +165,7 @@ pub enum RequestKind<'i> {
 
     /// Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,
     /// modulo 2^28 (`ww_stream::sink::wire_pos`), and the item itself, the serialized value. Not answered; the
-    /// device acknowledges with [StreamSideband::Ack] and asks for lost writes with [StreamSideband::ResendFrom].
+    /// device acknowledges with [StreamSideband::Ack] and asks for lost writes with [StreamSideband::Resend].
     ///
     /// Exactly as long as a plain [RequestKind::Write] of the position and the item. Items of other unit counts are
     /// [RequestKind::SinkWriteUnits]: a flag for the units would cost a byte whenever the discriminant ends a byte
@@ -326,9 +325,8 @@ pub enum EventKind<'i> {
     ww_repr = nib
 )]
 pub enum StreamSideband {
-    /// Sent if a stream was successfully opened
-    // Streams are opened with RequestKind::StreamOpen (API-31), only sinks still use it
-    // TODO(API-34): goes away once sinks are opened like streams
+    /// Plain sinks: the host opens the sink, for the device's sideband handler (no protocol meaning). Streams are
+    /// opened with [RequestKind::StreamOpen] (API-31), credit sinks too (API-34, with the host's session).
     Open,
     /// Sent if a stream was successfully closed
     Close,
@@ -338,18 +336,6 @@ pub enum StreamSideband {
     SizeHint(UNib32),
     /// User event, can be used to indicate errors or other data
     User(UNib32),
-    /// Credit sinks, device to host: `have` bytes of items were accepted in order since `Open`, the host may send up
-    /// to byte position `have + grant` (whole items only). Cumulative, a lost one is replaced by the next one.
-    /// `have` is a position on the wire, modulo 2^28, see [credit::wire_pos].
-    // TODO(API-34): Credit, CreditQuery and Resend go, credit sinks move to Ack / Query / ResendFrom (no shim, the
-    // wire may break before rePort rev B), ResendFrom may take the name Resend then
-    Credit { have: UNib32, grant: UNib32 },
-    /// Credit sinks, host to device: the host has sent up to byte position `sent` (modulo 2^28), the device answers
-    /// with [StreamSideband::Credit] or [StreamSideband::Resend].
-    CreditQuery { sent: UNib32 },
-    /// Credit sinks, device to host: writes after `have` (modulo 2^28) were lost, the host sends again from byte
-    /// position `have` (always an item boundary), up to `have + grant` (go-back-N).
-    Resend { have: UNib32, grant: UNib32 },
     /// Counted and reliable streams (API-30), receiver to sender: every unit before `have` (live run) and before
     /// `backfill` (backfill run, while there is one) was received; the sender may have up to `grant` bytes of events
     /// in flight beyond them. Cumulative, a lost one is replaced by the next one.
@@ -361,23 +347,14 @@ pub enum StreamSideband {
     },
     /// Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send
     /// again from there (go-back-N), with up to `grant` bytes in flight.
-    ResendFrom { from: UVlq64, grant: UVlq32 },
+    Resend { from: UVlq64, grant: UVlq32 },
     /// Reliable streams, sender to receiver: "I have sent up to `sent` (live run) and `backfill` (backfill run),
     /// where are you?" when out of credit or nothing was heard for a while; answered with [StreamSideband::Ack] or
-    /// [StreamSideband::ResendFrom].
+    /// [StreamSideband::Resend].
     Query {
         backfill: Option<UVlq64>,
         sent: UVlq64,
     },
-}
-
-/// Data of a [RequestKind::Write] to a sink with credit-based flow control: the byte position of the item's first byte
-/// (bytes of items sent since the start of the session, modulo 2^28, see [credit::wire_pos]), then the item itself,
-/// the serialized value.
-#[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
-pub struct CreditWrite<'i> {
-    pub pos: UVlq32,
-    pub data: TailBytes<'i>,
 }
 
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug), final_structure)]
@@ -896,18 +873,18 @@ mod tests {
             backfill: None,
             grant: UVlq32(grant),
         };
-        assert_eq!(bytes(&ack(0, 4096)), [0x80, 0x00, 0xa0, 0x00]);
+        assert_eq!(bytes(&ack(0, 4096)), [0x50, 0x00, 0xa0, 0x00]);
         assert_eq!(bytes(&ack((1 << 28) - 1, 4096)).len(), 7);
         let query = StreamSideband::Query {
             sent: UVlq64(300),
             backfill: None,
         };
-        assert_eq!(bytes(&query), [0xa0, 0x82, 0x2c]);
-        let resend = StreamSideband::ResendFrom {
+        assert_eq!(bytes(&query), [0x70, 0x82, 0x2c]);
+        let resend = StreamSideband::Resend {
             from: UVlq64(5),
             grant: UVlq32(7),
         };
-        assert_eq!(bytes(&resend), [0x90, 0x05, 0x07]);
+        assert_eq!(bytes(&resend), [0x60, 0x05, 0x07]);
     }
 
     #[test]

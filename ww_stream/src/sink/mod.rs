@@ -1,6 +1,6 @@
 //! Credit sinks on the stream protocol (API-34): the host sends items to the device, the device grants room in its
 //! buffer and acknowledges what it accepted, with the messages reliable streams use the other way round
-//! ([StreamSideband::Ack], [StreamSideband::Query], [StreamSideband::ResendFrom]). See `docs/api/credit_sinks.md`.
+//! ([StreamSideband::Ack], [StreamSideband::Query], [StreamSideband::Resend]). See `docs/api/credit_sinks.md`.
 //!
 //! | | |
 //! |---|---|
@@ -33,7 +33,7 @@
 //!
 //! [StreamSideband::Ack]: ww_client_server::StreamSideband::Ack
 //! [StreamSideband::Query]: ww_client_server::StreamSideband::Query
-//! [StreamSideband::ResendFrom]: ww_client_server::StreamSideband::ResendFrom
+//! [StreamSideband::Resend]: ww_client_server::StreamSideband::Resend
 
 mod credit;
 #[cfg(any(feature = "alloc", test))]

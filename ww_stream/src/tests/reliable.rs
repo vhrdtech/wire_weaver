@@ -33,7 +33,7 @@ fn ack(have: u64, backfill: Option<u64>, grant: u32) -> StreamSideband {
 }
 
 fn resend(from: u64, grant: u32) -> StreamSideband {
-    StreamSideband::ResendFrom {
+    StreamSideband::Resend {
         from: UVlq64(from),
         grant: UVlq32(grant),
     }

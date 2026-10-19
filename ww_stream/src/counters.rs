@@ -13,7 +13,7 @@ pub enum StreamCnt {
     /// Units sent the first time.
     #[cfg_attr(feature = "cnt", count(u64, unit = "unit"))]
     Sent,
-    /// Units sent again (go-back-N after a `ResendFrom`).
+    /// Units sent again (go-back-N after a `Resend`).
     #[cfg_attr(feature = "cnt", count(u64, unit = "unit"))]
     Resent,
     /// Units the producer dropped before they reached the stream (its own ring overflowed, `lost()`).
@@ -28,7 +28,7 @@ pub enum StreamCnt {
     /// Bytes of items acknowledged by the host.
     #[cfg_attr(feature = "cnt", count(u64, unit = "B"))]
     Acked,
-    /// `ResendFrom` requests from the host.
+    /// `Resend` requests from the host.
     #[cfg_attr(feature = "cnt", count(warn))]
     ResendRequests,
     /// Acknowledgements beyond what was sent (a host bug, or a late one from an old session), ignored.

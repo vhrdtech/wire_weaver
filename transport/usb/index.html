@@ -5203,6 +5203,9 @@ runs in its own task:</p>
 <p><code>examples_mcu/nucleo_g0b1re/src/bin/usb_blinky.rs</code> is the complete firmware, <code>examples/blinky</code> the host side.
 <code>server.run()</code> is the whole event loop; to wait on other things next to it (UART data, timers), use
 <code>server.wait()</code> / <code>server.handle()</code> in your own loop, see <a href="../ww_link/#how-the-device-runs-it">link layer</a>.</p>
+<p>A driver with endpoint kinds <code>usb_init()</code> doesn't name (e.g. embassy-stm32's double-buffered bulk endpoints on USB
+v4 parts) can use <code>usb_init_with_endpoints()</code> instead: same as <code>usb_init()</code>, with a closure allocating the OUT and
+IN endpoints.</p>
 <h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Plug and play</strong>: hot-plug is handled — a device that disappears fails outstanding requests and can be

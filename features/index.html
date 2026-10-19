@@ -6193,10 +6193,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   flushes replies at once when no other request waits instead of after the accumulation window (<code>ww_device</code>
   <code>Server::handle</code>; DFU transcripts +1-2 packets). <code>WireWeaverClass::with_endpoints()</code> lets
   firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 -&gt;
-  950 kB/s OUT on the G0). Next: CRC through a pluggable checksum so MCUs can use their
-  CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests that keeps packetization
-  deterministic (flushing whenever the event loop goes idle made the DFU transcripts vary between runs); the same
-  reply flush for the blocking server.</li>
+  950 kB/s OUT on the G0); <code>usb_init_with_endpoints()</code> offers the same choice to callers of the single-function
+  <code>usb_init()</code> convenience, who can't reach into its private <code>UsbBuffers</code>. Next: CRC through a pluggable checksum
+  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests
+  that keeps packetization deterministic (flushing whenever the event loop goes idle made the DFU transcripts
+  vary between runs); the same reply flush for the blocking server.</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>

@@ -13,31 +13,37 @@ Goal (Roman, 19 Oct): shrink WireWeaver's generated server and observe code, ado
   Display. Measured: per-item 0,1,2 counter -1.2 KiB z; fixed per-kind steps -1.6; by role -1.5/-1.7 (kept: simplest,
   same info); all-zero (lossy) would be -3.4. docs/api/errors.md#where-on-the-device-an-error-came-from.
 
-## Donguru (typec_dongle s/19oct2026-server-size)
+## Also on this branch
 
-- c85a0ec SRV-21 adopted (handlers fn, handler_model in ww/mod.rs): O3 397.8 -> 385.2 KiB, z 282.2 -> 262.1.
-- 75b867a SRV-22 sizes: O3 -> 383.5, z -> 260.6.
+- SRV-23 (4bf8a7f0) and SRV-24 (b55f399f) cherry-picked from observe-shared; SRV-25 from observe-wake (871db5cd,
+  98f6306a, 3488a616, then the rest as one tree step), plus 24e7197b `ObserveTable::next_wake` out of line (-4.2 KiB
+  O3). observe-shared and observe-wake also said ready: they hold the same commits, tpm land drops duplicates.
+
+## Donguru (typec_dongle s/19oct2026-server-size), flash O3 / z in KiB
+
+| step | commit | O3 | z |
+|---|---|---|---|
+| baseline (main 0.20.5) | | 397.8 | 282.2 |
+| SRV-21 handlers fn | c85a0ec | 385.2 | 262.1 |
+| SRV-22 err sites | 75b867a | 383.5 | 260.6 |
+| SRV-23/24 observe | bf1673d | 363.1 | 246.4 |
+| MeterReading.power gone | 55a4537 | 355.7 | 243.7 |
+| SRV-25 event-driven | 9d6ccbe | 361.4 | 246.8 |
+
 - Measure: `CARGO_TARGET_DIR=/tmp/server-size-fw cargo build --release` (O3) and
   `CARGO_TARGET_DIR=/tmp/server-size-fw-z CARGO_PROFILE_RELEASE_OPT_LEVEL=z ...`, flash = vector_table+text+rodata+data
-  from `llvm-size -A`.
-
-## Running elsewhere
-
-- observe-shared (opus, P2401#19oct-1434b): SRV-23 unsized ObserveTable (done there, -13.3 KiB O3 / -9.4 z on its
-  baseline), SRV-24 shared observe loop in progress. Knows SRV-21/22 SHAs.
-- observe-wake (top, omarchy-m1, P2401#19oct-1434c): SRV-25 event-driven observe, parked until SRV-24's SHA.
-- ww-si-narrow (sibling, ready): STD-43 ww_si without i128; suggests `to_u32_in(Prefix::Micro)` in fw meter.rs.
-- embassy-upstream (sibling) edits typec_dongle (embassy deps); told it which files I touch.
+  from `llvm-size -A`. just verify green; fw dev and release build.
 
 ## Next
 
-1. MeterReading.power drop (P2534#19oct-1340), offloaded or here.
-2. When SRV-23/24/25 are ready: cherry-pick into this branch (or adopt from their branches), Donguru: server task on
-   next-wake + wake signal instead of OBSERVE_TICK, meter deadband at the ADC; sizes per piece in CHANGELOG.
-3. just verify in typec_dongle, fw dev + release builds, board check on omarchy-m1 (observe, settings, vbus cycle,
-   USB throughput vs FW-24), or say clearly it wasn't done.
+- Board check on omarchy-m1 (observe incl. samples, settings, vbus cycle, USB throughput vs FW-24): session
+  board-check. Not done until it reports.
+- Shipped profile is still opt-level 3; the design note's z-profile switch is a separate decision.
 
 ## Gotchas
 
 - Flaky ww_stream batch::cells_tests::threaded_writer_and_reader under load: filed P2401#19oct-1446.
 - `{{project-name}}_bootloader` errors in the fw build output are noise from a template dir, the build finishes.
+- tpm work spawn --from-here with two repos uses the cwd repo's SHA for both: ops#19oct-1522.
+- /tmp/server-size-x holds a detached typec_dongle worktree at 55a4537 used for measuring; remove with
+  `git -C ~/git/typec_dongle worktree remove /tmp/server-size-x/typec_dongle`.

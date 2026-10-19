@@ -99,8 +99,10 @@ server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf).await?;
 server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?; // stored streams after
 ```
 
-`ObserveState` holds one `ObserveTable<N>` per trait level, sized at compile time (`N` = the level's property
-count) - the per-property deadlines, modes and the level's token bucket. `ww_stream::observe::ObserveLimits` is
+`ObserveState` holds one `ObserveTable<[Slot; N]>` per trait level, sized at compile time (`N` = the level's
+property count) - the per-property deadlines, modes and the level's token bucket. The table's code is the same for
+every level (it works on `ObserveTable<[Slot]>`, SRV-23), so a firmware carries it once however many levels its API
+has. `ww_stream::observe::ObserveLimits` is
 what the device allows every observer: shortest period, default/max budget per level, the total budget, and
 whether to send timestamps.
 

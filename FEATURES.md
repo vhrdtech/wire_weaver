@@ -1188,6 +1188,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `sequential-storage` 8 isn't. Docs `docs/api/settings.md` (pages, erase stalls on G0 / F4 / H7, big-sector
   options) and `docs/evolution/rules.md#settings-stored-on-a-device`, tests `ww_settings/tests` (`just
   test-power-cut`). Hardware check open: real power cuts on a G0B1 (TEST-21), dump decoder (TOOL-12), demo (EX).
+- 🧪 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`** · `v0.5.x` — an `#[optional(slave)]` group in `I2c` and
+  in `Spi`: opening the counted `slave_events` / `slave_frames` stream with a config starts slave mode (closing stops
+  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
+  answers come from a register map the host fills and reads back (`slave_map_write` / `slave_map_read`, applied
+  between two transfers) or from the `slave_answers` credit sink, one answer per read or frame. A host that is too
+  slow: I2C `I2cSlaveUnderrun` (`Fill`, `Stretch { max }` with `ReadWaiting` sent at once, `Nack` while empty), SPI
+  the idle byte or the last answer again, flagged `underrun`. Limits of clock stretching (SMBus 25 ms, masters
+  without it) in the crate docs and `docs/std_library/ww_i2c.md#slave-mode`. `I2cMode::Slave`, `SpiRole::Slave` and
+  the `slave` capability flags are gone. API, snapshots, docs, the device-side engine (SRV-26, `ww_bus_slave`) and an
+  end-to-end test of both slaves done: `tests/io_i2c` / `tests/io_spi` drive `I2cSlave` / `SpiSlave` byte by byte as a
+  simulated master (test-only `slave_bus` / `slave_pump` methods, a fake clock) through the real host and device event
+  loops: register maps with page wrap and host updates between transactions, the answer queues, stretching to the
+  deadline and past it, `Nack`, `repeat_last`, cleared answers and dropped events. Open: a check on real silicon, with
+  the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
@@ -1266,17 +1280,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   checksum, COBS, SLIP, Modbus RTU, NMEA; picked by the host when it opens the stream (`Uart::frames(cfg)`), no new
   firmware. Frames of a bounded length are what a batched stream can take, where a raw byte stream can't (no size
   bound); with API-51, each frame XOR'd with the last one of the same key (Modbus address, NMEA sentence, CAN ID).
-- 🚧 **STD-35 Slave data paths in `ww_i2c` and `ww_spi`** · `v0.5.x` — an `#[optional(slave)]` group in `I2c` and
-  in `Spi`: opening the counted `slave_events` / `slave_frames` stream with a config starts slave mode (closing stops
-  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
-  answers come from a register map the host fills and reads back (`slave_map_write` / `slave_map_read`, applied
-  between two transfers) or from the `slave_answers` credit sink, one answer per read or frame. A host that is too
-  slow: I2C `I2cSlaveUnderrun` (`Fill`, `Stretch { max }` with `ReadWaiting` sent at once, `Nack` while empty), SPI
-  the idle byte or the last answer again, flagged `underrun`. Limits of clock stretching (SMBus 25 ms, masters
-  without it) in the crate docs and `docs/std_library/ww_i2c.md#slave-mode`. `I2cMode::Slave`, `SpiRole::Slave` and
-  the `slave` capability flags are gone. API, snapshots, docs and the device-side engine (SRV-26, `ww_bus_slave`)
-  done; open: an end-to-end test of both slaves in `tests/io_i2c` / `tests/io_spi` against a simulated master. First
-  user: the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 - 💡 **STD-44 SPI slave data-ready line** — a GPIO the slave asserts while an answer is queued (or the register map
   changed), as most SPI slave protocols with a computed answer have (ESP32 handshake, nRF IRQ); the master reads only
   when it is set, so the answer queue needs no polling. Part of `SpiSlaveConfig`, the pin named by the board.

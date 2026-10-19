@@ -550,4 +550,657 @@ mod tests {
         stream.close().await.unwrap();
         eventually(&data, |d| d.monitor_config.is_none()).await;
     }
+
+    // ---- slave mode: a second mock server built on `ww_bus_slave::SpiSlave`, driven by `SpiBusOp` instead of a
+    // real bus, with a fake clock advanced by `SpiBusOp::Advance` (STD-35, SRV-26) ----
+
+    mod slave_mock {
+        use super::*;
+        use io_spi_api::{SpiBusOp, SpiBusResult};
+        use tests_common::TestProcessEvents;
+        use ww_bus_slave::SpiSlave;
+        use ww_client_server::StreamSideband;
+        use ww_client_server::credit::SinkCredit;
+        use ww_spi::{SpiSlaveCapabilities, SpiSlaveConfig};
+
+        /// Same sizes as `ww_bus_slave`'s own host tests: a 64-byte map, 3 answers of up to 8 bytes, 8 frames of up
+        /// to 16 bytes each way.
+        pub const MAP: usize = 64;
+        const STAGE: usize = 32;
+        pub const Q: usize = 3;
+        const A: usize = 8;
+        const EV: usize = 8;
+        const REC: usize = 16;
+
+        fn wrong_state() -> SpiError<'static> {
+            CommonError::WrongState {
+                reason: MaxLen::new_unchecked("slave-only mock"),
+            }
+            .into()
+        }
+
+        pub struct Server {
+            engine: SpiSlave<MAP, STAGE, Q, A, EV, REC>,
+            now_us: u32,
+            frames: Counted,
+            slave_answers_credit: SinkCredit,
+            map_scratch: [u8; ww_spi::SPI_MAX],
+            stream_sessions: u32,
+        }
+
+        impl Server {
+            pub fn new() -> Self {
+                Server {
+                    engine: SpiSlave::new(),
+                    now_us: 0,
+                    frames: Counted::new(),
+                    slave_answers_credit: SinkCredit::new(1024),
+                    map_scratch: [0u8; ww_spi::SPI_MAX],
+                    stream_sessions: 0,
+                }
+            }
+
+            /// Drains the engine's frames (and drop count) onto `slave_frames`, see
+            /// `IoSpiSlaveTest::spi_slave_pump`.
+            fn pump(&mut self, out: &mut impl BlockingEventOut) {
+                // drain what the ring kept first: a drop (reported after) always follows the oldest kept record,
+                // the ring only drops once it is full of them.
+                while let Some((t, f)) = self.engine.peek_event() {
+                    let _ = api_impl::stream_data_ser()
+                        .spi()
+                        .slave_frames_send_blocking(&mut self.frames, &f, 1, Some(t), out);
+                    self.engine.pop_event();
+                }
+                let dropped = self.engine.take_dropped();
+                if dropped > 0 {
+                    self.frames.lost(dropped as u64);
+                }
+            }
+
+            fn new_stream_session(&mut self) -> u32 {
+                self.stream_sessions = self.stream_sessions.wrapping_add(1);
+                self.stream_sessions
+            }
+
+            fn spi_transfer(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
+            {
+                Ready(Err(wrong_state()))
+            }
+
+            fn spi_transaction(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _ops: MaxLen<RefVec<'_, SpiOp<'_>>, { ww_spi::MAX_OPS }>,
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
+            {
+                Ready(Err(wrong_state()))
+            }
+
+            fn spi_write(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
+                Ready(Err(wrong_state()))
+            }
+
+            fn spi_capabilities(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<SpiCapabilities<'_>> {
+                Ready(SpiCapabilities {
+                    min_freq: ww_si::Hertz::from_parts(Prefix::Kilo, NumericValue::U32(100)),
+                    max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
+                    min_word_bits: 8,
+                    max_word_bits: 8,
+                    master: false,
+                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
+                    max_len: ww_spi::SPI_MAX as u32,
+                })
+            }
+
+            fn spi_configure(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                config: SpiConfig,
+            ) -> RpcResult<Result<SpiConfig, SpiError<'_>>> {
+                match config.role {
+                    SpiRole::Disabled => Ready(Ok(SpiConfig {
+                        role: SpiRole::Disabled,
+                        io_level: None,
+                        ..config
+                    })),
+                    _ => Ready(Err(CommonError::Unsupported.into())),
+                }
+            }
+
+            fn spi_set_cs(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _active: bool,
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
+                Ready(Err(wrong_state()))
+            }
+
+            fn spi_slave_capabilities(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<SpiSlaveCapabilities> {
+                Ready(SpiSlaveCapabilities {
+                    max_freq: ww_si::Hertz::from_parts(Prefix::Mega, NumericValue::U32(10)),
+                    queue_len: Q as u32,
+                    map_len: MAP as u32,
+                    max_addr_bytes: 4,
+                    map_max_freq: Some(ww_si::Hertz::from_parts(
+                        Prefix::Mega,
+                        NumericValue::U32(1),
+                    )),
+                })
+            }
+
+            fn spi_slave_frames(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                config: SpiSlaveConfig,
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
+                Ready(self.engine.configure(&config).map_err(Into::into))
+            }
+
+            fn close_spi_slave_frames(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.engine.disable();
+            }
+
+            fn stream_spi_slave_frames(&mut self) -> &mut Counted {
+                &mut self.frames
+            }
+
+            fn spi_slave_map_write(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                offset: u32,
+                data: MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>,
+            ) -> RpcResult<Result<(), SpiError<'_>>> {
+                Ready(
+                    self.engine
+                        .map_write(offset, data.as_slice())
+                        .map_err(Into::into),
+                )
+            }
+
+            fn spi_slave_map_read(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                offset: u32,
+                len: u16,
+            ) -> RpcResult<Result<MaxLen<RefVec<'_, u8>, { ww_spi::SPI_MAX }>, SpiError<'_>>>
+            {
+                let len = len as usize;
+                if len > self.map_scratch.len() {
+                    return Ready(Err(SpiError::BufferTooBig));
+                }
+                match self.engine.map_read(offset, &mut self.map_scratch[..len]) {
+                    Ok(()) => Ready(Ok(
+                        MaxLen::new(RefVec::new_bytes(&self.map_scratch[..len])).unwrap()
+                    )),
+                    Err(e) => Ready(Err(e.into())),
+                }
+            }
+
+            fn spi_slave_clear_answers(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<u32> {
+                Ready(self.engine.clear_answers())
+            }
+
+            fn credit_spi_slave_answers(&mut self) -> &mut SinkCredit {
+                &mut self.slave_answers_credit
+            }
+
+            fn sideband_spi_slave_answers(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _sideband: StreamSideband,
+            ) -> Option<StreamSideband> {
+                None
+            }
+
+            fn write_spi_slave_answers(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                data: &shrink_wrap::tail_bytes::TailBytes<'_>,
+            ) {
+                self.engine
+                    .push_answer(data.0)
+                    .expect("test script respects slave_capabilities().queue_len and answer size");
+                self.slave_answers_credit.free(data.0.len() as u32);
+            }
+
+            fn spi_slave_bus(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                op: SpiBusOp,
+            ) -> RpcResult<SpiBusResult> {
+                let now = self.now_us;
+                Ready(match op {
+                    SpiBusOp::Advance(us) => {
+                        self.now_us = self.now_us.wrapping_add(us);
+                        SpiBusResult::Advanced
+                    }
+                    SpiBusOp::CsAsserted => {
+                        self.engine.cs_asserted(now);
+                        SpiBusResult::Done
+                    }
+                    SpiBusOp::Miso => SpiBusResult::Byte(self.engine.miso()),
+                    SpiBusOp::Mosi(byte) => {
+                        self.engine.mosi(byte);
+                        SpiBusResult::Done
+                    }
+                    SpiBusOp::CsReleased => {
+                        self.engine.cs_released(now);
+                        SpiBusResult::Done
+                    }
+                    SpiBusOp::Overrun => {
+                        self.engine.overrun();
+                        SpiBusResult::Done
+                    }
+                    SpiBusOp::Rewind => {
+                        self.engine.rewind();
+                        SpiBusResult::Done
+                    }
+                    SpiBusOp::Unknown(_) => unreachable!("test never sends an unknown op"),
+                })
+            }
+
+            fn spi_slave_pump(
+                &mut self,
+                cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<()> {
+                self.pump(cx);
+                Ready(())
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                io_spi_api :: IoSpiSlaveTest for super::Server,
+                server = true, no_alloc = true, use_async = false,
+                omit = ["spi.monitor"],
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                // debug_to_file = "../../target/tests_io_spi_slave_server.rs"
+            );
+        }
+
+        impl TestProcessEvents for Server {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    mod slave_std_client {
+        use wire_weaver_client::{ClientConfig, Commander, WwClient};
+
+        pub struct SlaveClient {
+            pub cmd: Commander,
+        }
+
+        impl WwClient for SlaveClient {
+            fn default_config() -> ClientConfig {
+                ClientConfig::default()
+            }
+
+            fn from_cmd(cmd: Commander) -> Self {
+                Self { cmd }
+            }
+        }
+
+        mod api_client {
+            wire_weaver::ww_codegen!(
+                io_spi_api :: IoSpiSlaveTest for super::SlaveClient,
+                client = "std_client",
+            );
+        }
+    }
+
+    use slave_std_client::SlaveClient;
+
+    fn start_slave(path: &str) -> TestDevice {
+        let _ = tracing_subscriber::fmt::try_init();
+        let server = slave_mock::Server::new();
+        tests_common::start_device(
+            path,
+            server,
+            io_spi_api::IO_SPI_SLAVE_TEST_FULL_GID,
+            slave_mock::api_impl::api_hash(),
+        )
+    }
+
+    async fn connect_slave(device: &TestDevice) -> SlaveClient {
+        SlaveClient::config(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect")
+    }
+
+    fn registers_config(
+        addr_bytes: u8,
+        rw: ww_spi::SpiRwBit,
+        dummy_bytes: u8,
+        len: u32,
+        idle: u8,
+    ) -> SpiSlaveConfig {
+        SpiSlaveConfig {
+            mode: SpiMode::Mode0,
+            bit_order: BitOrder::MsbFirst,
+            word_bits: 8,
+            io_level: None,
+            answers: SpiSlaveAnswers::Registers(ww_spi::SpiRegisters {
+                addr_bytes,
+                rw,
+                dummy_bytes,
+                idle,
+                len,
+            }),
+        }
+    }
+
+    fn queue_slave_config(idle: u8, repeat_last: bool) -> SpiSlaveConfig {
+        SpiSlaveConfig {
+            mode: SpiMode::Mode0,
+            bit_order: BitOrder::MsbFirst,
+            word_bits: 8,
+            io_level: None,
+            answers: SpiSlaveAnswers::Queue { idle, repeat_last },
+        }
+    }
+
+    use io_spi_api::{SpiBusOp, SpiBusResult};
+
+    async fn bus(client: &mut SlaveClient, op: SpiBusOp) -> SpiBusResult {
+        client.spi_slave_bus(op).call().await.unwrap()
+    }
+
+    /// One frame: CS asserted, `mosi.len()` bytes exchanged one at a time, CS released. Returns the MISO bytes.
+    async fn frame(client: &mut SlaveClient, mosi: &[u8]) -> Vec<u8> {
+        assert_eq!(bus(client, SpiBusOp::CsAsserted).await, SpiBusResult::Done);
+        let mut miso = vec![];
+        for &b in mosi {
+            match bus(client, SpiBusOp::Miso).await {
+                SpiBusResult::Byte(v) => miso.push(v),
+                r => panic!("{r:?}"),
+            }
+            assert_eq!(bus(client, SpiBusOp::Mosi(b)).await, SpiBusResult::Done);
+        }
+        assert_eq!(bus(client, SpiBusOp::CsReleased).await, SpiBusResult::Done);
+        miso
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_registers_read_and_write_with_rw_bit() {
+        let device = start_slave("io_spi_slave/registers");
+        let mut client = connect_slave(&device).await;
+        let (_, mut frames) = client
+            .spi()
+            .slave_frames(registers_config(
+                1,
+                ww_spi::SpiRwBit::SetIsRead { bit: 7 },
+                0,
+                64,
+                0xEE,
+            ))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        client
+            .spi()
+            .slave_map_write(0x10, MaxLen::new(vec![1u8, 2, 3]).unwrap())
+            .call()
+            .await
+            .unwrap();
+
+        // bit 7 set: a read at 0x10
+        assert_eq!(
+            frame(&mut client, &[0x90, 0, 0, 0]).await,
+            vec![0xEE, 1, 2, 3]
+        );
+        // bit 7 clear: a write at 0x20
+        assert_eq!(frame(&mut client, &[0x20, 9, 8]).await, vec![0xEE; 3]);
+        let map = client.spi().slave_map_read(0x20, 2).call().await.unwrap();
+        assert_eq!(map.as_slice(), &[9, 8]);
+
+        client.spi_slave_pump().call().await.unwrap();
+        let f = frames.recv().await.unwrap();
+        assert_eq!(f.addr, Some(0x10));
+        assert_eq!(f.mosi.as_slice(), &[0x90, 0, 0, 0]);
+        let f = frames.recv().await.unwrap();
+        assert_eq!(f.addr, Some(0x20));
+        assert_eq!(f.mosi.as_slice(), &[0x20, 9, 8]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_host_map_write_applies_between_frames_not_inside() {
+        let device = start_slave("io_spi_slave/host_update");
+        let mut client = connect_slave(&device).await;
+        let (_, _frames) = client
+            .spi()
+            .slave_frames(registers_config(1, ww_spi::SpiRwBit::ReadOnly, 0, 64, 0xEE))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+        client
+            .spi()
+            .slave_map_write(0, MaxLen::new(vec![1u8, 1]).unwrap())
+            .call()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            bus(&mut client, SpiBusOp::CsAsserted).await,
+            SpiBusResult::Done
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Miso).await,
+            SpiBusResult::Byte(0xEE)
+        ); // address byte
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Mosi(0)).await,
+            SpiBusResult::Done
+        );
+        client
+            .spi()
+            .slave_map_write(0, MaxLen::new(vec![2u8, 2]).unwrap())
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Miso).await,
+            SpiBusResult::Byte(1)
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Mosi(0)).await,
+            SpiBusResult::Done
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Miso).await,
+            SpiBusResult::Byte(1)
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Mosi(0)).await,
+            SpiBusResult::Done
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::CsReleased).await,
+            SpiBusResult::Done
+        );
+
+        let map = client.spi().slave_map_read(0, 2).call().await.unwrap();
+        assert_eq!(map.as_slice(), &[2, 2]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_answer_queue_one_per_frame_idle_for_rest() {
+        let device = start_slave("io_spi_slave/answer_queue");
+        let mut client = connect_slave(&device).await;
+        let (_, mut frames) = client
+            .spi()
+            .slave_frames(queue_slave_config(0x5A, false))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        let mut answers = client.spi().slave_answers().await.unwrap();
+        answers.send_bytes(&[1, 2]).await.unwrap();
+        answers.send_bytes(&[3, 4, 5]).await.unwrap();
+        answers.flush().await.unwrap();
+
+        assert_eq!(
+            frame(&mut client, &[0xA0, 0xA1, 0xA2]).await,
+            vec![1, 2, 0x5A]
+        );
+        // shorter frame: the rest of the second answer is dropped
+        assert_eq!(frame(&mut client, &[0, 0]).await, vec![3, 4]);
+        // nothing queued: idle, underrun
+        assert_eq!(frame(&mut client, &[0, 0]).await, vec![0x5A, 0x5A]);
+
+        client.spi_slave_pump().call().await.unwrap();
+        let f0 = frames.recv().await.unwrap();
+        assert_eq!(f0.mosi.as_slice(), &[0xA0, 0xA1, 0xA2]);
+        assert_eq!(f0.miso.as_slice(), &[1, 2, 0x5A]);
+        assert!(!f0.underrun);
+        let f1 = frames.recv().await.unwrap();
+        assert!(!f1.underrun);
+        let f2 = frames.recv().await.unwrap();
+        assert!(f2.underrun);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_answer_queue_repeat_last() {
+        let device = start_slave("io_spi_slave/repeat_last");
+        let mut client = connect_slave(&device).await;
+        let (_, mut frames) = client
+            .spi()
+            .slave_frames(queue_slave_config(0, true))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        // nothing ever queued: idle
+        assert_eq!(frame(&mut client, &[0, 0]).await, vec![0, 0]);
+        let mut answers = client.spi().slave_answers().await.unwrap();
+        answers.send_bytes(&[7, 8]).await.unwrap();
+        answers.flush().await.unwrap();
+        assert_eq!(frame(&mut client, &[0, 0]).await, vec![7, 8]);
+        // kept to repeat
+        assert_eq!(frame(&mut client, &[0, 0, 0]).await, vec![7, 8, 0]);
+        answers.send_bytes(&[9]).await.unwrap();
+        answers.flush().await.unwrap();
+        assert_eq!(frame(&mut client, &[0]).await, vec![9]);
+
+        client.spi_slave_pump().call().await.unwrap();
+        let mut underrun = vec![];
+        for _ in 0..4 {
+            underrun.push(frames.recv().await.unwrap().underrun);
+        }
+        assert_eq!(underrun, vec![true, false, true, false]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_clear_answers_drops_only_waiting() {
+        let device = start_slave("io_spi_slave/clear_answers");
+        let mut client = connect_slave(&device).await;
+        let (_, _frames) = client
+            .spi()
+            .slave_frames(queue_slave_config(0xEE, false))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        let mut answers = client.spi().slave_answers().await.unwrap();
+        for b in [0u8, 1, 2] {
+            answers.send_bytes(&[b]).await.unwrap();
+        }
+        answers.flush().await.unwrap();
+
+        // the answer picked for this frame (preloaded at the first `miso`) stays, the rest are dropped
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Miso).await,
+            SpiBusResult::Byte(0)
+        );
+        let dropped = client.spi().slave_clear_answers().call().await.unwrap();
+        assert_eq!(dropped, 2);
+        assert_eq!(
+            bus(&mut client, SpiBusOp::CsAsserted).await,
+            SpiBusResult::Done
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::Mosi(0)).await,
+            SpiBusResult::Done
+        );
+        assert_eq!(
+            bus(&mut client, SpiBusOp::CsReleased).await,
+            SpiBusResult::Done
+        );
+
+        // the cleared answers never come back: the next frame is idle only
+        assert_eq!(frame(&mut client, &[0]).await, vec![0xEE]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn slave_dropped_frames_are_counted() {
+        let device = start_slave("io_spi_slave/dropped");
+        let mut client = connect_slave(&device).await;
+        let (_, mut frames) = client
+            .spi()
+            .slave_frames(registers_config(0, ww_spi::SpiRwBit::ReadOnly, 0, 4, 0))
+            .call()
+            .await
+            .unwrap()
+            .unwrap();
+
+        // the frame ring holds 8 (EV): 10 one-byte frames without a pump overflow it by 2
+        for _ in 0..10 {
+            assert_eq!(frame(&mut client, &[0]).await, vec![0]);
+        }
+        client.spi_slave_pump().call().await.unwrap();
+
+        let mut seen = 0;
+        for _ in 0..8 {
+            match frames.recv_event().await.unwrap() {
+                wire_weaver_client::StreamEvent::Item { .. } => seen += 1,
+                ev => panic!("{ev:?}"),
+            }
+        }
+        assert_eq!(seen, 8);
+
+        // the drop is reported after the 8 it kept, not before: it only shows up once there is a next frame to
+        // carry it
+        assert_eq!(frame(&mut client, &[0]).await, vec![0]);
+        client.spi_slave_pump().call().await.unwrap();
+        match frames.recv_event().await.unwrap() {
+            wire_weaver_client::StreamEvent::Gap { units, .. } => assert_eq!(units, 2),
+            ev => panic!("{ev:?}"),
+        }
+    }
 }

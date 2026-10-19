@@ -766,3 +766,89 @@ fn batch_of_samples_is_offered_whole() {
     assert!(!sel.is_chosen(0) && !sel.is_chosen(1) && !sel.has_time());
     assert_eq!(sel.present(&DESC_BB).count(), 0);
 }
+
+/// The shared loop of a level (SRV-24): `select` chooses within the budget, `write` asks for the chosen values only
+/// and in slot order, `ser_update` makes the event a host reads back.
+#[test]
+fn shared_loop_writes_the_chosen_values() {
+    use wire_weaver::shrink_wrap::DeserializeShrinkWrap;
+    use ww_client_server::{Event, EventKind};
+    let mut due = [Due::EMPTY; 3];
+    let mut marks = [Mark::NONE; 3];
+    let mut t = ObserveTable::<[Slot; 3]>::new();
+    apply(
+        &mut t,
+        &DESC,
+        &[entry(1, periodic(1_000)), entry(4, periodic(1_000))],
+        false,
+        Some(10_000),
+    )
+    .unwrap();
+    let path = [UNib32(2)];
+    let mut buf = [0u8; 128];
+    let plan = t.plan(0, &LIMITS, &mut due);
+    assert!(plan.is_due(0) && !plan.is_due(1) && plan.is_due(2));
+    let mut measured = vec![];
+    let round = select(
+        &plan,
+        &DESC,
+        &path,
+        &mut buf,
+        &mut marks,
+        None,
+        &mut |k, buf| {
+            measured.push(k);
+            measure(&(k as u32 * 100), buf)
+        },
+    )
+    .unwrap()
+    .expect("both due");
+    assert_eq!(measured, [0, 2]);
+    assert!(round.needs_value(0) && !round.needs_value(1) && round.needs_value(2));
+    let mut written = vec![];
+    let update = write(&round, &plan, &DESC, &mut buf, &mut |k, column, wr| {
+        assert!(!column);
+        written.push(k);
+        wr.write(DESC.observable[k], &(k as u32 * 100)).is_ok()
+    })
+    .expect("values written");
+    assert_eq!(written, [0, 2]);
+    let data = buf[..update.data_len()].to_vec();
+    let mut scratch = [0u8; 128];
+    let len = ser_update(&mut scratch, &path, &update, &data, None).unwrap();
+    let Ok(EventKind::PropertyUpdate {
+        t: None,
+        missed: None,
+        data,
+        ..
+    }) = Event::from_ww_bytes(&scratch[..len]).unwrap().result
+    else {
+        panic!("not an update");
+    };
+    let values = wire_weaver::shrink_wrap::option_any_vec::OptionAnyVec::new(data.0).unwrap();
+    let mut it = values.iter();
+    assert_eq!(it.next_present(), Some(1));
+    assert_eq!(it.next::<u32>().unwrap(), Some(0));
+    assert_eq!(it.next_present(), Some(4));
+    assert_eq!(it.next::<u32>().unwrap(), Some(200));
+    t.commit(&plan, round.selection(), 0, Some(len));
+    // sent: nothing due before the next period
+    assert!(t.plan(500, &LIMITS, &mut due).is_empty());
+
+    // a value that can't be written: nothing goes out, the chosen ones count as missed
+    let plan = t.plan(1_000, &LIMITS, &mut due);
+    let round = select(
+        &plan,
+        &DESC,
+        &path,
+        &mut buf,
+        &mut marks,
+        None,
+        &mut |_, _| Some(8),
+    )
+    .unwrap()
+    .unwrap();
+    assert!(write(&round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
+    t.commit(&plan, round.selection(), 1_000, None);
+    assert_eq!(t.plan(1_100, &LIMITS, &mut due).missed(), Some(UNib32(2)));
+}

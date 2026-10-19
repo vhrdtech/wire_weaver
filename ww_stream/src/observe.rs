@@ -41,6 +41,7 @@
 //! properties, whose deadlines are short.
 
 use portable_atomic::{AtomicU32, Ordering};
+use wire_weaver::shrink_wrap::option_any_vec::OptionAnyVecWriter;
 use wire_weaver::shrink_wrap::{Error as ShrinkWrapError, SerializeShrinkWrap, UNib32};
 use ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRefusal, ObserveRefused, ObserveRequest,
@@ -657,7 +658,11 @@ impl ObserveTable {
                     due[i] = due[i - 1];
                     i -= 1;
                 }
-                due[i] = Due { k, deadline };
+                due[i] = Due {
+                    k,
+                    deadline,
+                    samples: matches!(slot.mode, Mode::Samples { .. }),
+                };
                 len += 1;
             }
         }
@@ -684,17 +689,17 @@ impl ObserveTable {
                 self.missed = self.missed.saturating_sub(plan.missed);
             }
             None => {
-                let chosen = sel.marks.iter().filter(|m| **m == Mark::CHOSEN).count() as u32;
+                let chosen = sel.marks.iter().filter(|m| m.is_chosen()).count() as u32;
                 self.missed = self.missed.saturating_add(chosen);
             }
         }
-        for &Due { k, deadline } in plan.due {
+        for &Due { k, deadline, .. } in plan.due {
             let Some(slot) = self.slots.get_mut(k) else {
                 continue;
             };
             let mark = sel.marks.get(k).copied().unwrap_or(Mark::NONE);
-            if mark != Mark::NONE {
-                if mark == Mark::DROPPED {
+            if mark.is_chosen() || mark.is_dropped() {
+                if mark.is_dropped() {
                     self.missed = self.missed.saturating_add(1);
                 }
                 slot.dirty = false;
@@ -747,10 +752,16 @@ pub fn refuse_all(
 pub struct Due {
     k: usize,
     deadline: u64,
+    /// In `Samples` mode: due with the level's batch of samples.
+    samples: bool,
 }
 
 impl Due {
-    pub const EMPTY: Due = Due { k: 0, deadline: 0 };
+    pub const EMPTY: Due = Due {
+        k: 0,
+        deadline: 0,
+        samples: false,
+    };
 }
 
 /// What a level has to send at one poll, see [ObserveTable::plan].
@@ -776,6 +787,11 @@ impl<'a> Plan<'a> {
         self.due.iter().map(|d| d.k)
     }
 
+    /// Whether slot `k` is due.
+    pub fn is_due(&self, k: usize) -> bool {
+        self.due.iter().any(|d| d.k == k)
+    }
+
     /// Nothing is due, but sends or samples were missed: an update with no properties carries the count alone
     /// (`overhead` as for [selection](Self::selection)) when the budget has room for it. A count that waited for
     /// the next update would never reach the host when nothing else comes, as after the last samples of a burst
@@ -794,12 +810,7 @@ impl<'a> Plan<'a> {
     /// `t` of the update, with [ObserveLimits::timestamps]: microseconds as a wrapping `u32`, as stream heads have
     /// it.
     pub fn t(&self) -> Option<ww_si::Second> {
-        self.t.map(|us| {
-            ww_si::Second::from_parts(
-                ww_si::Prefix::Micro,
-                ww_si::ww_numeric::NumericValue::U32(us as u32),
-            )
-        })
+        self.t.map(micros)
     }
 
     /// Start choosing what goes into the update: `overhead` is the length of the event without data (see
@@ -829,6 +840,14 @@ impl<'a> Plan<'a> {
     }
 }
 
+/// `t` of an update: microseconds as a wrapping `u32`, as stream heads have it.
+fn micros(us: u64) -> ww_si::Second {
+    ww_si::Second::from_parts(
+        ww_si::Prefix::Micro,
+        ww_si::ww_numeric::NumericValue::U32(us as u32),
+    )
+}
+
 /// Whether a slot goes into an update, see [Selection]: storage for the selection, one per slot of the level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Mark(u8);
@@ -836,9 +855,24 @@ pub struct Mark(u8);
 impl Mark {
     /// Not offered, or left out: waits for the next update.
     pub const NONE: Mark = Mark(0);
-    const CHOSEN: Mark = Mark(1);
+    /// Goes into the update.
+    const CHOSEN: u8 = 1;
     /// Can't be sent this time (value not readable, bigger than a message), moved on as missed.
-    const DROPPED: Mark = Mark(2);
+    const DROPPED: u8 = 2;
+    /// Goes into the update as a column of the level's batch of samples (API-39), with `CHOSEN`.
+    const COLUMN: u8 = 4;
+
+    fn is_chosen(self) -> bool {
+        self.0 & Self::CHOSEN != 0
+    }
+
+    fn is_dropped(self) -> bool {
+        self.0 & Self::DROPPED != 0
+    }
+
+    fn is_column(self) -> bool {
+        self.0 & Self::COLUMN != 0
+    }
 }
 
 /// The properties chosen for one update, offered in [Plan::edf] order with their estimated size.
@@ -882,7 +916,7 @@ impl Selection<'_> {
             return false;
         }
         let Some(size) = size else {
-            self.mark(ks, Mark::DROPPED);
+            self.mark(ks, Mark(Mark::DROPPED));
             return true;
         };
         let est = self.est.saturating_add(size);
@@ -891,7 +925,7 @@ impl Selection<'_> {
             true
         } else if self.fixed.saturating_add(size) > self.max_len {
             // never fits a message
-            self.mark(ks, Mark::DROPPED);
+            self.mark(ks, Mark(Mark::DROPPED));
             true
         } else if self.count == 0 && self.full {
             // bigger than the bucket: alone, when the bucket is full
@@ -901,7 +935,7 @@ impl Selection<'_> {
         } else if !self.full && est <= self.max_len {
             // the bucket is what limits and it isn't full: hold, send nothing, rather than part of what is due
             for m in self.marks.iter_mut() {
-                if *m == Mark::CHOSEN {
+                if m.is_chosen() {
                     *m = Mark::NONE;
                 }
             }
@@ -923,7 +957,8 @@ impl Selection<'_> {
     }
 
     fn choose(&mut self, ks: &[usize], est: usize, time: bool) {
-        self.mark(ks, Mark::CHOSEN);
+        let column = if time { Mark::COLUMN } else { 0 };
+        self.mark(ks, Mark(Mark::CHOSEN | column));
         self.count += ks.len();
         self.est = est;
         self.time |= time;
@@ -945,33 +980,286 @@ impl Selection<'_> {
 
     /// Whether slot `k` goes into the update.
     pub fn is_chosen(&self, k: usize) -> bool {
-        self.marks.get(k) == Some(&Mark::CHOSEN)
+        self.marks.get(k).is_some_and(|m| m.is_chosen())
     }
 
     /// Whether slot `k` can't be sent this time (its value can't be had, or it never fits a message): moved on as
     /// missed.
     pub fn is_dropped(&self, k: usize) -> bool {
-        self.marks.get(k) == Some(&Mark::DROPPED)
+        self.marks.get(k).is_some_and(|m| m.is_dropped())
     }
 
     /// Slot `k` could not be written after all: moved on as missed.
     pub fn drop_slot(&mut self, k: usize) {
         if let Some(m) = self.marks.get_mut(k) {
-            *m = Mark::DROPPED;
+            *m = Mark(Mark::DROPPED);
         }
     }
 
     /// Resource indices of the chosen properties, increasing: the present slots of the update's `OptionAnyVec`.
-    pub fn present<'a>(
-        &'a self,
-        desc: &'a LevelDesc<'_>,
-    ) -> impl Iterator<Item = u32> + Clone + 'a {
-        desc.observable
-            .iter()
-            .zip(self.marks.iter())
-            .filter(|(_, m)| **m == Mark::CHOSEN)
-            .map(|(index, _)| *index)
+    pub fn present<'a>(&'a self, desc: &LevelDesc<'a>) -> Present<'a> {
+        Present {
+            observable: desc.observable.iter(),
+            marks: self.marks.iter(),
+        }
     }
+}
+
+/// The writer of an update's values, as [write](fn@write) gives it to the level's value callback.
+pub type UpdateWriter<'b, 'd> = OptionAnyVecWriter<'b, Present<'d>>;
+
+/// Resource indices of the chosen properties of an update, increasing: see [Selection::present].
+#[derive(Debug, Clone)]
+pub struct Present<'a> {
+    observable: core::slice::Iter<'a, u32>,
+    marks: core::slice::Iter<'a, Mark>,
+}
+
+impl Iterator for Present<'_> {
+    type Item = u32;
+
+    fn next(&mut self) -> Option<u32> {
+        loop {
+            let (index, mark) = (self.observable.next()?, self.marks.next()?);
+            if mark.is_chosen() {
+                return Some(*index);
+            }
+        }
+    }
+}
+
+/// The oldest batch of samples of a level (API-39), as [select] offers it: the table slots of its columns and the
+/// bytes they all take in an update.
+#[derive(Debug, Clone, Copy)]
+pub struct BatchOffer<'k> {
+    ks: &'k [usize],
+    size: usize,
+}
+
+impl<'k> BatchOffer<'k> {
+    /// The columns of `batch`, their slots put into `ks` (one per slot of the level).
+    pub fn new(batch: &crate::batch::LevelBatch<'_>, ks: &'k mut [usize]) -> Self {
+        let mut len = 0;
+        let mut size = batch_slot_len(batch.time.len());
+        for column in batch.columns() {
+            if let Some(k) = ks.get_mut(len) {
+                *k = column.k as usize;
+                len += 1;
+            }
+            size += batch_slot_len(column.bytes.len());
+        }
+        let ks: &'k [usize] = ks;
+        BatchOffer {
+            ks: &ks[..len],
+            size,
+        }
+    }
+}
+
+/// [ObserveTable::plan] of a level whose oldest batch of samples (API-39) is `oldest`: a slot in `Samples` mode is
+/// due while the batch has a column of it.
+pub fn plan_level<'a>(
+    table: &mut ObserveTable,
+    oldest: Option<&crate::batch::LevelBatch<'_>>,
+    now_us: u64,
+    limits: &ObserveLimits,
+    due: &'a mut [Due],
+) -> Plan<'a> {
+    let Some(batch) = oldest else {
+        return table.plan(now_us, limits, due);
+    };
+    // slots come in order: each lookup goes on from the last one
+    let at = core::cell::Cell::new(0usize);
+    table.plan_with(
+        now_us,
+        limits,
+        &|k| {
+            let mut a = at.get();
+            let found = batch.column_after(k as u16, &mut a).is_some();
+            at.set(a);
+            found
+        },
+        due,
+    )
+}
+
+/// One update of a level being put together (SRV-24), from [select] to [ObserveTable::commit].
+#[derive(Debug)]
+pub struct Round<'m> {
+    sel: Selection<'m>,
+    /// Nothing due: the update carries the missed count alone.
+    missed_only: bool,
+    /// The batch offered never fits a message: it goes, its samples missed.
+    batch_dropped: bool,
+}
+
+impl<'m> Round<'m> {
+    /// What goes into the update, for [ObserveTable::commit].
+    pub fn selection(&self) -> &Selection<'m> {
+        &self.sel
+    }
+
+    /// Whether slot `k` goes into the update with a value of its own (not a column of a batch of samples): what
+    /// the level reads before [write](fn@write).
+    pub fn needs_value(&self, k: usize) -> bool {
+        self.sel
+            .marks
+            .get(k)
+            .is_some_and(|m| m.is_chosen() && !m.is_column())
+    }
+
+    /// Whether the update carries a batch of samples (API-39): it leaves the outbox once sent.
+    pub fn has_batch(&self) -> bool {
+        self.sel.time
+    }
+
+    /// Whether the batch offered never fits a message: it leaves the outbox, its samples counted as missed.
+    pub fn batch_dropped(&self) -> bool {
+        self.batch_dropped
+    }
+}
+
+/// An update of a level written by [write](fn@write), to send with [ser_update].
+#[derive(Debug, Clone, Copy)]
+pub struct Update {
+    data_len: usize,
+    t: Option<u64>,
+    missed: Option<UNib32>,
+    sample_times: bool,
+}
+
+impl Update {
+    /// Length of the update's values at the start of the buffer [write](fn@write) wrote them to.
+    pub fn data_len(&self) -> usize {
+        self.data_len
+    }
+
+    /// Whether the event carries the time column of a batch of samples (`sample_times`, API-39).
+    pub fn has_sample_times(&self) -> bool {
+        self.sample_times
+    }
+}
+
+/// What goes into the next update of a level (SRV-24), chosen from `plan` within the budget and `buf`: due
+/// properties earliest deadline first, `size(k, scratch)` the upper bound of the bytes slot `k` takes (None: its
+/// value can't be had), a slot in `Samples` mode offering `batch`, the level's oldest batch, with all its columns.
+/// `marks` keeps the choice (one per slot). None when the level has nothing to send at this poll.
+pub fn select<'m>(
+    plan: &Plan<'_>,
+    desc: &LevelDesc<'_>,
+    path: &[UNib32],
+    buf: &mut [u8],
+    marks: &'m mut [Mark],
+    batch: Option<&BatchOffer<'_>>,
+    size: &mut dyn FnMut(usize, &mut [u8]) -> Option<usize>,
+) -> Result<Option<Round<'m>>, ShrinkWrapError> {
+    if plan.is_empty() && plan.missed == 0 {
+        return Ok(None);
+    }
+    let overhead = event_overhead(buf, path, plan.t(), plan.missed())?;
+    // nothing due: the missed count goes alone, or waits for budget
+    let missed_only = plan.report_missed(desc, overhead);
+    if plan.is_empty() && !missed_only {
+        return Ok(None);
+    }
+    let mut sel = plan.selection(desc, overhead, buf.len(), marks);
+    let mut batch_offered = false;
+    let mut batch_dropped = false;
+    for due in plan.due {
+        if due.samples {
+            // the level's oldest batch, its time column and every column, once
+            if batch_offered {
+                continue;
+            }
+            batch_offered = true;
+            let Some(batch) = batch else {
+                continue;
+            };
+            let fits = sel.offer_batch(batch.ks, batch.size);
+            batch_dropped = batch.ks.first().is_some_and(|&k| sel.is_dropped(k));
+            if !fits {
+                break;
+            }
+            continue;
+        }
+        if !sel.offer(due.k, size(due.k, buf)) {
+            break;
+        }
+    }
+    Ok(Some(Round {
+        sel,
+        missed_only,
+        batch_dropped,
+    }))
+}
+
+/// The values of the update `round` chose, into `buf`: `value(k, column, wr)` writes slot `k`'s value (`column`:
+/// its column of the batch of samples), false when it can't. None when nothing goes out: nothing chosen, or a value
+/// that couldn't be written (the chosen ones count as missed at the commit).
+pub fn write(
+    round: &Round<'_>,
+    plan: &Plan<'_>,
+    desc: &LevelDesc<'_>,
+    buf: &mut [u8],
+    value: &mut dyn FnMut(usize, bool, &mut UpdateWriter<'_, '_>) -> bool,
+) -> Option<Update> {
+    let sel = &round.sel;
+    if sel.is_empty() && !round.missed_only {
+        return None;
+    }
+    let mut wr = OptionAnyVecWriter::new(buf, sel.present(desc)).ok()?;
+    for (k, mark) in sel.marks.iter().enumerate() {
+        if mark.is_chosen() && !value(k, mark.is_column(), &mut wr) {
+            return None;
+        }
+    }
+    let data_len = wr.finish_and_take().ok()?.len();
+    // the update's `t` is the time of its values: none when it carries only a batch, whose samples have their
+    // times in `sample_times`
+    let one_value = sel.marks.iter().any(|m| m.is_chosen() && !m.is_column());
+    let has_batched = desc.batched.iter().any(|b| *b);
+    Some(Update {
+        data_len,
+        t: if has_batched && !one_value {
+            None
+        } else {
+            plan.t
+        },
+        missed: plan.missed(),
+        sample_times: sel.time,
+    })
+}
+
+/// The `PropertyUpdate` event of `update` for the level at `path` into `scratch`, its values `data` (what [write](fn@write)
+/// wrote), with the time column of the batch sent (`sample_times`, API-39). Returns the event's length.
+pub fn ser_update(
+    scratch: &mut [u8],
+    path: &[UNib32],
+    update: &Update,
+    data: &[u8],
+    sample_times: Option<&[u8]>,
+) -> Result<usize, ShrinkWrapError> {
+    let t = update.t.map(micros);
+    let sample_times = if update.sample_times {
+        sample_times
+    } else {
+        None
+    };
+    ww_client_server::observe::ser_property_update_event(
+        scratch,
+        path,
+        t,
+        update.missed,
+        sample_times,
+        |b: &mut [u8]| {
+            let b = b
+                .get_mut(..data.len())
+                .ok_or(ShrinkWrapError::OutOfBoundsWriteRawSlice)?;
+            b.copy_from_slice(data);
+            Ok(data.len())
+        },
+    )
+    .map(|event| event.len())
 }
 
 /// Most bytes one level batch of samples (API-39) may take in an update of a level, its time column and `columns`

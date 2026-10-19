@@ -145,7 +145,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-3, SRV-4 | Split send and receive | Independent TX and RX paths for every transport; handlers called straight from the receive loop. |
 - SRV-15 | Stream stores | Data a host hasn't acknowledged yet, kept in RAM or in a power-cut safe log on SD card or flash. | api/stream_stores.md
 - SRV-16 | Logs that survive a crash | A store in RAM that outlives a reset, for what happened just before a fault. | api/stream_stores.md
-- SRV-23 | Smaller observe code | A firmware carries the observe logic once, not once per trait level: about 10 KiB less flash on a big API. | api/observing.md#the-device-side
+- SRV-23, SRV-24 | Smaller observe code | A firmware carries the observe logic once, not once per trait level: about 15 KiB less flash on a big API. | api/observing.md#the-device-side
 
 # Host side
 

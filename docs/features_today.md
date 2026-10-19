@@ -152,7 +152,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **Split send and receive**: Independent TX and RX paths for every transport; handlers called straight from the receive loop.
 - **[Stream stores](api/stream_stores.md)**: Data a host hasn't acknowledged yet, kept in RAM or in a power-cut safe log on SD card or flash.
 - **[Logs that survive a crash](api/stream_stores.md)**: A store in RAM that outlives a reset, for what happened just before a fault.
-- **[Smaller observe code](api/observing.md#the-device-side)**: A firmware carries the observe logic once, not once per trait level: about 10 KiB less flash on a big API.
+- **[Smaller observe code](api/observing.md#the-device-side)**: A firmware carries the observe logic once, not once per trait level: about 15 KiB less flash on a big API.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Server / device side](features.md#server-device-side-srv) in the feature tracker.</p>
 

@@ -498,6 +498,11 @@ impl Observe {
                     0u32 #(.saturating_add(self.#fields.budget()))*
                 }
 
+                /// Whether any property of any level is observed.
+                pub fn is_active(&self) -> bool {
+                    false #(|| self.#fields.is_active())*
+                }
+
                 #level_access
             }
 
@@ -652,6 +657,11 @@ impl Observe {
                 pub fn next_wake(&mut self, now_us: u64) -> Option<u64> {
                     if let Some(signal) = self.signal {
                         self.take_changes(signal);
+                    }
+                    // the server task asks after every wake: with nothing observed, don't walk the levels and
+                    // their batches (FW-40 on Donguru: USB requests 17 % slower without this)
+                    if !self.is_active() {
+                        return None;
                     }
                     let mut next: Option<u64> = None;
                     #(#level_wakes)*

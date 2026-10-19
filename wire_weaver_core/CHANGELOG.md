@@ -61,6 +61,7 @@
 
 ### 🐛 Fixes
 
+- Generated `ObserveState::next_wake` returns `None` at once while nothing is observed (SRV-25), new `ObserveState::is_active()`: it walked every level and the batched levels' outboxes on each wake of the server task, which made small USB requests to Donguru 17 % slower (FW-40: 64 B host to device 301 instead of 361 kB/s).
 - `ObserveState::reset()` (the link went down) drops the rows taken before it (API-39, API-50): rows waiting in a sampler's batch or in a cells level's ring went to the next host that observed the level in `Samples` mode, stamped with their old times (seen on Donguru: 18 rows 88 s old at the start of a `dg power watch --samples`). Test `reset_drops_waiting_rows` in `tests/observe_batched`.
 
 - `ww_codegen!` in test code finds an API crate that is only a dev-dependency (e.g. a test server in a binary crate's tests): the crate walker looked in `[dependencies]` alone and failed with `Dependency not found`.

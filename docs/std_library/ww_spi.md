@@ -111,12 +111,13 @@ goes active. `answers` picks where it comes from:
   sink](../api/credit_sinks.md), one per frame (CS assertion). A shorter frame leaves the rest unsent, a longer one
   gets `idle` for the rest. With none queued when CS goes active (the host was too slow), the frame sends `idle`, or
   the last answer again with `repeat_last` (a status the master polls), and `SpiSlaveFrame::underrun` says so; an
-  answer that comes during a frame waits for the next one. This fits protocols where the master sends a command,
+  answer that comes during a frame waits for the next one. A device with a TX FIFO loads a frame's first bytes
+  before CS goes active, so "queued in time" means there by the time it loads them. This fits protocols where the master sends a command,
   waits, and reads the answer in a frame of its own, or polls until it is there.
 * `SpiSlaveAnswers::Registers(SpiRegisters { addr_bytes, rw, dummy_bytes, idle, len })` - a register map on the
   device, filled and read back with `slave_map_write` / `slave_map_read`. The first `addr_bytes` bytes of a frame are
   the address (big-endian), `rw` (`ReadOnly`, `SetIsRead { bit }`, `ClearIsRead { bit }`) says from a bit of the
-  first byte whether the frame reads or writes, `dummy_bytes` are clocked between address and data. The device has
+  first byte whether the frame reads or writes, `dummy_bytes` are clocked between address and data of a read frame (a write frame has none). The device has
   to turn the address around into data within a bit time or the dummy bytes, so this works up to
   `SpiSlaveCapabilities::map_max_freq` without dummy bytes, and each dummy byte gives it 8 more bit times. A host
   update takes effect between two frames.

@@ -237,7 +237,9 @@ pub trait I2c {
         data: MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>,
     ) -> Result<(), I2cError<'i>>;
 
-    /// Reads `len` bytes of the register map from `offset`: what the master wrote, or what the host put there.
+    /// Reads `len` bytes of the register map from `offset` as the master sees it: what the master wrote, or what
+    /// the host put there. A `I2c::slave_map_write` still waiting for the master's transaction to end shows once it
+    /// is applied.
     /// `BufferTooBig` past [I2cSlaveCapabilities::map_len] or for `len` above [MAX_READ_LEN].
     #[optional(slave)]
     #[errors(BufferTooBig)]
@@ -693,7 +695,8 @@ pub struct I2cSlaveTransfer<'i> {
     pub end: Second,
     /// Master read (true) or write (false).
     pub read: bool,
-    /// How it ended; [I2cRecordKind::Truncated] when more than [MAX_RECORD_LEN] bytes went by.
+    /// How it ended; [I2cRecordKind::Truncated] when more than [MAX_RECORD_LEN] bytes went by, also when it ended
+    /// with a repeated start.
     pub kind: I2cRecordKind,
     /// [I2cSlaveAnswers::Registers]: the pointer at the first data byte (after the pointer bytes of a write).
     pub pointer: Option<u32>,

@@ -150,7 +150,8 @@ pub trait Spi {
         data: MaxLen<RefVec<'i, u8>, SPI_MAX>,
     ) -> Result<(), SpiError<'i>>;
 
-    /// Reads `len` bytes of the register map from `offset`. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or
+    /// Reads `len` bytes of the register map from `offset` as the master sees it: a `Spi::slave_map_write` still
+    /// waiting for the frame to end shows once it is applied. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or
     /// for `len` above [SPI_MAX].
     #[optional(slave)]
     #[errors(BufferTooBig)]
@@ -161,7 +162,10 @@ pub trait Spi {
 
     /// Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves
     /// the rest unsent (dropped when CS goes inactive), a longer one gets the idle byte for the rest. An answer is
-    /// sent from the start of a frame only: one that comes while CS is active waits for the next frame.
+    /// sent from the start of a frame only: one that comes while CS is active waits for the next frame. A device
+    /// with a TX FIFO loads the next frame's first bytes ahead, before CS goes active, so an answer counts as
+    /// queued in time when it is there by then (after the previous frame ended, as long as the device has to
+    /// refill its FIFO).
     /// Credit-based (API-28): the host never sends more than the device has room for
     /// ([SpiSlaveCapabilities::queue_len] answers).
     #[optional(slave)]
@@ -351,8 +355,9 @@ pub struct SpiRegisters {
     pub addr_bytes: u8,
     /// Which frames read and which write.
     pub rw: SpiRwBit,
-    /// Bytes the master clocks between the address and the data, giving this device time to fetch it; it sends
-    /// `idle` meanwhile. More of them allow a faster clock, see [SpiSlaveCapabilities::map_max_freq].
+    /// Bytes the master clocks between the address and the data of a read frame, giving this device time to fetch
+    /// it; it sends `idle` meanwhile. A write frame has none (its data follows the address right away). More of them
+    /// allow a faster clock, see [SpiSlaveCapabilities::map_max_freq].
     pub dummy_bytes: u8,
     /// Sent while there is no data: during the address and dummy bytes, in a write frame, and past the map's end.
     pub idle: u8,

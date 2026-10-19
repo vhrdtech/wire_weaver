@@ -241,8 +241,9 @@ impl<
         !self.active && !self.framed
     }
 
-    /// `slave_map_write`: writes into the map now if no frame goes on, else when CS is released. `Busy` when the
-    /// staging room is full: wait for [is_idle](Self::is_idle) and try again.
+    /// `slave_map_write`: writes into the map now if no frame goes on (or is loaded ahead), else when CS is
+    /// released. `Busy` when the staging room is full: try again after the next [cs_released](Self::cs_released),
+    /// which empties it (a firmware that loads its FIFO right after each frame is rarely [idle](Self::is_idle)).
     pub fn map_write(&mut self, offset: u32, data: &[u8]) -> Result<(), MapError> {
         let idle = self.is_idle();
         self.map.write(offset, data, idle)

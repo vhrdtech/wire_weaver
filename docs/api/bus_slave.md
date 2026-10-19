@@ -87,7 +87,9 @@ With the register map, the address arrives on MOSI while MISO already runs: a by
 complete goes out as `idle`, and the master's dummy bytes (`SpiRegisters::dummy_bytes`, before read data only) are
 the time the device has. With a FIFO `d` bytes deep, `dummy_bytes >= d - 1` gives every data byte right; with fewer,
 the first data bytes come out as `idle` and the map data starts that many bytes in (the record shows what was sent).
-The engine takes 8-bit words only; `configure` answers `Unsupported` for others.
+Host updates of the map wait for the CS release as on I2C; a `Busy` `map_write` is tried again after the next
+release, which empties the staging room. The engine takes 8-bit words only; `configure` answers `Unsupported` for
+others.
 
 ## Cost per byte
 

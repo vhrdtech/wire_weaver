@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `UartConfig` and `MonitorConfig` derive `PartialEq`, so a device can keep a default config in a `ww_settings` group (STD-32), whose fields are compared with their default.
+
 ### ⚠️ Breaking
 
 - Received chunks end on line idle (STD-13): `UartConfig::idle_chars: u8` and `MonitorConfig::idle_chars` set how

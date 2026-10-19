@@ -158,7 +158,7 @@ pub struct RxFlags {
 
 /// Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set
 /// coming back.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct UartConfig {
     pub baud_rate: Baud,
     pub data_bits: DataBits,
@@ -178,7 +178,7 @@ pub struct UartConfig {
 }
 
 /// Line settings of the watched link, the argument and the answer of `Uart::monitor`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug))]
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Clone, Debug, PartialEq))]
 pub struct MonitorConfig {
     /// Baud rate of the watched link.
     pub baud_rate: Baud,

@@ -17,7 +17,7 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, FieldsValueOwned, TypeOwned, ValueOwned,
 };
-use ww_client_server::{CreditWrite, Event, EventKind, PathKind, Request, RequestKind};
+use ww_client_server::{Event, EventKind, PathKind, Request, RequestKind};
 use ww_link::Kind;
 
 use crate::flash::Firmware;
@@ -354,15 +354,21 @@ impl Decoder {
                     .collect();
                 format!("{}({})", res.name, args.join(", "))
             }
-            (RequestKind::Write { data }, ApiItemKindOwned::FlowSink { ty, .. }) => {
-                let w = CreditWrite::from_ww_bytes(data.0).map_err(|e| format!("{e:?}"))?;
-                let v = ValueOwned::des_shrink_wrap_dyn(w.data.0, ty, &b)
+            (RequestKind::SinkWrite { units, pos, data }, ApiItemKindOwned::FlowSink { ty, .. }) => {
+                let v = ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)
                     .map_err(|e| format!("{e:#}"))?;
+                let units = units.map(|u| u.0).unwrap_or(1);
                 format!(
-                    "{} ⇐ {} (sink position {})",
+                    "{} ⇐ {} (sink position {}, {units} units)",
                     res.name,
                     fmt_value(&v),
-                    w.pos.0
+                    pos.0
+                )
+            }
+            (RequestKind::StreamOpen { resume: Some(cursor), .. }, ApiItemKindOwned::FlowSink { .. }) => {
+                format!(
+                    "{}: open its session at {}",
+                    res.name, cursor.pos.0
                 )
             }
             (RequestKind::Write { data }, ApiItemKindOwned::Stream { ty, .. }) => {
@@ -399,6 +405,16 @@ impl Decoder {
                         &ValueOwned::des_shrink_wrap_dyn(data.0, ty, &b)
                             .map_err(|e| format!("{e:#}"))?,
                     ),
+                    ApiItemKindOwned::FlowSink { .. } => {
+                        let o = ww_client_server::stream::StreamOpened::from_ww_bytes(data.0)
+                            .map_err(|e| format!("{e:?}"))?;
+                        format!(
+                            "{}: opened at {}, buffer of {} bytes",
+                            res.name,
+                            o.live_from.0,
+                            o.capacity.map_or(0, |c| c.0)
+                        )
+                    }
                     _ => "()".into(),
                 }
             }
@@ -440,11 +456,18 @@ fn fmt_sideband(s: &ww_client_server::StreamSideband) -> String {
     match s {
         Open => "open".into(),
         Close => "close".into(),
-        Credit { have, grant } => {
-            format!("credit: have {} bytes, may send {} more", have.0, grant.0)
+        Ack {
+            have,
+            backfill: None,
+            grant,
+        } => format!("ack: have {} units, may send {} more bytes", have.0, grant.0),
+        Query {
+            sent,
+            backfill: None,
+        } => format!("query: sent {} units", sent.0),
+        ResendFrom { from, grant } => {
+            format!("resend from unit {}, may send {} more bytes", from.0, grant.0)
         }
-        CreditQuery { sent } => format!("credit query: sent {} bytes", sent.0),
-        Resend { have, grant } => format!("resend from byte {}, may send {} more", have.0, grant.0),
         other => format!("{other:?}"),
     }
 }

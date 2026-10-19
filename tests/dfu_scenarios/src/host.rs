@@ -104,6 +104,10 @@ macro_rules! send_bulk {
     ($bulk:expr, $plan:expr, $from:expr, $to:expr, $max_piece:expr) => {{
         let mut sink = $bulk.plan().await.unwrap();
         let (from, to) = ($from as usize, $to as usize);
+        // named by the host, a fixed one keeps the transcripts the same from run to run
+        sink.open_session(std::num::NonZeroU32::new(from as u32 + 1).unwrap())
+            .await
+            .unwrap();
         let mut offset = from;
         while offset < to {
             let end = (offset + $max_piece as usize).min(to);

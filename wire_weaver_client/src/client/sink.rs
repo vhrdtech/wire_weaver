@@ -5,6 +5,7 @@ use crate::event_loop::rx_dispatcher::{ResponseReceiver, StreamUpdateReceiver};
 use crate::{Error, RawStreamEvent, StreamError};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
+use std::num::NonZeroU32;
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
@@ -161,6 +162,29 @@ impl<T> Sink<T> {
             return self.sideband_blocking(StreamSideband::Open);
         }
         let cmd = self.start_session()?;
+        self.transport_cmd_tx.send_command_blocking(cmd)?;
+        self.drive_blocking(Goal::Opened)
+    }
+
+    /// [Self::open] of a credit sink with the session named by user code instead of a random one, e.g., from a hash
+    /// of the data it carries. The device keeps a session it is in: opening the one it has continues where it is
+    /// (also after a restart of the host), any other starts at 0. Does nothing more than [Self::open] on a plain
+    /// sink.
+    pub async fn open_session(&mut self, session: NonZeroU32) -> Result<(), StreamError> {
+        if self.credit.is_none() {
+            return self.open().await;
+        }
+        let cmd = self.start_named_session(session.get())?;
+        self.transport_cmd_tx.send_command(cmd).await?;
+        self.drive(Goal::Opened).await
+    }
+
+    /// Blocking [Self::open_session].
+    pub fn open_session_blocking(&mut self, session: NonZeroU32) -> Result<(), StreamError> {
+        if self.credit.is_none() {
+            return self.open_blocking();
+        }
+        let cmd = self.start_named_session(session.get())?;
         self.transport_cmd_tx.send_command_blocking(cmd)?;
         self.drive_blocking(Goal::Opened)
     }
@@ -402,9 +426,14 @@ impl<T> Sink<T> {
 
     /// Start a new session, returns the `StreamOpen` to send.
     fn start_session(&mut self) -> Result<Command, StreamError> {
+        self.start_named_session(new_session())
+    }
+
+    /// Start `session` from position 0 on the host, returns the `StreamOpen` to send.
+    fn start_named_session(&mut self, session: u32) -> Result<Command, StreamError> {
         let credit = self.credit.as_mut().expect("credit sink");
         let now = credit.now_ms();
-        let cursor = credit.tx.open(new_session(), now);
+        let cursor = credit.tx.open(session, now);
         credit.reopen = None;
         credit.lost = false;
         self.open_command(cursor)
@@ -437,9 +466,10 @@ impl<T> Sink<T> {
             Err(_) => return Err(Error::EventLoopNotRunning.into()),
         };
         let opened = StreamOpened::from_ww_bytes(&bytes).map_err(Error::from)?;
+        let capacity = opened.capacity.map(|c| c.0);
         let opened = Opened::from_wire(&opened);
         let now = credit.now_ms();
-        match credit.tx.opened(&opened, now) {
+        match credit.tx.opened(&opened, capacity, now) {
             Ok(_) | Err(SinkOpenError::Stale) => Ok(()),
             Err(SinkOpenError::SessionLost { device_at, acked }) => {
                 Err(StreamError::SinkSessionLost { device_at, acked })

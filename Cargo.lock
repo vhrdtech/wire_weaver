@@ -1391,6 +1391,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_dfu",
+ "ww_stream",
 ]
 
 [[package]]
@@ -1435,6 +1436,7 @@ dependencies = [
  "ww_dfu",
  "ww_framer",
  "ww_link",
+ "ww_stream",
 ]
 
 [[package]]

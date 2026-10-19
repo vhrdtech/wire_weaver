@@ -718,8 +718,8 @@ mod tests {
         }
         // a credit sink: flush() returns once the node accepted every segment
         plan.flush().await.unwrap();
-        // bytes of the three segments as sent, 9 each: offset, data and the encoding around them
-        assert_eq!(plan.credit_progress(), Some((27, 27)));
+        // one unit per segment
+        assert_eq!(plan.credit_progress(), Some((3, 3)));
         // MAX_PIECE_LEN of data, the offset and the encoding around them
         assert_eq!(PLAN_SEGMENT_MAX, 1031);
         assert_eq!(dev.read().unwrap().plan, vec![1, 2, 3, 4, 5, 6, 7, 8]);

@@ -2238,7 +2238,9 @@ fn handle_stream(
                             #send_sideband
                         }
                         #ev_kind_builder_open
-                        opened.to_wire(&[]).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_opened))?;
+                        // the sink's buffer: a resumed host gets no grant of all of it while something is buffered
+                        let capacity = #credit.capacity();
+                        opened.to_wire(&[]).with_capacity(Some(capacity)).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_opened))?;
                         Ok(WrAction::WrittenOk(event_kind_builder))
                     }
                     RequestKind::StreamOpen { resume: None, .. } => {

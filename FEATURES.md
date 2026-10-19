@@ -694,6 +694,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   like the handler (`plug_vbus_cycle_send_return`); `method_model` patterns match the prefixed name. Test
   `tests/methods` (`deferred_on_nested_level`), `docs/api/methods.md#deferred`.
 - ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
+- ✅ **SRV-25 event-driven-observe No fixed observe tick** — a device sleeps until something observed is due
+  instead of polling every millisecond. `ObserveState::next_wake(now_us)` (`ObserveTable::next_wake` per level: the
+  periodic grid, `last + min` of a changed property, `last + max` of a beat, a held level's bucket refill, a batch
+  sealed or as old as allowed; `None` when nothing comes due without a change); a generated `ObserveSignal` any task
+  or interrupt marks a property changed through (`mark_changed_<name>()`) or wakes the server task with, no lost
+  wake between a change and the sleep (`ww_stream::wake`); `with_wake` on samplers and cells writers;
+  `ww_device::Server::wait_until(at)`; `ww api scaffold` prints the signal. Tests: `ww_stream` (polling only at
+  `next_wake` sends what polling every µs does), `tests/observe` (fake clock: polls only on the grid, a change from
+  another thread sent at once), `tests/observe_batched`. `docs/api/observing.md#the-server-loop`.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
@@ -701,13 +710,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. On hardware: a G0B1 (B153A)
   store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
   word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
-- 🚧 **SRV-25 event-driven-observe No fixed observe tick** · `v0.5` — a device sleeps until something is due
-  instead of polling observed properties every millisecond. Done: `ww_stream::wake::Wake` (a wake for the server
-  task, raised from any task or interrupt, no lost wake between a change and the sleep), `ww_device::Server::wait_until`
-  (also returns at the device's own next deadline, `Ready::is_due`). Missing: `ObserveState::next_wake` (earliest
-  due periodic, rate-limited change, budget refill or batch age), a generated `ObserveSignal` with
-  `mark_changed_<name>()` callable from outside the server state, sampler/cells wakes, tests and
-  `docs/api/observing.md`. Builds on SRV-23/24.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

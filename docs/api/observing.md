@@ -101,16 +101,20 @@ server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?
 
 `ObserveState` holds one `ObserveTable<[Slot; N]>` per trait level, sized at compile time (`N` = the level's
 property count) - the per-property deadlines, modes and the level's token bucket. The table's code is the same for
-every level (it works on `ObserveTable<[Slot]>`, SRV-23), so a firmware carries it once however many levels its API
-has. `ww_stream::observe::ObserveLimits` is
+every level (it works on `ObserveTable<[Slot]>`, SRV-23), and so is the loop of `poll_properties` (SRV-24): plan,
+choice, writing the update and its bookkeeping are `ww_stream::observe`'s (`plan_level`, `select`, `write`,
+`ser_update`), one loop over the levels sends from one place, and what the generated code adds per property is
+reading its value (`size` and `write` arms, and the `.await` of an async getter). A firmware carries the algorithm
+once however many levels its API has. `ww_stream::observe::ObserveLimits` is
 what the device allows every observer: shortest period, default/max budget per level, the total budget, and
 whether to send timestamps.
 
 - **Due**: `Periodic` on its grid, never early; `OnChange` once marked changed and `min` elapsed since its last
   send; `OnChangeOrBeat` also once `max` passed without a send.
-- **Values**: `get_set` properties are read through their getter when sent (an unbounded value, e.g. a string, is
-  also measured once before that); `value_on_changed` ones from their field directly. A getter that fails skips
-  that send.
+- **Values**: `get_set` properties are read through their getter when sent; `value_on_changed` ones from their
+  field directly. An unbounded value (e.g. a string) is measured before it is chosen: a sync getter is called
+  for that and again to write it, an async one (`handler_model`, SRV-21) once, its value kept for both. A getter
+  that fails skips that send.
 - **Token bucket, earliest deadline first**: each level has a bucket filled at its granted bytes/s, holding at
   most a tenth of a second of it (64 bytes at least). `poll_properties` sends at most one update per level per
   call: its due properties earliest deadline first, as many as fit the bucket and the buffer. **A level short of

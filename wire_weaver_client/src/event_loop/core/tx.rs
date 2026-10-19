@@ -335,11 +335,13 @@ impl TxCore {
                 path_kind,
                 stream_event_tx,
                 registered_tx,
+                sink,
             } => {
                 self.output.push_back(TxOutput::ToRx(ToRx::OnStreamEvent {
                     path_kind,
                     stream_event_tx,
                     registered_tx,
+                    sink,
                 }));
             }
             Command::ObserveRoute { hook } => {

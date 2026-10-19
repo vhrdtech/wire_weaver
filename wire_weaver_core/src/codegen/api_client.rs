@@ -939,7 +939,31 @@ fn handle_stream(
     let async_accessors = stream_accessors(true);
     let status = if credit {
         let status = Ident::new(&format!("{ident}_status"), ident.span());
+        let resume = Ident::new(&format!("{ident}_resume"), ident.span());
+        let resume_blocking = Ident::new(&format!("{ident}_resume_blocking"), ident.span());
+        let blocking_doc = format!("Blocking variant of [Self::{resume}].");
         quote! {
+            /// Continue the credit sink session of `cursor` (saved from `Sink::cursor()`) after a restart of the host
+            /// program: returns the sink with the position where the device is, at or after `cursor.pos`, user code
+            /// continues its own data from there. `StreamError::SinkSessionLost` when the device no longer has the
+            /// session (it rebooted).
+            pub async fn #resume(&self #maybe_index_arg, cursor: wire_weaver_client::StreamCursor) -> Result<(wire_weaver_client::Sink<#ty_def>, u64), wire_weaver_client::StreamError> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                let mut sink = self.cmd.prepare_credit_sink(path_kind).await?;
+                let pos = sink.resume(cursor).await?;
+                Ok((sink, pos))
+            }
+
+            #[doc = #blocking_doc]
+            pub fn #resume_blocking(&self #maybe_index_arg, cursor: wire_weaver_client::StreamCursor) -> Result<(wire_weaver_client::Sink<#ty_def>, u64), wire_weaver_client::StreamError> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                let mut sink = self.cmd.prepare_credit_sink_blocking(path_kind)?;
+                let pos = sink.resume_blocking(cursor)?;
+                Ok((sink, pos))
+            }
+
             /// State of the credit sink on the device: open or not, session, position, bytes buffered and capacity.
             pub fn #status(&self #maybe_index_arg) -> wire_weaver_client::PreparedRead<wire_weaver_client::ww_client_server::stream::StreamStatus> {
                 #index_chain_push

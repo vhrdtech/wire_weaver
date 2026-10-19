@@ -6,8 +6,9 @@ use crate::{Error, RawStreamEvent, StreamError};
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::sync::oneshot;
+use tokio::sync::{Notify, oneshot};
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrap};
 use ww_client_server::stream::StreamOpened;
@@ -59,7 +60,107 @@ pub struct Sink<T> {
     /// Events received while waiting for credit, for the user
     pending: VecDeque<RawStreamEvent>,
     credit: Option<Credit>,
+    /// What the event loop and [Commander::resume_streams](crate::Commander::resume_streams) reach
+    link: Arc<SinkLink>,
     _phantom: PhantomData<T>,
+}
+
+/// The part of a sink that the event loop and [Commander::resume_streams](crate::Commander::resume_streams) reach:
+/// whether the connection went with `disconnect().keep_streams()`, the credit sink's session to open again on the
+/// next one, and what the resume brought.
+pub struct SinkLink {
+    path_kind: PathKindOwned,
+    queue_bytes: usize,
+    state: Mutex<LinkState>,
+    /// Wakes a handle waiting for the resume
+    resumed: Notify,
+}
+
+#[derive(Default)]
+struct LinkState {
+    /// The credit sink's session and how far the device acknowledged it, as the handle saw it last
+    cursor: Option<StreamCursor>,
+    /// The connection went with `keep_streams`: the sink waits for a resume
+    kept: bool,
+    resumed: Option<Resumed>,
+}
+
+/// What [Commander::resume_streams](crate::Commander::resume_streams) did for a kept sink on the new connection.
+pub(crate) struct Resumed {
+    /// The sideband events on the new connection
+    pub(crate) sideband_rx: StreamUpdateReceiver,
+    /// The device's answer to the open of the session, None when there was no session
+    pub(crate) answer: Option<Result<Vec<u8>, Error>>,
+}
+
+impl std::fmt::Debug for SinkLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let state = self.lock();
+        f.debug_struct("SinkLink")
+            .field("path_kind", &self.path_kind)
+            .field("cursor", &state.cursor)
+            .field("kept", &state.kept)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SinkLink {
+    pub(crate) fn new(path_kind: PathKindOwned, queue_bytes: usize) -> Self {
+        SinkLink {
+            path_kind,
+            queue_bytes,
+            state: Mutex::default(),
+            resumed: Notify::new(),
+        }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, LinkState> {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The connection went (called by the event loop before the handle sees `Disconnected`).
+    pub(crate) fn disconnected(&self, keep: bool) {
+        self.lock().kept = keep;
+    }
+
+    fn is_kept(&self) -> bool {
+        self.lock().kept
+    }
+
+    fn set_cursor(&self, cursor: Option<StreamCursor>) {
+        self.lock().cursor = cursor;
+    }
+
+    /// Path, queue size and session of a sink waiting for a resume, None for one that isn't.
+    pub(crate) fn kept(&self) -> Option<(PathKindOwned, usize, Option<StreamCursor>)> {
+        let state = self.lock();
+        (state.kept && state.resumed.is_none())
+            .then(|| (self.path_kind.clone(), self.queue_bytes, state.cursor))
+    }
+
+    /// The sink is registered on the new connection (and its session opened): the handle takes it from here.
+    pub(crate) fn resume(&self, resumed: Resumed) {
+        let mut state = self.lock();
+        state.kept = false;
+        state.resumed = Some(resumed);
+        drop(state);
+        self.resumed.notify_one();
+    }
+
+    fn take_resumed(&self) -> Option<Resumed> {
+        self.lock().resumed.take()
+    }
+
+    /// True when the device's answer `answer` continues the session of `cursor` (it wasn't lost).
+    pub(crate) fn continues(cursor: StreamCursor, answer: &Result<Vec<u8>, Error>) -> bool {
+        let Ok(bytes) = answer else {
+            return false;
+        };
+        StreamOpened::from_ww_bytes(bytes).is_ok_and(|opened| {
+            let opened = Opened::from_wire(&opened);
+            opened.session == cursor.session.0 && opened.live_from >= cursor.pos.0
+        })
+    }
 }
 
 /// Host side of a credit sink: [SinkTx] and what drives it.
@@ -74,6 +175,10 @@ struct Credit {
     reopen: Option<StreamCursor>,
     /// The link went down during the session, the next call fails once
     lost: bool,
+    /// The link went down with `keep_streams`: waiting for [Commander::resume_streams](crate::Commander::resume_streams)
+    suspended: bool,
+    /// The cursor last told to the [SinkLink]
+    published: Option<StreamCursor>,
 }
 
 impl Credit {
@@ -104,6 +209,9 @@ enum Step {
     Done,
 }
 
+/// How long a suspended sink waits for the resume before looking again.
+const SUSPENDED_WAIT: Duration = Duration::from_secs(1);
+
 /// A new session id: random, never 0 (the host names a credit sink's session, API-34).
 fn new_session() -> u32 {
     use std::hash::{BuildHasher, RandomState};
@@ -128,6 +236,7 @@ impl<T> Sink<T> {
         path_kind: PathKindOwned,
         sideband_rx: StreamUpdateReceiver,
         credit: bool,
+        link: Arc<SinkLink>,
     ) -> Self {
         Sink {
             transport_cmd_tx,
@@ -140,7 +249,10 @@ impl<T> Sink<T> {
                 opening: None,
                 reopen: None,
                 lost: false,
+                suspended: false,
+                published: None,
             }),
+            link,
             _phantom: PhantomData,
         }
     }
@@ -189,6 +301,44 @@ impl<T> Sink<T> {
         self.drive_blocking(Goal::Opened)
     }
 
+    /// Where the device is in a credit sink's session: the session and the units it accepted, every unit before
+    /// `pos` is on the device. Save it with what user code sent: after a restart of the host program,
+    /// [Self::resume] continues from it. None for a plain sink and outside a session.
+    ///
+    /// A reconnect with `disconnect().keep_streams()` and
+    /// [Commander::resume_streams](crate::Commander::resume_streams) needs no cursor: the handle keeps what the
+    /// device didn't acknowledge and continues on its own.
+    pub fn cursor(&self) -> Option<StreamCursor> {
+        self.credit.as_ref().and_then(|c| c.tx.cursor())
+    }
+
+    /// Continue the credit sink session of `cursor` (saved from [Self::cursor]) in a new host program, after a
+    /// restart: returns the position where the device is, at or after `cursor.pos` (it may have accepted more than
+    /// was acknowledged before the host went). User code continues its own data from there, e.g., the byte at that
+    /// offset on a byte sink.
+    ///
+    /// Fails with [StreamError::SinkSessionLost] when the device no longer has the session (it rebooted): user code
+    /// decides what to do (a DFU plan starts over with [Self::open]). [StreamError::NotCreditSink] on a plain sink.
+    pub async fn resume(&mut self, cursor: StreamCursor) -> Result<u64, StreamError> {
+        let cmd = self.start_resume(cursor)?;
+        self.transport_cmd_tx.send_command(cmd).await?;
+        self.drive(Goal::Opened).await?;
+        Ok(self.position())
+    }
+
+    /// Blocking [Self::resume].
+    pub fn resume_blocking(&mut self, cursor: StreamCursor) -> Result<u64, StreamError> {
+        let cmd = self.start_resume(cursor)?;
+        self.transport_cmd_tx.send_command_blocking(cmd)?;
+        self.drive_blocking(Goal::Opened)?;
+        Ok(self.position())
+    }
+
+    /// Units the device accepted in this session.
+    fn position(&self) -> u64 {
+        self.credit.as_ref().map_or(0, |c| c.tx.acked())
+    }
+
     /// Send Close command through the sideband channel.
     /// On a credit sink, waits until the device accepted everything first, see [Self::flush].
     pub async fn close(&mut self) -> Result<(), StreamError> {
@@ -200,6 +350,7 @@ impl<T> Sink<T> {
             credit.opening = None;
             credit.reopen = None;
         }
+        self.publish();
         self.sideband(StreamSideband::Close).await
     }
 
@@ -214,6 +365,7 @@ impl<T> Sink<T> {
             credit.opening = None;
             credit.reopen = None;
         }
+        self.publish();
         self.sideband_blocking(StreamSideband::Close)
     }
 
@@ -287,8 +439,13 @@ impl<T> Sink<T> {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
             }
-            let ev = self.sideband_rx.recv().await.ok_or(StreamError::Closed)?;
-            self.filter(ev);
+            match self.sideband_rx.recv().await {
+                Some(ev) => self.filter(ev),
+                None if self.adopt_resumed()? => {}
+                // the connection went with `keep_streams`: the events come again after the resume
+                None if self.link.is_kept() => self.link.resumed.notified().await,
+                None => return Err(StreamError::Closed),
+            }
         }
     }
 
@@ -300,15 +457,18 @@ impl<T> Sink<T> {
             if let Some(ev) = self.pending.pop_front() {
                 return Ok(ev);
             }
-            let ev = self
-                .sideband_rx
-                .blocking_recv()
-                .ok_or(StreamError::Closed)?;
-            self.filter(ev);
+            match self.sideband_rx.blocking_recv() {
+                Some(ev) => self.filter(ev),
+                None if self.adopt_resumed()? => {}
+                // tokio's Notify has no blocking wait
+                None if self.link.is_kept() => std::thread::sleep(Duration::from_millis(1)),
+                None => return Err(StreamError::Closed),
+            }
         }
     }
 
     fn try_recv_any(&mut self) -> Result<Option<RawStreamEvent>, StreamError> {
+        self.adopt_resumed()?;
         self.drain()?;
         Ok(self.pending.pop_front())
     }
@@ -443,6 +603,16 @@ impl<T> Sink<T> {
         self.open_command(cursor)
     }
 
+    /// Open the session of `cursor` again in a new host, returns the `StreamOpen` to send.
+    fn start_resume(&mut self, cursor: StreamCursor) -> Result<Command, StreamError> {
+        let credit = self.credit.as_mut().ok_or(StreamError::NotCreditSink)?;
+        let now = credit.now_ms();
+        let cursor = credit.tx.resume_from(cursor, now);
+        credit.reopen = None;
+        credit.lost = false;
+        self.open_command(cursor)
+    }
+
     /// `StreamOpen` with `cursor`, its answer awaited from now on.
     fn open_command(&mut self, cursor: StreamCursor) -> Result<Command, StreamError> {
         let (cmd, rx) = self
@@ -457,12 +627,15 @@ impl<T> Sink<T> {
         &mut self,
         answer: Result<Result<Vec<u8>, Error>, oneshot::error::RecvError>,
     ) -> Result<(), StreamError> {
+        // the connection went with `keep_streams`: the resume opens the session again
+        let kept = self.link.is_kept();
         let credit = self.credit.as_mut().expect("credit sink");
         credit.opening = None;
         let bytes = match answer {
             Ok(Ok(bytes)) => bytes,
             // lost: opened again when due
             Ok(Err(Error::Timeout)) => return Ok(()),
+            Ok(Err(_)) | Err(_) if kept => return Ok(()),
             Ok(Err(e)) => {
                 credit.tx.closed();
                 return Err(e.into());
@@ -506,11 +679,17 @@ impl<T> Sink<T> {
 
     /// The next thing to do towards `goal` (sans-IO, for the async, blocking and non-blocking drivers below).
     fn step(&mut self, goal: Goal<'_>) -> Result<Step, StreamError> {
+        self.adopt_resumed()?;
         self.poll_open_answer()?;
         if !self.is_opening() {
             self.drain()?;
         }
+        self.publish();
         let credit = self.credit.as_mut().expect("credit sink");
+        if credit.suspended {
+            // the connection went with `keep_streams`: nothing goes out until the resume
+            return Ok(Step::Wait(SUSPENDED_WAIT));
+        }
         if credit.lost {
             // the device lost the session with the link: values sent so far may be lost too
             credit.lost = false;
@@ -602,6 +781,10 @@ impl<T> Sink<T> {
     /// Wait up to `wait` for the answer to the open or else for a sideband event.
     async fn wait(&mut self, wait: Duration) -> Result<(), StreamError> {
         let credit = self.credit.as_mut().expect("credit sink");
+        if credit.suspended {
+            _ = tokio::time::timeout(wait, self.link.resumed.notified()).await;
+            return Ok(());
+        }
         if let Some(rx) = &mut credit.opening {
             if let Ok(answer) = tokio::time::timeout(wait, rx).await {
                 self.on_open_answer(answer)?;
@@ -618,7 +801,11 @@ impl<T> Sink<T> {
     fn wait_blocking(&mut self, wait: Duration) -> Result<(), StreamError> {
         let deadline = Instant::now() + wait;
         loop {
-            if self.is_opening() {
+            if self.credit.as_ref().is_some_and(|c| c.suspended) {
+                if self.link.lock().resumed.is_some() {
+                    return Ok(());
+                }
+            } else if self.is_opening() {
                 self.poll_open_answer()?;
                 if !self.is_opening() {
                     return Ok(());
@@ -648,19 +835,68 @@ impl<T> Sink<T> {
             match self.sideband_rx.try_recv() {
                 Ok(ev) => self.filter(ev),
                 Err(TryRecvError::Empty) => return Ok(()),
+                // the connection went with `keep_streams`: the events come again after the resume
+                Err(TryRecvError::Disconnected) if self.link.is_kept() => return Ok(()),
                 Err(TryRecvError::Disconnected) => return Err(StreamError::Closed),
+            }
+        }
+    }
+
+    /// Take over what [Commander::resume_streams](crate::Commander::resume_streams) did for this sink on the new
+    /// connection, if it ran: true when it did.
+    fn adopt_resumed(&mut self) -> Result<bool, StreamError> {
+        let Some(resumed) = self.link.take_resumed() else {
+            return Ok(false);
+        };
+        // what the old connection still had queued first, it went with `keep_streams`
+        while let Ok(ev) = self.sideband_rx.try_recv() {
+            self.filter_kept(ev, true);
+        }
+        self.sideband_rx = resumed.sideband_rx;
+        let Some(credit) = &mut self.credit else {
+            return Ok(true);
+        };
+        credit.suspended = false;
+        credit.lost = false;
+        credit.opening = None;
+        let now = credit.now_ms();
+        let cursor = credit.tx.resume(now);
+        match resumed.answer {
+            Some(answer) if cursor.is_some() => self.on_open_answer(Ok(answer))?,
+            // no session when the resume ran (or the answer is lost): open it now
+            _ => credit.reopen = cursor,
+        }
+        Ok(true)
+    }
+
+    /// Tell the [SinkLink] the cursor, for a resume.
+    fn publish(&mut self) {
+        if let Some(credit) = &mut self.credit {
+            let cursor = credit.tx.cursor();
+            if cursor != credit.published {
+                credit.published = cursor;
+                self.link.set_cursor(cursor);
             }
         }
     }
 
     /// Credit events go to the credit state, the rest to the user.
     fn filter(&mut self, ev: RawStreamEvent) {
+        let kept = self.link.is_kept();
+        self.filter_kept(ev, kept);
+    }
+
+    /// [Self::filter], `kept` when the connection went with `keep_streams`.
+    fn filter_kept(&mut self, ev: RawStreamEvent, kept: bool) {
         if let Some(credit) = &mut self.credit {
             match &ev {
                 RawStreamEvent::Sideband(sideband) => {
                     let now = credit.now_ms();
                     match credit.tx.on_sideband(sideband, now) {
-                        SinkSideband::Credit => return,
+                        SinkSideband::Credit => {
+                            self.publish();
+                            return;
+                        }
                         SinkSideband::DeviceClosed => {
                             // it lost the session (a reboot) or never saw the open: open it again, the answer
                             // tells whether the device still has it
@@ -669,6 +905,13 @@ impl<T> Sink<T> {
                         }
                         SinkSideband::Other => {}
                     }
+                }
+                RawStreamEvent::Disconnected if kept => {
+                    // `keep_streams`: the session goes on after the resume
+                    credit.tx.link_lost();
+                    credit.opening = None;
+                    credit.reopen = None;
+                    credit.suspended = true;
                 }
                 RawStreamEvent::Disconnected if credit.tx.session().is_some() => {
                     credit.tx.closed();

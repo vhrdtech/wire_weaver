@@ -163,6 +163,7 @@ impl RxCore {
                 path_kind,
                 stream_event_tx,
                 registered_tx,
+                sink,
             } => {
                 self.dispatcher.handle_cmd(
                     now,
@@ -170,6 +171,7 @@ impl RxCore {
                         path_kind: *path_kind,
                         stream_event_tx,
                         registered_tx,
+                        sink,
                     },
                 );
             }

@@ -86,6 +86,9 @@ pub enum StreamError {
         "the device is ahead in the credit sink session: at {device_at}, only {sent} were sent"
     )]
     SinkAhead { device_at: u64, sent: u64 },
+    /// Only a credit sink has positions to resume from.
+    #[error("not a credit sink: no session to resume")]
+    NotCreditSink,
     #[error(transparent)]
     Other(#[from] Error),
 }

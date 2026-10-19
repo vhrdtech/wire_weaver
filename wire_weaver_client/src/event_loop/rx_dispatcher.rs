@@ -1,11 +1,12 @@
 use crate::client::observe::{LevelRoute, ObserveRouteHook};
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
+use crate::client::sink::SinkLink;
 use crate::event_loop::command::StreamOpenHook;
 use crate::event_loop::event_queue::{EventReceiver, EventSender};
 use crate::{Error, RawStreamEvent, SeqTy};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tracing::{debug, trace, warn};
@@ -48,6 +49,7 @@ pub(crate) enum DispatcherCommand {
         path_kind: PathKindOwned,
         stream_event_tx: StreamUpdateSender,
         registered_tx: oneshot::Sender<()>,
+        sink: Option<Arc<SinkLink>>,
     },
     ObserveRoute {
         hook: Box<ObserveRouteHook>,
@@ -103,6 +105,8 @@ pub(crate) struct RxDispatcher {
     /// Timed out requests, whose seq is not freed until a late reply arrives or [LATE_REPLY_WINDOW] ends.
     timed_out: HashMap<SeqTy, Instant>,
     stream_handlers: HashMap<Vec<UNib32>, Vec<StreamUpdateSender>>,
+    /// Sinks registered on this connection, told when it goes and whether they are kept
+    sinks: Vec<Weak<SinkLink>>,
     /// Observed trait levels, by path (CLT-28)
     observe_routes: HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
     /// Seq numbers whose requests completed, were cancelled or timed out and passed [LATE_REPLY_WINDOW] since the
@@ -143,7 +147,12 @@ impl RxDispatcher {
                 path_kind,
                 stream_event_tx,
                 registered_tx,
+                sink,
             } => {
+                if let Some(sink) = sink {
+                    self.sinks.retain(|s| s.strong_count() > 0);
+                    self.sinks.push(Arc::downgrade(&sink));
+                }
                 if let PathKindOwned::Absolute { path } = path_kind {
                     // TODO: send Connected/Disconnected only on actual connect/disconnect, send status here instead
                     _ = stream_event_tx.send(self.is_connected_as_stream_event());
@@ -261,6 +270,10 @@ impl RxDispatcher {
                         route.on_disconnected(self.keep_streams);
                     }
                     self.observe_routes.clear();
+                    // before their handles see `Disconnected`
+                    for sink in self.sinks.drain(..).filter_map(|s| s.upgrade()) {
+                        sink.disconnected(self.keep_streams);
+                    }
                 }
                 self.notify_streams();
                 return;

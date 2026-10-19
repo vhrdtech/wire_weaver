@@ -20,6 +20,7 @@
 
 ### 🚀 Features
 
+- Credit sinks resume (API-34): `Sink::cursor()` (the session and the units the device accepted, to save with the program's own progress), `Sink::resume(cursor)` (`_blocking`) continues a session after a restart of the host program and returns where the device is, at or after the cursor's position; `DynSink::cursor` / `resume` / `open_session`. Sinks live on through `disconnect().keep_streams()`: `Commander::resume_streams()` registers them on the new connection and opens a credit sink's session again from where the device is, the handle sends what wasn't acknowledged and goes on (nothing repeated, nothing lost); a call while the link is down waits for the resume. A device that lost the session meanwhile (a reboot) is reported by the sink's next call as `StreamError::SinkSessionLost`, `resume_streams()` doesn't count it. `StreamError::NotCreditSink` for a resume of a plain sink.
 - Credit sinks (API-34): `Sink::send_units(value, units)` (`_blocking`, `try_send_units`) for a value of other than one unit, `Sink::open_session(session)` (`_blocking`) opens a session user code names (the device continues where it is in that session); `StreamError::BadUnits` for 0 or more than `MAX_WINDOW` units. `DynSink::send_units` (`_blocking`); `DynSink::send` counts one unit per typed value and the bytes of a byte sink's payload, as the typed client does.
 
 - `Error::RemoteError` prints the device's error with its site (SRV-22): `Remote device returned Unimplemented at item site 2 (handler)` instead of the `Debug` of `ErrorOwned`.

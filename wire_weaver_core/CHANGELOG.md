@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- The generated client has `<sink>_resume(cursor)` (`_resume_blocking`) for credit sinks (API-34): the sink with the position where the device is, to continue a session after a restart of the host program.
+
 - `ObserveSignal` (SRV-25), generated for an API with `+observe` properties: a `static` any task or interrupt marks a property changed through (`SIGNAL.mark_changed_<name>()`, a bit and a wake) or wakes the server task with (`wake()`, `wait()`, `as_wake()` from `ww_stream::wake::Signal`); `ObserveState::take_changes(&signal)` moves the changes into the tables.
 - Event-driven observe (SRV-25): `ObserveState::next_wake(now_us)`, when `poll_properties` next has something to do (a property due, a bucket refilled for what a level held back, a batch sealed or as old as allowed), `None` while nothing comes due without a change, so the server task sleeps until then instead of polling every millisecond. `ObserveState::with_signal(&'static ObserveSignal)`: `poll_properties` and `next_wake` take the changes it carries. `<Level>Sampler::with_wake` and `<Level>Writer::with_wake` (`ObserveSignal::as_wake()`) wake the server task when a batch gets its first row or is full/sealed. A missed count waiting alone for budget holds the level until its bucket has the bytes.
 - `ww api scaffold` prints a `static OBSERVE: api_impl::ObserveSignal` for an API with `+observe` properties (SRV-25).

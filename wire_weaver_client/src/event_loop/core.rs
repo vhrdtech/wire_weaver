@@ -86,6 +86,7 @@ pub(crate) enum ToRx {
         path_kind: Box<PathKindOwned>,
         stream_event_tx: StreamUpdateSender,
         registered_tx: oneshot::Sender<()>,
+        sink: Option<std::sync::Arc<crate::client::sink::SinkLink>>,
     },
     /// Route a trait level's `PropertyUpdate` events to its observers
     ObserveRoute {

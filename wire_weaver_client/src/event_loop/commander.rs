@@ -7,6 +7,7 @@ use crate::client::observe::{
     LevelRoute, LevelUpdate, ObserveConfig, ObserveRegistry, Pending, PreparedObserve, send_pending,
 };
 use crate::client::positioned::Shared;
+use crate::client::sink::{Resumed, SinkLink};
 use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
 use crate::device_info::DeviceApiInfo;
@@ -66,6 +67,7 @@ pub struct Commander {
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
     streams: StreamRegistry,
+    sinks: SinkRegistry,
     consts: ConstCache,
     observes: ObserveRegistry,
     /// Shared by all clones, the one that drops last disconnects, see the `Drop` impl.
@@ -95,6 +97,9 @@ pub(crate) type ConstCache = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
 /// Counted and reliable streams opened through a [Commander] (and its clones), to resume them after a reconnect.
 pub(crate) type StreamRegistry = Arc<Mutex<Vec<Weak<Shared>>>>;
 
+/// Sinks prepared through a [Commander] (and its clones), to resume them after a reconnect.
+pub(crate) type SinkRegistry = Arc<Mutex<Vec<Weak<SinkLink>>>>;
+
 impl Commander {
     pub fn new(transport_cmd_tx: mpsc::Sender<Command>) -> Self {
         Self {
@@ -109,6 +114,7 @@ impl Commander {
             traits_only: false,
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
             streams: StreamRegistry::default(),
+            sinks: SinkRegistry::default(),
             consts: ConstCache::default(),
             observes: ObserveRegistry::default(),
             last_clone: Arc::new(()),
@@ -295,8 +301,11 @@ impl Commander {
     /// go on as before and see [StreamEvent::Resumed](crate::StreamEvent::Resumed), and gaps if the device didn't
     /// keep everything. A stream the device can't resume ends (its handle returns `StreamError::Closed` once
     /// drained). Observed trait levels (CLT-28) are subscribed again too, their observers see
-    /// [ObserveEvent::Resumed](crate::observe::ObserveEvent::Resumed). Returns how many streams and levels were
-    /// resumed.
+    /// [ObserveEvent::Resumed](crate::observe::ObserveEvent::Resumed). Sinks are registered again, and a credit
+    /// sink in a session opens it from where the device is: its handle sends again what the device didn't
+    /// acknowledge and goes on, nothing repeated and nothing lost; one whose session the device lost (a reboot)
+    /// returns [StreamError::SinkSessionLost](crate::StreamError::SinkSessionLost) on its next call. Returns how many
+    /// streams, levels and credit sink sessions were resumed.
     // TODO(EX-10): the reconnect itself calls this once it exists
     pub async fn resume_streams(&self) -> Result<usize, Error> {
         let mut resumed = 0;
@@ -313,6 +322,23 @@ impl Commander {
                 let answer = done_rx.await.unwrap_or(Err(Error::EventLoopNotRunning));
                 resumed += Self::level_resumed(&route, generation, answer);
             }
+        }
+        for link in self.kept_sinks() {
+            let Some((path_kind, queue_bytes, cursor)) = link.kept() else {
+                continue;
+            };
+            let sideband_rx = transport
+                .register(&path_kind, queue_bytes, Some(link.clone()))
+                .await?;
+            let answer = match cursor {
+                Some(cursor) => {
+                    let (cmd, done_rx) = transport.sink_open_command(path_kind, cursor)?;
+                    transport.send_command(cmd).await?;
+                    Some(done_rx.await.unwrap_or(Err(Error::EventLoopNotRunning)))
+                }
+                None => None,
+            };
+            resumed += Self::sink_resumed(&link, cursor, sideband_rx, answer);
         }
         Ok(resumed)
     }
@@ -336,7 +362,55 @@ impl Commander {
                 resumed += Self::level_resumed(&route, generation, answer);
             }
         }
+        for link in self.kept_sinks() {
+            let Some((path_kind, queue_bytes, cursor)) = link.kept() else {
+                continue;
+            };
+            let sideband_rx =
+                transport.register_blocking(&path_kind, queue_bytes, Some(link.clone()))?;
+            let answer = match cursor {
+                Some(cursor) => {
+                    let (cmd, done_rx) = transport.sink_open_command(path_kind, cursor)?;
+                    transport.send_command_blocking(cmd)?;
+                    Some(
+                        done_rx
+                            .blocking_recv()
+                            .unwrap_or(Err(Error::EventLoopNotRunning)),
+                    )
+                }
+                None => None,
+            };
+            resumed += Self::sink_resumed(&link, cursor, sideband_rx, answer);
+        }
         Ok(resumed)
+    }
+
+    /// Sinks waiting for a resume after `disconnect().keep_streams()`.
+    fn kept_sinks(&self) -> Vec<Arc<SinkLink>> {
+        let mut sinks = self.sinks.lock().unwrap_or_else(|e| e.into_inner());
+        sinks.retain(|s| s.strong_count() > 0);
+        sinks.iter().filter_map(Weak::upgrade).collect()
+    }
+
+    /// Hand a sink what its resume brought, 1 for a credit sink session that goes on.
+    fn sink_resumed(
+        link: &SinkLink,
+        cursor: Option<StreamCursor>,
+        sideband_rx: StreamUpdateReceiver,
+        answer: Option<Result<Vec<u8>, Error>>,
+    ) -> usize {
+        let continues = match (cursor, &answer) {
+            (Some(cursor), Some(answer)) => SinkLink::continues(cursor, answer),
+            _ => false,
+        };
+        if cursor.is_some() && !continues {
+            warn!("a credit sink session could not be resumed: {answer:?}");
+        }
+        link.resume(Resumed {
+            sideband_rx,
+            answer,
+        });
+        continues as usize
     }
 
     fn observed_levels(&self) -> Vec<Arc<dyn LevelRoute>> {
@@ -537,52 +611,60 @@ impl Commander {
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let path_kind = self.resolve_path(path)?;
-        let rx = self
-            .transport()
-            .register_stream(&path_kind, self.stream_queue_bytes)
-            .await?;
-        Ok(self.sink(path_kind, rx, false))
+        self.sink(path, false).await
     }
 
     pub fn prepare_sink_blocking<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let path_kind = self.resolve_path(path)?;
-        let rx = self
-            .transport()
-            .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
-        Ok(self.sink(path_kind, rx, false))
+        self.sink_blocking(path, false)
     }
 
-    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/streams.md`.
+    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/credit_sinks.md`.
     pub async fn prepare_credit_sink<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let path_kind = self.resolve_path(path)?;
-        let rx = self
-            .transport()
-            .register_stream(&path_kind, self.stream_queue_bytes)
-            .await?;
-        Ok(self.sink(path_kind, rx, true))
+        self.sink(path, true).await
     }
 
-    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/streams.md`.
+    /// Sink with credit-based flow control (`#[credit] sink!(..)`), see `docs/api/credit_sinks.md`.
     pub fn prepare_credit_sink_blocking<T: DeserializeShrinkWrapOwned>(
         &self,
         path: PathKind<'_>,
     ) -> Result<Sink<T>, Error> {
-        let path_kind = self.resolve_path(path)?;
-        let rx = self
-            .transport()
-            .register_stream_blocking(&path_kind, self.stream_queue_bytes)?;
-        Ok(self.sink(path_kind, rx, true))
+        self.sink_blocking(path, true)
     }
 
-    fn sink<T>(&self, path_kind: PathKindOwned, rx: StreamUpdateReceiver, credit: bool) -> Sink<T> {
-        Sink::new(self.transport(), path_kind, rx, credit)
+    async fn sink<T>(&self, path: PathKind<'_>, credit: bool) -> Result<Sink<T>, Error> {
+        let path_kind = self.resolve_path(path)?;
+        let link = self.sink_link(&path_kind);
+        let rx = self
+            .transport()
+            .register(&path_kind, self.stream_queue_bytes, Some(link.clone()))
+            .await?;
+        Ok(Sink::new(self.transport(), path_kind, rx, credit, link))
+    }
+
+    fn sink_blocking<T>(&self, path: PathKind<'_>, credit: bool) -> Result<Sink<T>, Error> {
+        let path_kind = self.resolve_path(path)?;
+        let link = self.sink_link(&path_kind);
+        let rx = self.transport().register_blocking(
+            &path_kind,
+            self.stream_queue_bytes,
+            Some(link.clone()),
+        )?;
+        Ok(Sink::new(self.transport(), path_kind, rx, credit, link))
+    }
+
+    /// A new sink's link, in the registry for [Self::resume_streams].
+    fn sink_link(&self, path_kind: &PathKindOwned) -> Arc<SinkLink> {
+        let link = Arc::new(SinkLink::new(path_kind.clone(), self.stream_queue_bytes));
+        let mut sinks = self.sinks.lock().unwrap_or_else(|e| e.into_inner());
+        sinks.retain(|s| s.strong_count() > 0);
+        sinks.push(Arc::downgrade(&link));
+        link
     }
 
     pub fn introspect(&self) -> Introspect {
@@ -854,6 +936,16 @@ impl TransportCommander {
         path_kind: &PathKindOwned,
         queue_bytes: usize,
     ) -> Result<StreamUpdateReceiver, Error> {
+        self.register(path_kind, queue_bytes, None).await
+    }
+
+    /// [Self::register_stream] of a sink, whose `link` hears when the connection goes.
+    pub(crate) async fn register(
+        &self,
+        path_kind: &PathKindOwned,
+        queue_bytes: usize,
+        sink: Option<Arc<SinkLink>>,
+    ) -> Result<StreamUpdateReceiver, Error> {
         let (tx, rx) = event_queue(queue_bytes);
         let (registered_tx, registered_rx) = oneshot::channel();
         self.cmd_tx
@@ -861,6 +953,7 @@ impl TransportCommander {
                 path_kind: Box::new(path_kind.clone()),
                 stream_event_tx: tx,
                 registered_tx,
+                sink,
             })
             .await
             .map_err(|_| Error::RxDispatcherNotRunning)?;
@@ -876,6 +969,16 @@ impl TransportCommander {
         path_kind: &PathKindOwned,
         queue_bytes: usize,
     ) -> Result<StreamUpdateReceiver, Error> {
+        self.register_blocking(path_kind, queue_bytes, None)
+    }
+
+    /// Blocking variant of [Self::register].
+    pub(crate) fn register_blocking(
+        &self,
+        path_kind: &PathKindOwned,
+        queue_bytes: usize,
+        sink: Option<Arc<SinkLink>>,
+    ) -> Result<StreamUpdateReceiver, Error> {
         let (tx, rx) = event_queue(queue_bytes);
         let (registered_tx, registered_rx) = oneshot::channel();
         self.cmd_tx
@@ -883,6 +986,7 @@ impl TransportCommander {
                 path_kind: Box::new(path_kind.clone()),
                 stream_event_tx: tx,
                 registered_tx,
+                sink,
             })
             .map_err(|_| Error::RxDispatcherNotRunning)?;
         registered_rx
@@ -1372,6 +1476,7 @@ impl TransportCommander {
                 stream_event_tx,
                 // the request is sent after this, its events can't overtake the registration
                 registered_tx: oneshot::channel().0,
+                sink: None,
             })
             .await
             .map_err(|_| Error::EventLoopNotRunning)?;
@@ -1403,6 +1508,7 @@ impl TransportCommander {
                 stream_event_tx,
                 // the request is sent after this, its events can't overtake the registration
                 registered_tx: oneshot::channel().0,
+                sink: None,
             })
             .map_err(|_| Error::EventLoopNotRunning)?;
         self.cmd_tx

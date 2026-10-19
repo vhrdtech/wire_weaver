@@ -10,6 +10,7 @@ use ww_version::FullVersionOwned;
 use crate::client::observe::ObserveRouteHook;
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::{StreamOpenResult, is_open};
+use crate::client::sink::SinkLink;
 use crate::{
     SeqTy,
     device_info::ConnectionInfo,
@@ -64,6 +65,8 @@ pub enum Command {
         /// Notified once the dispatcher routes events on this path to `stream_event_tx`, events received before
         /// that are not delivered.
         registered_tx: oneshot::Sender<()>,
+        /// A sink's link, told when the connection goes (`keep_streams` or not)
+        sink: Option<Arc<SinkLink>>,
     },
 
     /// Route `PropertyUpdate` events of a trait level to its observers (CLT-28), on this connection.

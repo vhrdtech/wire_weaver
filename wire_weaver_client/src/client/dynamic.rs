@@ -1310,6 +1310,34 @@ impl DynSink {
         self.sink.open_blocking()
     }
 
+    /// See [Sink::open_session].
+    pub async fn open_session(&mut self, session: std::num::NonZeroU32) -> Result<(), StreamError> {
+        self.sink.open_session(session).await
+    }
+
+    /// See [Sink::open_session_blocking].
+    pub fn open_session_blocking(
+        &mut self,
+        session: std::num::NonZeroU32,
+    ) -> Result<(), StreamError> {
+        self.sink.open_session_blocking(session)
+    }
+
+    /// See [Sink::cursor].
+    pub fn cursor(&self) -> Option<StreamCursor> {
+        self.sink.cursor()
+    }
+
+    /// See [Sink::resume].
+    pub async fn resume(&mut self, cursor: StreamCursor) -> Result<u64, StreamError> {
+        self.sink.resume(cursor).await
+    }
+
+    /// See [Sink::resume_blocking].
+    pub fn resume_blocking(&mut self, cursor: StreamCursor) -> Result<u64, StreamError> {
+        self.sink.resume_blocking(cursor)
+    }
+
     /// See [Sink::close].
     pub async fn close(&mut self) -> Result<(), StreamError> {
         self.sink.close().await

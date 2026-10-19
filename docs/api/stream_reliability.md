@@ -127,6 +127,12 @@ pub struct StreamCursor { pub session: UVlq32, pub pos: UVlq64 }
 A host that saves data also saves the cursor with it, and resumes from it after a restart: with explicit
 acknowledgements (below), nothing is lost even when the host crashes between receiving data and saving it.
 
+Credit sinks, the other direction, have sessions and cursors too, with the roles swapped: the host sends, so the
+host names the session, and the device's position says how far it accepted. A sink continues after
+`disconnect().keep_streams()` and `Commander::resume_streams()` from where the device is, and a restarted host
+continues from a saved `Sink::cursor()` with `<sink>_resume(cursor)`; a device that lost the session is reported
+(`StreamError::SinkSessionLost`). See [credit sinks](credit_sinks.md#resume).
+
 ## Latest values while backfilling
 
 A resumed reliable stream has two **runs** of positions, each delivered in order:

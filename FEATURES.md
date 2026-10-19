@@ -618,7 +618,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Scheduler`, `StreamCnt`; sans-IO, `no_std`, tested over a seeded lossy link with random disconnects),
   `ww_self::ApiItemKind::StreamFn`, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).
-- 🚧 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `Resend` shared with reliable
+- 🧪 **API-34 Credit sinks on the stream protocol** · `v0.5` — `Ack` / `Query` / `Resend` shared with reliable
   streams, sessions and resume for credit sinks, so a sink (UART tx, a DFU plan) continues after a reconnect.
   Positions count units the host names per item (1 by default, the payload's bytes for a byte sink), grants count
   bytes; positions stay as API-42 has them (`u64` in state, modulo 2^28 on the wire), the host keeps at most
@@ -628,8 +628,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `RequestKind::SinkWrite` / `SinkWriteUnits`, and the switch-over: generated server code (open by `StreamOpen`, a
   read returns `StreamStatus`), the host `Sink` (`send_units`, `open_session`, a device that lost the session is
   reported), dynamic client and Python, `ww_dfu`, every test crate; the old `Credit` / `CreditQuery` / `Resend`,
-  `CreditWrite` and `ww_client_server::credit` are gone, `ResendFrom` is `Resend`. Missing: resume in the host API
-  (`Sink::cursor()`, sinks in `resume_streams()`, `<sink>_resume(cursor)`), the hardware check.
+  `CreditWrite` and `ww_client_server::credit` are gone, `ResendFrom` is `Resend`. Resume in the host API:
+  `Sink::cursor()`, sinks in `disconnect().keep_streams()` / `Commander::resume_streams()` (the session goes on from
+  where the device is, nothing repeated or lost), the generated `<sink>_resume(cursor)` after a host restart,
+  `StreamError::SinkSessionLost` for a device that lost the session; Python `Sink.cursor` / `resume` /
+  `ww.SessionLost`. Tests: `wire_weaver_client` `event_loop/sink_e2e_tests.rs` (reconnect in the middle of a
+  transfer with lost writes, a rebooted device, a restarted host, a late duplicate open), `tests/credit_sink`,
+  the 2C-APP-BULK DFU scenario. See `docs/api/credit_sinks.md#resume`. To check on hardware: TEST-26.
 - 💡 **API-53 Sink functions** — `#[sink(T, credit)] fn uart_tx(config: TxConfig) -> Result<A, E>`, the
   counterpart of stream functions (API-31): a sink opened with a configuration and a typed result, a new session
   exactly when the configuration changes. The wire has it (`StreamOpen { args }`); codegen and the host API are
@@ -1409,6 +1414,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +
   `.rodata`, or the largest symbols (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
+- 📋 **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's UART tx credit sink (API-34) on omarchy-m1:
+  a reconnect in the middle of a transfer (USB unplugged and plugged back, `keep_streams` and `resume_streams()`)
+  puts every byte on the line exactly once, and a restarted host continues from a saved cursor.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

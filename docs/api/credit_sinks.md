@@ -148,13 +148,61 @@ called with, what to `free()` once that value is consumed; `last_item_units()` i
   a progress bar.
 - A device that lost the session (it answers an open behind what it had acknowledged, after a reboot) fails the call
   with `StreamError::SinkSessionLost { device_at, acked }`: what was sent from `device_at` on is gone, user code
-  decides what to do (a DFU plan starts over); the next value opens a new session. A link that went down fails the
-  call with `UnexpectedEvent(Disconnected)` as before.
+  decides what to do (a DFU plan starts over); the next value opens a new session. A link that went down without
+  `keep_streams` fails the call with `UnexpectedEvent(Disconnected)` and ends the session on the host; to go on after
+  a reconnect or a restart, see [Resume](#resume).
 - `set_credit_config(CreditConfig { query_interval, stall_timeout })` tunes it to the link: `query_interval` (1 s by
   default) longer than the link's round trip, `stall_timeout` (30 s by default) longer than the device's worst stall
   (a flash sector erase takes 1-2 s); with no progress for that long, `send()` fails with a timeout.
 
-The dynamic client and Python speak the same protocol for credit sinks. How the credit is exchanged, and how
+### Resume
+
+A credit sink's session lives on the device until another session is opened (or the device reboots), so a transfer
+goes on after the link or the host program went away, from where the device is: nothing the device took is sent
+again, nothing is lost.
+
+**After a reconnect**, with the program still running: disconnect with `disconnect().keep_streams()`, and after the
+new connection `Commander::resume_streams()` (it also resumes counted and reliable streams and observers). It
+registers every sink on the new connection and opens a credit sink's session again; the sink sends what the device
+didn't acknowledge, from the device's position, and goes on. While the link is down, `send()` and `flush()` wait for
+the resume (`try_send()` returns `false`); `resume_streams()` counts each session that goes on.
+
+```rust
+let mut tx = client.uart_tx().await?;
+tx.send_bytes(&line).await?;
+// .. the link goes
+cmd.disconnect().keep_streams().await?;
+// .. connected again through the same commander
+cmd.resume_streams().await?;
+tx.send_bytes(&next_line).await?; // the device gets the rest of `line`, then `next_line`
+```
+
+**After a restart** of the host program, the program saves the sink's cursor with its own progress:
+`Sink::cursor()` is the session and the position up to which the device accepted everything. The new program
+continues with `<sink>_resume(cursor)` (`Sink::resume(cursor)` on a sink it has, `_blocking` variants), which
+returns the sink and the position where the device is: at or after the saved one, since the device may have accepted
+more before the old program went. User code continues its own data there, the byte at that offset on a byte sink:
+
+```rust
+// old program: from time to time, with what it sent
+save(tx.cursor(), &state)?;
+// new program
+let (mut tx, at) = client.uart_tx_resume(saved_cursor).await?;
+tx.send_bytes(&data[at as usize..]).await?;
+```
+
+**A device that lost the session** (it rebooted while the host was away) answers the open at 0: `resume()` and, after
+a reconnect, the sink's next call fail with `StreamError::SinkSessionLost { device_at, acked }`, and
+`resume_streams()` doesn't count the sink. What the device had is gone; user code decides (a DFU plan starts over
+with `open()`, see [ww_dfu](../std_library/ww_dfu_ab.md#2c-app-bulk-swap-freight)).
+
+A resume opens the same session (`StreamOpen` with the cursor), so a device's `sideband_<name>` doesn't see an `Open`:
+for user code on the device, the logical write goes on. A late duplicate of an open (UDP) answers where the device is
+and changes nothing. What can't be told apart is described in
+[`ww_stream::sink`](stream_protocol.md#credit-sinks-on-the-wire).
+
+The dynamic client and Python speak the same protocol for credit sinks (Python: `sink.cursor`,
+`sink.resume(cursor)`, `ww.SessionLost`). How the credit is exchanged, and how
 writes lost on UDP are found and resent: [Stream protocol](stream_protocol.md#credit-sinks-on-the-wire).
 
 ## Sideband

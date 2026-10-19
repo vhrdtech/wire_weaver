@@ -932,4 +932,77 @@ mod async_server {
         run_ready(&mut server);
         assert_eq!(*log.borrow(), [Out::Message(Kind::Data0)]);
     }
+
+    /// A clock set by the test, whose timers fire once it has passed them.
+    struct TestClock(Rc<core::cell::Cell<Instant>>);
+
+    impl Clock for TestClock {
+        fn now(&self) -> Instant {
+            self.0.get()
+        }
+
+        async fn wait_until(&self, at: Instant) {
+            core::future::poll_fn(|_| {
+                if self.0.get() >= at {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
+            })
+            .await
+        }
+    }
+
+    /// `wait_until` returns `Due` at the user's time, before the link's own deadline, and leaves the link alone
+    #[test]
+    fn wait_until_returns_due() {
+        let queue = Queue::default();
+        let log = Log::default();
+        let mut scratch = [0u8; 128];
+        let mut event_scratch = [0u8; 128];
+        let now = Rc::new(core::cell::Cell::new(Instant::from_millis(10)));
+        let rx = Rx {
+            queue: queue.clone(),
+            current: None,
+        };
+        let mut server = Server::new(
+            config(),
+            Tx(log.clone()),
+            rx,
+            TestClock(now.clone()),
+            &mut scratch,
+            &mut event_scratch,
+        );
+        push(&queue, &Message::GetDeviceInfo);
+        push(
+            &queue,
+            &link_setup(FullVersion::new("test_api", Version::new(0, 3, 0))),
+        );
+        while let Poll::Ready(ready) = embassy_futures::poll_once(server.wait()) {
+            assert!(!ready.is_due());
+            embassy_futures::block_on(server.handle(ready, &mut Echo));
+        }
+        assert!(server.is_up());
+        log.borrow_mut().clear();
+
+        let at = Instant::from_micros(10_500);
+        assert!(embassy_futures::poll_once(server.wait_until(Some(at))).is_pending());
+        now.set(at);
+        let Poll::Ready(ready) = embassy_futures::poll_once(server.wait_until(Some(at))) else {
+            panic!("not due");
+        };
+        assert!(ready.is_due());
+        assert_eq!(
+            embassy_futures::block_on(server.handle(ready, &mut Echo)),
+            None
+        );
+        assert!(log.borrow().is_empty());
+        assert!(server.is_up());
+
+        // a time already past is due at once; None waits as wait() does
+        assert!(
+            embassy_futures::poll_once(server.wait_until(Some(Instant::from_millis(1)))).is_ready()
+        );
+        assert!(embassy_futures::poll_once(server.wait_until(None)).is_pending());
+    }
 }

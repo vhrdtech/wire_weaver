@@ -716,6 +716,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. On hardware: a G0B1 (B153A)
   store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
   word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
+- 🚧 **SRV-25 event-driven-observe No fixed observe tick** · `v0.5` — a device sleeps until something is due
+  instead of polling observed properties every millisecond. Done: `ww_stream::wake::Wake` (a wake for the server
+  task, raised from any task or interrupt, no lost wake between a change and the sleep), `ww_device::Server::wait_until`
+  (also returns at the device's own next deadline, `Ready::is_due`). Missing: `ObserveState::next_wake` (earliest
+  due periodic, rate-limited change, budget refill or batch age), a generated `ObserveSignal` with
+  `mark_changed_<name>()` callable from outside the server state, sampler/cells wakes, tests and
+  `docs/api/observing.md`. Builds on SRV-23/24.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

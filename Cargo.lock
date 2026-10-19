@@ -197,6 +197,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "atomic-waker"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
+dependencies = [
+ "portable-atomic",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6000,6 +6009,7 @@ dependencies = [
 name = "ww_stream"
 version = "0.5.0"
 dependencies = [
+ "atomic-waker",
  "cnt",
  "crc",
  "embedded-sdmmc-types",

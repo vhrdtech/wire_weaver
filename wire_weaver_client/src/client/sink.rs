@@ -179,6 +179,9 @@ struct Credit {
     suspended: bool,
     /// The cursor last told to the [SinkLink]
     published: Option<StreamCursor>,
+    /// Items were sent again (after a resume or a `Resend`): ask where the device is once the last is out, the device
+    /// acknowledges only every threshold bytes, so the rest of what it accepted would be known a query interval later
+    query_after_resend: bool,
 }
 
 impl Credit {
@@ -251,6 +254,7 @@ impl<T> Sink<T> {
                 lost: false,
                 suspended: false,
                 published: None,
+                query_after_resend: false,
             }),
             link,
             _phantom: PhantomData,
@@ -706,9 +710,20 @@ impl<T> Sink<T> {
         }
         let path_kind = self.path_kind.clone();
         if let Some(write) = credit.tx.next_resend() {
+            credit.query_after_resend = true;
             return Ok(Step::Send(
                 self.transport_cmd_tx.sink_write_command(path_kind, write)?,
             ));
+        }
+        if credit.query_after_resend && !credit.tx.resending() {
+            credit.query_after_resend = false;
+            if !credit.tx.all_acked() {
+                let now = credit.now_ms();
+                let query = credit.tx.query_now(now);
+                return Ok(Step::Send(
+                    self.transport_cmd_tx.sideband_command(path_kind, query)?,
+                ));
+            }
         }
         match goal {
             Goal::Opened if credit.tx.is_synced() => return Ok(Step::Done),

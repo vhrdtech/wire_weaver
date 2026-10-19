@@ -68,6 +68,7 @@
 
 ### 🐛 Fixes
 
+- A credit sink's `flush()` after a resume (or a `Resend`) no longer waits a query interval (1 s by default) for the answer: once the items sent again are out, the sink asks where the device is, since the device acknowledges only every threshold bytes. Found on the Donguru (TEST-26): about half of the reconnects with a full window in flight stalled for 1 s.
 - A property observer keeps the `missed` of updates without its property (one that carries only the count, API-39)
   and gives it with its next value, instead of dropping it.
 

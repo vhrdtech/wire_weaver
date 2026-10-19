@@ -434,6 +434,11 @@ impl SinkTx {
         Ok(Some(write_out(u.pos, u.units, &u.data)))
     }
 
+    /// Items are waiting to be sent again (after a resume or a `Resend`), see [Self::next_resend].
+    pub fn resending(&self) -> bool {
+        self.resend_from.is_some()
+    }
+
     /// Everything sent was accepted by the device.
     pub fn all_acked(&self) -> bool {
         self.synced && self.acked == self.sent && self.resend_from.is_none()

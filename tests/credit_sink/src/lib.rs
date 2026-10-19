@@ -771,7 +771,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn stuck_device_times_out() {
-        let (device, _m) = start(
+        let (device, m) = start(
             "credit/stuck",
             Config::new(64, 64).drain_at(1_000_000, Duration::ZERO),
         );
@@ -840,7 +840,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn status_read_shows_the_session() {
-        let (device, _m) = start(
+        let (device, m) = start(
             "credit/status",
             Config::new(256, 128).drain_at(1000, Duration::ZERO),
         );
@@ -964,6 +964,36 @@ mod tests {
         let m = m.lock().unwrap();
         assert_eq!(m.plan, bytes);
         assert_eq!(m.opened, 1, "one session");
+    }
+
+    /// After a reconnect with items the device never got, `flush()` sends them again and learns that the device
+    /// accepted them from a query right after the last, not a query interval (1 s) later: the device acknowledges
+    /// only every threshold bytes. Found by TEST-26 on the Donguru.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn flush_after_reconnect_does_not_wait_for_a_query_interval() {
+        let (device, m) = start(
+            "credit/reconnect_flush",
+            Config::new(2048, 1024).drain_at(0, Duration::ZERO),
+        );
+        let bytes = data(60_000);
+        let client = connect(&device).await;
+        let mut plan = client.plan().await.unwrap();
+        let mut worst = Duration::ZERO;
+        for piece in bytes.chunks(1000) {
+            for chunk in piece.chunks(250) {
+                plan.send_bytes(chunk).await.unwrap();
+            }
+            client.cmd.disconnect().keep_streams().await.unwrap();
+            client.cmd.reconnect().await.unwrap();
+            let t = std::time::Instant::now();
+            plan.flush().await.unwrap();
+            worst = worst.max(t.elapsed());
+        }
+        assert!(
+            worst < Duration::from_millis(500),
+            "worst flush after a reconnect {worst:?}"
+        );
+        assert_eq!(m.lock().unwrap().plan, bytes);
     }
 
     #[test]

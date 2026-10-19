@@ -1792,6 +1792,8 @@
       
         
       
+        
+      
     
     
     
@@ -1851,6 +1853,33 @@
     
   
   Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/handlers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Sync and async handlers
 
     
   </span>
@@ -5384,7 +5413,10 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 
 <ul>
 <li><strong><a href="../api/methods/#deferred">Deferred replies everywhere</a></strong>: Answer a call later, also on nested trait levels.</li>
+<li><strong><a href="../api/errors/#where-on-the-device-an-error-came-from">Errors that say where</a></strong>: A device's error names the site that raised it, by a number that is the same in every firmware.</li>
+<li><strong><a href="../api/handlers/">Sync handlers in an async server</a></strong>: Handlers that never wait are plain <code>fn</code>s, only the ones that await are <code>async</code>: less flash.</li>
 <li><strong><a href="../api/observing/#the-device-side">Observed properties</a></strong>: The device sends property changes within the budget each host asked for.</li>
+<li><strong><a href="../api/observing/#the-server-loop">Event-driven observe</a></strong>: The device sleeps until an observed property is due, and wakes at once when one changes.</li>
 <li><strong><a href="../api/ecc_flash/">ECC-safe STM32 flash</a></strong>: Reads a flash word broken by a power cut as zeros instead of crashing. <span class="ww-status">hardware check open</span></li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -5393,6 +5425,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong>Split send and receive</strong>: Independent TX and RX paths for every transport; handlers called straight from the receive loop.</li>
 <li><strong><a href="../api/stream_stores/">Stream stores</a></strong>: Data a host hasn't acknowledged yet, kept in RAM or in a power-cut safe log on SD card or flash.</li>
 <li><strong><a href="../api/stream_stores/">Logs that survive a crash</a></strong>: A store in RAM that outlives a reset, for what happened just before a fault.</li>
+<li><strong><a href="../api/observing/#the-device-side">Smaller observe code</a></strong>: A firmware carries the observe logic once, not once per trait level: about 15 KiB less flash on a big API.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#server-device-side-srv">Server / device side</a> in the feature tracker.</p>
 <h2 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h2>

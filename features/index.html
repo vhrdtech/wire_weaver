@@ -1620,6 +1620,8 @@
       
         
       
+        
+      
     
     
     
@@ -1679,6 +1681,33 @@
     
   
   Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/handlers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Sync and async handlers
 
     
   </span>
@@ -5982,6 +6011,31 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>_send_return_blocking</code> and <code>_ser_return_event</code> are generated for deferred methods on nested trait levels too, named
   like the handler (<code>plug_vbus_cycle_send_return</code>); <code>method_model</code> patterns match the prefixed name. Test
   <code>tests/methods</code> (<code>deferred_on_nested_level</code>), <code>docs/api/methods.md#deferred</code>.</li>
+<li>✅ <strong>SRV-21 handler-model Sync handlers in an async server</strong> — <code>ww_codegen!(.., handler_model =
+  "device.settings.*|meter.reading=async, _=sync")</code>: per item (regex over its dotted path, first match, <code>_</code> the
+  default, <code>use_async</code> without one) its handlers are <code>async fn</code> or plain <code>fn</code>; the dispatcher and <code>poll_properties</code>
+  call sync ones without <code>.await</code>, a level whose items are all sync gets a plain <code>fn</code> dispatcher. A handler of the
+  other kind is a compile error (<code>wire_weaver::handler</code> checks), so is a pattern that matches nothing.
+  <code>ww api scaffold --handler-model</code>. Donguru: -20.2 KiB flash at <code>z</code>, -12.6 KiB at 3. <code>docs/api/handlers.md</code>; test
+  <code>tests/observe</code> (a mixed server).</li>
+<li>✅ <strong>SRV-23 observe-table-unsized One observe table code for every level</strong> — <code>ww_stream::observe::ObserveTable&lt;S: ?Sized = [Slot]&gt;</code>: a level stores <code>ObserveTable&lt;[Slot; N]&gt;</code>, the methods (<code>apply</code>, <code>plan</code>, <code>commit</code>, ...) are compiled once, on <code>ObserveTable&lt;[Slot]&gt;</code>; <code>LevelDesc</code> is slices, the plan and the selection keep their per-slot state in caller storage (<code>Due</code>, <code>Mark</code>), and levels without observable properties answer <code>Observe</code> through one shared path (<code>refuse_all</code>). Donguru: −13.3 KiB flash at <code>opt-level = 3</code>, −9.4 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>.</li>
+<li>✅ <strong>SRV-25 event-driven-observe No fixed observe tick</strong> — a device sleeps until something observed is due
+  instead of polling every millisecond. <code>ObserveState::next_wake(now_us)</code> (<code>ObserveTable::next_wake</code> per level: the
+  periodic grid, <code>last + min</code> of a changed property, <code>last + max</code> of a beat, a held level's bucket refill, a batch
+  sealed or as old as allowed; <code>None</code> when nothing comes due without a change); a generated <code>ObserveSignal</code> any task
+  or interrupt marks a property changed through (<code>mark_changed_&lt;name&gt;()</code>) or wakes the server task with, no lost
+  wake between a change and the sleep (<code>ww_stream::wake</code>); <code>with_wake</code> on samplers and cells writers;
+  <code>ww_device::Server::wait_until(at)</code>; <code>ww api scaffold</code> prints the signal. Tests: <code>ww_stream</code> (polling only at
+  <code>next_wake</code> sends what polling every µs does), <code>tests/observe</code> (fake clock: polls only on the grid, a change from
+  another thread sent at once), <code>tests/observe_batched</code>. <code>docs/api/observing.md#the-server-loop</code>.</li>
+<li>✅ <strong>SRV-24 shared-observe-loop One observe loop for every level</strong> — the algorithm of <code>poll_properties</code> (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is <code>ww_stream::observe</code>'s, sync: <code>plan_level</code>, <code>select</code>, <code>write</code>, <code>ser_update</code>. The generated <code>poll_properties</code> is one loop over the levels with one send site; per property it gives only a <code>size</code> and a <code>write</code> arm (through <code>&amp;mut dyn FnMut</code>) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. <code>ObserveState::level</code> / <code>oldest_batch</code> / <code>remove_oldest_batch</code> reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at <code>opt-level = 3</code>, −5.0 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code>, <code>tests/observe_batched</code>, <code>ww_stream/src/observe/tests.rs</code>. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Donguru B153A (<code>plug</code> with <code>cc</code> unimplemented).</li>
+<li>✅ <strong>SRV-22 error-seq-per-item Error sites numbered the same in every server</strong> — <code>err_seq</code> of an <code>Error</code> is no
+  longer one counter across the generated server (705 numbers on Donguru) but fixed per site
+  (<code>ww_client_server::err_seq</code>): item steps in step order and the same for every item (0 kind not taken, 1 decode,
+  2 handler, 3 encode, ..), level sites (40..), request sites (48..), deferred return (32..). With the build, the
+  request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
+  -1.5 KiB flash at <code>z</code>, -1.7 KiB at 3. <code>Error::site()</code>, the host prints <code>Unimplemented at item site 2 (handler)</code>.
+  <code>docs/api/errors.md#where-on-the-device-an-error-came-from</code>; tests <code>tests/methods</code>, <code>tests/traits</code>.</li>
 <li>🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature

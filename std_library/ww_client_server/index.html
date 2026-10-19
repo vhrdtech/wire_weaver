@@ -1622,6 +1622,8 @@
       
         
       
+        
+      
     
     
     
@@ -1681,6 +1683,33 @@
     
   
   Arrays
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/handlers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Sync and async handlers
 
     
   </span>
@@ -5286,8 +5315,9 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
   (plain stream/property update), <code>StreamSideband { path, sideband }</code>, <code>StreamItem { path, head: StreamHead, data
   }</code> (one event of a counted/reliable stream, see <a href="#counted-and-reliable-streams">below</a>), <code>PropertyUpdate { path,
   t, missed, data }</code> (observed properties of one trait level, see <a href="#observing-properties">below</a>).</li>
-<li><code>Error&lt;'i&gt;</code> / <code>ErrorKind&lt;'i&gt;</code> - <code>err_seq</code> (a per-call-site id for mapping an error back to the generated code
-  that raised it) plus a kind: path/argument/property deserialization failures, <code>Unimplemented</code> (an
+<li><code>Error&lt;'i&gt;</code> / <code>ErrorKind&lt;'i&gt;</code> - <code>err_seq</code> (the site in the generated server that raised it, numbered the same in
+  every server: see <code>err_seq</code> and <a href="../../api/errors/#where-on-the-device-an-error-came-from">where an error came from</a>)
+  plus a kind: path/argument/property deserialization failures, <code>Unimplemented</code> (an
   <a href="../../api/optional_items/">optional item</a> the device leaves out), <code>TraitNotFound</code> (a global path to a trait the
   device doesn't implement in a compatible version), <code>UserBytes</code>/<code>UserStr</code> (an API's own error, forwarded
   verbatim), stream session errors, and more.</li>

@@ -15,6 +15,8 @@
 
 ### ⚠️ Breaking
 
+- Credit sinks on the stream protocol (API-34): generated server code opens a sink with `RequestKind::StreamOpen` and the host's session (`SinkCredit::open(cursor)`, answered with `StreamOpened` and its buffer, then an `Ack` with the grant; a new session calls `sideband_<name>` with `Open` first, a resume doesn't), takes `SinkWrite` / `SinkWriteUnits`, answers `Query` and sends `Ack` / `Resend` / `Close`, and a read on the sink returns its `StreamStatus`. `credit_<name>()` returns a `ww_stream::sink::SinkCredit` (was `ww_client_server::credit::SinkCredit`): a firmware crate with a credit sink depends on `ww_stream` (as for counted and reliable streams), change the type and replace `take_credit()` by `take_ack()`. `ww api scaffold` prints the new type. The generated client has `<sink>_status()` for credit sinks.
+
 - Generated servers number their error sites the `ww_client_server::err_seq` way (SRV-22): the same step of every item, every level and request site has a fixed number, instead of one counter across the server. Hosts that decoded an `err_seq` against a build's own numbering read it from `err_seq` now; the wire format is unchanged. Donguru: -1.5 KiB flash at `z`, -1.7 KiB at 3, the error arms are shared code.
 - `GenServerConfig`, `GenServerConfigRaw` and `ServerScaffoldConfig` have a `handler_model` field (SRV-21): code building them literally adds `handler_model: HandlerModel::default()` (`String::new()` for the scaffold), which keeps every handler as `use_async` says.
 - `ServerScaffoldConfig` has an `observe_cells` field (API-50): code building it literally adds

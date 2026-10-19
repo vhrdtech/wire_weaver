@@ -29,6 +29,8 @@
 
 ### ⚠️ Breaking
 
+- `StreamSideband::ResendFrom` is `Resend` (API-34, `ww_client_server`): `tx::Reliable` and `rx::Receiver` take and send it under the new name, same fields.
+
 - `observe::Selection::present` returns `observe::Present` instead of an `impl Iterator` (SRV-24).
 - `observe::ObserveTable<const N: usize>` is `ObserveTable<S: ?Sized = [Slot]>` (SRV-23): a table of `N` slots is `ObserveTable<[Slot; N]>`, a function taking any table takes `&mut ObserveTable`. `LevelDesc<const N>` is `LevelDesc<'a>` with slices (`observable: &[..]`, `batched: &[..]`). `plan` / `plan_with` take the plan's storage (`&mut [Due]`, one per slot) and return `Plan<'a>`, `plan_with` takes the batch check as `&dyn Fn(usize) -> bool`; `Plan::selection` takes the selection's storage (`&mut [Mark]`) and returns `Selection<'m>`; `Plan::edf` returns an iterator; `granted` fills a slice; `batch_budget` has no `N`. Generated servers are updated with it; hand-written code passes `&mut [Due::EMPTY; N]` and `&mut [Mark::NONE; N]`.
 - `batch::CellsSource::read_into` takes the value columns to copy (`columns: Columns`), the trait has `reread_columns`, and `batch::Read` has a `first` field (the row count of the first row copied) (API-52). Generated code is updated with it; a hand-written `CellsSource` adds the method, a caller passes the columns it encodes (`Columns::MAX` for all).

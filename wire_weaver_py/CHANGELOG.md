@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- Credit sinks on the stream protocol (API-34): a device with the same WireWeaver is needed; `Sink.progress` counts units (one per value, the bytes of a byte sink's payload), no longer bytes.
+
 - `Delta`, `DeltaOfDelta` and `XorFloat` values are gone with the types (shrink_wrap): their replacement `Series<T>` of
   numbers takes and gives the same Python `list` (any iterable accepted for `encode`).
 - **Breaking:** the `rtt` feature is no longer in `default-features` (P2401): building the crate directly with
@@ -12,6 +14,8 @@
   session over 256 MiB needs a device with the same change. `Sink.progress` is unchanged for Python.
 
 ### 🚀 Features
+
+- `Sink.send(value, units=n)` (API-34): a value that takes `n` positions of a credit sink.
 
 - `encode` / `encode_args` of a `Series<T>` (CLT-29): a list of items is written with the bytes the generated
   code gives (`ww_self`'s dynamic `Series` writer); it was an error before.

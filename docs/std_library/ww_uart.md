@@ -56,7 +56,8 @@ pub trait Uart {
   when its last byte arrived, if the device measures it ([Time](#time) below).
 * `tx` - bytes to send, a [credit sink](../api/credit_sinks.md) (API-28): the host tracks the device's TX buffer
   (`Capabilities::tx_buffer`) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
-  can't overrun it.
+  can't overrun it. Its positions count bytes of the payload (API-34), so the device's position is the bytes taken
+  for the line, and `credit_progress()` on the host says how many.
 * `capabilities()` - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.
 * `configure` - the whole line configuration in one [`UartConfig`](#types) (baud rate, data bits, parity, stop bits,
   mode, back-feed detector, IO level, the idle time that ends a chunk), answered with what was actually set: the

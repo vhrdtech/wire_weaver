@@ -226,7 +226,7 @@ The numbers are the same in every server, defined in `ww_client_server::err_seq`
 
 | `err_seq` | Range | Sites |
 |---|---|---|
-| 0..31 | item | the steps of a method, property, stream or sink, in step order and the same for every item: 0 request kind not taken, 1 decode, 2 handler (`Unimplemented`), 3 encode, 4 user error encode, 5 stream store, 6 stream resume, 7 data too long, 8 credit position, 9 deferred method in a multi request |
+| 0..31 | item | the steps of a method, property, stream or sink, in step order and the same for every item: 0 request kind not taken, 1 decode, 2 handler (`Unimplemented`), 3 encode, 4 user error encode, 5 stream store, 6 stream resume, 7 data too long, 8 credit position (firmware before API-34, not reused), 9 deferred method in a multi request |
 | 32..35 | deferred return | `<method>_ser_return_event` of a deferred method |
 | 40..46 | level | a trait level's dispatch: 40 no such item, 41 item left out, 42 index not valid, 43 index expected, 44 a level doesn't take this request, 45 valid indices too big, 46 answer header too big |
 | 48..59 | request | before or around the path: 48 global trait not found, 49 path too deep, 50..53 multi requests, 54..58 observe requests, 59 introspection |

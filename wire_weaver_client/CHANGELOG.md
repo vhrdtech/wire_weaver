@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- `Sink` of a credit sink runs on `ww_stream::sink::SinkTx` (API-34): it opens with `StreamOpen` and a session it names (random), waits for the answer, writes `SinkWrite` / `SinkWriteUnits`, takes `Ack` / `Resend` and opens its session again when the device answers `Close`; it needs a device with the same change. Positions count units: `credit_progress()` returns units (one per value, the bytes of a byte sink's payload), no longer bytes. A device that lost the session (a reboot) fails the call with the new `StreamError::SinkSessionLost { device_at, acked }` (`SinkAhead` for a device ahead of what was sent). `client::credit` (`CreditTx`) is gone, `CreditConfig` is in `client::sink` (still re-exported at the root).
+
 - `Command::Connect` has a `tap: Option<ww_tap::Recorder>` field (None: the default recorder); code building it by hand adds `tap: None`. `TraceEvent` / `Command::RegisterTracer` work as before, now an adapter over the tap's message and link event records, so events arrive batched (at most the recorder's flush time, 10 ms, later).
 * The compatibility check no longer knows `Delta` / `DeltaOfDelta` / `XorFloat` (removed from ww_self); a
   `Series<T>`'s codecs are picked per column when writing and are not part of its type, only `T` is compared.
@@ -17,6 +19,8 @@
   in). CMSIS-DAP v2 and other probe-rs-supported probes (ST-Link, J-Link, ...) are unaffected.
 
 ### 🚀 Features
+
+- Credit sinks (API-34): `Sink::send_units(value, units)` (`_blocking`, `try_send_units`) for a value of other than one unit, `Sink::open_session(session)` (`_blocking`) opens a session user code names (the device continues where it is in that session); `StreamError::BadUnits` for 0 or more than `MAX_WINDOW` units. `DynSink::send_units` (`_blocking`); `DynSink::send` counts one unit per typed value and the bytes of a byte sink's payload, as the typed client does.
 
 - `Error::RemoteError` prints the device's error with its site (SRV-22): `Remote device returned Unimplemented at item site 2 (handler)` instead of the `Debug` of `ErrorOwned`.
 - Link tap on the host (TR-14): every client event loop records its link into a `ww_tap::Recorder`, the process-wide `tap::default_recorder()` unless `ClientConfig::tap(recorder)` names one. Transports give the `Session` (medium, framer, frame size, peer) and their frames (USB packets, UDP datagrams, RTT chunks, simulated USB packets), the event loop the messages both ways and the link events (`Connected`, `LinkReady` with the device's `DeviceInfo`, `Disconnected`, `Error`); nothing is copied while nobody subscribes. `wire_weaver_client::tap` re-exports what a consumer needs, `ww_tap` and `ww_tape` are re-exported.

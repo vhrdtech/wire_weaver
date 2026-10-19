@@ -1077,6 +1077,9 @@ impl Selection<'_> {
     /// Slot `k` could not be written after all: moved on as missed.
     pub fn drop_slot(&mut self, k: usize) {
         if let Some(m) = self.marks.get_mut(k) {
+            if m.is_chosen() {
+                self.count -= 1;
+            }
             *m = Mark(Mark::DROPPED);
         }
     }
@@ -1302,26 +1305,39 @@ impl<'m> Selected<'m> {
 }
 
 /// The values of the update `round` chose, into `buf`: `value(k, column, wr)` writes slot `k`'s value (`column`:
-/// its column of the batch of samples), false when it can't. None when nothing goes out: nothing chosen, or a value
-/// that couldn't be written (the chosen ones count as missed at the commit).
+/// its column of the batch of samples), false when it can't. A value that can't be written after all (a getter that
+/// fails, e.g. `Unimplemented`) is [dropped](Selection::drop_slot) and the update written again without it, so the
+/// others still go; it counts as missed at the commit. None when nothing goes out: nothing chosen (or all dropped),
+/// or a column of the batch that couldn't be written (the chosen ones count as missed at the commit).
 pub fn write(
-    round: &Round<'_>,
+    round: &mut Round<'_>,
     plan: &Plan<'_>,
     desc: &LevelDesc<'_>,
     buf: &mut [u8],
     value: &mut dyn FnMut(usize, bool, &mut UpdateWriter<'_, '_>) -> bool,
 ) -> Option<Update> {
-    let sel = &round.sel;
-    if sel.is_empty() && !round.missed_only {
-        return None;
-    }
-    let mut wr = OptionAnyVecWriter::new(buf, sel.present(desc)).ok()?;
-    for (k, mark) in sel.marks.iter().enumerate() {
-        if mark.is_chosen() && !value(k, mark.is_column(), &mut wr) {
+    // each pass drops a value that couldn't be written, at most one pass per slot
+    let data_len = loop {
+        let sel = &round.sel;
+        if sel.is_empty() && !round.missed_only {
             return None;
         }
-    }
-    let data_len = wr.finish_and_take().ok()?.len();
+        let mut wr = OptionAnyVecWriter::new(&mut *buf, sel.present(desc)).ok()?;
+        let mut failed = None;
+        for (k, mark) in sel.marks.iter().enumerate() {
+            if mark.is_chosen() && !value(k, mark.is_column(), &mut wr) {
+                failed = Some((k, mark.is_column()));
+                break;
+            }
+        }
+        match failed {
+            None => break wr.finish_and_take().ok()?.len(),
+            // a batch goes whole or not at all
+            Some((_, true)) => return None,
+            Some((k, false)) => round.sel.drop_slot(k),
+        }
+    };
+    let sel = &round.sel;
     // the update's `t` is the time of its values: none when it carries only a batch, whose samples have their
     // times in `sample_times`
     let one_value = sel.marks.iter().any(|m| m.is_chosen() && !m.is_column());

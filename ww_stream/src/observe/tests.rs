@@ -893,7 +893,7 @@ fn next_wake_sends_what_polling_does() {
             &[
                 entry(0, periodic(1_000)),
                 entry(1, periodic(1_000)),
-                entry(2, periodic(1_000)),
+                entry(3, periodic(1_000)),
             ],
             2_000,
             &[],
@@ -967,7 +967,7 @@ fn shared_loop_writes_the_chosen_values() {
     let plan = t.plan(0, &LIMITS, &mut due);
     assert!(plan.is_due(0) && !plan.is_due(1) && plan.is_due(2));
     let mut measured = vec![];
-    let round = select(
+    let mut round = select(
         &plan,
         &DESC,
         &path,
@@ -985,7 +985,7 @@ fn shared_loop_writes_the_chosen_values() {
     assert_eq!(measured, [0, 2]);
     assert!(round.needs_value(0) && !round.needs_value(1) && round.needs_value(2));
     let mut written = vec![];
-    let update = write(&round, &plan, &DESC, &mut buf, &mut |k, column, wr| {
+    let update = write(&mut round, &plan, &DESC, &mut buf, &mut |k, column, wr| {
         assert!(!column);
         written.push(k);
         wr.write(DESC.observable[k], &(k as u32 * 100)).is_ok()
@@ -1016,7 +1016,7 @@ fn shared_loop_writes_the_chosen_values() {
 
     // a value that can't be written: nothing goes out, the chosen ones count as missed
     let plan = t.plan(1_000, &LIMITS, &mut due);
-    let round = select(
+    let mut round = select(
         &plan,
         &DESC,
         &path,
@@ -1028,7 +1028,73 @@ fn shared_loop_writes_the_chosen_values() {
     .unwrap()
     .into_round()
     .unwrap();
-    assert!(write(&round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
+    assert!(write(&mut round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
     t.commit(&plan, round.selection(), 1_000, None);
     assert_eq!(t.plan(1_100, &LIMITS, &mut due).missed(), Some(UNib32(2)));
+}
+
+/// A value that can't be had when the update is written (a getter answering `Unimplemented` for a sized type, so
+/// `select` never read it) is dropped: the other values of the level still go, it counts as missed.
+#[test]
+fn shared_loop_drops_a_value_that_cannot_be_written() {
+    use wire_weaver::shrink_wrap::DeserializeShrinkWrap;
+    use ww_client_server::{Event, EventKind};
+    let mut due = [Due::EMPTY; 3];
+    let mut marks = [Mark::NONE; 3];
+    let mut t = ObserveTable::<[Slot; 3]>::new();
+    apply(
+        &mut t,
+        &DESC,
+        &[
+            entry(1, periodic(1_000)),
+            entry(3, periodic(1_000)),
+            entry(4, periodic(1_000)),
+        ],
+        false,
+        Some(10_000),
+    )
+    .unwrap();
+    let path = [UNib32(2)];
+    let mut buf = [0u8; 128];
+    let plan = t.plan(0, &LIMITS, &mut due);
+    let mut round = select(
+        &plan,
+        &DESC,
+        &path,
+        &mut buf,
+        &mut marks,
+        None,
+        &mut |_, _| Some(8),
+    )
+    .unwrap()
+    .into_round()
+    .expect("all due");
+    let mut written = vec![];
+    let update = write(&mut round, &plan, &DESC, &mut buf, &mut |k, _, wr| {
+        written.push(k);
+        k != 1 && wr.write(DESC.observable[k], &(k as u32 * 100)).is_ok()
+    })
+    .expect("the others written");
+    // the failed pass stops at slot 1, the second one leaves it out
+    assert_eq!(written, [0, 1, 0, 2]);
+    assert!(round.selection().is_dropped(1));
+    let data = buf[..update.data_len()].to_vec();
+    let mut scratch = [0u8; 128];
+    let len = ser_update(&mut scratch, &path, &update, &data, None).unwrap();
+    let Ok(EventKind::PropertyUpdate { data, .. }) =
+        Event::from_ww_bytes(&scratch[..len]).unwrap().result
+    else {
+        panic!("not an update");
+    };
+    let values = wire_weaver::shrink_wrap::option_any_vec::OptionAnyVec::new(data.0).unwrap();
+    let mut it = values.iter();
+    assert_eq!(it.next_present(), Some(1));
+    assert_eq!(it.next::<u32>().unwrap(), Some(0));
+    assert_eq!(it.next_present(), Some(4));
+    assert_eq!(it.next::<u32>().unwrap(), Some(200));
+    t.commit(&plan, round.selection(), 0, Some(len));
+    // the dropped one moved on to its next period, counted as missed in the next update
+    let plan = t.plan(500, &LIMITS, &mut due);
+    assert!(plan.is_empty());
+    assert_eq!(plan.missed(), Some(UNib32(1)));
 }

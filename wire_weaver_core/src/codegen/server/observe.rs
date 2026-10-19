@@ -1909,7 +1909,7 @@ impl Observe {
                         #(#caches)*
                         #read_unbounded
                         #batch_offer
-                        let round = match ww_stream::observe::select(
+                        let mut round = match ww_stream::observe::select(
                             &plan,
                             desc,
                             path,
@@ -1932,7 +1932,7 @@ impl Observe {
                         #read_chosen
                         #column_cursor
                         let update = ww_stream::observe::write(
-                            &round,
+                            &mut round,
                             &plan,
                             desc,
                             &mut *buf,

@@ -210,6 +210,34 @@ later (`Deferred`), and the framework reports it properly. `ww api scaffold` gen
 `Unimplemented`, so a new device builds and answers sensibly before anything is written. On the client this is
 `CallError::Unimplemented`, never confused with an error of the device.
 
+## Where on the device an error came from
+
+Errors of the framework itself (a path that doesn't exist, arguments that don't decode, an answer that doesn't fit)
+come back as `ww_client_server::Error`: an `ErrorKind` and an `err_seq`, the number of the site in the generated
+server that raised it (SRV-22). Together with the firmware build (its build id or git sha) and the request's path,
+which the host knows, they pinpoint one place. The host prints them as one line:
+
+```text
+Remote device returned Unimplemented at item site 2 (handler)
+Remote device returned BadPath at level site 40 (no such item)
+```
+
+The numbers are the same in every server, defined in `ww_client_server::err_seq`:
+
+| `err_seq` | Range | Sites |
+|---|---|---|
+| 0..31 | item | the steps of a method, property, stream or sink, in step order and the same for every item: 0 request kind not taken, 1 decode, 2 handler (`Unimplemented`), 3 encode, 4 user error encode, 5 stream store, 6 stream resume, 7 data too long, 8 credit position, 9 deferred method in a multi request |
+| 32..35 | deferred return | `<method>_ser_return_event` of a deferred method |
+| 40..46 | level | a trait level's dispatch: 40 no such item, 41 item left out, 42 index not valid, 43 index expected, 44 a level doesn't take this request, 45 valid indices too big, 46 answer header too big |
+| 48..59 | request | before or around the path: 48 global trait not found, 49 path too deep, 50..53 multi requests, 54..58 observe requests, 59 introspection |
+| `u32::MAX` | generic | `ww_device` couldn't get any answer out of the server |
+
+The item kind, the request kind and the error kind tell apart what shares a number: a decode failure of a method's
+arguments and of a property's value are both 1, one comes with `ArgsDesFailed` on a call, the other with
+`PropertyDesFailed` on a write. Since the same step of every item is the same constant, the firmware's error arms
+are shared code (Donguru: 1.5 KiB less flash at `opt-level = "z"` than one number per site, 1.7 KiB at 3). `Error::site()` sorts a number into its
+range.
+
 ## Devices and hosts of different versions
 
 An error enum grows: a later firmware may return a variant an older host has never heard of. Every `Unsized` enum

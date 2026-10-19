@@ -403,7 +403,7 @@ mod tests {
         );
     }
 
-    /// Error kind a server answers a request to `path` with, `None` if it succeeds.
+    /// Error kind and site (`err_seq`, SRV-22) a server answers a request to `path` with, `None` if it succeeds.
     fn call_raw(
         process: impl FnOnce(&[u8], &mut [u8], &mut wire_weaver::EventQueue) -> Vec<u8>,
         path: &[u32],
@@ -427,7 +427,10 @@ mod tests {
         let mut out = wire_weaver::EventQueue::new(&mut queue_buf);
         let event = process(request, &mut scratch, &mut out);
         let event = Event::from_ww_bytes(&event).unwrap();
-        event.result.err().map(|e| format!("{:?}", e.kind))
+        event
+            .result
+            .err()
+            .map(|e| format!("{:?}@{}", e.kind(), e.err_seq()))
     }
 
     /// Called anyway (a client that doesn't know the device's model), an omitted item answers `Unimplemented`, an
@@ -451,12 +454,12 @@ mod tests {
         // ids: root g1 0, gpio 1, periph 2, i2c 3, reset 4; i2c: write 0, wiggle 1, set_pullups 2, pullups 3,
         // monitor 4
         assert_eq!(call(&[3, 0], &[1]), None);
-        assert_eq!(call(&[3, 1], &[3]).as_deref(), Some("Unimplemented"));
-        assert_eq!(call(&[3, 2], &[0x80]).as_deref(), Some("Unimplemented"));
-        assert_eq!(call(&[3, 4], &[]).as_deref(), Some("Unimplemented"));
-        assert_eq!(call(&[3, 5], &[]).as_deref(), Some("BadPath"));
-        assert_eq!(call(&[4], &[]).as_deref(), Some("Unimplemented"));
-        assert_eq!(call(&[5], &[]).as_deref(), Some("BadPath"));
+        assert_eq!(call(&[3, 1], &[3]).as_deref(), Some("Unimplemented@41"));
+        assert_eq!(call(&[3, 2], &[0x80]).as_deref(), Some("Unimplemented@41"));
+        assert_eq!(call(&[3, 4], &[]).as_deref(), Some("Unimplemented@41"));
+        assert_eq!(call(&[3, 5], &[]).as_deref(), Some("BadPath@40"));
+        assert_eq!(call(&[4], &[]).as_deref(), Some("Unimplemented@41"));
+        assert_eq!(call(&[5], &[]).as_deref(), Some("BadPath@40"));
 
         let mut server = cfg_server::CfgServer;
         let mut call = |path: &[u32], args: &[u8]| {
@@ -472,7 +475,7 @@ mod tests {
             )
         };
         assert_eq!(call(&[3, 1], &[3]), None);
-        assert_eq!(call(&[3, 2], &[0x80]).as_deref(), Some("Unimplemented"));
+        assert_eq!(call(&[3, 2], &[0x80]).as_deref(), Some("Unimplemented@41"));
     }
 
     #[test]

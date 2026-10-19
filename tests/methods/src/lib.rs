@@ -396,6 +396,12 @@ mod tests {
             panic!("expected RemoteError, got {r:?}");
         };
         assert!(matches!(e.kind, ErrorKindOwned::Unimplemented));
+        // the handler's site (SRV-22), the same for every method; the host's error text names it
+        assert_eq!(e.err_seq(), ww_client_server::err_seq::method::HANDLER);
+        assert_eq!(
+            Error::RemoteError(e).to_string(),
+            "Remote device returned Unimplemented at item site 2 (handler)"
+        );
         assert!(client.absent().call().await.unwrap_err().is_unimplemented());
         let r = client.fallible_absent().call().await;
         let Err(CallError::Unimplemented { resource }) = r else {

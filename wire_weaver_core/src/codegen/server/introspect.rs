@@ -1,5 +1,5 @@
 use crate::codegen::omit::Omissions;
-use crate::codegen::util::ErrorSeq;
+use crate::codegen::util::fixed_err_seq;
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -16,7 +16,6 @@ pub(crate) fn introspect(
     enabled: bool,
     include_docs: bool,
     use_async: bool,
-    error_seq: &mut ErrorSeq,
 ) -> (TokenStream, TokenStream) {
     let mut bytes_consts = TokenStream::new();
     let mut hash_consts = TokenStream::new();
@@ -58,7 +57,7 @@ pub(crate) fn introspect(
             }
         }
     };
-    let es0 = error_seq.next();
+    let es0 = fixed_err_seq("INTROSPECT");
     let send_event = if use_async {
         quote! { wire_weaver::EventOut::send_event(cx, &event).await }
     } else {

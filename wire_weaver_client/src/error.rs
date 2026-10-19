@@ -53,7 +53,7 @@ pub enum Error {
     },
     #[error("Submitted a command requiring active connection, when there was none")]
     Disconnected,
-    #[error("Remote device returned ww_client_server::{:?}", .0)]
+    #[error("Remote device returned {}", .0)]
     RemoteError(ww_client_server::ErrorOwned),
     #[error("All command senders were dropped")]
     CmdTxDropped,

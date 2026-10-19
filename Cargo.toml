@@ -85,10 +85,7 @@ ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
-# Path dep while picoboot_host's s/19oct2026-bootsel-elf (IMG-4, ELF images) is unpushed and unlanded: a git rev
-# of an unpushed commit can't resolve. Back to
-# `git = "https://github.com/vhrdtech/picoboot_host", branch = "main"` once it lands there.
-ww_picoboot = { package = "picoboot_host", path = "../picoboot_host", default-features = false }
+ww_picoboot = { package = "picoboot_host", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
 ww_report = { version = "0.5.0", path = "./ww_report" }
 ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }

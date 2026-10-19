@@ -14,8 +14,10 @@ Running elsewhere:
   ww_dfu, tests, examples_mcu, typec_dongle onto `ww_stream::sink`; removes the old `Credit`/`CreditQuery`/`Resend`,
   `CreditWrite`, `ww_client_server::credit`; docs. Told to cherry-pick 1e5bb87e and 5dd416ba.
 
+sink-switch is ready (tip 0884b9e9, carries piece 1 as cherry-picks: this branch has nothing of its own to land).
+sink-resume (P2401#19oct-1711, opus) spawned, ff-merges sink-switch first.
+
 Next:
-- After sink-switch is ready: spawn sink-resume (P2401#19oct-1711, opus) from its tip.
 - After sink-resume: TEST-26 on omarchy-m1 (P2401#19oct-1711b, sonnet, `--on omarchy-m1`).
 
 Gate on 6c548128: just lint green; just test 1673/1674, the one timeout is batch::cells_tests::threaded_writer_and_reader

@@ -84,6 +84,7 @@
 ### 🐛 Fixes
 
 - The observe sample gate reads the time with `Second::to_u32_wrapping_in(Prefix::Micro)` instead of `to_i128_in(..) as u32` (STD-43): no 128-bit arithmetic on the device, and `to_i128_in` is no longer there with number types up to 32 bits. Same results for integer times; a float time from 2^32 µs on is taken as having no grid point (the sample is taken).
+- `ObserveTable::next_wake` is `#[inline(never)]` (SRV-25): at opt-level 3 it was inlined into every level's arm of the generated `ObserveState::next_wake`, 5.5 KiB of it on Donguru (9 levels); now -4.2 KiB.
 - A missed count always reaches the host (API-39): `observe::Plan::report_missed(desc, overhead)` says when an
   update with no properties should carry `missed` alone (nothing due, budget has room), so samples a sampler lost
   after its last batch are reported; periods a property fell behind, counted while planning, go with that same

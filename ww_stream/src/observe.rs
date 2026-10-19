@@ -691,6 +691,9 @@ impl ObserveTable {
     /// earlier: ask again after one.
     ///
     /// [plan_with]: Self::plan_with
+    // once for every level: at opt-level 3 it was inlined into each level's arm of the generated
+    // `ObserveState::next_wake` (Donguru: 5.5 KiB for 9 levels)
+    #[inline(never)]
     pub fn next_wake(&self, now_us: u64, batch_waiting: &dyn Fn(usize) -> bool) -> Option<u64> {
         if !self.is_active() {
             return None;

@@ -5238,7 +5238,8 @@ still running because it ignored the reboot request.</p>
 <li><code>ww_picoboot</code> is the PICOBOOT host on its own: <code>usb::open(Some(serial))</code> gives a <code>Picoboot</code> with <code>flash()</code> (erase
   the touched 4 KiB sectors, write 256-byte pages, read back, with a progress callback), <code>read</code>, <code>write</code>,
   <code>flash_erase</code>, <code>chip_id</code>, <code>reboot2</code>. <code>Image</code> comes from a UF2 file (blocks of the given families; picotool's
-  RP2350-E10 dummy block is skipped) or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
+  RP2350-E10 dummy block is skipped), an ELF file (<code>PT_LOAD</code> segments by their flash physical address, straight
+  from <code>cargo build</code>, no <code>objcopy</code>), or a raw binary at an address. No libusb: nusb, pure Rust. It lives in its own
   repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (crate name <code>picoboot_host</code>, re-exported here as
   <code>ww_picoboot</code>), with no WireWeaver dependency of its own.</li>
 </ul>
@@ -5252,8 +5253,9 @@ still running because it ignored the reboot request.</p>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span>
 </span></code></pre></div>
 <p><code>-s</code> / <code>--serial</code> selects the device as for every other command (flag, <code>WW_SERIAL</code>, <code>ww.toml</code>), a part of the serial
-number is enough when only one device matches; <code>--wait</code> and <code>--follow</code> need the full one. A raw binary (any extension
-other than <code>.uf2</code>) is written at <code>--addr</code>, <code>0x10000000</code> by default. On Linux the boot ROM (<code>2e8a:000f</code>) needs a udev
+number is enough when only one device matches; <code>--wait</code> and <code>--follow</code> need the full one. An ELF file (detected by
+its magic bytes, so <code>target/.../release/app</code> works directly) is taken by its flash physical address; otherwise a
+raw binary (any extension other than <code>.uf2</code>) is written at <code>--addr</code>, <code>0x10000000</code> by default. On Linux the boot ROM (<code>2e8a:000f</code>) needs a udev
 rule for access without root, as picotool does.</p>
 <p>The app is asked to reboot into BOOTSEL with <a href="../../cli_reference/#ww-dfu"><code>ww dfu reboot</code></a>, which calls
 <code>ww_dfu::BootControl</code> on any device that implements it, whatever its API and version (a global trait path, API-20 and

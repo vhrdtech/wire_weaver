@@ -6123,12 +6123,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   own repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (evaluated the crates.io <code>picoboot</code> 0.3.0
   crate first: no sans-IO boundary to put <code>SimRp2350</code> behind, no <code>Image</code>/UF2 handling, no orchestrated flash+verify,
   no <code>chip_id</code>/<code>GET_INFO</code> — adopting it would have meant donating most of <code>ww_picoboot</code> upstream anyway); WireWeaver
-  depends on it as <code>ww_picoboot</code> (a git dependency on github.com/vhrdtech/picoboot_host until it is on crates.io). <code>wire_weaver_client</code>'s <code>picoboot</code>
-  feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app that only
-  talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code> (what
-  <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. Missing: a run against a Pico 2 /
-  rePort; RTT (another control block: a second ELF or a RAM scan) and UDP / WebSocket (the port may change); asking
-  for the reboot from the CLI needs CLT-10.</li>
+  depends on it as <code>ww_picoboot</code> (a path dependency on <code>../picoboot_host</code> while its ELF support, IMG-4, is unlanded;
+  a git dependency on github.com/vhrdtech/picoboot_host once it lands, until it is on crates.io). <code>wire_weaver_client</code>'s
+  <code>picoboot</code> feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app
+  that only talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code>
+  (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww bootsel flash</code> takes a
+  UF2, an ELF (detected by magic bytes, taken by its <code>PT_LOAD</code> segments' flash physical address — no <code>objcopy</code>/
+  <code>elf2uf2</code> needed) or a raw binary. Missing: a run against a Pico 2 / rePort; RTT (another control block: a second
+  ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.</li>
 <li>📋 <strong>CLT-22 One <code>Sink::send</code> for borrowed and owned items</strong> — owned types (<code>FooOwned</code>) implement only
   <code>SerializeShrinkWrapOwned</code>, so they go through <code>send_owned</code>; one <code>send</code> for both (a sink item trait, or the derive
   implementing both), then drop <code>send_owned</code>.</li>

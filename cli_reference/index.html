@@ -6134,8 +6134,9 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
 </span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
 </span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>target/thumbv8m.main-none-eabihf/release/app<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">  </span><span class="c1"># an ELF works too, no objcopy needed</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -6149,7 +6150,7 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 <tr>
 <td><code>--addr &lt;ADDR&gt;</code></td>
 <td><code>0x10000000</code></td>
-<td>Flash address of a raw binary (any file that isn't <code>.uf2</code>)</td>
+<td>Flash address of a raw binary (any file that isn't <code>.uf2</code> or an ELF)</td>
 </tr>
 <tr>
 <td><code>--family &lt;F&gt;</code></td>
@@ -6173,6 +6174,10 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 </tr>
 </tbody>
 </table>
+<p>The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — <code>target/.../release/app</code>
+works straight from <code>cargo build</code>, no <code>objcopy</code>/<code>elf2uf2</code>), or otherwise a raw binary written at <code>--addr</code>. An ELF
+is taken by its <code>PT_LOAD</code> segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
+an error.</p>
 <p><code>--serial</code> selects the device as for other commands; part of it is enough when only one matches, <code>--wait</code> and
 <code>--follow</code> need the full one. See <a href="../transport/follow_reboot/">following a reboot</a>.</p>
 <h2 id="ww-udev"><code>ww udev</code><a class="headerlink" href="#ww-udev" title="Permanent link">&para;</a></h2>

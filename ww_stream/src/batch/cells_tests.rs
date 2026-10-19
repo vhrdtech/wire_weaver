@@ -441,6 +441,49 @@ fn staged_seals_full_budget_age_and_drains_bursts() {
     assert_eq!(staged.rows(), 2);
 }
 
+/// The writer wakes the server task (SRV-25) at the rows the last poll waits for: the first row of a batch, then the
+/// row that fills it; `next_wake` says the age in between, and now once those rows wait.
+#[test]
+fn writer_wakes_at_the_rows_the_poll_waits_for() {
+    const N: usize = 8;
+    let wake = crate::wake::Wake::new();
+    let cells = RowCells::<Row, 64>::new();
+    cells.gate().set(Some(0));
+    let mut w = cells.writer().unwrap().with_wake(&wake);
+    let reader = cells.reader::<N>().unwrap();
+    let src = reader.source();
+    let mut staged = Staged::<Row, N, _>::new(CodecPolicy::SMALLEST);
+    assert_eq!(staged.next_wake(src, 0, Some(500)), None);
+    // the first row wakes
+    write(&mut w, 0);
+    assert!(wake.take());
+    assert_eq!(staged.next_wake(src, 10, Some(500)), Some(10));
+    assert_eq!(
+        staged.poll_cells(src, 100, Some(500), 4096, 0b11).sealed,
+        None
+    );
+    // then the age, and no wake until the batch is full
+    assert_eq!(staged.next_wake(src, 100, Some(500)), Some(600));
+    for k in 1..N as u32 - 1 {
+        write(&mut w, k);
+        assert!(!wake.take(), "row {k}");
+        assert_eq!(staged.next_wake(src, 200, Some(500)), Some(600));
+    }
+    write(&mut w, N as u32 - 1);
+    assert!(wake.take());
+    assert_eq!(staged.next_wake(src, 200, Some(500)), Some(200));
+    assert_eq!(
+        staged.poll_cells(src, 200, Some(500), 4096, 0b11).sealed,
+        Some(Cause::Full)
+    );
+    // sealed, waiting for room: the level's budget says when
+    assert_eq!(staged.next_wake(src, 200, Some(500)), None);
+    // nobody observes: the rows go, and the next one wakes again
+    staged.discard_all(src);
+    write(&mut w, 100);
+    assert!(wake.take());
+}
+
 /// A writer thread and a reader thread: every row read is consistent, and every row committed is read or counted
 /// as lapped, once. Every other read takes one column and copies the other one after it: consistent when the
 /// copy says the rows were still there.

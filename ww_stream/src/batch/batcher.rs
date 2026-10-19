@@ -372,6 +372,11 @@ where
         self.consumer().poll(now_us, max_age_us, budget)
     }
 
+    /// [Consumer::next_wake].
+    pub fn next_wake(&mut self, now_us: u64, max_age_us: Option<u64>) -> Option<u64> {
+        self.consumer().next_wake(now_us, max_age_us)
+    }
+
     /// [Consumer::encode_into].
     pub fn encode_into<const B: usize>(
         &mut self,
@@ -621,6 +626,28 @@ where
             polled.sealed = Some(cause);
         }
         polled
+    }
+
+    /// When the batches next have something to do at `now_us` (SRV-25), after a [poll](Self::poll): now for a
+    /// batch the producer sealed or started since, the age of the filling batch, `None` while it is empty (the
+    /// producer's first push wakes the server task) or while the sealed batch waits for room (the budget).
+    pub fn next_wake(&mut self, now_us: u64, max_age_us: Option<u64>) -> Option<u64> {
+        let s = State(self.0.state.load(Ordering::Acquire));
+        if self.state().taken.is_some() {
+            return None;
+        }
+        if s.sealed() != 0 {
+            return Some(now_us);
+        }
+        if s.n() == 0 {
+            return None;
+        }
+        match self.state().seen {
+            Some((store, n, us)) if store == s.fill() && s.n() >= n => {
+                max_age_us.map(|age| us.saturating_add(age))
+            }
+            _ => Some(now_us),
+        }
     }
 
     /// Seals the filling batch now, if it has items, the spare is back and the producer isn't writing (a stream

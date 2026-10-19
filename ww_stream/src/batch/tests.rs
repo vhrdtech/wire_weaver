@@ -110,6 +110,29 @@ fn seal_age_from_first_poll() {
     let _ = &mut scratch;
 }
 
+/// When the event loop has to look at the batches next (SRV-25).
+#[test]
+fn next_wake() {
+    let mut b = Batcher::<Sample, 32, _>::new(DEFAULT_POLICY);
+    // empty: the producer's first push wakes
+    assert_eq!(b.next_wake(0, Some(1_000)), None);
+    b.push(&sample(0));
+    // not seen by a poll yet: now, so its age starts
+    assert_eq!(b.next_wake(10, Some(1_000)), Some(10));
+    b.poll(5_000, Some(1_000), 1024);
+    assert_eq!(b.next_wake(5_100, Some(1_000)), Some(6_000));
+    assert_eq!(b.next_wake(5_100, None), None);
+    // sealed by the producer: now
+    b.flush();
+    assert_eq!(b.next_wake(5_200, Some(1_000)), Some(5_200));
+    // taken and waiting for room: the budget, not the batches
+    b.poll(5_300, Some(1_000), 1024);
+    b.push(&sample(1));
+    assert_eq!(b.next_wake(5_400, Some(1_000)), None);
+    b.discard_sealed();
+    assert_eq!(b.next_wake(5_500, Some(1_000)), Some(5_500));
+}
+
 #[test]
 fn seal_age_waits_for_the_spare() {
     let mut b = Batcher::<Sample, 32, _>::new(DEFAULT_POLICY);

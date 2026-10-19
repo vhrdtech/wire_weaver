@@ -5674,6 +5674,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_bus_slave"
+version = "0.5.0"
+dependencies = [
+ "defmt 1.1.1",
+ "wire_weaver",
+ "ww_error",
+ "ww_i2c",
+ "ww_si",
+ "ww_spi",
+]
+
+[[package]]
 name = "ww_can_bus"
 version = "0.1.0"
 dependencies = [

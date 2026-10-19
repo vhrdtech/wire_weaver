@@ -1,0 +1,25 @@
+[package]
+name = "ww_bus_slave"
+version.workspace = true
+authors.workspace = true
+description = "Device side of the ww_i2c and ww_spi slave modes: register map, answer queue, underrun policies, events"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+defmt = ["dep:defmt", "ww_i2c/defmt", "ww_spi/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_error.workspace = true
+ww_i2c.workspace = true
+ww_si = { workspace = true, features = ["time", "u32"] }
+ww_spi.workspace = true
+
+[dev-dependencies]
+ww_i2c = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }
+ww_spi = { workspace = true, features = ["std"] }

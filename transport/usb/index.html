@@ -4103,6 +4103,8 @@
       
         
       
+        
+      
     
     
     
@@ -4246,6 +4248,33 @@
     
   
   Following a reboot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The link tap
 
     
   </span>
@@ -5183,8 +5212,6 @@ runs in its own task:</p>
 <li><strong>Full duplex</strong>: sending and receiving never block each other on the host, so a device that is busy answering
   cannot stall the host and vice versa (see <a href="../ww_link/#why-two-halves">ww_link</a> for why this matters).</li>
 <li><strong>Version and identity check</strong> during link setup, before any application data flows.</li>
-<li><strong>Tracing</strong>: with the <code>usb-tracing</code> feature every packet in both directions is published over iceoryx2 for
-  external inspection.</li>
 </ul>
 <h2 id="supported-mcus">Supported MCUs<a class="headerlink" href="#supported-mcus" title="Permanent link">&para;</a></h2>
 <p>Any MCU with an <code>embassy-usb</code> driver. Tested on STM32G0B1 (Full Speed), STM32H743 (Full Speed), STM32H725 with a

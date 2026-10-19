@@ -3985,6 +3985,8 @@
       
         
       
+        
+      
     
     
     
@@ -4125,6 +4127,33 @@
     
   
   Following a reboot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/tap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The link tap
 
     
   </span>
@@ -4760,6 +4789,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ww-monitor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww monitor</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww stats</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww capture</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ww-usb-loopback" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5156,6 +5218,39 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>ww explain</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-monitor" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww monitor</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww stats</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ww-capture" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww capture</code>
       </span>
     </span>
   </a>
@@ -5701,6 +5796,68 @@ the unsized value they are in), shown as <code>↩</code> with the byte and its 
 3:0. The API comes from the device, or without one from the crate defining it (<code>--crate PATH</code>, <code>--trait NAME</code> when
 it has more than one) or a saved bundle (<code>--bundle FILE</code>, see <a href="#ww-api"><code>ww api save</code></a>). When the bytes don't decode,
 the tree shows how far it got and where it stopped.</p>
+<p><code>ww explain FILE</code> with a capture file (<a href="#ww-capture"><code>ww capture</code></a>) prints the capture as <a href="#ww-monitor"><code>ww monitor</code></a>
+printed it live, with the same <code>--layer</code>, <code>--bytes</code> and <code>--bits</code>; the capture carries the device's API, so no device
+is needed. Replies are explained by the request their <code>seq</code> pairs them with.</p>
+<h2 id="ww-monitor"><code>ww monitor</code><a class="headerlink" href="#ww-monitor" title="Permanent link">&para;</a></h2>
+<p>Prints what crosses the link as it happens, decoded (<a href="../transport/tap/">The link tap</a>, TOOL-14), from the link
+setup on, until Ctrl+C or <code>--duration S</code>. <code>--layer</code> says how deep to look:</p>
+<ul>
+<li><code>link</code> (default): every <code>ww_link</code> message (data, link setup, pings) with the frames it came in, and the link
+  events; data messages with their request or event title, replies with the request they answer and its time.</li>
+<li><code>frame</code>: every frame (USB packet, UDP datagram, RTT chunk) with its pieces as well.</li>
+<li><code>api</code>: only requests, replies and events, with their values; <code>--bits</code> adds each message's bit map and field
+  table, as <a href="#ww-explain"><code>ww explain</code></a> shows one.</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ ww monitor --layer api
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>   0.000000 L0 session Host Usb &#39;3-1.2&#39;, U2 { checksum: Crc16IbmSdlc { full: false }, tail: None, stream: false }, frames up to 64 B
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>   0.000055 L0 connected
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>   0.000280 L0 link ready
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>   0.065600 L0 → Request Call add  a: 5, b: 100 #3
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>   0.065955 L0 ← Event Value add  105 (reply to #3 in 355.0 µs)
+</span></code></pre></div>
+<p>The time is seconds since the first record, <code>L0</code> the link, <code>→</code> sent by the host and <code>←</code> received. <code>--bytes</code> adds the
+bytes of every frame and message in hex. A frame line lists its pieces (<code>Full Data0 12 B</code>, <code>Start Data0 6/12 B</code>: 6 of
+a 12 byte message's bytes), a message line the frames it is in (<code>in #3@58+6, #4@1+6</code>: 6 bytes at offset 58 of frame 3,
+6 at offset 1 of frame 4). Without a ww server, this is the command's own connection to the device: the link setup,
+the reads it makes to connect, its pings.</p>
+<h2 id="ww-stats"><code>ww stats</code><a class="headerlink" href="#ww-stats" title="Permanent link">&para;</a></h2>
+<p>Framer and link statistics of the same records, every <code>--every S</code> seconds (1 by default) for the time since the last
+print, until Ctrl+C or <code>--duration S</code>; <code>--file FILE</code> gives those of a whole capture instead:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ ww stats --file link.wwtape
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>window 0.071 s, 5 blocks, 0 blocks lost, 0 records lost
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>link 0 tx:
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>  frames 7 (98.4/s), 138 bytes, fill 30.8%, 1.86 messages/frame
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>  overhead: heads 26 B, checksums and tails 2 B, unused 310 B
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>  messages 13, 1 split over 2 frames
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>  message to frame: mean 926.0 µs, max 2.44 ms
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>  link messages: Data0 9, Disconnect 1, GetDeviceInfo 1, LinkSetup 1, Nop 1
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>link 0 rx:
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>  frames 10 (140.6/s), 420 bytes, fill 65.6%, 1.20 messages/frame
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>  overhead: heads 25 B, checksums and tails 2 B, unused 220 B
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>  messages 12, 1 split over 5 frames
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>  link messages: Data0 9, DeviceInfo 1, LinkReady 1, Nop 1
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>link 0 api:
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>  Call add: 8 (112.5/s), reply mean 1.36 ms max 2.50 ms
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>  Call blob: 1 (14.1/s), reply mean 2.25 ms max 2.25 ms
+</span></code></pre></div>
+<p>Fill is the frame bytes used of what the frames could carry; trouble (dropped pieces, checksum failures, partial
+messages dropped, frame gaps, framer mismatches) gets its own line when there is any.</p>
+<h2 id="ww-capture"><code>ww capture</code><a class="headerlink" href="#ww-capture" title="Permanent link">&para;</a></h2>
+<p>Saves what crosses the link into a file, until Ctrl+C or <code>--duration S</code>, with a spinner showing blocks and bytes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww capture -o link.wwtape --duration 10
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>captured 12 blocks, 48.2kB to link.wwtape
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>$ ww explain link.wwtape --layer api
+</span></code></pre></div>
+<p>The file is <a href="../transport/tap/#capture-files">tape blocks</a> back to back, each written as it comes. A new capture is
+written as <code>FILE.partial</code> and renamed to <code>FILE</code> when it ends; an existing <code>FILE</code> is refused unless <code>--append</code> adds to
+it. <code>--sync</code> says when the data is synced to the disk, which bounds what a crash or a power cut can lose: an interval
+(<code>1s</code>, the default, or <code>250ms</code>), <code>blocks:N</code> (every N blocks) or <code>none</code> (only at the end). A failed write or sync ends
+the capture with the file as it is, never retried. The file carries the API bundles of the device and of the tap's own
+records. <code>--layer link</code> or <code>api</code> leaves the frames out (smaller files).</p>
+<p>A capture is read up to its first damaged block (a crash's cut last block, a flipped byte, a block out of order), and
+where it was cut is said; zeros at the end (preallocated space) are the end. <code>--resync</code> on <code>ww explain FILE</code> and
+<code>ww stats --file</code> reads on past damage to the next block instead. A <code>FILE.partial</code> left by a crash reads the same way.</p>
 <h2 id="ww-usb-loopback"><code>ww usb-loopback</code><a class="headerlink" href="#ww-usb-loopback" title="Permanent link">&para;</a></h2>
 <p>Checks the link to the selected device in three stages, each with a progress bar, then prints a summary table:</p>
 <ol>
@@ -5774,8 +5931,8 @@ hub, a powered hub used without power, or power problems on an externally powere
 implements the trait somewhere in its API, whatever the API and its version: <code>ww dfu</code> connects without the user API
 check and calls the trait through a <a href="../api/addressing/">global trait path</a>, which the device resolves itself. So a
 <code>ww</code> built today can still reboot a device whose firmware is years older.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>$ ww dfu reboot --serial 4B333720
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>blinky_api@0.1.0 reboots into the updater
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ ww dfu reboot --serial 4B333720
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>blinky_api@0.1.0 reboots into the updater
 </span></code></pre></div>
 <table>
 <thead>
@@ -5806,11 +5963,11 @@ updater is not done yet (CLT-21).</p>
 <p>The <code>cnt</code> counters of any device implementing <a href="../std_library/ww_counters/"><code>ww_counters::Counters</code></a> anywhere in its
 API (a global trait, like <code>ww dfu</code>), decoded with the firmware's ELF found by the build id the device reports, and
 shown with the same views as <code>cnt</code> over a debug probe.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ ww counters --serial 4B333720
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>📍 RAM counters at 0x20000000, 64 B
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>INFO  boots         3
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>$ ww counters --serial 4B333720
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>📍 RAM counters at 0x20000000, 64 B
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>INFO  boots         3
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>...
 </span></code></pre></div>
 <table>
 <thead>
@@ -5869,14 +6026,14 @@ or <code>target/</code> of the cargo project in the current directory. See <a hr
 <p>Firmware, board, ids, user label and last reset of any device, through the <a href="../std_library/device_contract/">device
 contract</a> traits (global trait paths, like <code>ww dfu</code>: whatever the device's API and
 version, no ELF needed).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww info --serial 4B333720
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>API        usb_io_api@0.5.0
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ ww info --serial 4B333720
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>API        usb_io_api@0.5.0
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 </span></code></pre></div>
 <table>
 <thead>
@@ -5900,7 +6057,7 @@ version, no ELF needed).</p>
 with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
 (<a href="../std_library/device_contract/#where-ww-looks-for-the-elf">where</a>); a part whose ELF isn't found says so and
 names the places searched.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
 </span></code></pre></div>
 <table>
 <thead>
@@ -5937,9 +6094,9 @@ names the places searched.</p>
 <h2 id="ww-elf"><code>ww elf</code><a class="headerlink" href="#ww-elf" title="Permanent link">&para;</a></h2>
 <p>The ELF directory (<code>~/.cache/ww/elf</code>, or the ones in <code>WW_ELF_PATH</code>), where firmware ELFs are found by build id for
 <code>ww counters</code>, <code>ww report</code> and <code>cnt</code>.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
 </span></code></pre></div>
 <p><code>--dir DIR</code> adds to another directory. A file without a build id is listed as skipped. See the <a href="../std_library/device_contract/#the-release-archive">release
 archive</a>.</p>
@@ -5948,22 +6105,22 @@ archive</a>.</p>
 flash range (read off the chip, from a <code>.bin</code> or a debug probe dump). The word and page size aren't in the dump
 itself, so they are given on the command line (completion suggests the sizes <code>Store</code> supports, with a chip example
 each):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>page 0 @ 0x08078000: page_seq 1
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>  ...
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>  0x080787f0 +16     erased
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>  ...
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>  0x08078b88 +1144   erased
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>
-</span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>current record per key:
-</span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
-</span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>page 0 @ 0x08078000: page_seq 1
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>  ...
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>  0x080787f0 +16     erased
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>  ...
+</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
+</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
+</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>  0x08078b88 +1144   erased
+</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>
+</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>current record per key:
+</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
+</span><span id="__span-20-16"><a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
 </span></code></pre></div>
 <p>Every item slot is shown, valid or not (<code>cut</code>: a write a power loss interrupted; <code>garbage</code>: neither a valid item
 nor erased), including on a page whose header is itself invalid, which a device's own <code>Store</code> never looks at. The
@@ -5974,11 +6131,11 @@ error. <code>--format json</code> gives the same information as JSON instead.</p
 <p>RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
 the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<code>ww_dfu::BootControl::reboot</code>, see
 <a href="#ww-dfu"><code>ww dfu</code></a>), and to follow it back into the new firmware.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -6024,9 +6181,9 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 <code>todo!()</code> panic. Until then write the rule by hand, see <a href="../transport/usb/">USB</a>.</p>
 <h2 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h2>
 <p>Manages the <a href="../cli/#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command

@@ -4155,6 +4155,8 @@
       
         
       
+        
+      
     
     
     
@@ -4295,6 +4297,33 @@
     
   
   Following a reboot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/tap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The link tap
 
     
   </span>
@@ -5412,6 +5441,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../transport/ww_framer/">Framer</a></strong>: Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames.</li>
 <li><strong><a href="../transport/ww_link/">Link layer</a></strong>: Link setup, device info and protocol version exchange.</li>
+<li><strong><a href="../transport/tap/">Link tap</a></strong>: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.</li>
 <li><strong><a href="../transport/usb_internals/">USB throughput on small MCUs</a></strong>: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span></li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#transports-and-protocols-tr">Transports and protocols</a> in the feature tracker.</p>
@@ -5468,6 +5498,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../cli_reference/#ww-observe">Watching properties</a></strong>: <code>ww observe</code> and Python print updates as they arrive, with rates.</li>
 <li><strong><a href="../cli_reference/#ww-explain">Explaining bytes</a></strong>: <code>ww explain</code> shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../cli_reference/#ww-usb-loopback">Link test</a></strong>: <code>ww usb-loopback</code> measures round trips, losses and speed both ways.</li>
+<li><strong><a href="../cli_reference/#ww-monitor">Watching the link</a></strong>: <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code> and <code>ww explain FILE</code>: the link decoded live, counted, saved and read back.</li>
 <li><strong><a href="../cli_reference/#ww-settings">Settings from a flash dump</a></strong>: <code>ww settings dump</code> decodes a settings store without the device.</li>
 <li><strong><a href="../python_advanced/">Values from text</a></strong>: Typed values written as text and turned into bytes at runtime.</li>
 <li><strong><a href="../dev_tool/">Dev GUI</a></strong>: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span></li>
@@ -5514,6 +5545,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 <ul>
 <li><strong><a href="../std_library/ww_client_server/">Request and event model</a></strong>: <code>ww_client_server</code>, the messages every call is made of.</li>
+<li><strong><a href="../transport/tap/#tape-blocks">Tape blocks</a></strong>: <code>ww_tape</code>: the generic blocks of track records that live feeds and log files (link captures) are made of.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>

@@ -3983,6 +3983,8 @@
       
         
       
+        
+      
     
     
     
@@ -4123,6 +4125,33 @@
     
   
   Following a reboot
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/tap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  The link tap
 
     
   </span>
@@ -6124,6 +6153,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   and packet sizes, <code>in_process::usb_device</code>).</li>
 <li>✅ <strong>TR-4 USB CDC-NCM</strong>: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
   itself, ping and a hello page over HTTP (<code>examples_mcu/rp2</code>, <code>ww_ws_ncm</code>); UDP the same way (<code>ww_udp_ncm</code>).</li>
+<li>✅ <strong>TR-14 Link tap</strong> · <code>v0.5</code> — what crosses a link, recorded at the transport edge (<code>docs/transport/tap.md</code>):
+  <code>ww_tap</code> (<code>no_std</code> <code>Tap</code> / <code>NoTap</code>; records are streams of the <code>LinkTap</code> trait: session, link events, frames and
+  messages each way, client map), taken by every <code>wire_weaver_client</code> transport and event loop
+  (<code>ClientConfig::tap</code>, <code>tap::default_recorder()</code>; <code>TraceEvent</code> / <code>RegisterTracer</code> an adapter over it, the iceoryx2
+  USB tracer removed) and by <code>ww_device</code>'s <code>FramedTx</code> / <code>FramedRx</code> (<code>with_tap</code>; with <code>NoTap</code> a G0 firmware is the
+  same size). <code>ww_framer::pieces(frame)</code> shares <code>FramedRx</code>'s head code, no callbacks in the framer. <code>Recorder</code>
+  batches into pooled 64 KiB <code>ww_tape</code> blocks (STD-42) flushed when full or after <code>flush_time</code> (10 ms), no
+  allocation in steady state, losses counted in <code>LinkEvent::Lost</code>. <code>wire_weaver_client::tap::Decoder</code>: frame ↔
+  message linkage, cross-check against the message records, framer and link statistics, request/reply pairing by
+  seq feeding the TOOL-9 explain code. E2E tests over simulated USB (<code>tap/e2e_tests.rs</code>, <code>wire_weaver_cli</code>
+  <code>cmd/tap/tests.rs</code>): shared packets, split replies, a lost packet, stats, captures replayed identically. Open:
+  the tap of a ww server's clients (<code>ClientMap</code> records are defined, nothing writes them yet).</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>
@@ -6236,6 +6277,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   cross-checked against a real <code>Store</code> over the same bytes through <code>fake_flash::FakeFlash</code>) and <code>decode_group</code> for
   a caller that knows the concrete <code>SettingsGroup</code> type; <code>ww settings dump FILE --word-size --page-size [--base]
   [--format text|json]</code> in <code>wire_weaver_cli</code> (<code>docs/cli_reference.md#ww-settings</code>).</li>
+<li>✅ <strong>TOOL-14 <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code>, <code>ww explain FILE</code></strong> · <code>v0.5</code> — the link tap (TR-14) in the
+  CLI (<code>docs/cli_reference.md#ww-monitor</code>): live decoded print at the frame, link or API layer (<code>--bytes</code>,
+  <code>--bits</code> for the TOOL-9 bit map of every message), framer and link statistics every few seconds or of a capture,
+  captures with the device's API bundle in them, read back by <code>ww explain FILE</code> exactly as monitored live.
+  Blocks come from a <code>Feed</code> (<code>wire_weaver_cli/src/cmd/tap.rs</code>): the CLI's own connection today, a ww server's tap
+  of all its clients later.</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>.</li>
@@ -6255,8 +6302,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   errors naming the field) and <code>wire_weaver_client::expr</code> (the same with <code>ww_si</code> quantities, <code>q!(3300 mV)</code>);
   <code>wire_weaver_client::envelope</code> (a whole request or event: the <code>ww_client_server</code> envelope field by field, the
   payload by its resource); <code>ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]</code>, <code>ww explain request|event
-  HEX</code>. Open: payloads under a global trait path, multi requests and property updates; link framing around a
-  message; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  HEX</code>. Captures and the live link: <code>ww explain FILE</code> / <code>ww monitor --layer api --bits</code> (TOOL-14), replies explained by
+  their request's seq. Open: payloads under a global trait path, multi requests and property updates; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
   expression input.</li>
 <li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
@@ -6372,6 +6419,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
   wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with <code>#[default = false]</code>.
   Docs <code>docs/std_library/ww_gpio.md#port-access</code>, tests <code>tests/io_gpio</code>, STM32 boards in <code>examples_mcu</code> (IDR / BSRR).</li>
+<li>✅ <strong>STD-42 <code>ww_tape</code></strong> · <code>v0.5</code> — tape blocks, the generic unit of track records for live feeds and log files
+  (<code>ww_tape</code>, <code>docs/transport/tap.md#tape-blocks</code>): a 32 B header, varint records (track, time delta, length,
+  item), CRC-32C, never padded; describe blocks with the producer, <code>TrackDef</code>s (stable key, API, resource path,
+  sticky) and API bundles; <code>TapeWriter</code> writes them with database-style durability (<code>.partial</code> then rename, file and directory synced, a <code>SyncPolicy</code>, a failed write or sync fatal, never retried), <code>FileBlocks</code> reads the longest valid prefix (or skips damage, <code>Recovery::Resync</code>); tests cut and flip every byte, fuzz target <code>tape-reader</code>. Blocks of a later version or an unknown kind are skipped by length, <code>Describe</code> is evolvable. Open: splitting into several files by size or time, preallocation (zeros at the end already read as the end). Nothing in it
+  knows a producer: the link tap (TR-14) writes it; it is also eventfull's own file format (CORE-19).</li>
 <li>🧪 <strong>STD-32 <code>ww_settings</code> settings store</strong> · <code>v0.5</code> — a device's settings in its own NOR flash: <code>#[derive(Settings)]</code>
   on a plain struct (<code>#[setting(slot = N, default = ..)]</code>, <code>#[settings(retired(..))]</code>), stored as a record of the
   fields not at their default, each a byte blob in an <code>OptionAnyVec</code>, so firmware versions skip and keep each other's

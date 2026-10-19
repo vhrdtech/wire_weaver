@@ -34,9 +34,17 @@ Goal (Roman, 19 Oct): shrink WireWeaver's generated server and observe code, ado
   `CARGO_TARGET_DIR=/tmp/server-size-fw-z CARGO_PROFILE_RELEASE_OPT_LEVEL=z ...`, flash = vector_table+text+rodata+data
   from `llvm-size -A`. just verify green; fw dev and release build.
 
+## Board check (board-check, omarchy-m1, done)
+
+- All OK (samples 1608/s none missed, periodic, deadband, on-change vbus, settings, error sites). Its two fixes are
+  cherry-picked here: ww 62e0b8c7 -> observe write drops one failing slot (SRV-24), typec 5253211 -> meter_window.
+- FW-40: SRV-25 cost 17 % on 64 B h->d USB (next_wake walked all levels twice per wake). Fixed in 6d81ff42
+  (`ObserveState::is_active()` early return). Asked board-check to re-measure; waiting for its numbers.
+- Its branches are the same commits rebased on main; mine are not rebased (tpm land does it, CHANGELOG conflicts only).
+
 ## Next
 
-- Board check on omarchy-m1 (observe incl. samples, settings, vbus cycle, USB throughput vs FW-24): session (running, building fw at 19 Oct handoff)
+- FW-40 numbers from board-check, then close FW-40 in typec FEATURES.md, git rm HANDOFF.md, tpm work ready.
   board-check. Not done until it reports.
 - Shipped profile is still opt-level 3; the design note's z-profile switch is a separate decision.
 

@@ -939,6 +939,33 @@ mod tests {
         assert_eq!(m.opened, 1, "one session");
     }
 
+    /// `Commander::reconnect` (EX-10): the link goes in the middle of a transfer, the same commander connects again
+    /// and the sink goes on from where the device is, twice in a row. Nothing is lost or sent again, one session.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reconnect_goes_on_mid_transfer() {
+        let (device, m) = start(
+            "credit/reconnect",
+            Config::new(256, 128).drain_at(0, Duration::ZERO),
+        );
+        let bytes = data(3000);
+        let client = connect(&device).await;
+        let mut plan = client.plan().await.unwrap();
+        for piece in bytes.chunks(1000) {
+            for chunk in piece.chunks(100) {
+                plan.send_bytes(chunk).await.unwrap();
+            }
+            // reconnecting while connected is refused
+            assert!(client.cmd.reconnect().await.is_err());
+            client.cmd.disconnect().keep_streams().await.unwrap();
+            assert_eq!(client.cmd.reconnect().await.unwrap(), 1);
+        }
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((3000, 3000)));
+        let m = m.lock().unwrap();
+        assert_eq!(m.plan, bytes);
+        assert_eq!(m.opened, 1, "one session");
+    }
+
     #[test]
     fn restarted_host_resumes_blocking() {
         let (device, m) = start(

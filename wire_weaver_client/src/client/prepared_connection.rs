@@ -6,9 +6,10 @@ use crate::{
     Commander, WwClient,
     config::{ClientConfig, IntrospectBundle, ValidatedConfig},
     device_info::DeviceApiInfo,
-    event_loop::command::Command,
+    event_loop::command::{Command, EventLoopResidual},
 };
 use anyhow::{Error, Result};
+use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
 
@@ -29,78 +30,12 @@ impl<T: WwClient> PreparedConnection<T> {
         let config = self.config.validate()?;
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
         let mut cmd_rx = Some(cmd_rx);
-        let mut unmatched = vec![];
-
-        for iface_kind in check_interfaces(&config)? {
-            #[cfg(feature = "usb")]
-            if iface_kind == InterfaceKind::Usb {
-                match crate::usb::try_connect(&config, &mut cmd_rx).await? {
-                    Selected::Device { handle, info } => {
-                        let device_api_info = try_connect(&cmd_tx, handle, &config)
-                            .await
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(
-                            create_commander(config, cmd_tx, device_api_info).await,
-                        ));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::InProcess {
-                match try_select_in_process(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info } => {
-                        let device_api_info = try_connect(&cmd_tx, handle, &config)
-                            .await
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(
-                            create_commander(config, cmd_tx, device_api_info).await,
-                        ));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::Rtt {
-                match try_select_rtt(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info } => {
-                        let device_api_info = try_connect(&cmd_tx, handle, &config)
-                            .await
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(
-                            create_commander(config, cmd_tx, device_api_info).await,
-                        ));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::WebSocket {
-                match try_select_ws(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info } => {
-                        let device_api_info = try_connect(&cmd_tx, handle, &config)
-                            .await
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(
-                            create_commander(config, cmd_tx, device_api_info).await,
-                        ));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::Udp {
-                match try_select_udp(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info } => {
-                        let device_api_info = try_connect(&cmd_tx, handle, &config)
-                            .await
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(
-                            create_commander(config, cmd_tx, device_api_info).await,
-                        ));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-        }
-
-        Err(not_found(&config, unmatched))
+        let (device_api_info, residual_rx) =
+            connect_to(&config, &cmd_tx, &mut cmd_rx).await.result?;
+        let reconnect = Reconnect::new(config.clone(), residual_rx);
+        let mut commander = create_commander(config, cmd_tx, device_api_info).await;
+        commander.set_reconnect(reconnect);
+        Ok(T::from_cmd(commander))
     }
 
     pub fn connect_blocking(self) -> Result<T> {
@@ -201,6 +136,151 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 }
 
+/// What a connection attempt left behind, see [connect_to].
+pub(crate) struct Attempt {
+    /// The device's API and the receiver of the event loop's residual, or why the attempt failed.
+    pub(crate) result: Result<(DeviceApiInfo, oneshot::Receiver<EventLoopResidual>)>,
+    /// Set when an event loop was started and failed to connect: the receiver of its residual.
+    pub(crate) started: Option<oneshot::Receiver<EventLoopResidual>>,
+}
+
+impl Attempt {
+    fn failed(e: Error) -> Self {
+        Attempt {
+            result: Err(e),
+            started: None,
+        }
+    }
+}
+
+/// Selects a device with the transports of `config` (in order), starts an event loop on `cmd_rx` for it and connects.
+/// The loop's residual (its command channel back) comes through the returned receiver when it exits; keeping it is
+/// what makes [Commander::reconnect] possible. `cmd_rx` is taken when a transport found a device.
+pub(crate) async fn connect_to(
+    config: &ValidatedConfig,
+    cmd_tx: &mpsc::Sender<Command>,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Attempt {
+    let mut unmatched = vec![];
+    let kinds = match check_interfaces(config) {
+        Ok(kinds) => kinds,
+        Err(e) => return Attempt::failed(e),
+    };
+    for iface_kind in kinds {
+        let selected = match iface_kind {
+            #[cfg(feature = "usb")]
+            InterfaceKind::Usb => crate::usb::try_connect(config, cmd_rx).await,
+            #[cfg(not(feature = "usb"))]
+            InterfaceKind::Usb => continue,
+            InterfaceKind::InProcess => try_select_in_process(config, cmd_rx),
+            InterfaceKind::Rtt => try_select_rtt(config, cmd_rx),
+            InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
+            InterfaceKind::Udp => try_select_udp(config, cmd_rx),
+            // not a transport the client can connect over yet
+            InterfaceKind::Ipc => continue,
+        };
+        match selected {
+            Ok(Selected::Device { handle, info }) => {
+                let (residual_tx, residual_rx) = oneshot::channel();
+                return match try_connect(cmd_tx, handle, config, residual_tx).await {
+                    Ok(device_api_info) => Attempt {
+                        result: Ok((device_api_info, residual_rx)),
+                        started: None,
+                    },
+                    Err(e) => Attempt {
+                        result: Err(connect_failed(info, e)),
+                        started: Some(residual_rx),
+                    },
+                };
+            }
+            Ok(Selected::NotFound { unmatched: u }) => unmatched.extend(u),
+            Err(e) => return Attempt::failed(e),
+        }
+    }
+    Attempt::failed(not_found(config, unmatched))
+}
+
+/// What [Commander::reconnect] needs: the configuration the Commander was connected with, and the event loop's
+/// command channel once that exited.
+pub(crate) struct Reconnect {
+    config: ValidatedConfig,
+    state: Mutex<LoopState>,
+}
+
+enum LoopState {
+    /// An event loop runs (or exited and its residual is in the receiver)
+    Running(oneshot::Receiver<EventLoopResidual>),
+    /// No loop: the command channel waits for the next one
+    Stopped(mpsc::Receiver<Command>),
+    /// A reconnect is under way
+    Busy,
+    /// The attempt failed after it took the command channel: nothing to connect on any more
+    Lost,
+}
+
+impl Reconnect {
+    fn new(config: ValidatedConfig, residual: oneshot::Receiver<EventLoopResidual>) -> Arc<Self> {
+        Arc::new(Reconnect {
+            config,
+            state: Mutex::new(LoopState::Running(residual)),
+        })
+    }
+
+    /// Connects again with the configuration of the first connection, on the command channel of the event loop that
+    /// exited (after `disconnect()`).
+    pub(crate) async fn run(
+        &self,
+        cmd_tx: &mpsc::Sender<Command>,
+    ) -> Result<DeviceApiInfo, crate::Error> {
+        let state = std::mem::replace(
+            &mut *self.state.lock().unwrap_or_else(|e| e.into_inner()),
+            LoopState::Busy,
+        );
+        let mut cmd_rx = match state {
+            LoopState::Stopped(cmd_rx) => Some(cmd_rx),
+            LoopState::Running(mut residual) => {
+                // the residual is sent before `disconnect()` returns, so it is there if the loop is gone
+                let exited = residual.try_recv().map_err(|_| ());
+                match exited {
+                    Ok(residual) => Some(residual.cmd_rx),
+                    Err(()) => {
+                        *self.state.lock().unwrap_or_else(|e| e.into_inner()) =
+                            LoopState::Running(residual);
+                        return Err(crate::Error::User(
+                            "still connected (or the event loop is gone), disconnect().keep_streams() first".into(),
+                        ));
+                    }
+                }
+            }
+            LoopState::Busy => {
+                return Err(crate::Error::User(
+                    "a reconnect is already under way".into(),
+                ));
+            }
+            LoopState::Lost => {
+                *self.state.lock().unwrap_or_else(|e| e.into_inner()) = LoopState::Lost;
+                return Err(crate::Error::User(
+                    "the event loop is gone, connect with a new client".into(),
+                ));
+            }
+        };
+        let Attempt { result, started } = connect_to(&self.config, cmd_tx, &mut cmd_rx).await;
+        let (next, answer) = match result {
+            Ok((info, residual)) => (LoopState::Running(residual), Ok(info)),
+            Err(e) => {
+                let next = match (cmd_rx, started) {
+                    (Some(cmd_rx), _) => LoopState::Stopped(cmd_rx),
+                    (None, Some(residual)) => LoopState::Running(residual),
+                    (None, None) => LoopState::Lost,
+                };
+                (next, Err(crate::Error::Other(format!("{e:#}"))))
+            }
+        };
+        *self.state.lock().unwrap_or_else(|e| e.into_inner()) = next;
+        answer
+    }
+}
+
 fn try_select_rtt(
     config: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
@@ -265,6 +345,7 @@ async fn try_connect(
     cmd_tx: &mpsc::Sender<Command>,
     handle: Box<dyn Any + Send>,
     config: &ValidatedConfig,
+    residual_tx: oneshot::Sender<EventLoopResidual>,
 ) -> Result<DeviceApiInfo> {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
@@ -275,7 +356,7 @@ async fn try_connect(
             link_setup_timeout_ms: config.link_setup_timeout_ms,
             tap: config.tap.clone(),
             connected_tx: Some(connected_tx),
-            failed_tx: None,
+            failed_tx: Some(residual_tx),
         })
         .await
         .map_err(|_| crate::Error::EventLoopNotRunning)?;

@@ -161,8 +161,9 @@ A credit sink's session lives on the device until another session is opened (or 
 goes on after the link or the host program went away, from where the device is: nothing the device took is sent
 again, nothing is lost.
 
-**After a reconnect**, with the program still running: disconnect with `disconnect().keep_streams()`, and after the
-new connection `Commander::resume_streams()` (it also resumes counted and reliable streams and observers). It
+**After a reconnect**, with the program still running: disconnect with `disconnect().keep_streams()`, and connect
+again with `Commander::reconnect()` (the same transport and device selection, the same handles), which calls
+`Commander::resume_streams()` (it also resumes counted and reliable streams and observers). That
 registers every sink on the new connection and opens a credit sink's session again; the sink sends what the device
 didn't acknowledge, from the device's position, and goes on. While the link is down, `send()` and `flush()` wait for
 the resume (`try_send()` returns `false`); `resume_streams()` counts each session that goes on.
@@ -172,8 +173,8 @@ let mut tx = client.uart_tx().await?;
 tx.send_bytes(&line).await?;
 // .. the link goes
 cmd.disconnect().keep_streams().await?;
-// .. connected again through the same commander
-cmd.resume_streams().await?;
+// .. the device is back
+cmd.reconnect().await?;
 tx.send_bytes(&next_line).await?; // the device gets the rest of `line`, then `next_line`
 ```
 

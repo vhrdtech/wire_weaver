@@ -7,6 +7,7 @@ use crate::client::observe::{
     LevelRoute, LevelUpdate, ObserveConfig, ObserveRegistry, Pending, PreparedObserve, send_pending,
 };
 use crate::client::positioned::Shared;
+use crate::client::prepared_connection::Reconnect;
 use crate::client::sink::{Resumed, SinkLink};
 use crate::compat::{ApiCompat, ApiMatch, Verdict};
 use crate::config::IntrospectBundle;
@@ -70,6 +71,9 @@ pub struct Commander {
     sinks: SinkRegistry,
     consts: ConstCache,
     observes: ObserveRegistry,
+    /// The configuration and the stopped event loop's command channel, for [Commander::reconnect]; None for a
+    /// Commander made by hand or connected with `connect_blocking`.
+    reconnect: Option<Arc<Reconnect>>,
     /// Shared by all clones, the one that drops last disconnects, see the `Drop` impl.
     last_clone: Arc<()>,
 }
@@ -117,6 +121,7 @@ impl Commander {
             sinks: SinkRegistry::default(),
             consts: ConstCache::default(),
             observes: ObserveRegistry::default(),
+            reconnect: None,
             last_clone: Arc::new(()),
         }
     }
@@ -306,7 +311,6 @@ impl Commander {
     /// acknowledge and goes on, nothing repeated and nothing lost; one whose session the device lost (a reboot)
     /// returns [StreamError::SinkSessionLost](crate::StreamError::SinkSessionLost) on its next call. Returns how many
     /// streams, levels and credit sink sessions were resumed.
-    // TODO(EX-10): the reconnect itself calls this once it exists
     pub async fn resume_streams(&self) -> Result<usize, Error> {
         let mut resumed = 0;
         for (shared, cmd, done_rx) in self.resume_commands()? {
@@ -341,6 +345,33 @@ impl Commander {
             resumed += Self::sink_resumed(&link, cursor, sideband_rx, answer);
         }
         Ok(resumed)
+    }
+
+    /// Connects again after `disconnect().keep_streams()` (or a link that went down), through the transport and the
+    /// device selection this Commander was connected with, on the same command channel: handles of streams, sinks and
+    /// observers made from it (and its clones) stay valid. Then [Self::resume_streams], whose count it returns.
+    ///
+    /// Fails with the reason when the device isn't there (yet): the Commander stays disconnected and can try again.
+    /// Also fails when the Commander is still connected, or was connected with `connect_blocking`. A device with another
+    /// API than before (other firmware) is refused with [Error::IncompatibleResource] after it connected: disconnect
+    /// and make a new client.
+    pub async fn reconnect(&self) -> Result<usize, Error> {
+        let Some(reconnect) = &self.reconnect else {
+            return Err(Error::Unsupported {
+                what: "reconnect",
+                reason: "the Commander wasn't made by an async connect()".into(),
+            });
+        };
+        self.clear_const_cache();
+        let info = reconnect.run(&self.transport_cmd_tx).await?;
+        if info.user_api_hash.no_docs != self.connected_device.user_api_hash.no_docs {
+            return Err(Error::IncompatibleResource {
+                resource: "the reconnected device".into(),
+                device: Box::new(info.user_api_version),
+                reason: "its API differs from the one connected before".into(),
+            });
+        }
+        self.resume_streams().await
     }
 
     /// Blocking variant of [Self::resume_streams].
@@ -684,6 +715,10 @@ impl Commander {
 
     pub fn info(&self) -> &DeviceApiInfo {
         &self.connected_device
+    }
+
+    pub(crate) fn set_reconnect(&mut self, reconnect: Arc<Reconnect>) {
+        self.reconnect = Some(reconnect);
     }
 
     pub(crate) fn set_client_introspect(&mut self, client_bundle: IntrospectBundle) {

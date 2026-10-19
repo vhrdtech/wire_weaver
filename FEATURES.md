@@ -1331,7 +1331,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **EX-8 NCM WebSocket + UDP example** · `v0.5` — both media on one stack, sharing the backend.
 - 💡 **EX-9 WebSocket over Ethernet example** for some board · `v0.5.x` — the `ws` medium already runs on
   `embassy-net`, so Ethernet needs no transport work, only an example.
-- 📋 **EX-10 Reconnect demo** · `v0.5.x` — keep reconnecting with streams and UI feedback; `disconnect_keep_streams`.
+- 🚧 **EX-10 Reconnect demo** · `v0.5.x` — keep reconnecting with streams and UI feedback; `disconnect_keep_streams`.
+  Done: `Commander::reconnect()` (re-selects the device with the stored config on any transport, restarts the loop
+  on the kept command channel, `resume_streams()`). Missing: `connect_keep_trying` (retry until the device is back),
+  UI feedback, the demo itself.
 - 📋 **EX-12 Hubris based example** with sync code · `v0.5.x`.
 - 📋 **EX-13 Advanced example / project template**.
 

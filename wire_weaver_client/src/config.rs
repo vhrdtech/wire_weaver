@@ -39,6 +39,7 @@ pub struct ClientConfig {
     tap: Option<ww_tap::Recorder>,
 }
 
+#[derive(Clone)]
 pub(crate) struct ValidatedConfig {
     pub(crate) pieces: Vec<ConfigPiece>,
     #[allow(dead_code)] // TODO: implement connection priority
@@ -87,7 +88,7 @@ impl IntrospectBundle {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum InterfaceKind {
     Usb,
     WebSocket,

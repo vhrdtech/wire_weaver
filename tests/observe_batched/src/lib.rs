@@ -1411,6 +1411,116 @@ mod tests {
         assert_eq!(current_samples(&mut queue), [100, 101, 102], "cells");
     }
 
+    /// Event-driven (SRV-25): the sampler and the cells writer wake the server task on a batch's first row,
+    /// `next_wake` says now until a poll has seen it, then its age, and nothing once it is sent.
+    #[tokio::test]
+    async fn batches_wake_and_next_wake() {
+        static SIG_S: server::api_impl::ObserveSignal = server::api_impl::ObserveSignal::new();
+        static SIG_C: cells_server::api_impl::ObserveSignal =
+            cells_server::api_impl::ObserveSignal::new();
+        let req = observe_request(&[entry(CURRENT, samples(0, 5_000))]);
+        let mut scratch = [0u8; 512];
+        let mut event_scratch = [0u8; 1024];
+        let mut queue = wire_weaver::EventWriter::new(Collect::default(), &mut event_scratch);
+        let mut buf = [0u8; 512];
+        let mut sb = Box::new(Scratch::<SB>::new());
+
+        let mut s = server::Server {
+            mode: 0,
+            current: 0,
+            observe: server::api_impl::ObserveState::new(
+                LIMITS,
+                server::api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY),
+            ),
+            clock: Arc::new(AtomicU64::new(0)),
+            polled: Arc::new(AtomicU64::new(0)),
+            buf: vec![],
+            scratch: Box::new(Scratch::new()),
+        };
+        s.observe.with_signal(&SIG_S);
+        s.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        assert_eq!(s.observe.next_wake(0), Some(0));
+        s.poll_properties(&mut queue, (), 0, &mut buf, &mut sb)
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        assert_eq!(s.observe.next_wake(0), None);
+        for (i, t) in [100u32, 200, 300].into_iter().enumerate() {
+            let row = server::api_impl::ObserveBatchedSamples {
+                current: i as i32,
+                reading: reading(i as i32),
+            };
+            s.observe
+                .samplers()
+                .root
+                .with_wake(SIG_S.as_wake())
+                .sample(Second::micro(t), row);
+            // the first row wakes, the others don't
+            assert_eq!(SIG_S.as_wake().take(), i == 0, "row {i}");
+            if i == 0 {
+                assert_eq!(s.observe.next_wake(1_000), Some(1_000));
+                s.poll_properties(&mut queue, (), 1_000, &mut buf, &mut sb)
+                    .await
+                    .unwrap();
+                assert_eq!(s.observe.next_wake(1_000), Some(6_000), "its age");
+            }
+        }
+        s.poll_properties(&mut queue, (), 6_000, &mut buf, &mut sb)
+            .await
+            .unwrap();
+        assert_eq!(current_samples(&mut queue), [0, 1, 2], "sampler");
+        assert_eq!(s.observe.next_wake(6_000), None);
+
+        let root_cells = Arc::new(cells_server::api_impl::RootCells::<CELLS_ROWS>::new());
+        let reader = ww_stream::batch::CellsReader::shared(root_cells.clone()).unwrap();
+        let mut c = cells_server::Server {
+            mode: 0,
+            current: 0,
+            observe: cells_server::api_impl::ObserveState::new(
+                LIMITS,
+                cells_server::api_impl::ObserveBatches::new(
+                    ww_stream::batch::DEFAULT_POLICY,
+                    reader,
+                ),
+            ),
+            root_cells: root_cells.clone(),
+            clock: Arc::new(AtomicU64::new(0)),
+            polled: Arc::new(AtomicU64::new(0)),
+            buf: vec![],
+            scratch: Box::new(Scratch::new()),
+        };
+        c.observe.with_signal(&SIG_C);
+        let mut w = root_cells.writer().unwrap().with_wake(SIG_C.as_wake());
+        c.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        c.poll_properties(&mut queue, (), 0, &mut buf, &mut sb)
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        assert_eq!(c.observe.next_wake(0), None);
+        for (i, t) in [100u32, 200, 300].into_iter().enumerate() {
+            w.current(i as i32);
+            w.reading(reading(i as i32));
+            w.commit(Second::micro(t));
+            assert_eq!(SIG_C.as_wake().take(), i == 0, "row {i}");
+            if i == 0 {
+                assert_eq!(c.observe.next_wake(1_000), Some(1_000));
+                c.poll_properties(&mut queue, (), 1_000, &mut buf, &mut sb)
+                    .await
+                    .unwrap();
+                assert_eq!(c.observe.next_wake(1_000), Some(6_000), "its age");
+            }
+        }
+        c.poll_properties(&mut queue, (), 6_000, &mut buf, &mut sb)
+            .await
+            .unwrap();
+        assert_eq!(current_samples(&mut queue), [0, 1, 2], "cells");
+        assert_eq!(c.observe.next_wake(6_000), None);
+    }
+
     /// The host can't tell the two apart: the same samples, sealed at the same rows (a full batch per poll), give
     /// byte for byte the same updates from a sampler level and a cells level.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -435,6 +435,9 @@ impl Observe {
                     pub #outboxes: ww_stream::batch::Outbox<OBSERVE_OUTBOX>,
                 )*
                 #batches_field
+                /// Changes marked and wakes raised outside the server state (SRV-25), see
+                /// [with_signal](Self::with_signal).
+                signal: Option<&'static ObserveSignal>,
             }
 
             impl #state_impl ObserveState #state_ty {
@@ -445,6 +448,7 @@ impl Observe {
                         #(#fields: ww_stream::observe::ObserveTable::new(),)*
                         #(#outboxes: ww_stream::batch::Outbox::new(),)*
                         #batches_init
+                        signal: None,
                     }
                 }
 
@@ -458,7 +462,7 @@ impl Observe {
                 ) -> &'s mut Self {
                     // every field is written below: a new one fails to compile here until it is
                     let _ = |s: Self| {
-                        let ObserveState { limits: _, #(#fields: _,)* #(#outboxes: _,)* #batches_pat } = s;
+                        let ObserveState { limits: _, #(#fields: _,)* #(#outboxes: _,)* signal: _, #batches_pat } = s;
                     };
                     let at = slot.as_mut_ptr();
                     // SAFETY: every field written in place, each through its own pointer
@@ -477,6 +481,7 @@ impl Observe {
                             );
                         )*
                         #batches_write
+                        core::ptr::addr_of_mut!((*at).signal).write(None);
                         slot.assume_init_mut()
                     }
                 }
@@ -537,6 +542,50 @@ impl Observe {
             }
         }
         let words = i.div_ceil(32);
+        let level_wakes = self.tables().map(|level| {
+            let field = &level.field;
+            let min = quote! {
+                if let Some(at) = at {
+                    next = Some(next.map_or(at, |n: u64| n.min(at)));
+                }
+            };
+            if !level.has_batched() {
+                return quote! {{
+                    let at = self.#field.next_wake(now_us, &|_| false);
+                    #min
+                }};
+            }
+            let outbox = level.outbox();
+            let batches = level.batches();
+            let batches_wake = if level.cells {
+                let src = level.src();
+                quote! { c.#batches.next_wake(c.#src, now_us, Some(max_age as u64)) }
+            } else {
+                quote! { c.#batches.next_wake(now_us, Some(max_age as u64)) }
+            };
+            quote! {{
+                // a slot in `Samples` mode is due while the outbox holds a batch of it, as in `plan_with`
+                let at = {
+                    let oldest = self.#outbox.oldest();
+                    let column_at = core::cell::Cell::new(0usize);
+                    self.#field.next_wake(now_us, &|k| {
+                        oldest.is_some_and(|b| {
+                            let mut a = column_at.get();
+                            let found = b.column_after(k as u16, &mut a).is_some();
+                            column_at.set(a);
+                            found
+                        })
+                    })
+                };
+                #min
+                // the batches being filled: sealed or started since the last poll, or as old as allowed
+                if let Some((_, max_age)) = self.#field.level_samples() {
+                    let mut c = self.batches.consumers();
+                    let at = #batches_wake;
+                    #min
+                }
+            }}
+        });
         let takes = (0..words).map(|w| {
             let ifs = takes.iter().filter(|(tw, _)| *tw == w).map(|(_, t)| t);
             quote! {
@@ -580,6 +629,33 @@ impl Observe {
                 /// Marks the properties `signal` says changed since the last call, and clears them.
                 pub fn take_changes(&mut self, signal: &ObserveSignal) {
                     #(#takes)*
+                }
+
+                /// Takes changes from `signal` (SRV-25): `poll_properties` and [next_wake](Self::next_wake) mark
+                /// what it says changed (`SIGNAL.mark_changed_<name>()` from any task or interrupt), and the server
+                /// task waits on `signal.wait()` next to its next-wake timer.
+                pub fn with_signal(&mut self, signal: &'static ObserveSignal) -> &mut Self {
+                    self.signal = Some(signal);
+                    self
+                }
+
+                /// The signal given to [with_signal](Self::with_signal).
+                pub fn signal(&self) -> Option<&'static ObserveSignal> {
+                    self.signal
+                }
+
+                /// When `poll_properties` next has something to do (SRV-25), at the earliest `now_us`: a property
+                /// due (periodic, a change after its `min`, a beat), a level's bucket refilled for what it held
+                /// back, a batch of samples sealed or as old as the host allows. `None` while nothing is observed
+                /// or nothing comes due without a change. The server task sleeps until then, or until the server
+                /// or the signal wakes it; ask again after every wake, a change or a request can make it earlier.
+                pub fn next_wake(&mut self, now_us: u64) -> Option<u64> {
+                    if let Some(signal) = self.signal {
+                        self.take_changes(signal);
+                    }
+                    let mut next: Option<u64> = None;
+                    #(#level_wakes)*
+                    next.map(|at| at.max(now_us))
                 }
             }
         }
@@ -1002,7 +1078,14 @@ impl Observe {
                         w: ww_stream::batch::RowWriter<'a, #row, R>,
                     }
 
-                    impl<const R: usize> #writer_ty<'_, R> {
+                    impl<'a, const R: usize> #writer_ty<'a, R> {
+                        /// Wake the server task (SRV-25, `ObserveSignal::as_wake()`) at the rows its next
+                        /// `poll_properties` waits for: a batch's first row, or the one that fills it. Without, the
+                        /// server has to poll the level every `max_age`.
+                        pub fn with_wake(self, wake: &'a ww_stream::wake::Wake) -> Self {
+                            #writer_ty { w: self.w.with_wake(wake) }
+                        }
+
                         #(
                             #[doc = #setter_docs]
                             #[inline(always)]
@@ -1055,9 +1138,10 @@ impl Observe {
                     rows: ww_stream::batch::Producer<'a, #row, OBSERVE_BATCH>,
                     gate: &'a ww_stream::observe::SampleGate,
                     cursor: &'a mut ww_stream::observe::GateCursor,
+                    wake: Option<&'a ww_stream::wake::Wake>,
                 }
 
-                impl #sampler<'_> {
+                impl<'a> #sampler<'a> {
                     /// One sample of the level, taken at device time `t`: when a host observes any of its
                     /// properties in `Samples` mode (and the sample is on the level's grid), the time and the
                     /// values go into the level's batch as one row (a copy and a few atomic operations, never an
@@ -1068,10 +1152,25 @@ impl Observe {
                         if !self.cursor.take(self.gate, &t) {
                             return 0;
                         }
-                        match ww_stream::batch::Push::push(&mut self.rows, &#row { t, values }) {
+                        let seal = ww_stream::batch::Push::push(&mut self.rows, &#row { t, values });
+                        // a batch's first row (its age starts when a poll sees it) or a sealed one: the server
+                        // task has something to do
+                        if let Some(wake) = self.wake
+                            && (!matches!(seal, ww_stream::batch::Seal::No) || self.rows.filling() == 1)
+                        {
+                            wake.wake();
+                        }
+                        match seal {
                             ww_stream::batch::Seal::Lost { items, .. } => items,
                             _ => 0,
                         }
+                    }
+
+                    /// Wake the server task (SRV-25, `ObserveSignal::as_wake()`) when a batch gets its first row
+                    /// or is sealed. Without, the server has to poll the level every `max_age`.
+                    pub fn with_wake(mut self, wake: &'a ww_stream::wake::Wake) -> Self {
+                        self.wake = Some(wake);
+                        self
                     }
 
                     /// Whether a host observes any property of the level in `Samples` mode: skip working out
@@ -1087,6 +1186,7 @@ impl Observe {
                     rows: ww_stream::batch::Batcher::producer(&mut self.#name),
                     gate: &self.#gate,
                     cursor: &mut self.#cursor,
+                    wake: None,
                 },
             });
             split_inits.push(quote! {
@@ -1094,6 +1194,7 @@ impl Observe {
                     rows: #name.0,
                     gate: &self.#gate,
                     cursor: &mut self.#cursor,
+                    wake: None,
                 },
             });
             docs.push(format!(" Samples of `{}`", level.trait_name));
@@ -1780,6 +1881,13 @@ impl Observe {
                 const PATHS: [&[UNib32]; #level_count] = [#(#paths),*];
                 #[allow(unused_mut)]
                 let mut cx = wire_weaver::Context::new(0, medium, out);
+                // changes marked outside the server state since the last poll (SRV-25)
+                {
+                    let state = self.observe_state();
+                    if let Some(signal) = state.signal() {
+                        state.take_changes(signal);
+                    }
+                }
                 let mut first_err = None;
                 let limits = self.observe_state().limits;
                 // the plan and the selection of each update, a slot each
@@ -1801,7 +1909,7 @@ impl Observe {
                         #(#caches)*
                         #read_unbounded
                         #batch_offer
-                        let Some(round) = ww_stream::observe::select(
+                        let round = match ww_stream::observe::select(
                             &plan,
                             desc,
                             path,
@@ -1812,8 +1920,14 @@ impl Observe {
                                 #(#measure)*
                                 _ => None,
                             },
-                        )? else {
-                            break;
+                        )? {
+                            ww_stream::observe::Selected::Round(round) => round,
+                            ww_stream::observe::Selected::Nothing => break,
+                            // a missed count waiting alone for budget: `next_wake` waits for its bytes (SRV-25)
+                            ww_stream::observe::Selected::Hold(need) => {
+                                self.observe_state().level(level).0.hold(need);
+                                break;
+                            }
                         };
                         #read_chosen
                         #column_cursor

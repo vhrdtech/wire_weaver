@@ -7,9 +7,10 @@
 mod tests {
     use std::collections::BTreeMap;
     use std::sync::Arc;
-    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
     use std::time::Duration;
-    use tests_common::TestDevice;
+    use tests_common::{FakeClock, TestDevice, Wakeup};
     use tokio::sync::{mpsc, oneshot};
     use wire_weaver::prelude::*;
     use wire_weaver::shrink_wrap::UVlq32Backfill;
@@ -35,6 +36,14 @@ mod tests {
         use super::*;
         use tests_common::TestProcessEventsAsync;
 
+        /// An event-driven device (SRV-25): it polls only when `next_wake` comes on its clock or its signal wakes
+        /// it, and logs when it polled.
+        #[derive(Clone)]
+        pub struct Driven {
+            pub clock: FakeClock,
+            pub polls: Arc<Mutex<Vec<u64>>>,
+        }
+
         pub struct Server {
             pub mode: u8,
             pub temp: f32,
@@ -48,6 +57,10 @@ mod tests {
             /// it too rather than the clock, which the test may move on meanwhile
             pub poll_now: Option<u64>,
             pub buf: Vec<u8>,
+            /// Event-driven instead of a poll every millisecond
+            pub driven: Option<Driven>,
+            /// `temp` as another task keeps it (`f32` bits), read by `get_temp` when set
+            pub shared_temp: Option<Arc<AtomicU32>>,
         }
 
         impl Server {
@@ -59,7 +72,10 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> GetResult<f32, ()> {
-                GetResult::Value(self.temp)
+                match &self.shared_temp {
+                    Some(t) => GetResult::Value(f32::from_bits(t.load(Ordering::Relaxed))),
+                    None => GetResult::Value(self.temp),
+                }
             }
 
             fn changed_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
@@ -99,8 +115,14 @@ mod tests {
 
             /// Motor values follow the clock: speed in ms, current in 10 ms, position in 100 ms
             fn now(&self) -> u64 {
-                self.poll_now
-                    .unwrap_or_else(|| self.clock.load(Ordering::Relaxed))
+                self.poll_now.unwrap_or_else(|| self.clock_now())
+            }
+
+            fn clock_now(&self) -> u64 {
+                match &self.driven {
+                    Some(d) => d.clock.now(),
+                    None => self.clock.load(Ordering::Relaxed),
+                }
             }
 
             async fn get_motor_speed(
@@ -160,13 +182,40 @@ mod tests {
             }
 
             async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
-                let now = self.clock.load(Ordering::Relaxed);
+                let now = self.clock_now();
+                if let Some(d) = self.driven.clone() {
+                    // woken by the signal: poll only when something is due now, as a firmware's loop does
+                    if self.observe.next_wake(now).is_none_or(|at| at > now) {
+                        return;
+                    }
+                    d.polls.lock().unwrap().push(now);
+                }
                 self.poll_now = Some(now);
                 let mut buf = core::mem::take(&mut self.buf);
                 _ = self.poll_properties(out, (), now, &mut buf).await;
                 self.buf = buf;
                 self.poll_now = None;
                 self.polled.store(now, Ordering::Relaxed);
+            }
+
+            /// Sleep until `next_wake` on the fake clock, or until the signal wakes the device.
+            fn wakeup(&mut self) -> Option<Wakeup> {
+                let d = self.driven.as_ref()?;
+                let now = d.clock.now();
+                let timer = self.observe.next_wake(now).map(|at| d.clock.until(at));
+                let signal = self.observe.signal().expect("with_signal");
+                Some(Box::pin(async move {
+                    let timer = async {
+                        match timer {
+                            Some(timer) => timer.await,
+                            None => std::future::pending().await,
+                        }
+                    };
+                    tokio::select! {
+                        _ = timer => {}
+                        _ = signal.wait() => {}
+                    }
+                }))
             }
         }
     }
@@ -314,18 +363,48 @@ mod tests {
         clock: Arc<AtomicU64>,
         polled: Arc<AtomicU64>,
         updates: mpsc::UnboundedReceiver<Update>,
+        driven: Option<server::Driven>,
+        shared_temp: Arc<AtomicU32>,
     }
 
     impl Bench {
         async fn start(path: &str, limits: ObserveLimits) -> Bench {
+            Self::start_with(path, limits, None).await
+        }
+
+        /// An event-driven device (SRV-25) on a fake clock, woken by `signal`.
+        async fn start_driven(
+            path: &str,
+            limits: ObserveLimits,
+            signal: &'static server::api_impl::ObserveSignal,
+        ) -> Bench {
+            Self::start_with(path, limits, Some(signal)).await
+        }
+
+        async fn start_with(
+            path: &str,
+            limits: ObserveLimits,
+            signal: Option<&'static server::api_impl::ObserveSignal>,
+        ) -> Bench {
             let _ = tracing_subscriber::fmt::try_init();
             let clock = Arc::new(AtomicU64::new(0));
             let polled = Arc::new(AtomicU64::new(0));
+            let mut observe = server::api_impl::ObserveState::new(limits);
+            let driven = signal.map(|signal| {
+                observe.with_signal(signal);
+                server::Driven {
+                    clock: FakeClock::default(),
+                    polls: Arc::default(),
+                }
+            });
+            let shared_temp = Arc::new(AtomicU32::new(0));
             let server = server::Server {
                 mode: 0,
                 temp: 0.0,
                 label: "hello".into(),
-                observe: server::api_impl::ObserveState::new(limits),
+                observe,
+                driven: driven.clone(),
+                shared_temp: signal.map(|_| shared_temp.clone()),
                 clock: clock.clone(),
                 polled: polled.clone(),
                 poll_now: None,
@@ -387,6 +466,8 @@ mod tests {
                 clock,
                 polled,
                 updates,
+                driven,
+                shared_temp,
             }
         }
 
@@ -452,6 +533,44 @@ mod tests {
             let mut t = from;
             while t <= to {
                 self.at(t).await;
+                t += step;
+            }
+        }
+
+        /// The event-driven device's clock (SRV-25).
+        fn fake(&self) -> &FakeClock {
+            &self.driven.as_ref().expect("start_driven").clock
+        }
+
+        /// The fake times the event-driven device polled at.
+        fn polls(&self) -> Vec<u64> {
+            self.driven.as_ref().unwrap().polls.lock().unwrap().clone()
+        }
+
+        /// Wait until the event-driven device polled at `t`.
+        async fn polled_at(&self, t: u64) {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+            while !self.polls().contains(&t) {
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "no poll at {t}: {:?}",
+                    self.polls()
+                );
+                tokio::time::sleep(Duration::from_micros(200)).await;
+            }
+        }
+
+        /// Move the event-driven device's clock from `from` to `to` in `step`s: at the times in `due`, wait for its
+        /// poll; in between, give it time to poll when it shouldn't.
+        async fn step(&self, from: u64, to: u64, step: u64, due: impl Fn(u64) -> bool) {
+            let mut t = from;
+            while t <= to {
+                self.fake().set(t);
+                if due(t) {
+                    self.polled_at(t).await;
+                } else {
+                    tokio::time::sleep(Duration::from_micros(300)).await;
+                }
                 t += step;
             }
         }
@@ -1252,5 +1371,86 @@ mod tests {
         }
         assert!((4..=5).contains(&speeds), "{speeds}");
         assert!((2..=3).contains(&positions), "{positions}");
+    }
+
+    /// Event-driven (SRV-25): the device sleeps until `next_wake` and polls only at due times, the periodic grids
+    /// here, never every millisecond in between; with nothing observed it doesn't poll at all.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn event_driven_polls_only_when_due() {
+        static SIGNAL: server::api_impl::ObserveSignal = server::api_impl::ObserveSignal::new();
+        let mut b = Bench::start_driven("observe/event_driven_polls", limits(), &SIGNAL).await;
+        b.observe(
+            &[MOTOR],
+            &[periodic(SPEED, 10_000), periodic(POSITION, 25_000)],
+            false,
+            Some(10_000),
+        )
+        .await
+        .unwrap();
+        // the initial values right after the request
+        b.polled_at(0).await;
+        let due = |t: u64| t.is_multiple_of(10_000) || t.is_multiple_of(25_000);
+        b.step(1_000, 100_000, 1_000, due).await;
+        let polls = b.polls();
+        let expected: Vec<u64> = (0..=100_000).step_by(1_000).filter(|t| due(*t)).collect();
+        assert_eq!(polls, expected);
+        let sends = motor_sends(&b.drain().await);
+        assert_eq!(
+            sends["speed"],
+            (0..=100_000).step_by(10_000).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            sends["position"],
+            (0..=100_000).step_by(25_000).collect::<Vec<_>>()
+        );
+        // nothing observed: no wake, no poll
+        b.observe(&[MOTOR], &[], false, None).await.unwrap();
+        b.step(101_000, 150_000, 1_000, |_| false).await;
+        assert_eq!(b.polls(), expected);
+    }
+
+    /// Event-driven (SRV-25): a property another task changes (`ObserveSignal::mark_changed_<name>()`, from outside
+    /// the server state) wakes the device and goes out at once, at that clock time; a change within its `min` waits
+    /// for it, one wake.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn event_driven_change_from_another_task() {
+        static SIGNAL: server::api_impl::ObserveSignal = server::api_impl::ObserveSignal::new();
+        let mut b = Bench::start_driven("observe/event_driven_change", limits(), &SIGNAL).await;
+        b.fake().set(50_000);
+        b.observe(&[], &[on_change(TEMP, 5_000)], false, None)
+            .await
+            .unwrap();
+        b.polled_at(50_000).await;
+        // nothing changes: no polls
+        b.step(51_000, 60_000, 1_000, |_| false).await;
+        assert_eq!(b.polls(), [50_000]);
+        let change = |value: f32| {
+            let temp = b.shared_temp.clone();
+            std::thread::spawn(move || {
+                temp.store(value.to_bits(), Ordering::Relaxed);
+                SIGNAL.mark_changed_temp();
+            })
+            .join()
+            .unwrap();
+        };
+        change(1.5);
+        b.polled_at(60_000).await;
+        // again right away: within `min`, sent when it has passed, no poll before
+        change(2.5);
+        b.step(60_500, 66_000, 500, |t| t == 65_000).await;
+        assert_eq!(b.polls(), [50_000, 60_000, 65_000]);
+        let temps: Vec<(u64, f32)> = b
+            .drain()
+            .await
+            .into_iter()
+            .filter(|u| u.path.is_empty())
+            .map(|u| {
+                (
+                    u.t,
+                    ObserveUpdate::from_ww_bytes(&u.data).unwrap().temp.unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(temps, [(50_000, 0.0), (60_000, 1.5), (65_000, 2.5)]);
     }
 }

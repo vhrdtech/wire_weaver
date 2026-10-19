@@ -205,6 +205,15 @@ pub fn gen_server_scaffold(
     };
     // a static ring per cells level: the control loop or interrupt keeps its writer
     let mut statics = String::new();
+    if observe {
+        writeln!(
+            statics,
+            "/// Changes made outside the server state and the server task's wake (SRV-25):\n\
+             /// `OBSERVE.mark_changed_<name>()` from any task or interrupt. Give it to `observe.with_signal(&OBSERVE)`;\n\
+             /// the server task waits on `OBSERVE.wait()` next to `wait_until(observe.next_wake(now))`.\n\
+             pub static OBSERVE: api_impl::ObserveSignal = api_impl::ObserveSignal::new();\n"
+        )?;
+    }
     for level in &config.observe_cells {
         let ty = format!("{}Cells", level.to_case(Case::Pascal));
         writeln!(

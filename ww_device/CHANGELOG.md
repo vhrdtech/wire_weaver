@@ -4,8 +4,8 @@
 
 ### 🚀 Features
 
-- `GENERIC_ERROR_SEQ` is `ww_client_server::err_seq::GENERIC` (SRV-22), same value.
 - `Server::wait_until(at: Option<Instant>)` (SRV-25): `wait()` that also returns when `at` comes, `Ready::is_due()`, so the event loop sleeps until the device's own next deadline (`ObserveState::next_wake`) instead of waking on a fixed tick; `handle` does nothing with a due `Ready`. `Server::now()`, the server's clock.
+- `GENERIC_ERROR_SEQ` is `ww_client_server::err_seq::GENERIC` (SRV-22), same value.
 - `FramedTx::with_tap` / `FramedRx::with_tap` (and `tap_mut`): frames and messages go to a `ww_tap::Tap` as they cross the medium (TR-14), tx frames at submit time. `FramedTx<'a, P, T = NoTap>` / `FramedRx<'a, P, T = NoTap>`: `new` keeps `NoTap`, whose calls compile away (a G0 USB firmware is the same size).
 
 ### 🐛 Bug Fixes

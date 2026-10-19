@@ -93,7 +93,7 @@ let mut server = Server {
     // ..
 };
 
-// event loop, every millisecond or so, between requests
+// event loop, between requests: when something is due, see "The server loop" below
 let mut buf = [0u8; 256]; // as big as the biggest update the link carries
 server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf).await?;
 server.poll_streams(&mut ww_server.sink(), now_ms, &mut stream_buf, 4096).await?; // stored streams after
@@ -134,6 +134,59 @@ whether to send timestamps.
   indices isn't known yet, [API-29](arrays.md)); nor can a `+observe` property that is itself an array or
   `#[optional]`. Observing stays set while the link is down; `ObserveState::reset()` (e.g. on a fresh connection)
   stops it all.
+
+### The server loop
+
+A device doesn't poll observed properties on a fixed tick (SRV-25): `ObserveState::next_wake(now_us)` says when
+`poll_properties` next has something to do, and the server task sleeps until then, or until a request comes or
+something outside the server changes. Nothing observed, or nothing that comes due without a change: `None`, no
+wake at all.
+
+- **When**: the periodic grid, `last + min` of a property marked changed, `last + max` of a beat, at once for a
+  property just observed or one left out of the last update; a level short of budget no earlier than its bucket
+  has the bytes its held update needs; a batch of samples when it is sealed or as old as the host allows.
+- **Changes from outside the server state**: `ObserveSignal`, generated next to `ObserveState`, is a `static` any
+  task or interrupt marks a property changed through (`SIGNAL.mark_changed_<name>()`: a bit and a wake, lock-free).
+  `ObserveState::with_signal(&SIGNAL)` lets `poll_properties` and `next_wake` take those changes; the server task
+  waits on `SIGNAL.wait()`. `SIGNAL.wake()` wakes it for anything else (a deferred answer to send).
+- **No lost wake**: a mark sets its bit and a flag, then wakes the task; `wait()` registers the task, then takes
+  the flag. A change that comes after the last `next_wake` and before the sleep makes the next `wait()` return at
+  once. Changes made by handlers (`self.mark_changed_<name>()`, a `value_on_changed` write) need no signal: the
+  server task is the one running, and its next `next_wake` sees them.
+- **Samples**: `<Level>Sampler::with_wake(SIGNAL.as_wake())` and `<Level>Writer::with_wake(..)` (cells) wake the
+  server task when a batch gets its first row (its age starts when a poll sees it) and when it is full or sealed.
+  Without, the level's batches are only looked at when something else wakes the task.
+
+```rust
+static OBSERVE: api_impl::ObserveSignal = api_impl::ObserveSignal::new();
+
+let observe = State::init(STATE.uninit(), ObserveLimits::DEFAULT, batches);
+observe.with_signal(&OBSERVE);
+let mut adc_writer = METER_CELLS.writer().unwrap().with_wake(OBSERVE.as_wake()); // to the ADC task
+
+loop {
+    let now_us = ww_server.now().as_micros();
+    let next = state.observe.next_wake(now_us).map(Instant::from_micros);
+    match select(ww_server.wait_until(next), OBSERVE.wait()).await {
+        Either::First(ready) => {
+            if let Some(event) = ww_server.handle(ready, &mut state).await { /* LinkEvent::Up / Down */ }
+        }
+        Either::Second(()) => {}
+    }
+    let now_us = ww_server.now().as_micros();
+    if ww_server.is_up() && state.observe.next_wake(now_us).is_some_and(|at| at <= now_us) {
+        state.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf, scratch).await?;
+    }
+}
+
+// elsewhere, in another task or an interrupt
+OBSERVE.mark_changed_plug_vbus();
+```
+
+`ww_device::Server::wait_until(at)` is `wait()` that also returns when `at` comes (`Ready::is_due()`, nothing for
+`handle` to do), on the server's own clock. Polling only at these times sends the same updates at the same times as
+polling every microsecond (`ww_stream`'s `next_wake_sends_what_polling_does`); `tests/observe` checks that an
+event-driven device polls only on the grid and sends a change from another thread at once.
 
 ## The host side
 

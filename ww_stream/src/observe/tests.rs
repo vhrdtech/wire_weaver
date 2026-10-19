@@ -767,6 +767,184 @@ fn batch_of_samples_is_offered_whole() {
     assert_eq!(sel.present(&DESC_BB).count(), 0);
 }
 
+/// One poll as the generated `poll_properties` does it, through the shared [select] (SRV-24), with the missed
+/// count going alone and the hold for it: the chosen slots and the event length, None when nothing was sent.
+fn poll_server(
+    table: &mut ObserveTable,
+    desc: &LevelDesc<'_>,
+    now: u64,
+    size: impl Fn(usize) -> usize,
+) -> Option<(Vec<usize>, usize)> {
+    let mut due = vec![Due::EMPTY; table.len()];
+    let mut marks = vec![Mark::NONE; table.len()];
+    let mut buf = [0u8; 1024];
+    let plan = table.plan(now, &LIMITS, &mut due);
+    let round = match select(&plan, desc, &[], &mut buf, &mut marks, None, &mut |k, _| {
+        Some(size(k))
+    })
+    .unwrap()
+    {
+        Selected::Round(round) => round,
+        Selected::Nothing => return None,
+        Selected::Hold(need) => {
+            table.hold(need);
+            return None;
+        }
+    };
+    let sel = round.selection();
+    let chosen: Vec<usize> = (0..table.len()).filter(|k| sel.is_chosen(*k)).collect();
+    let len = if chosen.is_empty() && !round.missed_only {
+        0
+    } else {
+        4 + chosen.iter().map(|k| size(*k)).sum::<usize>()
+    };
+    table.commit(&plan, sel, now, (len > 0).then_some(len));
+    (len > 0).then_some((chosen, len))
+}
+
+/// Updates sent (time, slots) and polls made over `until` µs, changes of slot `k` at the given times: polled every
+/// microsecond, or only at [ObserveTable::next_wake] and the changes.
+fn run(
+    entries: &[ObserveEntry],
+    budget: u32,
+    changes: &[(u64, usize)],
+    until: u64,
+    event_driven: bool,
+) -> (Vec<(u64, Vec<usize>)>, usize, u32) {
+    let desc = LevelDesc {
+        item_count: 3,
+        observable: &[0, 1, 2],
+        batched: &[false; 3],
+    };
+    let mut t = ObserveTable::<[Slot; 3]>::new();
+    apply(&mut t, &desc, entries, false, Some(budget)).unwrap();
+    let mut sent = vec![];
+    let mut polls = 0;
+    let mut missed = 0;
+    let mut now = 0;
+    let mut next_change = 0;
+    let mut same_time = 0;
+    while now <= until {
+        while next_change < changes.len() && changes[next_change].0 <= now {
+            t.mark_changed(changes[next_change].1);
+            next_change += 1;
+        }
+        let mut due = [Due::EMPTY; 3];
+        let carried = t.plan(now, &LIMITS, &mut due).missed().map_or(0, |m| m.0);
+        polls += 1;
+        if let Some((chosen, _)) = poll_server(&mut t, &desc, now, |_| 4) {
+            missed += carried;
+            if !chosen.is_empty() {
+                sent.push((now, chosen));
+            }
+        }
+        let next = if event_driven {
+            let wake = t.next_wake(now, &|_| false);
+            let change = changes.get(next_change).map(|c| c.0);
+            match (wake, change) {
+                (Some(w), Some(c)) => w.min(c),
+                (w, c) => w.or(c).unwrap_or(u64::MAX),
+            }
+            .max(now)
+        } else {
+            now + 1
+        };
+        if next == now {
+            same_time += 1;
+            // a wake at once is fine (a property left out goes next), a loop at one time is not
+            assert!(same_time < 3, "busy loop at {now}");
+        } else {
+            same_time = 0;
+        }
+        now = next;
+    }
+    (sent, polls, missed)
+}
+
+/// What a level observes, its budget, and changes of slot `k` at times.
+type Case<'a> = (&'a [ObserveEntry], u32, &'a [(u64, usize)]);
+
+/// Polling only at `next_wake` (SRV-25) sends the same updates at the same times as polling every microsecond,
+/// with a few polls per update: one when plenty of budget, up to three short of it (the due time finds the level
+/// held, the refill sends, a property left out goes next).
+#[test]
+fn next_wake_sends_what_polling_does() {
+    let cases: [Case<'_>; 4] = [
+        // a periodic property and one on change, plenty of budget
+        (
+            &[entry(0, periodic(10_000)), entry(1, on_change(5_000))],
+            10_000,
+            &[(3_000, 1), (4_000, 1), (31_337, 1), (60_000, 0)],
+        ),
+        // a beat with changes in between
+        (
+            &[entry(
+                2,
+                ObserveMode::OnChangeOrBeat {
+                    min_us: UNib32(2_000),
+                    max_us: UNib32(20_000),
+                },
+            )],
+            10_000,
+            &[(1_000, 2), (1_500, 2), (45_000, 2)],
+        ),
+        // short of budget: the level holds, then sends full updates when the bucket has the bytes
+        (
+            &[
+                entry(0, periodic(1_000)),
+                entry(1, periodic(1_000)),
+                entry(2, periodic(1_000)),
+            ],
+            2_000,
+            &[],
+        ),
+        // short of budget, on change: missed counts go alone when nothing is due
+        (
+            &[entry(0, on_change(100)), entry(1, on_change(100))],
+            200,
+            &[
+                (10_000, 0),
+                (10_000, 1),
+                (10_050, 0),
+                (10_050, 1),
+                (12_000, 0),
+                (12_100, 1),
+            ],
+        ),
+    ];
+    for (i, (entries, budget, changes)) in cases.into_iter().enumerate() {
+        let (dense, dense_polls, dense_missed) = run(entries, budget, changes, 100_000, false);
+        let (woken, polls, missed) = run(entries, budget, changes, 100_000, true);
+        assert_eq!(woken, dense, "case {i}");
+        assert_eq!(missed, dense_missed, "case {i}");
+        assert!(!dense.is_empty());
+        assert!(
+            polls <= 3 * dense.len() + changes.len() + 4,
+            "case {i}: {polls} polls for {} updates",
+            dense.len()
+        );
+        assert!(dense_polls > 100_000);
+    }
+}
+
+/// Nothing observed, or nothing that comes due without a change: no wake.
+#[test]
+fn next_wake_none_while_idle() {
+    let desc = DESC;
+    let mut t = ObserveTable::<[Slot; 3]>::new();
+    assert_eq!(t.next_wake(0, &|_| false), None);
+    apply(&mut t, &desc, &[entry(1, on_change(1_000))], false, None).unwrap();
+    // the initial value at once
+    assert_eq!(t.next_wake(5, &|_| false), Some(5));
+    poll_server(&mut t, &desc, 5, |_| 4).unwrap();
+    assert_eq!(t.next_wake(10, &|_| false), None);
+    // a change: `min` after the last send
+    t.mark_changed(0);
+    assert_eq!(t.next_wake(10, &|_| false), Some(1_005));
+    t.reset();
+    assert_eq!(t.next_wake(10, &|_| false), None);
+}
+
 /// The shared loop of a level (SRV-24): `select` chooses within the budget, `write` asks for the chosen values only
 /// and in slot order, `ser_update` makes the event a host reads back.
 #[test]
@@ -802,6 +980,7 @@ fn shared_loop_writes_the_chosen_values() {
         },
     )
     .unwrap()
+    .into_round()
     .expect("both due");
     assert_eq!(measured, [0, 2]);
     assert!(round.needs_value(0) && !round.needs_value(1) && round.needs_value(2));
@@ -847,6 +1026,7 @@ fn shared_loop_writes_the_chosen_values() {
         &mut |_, _| Some(8),
     )
     .unwrap()
+    .into_round()
     .unwrap();
     assert!(write(&round, &plan, &DESC, &mut buf, &mut |_, _, _| false).is_none());
     t.commit(&plan, round.selection(), 1_000, None);

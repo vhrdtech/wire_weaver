@@ -285,6 +285,9 @@ pub struct ObserveTable<S: ?Sized = [Slot]> {
     last_refill: Option<u64>,
     /// Missed sends not reported to the host yet.
     missed: u32,
+    /// Bytes the level waits for in its bucket (SRV-25): what its last update held back for (`Selection` held), or
+    /// a missed count waiting alone; 0 when it waits for nothing.
+    need: u32,
     slots: S,
 }
 
@@ -302,6 +305,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
             tokens: 0,
             last_refill: None,
             missed: 0,
+            need: 0,
             slots: [Slot::OFF; N],
         }
     }
@@ -316,6 +320,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
                 tokens: _,
                 last_refill: _,
                 missed: _,
+                need: _,
                 slots: _,
             } = t;
         };
@@ -331,6 +336,7 @@ impl<const N: usize> ObserveTable<[Slot; N]> {
             core::ptr::addr_of_mut!((*at).tokens).write(0);
             core::ptr::addr_of_mut!((*at).last_refill).write(None);
             core::ptr::addr_of_mut!((*at).missed).write(0);
+            core::ptr::addr_of_mut!((*at).need).write(0);
             slot.assume_init_mut()
         }
     }
@@ -358,6 +364,7 @@ impl ObserveTable {
         self.tokens = 0;
         self.last_refill = None;
         self.missed = 0;
+        self.need = 0;
     }
 
     /// Number of observable properties of the level.
@@ -466,6 +473,8 @@ impl ObserveTable {
         } else {
             self.budget = 0;
         }
+        // what was held back may not be due any more, a new budget fills at another rate
+        self.need = 0;
         Ok(refused_len)
     }
 
@@ -673,6 +682,71 @@ impl ObserveTable {
         plan
     }
 
+    /// When the level next has something to do (SRV-25), given that nothing changes before: the earliest time a
+    /// property becomes due (the periodic grid, `last + min` of a changed one, `last + max` of a beat, at once for
+    /// one just observed, left out, or whose batch waits, `batch_waiting(k)` as for [plan_with]), and no earlier
+    /// than its bucket has the bytes the level waits for ([hold](Self::hold), or what the last update held back
+    /// for). `None` while nothing is observed or nothing comes due without a change. A time at or before `now_us`
+    /// means now. A change ([mark_changed](Self::mark_changed), `ObserveSignal`) or a new batch can make it
+    /// earlier: ask again after one.
+    ///
+    /// [plan_with]: Self::plan_with
+    pub fn next_wake(&self, now_us: u64, batch_waiting: &dyn Fn(usize) -> bool) -> Option<u64> {
+        if !self.is_active() {
+            return None;
+        }
+        let mut due: Option<u64> = (self.missed > 0).then_some(now_us);
+        for (k, slot) in self.slots.iter().enumerate() {
+            let at = if slot.start || slot.waiting.is_some() {
+                Some(now_us)
+            } else {
+                match slot.mode {
+                    Mode::Off => None,
+                    Mode::Periodic { .. } => Some(slot.next_due),
+                    Mode::OnChange { min } => match slot.last_sent {
+                        _ if !slot.dirty => None,
+                        None => Some(now_us),
+                        Some(last) => Some(last.saturating_add(min as u64)),
+                    },
+                    Mode::OnChangeOrBeat { min, max } => match slot.last_sent {
+                        None => Some(now_us),
+                        Some(last) if slot.dirty => Some(last.saturating_add(min as u64)),
+                        Some(last) => Some(last.saturating_add(max as u64)),
+                    },
+                    Mode::Samples { .. } => batch_waiting(k).then_some(now_us),
+                }
+            };
+            due = match (due, at) {
+                (Some(d), Some(a)) => Some(d.min(a)),
+                (d, a) => d.or(a),
+            };
+        }
+        let due = due?;
+        if self.need == 0 {
+            return Some(due);
+        }
+        // byte-microseconds still missing, filled at `budget` per microsecond since the last refill
+        let want = (self.need as i64)
+            .saturating_mul(SCALE)
+            .min(capacity(self.budget));
+        let missing = want.saturating_sub(self.tokens);
+        if missing <= 0 {
+            return Some(due);
+        }
+        if self.budget == 0 {
+            return None;
+        }
+        let since = self.last_refill.unwrap_or(now_us);
+        let refilled = since.saturating_add((missing as u64).div_ceil(self.budget as u64));
+        Some(due.max(refilled))
+    }
+
+    /// The level waits for `bytes` in its bucket before it sends (SRV-25): a missed count that goes alone, see
+    /// [Plan::missed_need]. [commit](Self::commit) sets it from the update's selection.
+    pub fn hold(&mut self, bytes: usize) {
+        self.need = bytes.min(u32::MAX as usize) as u32;
+    }
+
     /// After an update for `plan` with `sel`: `sent` is the length of the event as sent, None when it could not
     /// be sent (the chosen properties count as missed then). Moves the chosen and dropped properties on and
     /// counts the ones that slipped.
@@ -683,6 +757,7 @@ impl ObserveTable {
         now_us: u64,
         sent: Option<usize>,
     ) {
+        self.need = sel.need.min(u32::MAX as usize) as u32;
         match sent {
             Some(len) => {
                 self.tokens = self.tokens.saturating_sub(len as i64 * SCALE);
@@ -797,9 +872,12 @@ impl<'a> Plan<'a> {
     /// the next update would never reach the host when nothing else comes, as after the last samples of a burst
     /// the sampler lost.
     pub fn report_missed(&self, desc: &LevelDesc<'_>, overhead: usize) -> bool {
-        self.due.is_empty()
-            && self.missed > 0
-            && self.tokens >= overhead + EVENT_SLACK + desc.header_bound()
+        self.due.is_empty() && self.missed > 0 && self.tokens >= self.missed_need(desc, overhead)
+    }
+
+    /// The bytes [report_missed](Self::report_missed) waits for in the bucket, for [ObserveTable::hold].
+    pub fn missed_need(&self, desc: &LevelDesc<'_>, overhead: usize) -> usize {
+        overhead + EVENT_SLACK + desc.header_bound()
     }
 
     /// `missed` of the update: sends missed before this poll, None when there were none.
@@ -834,6 +912,7 @@ impl<'a> Plan<'a> {
             fixed,
             full: self.full,
             held: false,
+            need: 0,
             done: false,
             time: false,
         }
@@ -889,6 +968,8 @@ pub struct Selection<'m> {
     fixed: usize,
     full: bool,
     held: bool,
+    /// Held: the bytes the update would have taken with the property that didn't fit.
+    need: usize,
     done: bool,
     /// A batch of samples goes into the update: its time column is the event's `sample_times`.
     time: bool,
@@ -942,6 +1023,7 @@ impl Selection<'_> {
             self.count = 0;
             self.time = false;
             self.held = true;
+            self.need = est;
             self.done = true;
             false
         } else {
@@ -1143,7 +1225,9 @@ impl Update {
 /// What goes into the next update of a level (SRV-24), chosen from `plan` within the budget and `buf`: due
 /// properties earliest deadline first, `size(k, scratch)` the upper bound of the bytes slot `k` takes (None: its
 /// value can't be had), a slot in `Samples` mode offering `batch`, the level's oldest batch, with all its columns.
-/// `marks` keeps the choice (one per slot). None when the level has nothing to send at this poll.
+/// `marks` keeps the choice (one per slot). [Selected::Nothing] when the level has nothing to send at this poll,
+/// [Selected::Hold] when only a missed count is due and waits for the bytes it takes (SRV-25: give them to
+/// [ObserveTable::hold], so `next_wake` waits for the bucket).
 pub fn select<'m>(
     plan: &Plan<'_>,
     desc: &LevelDesc<'_>,
@@ -1152,15 +1236,15 @@ pub fn select<'m>(
     marks: &'m mut [Mark],
     batch: Option<&BatchOffer<'_>>,
     size: &mut dyn FnMut(usize, &mut [u8]) -> Option<usize>,
-) -> Result<Option<Round<'m>>, ShrinkWrapError> {
+) -> Result<Selected<'m>, ShrinkWrapError> {
     if plan.is_empty() && plan.missed == 0 {
-        return Ok(None);
+        return Ok(Selected::Nothing);
     }
     let overhead = event_overhead(buf, path, plan.t(), plan.missed())?;
     // nothing due: the missed count goes alone, or waits for budget
     let missed_only = plan.report_missed(desc, overhead);
     if plan.is_empty() && !missed_only {
-        return Ok(None);
+        return Ok(Selected::Hold(plan.missed_need(desc, overhead)));
     }
     let mut sel = plan.selection(desc, overhead, buf.len(), marks);
     let mut batch_offered = false;
@@ -1186,11 +1270,32 @@ pub fn select<'m>(
             break;
         }
     }
-    Ok(Some(Round {
+    Ok(Selected::Round(Round {
         sel,
         missed_only,
         batch_dropped,
     }))
+}
+
+/// What [select] made of a level's plan.
+#[derive(Debug)]
+pub enum Selected<'m> {
+    /// An update to write, send and commit.
+    Round(Round<'m>),
+    /// Nothing to send at this poll.
+    Nothing,
+    /// Only a missed count is due, and it waits for this many bytes in the bucket: [ObserveTable::hold] them.
+    Hold(usize),
+}
+
+impl<'m> Selected<'m> {
+    /// The update, if there is one.
+    pub fn into_round(self) -> Option<Round<'m>> {
+        match self {
+            Selected::Round(round) => Some(round),
+            Selected::Nothing | Selected::Hold(_) => None,
+        }
+    }
 }
 
 /// The values of the update `round` chose, into `buf`: `value(k, column, wr)` writes slot `k`'s value (`column`:

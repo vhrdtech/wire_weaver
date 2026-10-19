@@ -700,6 +700,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   other kind is a compile error (`wire_weaver::handler` checks), so is a pattern that matches nothing.
   `ww api scaffold --handler-model`. Donguru: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
   `tests/observe` (a mixed server).
+- ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
+- ✅ **SRV-25 event-driven-observe No fixed observe tick** — a device sleeps until something observed is due
+  instead of polling every millisecond. `ObserveState::next_wake(now_us)` (`ObserveTable::next_wake` per level: the
+  periodic grid, `last + min` of a changed property, `last + max` of a beat, a held level's bucket refill, a batch
+  sealed or as old as allowed; `None` when nothing comes due without a change); a generated `ObserveSignal` any task
+  or interrupt marks a property changed through (`mark_changed_<name>()`) or wakes the server task with, no lost
+  wake between a change and the sleep (`ww_stream::wake`); `with_wake` on samplers and cells writers;
+  `ww_device::Server::wait_until(at)`; `ww api scaffold` prints the signal. Tests: `ww_stream` (polling only at
+  `next_wake` sends what polling every µs does), `tests/observe` (fake clock: polls only on the grid, a change from
+  another thread sent at once), `tests/observe_batched`. `docs/api/observing.md#the-server-loop`.
+- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select`, `write`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm (through `&mut dyn FnMut`) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`.
 - ✅ **SRV-22 error-seq-per-item Error sites numbered the same in every server** — `err_seq` of an `Error` is no
   longer one counter across the generated server (705 numbers on Donguru) but fixed per site
   (`ww_client_server::err_seq`): item steps in step order and the same for every item (0 kind not taken, 1 decode,
@@ -707,8 +718,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
   `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
-- ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
-- ✅ **SRV-24 shared-observe-loop One observe loop for every level** — the algorithm of `poll_properties` (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is `ww_stream::observe`'s, sync: `plan_level`, `select`, `write`, `ser_update`. The generated `poll_properties` is one loop over the levels with one send site; per property it gives only a `size` and a `write` arm (through `&mut dyn FnMut`) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. `ObserveState::level` / `oldest_batch` / `remove_oldest_batch` reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at `opt-level = 3`, −5.0 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`; tests `tests/observe`, `tests/observe_batched`, `ww_stream/src/observe/tests.rs`.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
@@ -716,13 +725,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. On hardware: a G0B1 (B153A)
   store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
   word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
-- 🚧 **SRV-25 event-driven-observe No fixed observe tick** · `v0.5` — a device sleeps until something is due
-  instead of polling observed properties every millisecond. Done: `ww_stream::wake::Wake` (a wake for the server
-  task, raised from any task or interrupt, no lost wake between a change and the sleep), `ww_device::Server::wait_until`
-  (also returns at the device's own next deadline, `Ready::is_due`). Missing: `ObserveState::next_wake` (earliest
-  due periodic, rate-limited change, budget refill or batch age), a generated `ObserveSignal` with
-  `mark_changed_<name>()` callable from outside the server state, sampler/cells wakes, tests and
-  `docs/api/observing.md`. Builds on SRV-23/24.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

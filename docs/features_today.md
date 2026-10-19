@@ -142,6 +142,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[Deferred replies everywhere](api/methods.md#deferred)**: Answer a call later, also on nested trait levels.
+- **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.
 - **[ECC-safe STM32 flash](api/ecc_flash.md)**: Reads a flash word broken by a power cut as zeros instead of crashing. <span class="ww-status">hardware check open</span>
 

@@ -4,6 +4,8 @@ pub mod api_doc;
 pub mod api_id;
 mod context;
 mod disconnect_reason;
+#[doc(hidden)]
+pub mod handler;
 mod rpc;
 mod test;
 mod valid_indices;

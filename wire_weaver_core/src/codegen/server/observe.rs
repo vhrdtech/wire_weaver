@@ -9,7 +9,7 @@
 use crate::codegen::omit::Omissions;
 use crate::codegen::server::scaffold::DEFAULT_BATCH;
 use crate::codegen::ty_def::{TyPos, ty_def};
-use crate::codegen::util::{ErrorSeq, add_prefix, maybe_quote, maybe_quote_cl};
+use crate::codegen::util::{ErrorSeq, Handlers, add_prefix, dotted, maybe_quote, maybe_quote_cl};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
@@ -38,6 +38,8 @@ struct Prop {
     ident: Ident,
     /// With the trait item chain prefix: handler and field names
     prefixed: Ident,
+    /// Dotted item path, for `handler_model` (SRV-21)
+    dotted: String,
     ty: TypeOwned,
     model: PropertyModelKind,
     /// `+batched` (API-39)
@@ -166,6 +168,7 @@ impl Observe {
                     props.push(Prop {
                         index: item.id.0,
                         prefixed: add_prefix(prefix, &ident),
+                        dotted: dotted(item_path, &item.ident),
                         model: property_model
                             .pick(&item.ident)
                             .unwrap_or(PropertyModelKind::GetSet),
@@ -1145,7 +1148,7 @@ impl Observe {
     pub(crate) fn methods(
         &self,
         api_bundle: &ApiBundleOwned,
-        use_async: bool,
+        handlers: Handlers<'_>,
         medium_ty: &TokenStream,
         error_seq: &mut ErrorSeq,
     ) -> TokenStream {
@@ -1171,7 +1174,7 @@ impl Observe {
             });
             quote! { #(#fns)* }
         });
-        let poll = self.poll_properties(api_bundle, use_async, medium_ty);
+        let poll = self.poll_properties(api_bundle, handlers, medium_ty);
         quote! {
             #observe_request
             #(#mark_changed)*
@@ -1291,9 +1294,10 @@ impl Observe {
     fn poll_properties(
         &self,
         api_bundle: &ApiBundleOwned,
-        use_async: bool,
+        handlers: Handlers<'_>,
         medium_ty: &TokenStream,
     ) -> TokenStream {
+        let use_async = handlers.use_async;
         let maybe_async = maybe_quote(use_async, quote! { async });
         let maybe_await = maybe_quote(use_async, quote! { .await });
         let (out_trait, send_with) = if use_async {
@@ -1320,8 +1324,9 @@ impl Observe {
             let value_of = |p: &Prop, ty: &TokenStream| match p.model {
                 PropertyModelKind::GetSet => {
                     let get = Ident::new(&format!("get_{}", p.prefixed), Span::call_site());
+                    let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx) });
                     quote! {
-                        let value: #ty = match self.#get(&mut cx)#maybe_await {
+                        let value: #ty = match #get_call {
                             GetResult::Value(value) => value,
                             _ => break 'write None,
                         };
@@ -1351,10 +1356,11 @@ impl Observe {
                 let one = match p.model {
                     PropertyModelKind::GetSet => {
                         let get = Ident::new(&format!("get_{}", p.prefixed), Span::call_site());
+                        let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx) });
                         quote! {
                             match #max_len {
                                 Some(len) => Some(len),
-                                None => match self.#get(&mut cx)#maybe_await {
+                                None => match #get_call {
                                     GetResult::Value(value) => {
                                         let value: #ty = value;
                                         let value = &value;

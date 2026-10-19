@@ -693,6 +693,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `_send_return_blocking` and `_ser_return_event` are generated for deferred methods on nested trait levels too, named
   like the handler (`plug_vbus_cycle_send_return`); `method_model` patterns match the prefixed name. Test
   `tests/methods` (`deferred_on_nested_level`), `docs/api/methods.md#deferred`.
+- ✅ **SRV-21 handler-model Sync handlers in an async server** — `ww_codegen!(.., handler_model =
+  "device.settings.*|meter.reading=async, _=sync")`: per item (regex over its dotted path, first match, `_` the
+  default, `use_async` without one) its handlers are `async fn` or plain `fn`; the dispatcher and `poll_properties`
+  call sync ones without `.await`, a level whose items are all sync gets a plain `fn` dispatcher. A handler of the
+  other kind is a compile error (`wire_weaver::handler` checks), so is a pattern that matches nothing.
+  `ww api scaffold --handler-model`. Donguru: -20.2 KiB flash at `z`, -12.6 KiB at 3. `docs/api/handlers.md`; test
+  `tests/observe` (a mixed server).
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature

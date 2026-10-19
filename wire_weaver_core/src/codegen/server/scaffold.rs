@@ -5,6 +5,7 @@
 use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::const_model::{ConstModel, ConstModelKind};
+use crate::handler_model::{HandlerKind, HandlerModel};
 use crate::method_model::{MethodModel, MethodModelKind};
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use anyhow::{Context, Result, anyhow};
@@ -22,6 +23,8 @@ pub struct ServerScaffoldConfig {
     pub server_struct: String,
     pub no_alloc: bool,
     pub use_async: bool,
+    /// Which handlers are `async fn` (SRV-21); empty means all follow `use_async`.
+    pub handler_model: String,
     /// Empty means `_=immediate`.
     pub method_model: String,
     /// Empty means `_=get_set`.
@@ -63,6 +66,8 @@ pub fn gen_server_scaffold(
         PropertyModel::parse(property_model_str).context("failed to parse property model")?;
     let const_model =
         ConstModel::parse(&config.const_model).context("failed to parse const model")?;
+    let handler_model =
+        HandlerModel::parse(&config.handler_model).context("failed to parse handler model")?;
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
@@ -99,6 +104,8 @@ pub fn gen_server_scaffold(
         no_alloc: config.no_alloc,
         use_async: config.use_async,
         cx,
+        handler_model,
+        current: String::new(),
         method_model,
         property_model,
         const_model,
@@ -228,13 +235,18 @@ pub fn gen_server_scaffold(
             s.consts
         )?;
     }
+    let handler_model = if config.handler_model.is_empty() {
+        String::new()
+    } else {
+        format!("handler_model = {:?},\n", config.handler_model)
+    };
     writeln!(
         out,
         "mod api_impl {{\n\
          wire_weaver::ww_codegen!(\n\
          {crate_name} :: {trait_name} for super::{server},\n\
          server = true, no_alloc = {}, use_async = {},\n\
-         method_model = {method_model_str:?},\n\
+         {handler_model}method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
          {const_model}{omit}{medium}{observe_batch}{observe_cells});\n\
          }}",
@@ -249,6 +261,9 @@ struct Scaffold<'a> {
     use_async: bool,
     /// `_cx: &mut Context<..>, ` argument every handler takes
     cx: String,
+    handler_model: HandlerModel,
+    /// Dotted path of the item being scaffolded, for `handler_model`
+    current: String,
     method_model: MethodModel,
     property_model: PropertyModel,
     const_model: ConstModel,
@@ -321,6 +336,11 @@ impl Scaffold<'_> {
                 Some(prefix) => format!("{prefix}_{}", item.ident),
                 None => item.ident.clone(),
             };
+            self.current = format!(
+                "{path}{}{}",
+                if path.is_empty() { "" } else { "." },
+                item.ident
+            );
             match &item.kind {
                 ApiItemKindOwned::Method {
                     args, return_ty, ..
@@ -765,8 +785,12 @@ impl Scaffold<'_> {
         Ok(ty_def(self.api_bundle, ty, alloc, TyPos::Arg)?.to_string())
     }
 
+    /// `async ` for the handlers of the current item if `handler_model` (or `use_async`) makes them async.
     fn maybe_async(&self) -> &'static str {
-        if self.use_async { "async " } else { "" }
+        match self.handler_model.pick(&self.current, self.use_async) {
+            HandlerKind::Async => "async ",
+            HandlerKind::Sync => "",
+        }
     }
 }
 
@@ -800,6 +824,7 @@ mod tests {
             server_struct: "Server".into(),
             no_alloc: true,
             use_async: true,
+            handler_model: String::new(),
             method_model: String::new(),
             property_model: String::new(),
             const_model: String::new(),
@@ -807,6 +832,32 @@ mod tests {
             omit: vec![],
             observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
         }
+    }
+
+    /// `handler_model` (SRV-21): each item's handlers are `async fn` or `fn` as the model says, the rest follow
+    /// `use_async`, and the model goes into the `ww_codegen!` call.
+    #[test]
+    fn handler_model() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_api");
+        let bundle = crate::load(&crate_path, Some("Observe".into()), false).unwrap();
+        let mixed = ServerScaffoldConfig {
+            handler_model: "temp|motor.speed=async, _=sync".into(),
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &mixed).unwrap();
+        for expected in [
+            "async fn get_temp(",
+            "async fn get_motor_speed(",
+            "\nfn get_motor_current(",
+            "\nfn get_label(",
+            "\nfn set_temp(",
+            "handler_model = \"temp|motor.speed=async, _=sync\",",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        // without a model everything follows use_async
+        let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(code.contains("async fn get_motor_current(") && !code.contains("handler_model"));
     }
 
     /// `observe_cells` (API-50): a static ring per level, its reader in `ObserveBatches::new`, the argument in

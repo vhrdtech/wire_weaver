@@ -28,6 +28,10 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) use_async: bool,
 
+    /// Which handlers are `async fn` and which plain `fn` (SRV-21): `"device.settings.*=async, _=sync"`.
+    #[darling(default)]
+    pub(crate) handler_model: String,
+
     #[darling(default)]
     pub(crate) method_model: String,
 

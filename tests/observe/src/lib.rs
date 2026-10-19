@@ -62,9 +62,9 @@ mod tests {
                 GetResult::Value(self.temp)
             }
 
-            async fn changed_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+            fn changed_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
 
-            async fn set_plain(
+            fn set_plain(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _value: u8,
@@ -72,14 +72,11 @@ mod tests {
                 SetResult::Set
             }
 
-            async fn get_plain(
-                &mut self,
-                _cx: &mut Context<'_, impl EventOut>,
-            ) -> GetResult<u8, ()> {
+            fn get_plain(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
                 GetResult::Value(0)
             }
 
-            async fn get_label(
+            fn get_label(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> GetResult<&'_ str, ()> {
@@ -113,21 +110,21 @@ mod tests {
                 GetResult::Value((self.now() / 1_000) as u32)
             }
 
-            async fn get_motor_current(
+            fn get_motor_current(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> GetResult<u32, ()> {
                 GetResult::Value((self.now() / 10_000) as u32)
             }
 
-            async fn get_motor_position(
+            fn get_motor_position(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
             ) -> GetResult<u32, ()> {
                 GetResult::Value((self.now() / 100_000) as u32)
             }
 
-            async fn get_bank_level(
+            fn get_bank_level(
                 &mut self,
                 _cx: &mut Context<'_, impl EventOut>,
                 _index_chain: [UNib32; 1],
@@ -142,6 +139,8 @@ mod tests {
                 server = true, no_alloc = true, use_async = true,
                 method_model = "_=immediate",
                 property_model = "mode=value_on_changed, _=get_set",
+                // a mixed server (SRV-21): async handlers on the root and in `motor`, `bank` all sync
+                handler_model = "temp|set_temp|motor.speed=async, _=sync",
                 // debug_to_file = "../../target/tests_observe_server.rs"
             );
         }

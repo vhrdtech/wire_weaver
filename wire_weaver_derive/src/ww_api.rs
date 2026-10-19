@@ -9,6 +9,7 @@ use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, IntrospectMode};
 use wire_weaver_core::const_model::ConstModel;
+use wire_weaver_core::handler_model::HandlerModel;
 use wire_weaver_core::load_dep;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
@@ -40,6 +41,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     };
     let const_model = ConstModel::parse(&args.ext.const_model)
         .map_err(|e| format!("failed to parse const model: {e}"))?;
+    let handler_model = HandlerModel::parse(&args.ext.handler_model)
+        .map_err(|e| format!("failed to parse handler model: {e}"))?;
     let method_model = if args.ext.method_model.is_empty() {
         MethodModel {
             default: Some(MethodModelKind::Immediate),
@@ -90,6 +93,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             GenServerConfigRaw {
                 no_alloc: args.ext.no_alloc,
                 use_async: args.ext.use_async,
+                handler_model,
                 method_model,
                 property_model,
                 const_model,

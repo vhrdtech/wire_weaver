@@ -366,9 +366,23 @@ impl Observe {
                         .tables()
                         .filter(|l| l.has_batched())
                         .map(|l| gate_ident(&l.batches()));
+                    // rows taken before the gates closed go too: a later observer would get them with old times
+                    let drop_rows = self.tables().filter(|l| l.has_batched()).map(|l| {
+                        let batches = l.batches();
+                        if l.cells {
+                            let src = l.src();
+                            quote! { c.#batches.discard_all(c.#src); }
+                        } else {
+                            quote! {
+                                c.#batches.flush();
+                                c.#batches.discard_sealed();
+                            }
+                        }
+                    });
                     quote! {
-                        let c = self.batches.consumers();
+                        let mut c = self.batches.consumers();
                         #(c.#gates.set(None);)*
+                        #(#drop_rows)*
                     }
                 },
             )

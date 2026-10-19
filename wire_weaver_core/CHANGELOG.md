@@ -52,6 +52,8 @@
 
 ### 🐛 Fixes
 
+- `ObserveState::reset()` (the link went down) drops the rows taken before it (API-39, API-50): rows waiting in a sampler's batch or in a cells level's ring went to the next host that observed the level in `Samples` mode, stamped with their old times (seen on Donguru: 18 rows 88 s old at the start of a `dg power watch --samples`). Test `reset_drops_waiting_rows` in `tests/observe_batched`.
+
 - `ww_codegen!` in test code finds an API crate that is only a dev-dependency (e.g. a test server in a binary crate's tests): the crate walker looked in `[dependencies]` alone and failed with `Dependency not found`.
 - `fixed_layout` types (SW-44) can be used in an API: the crate walker rejected the directive (`unsupported
   directive 'fixed_layout'`), so `load` and `ww_codegen!` failed on any API using such a type. It now makes a struct

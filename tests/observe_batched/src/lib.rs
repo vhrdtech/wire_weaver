@@ -1281,6 +1281,136 @@ mod tests {
         );
     }
 
+    /// Events an async server sent, collected in memory.
+    #[derive(Default)]
+    struct Collect(Vec<Vec<u8>>);
+
+    impl wire_weaver::MessageSink for Collect {
+        async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+            self.0.push(message.to_vec());
+            Ok(())
+        }
+    }
+
+    /// The `current` samples in the updates `out` collected, oldest first; empties it.
+    fn current_samples(out: &mut wire_weaver::EventWriter<'_, Collect>) -> Vec<i32> {
+        let mut got = vec![];
+        for e in core::mem::take(&mut out.sink.0).iter() {
+            let Ok(EventKind::PropertyUpdate { data, .. }) =
+                Event::from_ww_bytes(e).unwrap().result
+            else {
+                continue;
+            };
+            let u = server::api_impl::ObserveBatchedUpdate::from_ww_bytes(data.0).unwrap();
+            if let Some(Batched::Samples(s)) = u.current {
+                got.extend(s.iter());
+            }
+        }
+        got
+    }
+
+    /// A reset (the link went down) drops the rows taken before it: the next observer gets only what is sampled
+    /// after it asked, not the rows still waiting in a batch or the cells' ring, with their old times.
+    #[tokio::test]
+    async fn reset_drops_waiting_rows() {
+        let req = observe_request(&[entry(CURRENT, samples(0, 5_000))]);
+        let mut scratch = [0u8; 512];
+        let mut event_scratch = [0u8; 1024];
+        let mut queue = wire_weaver::EventWriter::new(Collect::default(), &mut event_scratch);
+        let mut buf = [0u8; 512];
+        let mut sb = Box::new(Scratch::<SB>::new());
+        let sample_rows = |first: i32, t0: u32| {
+            (0..3).map(move |i| (Second::micro(t0 + i as u32 * 100), first + i))
+        };
+
+        let mut s = server::Server {
+            mode: 0,
+            current: 0,
+            observe: server::api_impl::ObserveState::new(
+                LIMITS,
+                server::api_impl::ObserveBatches::new(ww_stream::batch::DEFAULT_POLICY),
+            ),
+            clock: Arc::new(AtomicU64::new(0)),
+            polled: Arc::new(AtomicU64::new(0)),
+            buf: vec![],
+            scratch: Box::new(Scratch::new()),
+        };
+        s.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        for (t, v) in sample_rows(1, 100) {
+            let row = server::api_impl::ObserveBatchedSamples {
+                current: v,
+                reading: reading(v),
+            };
+            s.observe.samplers().root.sample(t, row);
+        }
+        s.observe.reset();
+        s.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        for (t, v) in sample_rows(100, 10_000) {
+            let row = server::api_impl::ObserveBatchedSamples {
+                current: v,
+                reading: reading(v),
+            };
+            s.observe.samplers().root.sample(t, row);
+        }
+        for now in (20_000..=60_000).step_by(10_000) {
+            s.poll_properties(&mut queue, (), now, &mut buf, &mut sb)
+                .await
+                .unwrap();
+        }
+        assert_eq!(current_samples(&mut queue), [100, 101, 102], "sampler");
+
+        let root_cells = Arc::new(cells_server::api_impl::RootCells::<CELLS_ROWS>::new());
+        let reader = ww_stream::batch::CellsReader::shared(root_cells.clone()).unwrap();
+        let mut c = cells_server::Server {
+            mode: 0,
+            current: 0,
+            observe: cells_server::api_impl::ObserveState::new(
+                LIMITS,
+                cells_server::api_impl::ObserveBatches::new(
+                    ww_stream::batch::DEFAULT_POLICY,
+                    reader,
+                ),
+            ),
+            root_cells: root_cells.clone(),
+            clock: Arc::new(AtomicU64::new(0)),
+            polled: Arc::new(AtomicU64::new(0)),
+            buf: vec![],
+            scratch: Box::new(Scratch::new()),
+        };
+        let mut w = root_cells.writer().unwrap();
+        c.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        for (t, v) in sample_rows(1, 100) {
+            w.current(v);
+            w.reading(reading(v));
+            w.commit(t);
+        }
+        c.observe.reset();
+        c.process_request_bytes(&req, &mut scratch, &mut queue, ())
+            .await
+            .unwrap();
+        queue.sink.0.clear();
+        for (t, v) in sample_rows(100, 10_000) {
+            w.current(v);
+            w.reading(reading(v));
+            w.commit(t);
+        }
+        for now in (20_000..=60_000).step_by(10_000) {
+            c.poll_properties(&mut queue, (), now, &mut buf, &mut sb)
+                .await
+                .unwrap();
+        }
+        assert_eq!(current_samples(&mut queue), [100, 101, 102], "cells");
+    }
+
     /// The host can't tell the two apart: the same samples, sealed at the same rows (a full batch per poll), give
     /// byte for byte the same updates from a sampler level and a cells level.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

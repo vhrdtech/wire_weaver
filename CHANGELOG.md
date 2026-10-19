@@ -235,7 +235,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ### Fixed
 
 - Observe (API-39): `ObserveState::reset()` drops the samples taken before it, which went to the next host observing in `Samples` mode with their old times. See the `wire_weaver_core` changelog.
-
 - Reliable streams (API-47): a resend or a resume from inside a multi-unit event (a batch confirmed item by item)
   gets that event again whole and the host keeps only the units it doesn't have; `ResendFrom` no longer frees store
   data an explicit host hadn't confirmed; a late `ResendFrom` no longer stalls a backfill. **Breaking** for code

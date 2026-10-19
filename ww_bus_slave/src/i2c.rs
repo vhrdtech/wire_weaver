@@ -655,7 +655,7 @@ impl<
         self.map.apply_staged();
     }
 
-    #[inline]
+    #[inline(never)]
     fn open(&mut self, read: bool, now: u32) {
         self.segment = if read { Segment::Read } else { Segment::Write };
         self.in_transaction = true;

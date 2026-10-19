@@ -125,6 +125,8 @@ pub(crate) struct Ring<T, const N: usize> {
     committed: usize,
     /// The slot after the committed ones is being written.
     open: bool,
+    /// Its index.
+    cur: usize,
     /// The transfer going on found the ring full.
     dropping: bool,
     dropped: u32,
@@ -137,6 +139,7 @@ impl<T: Slot, const N: usize> Ring<T, N> {
             head: 0,
             committed: 0,
             open: false,
+            cur: 0,
             dropping: false,
             dropped: 0,
         }
@@ -154,8 +157,8 @@ impl<T: Slot, const N: usize> Ring<T, N> {
         if self.committed < N {
             self.open = true;
             self.dropping = false;
-            let i = self.index(self.committed);
-            Some(&mut self.slots[i])
+            self.cur = self.index(self.committed);
+            Some(&mut self.slots[self.cur])
         } else {
             self.open = false;
             self.dropping = true;
@@ -167,8 +170,7 @@ impl<T: Slot, const N: usize> Ring<T, N> {
     #[inline(always)]
     pub(crate) fn current(&mut self) -> Option<&mut T> {
         if self.open {
-            let i = self.index(self.committed);
-            Some(&mut self.slots[i])
+            Some(&mut self.slots[self.cur])
         } else {
             None
         }
@@ -177,7 +179,7 @@ impl<T: Slot, const N: usize> Ring<T, N> {
     #[inline(always)]
     pub(crate) fn current_ref(&self) -> Option<&T> {
         if self.open {
-            Some(&self.slots[self.index(self.committed)])
+            Some(&self.slots[self.cur])
         } else {
             None
         }

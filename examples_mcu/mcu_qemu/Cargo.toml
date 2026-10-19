@@ -15,6 +15,9 @@ ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_framer = { path = "../../ww_framer" }
 ww_link = { path = "../../ww_link" }
+ww_bus_slave = { path = "../../ww_bus_slave" }
+ww_i2c = { path = "../../ww_stdlib/ww_i2c", default-features = false }
+ww_spi = { path = "../../ww_stdlib/ww_spi", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
 ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "f32", "time", "i32", "u32"] }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
@@ -123,6 +126,13 @@ bench = false
 [[bin]]
 name = "qemu-bit-io"
 path = "src/bin/bit_io.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-bus-slave"
+path = "src/bin/bus_slave.rs"
 test = false
 doctest = false
 bench = false

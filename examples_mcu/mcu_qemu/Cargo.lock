@@ -380,11 +380,14 @@ dependencies = [
  "panic-semihosting",
  "static_cell",
  "wire_weaver",
+ "ww_bus_slave",
  "ww_client_server",
  "ww_framer",
  "ww_gpio",
+ "ww_i2c",
  "ww_link",
  "ww_si",
+ "ww_spi",
  "ww_stream",
 ]
 
@@ -935,6 +938,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_bus_slave"
+version = "0.5.0"
+dependencies = [
+ "wire_weaver",
+ "ww_error",
+ "ww_i2c",
+ "ww_si",
+ "ww_spi",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
@@ -979,6 +993,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_i2c"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "ww_link"
 version = "0.5.0"
 dependencies = [
@@ -1015,6 +1037,14 @@ version = "0.2.0"
 dependencies = [
  "shrink_wrap",
  "ww_numeric",
+]
+
+[[package]]
+name = "ww_spi"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

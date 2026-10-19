@@ -100,6 +100,10 @@ pub mod sink {
     pub const DATA: u32 = super::DECODE;
     /// Sideband: the answer didn't fit.
     pub const SIDEBAND: u32 = super::ENCODE;
+    /// Open of a credit sink: the answer didn't fit.
+    pub const OPENED: u32 = super::ENCODE;
+    /// Read of a credit sink: the status didn't fit into the answer.
+    pub const STATUS: u32 = super::ENCODE;
 }
 
 /// `<method>_ser_return_event`: the return value didn't fit into the scratch buffer.

@@ -39,7 +39,7 @@ mod tests {
     mod server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use ww_client_server::credit::SinkCredit;
+        use ww_stream::sink::SinkCredit;
 
         pub struct Server {
             pub m: Arc<Mutex<Shared>>,
@@ -535,7 +535,7 @@ mod tests {
             lease: None,
             next_lease: 0,
             read_left: None,
-            write_runs_credit: ww_client_server::credit::SinkCredit::new(
+            write_runs_credit: ww_stream::sink::SinkCredit::new(
                 2 * ww_block::MAX_TRANSFER as u32 + 64,
             ),
             written_stream: Counted::new(),

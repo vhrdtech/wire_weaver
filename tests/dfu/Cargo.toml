@@ -16,3 +16,4 @@ wire_weaver.workspace = true
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_dfu = { workspace = true, features = ["std"] }
+ww_stream = { workspace = true, features = ["std"] }

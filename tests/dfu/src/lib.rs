@@ -79,7 +79,7 @@ mod tests {
         pub struct DfuServer {
             pub dev: Arc<RwLock<Device>>,
             /// Room for two of the largest segments, freed as soon as a segment is written
-            pub plan_credit: ww_client_server::credit::SinkCredit,
+            pub plan_credit: ww_stream::sink::SinkCredit,
         }
 
         impl DfuServer {
@@ -416,7 +416,7 @@ mod tests {
                 }))
             }
 
-            fn credit_bulk_plan(&mut self) -> &mut ww_client_server::credit::SinkCredit {
+            fn credit_bulk_plan(&mut self) -> &mut ww_stream::sink::SinkCredit {
                 &mut self.plan_credit
             }
 
@@ -521,7 +521,7 @@ mod tests {
         let dev = Arc::new(RwLock::new(Device::default()));
         let server = server::DfuServer {
             dev: dev.clone(),
-            plan_credit: ww_client_server::credit::SinkCredit::sized_for(
+            plan_credit: ww_stream::sink::SinkCredit::sized_for(
                 2 * PLAN_SEGMENT_MAX,
                 Some(PLAN_SEGMENT_MAX),
             ),

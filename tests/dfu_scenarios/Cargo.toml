@@ -22,3 +22,4 @@ ww_device = { workspace = true, features = ["udp", "ws"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_framer.workspace = true
 ww_link.workspace = true
+ww_stream = { workspace = true, features = ["std"] }

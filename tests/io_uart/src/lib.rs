@@ -113,7 +113,7 @@ mod tests {
     mod sync_server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use ww_client_server::credit::SinkCredit;
+        use ww_stream::sink::SinkCredit;
 
         pub struct Server {
             pub m: Arc<Mutex<Model>>,
@@ -357,7 +357,7 @@ mod tests {
         let m = Arc::new(Mutex::new(model));
         let server = sync_server::Server {
             m: m.clone(),
-            uart_tx_credit: ww_client_server::credit::SinkCredit::new(ww_uart::UART_TX_MAX as u32),
+            uart_tx_credit: ww_stream::sink::SinkCredit::new(ww_uart::UART_TX_MAX as u32),
             rx: Counted::new(),
             lines: Counted::new(),
             stream_sessions: 0,

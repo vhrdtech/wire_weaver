@@ -131,7 +131,7 @@ mod tests {
     mod server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use ww_client_server::credit::SinkCredit;
+        use ww_stream::sink::SinkCredit;
         use ww_stream::tx::Counted;
 
         pub struct Server {
@@ -705,14 +705,14 @@ mod tests {
     fn start(path: &str) -> (TestDevice, Arc<Mutex<Model>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let m = Arc::new(Mutex::new(Model::default()));
-        let credit = || ww_client_server::credit::SinkCredit::new(32 * 72);
+        let credit = || ww_stream::sink::SinkCredit::new(32 * 72);
         let server = server::Server {
             m: m.clone(),
             rx: [ww_stream::tx::Counted::new(), ww_stream::tx::Counted::new()],
             tx: [credit(), credit()],
             rx_xl: ww_stream::tx::Counted::new(),
             // two XL frames of 2 KiB
-            tx_xl: ww_client_server::credit::SinkCredit::new(2 * 2100),
+            tx_xl: ww_stream::sink::SinkCredit::new(2 * 2100),
             stream_sessions: 0,
             names: [SOURCES[0].0, SOURCES[1].0],
         };

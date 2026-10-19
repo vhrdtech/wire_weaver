@@ -2194,10 +2194,10 @@ fn handle_stream(
             Some(FlowControl::Credit) => {
                 let credit_fn =
                     Ident::new(format!("credit_{}", prefixed_ident).as_str(), ident.span());
-                let es_pos = item_err_seq("sink", "CREDIT_POS");
+                let credit = quote! { self.#credit_fn(#maybe_index_chain_call) };
                 let send_sideband = if cx.use_async {
                     quote! {
-                        // a lost credit event is recovered by the host's next CreditQuery
+                        // a lost Ack is recovered by the host's next Query
                         let _ = wire_weaver::EventOut::send_with(&mut *cx, |scratch| {
                             ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
                                 .map(|bytes| bytes.len())
@@ -2205,7 +2205,7 @@ fn handle_stream(
                     }
                 } else {
                     quote! {
-                        // a lost credit event is recovered by the host's next CreditQuery
+                        // a lost Ack is recovered by the host's next Query
                         let _ = wire_weaver::BlockingEventOut::send_with_blocking(&mut *cx, |scratch| {
                             ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
                                 .map(|bytes| bytes.len())
@@ -2218,49 +2218,80 @@ fn handle_stream(
                 } else {
                     (quote! {}, des_data)
                 };
+                // the host names a credit sink's session: an open without a cursor isn't one
+                let es_open = item_err_seq("sink", "KIND_NOT_TAKEN");
+                let es_opened = item_err_seq("sink", "OPENED");
+                let ser_status = ser_value(
+                    cx.multi_req,
+                    quote! { status },
+                    item_err_seq("sink", "STATUS"),
+                );
+                let ev_kind_builder_open = cx.prepare_event_kind_builder();
+                let ev_kind_builder_status = cx.prepare_event_kind_builder();
                 quote! {
-                    RequestKind::Write { data } => {
-                        let credit_write = {
-                            let mut rd = BufReader::new(data);
-                            ww_client_server::CreditWrite::des_shrink_wrap(&mut rd)
-                                .map_err(|_e| Error::new(#es_pos, ErrorKind::ArgsDesFailed))?
-                        };
-                        let data = &credit_write.data;
+                    // the host names the session (API-34): a new one at 0, or its own again after a reconnect
+                    RequestKind::StreamOpen { resume: Some(cursor), .. } => {
+                        let opened = #credit.open(*cursor);
+                        // the grant: the host applies it once it has the answer
+                        if let Some(sideband) = #credit.take_ack() {
+                            #send_sideband
+                        }
+                        #ev_kind_builder_open
+                        opened.to_wire(&[]).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_opened))?;
+                        Ok(WrAction::WrittenOk(event_kind_builder))
+                    }
+                    RequestKind::StreamOpen { resume: None, .. } => {
+                        Err(Error::not_supported(#es_open))
+                    }
+                    RequestKind::SinkWrite { units, pos, data } => {
                         #credit_max_len_check
-                        let verdict = self.#credit_fn(#maybe_index_chain_call).on_write(credit_write.pos.0, credit_write.data.0.len() as u32);
+                        let units = units.map(|u| u.0).unwrap_or(1);
+                        let verdict = #credit.on_write(pos.0, units, data.0.len() as u32);
                         match verdict {
-                            ww_client_server::credit::CreditVerdict::Accept => {
+                            ww_stream::sink::SinkVerdict::Accept => {
                                 #credit_des_data
                                 #write_call;
-                                if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
+                                if let Some(sideband) = #credit.take_ack() {
                                     #send_sideband
                                 }
                             }
-                            ww_client_server::credit::CreditVerdict::Gap(Some(sideband)) => {
+                            ww_stream::sink::SinkVerdict::Gap(Some(sideband))
+                            | ww_stream::sink::SinkVerdict::NoSession(Some(sideband)) => {
                                 #send_sideband
                             }
-                            ww_client_server::credit::CreditVerdict::Duplicate
-                            | ww_client_server::credit::CreditVerdict::Gap(None)
-                            | ww_client_server::credit::CreditVerdict::Invalid => {}
+                            ww_stream::sink::SinkVerdict::Duplicate
+                            | ww_stream::sink::SinkVerdict::Gap(None)
+                            | ww_stream::sink::SinkVerdict::NoSession(None)
+                            | ww_stream::sink::SinkVerdict::Invalid => {}
                         }
                         #ev_kind_builder
                         Ok(WrAction::WrittenOk(event_kind_builder))
                     }
-                    RequestKind::StreamSideband { sideband: StreamSideband::CreditQuery { sent } } => {
+                    RequestKind::StreamSideband { sideband: StreamSideband::Query { sent, .. } } => {
                         // answered here, the user's sideband handler doesn't see it
-                        let sideband = self.#credit_fn(#maybe_index_chain_call).query(sent.0);
-                        #reply_sideband
+                        match #credit.on_query(sent.0) {
+                            Some(sideband) => {
+                                #reply_sideband
+                            }
+                            None => Ok(WrAction::Acknowledged),
+                        }
                     }
                     RequestKind::StreamSideband { sideband } => {
-                        if matches!(sideband, StreamSideband::Open) {
-                            self.#credit_fn(#maybe_index_chain_call).open();
+                        if matches!(sideband, StreamSideband::Close) {
+                            #credit.close();
                         }
                         #call_user_sideband
-                        // initial credit after Open, or a re-grant if the handler freed something
-                        if let Some(sideband) = self.#credit_fn(#maybe_index_chain_call).take_credit() {
+                        // a re-grant if the handler freed something
+                        if let Some(sideband) = #credit.take_ack() {
                             #send_sideband
                         }
                         #match_user_sideband
+                    }
+                    RequestKind::Read => {
+                        let status: ww_client_server::stream::StreamStatus = #credit.status();
+                        #ev_kind_builder_status
+                        #ser_status
+                        Ok(WrAction::WrittenOk(event_kind_builder))
                     }
                 }
             }

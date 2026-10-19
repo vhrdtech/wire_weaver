@@ -1188,6 +1188,50 @@ impl TransportCommander {
         })
     }
 
+    /// Write to a credit sink (API-34), without a reply: the device acknowledges it by sideband.
+    pub(crate) fn sink_write_command(
+        &self,
+        path_kind: PathKindOwned,
+        write: ww_stream::sink::SinkWriteOut<'_>,
+    ) -> Result<Command, Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind: RequestKindOwned::SinkWrite {
+                units: write.units,
+                pos: write.pos,
+                data: TailBytesOwned(write.data.to_vec()),
+            },
+        };
+        Ok(Command::SendMessage {
+            bytes: req.to_ww_bytes_owned()?,
+            done_tx: None,
+        })
+    }
+
+    /// Open a credit sink's session `cursor` (API-34), the answer (`StreamOpened`) comes through the receiver.
+    pub(crate) fn sink_open_command(
+        &self,
+        path_kind: PathKindOwned,
+        cursor: StreamCursor,
+    ) -> Result<(Command, ResponseReceiver), Error> {
+        let req = ww_client_server::RequestOwned {
+            seq: UVlq32Backfill(0),
+            path_kind,
+            kind: RequestKindOwned::StreamOpen {
+                resume: Some(cursor),
+                max_age_us: None,
+                args: TailBytesOwned(vec![]),
+            },
+        };
+        let (done_tx, done_rx) = oneshot::channel();
+        let cmd = Command::SendMessage {
+            bytes: req.to_ww_bytes_owned()?,
+            done_tx: Some((done_tx, self.default_timeout)),
+        };
+        Ok((cmd, done_rx))
+    }
+
     /// Stream sideband request, nobody waits for the reply.
     pub(crate) fn sideband_command(
         &self,

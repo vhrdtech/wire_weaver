@@ -750,7 +750,7 @@ impl Scaffold<'_> {
         match flow {
             FlowControl::Credit => {
                 let idx = index_chain_arg(index_len);
-                let state = "ww_client_server::credit::SinkCredit";
+                let state = "ww_stream::sink::SinkCredit";
                 let body = if index_len == 0 {
                     writeln!(
                         self.fields,
@@ -771,7 +771,7 @@ impl Scaffold<'_> {
                 };
                 writeln!(
                     self.handlers,
-                    "/// Credit state of `{}`, see docs/api/streams.md.
+                    "/// Credit state of `{}`: generated code opens and closes it, feeds it the host's writes and queries and sends its acknowledgements, see docs/api/credit_sinks.md.
                      fn credit_{name}(&mut self, {idx}) -> &mut {state} {{
                      {body}
                      }}

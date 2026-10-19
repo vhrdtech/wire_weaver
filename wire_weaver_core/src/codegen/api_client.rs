@@ -937,9 +937,23 @@ fn handle_stream(
     };
     let sync_accessors = stream_accessors(false);
     let async_accessors = stream_accessors(true);
+    let status = if credit {
+        let status = Ident::new(&format!("{ident}_status"), ident.span());
+        quote! {
+            /// State of the credit sink on the device: open or not, session, position, bytes buffered and capacity.
+            pub fn #status(&self #maybe_index_arg) -> wire_weaver_client::PreparedRead<wire_weaver_client::ww_client_server::stream::StreamStatus> {
+                #index_chain_push
+                let path_kind = #path_kind;
+                self.cmd.prepare_read(path_kind)
+            }
+        }
+    } else {
+        quote! {}
+    };
     quote! {
         #sync_accessors
         #async_accessors
+        #status
     }
 }
 

@@ -4,7 +4,7 @@
 use wire_weaver::prelude::*;
 use wire_weaver::ww_version::{ApiHashPair, FullVersion};
 use ww_client_server::StreamSideband;
-use ww_client_server::credit::SinkCredit;
+use ww_stream::sink::SinkCredit;
 use ww_dfu::{
     BootState, BootTarget, ChunkState, Error, NodeInfo, PlanSegment, Progress, Session, Slot,
     SlotLayout, StageLimits, Target,

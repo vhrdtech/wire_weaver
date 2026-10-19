@@ -1,8 +1,5 @@
 pub mod attachment;
 pub mod batch;
-pub mod credit;
-#[cfg(test)]
-mod credit_sim;
 mod device_time;
 pub mod dyn_client;
 pub mod dyn_observe;

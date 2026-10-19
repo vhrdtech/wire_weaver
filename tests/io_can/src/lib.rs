@@ -415,7 +415,7 @@ mod tests {
     mod full_server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use ww_client_server::credit::SinkCredit;
+        use ww_stream::sink::SinkCredit;
         use ww_stream::tx::Counted;
 
         pub struct Server {
@@ -961,7 +961,7 @@ mod tests {
     mod minimal_server {
         use super::*;
         use tests_common::TestProcessEvents;
-        use ww_client_server::credit::SinkCredit;
+        use ww_stream::sink::SinkCredit;
         use ww_stream::tx::Counted;
 
         pub struct Server {
@@ -1143,7 +1143,7 @@ mod tests {
         let server = full_server::Server {
             m: m.clone(),
             can_rx_stream: ww_stream::tx::Counted::new(),
-            can_tx_credit: ww_client_server::credit::SinkCredit::new(TX_BUFFER),
+            can_tx_credit: ww_stream::sink::SinkCredit::new(TX_BUFFER),
             can_tx_events_stream: ww_stream::tx::Counted::new(),
             can_bus_errors_stream: ww_stream::tx::Counted::new(),
             stream_sessions: 0,
@@ -1164,7 +1164,7 @@ mod tests {
         let server = minimal_server::Server {
             m: m.clone(),
             can_rx_stream: ww_stream::tx::Counted::new(),
-            can_tx_credit: ww_client_server::credit::SinkCredit::new(TX_BUFFER),
+            can_tx_credit: ww_stream::sink::SinkCredit::new(TX_BUFFER),
             stream_sessions: 0,
         };
         let device = tests_common::start_device(

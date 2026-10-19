@@ -9,8 +9,8 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::{CreditConfig, Error, StreamError};
-    use ww_client_server::credit::SinkCredit;
-    use ww_client_server::{CreditWrite, Request, RequestKind, StreamSideband};
+    use ww_stream::sink::SinkCredit;
+    use ww_client_server::{Request, RequestKind, StreamSideband};
 
     /// Device behaviour and what it received, shared with the test.
     #[derive(Default)]
@@ -36,6 +36,10 @@ mod tests {
         plain: Vec<Vec<u8>>,
         blocks: Vec<Vec<u8>>,
         closed: u32,
+        /// Units of each `points` write, as the host named them
+        point_units: Vec<u64>,
+        /// Forget the `plan` session on the next write, as a reboot would
+        reboot: bool,
     }
 
     struct Config {
@@ -83,7 +87,7 @@ mod tests {
                 sideband: StreamSideband,
             ) -> Option<StreamSideband> {
                 assert!(
-                    !matches!(sideband, StreamSideband::CreditQuery { .. }),
+                    !matches!(sideband, StreamSideband::Query { .. }),
                     "answered by generated code"
                 );
                 if sideband == StreamSideband::Close {
@@ -103,6 +107,11 @@ mod tests {
             ) {
                 let mut m = self.m.lock().unwrap();
                 std::thread::sleep(m.per_write);
+                if std::mem::take(&mut m.reboot) {
+                    self.plan_credit = SinkCredit::new(self.plan_credit.capacity());
+                    m.buffer.clear();
+                    return;
+                }
                 m.buffer.push(data.0.to_vec());
                 let buffered = m.buffer.iter().map(Vec::len).sum::<usize>();
                 assert_eq!(buffered, self.plan_credit.buffered() as usize);
@@ -112,7 +121,7 @@ mod tests {
                     let consumed = std::mem::take(&mut m.buffer).concat();
                     self.plan_credit.free(consumed.len() as u32);
                     m.plan.extend(consumed);
-                    if m.drop_grants > 0 && self.plan_credit.take_credit().is_some() {
+                    if m.drop_grants > 0 && self.plan_credit.take_ack().is_some() {
                         m.drop_grants -= 1;
                     }
                 }
@@ -153,7 +162,9 @@ mod tests {
             }
 
             fn write_points(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>, value: Point) {
-                self.m.lock().unwrap().points.push(value);
+                let mut m = self.m.lock().unwrap();
+                m.points.push(value);
+                m.point_units.push(self.points_credit.last_item_units());
                 // a `sized` type always takes its largest size
                 self.points_credit.free(POINT_BYTES);
             }
@@ -434,11 +445,17 @@ mod tests {
     fn write_pos(request: &[u8]) -> Option<u32> {
         let mut rd = BufReader::new(request);
         let request = Request::des_shrink_wrap(&mut rd).ok()?;
-        let RequestKind::Write { data } = request.kind else {
+        let RequestKind::SinkWrite { pos, .. } = request.kind else {
             return None;
         };
-        let mut rd = BufReader::new(data.0);
-        Some(CreditWrite::des_shrink_wrap(&mut rd).ok()?.pos.0)
+        Some(pos.0)
+    }
+
+    /// A credit sink's open: `StreamOpen` with the host's session
+    fn is_open(request: &[u8]) -> bool {
+        let mut rd = BufReader::new(request);
+        Request::des_shrink_wrap(&mut rd)
+            .is_ok_and(|request| matches!(request.kind, RequestKind::StreamOpen { resume: Some(_), .. }))
     }
 
     fn sideband_of(request: &[u8]) -> Option<StreamSideband> {
@@ -545,7 +562,7 @@ mod tests {
         let queries = Arc::new(Mutex::new(0));
         let q = queries.clone();
         device.filter_requests(move |request| {
-            if let Some(StreamSideband::CreditQuery { .. }) = sideband_of(request) {
+            if let Some(StreamSideband::Query { .. }) = sideband_of(request) {
                 *q.lock().unwrap() += 1;
             }
             false
@@ -645,7 +662,7 @@ mod tests {
         let d = dropped.clone();
         device.filter_requests(move |request| {
             let mut d = d.lock().unwrap();
-            if !*d && sideband_of(request) == Some(StreamSideband::Open) {
+            if !*d && is_open(request) {
                 *d = true;
                 return true;
             }
@@ -784,6 +801,95 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
         assert_eq!(m.lock().unwrap().points, expected);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn units_named_by_the_host() {
+        let (device, m) = start("credit/units", Config::new(4, 2));
+        let client = connect(&device).await;
+        let mut points = client.points().await.unwrap();
+        points.send(Point { x: 1, y: 1 }).await.unwrap();
+        points.send_units(Point { x: 2, y: 2 }, 5).await.unwrap();
+        points.send_units(Point { x: 3, y: 3 }, 1000).await.unwrap();
+        points.flush().await.unwrap();
+        assert_eq!(m.lock().unwrap().point_units, [1, 5, 1000]);
+        assert_eq!(points.credit_progress(), Some((1006, 1006)));
+        let r = points.send_units(Point { x: 4, y: 4 }, 0).await;
+        assert!(matches!(r, Err(StreamError::BadUnits { units: 0 })), "{r:?}");
+
+        // byte sinks count bytes, an empty item takes one position
+        let mut plan = client.plan().await.unwrap();
+        plan.send_bytes(&[1; 3]).await.unwrap();
+        plan.send_bytes(&[]).await.unwrap();
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((4, 4)));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn status_read_shows_the_session() {
+        let (device, _m) = start(
+            "credit/status",
+            Config::new(256, 128).drain_at(1000, Duration::ZERO),
+        );
+        let client = connect(&device).await;
+        let status = client.plan_status().read().await.unwrap();
+        assert!(!status.open);
+        assert_eq!(status.session, None);
+        let mut plan = client.plan().await.unwrap();
+        plan.send_bytes(&[7; 100]).await.unwrap();
+        plan.flush().await.unwrap();
+        let status = client.plan_status().read().await.unwrap();
+        assert!(status.open);
+        assert!(status.session.is_some_and(|s| s.0 != 0));
+        assert_eq!(status.next.0, 100);
+        let store = status.store.unwrap();
+        // nothing drained yet
+        assert_eq!(store.used_bytes.0, 100);
+        assert_eq!(store.capacity_bytes.0, 256);
+        plan.close().await.unwrap();
+        let status = client.plan_status().read().await.unwrap();
+        assert!(!status.open);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn device_that_lost_the_session_is_reported() {
+        let (device, m) = start(
+            "credit/reboot",
+            Config::new(256, 128).drain_at(0, Duration::ZERO),
+        );
+        let client = connect(&device).await;
+        let mut plan = client.plan().await.unwrap();
+        plan.set_credit_config(CreditConfig {
+            query_interval: Duration::from_millis(30),
+            stall_timeout: Some(Duration::from_secs(2)),
+        });
+        plan.send_bytes(&[1; 50]).await.unwrap();
+        plan.flush().await.unwrap();
+        m.lock().unwrap().reboot = true;
+        // taken by the device as its last write before the "reboot", then lost with it
+        plan.send_bytes(&[2; 50]).await.unwrap();
+        // the device answers the next write with Close, the host opens its session again and hears it is gone
+        let r = async {
+            plan.send_bytes(&[3; 50]).await?;
+            plan.flush().await
+        }
+        .await;
+        assert!(
+            matches!(
+                r,
+                Err(StreamError::SinkSessionLost {
+                    device_at: 0,
+                    acked: 50
+                })
+            ),
+            "{r:?}"
+        );
+        // a new session after that
+        plan.send_bytes(&[4; 10]).await.unwrap();
+        plan.flush().await.unwrap();
+        assert_eq!(plan.credit_progress(), Some((10, 10)));
+        let consumed = m.lock().unwrap().plan.clone();
+        assert_eq!(consumed, [[1; 50].as_slice(), &[4; 10]].concat());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -944,9 +1050,9 @@ mod tests {
         let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
         let code: String = code.split_whitespace().collect::<Vec<_>>().join(" ");
         for expected in [
-            "pub plan_credit: ww_client_server::credit::SinkCredit,",
-            "fn credit_plan(&mut self, ) -> &mut ww_client_server::credit::SinkCredit { &mut self.plan_credit }",
-            "fn credit_lanes(&mut self, _index_chain: [UNib32; 1], ) -> &mut ww_client_server::credit::SinkCredit",
+            "pub plan_credit: ww_stream::sink::SinkCredit,",
+            "fn credit_plan(&mut self, ) -> &mut ww_stream::sink::SinkCredit { &mut self.plan_credit }",
+            "fn credit_lanes(&mut self, _index_chain: [UNib32; 1], ) -> &mut ww_stream::sink::SinkCredit",
             "fn write_plan(",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");

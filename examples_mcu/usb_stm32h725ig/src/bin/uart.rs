@@ -30,7 +30,7 @@ use static_cell::StaticCell;
 use wire_weaver::prelude::*;
 use wire_weaver_usb_embassy::{LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init};
 use ww_client_server::StreamSideband;
-use ww_client_server::credit::SinkCredit;
+use ww_stream::sink::SinkCredit;
 use ww_stream::tx::Counted;
 use ww_uart::{Baud, Capabilities, RxChunk, UartConfig};
 

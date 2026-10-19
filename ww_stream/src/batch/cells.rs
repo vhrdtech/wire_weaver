@@ -4,6 +4,7 @@ use super::batcher::{Bound, Polled};
 use super::level::{Columns, LevelRow, RowsEncoded};
 use super::{BatchStats, Cause, DefaultPolicy, Encoded};
 use crate::observe::{GateCursor, SampleGate};
+use crate::wake::Wake;
 use core::cell::UnsafeCell;
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
@@ -69,6 +70,9 @@ pub struct RowCells<Row: LevelRowCells, const R: usize> {
     /// The reader's own: rows read (wrapping), and the slot of row `sent`
     sent: AtomicU32,
     r_slot: AtomicU32,
+    /// The row count at which a writer with a wake wakes the server task (SRV-25), set by the reader after each
+    /// poll: the first row of a batch, or the rows that make it full
+    wake_at: AtomicU32,
     writer_claimed: portable_atomic::AtomicBool,
     reader_claimed: portable_atomic::AtomicBool,
 }
@@ -94,6 +98,7 @@ impl<Row: LevelRowCells, const R: usize> RowCells<Row, R> {
             cursor: UnsafeCell::new(GateCursor::new()),
             sent: AtomicU32::new(0),
             r_slot: AtomicU32::new(0),
+            wake_at: AtomicU32::new(1),
             writer_claimed: portable_atomic::AtomicBool::new(false),
             reader_claimed: portable_atomic::AtomicBool::new(false),
         }
@@ -108,6 +113,7 @@ impl<Row: LevelRowCells, const R: usize> RowCells<Row, R> {
             cells: self,
             head: self.head.load(Ordering::Relaxed),
             slot: self.w_slot.load(Ordering::Relaxed) as usize,
+            wake: None,
             #[cfg(debug_assertions)]
             set: 0,
             _not_sync: PhantomData,
@@ -157,6 +163,7 @@ pub struct RowWriter<'a, Row: LevelRowCells, const R: usize> {
     cells: &'a RowCells<Row, R>,
     head: u32,
     slot: usize,
+    wake: Option<&'a Wake>,
     /// The columns set in this row (debug builds check every one is)
     #[cfg(debug_assertions)]
     set: u64,
@@ -164,6 +171,14 @@ pub struct RowWriter<'a, Row: LevelRowCells, const R: usize> {
 }
 
 impl<'a, Row: LevelRowCells, const R: usize> RowWriter<'a, Row, R> {
+    /// Wake the server task (SRV-25) when a committed row is one its `poll_properties` waits for: the first row of
+    /// a batch (its age starts when a poll sees it) or the row that fills it. Without, the server polls the level
+    /// every `max_age`.
+    pub fn with_wake(mut self, wake: &'a Wake) -> Self {
+        self.wake = Some(wake);
+        self
+    }
+
     /// The rows' cells.
     #[inline(always)]
     pub fn rows(&self) -> &'a Row::Cells<R> {
@@ -226,6 +241,15 @@ impl<'a, Row: LevelRowCells, const R: usize> RowWriter<'a, Row, R> {
         fence(Ordering::Release);
         self.slot = if self.slot + 1 == R { 0 } else { self.slot + 1 };
         self.cells.w_slot.store(self.slot as u32, Ordering::Relaxed);
+        if let Some(wake) = self.wake {
+            // the count before the reader's target is read, as the reader's target before the count (`wake_after`
+            // and `waiting`): one of the two sides sees the other's, so a row the reader waits for wakes it or is
+            // seen by its next look
+            fence(Ordering::SeqCst);
+            if self.head == self.cells.wake_at.load(Ordering::Relaxed) {
+                wake.wake();
+            }
+        }
         true
     }
 }
@@ -274,6 +298,9 @@ pub trait CellsSource<Row: LevelRowCells, const N: usize> {
 
     /// Skips every committed row not read yet, returns how many.
     fn skip_all(&self) -> u32;
+
+    /// Wake the server task (a writer [with_wake](RowWriter::with_wake)) once `rows` rows wait (SRV-25).
+    fn wake_after(&self, rows: u32);
 
     /// Gives the reader back.
     fn release(&self);
@@ -386,6 +413,13 @@ impl<Row: LevelRowCells, const R: usize, const N: usize> CellsSource<Row, N> for
         skipped
     }
 
+    fn wake_after(&self, rows: u32) {
+        let at = self.sent.load(Ordering::Relaxed).wrapping_add(rows.max(1));
+        self.wake_at.store(at, Ordering::Relaxed);
+        // the target before the count is read again (`waiting`), see `RowWriter::commit`
+        fence(Ordering::SeqCst);
+    }
+
     fn release(&self) {
         self.reader_claimed.store(false, Ordering::Release);
     }
@@ -478,6 +512,10 @@ where
 
     fn skip_all(&self) -> u32 {
         CellsSource::<Row, N>::skip_all((*self.0).as_ref())
+    }
+
+    fn wake_after(&self, rows: u32) {
+        CellsSource::<Row, N>::wake_after((*self.0).as_ref(), rows)
     }
 
     fn release(&self) {
@@ -655,6 +693,60 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         budget: usize,
         columns: Columns,
     ) -> Polled {
+        let polled = self.poll_cells_inner(src, now_us, max_age_us, budget, columns);
+        self.arm(src);
+        polled
+    }
+
+    /// The rows the next poll waits for, for the writer's wake (SRV-25): the first of a batch (its age starts when a
+    /// poll sees it), or those that fill it to its limit; while a sealed batch waits, a whole next one.
+    fn arm(&self, src: &dyn CellsSource<Row, N>) {
+        let rows = if self.sealed.is_some() {
+            self.limit
+        } else {
+            self.wanted()
+        };
+        src.wake_after(rows as u32);
+    }
+
+    /// Rows the next poll waits for while nothing is sealed: the first (to start the age), or the rest of the batch.
+    fn wanted(&self) -> usize {
+        if self.n == 0 {
+            1
+        } else {
+            self.limit.saturating_sub(self.n).max(1)
+        }
+    }
+
+    /// When the level next has something to do at `now_us` (SRV-25): now when the rows waiting in the ring are
+    /// what the next poll waits for, the age of a filling batch, `None` while it waits for rows (the writer's wake)
+    /// or a sealed batch waits for room (the level's budget). Call after [poll_cells](Self::poll_cells).
+    pub fn next_wake(
+        &self,
+        src: &dyn CellsSource<Row, N>,
+        now_us: u64,
+        max_age_us: Option<u64>,
+    ) -> Option<u64> {
+        if self.sealed.is_some() {
+            return None;
+        }
+        if src.waiting() as usize >= self.wanted() {
+            return Some(now_us);
+        }
+        match (self.first_us, max_age_us) {
+            (Some(first), Some(age)) if self.n > 0 => Some(first.saturating_add(age)),
+            _ => None,
+        }
+    }
+
+    fn poll_cells_inner(
+        &mut self,
+        src: &dyn CellsSource<Row, N>,
+        now_us: u64,
+        max_age_us: Option<u64>,
+        budget: usize,
+        columns: Columns,
+    ) -> Polled {
         let mut polled = Polled::default();
         let new = columns & !self.held;
         if self.n > 0 && new != 0 {
@@ -747,6 +839,7 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
             self.seal(Cause::Flush);
             polled.sealed = Some(Cause::Flush);
         }
+        self.arm(src);
         polled
     }
 
@@ -758,7 +851,9 @@ impl<Row: LevelRowCells, const N: usize, P: SeriesPolicy + Copy> Staged<Row, N, 
         self.sealed = None;
         self.first_us = None;
         self.bytes = 0;
-        rows + src.skip_all() as u64
+        let skipped = src.skip_all() as u64;
+        self.arm(src);
+        rows + skipped
     }
 
     /// Drops the sealed rows unsent (no room ever): returns them, and 0 (lapped rows are reported by

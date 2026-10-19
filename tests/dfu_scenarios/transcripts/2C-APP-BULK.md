@@ -44,24 +44,25 @@
          5 B  02 04 28 00 02
 ← ()
          6 B  02 80 00 00 00 00
-→ bulk.plan: open its session at 0
-         9 B  03 04 18 80 81 41 00 00 02
-← bulk.plan: ack: have 0 units, may send 2062 more bytes
-         8 B  00 83 41 50 00 90 0e 02
-← bulk.plan: opened at 0, buffer of 2062 bytes
-        10 B  03 80 81 41 00 00 40 90 0e 00
-→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 0, 1 unit)
-        75 B  00 04 1a 00 c0 00 00 00 02 04 …
-→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 1, 1 unit)
-        75 B  00 04 1a 01 00 01 00 00 e7 cd …
-→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 2, 1 unit)
-        49 B  00 04 1a 02 40 01 00 00 d6 1a …
+   ── the plan sink continues its session where the device is
+→ bulk.plan: open its session at 3
+         8 B  03 04 18 80 01 03 00 02
+← bulk.plan: ack: have 3 units, may send 2062 more bytes
+         8 B  00 83 41 50 03 90 0e 02
+← bulk.plan: opened at 3, buffer of 2062 bytes
+         9 B  03 80 01 03 03 40 90 0e 00
+→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 3, 1 unit)
+        75 B  00 04 1a 03 c0 00 00 00 02 04 …
+→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 4, 1 unit)
+        75 B  00 04 1a 04 00 01 00 00 e7 cd …
+→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 5, 1 unit)
+        49 B  00 04 1a 05 40 01 00 00 d6 1a …
 ← bulk.plan_ack ⇒ { have: 359, status: Complete }
          9 B  00 82 42 67 01 00 00 20 02
-→ bulk.plan: query: sent 3 units
-         6 B  04 04 16 70 03 02
-← bulk.plan: ack: have 3 units, may send 2062 more bytes
-         8 B  04 83 41 50 03 90 0e 02
+→ bulk.plan: query: sent 6 units
+         6 B  04 04 16 70 06 02
+← bulk.plan: ack: have 6 units, may send 2062 more bytes
+         8 B  04 83 41 50 06 90 0e 02
 → stage.finish()
          4 B  05 03 60 02
 ← Ok(Staged)
@@ -133,25 +134,26 @@
 ←   15 B  08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
 →    6 B  05 02 04 28 00 02
 ←    7 B  06 02 80 00 00 00 00
-→   11 B  08 09 03 04 18 80 81 41 00 00 02
-←   22 B  08 08 00 83 41 50 00 90 0e 02 08 0a 03 80 81 41
-          00 00 40 90 0e 00
-→  212 B  08 4b 00 04 1a 00 c0 00 00 00 02 04 00 04 00 a8
+   ── the plan sink continues its session where the device is
+→   10 B  08 08 03 04 18 80 01 03 00 02
+←   21 B  08 08 00 83 41 50 03 90 0e 02 08 09 03 80 01 03
+          03 40 90 0e 00
+→  212 B  08 4b 00 04 1a 03 c0 00 00 00 02 04 00 04 00 a8
           09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49 c0
           f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d 3c 65
           75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac 8d 6c 95
           a5 54 cf b5 c4 a5 84 ad bd 6c 00 89 02 08 4b 00
-          04 1a 01 00 01 00 00 e7 cd dc bd 9c c5 d5 84 ff
+          04 1a 04 00 01 00 00 e7 cd dc bd 9c c5 d5 84 ff
           e5 f4 d5 b4 dd ed 9c 17 fd 0c ed cc f5 05 b4 2f
           15 03 06 00 d1 8f 7c e6 80 78 12 57 40 00 6f 74
           61 94 9a 86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be
-          02 c4 ca b6 df 63 f8 00 89 02 08 31 00 04 1a 02
+          02 c4 ca b6 df 63 f8 00 89 02 08 31 00 04 1a 05
           40 01 00 00 d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa
           e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a
           16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 04 04
-          16 70 03 02
+          16 70 06 02
 ←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 04 83 41
-          50 03 90 0e 02
+          50 06 90 0e 02
 →    5 B  04 05 03 60 02
 ←    4 B  03 05 80 82
 →    6 B  05 06 01 30 00 02

@@ -94,15 +94,19 @@ device has is answered with `BulkStatus::Gap` and the position to resend from. A
 the bootloader.
 
 **Resume.** `begin_bulk` with the same header answers `resumed: true` and `resume_from` in **bytes** after the header;
-the host sends from there. The transcript shows a host that restarts half way.
+the host sends from there. The `plan` sink continues its own session too: a host that saved `Sink::cursor()` opens it
+again with `plan_resume(cursor)`, which answers how many segments the device has in it (one unit per segment), so
+nothing the device already took is sent again and a device that lost the session (a reset) is reported as
+`StreamError::SinkSessionLost`: the host starts over. See [credit sinks](../api/credit_sinks.md#resume). The
+transcript shows a host that restarts half way.
 
 **What the device checks**: each segment's offset against what it has, each step as it completes (COPY source hash,
 WRITE hash, index ranges), the image against the descriptor in `finish`.
 
 #### Transcript
 
-The host sends three segments, restarts (a new connection), resumes at byte 192, gets one `Complete`, finishes,
-reboots and confirms. Test: `swap_freight_2c_app_bulk` over UDP on localhost.
+The host sends three segments, restarts (a new connection), resumes at byte 192 and continues the `plan` sink's
+session at segment 3, gets one `Complete`, finishes, reboots and confirms. Test: `swap_freight_2c_app_bulk` over UDP on localhost.
 
 --8<-- "tests/dfu_scenarios/transcripts/2C-APP-BULK.md"
 

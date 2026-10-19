@@ -1011,6 +1011,24 @@ impl<T: wire_weaver::shrink_wrap::SerializeShrinkWrapOwned> Sink<T> {
         let bytes = value.to_ww_bytes_owned()?;
         self.try_send_raw(&bytes, 1)
     }
+
+    /// [Self::send_owned] of a value that takes `units` positions of a credit sink, see [Sink::send_units].
+    pub async fn send_owned_units(&mut self, value: T, units: u64) -> Result<(), StreamError> {
+        let bytes = value.to_ww_bytes_owned()?;
+        self.send_raw(bytes, units).await
+    }
+
+    /// Blocking [Self::send_owned_units].
+    pub fn send_owned_units_blocking(&mut self, value: T, units: u64) -> Result<(), StreamError> {
+        let bytes = value.to_ww_bytes_owned()?;
+        self.send_raw_blocking(bytes, units)
+    }
+
+    /// Non-blocking [Self::send_owned_units], see [Sink::try_send].
+    pub fn try_send_owned_units(&mut self, value: &T, units: u64) -> Result<bool, StreamError> {
+        let bytes = value.to_ww_bytes_owned()?;
+        self.try_send_raw(&bytes, units)
+    }
 }
 
 /// Units of a byte sink's payload: its bytes, one for an empty one (every item takes a position).

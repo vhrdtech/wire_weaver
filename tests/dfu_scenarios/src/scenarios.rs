@@ -14,7 +14,7 @@ use crate::host::lean_app::LeanAppClient;
 use crate::host::updater::UpdaterClient;
 use crate::plan::{CHUNK, Plan, chunk_hash, v1, v2};
 use crate::record::check_or_update;
-use crate::{connect, send_bulk, send_steps};
+use crate::{connect, resume_bulk, send_bulk, send_steps};
 
 /// Run a scenario on one thread, host and device side by side as tasks of one runtime: the device as single-threaded
 /// as real firmware, and every run of a scenario the same interleaving of host and device.
@@ -138,6 +138,8 @@ fn swap_freight_2c_app_bulk() {
         assert_eq!(session.resume_from, 0);
         let half = 3 * max_piece;
         let sink = send_bulk!(bulk, plan, 0, half, max_piece);
+        // saved with the host's own progress: the plan sink's session and the segments the device accepted
+        let cursor = sink.cursor().unwrap();
         drop(sink);
         dev.rec.note("host restarts; the device keeps its session");
         host.disconnect().asynch().await.unwrap();
@@ -152,7 +154,10 @@ fn swap_freight_2c_app_bulk() {
             .unwrap();
         assert_eq!((session.resumed, session.resume_from), (true, half));
         let mut acks = bulk.plan_ack().call().await.unwrap();
-        let _sink = send_bulk!(bulk, plan, half, total, max_piece);
+        dev.rec
+            .note("the plan sink continues its session where the device is");
+        let (_sink, at) = resume_bulk!(bulk, cursor, plan, session.resume_from, total, max_piece);
+        assert_eq!(at, 3, "segments the device has");
         let ack = acks.recv().await.unwrap();
         assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
         assert_eq!(

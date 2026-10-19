@@ -123,3 +123,28 @@ macro_rules! send_bulk {
         sink
     }};
 }
+
+/// Continue the `plan` credit sink session of `$cursor` (saved by a host before it restarted) on `$bulk` with the
+/// generated `plan_resume`, then stream plan bytes `$from..$to` (from where the node has them, its `resume_from`) in
+/// segments of `$max_piece` and wait until the device has them all. Returns the sink and the position the device
+/// answered (segments it has in the session).
+#[macro_export]
+macro_rules! resume_bulk {
+    ($bulk:expr, $cursor:expr, $plan:expr, $from:expr, $to:expr, $max_piece:expr) => {{
+        let (mut sink, at) = $bulk.plan_resume($cursor).await.unwrap();
+        let (from, to) = ($from as usize, $to as usize);
+        let mut offset = from;
+        while offset < to {
+            let end = (offset + $max_piece as usize).min(to);
+            sink.send_owned(ww_dfu::PlanSegmentOwned {
+                offset: offset as u32,
+                data: MaxLen::new($plan.body[offset..end].to_vec()).unwrap(),
+            })
+            .await
+            .unwrap();
+            offset = end;
+        }
+        sink.flush().await.unwrap();
+        (sink, at)
+    }};
+}

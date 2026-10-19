@@ -348,9 +348,10 @@ pub enum StreamSideband {
     /// Counted and reliable streams (API-30), receiver to sender: every unit before `have` (live run) and before
     /// `backfill` (backfill run, while there is one) was received; the sender may have up to `grant` bytes of events
     /// in flight beyond them. Cumulative, a lost one is replaced by the next one.
+    // `backfill` first: its flag fills the nibble after the discriminant
     Ack {
-        have: UVlq64,
         backfill: Option<UVlq64>,
+        have: UVlq64,
         grant: UVlq32,
     },
     /// Reliable streams, receiver to sender: units from `from` on are missing (in whichever run `from` falls), send
@@ -360,8 +361,8 @@ pub enum StreamSideband {
     /// where are you?" when out of credit or nothing was heard for a while; answered with [StreamSideband::Ack] or
     /// [StreamSideband::ResendFrom].
     Query {
-        sent: UVlq64,
         backfill: Option<UVlq64>,
+        sent: UVlq64,
     },
 }
 
@@ -793,5 +794,101 @@ mod tests {
         };
         let mut buf = [0u8; 16];
         assert_eq!(event.to_ww_bytes(&mut buf).unwrap().len(), 2);
+    }
+
+    fn bytes<T: SerializeShrinkWrap>(value: &T) -> std::vec::Vec<u8> {
+        let mut buf = [0u8; 64];
+        value.to_ww_bytes(&mut buf).unwrap().to_vec()
+    }
+
+    #[test]
+    fn sink_write_encoding() {
+        let write = |units: Option<u64>, pos: u32, data: &'static [u8]| RequestKind::SinkWrite {
+            units: units.map(UVlq64),
+            pos: UVlq32(pos),
+            data: TailBytes(data),
+        };
+        // one unit: the units flag fills the nibble after the discriminant, as long as a Write of a position
+        // and the item
+        assert_eq!(bytes(&write(None, 5, &[1, 2, 3])), [0xa0, 5, 1, 2, 3]);
+        let plain_write = RequestKind::Write {
+            data: TailBytes(&[5, 1, 2, 3]),
+        };
+        assert_eq!(bytes(&plain_write).len(), 5);
+        // a byte sink names its units: one byte up to 127, two up to 16 Ki
+        assert_eq!(bytes(&write(Some(3), 5, &[1, 2, 3])), [0xa8, 3, 5, 1, 2, 3]);
+        assert_eq!(bytes(&write(Some(200), 5, &[9])), [0xa8, 0x81, 0x48, 5, 9]);
+        // the largest position on the wire (2^28 - 1) takes 4 bytes
+        assert_eq!(
+            bytes(&write(None, (1 << 28) - 1, &[9])),
+            [0xa0, 0xff, 0xff, 0xff, 0x7f, 9]
+        );
+        for kind in [write(None, 300, &[7, 7]), write(Some(1 << 40), 0, &[])] {
+            let b = bytes(&kind);
+            let back = RequestKind::from_ww_bytes(&b).unwrap();
+            let (
+                RequestKind::SinkWrite { units, pos, data },
+                RequestKind::SinkWrite {
+                    units: u,
+                    pos: p,
+                    data: d,
+                },
+            ) = (&kind, &back)
+            else {
+                panic!("{back:?}");
+            };
+            assert_eq!((units, pos, data.0), (u, p, d.0));
+        }
+    }
+
+    #[test]
+    fn sink_sideband_sizes() {
+        // credit sinks put positions modulo 2^28 into the streams' messages: at most 4 bytes each; `backfill`
+        // (streams only) comes first, so its flag takes the nibble after the discriminant
+        let ack = |have: u64, grant: u32| StreamSideband::Ack {
+            have: UVlq64(have),
+            backfill: None,
+            grant: UVlq32(grant),
+        };
+        assert_eq!(bytes(&ack(0, 4096)), [0x80, 0x00, 0xa0, 0x00]);
+        assert_eq!(bytes(&ack((1 << 28) - 1, 4096)).len(), 7);
+        let query = StreamSideband::Query {
+            sent: UVlq64(300),
+            backfill: None,
+        };
+        assert_eq!(bytes(&query), [0xa0, 0x82, 0x2c]);
+        let resend = StreamSideband::ResendFrom {
+            from: UVlq64(5),
+            grant: UVlq32(7),
+        };
+        assert_eq!(bytes(&resend), [0x90, 0x05, 0x07]);
+    }
+
+    #[test]
+    fn opened_with_capacity() {
+        use stream::StreamOpened;
+        let opened = |capacity: Option<u32>| {
+            StreamOpened {
+                session: UVlq32(1),
+                oldest: UVlq64(1000),
+                live_from: UVlq64(1000),
+                resume_from: None,
+                max_age_us: None,
+                capacity: None,
+                result: TailBytes(&[]),
+            }
+            .with_capacity(capacity)
+        };
+        // streams pay nothing for it: its flag shares the byte of the other flags
+        assert_eq!(bytes(&opened(None)), [1, 0x87, 0x68, 0x87, 0x68, 0x00]);
+        assert_eq!(
+            bytes(&opened(Some(4096))),
+            [1, 0x87, 0x68, 0x87, 0x68, 0x40, 0xa0, 0x00, 0x00]
+        );
+        let b = bytes(&opened(Some(4096)));
+        assert_eq!(
+            StreamOpened::from_ww_bytes(&b).unwrap().capacity,
+            Some(UVlq32(4096))
+        );
     }
 }

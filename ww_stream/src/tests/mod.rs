@@ -6,6 +6,7 @@ mod receiver;
 mod reliable;
 mod sim;
 mod sink;
+mod sink_sim;
 
 use core::future::Future;
 use core::pin::pin;

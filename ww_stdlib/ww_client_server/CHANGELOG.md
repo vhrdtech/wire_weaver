@@ -2,6 +2,8 @@
 
 ### ⚠️ Breaking
 
+- Wire (API-34): `StreamSideband::Ack` and `Query` take `backfill` first, so its flag fills the nibble after the discriminant: an `Ack` without a backfill run is a byte shorter (`80 00 a0 00` for `have` 0 and a 4 KiB grant), a `Query` too. Reliable streams on both sides must be built with this version; Rust code naming the fields is unchanged.
+- Wire (API-34): `StreamOpened` gets `capacity: Option<UVlq32>` before `max_age_us` (a credit sink's buffer, `None` for streams, `with_capacity`). An open answer is as long as before; a batched stream's (with `max_age_us`) has other bits in its flag byte. Code that builds `StreamOpened` by hand adds `capacity: None`.
 - No `NumericValue::U64` on devices: `ww_si` is pulled in with `time` and `u32` only, no longer `u64`. Stream heads
   and observe timestamps are `Second { Micro, U32 }` on a device; every `NumericValue` (and `NumericValueStore`
   payload) used to be 64-bit on every firmware that depended on this crate. Hosts get `U64` through `std`

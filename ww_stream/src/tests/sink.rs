@@ -164,11 +164,29 @@ fn no_session_answers_close_once() {
     assert_eq!(c.take_ack(), None);
     c.open(cursor(3, 42));
     assert_eq!(c.have(), 0);
-    // closed by the host: late writes are dropped without a word
+    // closed: writes are refused with a Close, once
     c.close();
-    assert_eq!(c.on_write(0, 1, 1), SinkVerdict::NoSession(None));
+    assert_eq!(
+        c.on_write(0, 1, 1),
+        SinkVerdict::NoSession(Some(StreamSideband::Close))
+    );
     assert_eq!(c.on_query(0), None);
     assert!(!c.status().open);
+}
+
+#[test]
+fn late_duplicate_close_costs_a_reopen_not_the_session() {
+    let mut c = device(100);
+    assert_eq!(c.on_write(0, 5, 5), SinkVerdict::Accept);
+    c.close();
+    // the host, still writing, hears the Close and opens its session again: everything kept
+    assert_eq!(
+        c.on_write(5, 5, 5),
+        SinkVerdict::NoSession(Some(StreamSideband::Close))
+    );
+    assert_eq!(c.open(cursor(1, 5)), opened_at(1, 5));
+    assert_eq!(c.on_write(5, 5, 5), SinkVerdict::Accept);
+    assert_eq!((c.have(), c.buffered()), (10, 10));
 }
 
 #[test]
@@ -374,7 +392,7 @@ fn config() -> SinkConfig {
 fn host(window: u32) -> SinkTx {
     let mut h = SinkTx::new(config());
     h.open(1, 0);
-    assert_eq!(h.opened(&opened_at(1, 0), 0), Ok(0));
+    assert_eq!(h.opened(&opened_at(1, 0), None, 0), Ok(0));
     assert_eq!(h.on_sideband(&ack(0, window), 0), SinkSideband::Credit);
     h
 }
@@ -394,12 +412,15 @@ fn waits_for_the_answer_and_ignores_stale() {
     assert_eq!(send(&mut h, 1, 1), None);
     // from a previous session, before the answer
     assert_eq!(h.on_sideband(&ack(100, 10), 0), SinkSideband::Credit);
-    assert_eq!(h.opened(&opened_at(4, 0), 0), Err(SinkOpenError::Stale));
+    assert_eq!(
+        h.opened(&opened_at(4, 0), None, 0),
+        Err(SinkOpenError::Stale)
+    );
     assert_eq!(
         h.on_sideband(&StreamSideband::FrameSync, 0),
         SinkSideband::Other
     );
-    assert_eq!(h.opened(&opened_at(5, 0), 0), Ok(0));
+    assert_eq!(h.opened(&opened_at(5, 0), None, 0), Ok(0));
     assert_eq!(send(&mut h, 1, 1), None, "no grant yet");
     h.on_sideband(&ack(0, 10), 0);
     assert_eq!(send(&mut h, 1, 1), Some(0));
@@ -533,7 +554,7 @@ fn query_and_stall() {
         Some(SinkDue::Open(cursor(1, 0))),
         "the open again"
     );
-    h.opened(&opened_at(1, 0), 15).unwrap();
+    h.opened(&opened_at(1, 0), None, 15).unwrap();
     h.on_sideband(&ack(0, 10), 15);
     send(&mut h, 10, 1).unwrap();
     assert_eq!(
@@ -551,7 +572,7 @@ fn positions_wrap_on_the_wire_host() {
     for start in [M - 25, 3 * M - 1, (1 << 40) - 7] {
         let mut h = SinkTx::new(config());
         h.open_at(2, start, 0);
-        assert_eq!(h.opened(&opened_at(2, start), 0), Ok(start));
+        assert_eq!(h.opened(&opened_at(2, start), None, 0), Ok(start));
         h.on_sideband(&ack(start, 100), 0);
         let sent: Vec<u32> = (0..5).map(|_| send(&mut h, 10, 10).unwrap()).collect();
         assert_eq!(sent, [0, 10, 20, 30, 40].map(|d| wire_pos(start + d)));
@@ -582,7 +603,7 @@ fn reconnect_resends_what_the_device_lacks() {
     assert_eq!(h.acked(), 10);
     assert_eq!(h.resume(5), Some(cursor(1, 10)));
     // the device got 10..20 before the link went down
-    assert_eq!(h.opened(&opened_at(1, 20), 5), Ok(20));
+    assert_eq!(h.opened(&opened_at(1, 20), None, 5), Ok(20));
     assert_eq!(h.acked(), 20);
     assert_eq!(resent(&mut h), [], "no grant yet");
     h.on_sideband(&ack(20, 100), 5);
@@ -605,7 +626,7 @@ fn device_closed_then_session_lost() {
     assert_eq!(h.resume(1), Some(cursor(1, 10)));
     // it starts the host's session at 0
     assert_eq!(
-        h.opened(&opened_at(1, 0), 2),
+        h.opened(&opened_at(1, 0), None, 2),
         Err(SinkOpenError::SessionLost {
             device_at: 0,
             acked: 10
@@ -620,14 +641,14 @@ fn restarted_host_continues_where_the_device_is() {
     // the old host saved its cursor at 30; the device got up to 50 before the old host went away
     let mut h = SinkTx::new(config());
     assert_eq!(h.resume_from(cursor(9, 30), 0), cursor(9, 30));
-    assert_eq!(h.opened(&opened_at(9, 50), 0), Ok(50));
+    assert_eq!(h.opened(&opened_at(9, 50), None, 0), Ok(50));
     assert_eq!((h.acked(), h.sent()), (50, 50));
     h.on_sideband(&ack(50, 100), 0);
     assert_eq!(send(&mut h, 5, 5), Some(50));
     // a device at the cursor itself
     let mut h = SinkTx::new(config());
     h.resume_from(cursor(9, 30), 0);
-    assert_eq!(h.opened(&opened_at(9, 30), 0), Ok(30));
+    assert_eq!(h.opened(&opened_at(9, 30), None, 0), Ok(30));
 }
 
 #[test]
@@ -637,7 +658,7 @@ fn device_ahead_with_items_in_flight_is_refused() {
     h.link_lost();
     h.resume(0);
     assert_eq!(
-        h.opened(&opened_at(1, 50), 0),
+        h.opened(&opened_at(1, 50), None, 0),
         Err(SinkOpenError::Ahead {
             device_at: 50,
             sent: 10
@@ -666,7 +687,7 @@ fn transfer(items: &[(Vec<u8>, u64)], capacity: u32) -> Vec<Vec<u8>> {
     let mut got = Vec::new();
     let c = h.open(42, 0);
     let opened = d.open(c);
-    h.opened(&opened, 0).unwrap();
+    h.opened(&opened, Some(capacity), 0).unwrap();
     let mut to_host: Vec<StreamSideband> = d.take_ack().into_iter().collect();
     let mut next = 0;
     let mut now = 0;

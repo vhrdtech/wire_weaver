@@ -18,8 +18,11 @@ use ww_client_server::stream::{StoreStatus, StreamStatus};
 pub struct SinkCredit {
     capacity: u32,
     threshold: u32,
-    /// Session the host opened, None before the first open and after a close
+    /// Session the host opened last, None before the first open
     session: Option<u32>,
+    /// The host has it open: from an open to a close. A closed session is kept, so that a late duplicate close
+    /// (UDP) costs the host a reopen of the same session, not the session
+    open: bool,
     /// Units accepted in order: the position of the next expected write
     have: u64,
     /// Bytes of items accepted in this session
@@ -81,8 +84,9 @@ pub enum SinkVerdict {
     Duplicate,
     /// Something before it was lost, drop it and send the event if there is one (a `ResendFrom`, once per gap).
     Gap(Option<StreamSideband>),
-    /// No session: the host didn't open the sink, or the device lost its session (a reboot). Drop it and send the
-    /// event if there is one (a `Close`, once until the next open), so the host opens again.
+    /// Not open: the host didn't open the sink, closed it, or the device lost its session (a reboot). Drop it and
+    /// send the event if there is one (a `Close`, once until the next open), so a host that thinks it is open opens
+    /// again.
     NoSession(Option<StreamSideband>),
     /// No host sends this (a position not below the modulus, 0 units): drop it.
     Invalid,
@@ -101,6 +105,7 @@ impl SinkCredit {
             capacity,
             threshold: Self::clamp_threshold(capacity / 2, capacity, 0),
             session: None,
+            open: false,
             have: 0,
             accepted: 0,
             freed: 0,
@@ -223,9 +228,14 @@ impl SinkCredit {
         self.threshold
     }
 
-    /// Session the host opened, None before the first open and after a close.
+    /// Session the host opened last, None before the first open (kept after a close).
     pub fn session(&self) -> Option<u32> {
         self.session
+    }
+
+    /// The host has the sink open: from an open to a close.
+    pub fn is_open(&self) -> bool {
+        self.open
     }
 
     /// Units accepted in order in this session, also the position of the next expected write.
@@ -285,6 +295,7 @@ impl SinkCredit {
         if self.session != Some(session) {
             self.start(session, 0);
         }
+        self.open = true;
         self.owed = true;
         self.resend_armed = true;
         self.opened()
@@ -295,6 +306,7 @@ impl SinkCredit {
     /// [SinkTx::open_at](super::SinkTx::open_at) at the same position.
     pub fn open_at(&mut self, session: u32, pos: u64) -> Opened {
         self.start(session, pos);
+        self.open = true;
         self.owed = true;
         self.resend_armed = true;
         self.opened()
@@ -318,12 +330,13 @@ impl SinkCredit {
         }
     }
 
-    /// The host closed the sink (sideband `Close`): the session is over. Bytes still buffered are user code's to
-    /// [Self::free]; the next session starts with the whole capacity.
+    /// The host closed the sink (sideband `Close`). Bytes still buffered are user code's to [Self::free]; the next
+    /// session starts with the whole capacity. The session is kept: writes are refused until an open, and an open
+    /// of the same session (the host's answer to a late duplicate `Close`) goes on where it was.
     pub fn close(&mut self) {
-        self.session = None;
+        self.open = false;
         self.owed = false;
-        self.close_armed = false;
+        self.close_armed = true;
     }
 
     /// A write of an item of `len` bytes and `units` units (1 when the write carries none) at position `pos` (as on
@@ -332,7 +345,7 @@ impl SinkCredit {
         if units == 0 {
             return SinkVerdict::Invalid;
         }
-        if self.session.is_none() {
+        if !self.open {
             return SinkVerdict::NoSession(self.close_once());
         }
         let Some(pos) = extend_pos(self.have, pos as u64) else {
@@ -377,7 +390,9 @@ impl SinkCredit {
     /// Ack to send to the host, if one is owed (after an open) or the limit moved by at least the threshold since
     /// the last one.
     pub fn take_ack(&mut self) -> Option<StreamSideband> {
-        self.session?;
+        if !self.open {
+            return None;
+        }
         let limit = self.limit();
         if self.owed || limit >= self.granted + self.threshold as u64 {
             Some(self.ack())
@@ -390,7 +405,7 @@ impl SinkCredit {
     /// writes before `sent` are missing, `Ack` otherwise; `Close` (once) without a session. None for a position
     /// no host sends.
     pub fn on_query(&mut self, sent: u64) -> Option<StreamSideband> {
-        if self.session.is_none() {
+        if !self.open {
             return self.close_once();
         }
         let sent = extend_pos(self.have, sent)?;
@@ -405,7 +420,7 @@ impl SinkCredit {
     /// State for a read on the sink: open, session, position, bytes buffered and capacity.
     pub fn status(&self) -> StreamStatus {
         StreamStatus {
-            open: self.session.is_some(),
+            open: self.open,
             session: self.session.map(UVlq32),
             next: UVlq64(self.have),
             oldest: None,

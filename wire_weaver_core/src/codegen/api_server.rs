@@ -1907,6 +1907,7 @@ fn handle_stream_fn(
             oldest: wire_weaver::shrink_wrap::UVlq64(0),
             live_from: wire_weaver::shrink_wrap::UVlq64(0),
             resume_from: None,
+            capacity: None,
             max_age_us: None,
             result: TailBytes(&[]),
         }

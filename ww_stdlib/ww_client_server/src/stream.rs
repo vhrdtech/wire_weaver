@@ -113,6 +113,10 @@ pub struct StreamOpened<'i> {
     pub live_from: UVlq64,
     /// Where the backfill run starts, `None` when there is no backfill.
     pub resume_from: Option<UVlq64>,
+    /// Credit sinks (API-34): the device's buffer in bytes, the largest grant it can give, so a host that resumes
+    /// (whose first grant is the buffer minus what the device still holds) knows which items can ever fit; `None`
+    /// for streams.
+    pub capacity: Option<UVlq32>,
     /// Batched streams (API-41): the most a batch waits on the device before it is sent, in µs, granted for the
     /// `max_age_us` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn't batched.
     pub max_age_us: Option<UNib32>,
@@ -127,6 +131,12 @@ impl StreamOpened<'_> {
         self
     }
 
+    /// With the buffer of a credit sink (API-34).
+    pub fn with_capacity(mut self, capacity: Option<u32>) -> Self {
+        self.capacity = capacity.map(UVlq32);
+        self
+    }
+
     /// Write everything but `result`, byte aligned, so that the stream function's result can follow in place,
     /// serialized with its own sizes at the back of the buffer, as a method's return value is in
     /// [EventKind::Value](crate::EventKind::Value). Same bytes as serializing `self` with the result in `result`.
@@ -136,6 +146,7 @@ impl StreamOpened<'_> {
         wr.write(&self.oldest)?;
         wr.write(&self.live_from)?;
         wr.write(&self.resume_from)?;
+        wr.write(&self.capacity)?;
         wr.write(&self.max_age_us)?;
         wr.align_byte();
         Ok(())
@@ -642,6 +653,7 @@ mod tests {
             live_from: UVlq64(1000),
             resume_from: Some(UVlq64(10)),
             max_age_us: None,
+            capacity: None,
             result: TailBytes(&[0xaa]),
         };
         let b = opened.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -718,6 +730,7 @@ mod tests {
             live_from: UVlq64(300),
             resume_from: Some(UVlq64(2)),
             max_age_us: Some(UNib32(20_000)),
+            capacity: None,
             result: TailBytes(&result_bytes),
         };
         let mut buf = [0u8; 64];

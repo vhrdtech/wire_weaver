@@ -230,11 +230,22 @@ impl SinkTx {
         self.open_at(cursor.session.0, cursor.pos.0, now_ms)
     }
 
-    /// The device answered the open (its [Opened], from `StreamOpened`): returns where it is, the position from
-    /// which items continue. Its `Ack` with the grant comes next.
-    pub fn opened(&mut self, opened: &Opened, now_ms: u64) -> Result<u64, SinkOpenError> {
+    /// The device answered the open (its [Opened] and `capacity`, from `StreamOpened`): returns where it is, the
+    /// position from which items continue. Its `Ack` with the grant comes next.
+    ///
+    /// `capacity` is the device's buffer, the most it can ever grant: an item bigger than that fails with
+    /// [SinkTxError::ItemTooBig]. Without it (a device that doesn't say), the largest grant seen counts.
+    pub fn opened(
+        &mut self,
+        opened: &Opened,
+        capacity: Option<u32>,
+        now_ms: u64,
+    ) -> Result<u64, SinkOpenError> {
         if self.session != Some(opened.session) {
             return Err(SinkOpenError::Stale);
+        }
+        if let Some(capacity) = capacity {
+            self.window = self.window.max(capacity.min(MAX_WINDOW));
         }
         let device_at = opened.live_from;
         if device_at < self.acked {

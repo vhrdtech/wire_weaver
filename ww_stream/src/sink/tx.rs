@@ -41,7 +41,7 @@ pub enum SinkDue {
 }
 
 /// A write to send, see [SinkTx::try_new] and [SinkTx::next_resend]: the fields of
-/// [RequestKind::SinkWrite](ww_client_server::RequestKind::SinkWrite).
+/// a write to the sink, [RequestKind::sink_write](ww_client_server::RequestKind::sink_write).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SinkWriteOut<'a> {
     /// Units of the item, None for one.

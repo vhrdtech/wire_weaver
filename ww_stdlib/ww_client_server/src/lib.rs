@@ -164,18 +164,23 @@ pub enum RequestKind<'i> {
     /// [EventKind::PropertyUpdate].
     Observe { cfg: ObserveRequest<'i> },
 
-    /// Write an item to a credit sink (API-34): its position in units from the start of the session, modulo 2^28
-    /// (`ww_stream::sink::wire_pos`), its units when not 1, and the item itself, the serialized value. Not
-    /// answered; the device acknowledges with [StreamSideband::Ack] and asks for lost writes with
-    /// [StreamSideband::ResendFrom].
+    /// Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,
+    /// modulo 2^28 (`ww_stream::sink::wire_pos`), and the item itself, the serialized value. Not answered; the
+    /// device acknowledges with [StreamSideband::Ack] and asks for lost writes with [StreamSideband::ResendFrom].
     ///
-    /// `units` comes first, so that its flag fills the nibble after the discriminant: a write of one unit costs
-    /// exactly what a plain [RequestKind::Write] of the position and the item would.
+    /// Exactly as long as a plain [RequestKind::Write] of the position and the item. Items of other unit counts are
+    /// [RequestKind::SinkWriteUnits]: a flag for the units would cost a byte whenever the discriminant ends a byte
+    /// (found in real requests), a variant of its own costs nothing. Build and read both with
+    /// [RequestKind::sink_write] and [RequestKind::as_sink_write].
     SinkWrite {
-        /// Units of the item, `None` for one (the default of typed sinks); a byte sink names the bytes of its
-        /// payload. Never 0.
-        units: Option<UVlq64>,
         /// Position of the item's first unit, modulo 2^28.
+        pos: UVlq32,
+        data: TailBytes<'i>,
+    },
+    /// [RequestKind::SinkWrite] of an item with `units` units other than 1, which the host names (a byte sink: the
+    /// bytes of its payload). Never 0.
+    SinkWriteUnits {
+        units: UVlq64,
         pos: UVlq32,
         data: TailBytes<'i>,
     },
@@ -646,7 +651,36 @@ impl RequestKind<'_> {
             RequestKind::StreamOpen { .. } => EventKindDiscriminants::Value,
             RequestKind::Observe { .. } => EventKindDiscriminants::Value,
             // not answered: acknowledged by sideband, only an error comes back
-            RequestKind::SinkWrite { .. } => EventKindDiscriminants::Written,
+            RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. } => {
+                EventKindDiscriminants::Written
+            }
+        }
+    }
+}
+
+impl<'i> RequestKind<'i> {
+    /// A write to a credit sink: [RequestKind::SinkWrite] for one unit, [RequestKind::SinkWriteUnits] otherwise.
+    pub fn sink_write(units: u64, pos: u32, data: &'i [u8]) -> Self {
+        if units == 1 {
+            RequestKind::SinkWrite {
+                pos: UVlq32(pos),
+                data: TailBytes(data),
+            }
+        } else {
+            RequestKind::SinkWriteUnits {
+                units: UVlq64(units),
+                pos: UVlq32(pos),
+                data: TailBytes(data),
+            }
+        }
+    }
+
+    /// `(units, pos, data)` of a write to a credit sink, None for other requests.
+    pub fn as_sink_write(&self) -> Option<(u64, u32, &'i [u8])> {
+        match self {
+            RequestKind::SinkWrite { pos, data } => Some((1, pos.0, data.0)),
+            RequestKind::SinkWriteUnits { units, pos, data } => Some((units.0, pos.0, data.0)),
+            _ => None,
         }
     }
 }
@@ -700,7 +734,11 @@ impl RequestKind<'_> {
                 max_age_us: *max_age_us,
                 args: args.make_owned(),
             },
-            RequestKind::SinkWrite { units, pos, data } => RequestKindOwned::SinkWrite {
+            RequestKind::SinkWrite { pos, data } => RequestKindOwned::SinkWrite {
+                pos: *pos,
+                data: data.make_owned(),
+            },
+            RequestKind::SinkWriteUnits { units, pos, data } => RequestKindOwned::SinkWriteUnits {
                 units: *units,
                 pos: *pos,
                 data: data.make_owned(),
@@ -803,41 +841,49 @@ mod tests {
 
     #[test]
     fn sink_write_encoding() {
-        let write = |units: Option<u64>, pos: u32, data: &'static [u8]| RequestKind::SinkWrite {
-            units: units.map(UVlq64),
-            pos: UVlq32(pos),
-            data: TailBytes(data),
-        };
-        // one unit: the units flag fills the nibble after the discriminant, as long as a Write of a position
-        // and the item
-        assert_eq!(bytes(&write(None, 5, &[1, 2, 3])), [0xa0, 5, 1, 2, 3]);
-        let plain_write = RequestKind::Write {
-            data: TailBytes(&[5, 1, 2, 3]),
-        };
-        assert_eq!(bytes(&plain_write).len(), 5);
+        let write =
+            |units: u64, pos: u32, data: &'static [u8]| RequestKind::sink_write(units, pos, data);
+        // one unit: as long as a Write of a position and the item
+        assert_eq!(bytes(&write(1, 5, &[1, 2, 3])), [0xa0, 5, 1, 2, 3]);
+        assert_eq!(
+            bytes(&RequestKind::Write {
+                data: TailBytes(&[5, 1, 2, 3])
+            }),
+            [0x40, 5, 1, 2, 3]
+        );
         // a byte sink names its units: one byte up to 127, two up to 16 Ki
-        assert_eq!(bytes(&write(Some(3), 5, &[1, 2, 3])), [0xa8, 3, 5, 1, 2, 3]);
-        assert_eq!(bytes(&write(Some(200), 5, &[9])), [0xa8, 0x81, 0x48, 5, 9]);
+        assert_eq!(bytes(&write(3, 5, &[1, 2, 3])), [0xb0, 3, 5, 1, 2, 3]);
+        assert_eq!(bytes(&write(200, 5, &[9])), [0xb0, 0x81, 0x48, 5, 9]);
         // the largest position on the wire (2^28 - 1) takes 4 bytes
         assert_eq!(
-            bytes(&write(None, (1 << 28) - 1, &[9])),
+            bytes(&write(1, (1 << 28) - 1, &[9])),
             [0xa0, 0xff, 0xff, 0xff, 0x7f, 9]
         );
-        for kind in [write(None, 300, &[7, 7]), write(Some(1 << 40), 0, &[])] {
-            let b = bytes(&kind);
+        for (units, pos, data) in [(1u64, 300u32, &[7u8, 7][..]), (1 << 40, 0, &[])] {
+            let b = bytes(&RequestKind::sink_write(units, pos, data));
             let back = RequestKind::from_ww_bytes(&b).unwrap();
-            let (
-                RequestKind::SinkWrite { units, pos, data },
-                RequestKind::SinkWrite {
-                    units: u,
-                    pos: p,
-                    data: d,
-                },
-            ) = (&kind, &back)
-            else {
-                panic!("{back:?}");
+            assert_eq!(back.as_sink_write(), Some((units, pos, data)));
+        }
+        assert_eq!(RequestKind::Read.as_sink_write(), None);
+    }
+
+    #[test]
+    fn sink_write_in_a_request_is_as_long_as_a_write() {
+        // in a whole request the discriminant's nibble lands on either half of a byte, depending on the path
+        for path in [&[3u32][..], &[3, 1], &[3, 1, 2]] {
+            let path: std::vec::Vec<UNib32> = path.iter().map(|i| UNib32(*i)).collect();
+            let request = |kind| Request {
+                seq: UVlq32Backfill(0),
+                path_kind: PathKind::absolute(&path),
+                kind,
             };
-            assert_eq!((units, pos, data.0), (u, p, d.0));
+            let write = bytes(&request(RequestKind::Write {
+                data: TailBytes(&[5, 1, 2, 3]),
+            }));
+            let sink = bytes(&request(RequestKind::sink_write(1, 5, &[1, 2, 3])));
+            assert_eq!(sink.len(), write.len(), "path {path:?}");
+            let units = bytes(&request(RequestKind::sink_write(3, 5, &[1, 2, 3])));
+            assert_eq!(units.len(), write.len() + 1, "path {path:?}");
         }
     }
 

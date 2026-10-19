@@ -20,7 +20,16 @@
 //!
 //! **The sender names the session**: the host opens every session with a [StreamCursor], a new session at position 0,
 //! or its own session again after a reconnect or a restart. The device keeps a session it is in (a repeated open,
-//! also a late duplicate on UDP, changes nothing) and starts at 0 for any other.
+//! also a late duplicate on UDP, changes nothing) and starts at 0 for any other. A `Close` keeps the session too,
+//! so a late duplicate `Close` costs the host a reopen of the same session (the device answers its next write with
+//! a `Close`, see [SinkVerdict::NoSession]), nothing else. What the protocol can't tell apart: an open of an
+//! *earlier* session that arrives after a later one started (a datagram held back across a whole close and open)
+//! starts that earlier session again, and the host stalls until its `stall_timeout`.
+//!
+//! **A device that reboots** loses its session: it answers the host's writes and queries with a `Close`, the host
+//! opens its session again, and the device starts it at 0. A host that had acknowledged progress learns that it
+//! was lost ([SinkOpenError::SessionLost]); items the device took but never acknowledged before the reboot are sent
+//! again (at least once until acknowledged, exactly once only while the device keeps its session).
 //!
 //! [StreamSideband::Ack]: ww_client_server::StreamSideband::Ack
 //! [StreamSideband::Query]: ww_client_server::StreamSideband::Query

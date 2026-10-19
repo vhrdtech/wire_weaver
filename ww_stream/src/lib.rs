@@ -29,6 +29,7 @@ pub mod rx;
 pub mod sched;
 pub mod store;
 pub mod tx;
+pub mod wake;
 
 pub use ww_client_server::stream::{
     HeadExt, StoreStatus, StreamCursor, StreamHead, StreamOpened, StreamStatus,

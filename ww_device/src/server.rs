@@ -41,6 +41,14 @@ impl Clock for EmbassyClock {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Ready(ReadyKind);
 
+impl Ready {
+    /// The time given to [Server::wait_until] came: nothing for the link, time for the user's own work due then
+    /// (`poll_properties` at its `next_wake`). [Server::handle] does nothing with it.
+    pub fn is_due(&self) -> bool {
+        matches!(self.0, ReadyKind::Due)
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 enum ReadyKind {
@@ -48,6 +56,7 @@ enum ReadyKind {
     TransportDown,
     Message,
     Timeout,
+    Due,
 }
 
 /// Device side event loop building block.
@@ -153,18 +162,44 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
     /// Wait for something to [handle](Self::handle): a received message, a timer or the medium
     /// going up or down. Cancel-safe.
     pub async fn wait(&mut self) -> Ready {
+        self.wait_until(None).await
+    }
+
+    /// [wait](Self::wait), and also return when `at` comes ([Ready::is_due]): the device's next own deadline, e.g.
+    /// `ObserveState::next_wake` (SRV-25), so its event loop sleeps until something is due instead of waking on a
+    /// fixed tick. `None` waits as [wait](Self::wait) does. Cancel-safe.
+    pub async fn wait_until(&mut self, at: Option<Instant>) -> Ready {
         if self.link.wants_transmit() {
             // e.g., after Self::disconnect() was called outside of handle()
             return Ready(ReadyKind::Timeout);
         }
+        let clock = &self.clock;
+        let due = async {
+            match at {
+                Some(at) => clock.wait_until(at).await,
+                None => pending().await,
+            }
+        };
         if self.link.phase() == Phase::Down {
-            self.rx.wait_connected().await;
-            return Ready(ReadyKind::TransportUp);
+            return match select(self.rx.wait_connected(), due).await {
+                Either::First(()) => Ready(ReadyKind::TransportUp),
+                Either::Second(()) => Ready(ReadyKind::Due),
+            };
         }
         let deadline = self.link.poll_timeout();
-        let clock = &self.clock;
+        // the link's own deadline first when both are the same
+        let user_first = match (deadline, at) {
+            (Some(link), Some(at)) => at < link,
+            (None, Some(_)) => true,
+            (_, None) => false,
+        };
+        let (timer_at, kind) = if user_first {
+            (at, ReadyKind::Due)
+        } else {
+            (deadline, ReadyKind::Timeout)
+        };
         let timer = async {
-            match deadline {
+            match timer_at {
                 Some(at) => clock.wait_until(at).await,
                 None => pending().await,
             }
@@ -172,8 +207,13 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
         match select(self.rx.wait_message(), timer).await {
             Either::First(Ok(())) => Ready(ReadyKind::Message),
             Either::First(Err(_)) => Ready(ReadyKind::TransportDown),
-            Either::Second(()) => Ready(ReadyKind::Timeout),
+            Either::Second(()) => Ready(kind),
         }
+    }
+
+    /// Now on the server's clock, e.g. for `ObserveState::next_wake` and `poll_properties`.
+    pub fn now(&self) -> Instant {
+        self.clock.now()
     }
 
     /// Act on what [wait](Self::wait) returned: link setup, requests to the backend, pings, flushes.
@@ -195,6 +235,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                 self.link.on_transport_down();
             }
             ReadyKind::Timeout => self.link.handle_timeout(now),
+            ReadyKind::Due => return None,
             ReadyKind::Message => {
                 if let Some((kind, message)) = self.rx.message() {
                     match self.link.handle_message(now, kind, message) {

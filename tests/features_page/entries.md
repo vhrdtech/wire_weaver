@@ -136,6 +136,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
+- SRV-25 | Event-driven observe | The device sleeps until an observed property is due, and wakes at once when one changes. | api/observing.md#the-device-side
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros instead of crashing. | api/ecc_flash.md
 
 ## Nomicon

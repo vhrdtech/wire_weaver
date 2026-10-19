@@ -39,6 +39,7 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1"
+atomic-waker = { version = "1.1", features = ["portable-atomic"] }
 cc = "1.2"
 clap = "4.5"
 clap_complete = "4.6"

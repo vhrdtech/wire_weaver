@@ -22,6 +22,7 @@ sdmmc = ["log-store", "dep:embedded-sdmmc-types"]
 nor-flash = ["log-store", "dep:embedded-storage-async"]
 
 [dependencies]
+atomic-waker.workspace = true
 cnt = { workspace = true, optional = true }
 crc = { workspace = true, optional = true }
 embedded-sdmmc-types = { version = "0.1", optional = true }

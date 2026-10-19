@@ -707,6 +707,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at `z`, -1.7 KiB at 3. `Error::site()`, the host prints `Unimplemented at item site 2 (handler)`.
   `docs/api/errors.md#where-on-the-device-an-error-came-from`; tests `tests/methods`, `tests/traits`.
+- ✅ **SRV-23 observe-table-unsized One observe table code for every level** — `ww_stream::observe::ObserveTable<S: ?Sized = [Slot]>`: a level stores `ObserveTable<[Slot; N]>`, the methods (`apply`, `plan`, `commit`, ...) are compiled once, on `ObserveTable<[Slot]>`; `LevelDesc` is slices, the plan and the selection keep their per-slot state in caller storage (`Due`, `Mark`), and levels without observable properties answer `Observe` through one shared path (`refuse_all`). Donguru: −13.3 KiB flash at `opt-level = 3`, −9.4 KiB at `z`. `ww_stream/src/observe.rs`, `docs/api/observing.md#the-device-side`.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature

@@ -105,17 +105,21 @@ impl Default for ObserveLimits {
 /// The observable properties of one trait level, generated: `observable[k]` is the resource index of the
 /// property in slot `k` of the level's [ObserveTable], increasing.
 #[derive(Debug, Clone, Copy)]
-pub struct LevelDesc<const N: usize> {
+pub struct LevelDesc<'a> {
     /// Number of resource indices of the level (largest one + 1), properties or not.
     pub item_count: u32,
-    pub observable: [u32; N],
+    pub observable: &'a [u32],
     /// `+batched` (API-39): the slot takes `Samples` mode, its value is written as a `Batched`.
-    pub batched: [bool; N],
+    pub batched: &'a [bool],
 }
 
-impl<const N: usize> LevelDesc<N> {
+impl LevelDesc<'_> {
     fn slot_of(&self, index: u32) -> Option<usize> {
         self.observable.binary_search(&index).ok()
+    }
+
+    fn is_batched(&self, k: usize) -> bool {
+        self.batched.get(k).copied().unwrap_or(false)
     }
 
     /// Upper bound of the presence header of an update: never longer than the dense mode's, a mode nibble,
@@ -207,8 +211,9 @@ impl Mode {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
-struct Slot {
+/// Settings and send state of one observable property in an [ObserveTable].
+#[derive(Debug, Clone, Copy)]
+pub struct Slot {
     mode: Mode,
     /// Periodic: the next send on the grid.
     next_due: u64,
@@ -222,6 +227,38 @@ struct Slot {
     waiting: Option<u64>,
     /// Just started being observed: sent once at the next poll.
     start: bool,
+    /// Seen while [ObserveTable::apply] goes through a request, false otherwise.
+    mark: bool,
+}
+
+impl Slot {
+    /// Not observed.
+    pub const OFF: Slot = Slot {
+        mode: Mode::Off,
+        next_due: 0,
+        last_sent: None,
+        dirty: false,
+        slipped: false,
+        waiting: None,
+        start: false,
+        mark: false,
+    };
+
+    /// Observed in `mode` from now on, sent once right away; a change waiting to be sent stays.
+    fn restart(&mut self, mode: Mode) {
+        *self = Slot {
+            mode,
+            dirty: self.dirty,
+            start: mode != Mode::Off,
+            ..Slot::OFF
+        };
+    }
+}
+
+impl Default for Slot {
+    fn default() -> Self {
+        Slot::OFF
+    }
 }
 
 /// Why an `Observe` request was refused as a whole, nothing applied.
@@ -233,10 +270,13 @@ pub enum ObserveError {
     TooManyRefused,
 }
 
-/// Observe settings and send state of one trait level with `N` observable properties.
+/// Observe settings and send state of one trait level: a [Slot] per observable property.
+///
+/// A level keeps an `ObserveTable<[Slot; N]>`, sized at compile time; the methods are on `ObserveTable<[Slot]>`,
+/// the same code for every level, reached through `Deref` (or the coercion of `&mut ObserveTable<[Slot; N]>` to
+/// `&mut ObserveTable`).
 #[derive(Debug, Clone)]
-pub struct ObserveTable<const N: usize> {
-    slots: [Slot; N],
+pub struct ObserveTable<S: ?Sized = [Slot]> {
     /// Granted bytes per second, 0 while nothing is observed.
     budget: u32,
     /// Byte-microseconds in the bucket.
@@ -244,33 +284,24 @@ pub struct ObserveTable<const N: usize> {
     last_refill: Option<u64>,
     /// Missed sends not reported to the host yet.
     missed: u32,
+    slots: S,
 }
 
-impl<const N: usize> Default for ObserveTable<N> {
+impl<const N: usize> Default for ObserveTable<[Slot; N]> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<const N: usize> ObserveTable<N> {
-    const OFF: Slot = Slot {
-        mode: Mode::Off,
-        next_due: 0,
-        last_sent: None,
-        dirty: false,
-        slipped: false,
-        waiting: None,
-        start: false,
-    };
-
+impl<const N: usize> ObserveTable<[Slot; N]> {
     /// Nothing observed.
     pub const fn new() -> Self {
         ObserveTable {
-            slots: [Self::OFF; N],
             budget: 0,
             tokens: 0,
             last_refill: None,
             missed: 0,
+            slots: [Slot::OFF; N],
         }
     }
 
@@ -280,11 +311,11 @@ impl<const N: usize> ObserveTable<N> {
         // every field is written below: a new one fails to compile here until it is
         let _ = |t: Self| {
             let ObserveTable {
-                slots: _,
                 budget: _,
                 tokens: _,
                 last_refill: _,
                 missed: _,
+                slots: _,
             } = t;
         };
         let at = slot.as_mut_ptr();
@@ -293,7 +324,7 @@ impl<const N: usize> ObserveTable<N> {
         unsafe {
             let slots = core::ptr::addr_of_mut!((*at).slots).cast::<Slot>();
             for k in 0..N {
-                slots.add(k).write(Self::OFF);
+                slots.add(k).write(Slot::OFF);
             }
             core::ptr::addr_of_mut!((*at).budget).write(0);
             core::ptr::addr_of_mut!((*at).tokens).write(0);
@@ -302,10 +333,40 @@ impl<const N: usize> ObserveTable<N> {
             slot.assume_init_mut()
         }
     }
+}
 
+impl<const N: usize> core::ops::Deref for ObserveTable<[Slot; N]> {
+    type Target = ObserveTable;
+
+    fn deref(&self) -> &ObserveTable {
+        self
+    }
+}
+
+impl<const N: usize> core::ops::DerefMut for ObserveTable<[Slot; N]> {
+    fn deref_mut(&mut self) -> &mut ObserveTable {
+        self
+    }
+}
+
+impl ObserveTable {
     /// Stop observing everything, e.g., when the host is gone.
     pub fn reset(&mut self) {
-        *self = Self::new();
+        self.slots.fill(Slot::OFF);
+        self.budget = 0;
+        self.tokens = 0;
+        self.last_refill = None;
+        self.missed = 0;
+    }
+
+    /// Number of observable properties of the level.
+    pub fn len(&self) -> usize {
+        self.slots.len()
+    }
+
+    /// Whether the level has no observable properties.
+    pub fn is_empty(&self) -> bool {
+        self.slots.is_empty()
     }
 
     /// The property in slot `k` changed: sent at its next chance if observed on change.
@@ -328,30 +389,110 @@ impl<const N: usize> ObserveTable<N> {
     /// Apply an `Observe` request from the host: validate all of it first (nothing changes when it fails), then
     /// set the modes, clamped to `limits`, and grant a budget within what `others_budget` (granted to the other
     /// levels) leaves of [ObserveLimits::total_budget]. Refused entries are put into `refused`, their count is
-    /// returned.
+    /// returned. `desc` describes the same slots as the table.
     pub fn apply(
         &mut self,
         req: &ObserveRequest<'_>,
-        desc: &LevelDesc<N>,
+        desc: &LevelDesc<'_>,
         limits: &ObserveLimits,
         others_budget: u32,
         refused: &mut [ObserveRefused],
     ) -> Result<usize, ObserveError> {
-        // first pass: check everything, change nothing
-        let mut seen = [false; N];
+        debug_assert_eq!(self.slots.len(), desc.observable.len());
+        // first pass: check everything, change nothing but the marks
+        let checked = self.check(req, desc, limits, refused);
+        for slot in self.slots.iter_mut() {
+            slot.mark = false;
+        }
+        let refused_len = checked?;
+
+        // second pass: the first entry of each index wins, as checked above; a listed property starts over, sent
+        // once right away, so a host asking again gets fresh values
+        let was_active = self.is_active();
+        for entry in req.entries.iter().flatten() {
+            let Some(k) = desc.slot_of(entry.index.0) else {
+                continue;
+            };
+            let Some(slot) = self.slots.get_mut(k) else {
+                continue;
+            };
+            if slot.mark {
+                continue;
+            }
+            let unlisted = if req.patch { slot.mode } else { Mode::Off };
+            slot.restart(
+                Mode::clamped(&entry.mode, limits, desc.is_batched(k)).unwrap_or(unlisted),
+            );
+            slot.mark = true;
+        }
+        for slot in self.slots.iter_mut() {
+            let listed = core::mem::take(&mut slot.mark);
+            if !listed && !req.patch && slot.mode != Mode::Off {
+                slot.restart(Mode::Off);
+            }
+        }
+        // one row per sample of the level, one time column per update: its `Samples` slots share the finest
+        // `every` and the shortest `max_age` asked for
+        let shared = self
+            .slots
+            .iter()
+            .fold(None, |shared, slot| match (slot.mode, shared) {
+                (Mode::Samples { every, max_age }, None) => Some((every, max_age)),
+                (Mode::Samples { every, max_age }, Some((e, a))) => {
+                    Some((every.min(e), max_age.min(a)))
+                }
+                (_, shared) => shared,
+            });
+        if let Some((every, max_age)) = shared {
+            let mode = Mode::Samples { every, max_age };
+            for slot in self.slots.iter_mut() {
+                if matches!(slot.mode, Mode::Samples { .. }) && slot.mode != mode {
+                    slot.restart(mode);
+                }
+            }
+        }
+        if self.is_active() {
+            let wanted = req.budget.map_or(limits.default_budget, |b| b.0);
+            self.budget = wanted
+                .min(limits.max_level_budget)
+                .min(limits.total_budget.saturating_sub(others_budget));
+            if !was_active {
+                self.tokens = capacity(self.budget);
+                self.last_refill = None;
+                self.missed = 0;
+            }
+            self.tokens = self.tokens.min(capacity(self.budget));
+        } else {
+            self.budget = 0;
+        }
+        Ok(refused_len)
+    }
+
+    /// The first pass of [apply](Self::apply): every entry read and checked, refused ones put into `refused`; the
+    /// slots seen are marked.
+    fn check(
+        &mut self,
+        req: &ObserveRequest<'_>,
+        desc: &LevelDesc<'_>,
+        limits: &ObserveLimits,
+        refused: &mut [ObserveRefused],
+    ) -> Result<usize, ObserveError> {
         let mut refused_len = 0;
         for entry in req.entries.iter() {
             let entry = entry.map_err(ObserveError::Malformed)?;
             let reason = match desc.slot_of(entry.index.0) {
                 None if entry.index.0 >= desc.item_count => Some(ObserveRefusal::NoSuchIndex),
                 None => Some(ObserveRefusal::NotObservable),
-                Some(k) if seen[k] => Some(ObserveRefusal::Duplicate),
-                Some(k) => {
-                    seen[k] = true;
-                    Mode::clamped(&entry.mode, limits, desc.batched[k])
-                        .is_none()
-                        .then_some(ObserveRefusal::ModeNotSupported)
-                }
+                Some(k) => match self.slots.get_mut(k) {
+                    None => Some(ObserveRefusal::NotObservable),
+                    Some(slot) if slot.mark => Some(ObserveRefusal::Duplicate),
+                    Some(slot) => {
+                        slot.mark = true;
+                        Mode::clamped(&entry.mode, limits, desc.is_batched(k))
+                            .is_none()
+                            .then_some(ObserveRefusal::ModeNotSupported)
+                    }
+                },
             };
             if let Some(reason) = reason {
                 let r = refused
@@ -364,87 +505,25 @@ impl<const N: usize> ObserveTable<N> {
                 refused_len += 1;
             }
         }
-
-        // second pass: the first entry of each index wins, as checked above
-        let mut modes = [Mode::Off; N];
-        if req.patch {
-            for (m, s) in modes.iter_mut().zip(self.slots.iter()) {
-                *m = s.mode;
-            }
-        }
-        let mut applied = [false; N];
-        for entry in req.entries.iter().flatten() {
-            let Some(k) = desc.slot_of(entry.index.0) else {
-                continue;
-            };
-            if applied[k] {
-                continue;
-            }
-            applied[k] = true;
-            if let Some(mode) = Mode::clamped(&entry.mode, limits, desc.batched[k]) {
-                modes[k] = mode;
-            }
-        }
-        // one row per sample of the level, one time column per update: its `Samples` slots share the finest
-        // `every` and the shortest `max_age` asked for
-        let shared = modes
-            .iter()
-            .fold(None, |shared, mode| match (*mode, shared) {
-                (Mode::Samples { every, max_age }, None) => Some((every, max_age)),
-                (Mode::Samples { every, max_age }, Some((e, a))) => {
-                    Some((every.min(e), max_age.min(a)))
-                }
-                (_, shared) => shared,
-            });
-        if let Some((every, max_age)) = shared {
-            for mode in modes.iter_mut() {
-                if let Mode::Samples { .. } = mode {
-                    *mode = Mode::Samples { every, max_age };
-                }
-            }
-        }
-        let was_active = self.is_active();
-        for ((slot, mode), listed) in self.slots.iter_mut().zip(modes).zip(applied) {
-            // a listed property starts over: sent once right away, so a host asking again gets fresh values
-            if slot.mode != mode || listed {
-                let dirty = slot.dirty;
-                *slot = Slot {
-                    mode,
-                    dirty,
-                    start: mode != Mode::Off,
-                    ..Slot::default()
-                };
-            }
-        }
-        if self.is_active() {
-            let wanted = req.budget.map_or(limits.default_budget, |b| b.0);
-            self.budget = wanted
-                .min(limits.max_level_budget)
-                .min(limits.total_budget.saturating_sub(others_budget));
-            if !was_active {
-                self.tokens = Self::capacity(self.budget);
-                self.last_refill = None;
-                self.missed = 0;
-            }
-            self.tokens = self.tokens.min(Self::capacity(self.budget));
-        } else {
-            self.budget = 0;
-        }
         Ok(refused_len)
     }
 
-    /// The settings as applied, for the answer to `Observe`: every observed property in index order. Returns how
-    /// many entries of `out` are filled.
-    pub fn granted(&self, desc: &LevelDesc<N>, out: &mut [ObserveEntry; N]) -> usize {
+    /// The settings as applied, for the answer to `Observe`: every observed property in index order, as many as
+    /// `out` (one entry per slot) has room for. Returns how many entries of `out` are filled.
+    pub fn granted(&self, desc: &LevelDesc<'_>, out: &mut [ObserveEntry]) -> usize {
         let mut len = 0;
-        for (slot, index) in self.slots.iter().zip(desc.observable) {
-            if slot.mode != Mode::Off {
-                out[len] = ObserveEntry {
-                    index: UNib32(index),
-                    mode: slot.mode.to_wire(),
-                };
-                len += 1;
+        for (slot, &index) in self.slots.iter().zip(desc.observable) {
+            if slot.mode == Mode::Off {
+                continue;
             }
+            let Some(entry) = out.get_mut(len) else {
+                break;
+            };
+            *entry = ObserveEntry {
+                index: UNib32(index),
+                mode: slot.mode.to_wire(),
+            };
+            len += 1;
         }
         len
     }
@@ -460,7 +539,10 @@ impl<const N: usize> ObserveTable<N> {
     /// `Samples` mode of the level (API-39): `(every_us, max_age_us)`, the same for every slot in that mode, None
     /// when no slot is in it.
     pub fn level_samples(&self) -> Option<(u32, u32)> {
-        (0..N).find_map(|k| self.samples(k))
+        self.slots.iter().find_map(|slot| match slot.mode {
+            Mode::Samples { every, max_age } => Some((every, max_age)),
+            _ => None,
+        })
     }
 
     /// Samples lost on the device (dropped from a full outbox, or the event loop was behind the sampler): reported
@@ -468,10 +550,6 @@ impl<const N: usize> ObserveTable<N> {
     pub fn add_missed(&mut self, samples: u64) {
         let samples = u32::try_from(samples).unwrap_or(u32::MAX);
         self.missed = self.missed.saturating_add(samples);
-    }
-
-    fn capacity(budget: u32) -> i64 {
-        (budget / 10).max(MIN_BURST) as i64 * SCALE
     }
 
     fn refill(&mut self, now_us: u64) {
@@ -484,32 +562,35 @@ impl<const N: usize> ObserveTable<N> {
         }
         let elapsed = i64::try_from(elapsed).unwrap_or(i64::MAX);
         let add = elapsed.saturating_mul(self.budget as i64);
-        self.tokens = self
-            .tokens
-            .saturating_add(add)
-            .min(Self::capacity(self.budget));
+        self.tokens = self.tokens.saturating_add(add).min(capacity(self.budget));
     }
 
-    /// What is due at `now_us` (any microsecond clock), earliest deadline first. Refills the bucket and counts
-    /// the periods periodic properties fell behind. Without properties in `Samples` mode, see [plan_with].
+    /// What is due at `now_us` (any microsecond clock), earliest deadline first, written into `due` (one entry per
+    /// slot). Refills the bucket and counts the periods periodic properties fell behind. Without properties in
+    /// `Samples` mode, see [plan_with].
     ///
     /// [plan_with]: Self::plan_with
-    pub fn plan(&mut self, now_us: u64, limits: &ObserveLimits) -> Plan<N> {
-        self.plan_with(now_us, limits, |_| false)
+    pub fn plan<'a>(
+        &mut self,
+        now_us: u64,
+        limits: &ObserveLimits,
+        due: &'a mut [Due],
+    ) -> Plan<'a> {
+        self.plan_with(now_us, limits, &|_| false, due)
     }
 
     /// [plan](Self::plan), where a slot in `Samples` mode is due when `batch_waiting(k)` (its outbox holds a batch
     /// of it), from when it was first seen waiting.
-    pub fn plan_with(
+    pub fn plan_with<'a>(
         &mut self,
         now_us: u64,
         limits: &ObserveLimits,
-        batch_waiting: impl Fn(usize) -> bool,
-    ) -> Plan<N> {
+        batch_waiting: &dyn Fn(usize) -> bool,
+        due: &'a mut [Due],
+    ) -> Plan<'a> {
+        debug_assert!(due.len() >= self.slots.len());
         let mut plan = Plan {
-            order: [0; N],
-            deadline: [0; N],
-            len: 0,
+            due: &[],
             tokens: 0,
             full: false,
             missed: self.missed,
@@ -520,15 +601,16 @@ impl<const N: usize> ObserveTable<N> {
         }
         self.refill(now_us);
         plan.tokens = (self.tokens / SCALE).max(0) as usize;
-        plan.full = self.tokens >= Self::capacity(self.budget);
-        for (k, slot) in self.slots.iter_mut().enumerate() {
+        plan.full = self.tokens >= capacity(self.budget);
+        let mut len = 0;
+        for (k, slot) in self.slots.iter_mut().enumerate().take(due.len()) {
             if slot.start {
                 slot.start = false;
                 slot.dirty = true;
                 slot.next_due = now_us;
                 slot.last_sent = None;
             }
-            let due = match slot.mode {
+            let deadline = match slot.mode {
                 Mode::Off => None,
                 Mode::Periodic { every } => {
                     let every = every as u64;
@@ -567,43 +649,52 @@ impl<const N: usize> ObserveTable<N> {
                     }
                 },
             };
-            if let Some(deadline) = due {
+            if let Some(deadline) = deadline {
                 let deadline = slot.waiting.map_or(deadline, |w| w.min(deadline));
                 // insertion by deadline, ties in slot order
-                let mut i = plan.len;
-                while i > 0 && plan.deadline[i - 1] > deadline {
-                    plan.order[i] = plan.order[i - 1];
-                    plan.deadline[i] = plan.deadline[i - 1];
+                let mut i = len;
+                while i > 0 && due[i - 1].deadline > deadline {
+                    due[i] = due[i - 1];
                     i -= 1;
                 }
-                plan.order[i] = k;
-                plan.deadline[i] = deadline;
-                plan.len += 1;
+                due[i] = Due { k, deadline };
+                len += 1;
             }
         }
         // periods counted behind just now go with this update
         plan.missed = self.missed;
+        let due: &'a [Due] = due;
+        plan.due = &due[..len];
         plan
     }
 
     /// After an update for `plan` with `sel`: `sent` is the length of the event as sent, None when it could not
     /// be sent (the chosen properties count as missed then). Moves the chosen and dropped properties on and
     /// counts the ones that slipped.
-    pub fn commit(&mut self, plan: &Plan<N>, sel: &Selection<N>, now_us: u64, sent: Option<usize>) {
+    pub fn commit(
+        &mut self,
+        plan: &Plan<'_>,
+        sel: &Selection<'_>,
+        now_us: u64,
+        sent: Option<usize>,
+    ) {
         match sent {
             Some(len) => {
                 self.tokens = self.tokens.saturating_sub(len as i64 * SCALE);
                 self.missed = self.missed.saturating_sub(plan.missed);
             }
             None => {
-                let chosen = sel.chosen.iter().filter(|c| **c).count() as u32;
+                let chosen = sel.marks.iter().filter(|m| **m == Mark::CHOSEN).count() as u32;
                 self.missed = self.missed.saturating_add(chosen);
             }
         }
-        for (&k, &deadline) in plan.edf().iter().zip(&plan.deadline) {
-            let slot = &mut self.slots[k];
-            if sel.chosen[k] || sel.dropped[k] {
-                if sel.dropped[k] {
+        for &Due { k, deadline } in plan.due {
+            let Some(slot) = self.slots.get_mut(k) else {
+                continue;
+            };
+            let mark = sel.marks.get(k).copied().unwrap_or(Mark::NONE);
+            if mark != Mark::NONE {
+                if mark == Mark::DROPPED {
                     self.missed = self.missed.saturating_add(1);
                 }
                 slot.dirty = false;
@@ -631,12 +722,42 @@ impl<const N: usize> ObserveTable<N> {
     }
 }
 
+fn capacity(budget: u32) -> i64 {
+    (budget / 10).max(MIN_BURST) as i64 * SCALE
+}
+
+/// Answer an `Observe` request for a level without observable properties: every entry refused (`NoSuchIndex`
+/// beyond `item_count`, else `NotObservable`), into `refused`; returns their count. Nothing is granted.
+pub fn refuse_all(
+    req: &ObserveRequest<'_>,
+    item_count: u32,
+    refused: &mut [ObserveRefused],
+) -> Result<usize, ObserveError> {
+    let mut table = ObserveTable::<[Slot; 0]>::new();
+    let desc = LevelDesc {
+        item_count,
+        observable: &[],
+        batched: &[],
+    };
+    table.apply(req, &desc, &ObserveLimits::DEFAULT, 0, refused)
+}
+
+/// A property due at one poll, see [ObserveTable::plan]: storage for the plan, one per slot of the level.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Due {
+    k: usize,
+    deadline: u64,
+}
+
+impl Due {
+    pub const EMPTY: Due = Due { k: 0, deadline: 0 };
+}
+
 /// What a level has to send at one poll, see [ObserveTable::plan].
 #[derive(Debug, Clone)]
-pub struct Plan<const N: usize> {
-    order: [usize; N],
-    deadline: [u64; N],
-    len: usize,
+pub struct Plan<'a> {
+    /// Earliest deadline first.
+    due: &'a [Due],
     /// Whole bytes in the bucket.
     tokens: usize,
     /// The bucket is full.
@@ -645,22 +766,22 @@ pub struct Plan<const N: usize> {
     t: Option<u64>,
 }
 
-impl<const N: usize> Plan<N> {
+impl<'a> Plan<'a> {
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.due.is_empty()
     }
 
     /// Slots of the due properties, earliest deadline first.
-    pub fn edf(&self) -> &[usize] {
-        &self.order[..self.len]
+    pub fn edf(&self) -> impl Iterator<Item = usize> + Clone + 'a {
+        self.due.iter().map(|d| d.k)
     }
 
     /// Nothing is due, but sends or samples were missed: an update with no properties carries the count alone
     /// (`overhead` as for [selection](Self::selection)) when the budget has room for it. A count that waited for
     /// the next update would never reach the host when nothing else comes, as after the last samples of a burst
     /// the sampler lost.
-    pub fn report_missed(&self, desc: &LevelDesc<N>, overhead: usize) -> bool {
-        self.len == 0
+    pub fn report_missed(&self, desc: &LevelDesc<'_>, overhead: usize) -> bool {
+        self.due.is_empty()
             && self.missed > 0
             && self.tokens >= overhead + EVENT_SLACK + desc.header_bound()
     }
@@ -682,12 +803,19 @@ impl<const N: usize> Plan<N> {
     }
 
     /// Start choosing what goes into the update: `overhead` is the length of the event without data (see
-    /// [event_overhead]), `buf_len` the most the data may take.
-    pub fn selection(&self, desc: &LevelDesc<N>, overhead: usize, buf_len: usize) -> Selection<N> {
+    /// [event_overhead]), `buf_len` the most the data may take. `marks` (one per slot of the level) is where the
+    /// choice is kept.
+    pub fn selection<'m>(
+        &self,
+        desc: &LevelDesc<'_>,
+        overhead: usize,
+        buf_len: usize,
+        marks: &'m mut [Mark],
+    ) -> Selection<'m> {
         let fixed = overhead + EVENT_SLACK + desc.header_bound();
+        marks.fill(Mark::NONE);
         Selection {
-            chosen: [false; N],
-            dropped: [false; N],
+            marks,
             count: 0,
             est: fixed,
             limit: self.tokens,
@@ -701,12 +829,22 @@ impl<const N: usize> Plan<N> {
     }
 }
 
-/// The properties chosen for one update, offered in [Plan::edf] order with their estimated size.
-#[derive(Debug, Clone)]
-pub struct Selection<const N: usize> {
-    chosen: [bool; N],
+/// Whether a slot goes into an update, see [Selection]: storage for the selection, one per slot of the level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Mark(u8);
+
+impl Mark {
+    /// Not offered, or left out: waits for the next update.
+    pub const NONE: Mark = Mark(0);
+    const CHOSEN: Mark = Mark(1);
     /// Can't be sent this time (value not readable, bigger than a message), moved on as missed.
-    dropped: [bool; N],
+    const DROPPED: Mark = Mark(2);
+}
+
+/// The properties chosen for one update, offered in [Plan::edf] order with their estimated size.
+#[derive(Debug)]
+pub struct Selection<'m> {
+    marks: &'m mut [Mark],
     count: usize,
     est: usize,
     /// Bytes in the bucket.
@@ -722,35 +860,29 @@ pub struct Selection<const N: usize> {
     time: bool,
 }
 
-impl<const N: usize> Selection<N> {
+impl Selection<'_> {
     /// Offer slot `k` with the upper bound of its value's size, None when the value can't be had. Returns false
     /// once the update is full: offer nothing more.
     pub fn offer(&mut self, k: usize, size: Option<usize>) -> bool {
-        if k >= N {
-            self.done = true;
-            return false;
-        }
         self.offer_all(&[k], size, false)
     }
 
     /// Offer a batch of samples (API-39): the slots `ks` of its columns and its time column (the event's
-    /// `sample_times`), all or none, `size` the upper bound of them all. Returns false once the update is full: offer nothing more.
+    /// `sample_times`), all or none, `size` the upper bound of them all. Returns false once the update is full:
+    /// offer nothing more.
     pub fn offer_batch(&mut self, ks: &[usize], size: usize) -> bool {
-        if ks.iter().any(|&k| k >= N) {
-            self.done = true;
-            return false;
-        }
         self.offer_all(ks, Some(size), true)
     }
 
     fn offer_all(&mut self, ks: &[usize], size: Option<usize>, time: bool) -> bool {
+        if ks.iter().any(|&k| k >= self.marks.len()) {
+            self.done = true;
+        }
         if self.done {
             return false;
         }
         let Some(size) = size else {
-            for &k in ks {
-                self.dropped[k] = true;
-            }
+            self.mark(ks, Mark::DROPPED);
             return true;
         };
         let est = self.est.saturating_add(size);
@@ -759,9 +891,7 @@ impl<const N: usize> Selection<N> {
             true
         } else if self.fixed.saturating_add(size) > self.max_len {
             // never fits a message
-            for &k in ks {
-                self.dropped[k] = true;
-            }
+            self.mark(ks, Mark::DROPPED);
             true
         } else if self.count == 0 && self.full {
             // bigger than the bucket: alone, when the bucket is full
@@ -770,7 +900,11 @@ impl<const N: usize> Selection<N> {
             false
         } else if !self.full && est <= self.max_len {
             // the bucket is what limits and it isn't full: hold, send nothing, rather than part of what is due
-            self.chosen = [false; N];
+            for m in self.marks.iter_mut() {
+                if *m == Mark::CHOSEN {
+                    *m = Mark::NONE;
+                }
+            }
             self.count = 0;
             self.time = false;
             self.held = true;
@@ -782,10 +916,14 @@ impl<const N: usize> Selection<N> {
         }
     }
 
-    fn choose(&mut self, ks: &[usize], est: usize, time: bool) {
+    fn mark(&mut self, ks: &[usize], mark: Mark) {
         for &k in ks {
-            self.chosen[k] = true;
+            self.marks[k] = mark;
         }
+    }
+
+    fn choose(&mut self, ks: &[usize], est: usize, time: bool) {
+        self.mark(ks, Mark::CHOSEN);
         self.count += ks.len();
         self.est = est;
         self.time |= time;
@@ -807,29 +945,31 @@ impl<const N: usize> Selection<N> {
 
     /// Whether slot `k` goes into the update.
     pub fn is_chosen(&self, k: usize) -> bool {
-        self.chosen.get(k).copied().unwrap_or(false)
+        self.marks.get(k) == Some(&Mark::CHOSEN)
     }
 
     /// Whether slot `k` can't be sent this time (its value can't be had, or it never fits a message): moved on as
     /// missed.
     pub fn is_dropped(&self, k: usize) -> bool {
-        self.dropped.get(k).copied().unwrap_or(false)
+        self.marks.get(k) == Some(&Mark::DROPPED)
     }
 
     /// Slot `k` could not be written after all: moved on as missed.
     pub fn drop_slot(&mut self, k: usize) {
-        if k < N {
-            self.chosen[k] = false;
-            self.dropped[k] = true;
+        if let Some(m) = self.marks.get_mut(k) {
+            *m = Mark::DROPPED;
         }
     }
 
     /// Resource indices of the chosen properties, increasing: the present slots of the update's `OptionAnyVec`.
-    pub fn present<'a>(&'a self, desc: &'a LevelDesc<N>) -> impl Iterator<Item = u32> + Clone + 'a {
+    pub fn present<'a>(
+        &'a self,
+        desc: &'a LevelDesc<'_>,
+    ) -> impl Iterator<Item = u32> + Clone + 'a {
         desc.observable
             .iter()
-            .zip(self.chosen.iter())
-            .filter(|(_, chosen)| **chosen)
+            .zip(self.marks.iter())
+            .filter(|(_, m)| **m == Mark::CHOSEN)
             .map(|(index, _)| *index)
     }
 }
@@ -838,8 +978,8 @@ impl<const N: usize> Selection<N> {
 /// value columns together, so that it fits `buf_len` bytes of data next to an `overhead` ([event_overhead]): the
 /// update's presence header, each slot's length and `Batched` tag and the `sample_times` flag and length left out. The batcher seals at it; an outbox of
 /// `outbox_bytes` can hold no more than what is left of it after the entries' headers.
-pub fn batch_budget<const N: usize>(
-    desc: &LevelDesc<N>,
+pub fn batch_budget(
+    desc: &LevelDesc<'_>,
     overhead: usize,
     buf_len: usize,
     outbox_bytes: usize,

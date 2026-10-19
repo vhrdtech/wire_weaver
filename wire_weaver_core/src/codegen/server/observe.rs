@@ -426,7 +426,7 @@ impl Observe {
                 pub limits: ww_stream::observe::ObserveLimits,
                 #(
                     #[doc = #docs]
-                    pub #fields: ww_stream::observe::ObserveTable<#ns>,
+                    pub #fields: ww_stream::observe::ObserveTable<[ww_stream::observe::Slot; #ns]>,
                 )*
                 #(
                     #[doc = #outbox_docs]
@@ -465,7 +465,7 @@ impl Observe {
                         #(
                             ww_stream::observe::ObserveTable::init(
                                 &mut *core::ptr::addr_of_mut!((*at).#fields)
-                                    .cast::<core::mem::MaybeUninit<ww_stream::observe::ObserveTable<#ns>>>(),
+                                    .cast::<core::mem::MaybeUninit<ww_stream::observe::ObserveTable<[ww_stream::observe::Slot; #ns]>>>(),
                             );
                         )*
                         #(
@@ -1191,17 +1191,27 @@ impl Observe {
             fixed_err_seq("OBSERVE_ARRAY"),
             fixed_err_seq("OBSERVE_PATH"),
         );
-        let arms = self.levels.iter().map(|level| {
+        // levels without observable properties: every entry refused, by one shared path
+        let empty = self
+            .levels
+            .iter()
+            .filter(|l| l.props.is_empty())
+            .map(|level| {
+                let path = &level.path;
+                let item_count = level.item_count;
+                quote! { [#(UNib32(#path)),*] => Some(#item_count), }
+            });
+        let arms = self.levels.iter().filter(|l| !l.props.is_empty()).map(|level| {
             let path = &level.path;
             let n = level.props.len();
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
             let batched = level.props.iter().map(|p| p.batched);
             let desc = quote! {
-                const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
+                const DESC: ww_stream::observe::LevelDesc<'static> = ww_stream::observe::LevelDesc {
                     item_count: #item_count,
-                    observable: [#(#indices),*],
-                    batched: [#(#batched),*],
+                    observable: &[#(#indices),*],
+                    batched: &[#(#batched),*],
                 };
             };
             let field = &level.field;
@@ -1218,19 +1228,11 @@ impl Observe {
                     state.#outbox.retain_columns(|k| table.samples(k as usize).is_some());
                 }
             });
-            let table = if level.props.is_empty() {
-                quote! {
-                    let limits = self.observe_state().limits;
-                    let table = &mut ww_stream::observe::ObserveTable::<0>::new();
-                    let others = 0;
-                }
-            } else {
-                quote! {
-                    let state = self.observe_state();
-                    let limits = state.limits;
-                    let others = state.budget_in_use().saturating_sub(state.#field.budget());
-                    let table = &mut state.#field;
-                }
+            let table = quote! {
+                let state = self.observe_state();
+                let limits = state.limits;
+                let others = state.budget_in_use().saturating_sub(state.#field.budget());
+                let table = &mut state.#field;
             };
             quote! {
                 [#(UNib32(#path)),*] => {
@@ -1281,6 +1283,31 @@ impl Observe {
                 const REFUSED_MAX: usize = 16;
                 let mut refused = [ObserveRefused { index: UNib32(0), reason: ObserveRefusal::NoSuchIndex }; REFUSED_MAX];
                 let event_kind_builder = EventKindBuilder::new(wr).map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
+                let empty_level: Option<u32> = match path {
+                    #(#empty)*
+                    _ => None,
+                };
+                if let Some(item_count) = empty_level {
+                    let refused_len = match ww_stream::observe::refuse_all(cfg, item_count, &mut refused) {
+                        Ok(len) => len,
+                        Err(ww_stream::observe::ObserveError::Malformed(_)) => {
+                            return Err(Error::new(#es_malformed, ErrorKind::ArgsDesFailed));
+                        }
+                        Err(ww_stream::observe::ObserveError::TooManyRefused) => {
+                            return Err(Error::new(#es_refused, ErrorKind::BadIndex));
+                        }
+                    };
+                    let granted = ObserveGranted {
+                        entries: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] },
+                        refused: wire_weaver::shrink_wrap::RefVec::Slice { slice: &refused[..refused_len] },
+                        budget: UNib32(0),
+                    };
+                    if granted.ser_shrink_wrap(wr).is_err() {
+                        return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));
+                    }
+                    event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, wr);
+                    return Ok(());
+                }
                 match path {
                     #(#arms)*
                     #(#arrays)*
@@ -1510,17 +1537,17 @@ impl Observe {
                     let oldest = state.#outbox.oldest();
                     // slots come in order: each lookup goes on from the last one
                     let at = core::cell::Cell::new(0usize);
-                    state.#field.plan_with(now_us, &limits, |k| {
+                    state.#field.plan_with(now_us, &limits, &|k| {
                         oldest.is_some_and(|b| {
                             let mut a = at.get();
                             let found = b.column_after(k as u16, &mut a).is_some();
                             at.set(a);
                             found
                         })
-                    })
+                    }, &mut due)
                 }}
             } else {
-                quote! { self.observe_state().#field.plan(now_us, &limits) }
+                quote! { self.observe_state().#field.plan(now_us, &limits, &mut due) }
             };
             // a slot in `Samples` mode offers the level's oldest batch, its time column and every column, once
             let offer_batch = maybe_quote_cl(has_batched, || {
@@ -1614,14 +1641,17 @@ impl Observe {
             let column_cursor = maybe_quote(has_batched, quote! { let mut column_at = 0usize; });
             quote! {
                 {
-                    const DESC: ww_stream::observe::LevelDesc<#n> = ww_stream::observe::LevelDesc {
+                    const DESC: ww_stream::observe::LevelDesc<'static> = ww_stream::observe::LevelDesc {
                         item_count: #item_count,
-                        observable: [#(#indices),*],
-                        batched: [#(#batched),*],
+                        observable: &[#(#indices),*],
+                        batched: &[#(#batched),*],
                         };
                     let path = [#(UNib32(#path)),*];
                     let limits = self.observe_state().limits;
                     #encode
+                    // the plan and the selection of each update, a slot each
+                    let mut due = [ww_stream::observe::Due::EMPTY; #n];
+                    let mut marks = [ww_stream::observe::Mark::NONE; #n];
                     #rounds
                     loop {
                         let plan = #plan;
@@ -1634,9 +1664,9 @@ impl Observe {
                         if plan.is_empty() && !missed_only {
                             break;
                         }
-                        let mut sel = plan.selection(&DESC, overhead, buf.len());
+                        let mut sel = plan.selection(&DESC, overhead, buf.len(), &mut marks);
                         #batch_flags
-                        for &k in plan.edf() {
+                        for k in plan.edf() {
                             #offer_batch
                             let size = match k {
                                 #(#measure)*

@@ -1,7 +1,7 @@
-use crate::{Receiver, Sender, State, UsbTimings, WireWeaverClass};
+use crate::{Receiver, Sender, State, UsbTimings, WireWeaverClass, plain_endpoints};
 use defmt::{debug, info};
 use embassy_usb::driver::Driver;
-use embassy_usb::{Builder, Config, UsbDevice};
+use embassy_usb::{Builder, Config, InterfaceAltBuilder, UsbDevice};
 use ww_device::{EmbassyClock, FramedRx, FramedTx, LinkConfig, RxBuffer};
 
 /// WireWeaver server over USB, see [ww_device::Server] on how to use it. `M` is the medium handlers see in their
@@ -122,6 +122,8 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 /// This functions is a convenient way to initialize a minimum working device. If you need more
 /// advanced setup (e.g., other USB classes alongside), do the same steps directly: create a
 /// [Builder], add [WireWeaverClass::new] and other classes, build and call [WireWeaverClass::into_server].
+/// For a single-function device that needs other endpoint kinds (e.g. double-buffered bulk), use
+/// [usb_init_with_endpoints] instead, which keeps this function's [UsbBuffers] convenience.
 ///
 /// It is recommended to adjust USB config in the config_mut closure, in particular:
 /// * Set vid, pid (default is 0xc0de:0xcafe)
@@ -144,6 +146,57 @@ pub fn usb_init<
     link_config: LinkConfig<'d>,
     api_id: &'static str,
     config_mut: impl FnOnce(&mut Config),
+) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
+    let use_bulk = timings.use_bulk_endpoints;
+    usb_init_with_endpoints(
+        driver,
+        buffers,
+        timings,
+        link_config,
+        api_id,
+        config_mut,
+        |alt| plain_endpoints(alt, use_bulk, MAX_USB_PACKET_LEN as u16),
+    )
+}
+
+/// Same as [usb_init], with the OUT and IN endpoints allocated by `endpoints` on the WireWeaver interface, for
+/// drivers with endpoint kinds beyond plain bulk and interrupt, e.g. embassy-stm32's double-buffered bulk
+/// endpoints on USB v4 parts (the peripheral takes the next packet while the previous one is processed, instead
+/// of making the host retry):
+///
+/// ```ignore
+/// let (mut usb, mut server) = usb_init_with_endpoints(
+///     driver,
+///     buffers,
+///     UsbTimings::fs_higher_speed(),
+///     link_config,
+///     server_impl::API_ID,
+///     |_| {},
+///     |alt| {
+///         (
+///             alt.endpoint_bulk_out_double_buffered(None, MAX_USB_PACKET_LEN as u16),
+///             alt.endpoint_bulk_in_double_buffered(None, MAX_USB_PACKET_LEN as u16),
+///         )
+///     },
+/// );
+/// ```
+///
+/// Both endpoints must have the same max packet size, no larger than `MAX_USB_PACKET_LEN`. See
+/// [WireWeaverClass::with_endpoints] for the same choice when building the [Builder] by hand (e.g. other USB
+/// classes alongside WireWeaver).
+pub fn usb_init_with_endpoints<
+    'd,
+    const MAX_USB_PACKET_LEN: usize,
+    const MAX_MESSAGE_LEN: usize,
+    D: Driver<'d>,
+>(
+    driver: D,
+    buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
+    timings: UsbTimings,
+    link_config: LinkConfig<'d>,
+    api_id: &'static str,
+    config_mut: impl FnOnce(&mut Config),
+    endpoints: impl FnOnce(&mut InterfaceAltBuilder<'_, 'd, D>) -> (D::EndpointOut, D::EndpointIn),
 ) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
     const {
         assert!(
@@ -175,14 +228,13 @@ pub fn usb_init<
         &mut buffers.control,
     );
 
-    let ww = WireWeaverClass::new(
+    let ww = WireWeaverClass::with_endpoints(
         &mut builder,
         &mut buffers.state,
-        MAX_USB_PACKET_LEN as u16,
-        timings.use_bulk_endpoints,
         timings.packet_send_timeout,
         &link_config.user_api_version,
         api_id,
+        endpoints,
     );
 
     let usb = builder.build();

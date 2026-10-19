@@ -74,6 +74,10 @@ spawner.spawn(unwrap!(ww_server_task(server, state))); // server.run(&mut state)
 `server.run()` is the whole event loop; to wait on other things next to it (UART data, timers), use
 `server.wait()` / `server.handle()` in your own loop, see [link layer](ww_link.md#how-the-device-runs-it).
 
+A driver with endpoint kinds `usb_init()` doesn't name (e.g. embassy-stm32's double-buffered bulk endpoints on USB
+v4 parts) can use `usb_init_with_endpoints()` instead: same as `usb_init()`, with a closure allocating the OUT and
+IN endpoints.
+
 ## What you get
 
 - **Plug and play**: hot-plug is handled — a device that disappears fails outstanding requests and can be

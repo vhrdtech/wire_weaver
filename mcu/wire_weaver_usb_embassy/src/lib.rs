@@ -13,7 +13,7 @@ use defmt::warn;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
 pub use embassy_usb::UsbDevice;
-pub use init::{ServerBuffers, UsbBuffers, UsbServer, usb_init};
+pub use init::{ServerBuffers, UsbBuffers, UsbServer, usb_init, usb_init_with_endpoints};
 pub use ww_device::{self, LinkConfig};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
@@ -98,26 +98,7 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             write_timeout,
             user_protocol,
             api_id,
-            |alt| {
-                if use_bulk {
-                    let max_packet_size = if max_packet_size > 512 {
-                        warn!("Bulk max packet size is 512, correcting");
-                        512
-                    } else {
-                        max_packet_size
-                    };
-                    (
-                        alt.endpoint_bulk_out(None, max_packet_size),
-                        alt.endpoint_bulk_in(None, max_packet_size),
-                    )
-                } else {
-                    // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
-                    (
-                        alt.endpoint_interrupt_out(None, max_packet_size, 1),
-                        alt.endpoint_interrupt_in(None, max_packet_size, 1),
-                    )
-                }
-            },
+            |alt| plain_endpoints(alt, use_bulk, max_packet_size),
         )
     }
 
@@ -258,6 +239,32 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
             Receiver {
                 read_ep: self.read_ep,
             },
+        )
+    }
+}
+
+/// The plain bulk / interrupt endpoints [`WireWeaverClass::new`] and [`usb_init`] build by default.
+fn plain_endpoints<'d, D: Driver<'d>>(
+    alt: &mut InterfaceAltBuilder<'_, 'd, D>,
+    use_bulk: bool,
+    max_packet_size: u16,
+) -> (D::EndpointOut, D::EndpointIn) {
+    if use_bulk {
+        let max_packet_size = if max_packet_size > 512 {
+            warn!("Bulk max packet size is 512, correcting");
+            512
+        } else {
+            max_packet_size
+        };
+        (
+            alt.endpoint_bulk_out(None, max_packet_size),
+            alt.endpoint_bulk_in(None, max_packet_size),
+        )
+    } else {
+        // Should be 2^(interval_ms - 1) 125μs units for High-Speed devices, so 125μs in this case
+        (
+            alt.endpoint_interrupt_out(None, max_packet_size, 1),
+            alt.endpoint_interrupt_in(None, max_packet_size, 1),
         )
     }
 }

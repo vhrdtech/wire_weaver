@@ -19,6 +19,10 @@
 ### 🚀 Features
 
 - `WireWeaverClass::with_endpoints()`: same as `new()` with the OUT and IN endpoints allocated by a closure on the class's interface, e.g. double-buffered bulk endpoints of newer embassy-usb / embassy-stm32 (2x the throughput on an STM32G0B1). `new()` is unchanged (TR-12).
+- `usb_init_with_endpoints()`: same as `usb_init()` with the OUT and IN endpoints allocated by a closure, for
+  callers of the single-function `usb_init()` convenience who can't reach `WireWeaverClass::with_endpoints()`
+  directly because `UsbBuffers`' fields are private. `usb_init()` is unchanged, and now implemented in terms of
+  it (TR-12).
 
 - API id served as the WireWeaver interface string, so hosts can identify the device, its API and user label without
   opening it.

@@ -904,10 +904,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   flushes replies at once when no other request waits instead of after the accumulation window (`ww_device`
   `Server::handle`; DFU transcripts +1-2 packets). `WireWeaverClass::with_endpoints()` lets
   firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 ->
-  950 kB/s OUT on the G0). Next: CRC through a pluggable checksum so MCUs can use their
-  CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests that keeps packetization
-  deterministic (flushing whenever the event loop goes idle made the DFU transcripts vary between runs); the same
-  reply flush for the blocking server.
+  950 kB/s OUT on the G0); `usb_init_with_endpoints()` offers the same choice to callers of the single-function
+  `usb_init()` convenience, who can't reach into its private `UsbBuffers`. Next: CRC through a pluggable checksum
+  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests
+  that keeps packetization deterministic (flushing whenever the event loop goes idle made the DFU transcripts
+  vary between runs); the same reply flush for the blocking server.
 
 ## Introspection (`ww_self`, `INT`)
 

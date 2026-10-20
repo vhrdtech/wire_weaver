@@ -1,0 +1,23 @@
+[package]
+name = "ww_lz4"
+version = "0.1.0"
+authors.workspace = true
+description = "Streaming LZ4 block encoder for no_std and no alloc: one standard LZ4 block per chunk, history kept across chunks"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+# the host side Decoder
+std = ["dep:lz4_flex"]
+# hot encoder code in .data.ww_lz4: cortex-m-rt copies it to SRAM, no flash wait states
+ram = []
+
+[dependencies]
+lz4_flex = { workspace = true, optional = true }
+
+[dev-dependencies]
+lz4_flex = { workspace = true, features = ["std"] }
+proptest.workspace = true
+ww_lz4 = { path = ".", features = ["std"] }

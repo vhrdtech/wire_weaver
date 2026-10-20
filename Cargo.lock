@@ -2786,6 +2786,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lz4_flex"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
+
+[[package]]
 name = "mac_address"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5915,6 +5921,15 @@ dependencies = [
  "ww_gpio",
  "ww_i2c",
  "ww_si",
+]
+
+[[package]]
+name = "ww_lz4"
+version = "0.1.0"
+dependencies = [
+ "lz4_flex",
+ "proptest",
+ "ww_lz4",
 ]
 
 [[package]]

@@ -364,6 +364,12 @@ impl Recorder {
         }
         st.bundles.push((hash.to_vec(), bytes.to_vec()));
         st.describe_due = true;
+        // handed over now, not with the next block: the block being filled may already hold the first
+        // messages that need this bundle, and a describe block after it would come too late for a live reader
+        if !st.sinks.is_empty() {
+            self.inner.flush_current(&mut st);
+            self.inner.describe(&mut st);
+        }
     }
 
     /// Blocks into a bounded queue of `queue` blocks: a consumer that falls further behind misses blocks (a gap in

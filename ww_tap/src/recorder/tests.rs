@@ -207,3 +207,22 @@ fn background_flush_hands_over_on_time() {
         }
     }
 }
+
+/// A bundle added while a block is being filled reaches a subscriber before that block: the block may already hold
+/// the messages that need it, and a live reader decodes them as they come.
+#[test]
+fn bundle_added_mid_block_is_handed_over_at_once() {
+    let (rec, _t) = Recorder::with_fake_clock(config());
+    let mut link = rec.link();
+    link.session(&session());
+    let sub = rec.subscribe(Layers::MESSAGES, 8);
+    assert_eq!(sub.try_recv().unwrap().block().kind, BlockKind::Describe);
+    link.link_ready(&[9, 9]);
+    rec.add_bundle(&[1, 2, 3], b"bundle bytes");
+    let mut kinds = Vec::new();
+    while let Some(c) = sub.try_recv() {
+        kinds.push(c.block().kind);
+    }
+    // the open block with the session and LinkReady, then the describe block carrying the bundle
+    assert_eq!(kinds, [BlockKind::Data, BlockKind::Describe]);
+}

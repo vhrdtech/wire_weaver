@@ -321,10 +321,10 @@ impl Decoder {
                 if self.bundles.contains_key(&hash) {
                     return;
                 }
-                if let Ok(mut b) = ApiBundleOwned::from_ww_bytes_owned(bytes.as_slice())
-                    && ww_self::generics::prepare(&mut b).is_ok()
+                if let Ok(b) = ApiBundleOwned::from_ww_bytes_owned(bytes.as_slice())
+                    && let Some(b) = ready(b)
                 {
-                    self.bundles.insert(hash, Arc::new(b));
+                    self.bundles.insert(hash, b);
                     self.retry_roots();
                 }
             }
@@ -333,9 +333,10 @@ impl Decoder {
     }
 
     /// Add a device API bundle by the hash bytes of its `ApiHashPair::no_docs`.
-    pub fn add_bundle(&mut self, hash: &[u8], mut bundle: ApiBundleOwned) {
-        if ww_self::generics::prepare(&mut bundle).is_ok() {
-            self.bundles.insert(hash.to_vec(), Arc::new(bundle));
+    /// A bundle as a device sent it (traits known from snapshots left out) is fine: they are put back here.
+    pub fn add_bundle(&mut self, hash: &[u8], bundle: ApiBundleOwned) {
+        if let Some(bundle) = ready(bundle) {
+            self.bundles.insert(hash.to_vec(), bundle);
             self.retry_roots();
         }
     }
@@ -617,11 +618,9 @@ impl Decoder {
                     .lookup
                     .as_ref()
                     .and_then(|f| f(&device.hash))
-                    .and_then(|mut b| {
-                        ww_self::generics::prepare(&mut b).ok()?;
-                        let b = Arc::new(b);
+                    .and_then(ready)
+                    .inspect(|b| {
                         self.bundles.insert(key, b.clone());
-                        Some(b)
                     }),
             };
             l.root = bundle.map(DynResource::root);
@@ -754,4 +753,11 @@ pub fn kind_name(kind: u8) -> &'static str {
         Some(Disconnect) => "Disconnect",
         None => "unknown",
     }
+}
+
+/// A bundle as stored in a describe block or a cache is as the device sent it: traits and types it left out because
+/// they are known from snapshots are put back, and generic types instantiated, as the client does on connect.
+fn ready(mut bundle: ApiBundleOwned) -> Option<Arc<ApiBundleOwned>> {
+    crate::client::introspect::inline_known(&mut bundle).ok()?;
+    Some(Arc::new(bundle))
 }

@@ -2486,6 +2486,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#optional-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional items
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5352,6 +5363,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#optional-items" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional items
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5592,6 +5614,19 @@ the API), so changing it is not a break.</p>
 <p>Making a property <code>+batched</code> (API-39) or not changes its observe slot (a <code>Batched&lt;T&gt;</code> instead of a <code>T</code>): a break of
 the API crate. The times of the samples travel in the <code>PropertyUpdate</code> event, not in a slot, so adding resources to a
 level with <code>+batched</code> properties follows the usual rules.</p>
+<h3 id="optional-items">Optional items<a class="headerlink" href="#optional-items" title="Permanent link">&para;</a></h3>
+<p><code>#[optional]</code> / <code>#[optional(group)]</code> on a method, property, stream or <code>ww_impl!</code> (API-16, API-54) is not on the wire:
+an item keeps its id whether a device has it or not, and a device leaving it out answers <code>Unimplemented</code>, which a
+client already has to handle for any call. But servers name optional items and groups in <code>omit = [..]</code> / <code>omit_if</code>,
+so <code>ww api check</code> treats the marker by what it does to their Rust code:</p>
+<ul>
+<li>Making an item or a <code>ww_impl!</code> optional: compatible. Clients of the new version learn from a device's model that it
+  may leave it out; clients of the old version get <code>Unimplemented</code> from a device that does.</li>
+<li>Putting an <code>#[optional]</code> item into a group (<code>#[optional]</code> to <code>#[optional(group)]</code>): compatible, <code>omit</code> by the item's
+  name still works.</li>
+<li>Making an optional item required again, moving it to another group or out of its group: a break of the API crate.
+  A server leaving it out no longer compiles (no handler), or silently keeps an item it meant to leave out.</li>
+</ul>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>

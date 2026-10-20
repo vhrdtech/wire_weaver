@@ -5858,8 +5858,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   optional items can be left out (compile error otherwise). A call answers <code>Unimplemented</code> from the level's fallback
   arm (<code>id &lt; ITEM_COUNT</code>), the device's model lists the omitted items (<code>ww_self</code> <code>omitted</code>, <code>root_omitted</code>), so the
   generated and dynamic clients and Python fail locally with <code>NotImplementedByDevice</code>; <code>ww api scaffold --omit</code>, CLI
-  tree and Python show them (<code>docs/api/optional_items.md</code>, <code>tests/traits</code>). Not yet: <code>#[optional]</code> on
-  <code>ww_impl!</code>, the GUI (<code>wire_weaver_tool</code>).</li>
+  tree and Python show them (<code>docs/api/optional_items.md</code>, <code>tests/traits</code>). Whole traits: API-54. Not yet: the GUI
+  (<code>wire_weaver_tool</code>).</li>
+<li>✅ <strong>API-54 Optional traits</strong> — <code>#[optional]</code> / <code>#[optional(group)]</code> on a <code>ww_impl!</code> (a single trait or an array),
+  left out with <code>omit</code> / <code>omit_if</code> like API-16 items: no dispatch below it and none of its handlers (cfg-gated with
+  <code>omit_if</code>), its consts out of (or cfg-gated in) the consts trait, its streams not sent by <code>poll_streams</code> (one per
+  <code>omit_if</code> combination, same signature), the device's model marks it left out so clients fail every call below it
+  locally; <code>ww api scaffold</code> and <code>ww api tree</code> show it, <code>ww api check</code> classifies <code>#[optional]</code> changes
+  (<code>docs/api/optional_items.md#optional-traits</code>, <code>docs/evolution/rules.md#optional-items</code>, <code>tests/traits</code>,
+  <code>tests/streams_batched</code>). Not yet: <code>+observe</code> properties of a trait left out with <code>omit_if</code> aren't observed in
+  either build.</li>
 <li>✅ <strong>API-32 Per-method error lists</strong> — <code>#[errors(Common(InUse), Nack, ..)]</code> on a trait method, a stream function
   (the open's <code>Result</code> error) or above a <code>property!</code> with an error type (its reads and writes): checked against the
   error enum when the trait is parsed (a compile error on a wrong name), in the API model (<code>ww_self</code> <code>Method</code>,
@@ -6433,7 +6441,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   points only read; plan files with <code>expect</code>, narrower <code>allow</code>, <code>[shorts] among</code> / <code>same_net</code>, <code>--save</code> into
   <code>expect</code>. Library <code>ww_pin_probe</code> (<code>probe::run</code> over a <code>Pins</code> trait, <code>mock::MockBoard</code>), end to end in
   <code>tests/pin_diag</code>. Hardware check open: on rePort once it serves <code>PinDiag</code>. Names sent as ids show as <code>#&lt;id&gt;</code>
-  (STD-48).</li>
+  (STD-48).
+  The live decoder gets the device's API as soon as the command has it (the recorder hands a bundle over at once,
+  as the device sent it, snapshot-known traits put back by the decoder), so a live print and the capture's replay
+  are the same text; SIGINT and SIGTERM end a flagged command or <code>ww monitor</code> / <code>capture</code> / <code>stats</code> with the
+  capture finished, synced and renamed; <code>ww explain</code> of a path-like WHAT that is no file says so without
+  connecting.</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>.</li>
@@ -6454,7 +6467,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>wire_weaver_client::envelope</code> (a whole request or event: the <code>ww_client_server</code> envelope field by field, the
   payload by its resource); <code>ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]</code>, <code>ww explain request|event
   HEX</code>. Captures and the live link: <code>ww explain FILE</code> / <code>ww monitor --layer api --bits</code> (TOOL-14), replies explained by
-  their request's seq. Open: payloads under a global trait path, multi requests and property updates; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  their request's seq; <code>Observe</code> requests and their grants read as property names and modes, <code>PropertyUpdate</code>s as the
+  properties they carry with typed values (units as in <code>ww observe</code>); calls through global traits (<code>GlobalFull</code>
+  paths: <code>ww info</code>, <code>ww report</code>, ..) are named <code>ww_user_info::UserInfo.name</code> and decoded from the snapshots the host
+  carries, also by a command that never introspects the device. Open: <code>GlobalCompact</code> paths, multi requests; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
   expression input.</li>
 <li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq

@@ -1822,6 +1822,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-traits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional traits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-a-client-sees" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5139,6 +5150,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#optional-traits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Optional traits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-a-client-sees" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5308,7 +5330,7 @@
 
 
 <h1 id="optional-items">Optional items<a class="headerlink" href="#optional-items" title="Permanent link">&para;</a></h1>
-<p>A method, property or stream of a trait can be marked optional. A device's server may then leave it out when it is
+<p>A method, property, stream or whole <code>ww_impl!</code> of a trait can be marked optional. A device's server may then leave it out when it is
 built: no dispatch arm, no handler to write, no stub answering "not implemented". A client calling it gets
 <code>Unimplemented</code>, and a client with the device's introspection data knows it without asking.
 <code>tests/traits</code> has a worked example; <a href="../errors/#unsupported-is-not-unimplemented">Errors</a> tells <code>Unimplemented</code>
@@ -5332,14 +5354,16 @@ apart from a device's own errors.</p>
 </span></code></pre></div>
 <h2 id="marking-items-optional">Marking items optional<a class="headerlink" href="#marking-items-optional" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>#[optional]</code> on a method, property or stream lets a device leave it out. <code>#[optional(group)]</code> names a set of items
+<li><code>#[optional]</code> on a method, property, stream or <code>ww_impl!</code> lets a device leave it out (see
+  <a href="#optional-traits">Optional traits</a>). <code>#[optional(group)]</code> names a set of items
   that go together: leaving the group out leaves out all of them.</li>
 <li>Only marked items can be left out: the API author decides what is optional, the rest of the trait stays a contract
   every device keeps. Leaving out a required item is a compile error that lists the trait's optional items and groups.</li>
 <li>An item keeps its resource index whether a device has it or not, so clients address it the same way everywhere.</li>
 <li>The marker is part of the trait's signature: marking an item optional later changes the API model, and its
   snapshot has to be saved again.</li>
-<li><code>#[optional]</code> on <code>ww_impl!</code> (a whole trait) is rejected; mark the trait's items instead.</li>
+<li>Changing the marker later follows the <a href="../../evolution/rules/#optional-items">evolution rules</a>: making an item
+  optional is compatible, making it required again or moving it to another group is a break.</li>
 </ul>
 <h2 id="leaving-items-out">Leaving items out<a class="headerlink" href="#leaving-items-out" title="Permanent link">&para;</a></h2>
 <p><code>ww_codegen!(.., server = true, omit = [..])</code> takes paths <code>"&lt;trait item&gt;.&lt;..&gt;.&lt;item or group&gt;"</code> from the API root,
@@ -5358,6 +5382,47 @@ twice (by name and through its group, or in <code>omit</code> and <code>omit_if<
 conditions, under <code>#[cfg(all(..))]</code>; at most 4 different conditions per <code>ww_codegen!</code>.</p>
 <p><code>ww api scaffold --omit i2c.pullups,reset</code> leaves the stubs of these items out and writes the same <code>omit = [..]</code> into
 the generated <code>ww_codegen!</code> call; the stubs of optional items it keeps carry a comment naming their path.</p>
+<h2 id="optional-traits">Optional traits<a class="headerlink" href="#optional-traits" title="Permanent link">&para;</a></h2>
+<p><code>#[optional]</code> on a <code>ww_impl!</code> makes the whole trait attachment optional, with everything below it: its items, its
+nested traits, its consts. It is for a block a firmware has only with one of its features, such as pin diagnostics
+served only in a debug build:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Board</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">ping</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="sd">/// Pin diagnostics, the firmware&#39;s `pin-diag` feature.</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="cp">#[optional]</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">diag</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_pin_diag</span><span class="p">::</span><span class="n">PinDiag</span><span class="p">);</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="sd">/// Probes and their count: both or neither.</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="cp">#[optional(probes)]</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">probe</span><span class="p">[]:</span><span class="w"> </span><span class="nc">Probe</span><span class="p">);</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="cp">#[optional(probes)]</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">probe_count</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="p">;</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">}</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">ww_codegen</span><span class="o">!</span><span class="p">(</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="w">    </span><span class="n">board_api</span><span class="p">::</span><span class="n">Board</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Server</span><span class="p">,</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">    </span><span class="n">server</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">    </span><span class="n">omit_if</span><span class="p">(</span><span class="n">not</span><span class="p">(</span><span class="n">feature</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;pin-diag&quot;</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;diag&quot;</span><span class="p">],</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="n">omit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s">&quot;probes&quot;</span><span class="p">]</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="p">);</span>
+</span></code></pre></div>
+<ul>
+<li>Leaving the trait out leaves out every handler below it (<code>diag_set</code>, <code>diag_read</code>, ..), the <code>valid_indices</code> of a
+  trait array, and the trait's <code>const</code> items in the consts trait. With <code>omit_if</code>, give the handlers (and the
+  consts' values) the same condition: <code>#[cfg(feature = "pin-diag")]</code>.</li>
+<li>A trait array (<code>probe[]</code>) is left out with all its indices; a group may hold traits and items together.</li>
+<li>Streams of a left-out trait are not sent by <code>poll_streams</code>. With <code>omit_if</code>, there is one <code>poll_streams</code> per
+  combination of the conditions, all with the same signature, so the firmware calls it the same way in every build.</li>
+<li>Items inside an optional trait can be optional on their own (<code>omit = ["diag.release_all"]</code>), for the builds that
+  keep the trait.</li>
+<li>On the wire it is the same as an omitted item: the trait keeps its id, a request to anything below it is answered
+  <code>Unimplemented</code> by the fallback arm of the level holding the trait, and the device's model lists the trait in that
+  level's omitted items, so clients fail every call below it locally. Its definition stays in the introspection
+  data, so tools show what the device leaves out.</li>
+<li><code>ww api scaffold</code> notes optional traits in their section of handlers, <code>--omit diag</code> leaves the section out.</li>
+<li>Not yet: <code>+observe</code> properties of a trait left out with <code>omit_if</code> are not observed in either build (as an optional
+  property left out with <code>omit_if</code>); with <code>omit</code>, or in a trait that isn't left out, they are observed as usual.</li>
+</ul>
 <h2 id="what-a-client-sees">What a client sees<a class="headerlink" href="#what-a-client-sees" title="Permanent link">&para;</a></h2>
 <ul>
 <li>A call to an omitted item is answered <code>ErrorKind::Unimplemented</code>, the same answer as a handler returning

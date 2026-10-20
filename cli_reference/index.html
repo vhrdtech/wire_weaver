@@ -5983,9 +5983,19 @@ command's own connection, so the traffic of a real call is seen without a ww ser
 </ul>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ ww -l donguru-m1 --monitor=api info
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>...
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>   0.093976 L0 → Request Read  #3
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>   0.097889 L0 ← Event Value (reply to #3 in 3.91 ms)
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>   0.082878 L0 → Request Read ww_firmware_info::FirmwareInfo.FIRMWARE #3
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>   0.085630 L0 ← Event Value ww_firmware_info::FirmwareInfo.FIRMWARE  FirmwareSummary { name: &quot;donguru&quot;, .. } (reply to #3 in 2.75 ms)
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>$ ww -l donguru-m1 --monitor=api observe meter
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>   0.120178 L0 → Request Observe meter  reading: on change; temperature: on change; totals: on change; others off #3
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>   0.123055 L0 ← Event Value meter  reading: on change (min 1 ms); temperature: on change (min 1 ms); totals: on change (min 1 ms); budget 2000 B/s (reply to #3 in 2.88 ms)
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>   0.124580 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5228 mV, current: 7 mA }, temperature: 34000 m°C, ..
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>   0.134138 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5229 mV, current: 6 mA }
 </span></code></pre></div>
+<p>Requests are named by the device's API, and calls through global traits (<code>ww info</code> reads <code>ww_firmware_info</code>,
+<code>ww_board_info</code>, <code>ww_user_info</code>, ..) by the trait's crate and name, decoded from the snapshots <code>ww</code> carries, also when
+the command never reads the device's own API. An <code>Observe</code> shows the property names with the mode asked and the one
+granted, an update the properties it carries with their values. Ctrl+C and SIGTERM (<code>timeout</code>) end the command with the
+capture finished and renamed.</p>
 <p>Commands that don't connect (<code>list</code>, <code>explain</code>, <code>api</code>, <code>udev</code>, <code>elf</code>, <code>config</code>, <code>settings</code>) refuse the flags with an
 error, and so do <code>ww monitor</code>, <code>ww capture</code> and <code>ww stats</code>, which are the tap themselves.</p>
 <h2 id="ww-stats"><code>ww stats</code><a class="headerlink" href="#ww-stats" title="Permanent link">&para;</a></h2>

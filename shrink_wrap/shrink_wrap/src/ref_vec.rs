@@ -139,6 +139,14 @@ where
             RefVec::Slice { slice, .. } => {
                 let elements_count = slice.len();
                 wr.write_rev_len(elements_count)?;
+                if let Some(bytes) = plain_bytes(slice) {
+                    // `u8` / `i8`: one copy instead of a write per element, the same bytes (an empty list
+                    // writes nothing, not even the alignment `write_raw_slice` would)
+                    if !bytes.is_empty() {
+                        wr.write_raw_slice(bytes)?;
+                    }
+                    return Ok(());
+                }
                 for item in slice.iter() {
                     wr.write(item)?;
                 }
@@ -153,6 +161,17 @@ where
         }
         Ok(())
     }
+}
+
+/// `slice` as its bytes when its elements are written as one plain byte each: `PLAIN_BYTES` is `Some(1)` (`u8`,
+/// `i8`: their write aligns to a byte and puts the byte, as [write_raw_slice](BufWriter::write_raw_slice) does
+/// for the whole slice) and a `T` takes one byte of memory, so every element is one initialized byte.
+fn plain_bytes<'i, T: DeserializeShrinkWrap<'i>>(slice: &[T]) -> Option<&[u8]> {
+    if T::PLAIN_BYTES != Some(1) || core::mem::size_of::<T>() != 1 {
+        return None;
+    }
+    // Safety: `T` is one byte in size, so the slice is `len` initialized bytes
+    Some(unsafe { core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), slice.len()) })
 }
 
 #[cfg(feature = "std")]

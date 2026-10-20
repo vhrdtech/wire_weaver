@@ -18,8 +18,8 @@
 //! restart.
 
 use crate::tx::Counted;
-use core::mem::MaybeUninit;
 use crate::{HeadExt, Opened, ResumeError, StreamCursor, StreamHead};
+use core::mem::MaybeUninit;
 use wire_weaver::shrink_wrap::Error;
 use ww_client_server::stream::{StreamCodec, StreamCodecs, StreamStatus};
 use ww_si::Second;

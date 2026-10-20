@@ -6421,7 +6421,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>--bits</code> for the TOOL-9 bit map of every message), framer and link statistics every few seconds or of a capture,
   captures with the device's API bundle in them, read back by <code>ww explain FILE</code> exactly as monitored live.
   Blocks come from a <code>Feed</code> (<code>wire_weaver_cli/src/cmd/tap.rs</code>): the CLI's own connection today, a ww server's tap
-  of all its clients later.</li>
+  of all its clients later.
+  Global <code>--monitor[=frame|link|api]</code> (<code>--monitor-bytes</code>, <code>--monitor-bits</code>) and <code>--capture FILE</code> on every command
+  that connects print (to stderr) or save that command's own connection, with the same <code>Monitor</code>, <code>LiveFeed</code> and
+  <code>TapeWriter</code>; the tap decoder orders a block's records by time so a reply is paired with its request
+  (<code>docs/cli_reference.md#ww-monitor</code>).</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>.</li>

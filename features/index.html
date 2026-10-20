@@ -6528,13 +6528,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   message RAM; <code>CanTimeTriggered</code> (TTCAN); <code>CanXl</code> behind the <code>xl</code> feature. Errors on <code>CommonError</code> +
   <code>OutOfFilters</code>, <code>OutOfMemory</code>, <code>BusOff</code>; <code>defmt</code> no longer pulls <code>std</code>. Docs <code>docs/std_library/ww_can_bus.md</code>,
   tests <code>tests/io_can</code> (full and minimal node), <code>tests/io_can_group</code> (group, TTCAN, XL).</li>
-<li>✅ <strong>STD-30 <code>ww_gpio</code> port access</strong> — <code>Bank::read_inputs(pins)</code> answers the input levels of the listed pins (indices
-  into <code>pin[]</code>) in the same order, <code>Bank::write_outputs(levels)</code> sets a list of <code>PinLevel { pin, level }</code>, all or
-  nothing; both at one instant where the hardware allows (one register read / write), which
-  <code>BankCapabilities::simultaneous_read</code> / <code>simultaneous_write</code> say, pin by pin in list order otherwise. For bit-banged
-  parallel buses and strobes from the host, which multi-call can't make simultaneous. Pins by index, no masks on the
-  wire (IO family D9). Bank indices 1 and 2 from its reserved range, capabilities appended with <code>#[default = false]</code>.
-  Docs <code>docs/std_library/ww_gpio.md#port-access</code>, tests <code>tests/io_gpio</code>, STM32 boards in <code>examples_mcu</code> (IDR / BSRR).</li>
 <li>✅ <strong>STD-42 <code>ww_tape</code></strong> · <code>v0.5</code> — tape blocks, the generic unit of track records for live feeds and log files
   (<code>ww_tape</code>, <code>docs/transport/tap.md#tape-blocks</code>): a 32 B header, varint records (track, time delta, length,
   item), CRC-32C, never padded; describe blocks with the producer, <code>TrackDef</code>s (stable key, API, resource path,
@@ -6819,6 +6812,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   through every consumer, is the contract that keeps them byte-identical; <code>ww_self</code> is the shared model for
   everything outside the derive. Fallback if drift ever bites: a dependency-free crate holding only the layout rules
   (bit offsets, flags, nibble alignment), called by both <code>shrink_wrap_derive</code> and <code>ww_self</code>, breaks no cycle.</li>
+<li><strong>STD-30 <code>ww_gpio</code> port access</strong> — dropped (Roman, 20 Oct 2026), <code>Bank::read_inputs</code> / <code>write_outputs</code>,
+  <code>PinLevel</code> and the <code>simultaneous_*</code> capabilities removed before <code>ww_gpio</code> 0.1.0 was published. <code>ww_gpio</code> stays
+  simple and low speed, one pin per call (IO family D9): many pins in one round trip are per-pin calls in one multi
+  request (CLT-15, <code>docs/std_library/ww_gpio.md#several-pins</code>); several pins at one instant or with precise timing
+  (bit-banged parallel buses, a strobe with its data lines) belong to the signal generator (STD-22) and the logic
+  analyzer (STD-21). The extra methods only cost flash on every GPIO server.</li>
 <li><strong>SW-31 <code>Delta</code> / <code>DeltaOfDelta</code></strong>, <strong>SW-32 <code>XorFloat</code></strong>, <strong>SW-50 compressed sequences in APIs</strong> — superseded by
   <code>Series&lt;T&gt;</code> (SW-60): its numeric columns use the SW-31 prefix code with the delta or delta of delta predictor, its
   float columns the SW-32 XOR code, plus packed, constant and plain and the smallest picked per column, in every API

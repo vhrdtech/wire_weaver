@@ -5327,11 +5327,59 @@ trait client:</p>
 <p>A <code>traits_only</code> connection refuses absolute paths (<code>Error::AbsolutePathInTraitsOnly</code>): without the device's API they
 could mean anything. <code>ww dfu reboot</code> in the <a href="../../cli/">CLI</a> does exactly this.</p>
 <h2 id="global-trait-addressing-compactversion">Global trait addressing (CompactVersion)<a class="headerlink" href="#global-trait-addressing-compactversion" title="Permanent link">&para;</a></h2>
-<p><code>CompactVersion</code> is the short form: a globally unique type id and the version numbers, all <code>UNib32</code>. Unique ids
-can't come from crate names, so they are assigned by hand and tracked in git, in the
-<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global registry</a>.</p>
-<p>Servers don't serve compact trait paths yet (<code>ErrorKind::TraitNotFound</code>): compact ids of traits are not in the API
-model, and none is assigned so far (API-20).</p>
+<p><code>CompactVersion</code> is the short form: the trait's id in the
+<a href="https://github.com/vhrdtech/wire_weaver/tree/master/ww_global">ww_global registry</a> and its crate's version numbers,
+all <code>UNib32</code>. A <code>ww_user_info::UserInfo</code> read takes 6 bytes this way and 24 with <code>FullVersion</code>.</p>
+<p>Every public trait in <code>ww_stdlib</code> has an id, one per trait, keyed <code>crate::Trait</code>, in the same number space as the few
+crates that have one (<code>ww_log</code> = 0, <code>wire_weaver_usb_link</code> = 512, <code>ww_client_server</code> = 513). Small numbers are
+shorter on the wire, so the ranges go by encoded size:</p>
+<table>
+<thead>
+<tr>
+<th>Ids</th>
+<th>Size</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0-7</td>
+<td>1 nibble</td>
+<td><code>ww_log</code> (crate) and <code>ww_log::LogDefmt</code> only, 2-7 kept free</td>
+</tr>
+<tr>
+<td>8-63</td>
+<td>1 byte</td>
+<td>the device contract and common IO: firmware and board info, identity, counters, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM</td>
+</tr>
+<tr>
+<td>64-511</td>
+<td>1.5 byte</td>
+<td>all other reusable traits</td>
+</tr>
+<tr>
+<td>512+</td>
+<td>2 bytes</td>
+<td>link and protocol crates</td>
+</tr>
+</tbody>
+</table>
+<p>Ids are assigned by hand in <code>ww_global/wire_weaver_gid.json</code> and nowhere else: code never carries the number. The
+codegen looks a trait's id up by its crate and trait name (<code>&lt;TRAIT&gt;_COMPACT_GID</code>, <code>ApiLevel::compact_id</code> in the API
+model), so moving a trait to another module, reordering traits or adding a sibling trait changes nothing. A rename or
+a move to another crate keeps the id (the old name goes into <code>aliases</code>), ids are never reused (a removed trait is
+marked <code>retired</code>), and <code>assigned_ids.lock</code> keeps every id ever assigned, checked by a test. <code>ww api check</code> reports a
+trait whose id changed or disappeared as a breaking change.</p>
+<p>A server serves a <code>GlobalCompact</code> path like a <code>GlobalFull</code> one: it finds the trait by its id wherever it sits in the
+API tree, checks that the requested version is protocol compatible with its own (same major, and same minor before
+1.0), and answers <code>ErrorKind::TraitNotFound</code> otherwise, also for an id it doesn't know, a crate's id or a trait under
+a resource array. Serving it costs 64 bytes of flash and about 170 instructions more than an absolute path on a
+Cortex-M3 (<code>GlobalFull</code>: about 790), see <code>examples_mcu/mcu_qemu/src/bin/global_paths.rs</code>.</p>
+<p>The host prefers the compact form: a global call to a trait the registry knows goes out with its id, whether the
+client asked for <code>GlobalFull</code> or not. A device built before the trait had an id answers <code>TraitNotFound</code>; the client
+then sends the same request again with <code>GlobalFull</code> and keeps using it for that trait for the rest of the
+connection. The tap decoder, <code>ww --monitor=api</code> and <code>ww explain</code> name compact calls through the registry and decode
+them from the trait's snapshot.</p>
 <h2 id="api-report">API report<a class="headerlink" href="#api-report" title="Permanent link">&para;</a></h2>
 <p>TODO: export a file describing all levels of API with IDs (DOC-5).</p>
 

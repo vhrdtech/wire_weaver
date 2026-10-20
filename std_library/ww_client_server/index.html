@@ -5380,8 +5380,8 @@ though some types (<code>StreamCursor</code>, <code>SinkCredit</code>, the <code
   RequestKind&lt;'i&gt;</code>. <code>Request::set_seq</code>/<code>peek_seq</code> fill in or read <code>seq</code> in an already-serialized buffer without
   touching the rest, since a client picks the id only right before sending.</li>
 <li><code>PathKind&lt;'i&gt;</code> - how a resource is addressed, one of three ways: <code>Absolute { path }</code> (a plain index path,
-  smallest on the wire), <code>GlobalCompact { gid: CompactVersion, path_from_trait }</code> (a global
-  <a href="../ww_version/">trait id</a>, for traits used often enough to have one assigned), <code>GlobalFull { gid: FullVersion,
+  smallest on the wire), <code>GlobalCompact { gid: CompactVersion, path_from_trait }</code> (the trait's
+  <a href="../../api/addressing/#global-trait-addressing-compactversion">ww_global id</a>, every <code>ww_stdlib</code> trait has one), <code>GlobalFull { gid: FullVersion,
   trait_name, path_from_trait }</code> (any crates.io trait, by crate name and version - biggest, since it carries the
   name as a string). A server honors a global path wherever the matching trait sits in its API tree (API-20), after
   checking its own version is protocol-compatible (<code>FullVersion::is_protocol_compatible</code>) - what makes a global

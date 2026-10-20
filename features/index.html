@@ -6024,9 +6024,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.</li>
 <li>📋 <strong>API-19 Change dispatcher match order</strong> to process common requests faster · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-20 Trait paths on the server side</strong> · <code>v0.5</code> — servers serve <code>PathKind::GlobalFull</code> requests (crate,
-  version and trait name) wherever the trait sits in the tree, <code>ErrorKind::TraitNotFound</code> otherwise
-  (<code>tests/cross_version</code>, <code>docs/api/addressing.md</code>). Missing: <code>PathKind::GlobalCompact</code> (compact ids of
-  traits are not in the API model yet, none is assigned), traits under a resource array.</li>
+  version and trait name) and <code>PathKind::GlobalCompact</code> ones (the trait's <code>ww_global</code> id) wherever the trait sits in
+  the tree, <code>ErrorKind::TraitNotFound</code> otherwise (<code>tests/cross_version</code>, <code>docs/api/addressing.md</code>). Every public
+  <code>ww_stdlib</code> trait has an id (<code>ww_global/wire_weaver_gid.json</code>, looked up by crate and trait name, guarded by
+  <code>tests/global_ids</code> and <code>assigned_ids.lock</code>), the API model carries it (<code>ApiLevel::compact_id</code>), the client sends
+  compact paths and falls back to <code>GlobalFull</code> for devices built before an id existed, the tap decoder and
+  <code>ww explain</code> name compact calls; 64 B of flash on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> <code>qemu-global-paths</code>).
+  Missing: traits under a resource array.</li>
 <li>📋 <strong>API-21 <code>no_alloc = false</code> servers</strong> — don't compile today.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
@@ -6437,7 +6441,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>EVO-1 Evolution rules</strong> in <code>docs/evolution/rules.md</code>: crate layers and version bumping.</li>
 <li>✅ <strong>EVO-2 SHA signatures</strong> of APIs and types, hashing only the major version (or <code>0.minor</code>), version independent.</li>
 <li>✅ <strong>EVO-3 Crate version recorded in bundles</strong>.</li>
-<li>✅ <strong>EVO-4 Global traits referenced by hash</strong>, global type registry (<code>ww_global</code>).</li>
+<li>✅ <strong>EVO-4 Global traits referenced by hash</strong>, global type registry (<code>ww_global</code>): one id per <code>crate::Trait</code> for every
+  public <code>ww_stdlib</code> trait, by hand in <code>wire_weaver_gid.json</code>, renames keep the id through <code>aliases</code>, ids never
+  reused (<code>retired</code>), <code>assigned_ids.lock</code> append-only and checked; <code>ww api check</code> flags a changed id (API-20).</li>
 <li>✅ <strong>EVO-5 API snapshots</strong> of <code>ww_global</code> and <code>ww_stdlib</code> (<code>wire_weaver_snapshots</code>, <code>ww api save</code>), left out of
   introspection data and put back by the client.</li>
 <li>✅ <strong>EVO-6 Evolution checker and report</strong>: <code>ww api check</code> / <code>ww api diff</code> (<code>docs/evolution/checker_tool.md</code>).</li>

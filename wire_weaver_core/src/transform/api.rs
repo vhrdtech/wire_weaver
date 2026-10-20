@@ -713,7 +713,7 @@ mod tests {
     fn batched_timed_stream_wire_item_round_trips() {
         wire_item_round_trips(
             "streams_batched_api",
-            None,
+            Some("StreamsBatched"),
             "reliable",
             "frames",
             "Timed<Sample>",

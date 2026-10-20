@@ -297,3 +297,22 @@ proptest! {
         run(&mut Encoder::<256, 1024>::new(512), &d, &sizes);
     }
 }
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    /// Blocks are untrusted input on the host: any bytes decode or fail, never panic, and a failed block leaves the
+    /// history as it was.
+    #[test]
+    fn decoding_any_bytes_never_panics(block in prop::collection::vec(any::<u8>(), 0..300)) {
+        let mut dec = Decoder::new();
+        let mut lit = vec![0xf0, 255, 255, 0];
+        lit.extend_from_slice(&[b'h'; 15 + 255 + 255]);
+        dec.decode(&lit).unwrap();
+        let last = match dec.decode(&block) {
+            Ok(out) => out.last().copied().unwrap_or(b'h'),
+            Err(_) => b'h',
+        };
+        assert_eq!(dec.decode(&[0x04, 1, 0, 0x00]).unwrap(), [last; 8]);
+    }
+}

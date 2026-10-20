@@ -750,6 +750,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (FIFO preload, `rewind`); 8-bit words only. Events built as `I2cSlaveEvent` / `SpiSlaveFrame`. `const fn new` for a
   `static`; 58-100 instructions per byte on a Cortex-M3 (`examples_mcu/mcu_qemu` bin `qemu-bus-slave`).
   `docs/api/bus_slave.md`, tests `ww_bus_slave/tests`. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).
+- ✅ **SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams** — `ww_lz4`, no_std, no alloc: each chunk of a
+  stream (UART RX, a log) becomes one standard LZ4 block whose matches reach back into earlier chunks, so 512 B chunks
+  of shell text go 3.2-5.1x and 64 B chunks 2.4-3.3x (captured boot log, `ls`/`rg` colour output, `top`), about 2x
+  without history. `Encoder<HASH, BUF>` with a `const fn new(keep)` for a `static`: a hash table of `u16` positions
+  (2 B per entry), `input(want)` gives the free tail of the history buffer (slides first, `keep` bytes survive) so a
+  chunk is written in place, `compress(len, out)` writes the block, `reset()` starts the history over, `HISTORY`,
+  `max_block_len(n)`. A chunk that doesn't shrink goes out as a literal-only block, and after 1 KiB of those the
+  encoder only retries every 4 KiB (`with_backoff`). Feature `ram` puts the hot code (1.3 KiB) in `.data.ww_lz4`.
+  Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
+  P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
+  `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature

@@ -5481,6 +5481,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/observing/#the-server-loop">Event-driven observe</a></strong>: The device sleeps until an observed property is due, and wakes at once when one changes.</li>
 <li><strong><a href="../api/ecc_flash/">ECC-safe STM32 flash</a></strong>: Reads a flash word broken by a power cut as zeros instead of crashing. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/bus_slave/">I2C and SPI slave engine</a></strong>: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.</li>
+<li><strong>Streaming LZ4</strong>: <code>ww_lz4</code> compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 

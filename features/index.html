@@ -6126,6 +6126,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (FIFO preload, <code>rewind</code>); 8-bit words only. Events built as <code>I2cSlaveEvent</code> / <code>SpiSlaveFrame</code>. <code>const fn new</code> for a
   <code>static</code>; 58-100 instructions per byte on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> bin <code>qemu-bus-slave</code>).
   <code>docs/api/bus_slave.md</code>, tests <code>ww_bus_slave/tests</code>. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).</li>
+<li>✅ <strong>SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams</strong> — <code>ww_lz4</code>, no_std, no alloc: each chunk of a
+  stream (UART RX, a log) becomes one standard LZ4 block whose matches reach back into earlier chunks, so 512 B chunks
+  of shell text go 3.2-5.1x and 64 B chunks 2.4-3.3x (captured boot log, <code>ls</code>/<code>rg</code> colour output, <code>top</code>), about 2x
+  without history. <code>Encoder&lt;HASH, BUF&gt;</code> with a <code>const fn new(keep)</code> for a <code>static</code>: a hash table of <code>u16</code> positions
+  (2 B per entry), <code>input(want)</code> gives the free tail of the history buffer (slides first, <code>keep</code> bytes survive) so a
+  chunk is written in place, <code>compress(len, out)</code> writes the block, <code>reset()</code> starts the history over, <code>HISTORY</code>,
+  <code>max_block_len(n)</code>. A chunk that doesn't shrink goes out as a literal-only block, and after 1 KiB of those the
+  encoder only retries every 4 KiB (<code>with_backoff</code>). Feature <code>ram</code> puts the hot code (1.3 KiB) in <code>.data.ww_lz4</code>.
+  Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
+  P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
+  <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.</li>
 <li>🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature

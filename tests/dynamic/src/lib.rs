@@ -613,6 +613,55 @@ mod tests {
         no_bit_twice(&e.explained);
     }
 
+    /// A request through a compact global trait id (API-20) is named through the ww_global registry and explained from
+    /// the trait's snapshot, without the device API; ids that name no trait say why.
+    #[test]
+    fn explain_compact_global_request() {
+        use wire_weaver::shrink_wrap::UVlq32Backfill;
+        use wire_weaver::ww_version::{CompactVersion, GlobalTypeId};
+        use wire_weaver_client::envelope::explain_request;
+        use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+        let request = |id: u32| {
+            RequestOwned {
+                seq: UVlq32Backfill(1),
+                path_kind: PathKindOwned::GlobalCompact {
+                    gid: CompactVersion::new(GlobalTypeId::new(id), 0, 1, 0),
+                    path_from_trait: vec![UNib32(1)],
+                },
+                kind: RequestKindOwned::Read,
+            }
+            .to_ww_bytes_owned()
+            .unwrap()
+        };
+        let user_info = ww_global::trait_id("ww_user_info", "UserInfo")
+            .unwrap()
+            .id
+            .0;
+        let e = explain_request(&request(user_info), None);
+        let path = part(&e.explained.parts, "path");
+        assert_eq!(path.ty, "PathKind::GlobalCompact");
+        assert!(
+            e.title.starts_with("Request Read ww_user_info::UserInfo."),
+            "{}",
+            e.title
+        );
+        assert!(e.resource.is_some());
+        no_bit_twice(&e.explained);
+
+        let note = |id| {
+            part(&explain_request(&request(id), None).explained.parts, "path")
+                .note
+                .clone()
+                .unwrap()
+        };
+        assert!(
+            note(4000).contains("not in the ww_global registry"),
+            "{}",
+            note(4000)
+        );
+        assert!(note(0).contains("crate ww_log"), "{}", note(0));
+    }
+
     #[test]
     fn explain_event_envelope() {
         use wire_weaver_client::envelope::explain_event;

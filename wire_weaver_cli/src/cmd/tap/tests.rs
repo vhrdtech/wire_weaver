@@ -457,9 +457,13 @@ async fn tapped_session(
 
 /// What `ww explain FILE` prints of a capture.
 fn replayed(path: &std::path::Path, layer: Layer) -> String {
+    replayed_view(path, layer, false)
+}
+
+fn replayed_view(path: &std::path::Path, layer: Layer, bytes: bool) -> String {
     let view = ViewArgs {
         layer,
-        bytes: false,
+        bytes,
         bits: false,
     };
     let mut out = vec![];
@@ -550,6 +554,13 @@ async fn global_trait_calls_are_named_and_decoded() {
             "{printed}"
         );
         assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
+        // the call went out by the trait's ww_global id (API-20): 6 bytes, the crate name alone would take 12; the
+        // name shown comes from the registry
+        let with_bytes = replayed_view(&path, Layer::Api, true);
+        let mut lines = with_bytes.lines();
+        lines.find(|l| l.contains("Request Read ww_user_info::UserInfo.name"));
+        let request_len = lines.next().unwrap().split_whitespace().skip(1).count();
+        assert_eq!(request_len, 6, "{with_bytes}");
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
 }

@@ -26,7 +26,7 @@ use ww_client_server::{
 use ww_numeric::NumericValue;
 use ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeOwned, ValueOwned};
-use ww_version::FullVersionOwned;
+use ww_version::{CompactVersion, FullVersionOwned, VersionOwned};
 
 /// A request or event explained, with a title saying what it is.
 pub struct Envelope {
@@ -107,18 +107,41 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                 );
                 resource.ok()
             }
-            other => {
-                // a path through a compact global id: shown, its payload not explained
+            PathKind::GlobalCompact {
+                gid,
+                path_from_trait,
+            } => {
+                // a trait by its ww_global id: named through the registry, then known from a snapshot like GlobalFull
+                let chain: Vec<u32> = path_from_trait
+                    .iter()
+                    .map(|i| i.map(|i| i.0))
+                    .collect::<Result<_, _>>()?;
+                let named = compact_trait_name(gid).map_err(|e| e.to_string());
+                let resource = named
+                    .clone()
+                    .map_err(|e| anyhow!("{e}"))
+                    .and_then(|(version, trait_name)| {
+                        global_trait(&version, trait_name).ok_or_else(|| {
+                            anyhow!("{}@{} is not known here", version.crate_id, trait_name)
+                        })
+                    })
+                    .and_then(|t| t.descend(&chain).map_err(|e| anyhow!("{e}")));
                 b.leaf(
                     1,
                     "path",
-                    "PathKind",
+                    "PathKind::GlobalCompact",
                     at,
                     b.at(&rd),
-                    None,
-                    Some(format!("{other:?}")),
+                    ids(&chain),
+                    Some(match (&resource, &named) {
+                        (Ok(r), _) => r.path().to_string(),
+                        (Err(e), Ok((version, trait_name))) => {
+                            format!("{}::{trait_name}: {e}", version.crate_id)
+                        }
+                        (Err(e), Err(_)) => format!("{e}"),
+                    }),
                 );
-                None
+                resource.ok()
             }
         };
 
@@ -786,6 +809,28 @@ fn us(us: u32) -> String {
         us if us % 1_000 == 0 => format!("{} ms", us / 1_000),
         us => format!("{us} µs"),
     }
+}
+
+/// Crate version and trait name a compact global trait id (`PathKind::GlobalCompact`) stands for, from the
+/// `ww_global` registry this host is built with (API-20). An error for an id the registry doesn't have, or one of a
+/// crate or a retired trait.
+pub fn compact_trait_name(
+    gid: &CompactVersion,
+) -> anyhow::Result<(FullVersionOwned, &'static str)> {
+    let id = gid.gid.id.0;
+    let entry =
+        ww_global::entry(id).ok_or_else(|| anyhow!("id {id} is not in the ww_global registry"))?;
+    let (crate_name, trait_name) = entry.split();
+    let trait_name =
+        trait_name.ok_or_else(|| anyhow!("id {id} is the crate {crate_name}, not a trait"))?;
+    if let Some(why) = entry.retired {
+        return Err(anyhow!("id {id} was {}, retired: {why}", entry.name));
+    }
+    let version = VersionOwned::new(gid.major.0, gid.minor.0, gid.patch.0);
+    Ok((
+        FullVersionOwned::new(crate_name.into(), version),
+        trait_name,
+    ))
 }
 
 /// The trait `trait_name` of crate `version` as a level, from the API snapshots this host carries

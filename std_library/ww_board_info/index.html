@@ -5253,7 +5253,7 @@ It never fails; what a device does not know is an empty string or <code>None</co
 </tr>
 <tr>
 <td><code>revision_source</code></td>
-<td><code>Record</code>, <code>Strap { value }</code> or <code>Assumed</code></td>
+<td><code>Record</code>, <code>Strap { value }</code>, <code>Assumed</code> or <code>Provisional</code></td>
 </tr>
 <tr>
 <td><code>variant</code>, <code>bom_variant</code>, <code>serial</code></td>
@@ -5273,6 +5273,9 @@ It never fails; what a device does not know is an empty string or <code>None</co
   show what was measured.</li>
 <li><code>Assumed</code> - neither exists: the firmware assumes the revision it was built for. A unit on an assumed revision is a
   different case from one that read its record.</li>
+<li><code>Provisional</code> - a provisional record a bench or developer wrote in editable storage (flash), standing in for the
+  production record until it is written; not a production record. Added later as an appended variant: older hosts
+  read it as their <code>future_version</code> variant.</li>
 </ul>
 <p>Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.</p>

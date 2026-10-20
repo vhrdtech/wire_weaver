@@ -6536,7 +6536,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
     <code>build.rs</code>, <code>build_id()</code> reader; <code>LastReset</code> (<code>ResetRecord</code> with a <code>Fault</code> per architecture behind <code>cortex-m</code> /
-    <code>riscv</code>, stack words, <code>boot_count</code>, <code>clear</code>). <code>BoardInfo::BOARD</code> with <code>RevisionSource</code>. <code>Uid::IDS</code>, first id is
+    <code>riscv</code>, stack words, <code>boot_count</code>, <code>clear</code>). <code>BoardInfo::BOARD</code> with <code>RevisionSource</code> (<code>Record</code>, <code>Strap</code>, <code>Assumed</code>, <code>Provisional</code>). <code>Uid::IDS</code>, first id is
     the primary one (USB serial). <code>UserInfo</code> with bounded <code>name</code> / optional <code>notes</code>, <code>UserInfoError</code>, <code>CAPABILITIES</code>
     and the persistence rule. Docs <code>docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md</code>, tests
     <code>tests/{firmware_info,board_info,uid,user_info}</code>. The const items are served by <code>get_</code> handlers until constant

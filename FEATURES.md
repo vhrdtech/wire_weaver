@@ -1297,6 +1297,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **STD-46 More I2C slave addressing** — a second address or an address mask (one emulator answering for several
   chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
   so this is per-device capability.
+- 🚧 **STD-47 `ww_pin_diag` pin tests** · `v0.5.x` — `PinDiag { const POINTS; set(point, PointState); read(point);
+  release_all() }`: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
+  bring-up, verification and production tests; the firmware keeps its board's rules and answers `NotCapable`,
+  `Common(InUse)` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
+  `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot.
+  Missing: `ww pins test` (quick short test on any device) and plan files, a device implementing it (rePort).
+- 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(UNib32), Text(&str) }` for names and reasons;
+  ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
+  id). Missing: an accessor for `defmt::Str`'s index (upstream), the host lookup in the ELF directory.
 
 ## Examples (`EX`)
 

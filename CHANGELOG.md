@@ -13,6 +13,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `ww_pin_diag` (STD-47): one generic trait for pin tests, `PinDiag { const POINTS; set; read; release_all }`, so
+  one host tool finds shorts, pulls and floating pins on any board; the firmware keeps its board's rules and refuses
+  with `NotCapable`, `Common(InUse)` or `Refused { rule }`. `ww_interned` (STD-48): `Interned { Id, Text }`, names
+  and reasons sent as an index into the firmware's string table, resolved from its ELF on the host. Docs page
+  `ww_pin_diag.md`, test pair `tests/pin_diag`.
 - `ww explain WHAT HEX` (TOOL-9): which bits of a buffer hold which value, as a tree of every field with its bit
   range (front bits and back nibbles of lengths and sizes), raw bits, type and decoded value, padding included, and
   a hex map coloured by field. WHAT is a type, a method's arguments (`--return`: its return value), a property's

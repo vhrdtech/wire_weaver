@@ -1,0 +1,16 @@
+[package]
+name = "pin_diag_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_pin_diag/std"]
+
+[dependencies]
+wire_weaver.workspace = true
+ww_pin_diag.workspace = true

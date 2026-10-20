@@ -115,11 +115,13 @@ ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = 
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
 ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
+ww_interned = { version = "0.1.0", path = "./ww_stdlib/ww_interned", default-features = false }
 ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }
 ww_logic_analyzer = { version = "0.1.0", path = "./ww_stdlib/ww_logic_analyzer", default-features = false }
 ww_memory = { version = "0.1.0", path = "./ww_stdlib/ww_memory", default-features = false }
 ww_numeric = { version = "0.2.0", path = "./ww_stdlib/ww_numeric", default-features = false }
 ww_onewire = { version = "0.1.0", path = "./ww_stdlib/ww_onewire", default-features = false }
+ww_pin_diag = { version = "0.1.0", path = "./ww_stdlib/ww_pin_diag", default-features = false }
 ww_pwm = { version = "0.1.0", path = "./ww_stdlib/ww_pwm", default-features = false }
 ww_recorder = { version = "0.1.0", path = "./ww_stdlib/ww_recorder", default-features = false }
 ww_sd = { version = "0.1.0", path = "./ww_stdlib/ww_sd", default-features = false }
@@ -177,6 +179,7 @@ module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }
 multi_req_api = { version = "0.1.0", path = "./tests/multi_req_api" }
 observe_api = { version = "0.1.0", path = "./tests/observe_api" }
 observe_batched_api = { version = "0.1.0", path = "./tests/observe_batched_api" }
+pin_diag_api = { version = "0.1.0", path = "./tests/pin_diag_api" }
 power_stage_api = { version = "0.1.0", path = "./examples/power_stage_api" }
 properties_api = { version = "0.1.0", path = "./tests/properties_api" }
 quantities_api = { version = "0.1.0", path = "./tests/quantities_api" }

@@ -284,6 +284,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md
 - STD-35 | I2C and SPI slave | The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. | std_library/ww_i2c.md#slave-mode
 - STD-21 | Logic analyzer | Triggered captures, transitions compressed. | std_library/ww_logic_analyzer.md
+- STD-47 | Pin tests | Shorts, pulls and floating pins on any board through one trait, the board's safety rules kept in its firmware. | std_library/ww_pin_diag.md
+- STD-48 | Interned strings | Names and reasons sent as a small id, the text read from the firmware's ELF on the host. | std_library/ww_pin_diag.md#ww_interned
 - STD-22 | Signal generator | Replays captures, drives DAC channels. | std_library/ww_signal_generator.md
 - STD-25 | Counters | A device's `cnt` counters, named on the host from its firmware file. | std_library/ww_counters.md
 - STD-34 | Recorder control | Status, format, recordings, markers and settings of a logger that writes to an SD card. | std_library/ww_recorder.md

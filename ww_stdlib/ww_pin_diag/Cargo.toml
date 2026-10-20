@@ -1,0 +1,19 @@
+[package]
+name = "ww_pin_diag"
+version = "0.1.0"
+authors.workspace = true
+description = "Raw access to a board's digital points for bring-up and production tests: shorts, pulls, connectivity"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std", "ww_gpio/std", "ww_interned/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_gpio/defmt", "ww_interned/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }
+ww_gpio = { workspace = true, default-features = false }
+ww_interned = { workspace = true, default-features = false }

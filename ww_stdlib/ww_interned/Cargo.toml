@@ -1,0 +1,17 @@
+[package]
+name = "ww_interned"
+version = "0.1.0"
+authors.workspace = true
+description = "Strings sent as an index into the firmware's string table, resolved on the host from its ELF"
+edition.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+
+[features]
+default = ["std"]
+std = ["wire_weaver/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt"]
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+wire_weaver = { workspace = true, default-features = false }

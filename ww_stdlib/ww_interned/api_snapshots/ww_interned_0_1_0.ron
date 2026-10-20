@@ -1,0 +1,30 @@
+// ww_interned 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Strings a device sends as a small number instead of text (STD-48).",
+    "",
+    "Names and reasons (a pin\'s name, why a request was refused) cost flash and bytes on the wire when sent as text.",
+    "An [Interned] carries an index into the firmware\'s string table instead; the text lives only in the firmware\'s",
+    "ELF, and a host resolves it there, finding the ELF by the device\'s build id the same way `ww counters` and",
+    "`ww report` decode counters and crashes. A device without such a table (a simulator, a Linux server) sends the",
+    "text itself, and a host without the ELF shows an id as `#<id>`.",
+    "",
+    "How a firmware builds its table is open (see the docs page): the type only fixes what travels.",
+], crate_idx: 0, trait_name: "ww_interned", items: []), types: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "A string sent as an index into the firmware\'s string table, or as text.",
+    ], ident: "Interned", generics: [], variants: [
+        (docs: [
+            "Index into the string table of the firmware\'s ELF.",
+        ], ident: "Id", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "The text itself, from a device without a string table.",
+        ], ident: "Text", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

@@ -101,6 +101,7 @@ nav = [
                     "std_library/ww_logic_analyzer.md",
                     "std_library/ww_signal_generator.md",
                     "std_library/ww_memory.md",
+                    "std_library/ww_pin_diag.md",
                     "std_library/ww_block.md",
                     "std_library/ww_sd.md",
                     "std_library/ww_can_bus_reference.md"

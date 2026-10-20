@@ -1,0 +1,20 @@
+[package]
+name = "pin_diag"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+pin_diag_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+ww_gpio = { workspace = true, features = ["std"] }
+ww_interned = { workspace = true, features = ["std"] }
+ww_pin_diag = { workspace = true, features = ["std"] }

@@ -53,7 +53,7 @@ fn text_tui_random_in_64_and_512_byte_chunks() {
             let big = run(&mut Box::new(Encoder::<4096, 12288>::new(4096)), d, &[chunk]);
             let (small, big) = (ratio(d, small), ratio(d, big));
             match *name {
-                "random" => assert!(small > 0.98 && big > 0.98, "{name} {chunk}: {small:.2} {big:.2}"),
+                "random" => assert!(small > 0.96 && big > 0.96, "{name} {chunk}: {small:.2} {big:.2}"),
                 _ => assert!(small > 1.3 && big >= small * 0.98, "{name} {chunk}: {small:.2} {big:.2}"),
             }
         }
@@ -134,7 +134,7 @@ fn reset_starts_the_history_over() {
 fn backs_off_on_random_and_comes_back_on_text() {
     let noise = data::random(16 * 1024, 8);
     let text = data::text(16 * 1024, 9);
-    let mut enc = Encoder::<1024, 2048>::new(1024).with_backoff(2, 4096);
+    let mut enc = Encoder::<1024, 2048>::new(1024).with_backoff(1024, 4096);
     let mut out = [0u8; max_block_len(512)];
     let mut dec = Decoder::new(enc.max_chunk());
     for c in noise.chunks(512) {

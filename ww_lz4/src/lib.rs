@@ -70,11 +70,12 @@ pub struct Encoder<const HASH: usize, const BUF: usize> {
     len: usize,
     /// History that survives a slide.
     keep: usize,
-    /// Misses in a row before backing off, 0 for never.
-    backoff_misses: u8,
+    /// Bytes of chunks in a row that didn't shrink before backing off, 0 for never.
+    miss_bytes: usize,
     /// Bytes sent as literals without trying once backed off.
     retry_bytes: usize,
-    misses: u8,
+    /// Bytes of chunks in a row that didn't shrink.
+    missed: usize,
     /// Bytes still to go as literals before the next try.
     skip: usize,
 }
@@ -86,7 +87,8 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
     };
 
     /// An empty encoder; `keep` bytes of history survive when the buffer slides, so chunks are at most `BUF - keep`
-    /// bytes. Backs off after 2 misses in a row and retries every 4 KiB, see [`with_backoff`](Self::with_backoff).
+    /// bytes. Backs off after 1 KiB that didn't shrink and retries every 4 KiB, see
+    /// [`with_backoff`](Self::with_backoff).
     pub const fn new(keep: usize) -> Self {
         #[allow(clippy::let_unit_value)]
         let () = Self::CHECK;
@@ -97,17 +99,17 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
             pos: 0,
             len: 0,
             keep,
-            backoff_misses: 2,
+            miss_bytes: 1024,
             retry_bytes: 4096,
-            misses: 0,
+            missed: 0,
             skip: 0,
         }
     }
 
-    /// After `misses` chunks in a row that didn't shrink, send the next `retry_bytes` bytes as literals without
-    /// trying, then try again. `misses = 0` always tries.
-    pub const fn with_backoff(mut self, misses: u8, retry_bytes: usize) -> Self {
-        self.backoff_misses = misses;
+    /// After chunks of `miss_bytes` in a row that didn't shrink, send the next `retry_bytes` bytes as literals without
+    /// trying, then try again. Counted in bytes, so it is the same for any chunk size; `miss_bytes = 0` always tries.
+    pub const fn with_backoff(mut self, miss_bytes: usize, retry_bytes: usize) -> Self {
+        self.miss_bytes = miss_bytes;
         self.retry_bytes = retry_bytes;
         self
     }
@@ -120,7 +122,7 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
         self.pos = self.pos.wrapping_add(self.len as u32);
         self.len = 0;
         self.table = [0; HASH];
-        self.misses = 0;
+        self.missed = 0;
         self.skip = 0;
     }
 
@@ -157,12 +159,13 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
         self.skip = 0;
         match encode_block(&mut self.table, &self.buf[..self.len], self.pos, start, out) {
             Some(n) => {
-                self.misses = 0;
+                self.missed = 0;
                 n
             }
             None => {
-                self.misses = self.misses.saturating_add(1);
-                if self.backoff_misses != 0 && self.misses >= self.backoff_misses {
+                // stays above miss_bytes until a chunk shrinks, so a retry that misses backs off at once
+                self.missed = self.missed.saturating_add(len);
+                if self.miss_bytes != 0 && self.missed >= self.miss_bytes {
                     self.skip = self.retry_bytes;
                 }
                 literals(out, &self.buf[start..self.len])

@@ -219,6 +219,22 @@ impl<'a> Checker<'a> {
     }
 
     fn compare_levels(&mut self, name: &str, old: &'a ApiLevelOwned, new: &'a ApiLevelOwned) {
+        // ww_global ids (API-20): hosts and devices of both versions must mean the same trait by the same number
+        match (old.compact_id, new.compact_id) {
+            (Some(old_id), Some(new_id)) if old_id != new_id => self.breaking.push(format!(
+                "trait {name}: ww_global id changed from {} to {} (ids never change, a renamed trait keeps its id \
+                 through `aliases` in wire_weaver_gid.json)",
+                old_id.0, new_id.0
+            )),
+            (Some(old_id), None) => self.breaking.push(format!(
+                "trait {name}: ww_global id {} gone (ids are never removed, a removed trait is marked `retired`)",
+                old_id.0
+            )),
+            (None, Some(new_id)) => self
+                .compatible
+                .push(format!("trait {name}: ww_global id {} assigned", new_id.0)),
+            _ => {}
+        }
         let new_items: HashMap<u32, &ApiItemOwned> =
             new.items.iter().map(|item| (item.id.0, item)).collect();
         for old_item in &old.items {
@@ -622,6 +638,46 @@ mod tests {
             report.breaking.iter().any(|r| r.contains(reason_contains)),
             "{:?} does not contain '{reason_contains}'",
             report.breaking
+        );
+    }
+
+    /// API-20: an id is part of what a trait is to hosts and devices, it may be assigned but never changed or removed.
+    #[test]
+    fn ww_global_id_change_is_breaking() {
+        let with_id = |id: Option<u32>| {
+            let mut bundle = load("0.1.0", API);
+            for location in &mut bundle.traits {
+                if let ApiLevelLocationOwned::InLine { level, .. } = location {
+                    level.compact_id = id.map(wire_weaver::shrink_wrap::UNib32);
+                }
+            }
+            bundle
+        };
+        let check = |old, new| compare(&with_id(old), &with_id(new)).unwrap();
+        assert_breaking(
+            &check(Some(70), Some(71)),
+            "ww_global id changed from 70 to 71",
+        );
+        assert_breaking(&check(Some(70), None), "ww_global id 70 gone");
+        let assigned = check(None, Some(70));
+        assert_eq!(assigned.change, Change::Compatible, "{assigned:?}");
+        assert!(
+            assigned
+                .compatible
+                .iter()
+                .any(|c| c.contains("ww_global id 70 assigned"))
+        );
+        assert_eq!(check(Some(70), Some(70)).change, Change::None);
+        let differences = diff::diff(&with_id(Some(70)), &with_id(Some(71))).unwrap();
+        assert!(
+            differences.iter().any(|d| matches!(
+                d,
+                diff::Difference::Changed {
+                    what: "ww_global id",
+                    ..
+                }
+            )),
+            "{differences:?}"
         );
     }
 

@@ -115,6 +115,10 @@ impl Differ<'_> {
             let path = format!("trait {name}");
             match new_traits.get(name) {
                 Some(new_level) => {
+                    let id = |l: &ApiLevelOwned| {
+                        l.compact_id.map_or("none".into(), |id| id.0.to_string())
+                    };
+                    self.changed(&path, "ww_global id", id(old_level), id(new_level));
                     self.docs(&path, &old_level.docs, &new_level.docs);
                     self.items(name, old_level, new_level);
                 }

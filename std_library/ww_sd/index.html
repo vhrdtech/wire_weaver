@@ -3155,6 +3155,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#in-spi-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In SPI mode
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#what-a-command-needs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5203,6 +5214,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#in-spi-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In SPI mode
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#what-a-command-needs" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5430,7 +5452,8 @@ an optional timeout.</p>
 <li><code>outcome</code>: <code>Ok</code>, <code>ResponseTimeout</code>, <code>ResponseCrc</code>, <code>DataTimeout</code>, <code>DataCrc</code>, <code>BusyTimeout</code> or <code>Other { code }</code>.
   What the card did is data, not an error of the call, so the bytes and the timing come back on a failure too (R3 has
   no CRC: a controller that checks it anyway reports <code>ResponseCrc</code> with good bytes).</li>
-<li><code>response</code>: the response bytes, MSB first, without start bit, index and CRC (4 bytes, 16 for R2).</li>
+<li><code>response</code>: the response bytes, MSB first, without start bit, index and CRC (4 bytes, 16 for R2; in SPI mode
+  see <a href="#in-spi-mode">below</a>).</li>
 <li><code>status</code>: the card status bits of an R1 or R1b response as <code>CardStatus</code>, with the bits as constants
   (<code>CardStatus::ILLEGAL_COMMAND</code>, ...), <code>current_state()</code> and <code>is_error()</code>.</li>
 <li><code>data</code>: what the data phase read.</li>
@@ -5439,6 +5462,26 @@ an optional timeout.</p>
 </ul>
 <p>An error of the call means the command wasn't sent: <code>NoCard</code>, <code>BadLease</code>, <code>Restricted</code>, <code>Common(Unsupported)</code> for a
 command the interface doesn't have (SPI mode), <code>Common(InvalidArgument)</code>.</p>
+<h3 id="in-spi-mode">In SPI mode<a class="headerlink" href="#in-spi-mode" title="Permanent link">&para;</a></h3>
+<p>A card in SPI mode answers with R1-based responses of its own, and some commands don't exist there. A device whose
+<code>capabilities().interface</code> is <code>Spi</code> fills the answer like this (as rePort's <code>sd_proto</code> engine does):</p>
+<ul>
+<li><code>response</code>: the bytes as the card sent them, R1 first: 1 byte for R1 and R1b, 2 for R2 (CMD13, ACMD13: R1 and the
+  second status byte), 5 for R3 and R7 (R1 and the OCR or the CMD8 echo).</li>
+<li><code>status</code>: R1 (and R2's second byte) mapped onto the SD bus card status bits, for every response: the error bits
+  where SPI mode has them, <code>CURRENT_STATE</code> 0 (idle) while R1 says idle, else 4 (tran).</li>
+<li>The response format comes from the device's command table; the host's <code>ResponseType</code> is used only for an index
+  the table doesn't know.</li>
+<li>CMD9, CMD10, CMD6, CMD30, ACMD13, ACMD22 and ACMD51 read their block (CSD, CID, the switch status, ...) into
+  <code>data</code> also with <code>DataPhase::None</code>, since the card sends it either way.</li>
+<li>Commands only the SD bus has (CMD2, CMD3, CMD7, CMD11, CMD15, CMD19, ACMD6) answer <code>Common(Unsupported)</code>, and so
+  does <code>reinit</code> with a 4-bit bus.</li>
+<li><code>Outcome::Other { code }</code>: 0x01-0x0f a read answered with this data error token (bit 0 error, 1 CC error, 2 card
+  ECC failed, 3 out of range), 0x10 written data refused with a write error, 0x11 a byte that is no data response
+  token, 0x12 the bus driver failed.</li>
+<li><code>registers().rca</code> is 0, and an <code>InitStep</code>'s <code>response</code> holds the OCR (R3) or the CMD8 echo (R7) where the command
+  has one, else R1 in bits 7:0 and R2's second byte in bits 15:8.</li>
+</ul>
 <h3 id="what-a-command-needs">What a command needs<a class="headerlink" href="#what-a-command-needs" title="Permanent link">&para;</a></h3>
 <p><code>ww_sd::access(index, arg, app)</code> (also <code>RawCommand::access()</code> and <code>RawCommandOwned::access()</code>, so a host can tell
 before sending) sorts commands into three <code>Access</code> classes:</p>

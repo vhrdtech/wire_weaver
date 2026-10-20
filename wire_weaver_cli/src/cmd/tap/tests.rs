@@ -239,3 +239,160 @@ fn sync_policies() {
 fn cli_is_consistent() {
     <crate::cli::Cli as clap::CommandFactory>::command().debug_assert();
 }
+
+/// A `Write` the test reads back.
+#[derive(Clone, Default)]
+struct Shared(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl Write for Shared {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().unwrap().extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// `--monitor=api --capture FILE` on a command's own client: the request and its paired reply printed, and the file
+/// read back by `ww explain FILE` as the same text.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn monitor_and_capture_flags_on_a_commands_own_client() {
+    let device = tests_common::start_device_usb(
+        "cli/tap_flags",
+        64,
+        server::Server {
+            blob: [0; 512],
+            speed: 7,
+        },
+        tap_api::TAP_DEMO_FULL_GID,
+        server::api_impl::api_hash(),
+    );
+    let dir = std::env::temp_dir().join(format!("ww_cli_tap_flags_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("cmd.wwtape");
+    let _ = std::fs::remove_file(&path);
+    let flags = TapFlags {
+        monitor: Some(Layer::Api),
+        tap_bytes: false,
+        tap_bits: false,
+        capture: Some(path.clone()),
+    };
+    let printed = Shared::default();
+    // as main.rs does: the tap first, the client records into it
+    let attached = Attached::start_with(&flags, Box::new(printed.clone())).unwrap();
+    let client = DynClient::from_config(
+        ClientConfig::new()
+            .in_process_path(device.path())
+            .tap(attached.recorder()),
+    )
+    .connect()
+    .await
+    .expect("connect");
+    attached.add_bundles(&client);
+    let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+    let add = resolve(root, "add").unwrap();
+    let sum = add
+        .call(client.cmd(), &[u32v(3), u32v(100)])
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(sum, u32v(103));
+    client.disconnect().asynch().await.unwrap();
+    attached.finish().unwrap();
+
+    let printed = String::from_utf8(printed.0.lock().unwrap().clone()).unwrap();
+    assert!(
+        printed.contains("Request Call add  a: 3, b: 100"),
+        "{printed}"
+    );
+    assert!(
+        printed
+            .lines()
+            .any(|l| l.contains("Event Value add  103") && l.contains("reply to #")),
+        "{printed}"
+    );
+    assert!(!printed.contains("frame #"), "{printed}");
+    // in the order it happened: the request line, then the reply to it
+    assert!(
+        printed.find("Request Call add").unwrap() < printed.find("Event Value add").unwrap(),
+        "{printed}"
+    );
+
+    // the capture is a capture, and prints as it did live
+    assert!(is_capture(path.to_str().unwrap()));
+    let view = ViewArgs {
+        layer: Layer::Api,
+        bytes: false,
+        bits: false,
+    };
+    let mut replayed = vec![];
+    replay(
+        &mut FileFeed::open(&path, false).unwrap(),
+        view,
+        false,
+        &mut replayed,
+    )
+    .unwrap();
+    assert_eq!(String::from_utf8(replayed).unwrap(), printed);
+
+    // a second run to the same file is refused before connecting
+    let err = Attached::start_with(&flags, Box::new(std::io::sink()))
+        .err()
+        .unwrap();
+    assert!(err.to_string().contains("exists"), "{err}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// What the command line says, parsed and checked the way `run` does.
+fn check(args: &[&str]) -> Result<(), String> {
+    use clap::{CommandFactory, FromArgMatches};
+    let matches = crate::cli::Cli::command()
+        .try_get_matches_from(std::iter::once(&"ww").chain(args))
+        .map_err(|e| e.to_string())?;
+    let cli = crate::cli::Cli::from_arg_matches(&matches).map_err(|e| e.to_string())?;
+    cli.check_tap().map_err(|e| e.to_string())
+}
+
+#[test]
+fn tap_flags_belong_to_commands_that_connect() {
+    assert_eq!(check(&["info"]), Ok(()));
+    for ok in [
+        &["--monitor", "info"][..],
+        &["info", "--monitor=api", "--monitor-bits"],
+        &["--monitor=frame", "--monitor-bytes", "counters"],
+        &["info", "--capture", "x.wwtape"],
+        &["observe", "--monitor=link", "a"],
+    ] {
+        assert_eq!(check(ok), Ok(()), "{ok:?}");
+    }
+    // `--monitor info` is not a layer called info
+    assert!(
+        check(&["--monitor", "list"])
+            .unwrap_err()
+            .contains("connection")
+    );
+    for refused in [
+        &["--monitor", "list"][..],
+        &["--capture", "x", "api", "tree", "a"],
+        &["--monitor", "udev"],
+        &["--monitor", "config", "show"],
+        &["--monitor", "elf", "a"],
+        &["--monitor=api", "explain", "u8", "00"],
+        &["--monitor", "monitor"],
+        &["--capture", "x", "capture", "-o", "y"],
+    ] {
+        assert!(check(refused).is_err(), "{refused:?}");
+    }
+    assert!(
+        check(&["--monitor-bytes", "info"])
+            .unwrap_err()
+            .contains("--monitor")
+    );
+    // the tap commands keep their own options
+    assert_eq!(
+        check(&["monitor", "--layer", "api", "--bytes", "--bits"]),
+        Ok(())
+    );
+}

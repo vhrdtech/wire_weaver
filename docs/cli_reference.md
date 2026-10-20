@@ -326,6 +326,29 @@ a 12 byte message's bytes), a message line the frames it is in (`in #3@58+6, #4@
 6 at offset 1 of frame 4). Without a ww server, this is the command's own connection to the device: the link setup,
 the reads it makes to connect, its pings.
 
+### `--monitor` and `--capture` on any command
+
+The tap of `ww monitor` and `ww capture` is also a pair of global flags of every command that opens a device
+connection (`info`, `observe`, `stream`, `introspect`, `dfu`, `counters`, `report`, `usb-loopback`): they tap that
+command's own connection, so the traffic of a real call is seen without a ww server.
+
+- `--monitor[=frame|link|api]` (default `link`, the value needs `=`) prints to **stderr**, from the link setup on,
+  as `ww monitor` does; the command's own output stays on stdout for scripts. `--monitor-bytes` and `--monitor-bits`
+  are `ww monitor`'s `--bytes` and `--bits`.
+- `--capture FILE` saves the same connection (frames included) to a new file, written as `FILE.partial` and renamed
+  when the command ends, to read with [`ww explain FILE`](#ww-explain); it is refused when `FILE` exists
+  (`ww capture --append` adds to one).
+
+```
+$ ww -l donguru-m1 --monitor=api info
+...
+   0.093976 L0 → Request Read  #3
+   0.097889 L0 ← Event Value (reply to #3 in 3.91 ms)
+```
+
+Commands that don't connect (`list`, `explain`, `api`, `udev`, `elf`, `config`, `settings`) refuse the flags with an
+error, and so do `ww monitor`, `ww capture` and `ww stats`, which are the tap themselves.
+
 ## `ww stats`
 
 Framer and link statistics of the same records, every `--every S` seconds (1 by default) for the time since the last

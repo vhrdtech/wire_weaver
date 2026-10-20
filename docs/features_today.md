@@ -266,7 +266,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Watching properties](cli_reference.md#ww-observe)**: `ww observe` and Python print updates as they arrive, with rates.
 - **[Explaining bytes](cli_reference.md#ww-explain)**: `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span>
 - **[Link test](cli_reference.md#ww-usb-loopback)**: `ww usb-loopback` measures round trips, losses and speed both ways.
-- **[Watching the link](cli_reference.md#ww-monitor)**: `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back.
+- **[Watching the link](cli_reference.md#ww-monitor)**: `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back; `--monitor` and `--capture` do it for any command's own connection.
 - **[Settings from a flash dump](cli_reference.md#ww-settings)**: `ww settings dump` decodes a settings store without the device.
 - **[Values from text](python_advanced.md)**: Typed values written as text and turned into bytes at runtime.
 - **[Dev GUI](dev_tool.md)**: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span>

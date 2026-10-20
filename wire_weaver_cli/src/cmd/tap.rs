@@ -32,6 +32,9 @@ use wire_weaver_client::ww_tape::{
     Block, FileBlocks, MAGIC, Recovery, SyncPolicy, TapeWriter, WriteError,
 };
 
+mod flags;
+pub(crate) use flags::{Attached, TapFlags};
+
 /// How deep to look.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub(crate) enum Layer {
@@ -208,24 +211,27 @@ impl LiveTap {
         }
     }
 
-    /// Put the API bundles a capture needs into the describe blocks: the tap's own (its records are ordinary
-    /// wire_weaver types) and the device's, so a capture is explained without the device or a local cache.
     pub(crate) fn add_bundles(&self, device: &DynClient) {
-        let tap = wire_weaver_client::ww_tap::api().make_owned();
-        if let Some(bundle) = wire_weaver_client::snapshots::get(&tap)
-            && let Ok(bytes) =
-                wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(bundle)
-        {
-            let hash = wire_weaver_client::ww_self::signature::api_hash(&bytes);
-            self.recorder.add_bundle(&hash, &bytes);
-        }
-        if let Some(i) = device.device_introspect()
-            && let Ok(bytes) = wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(
-                &*i.api_bundle,
-            )
-        {
-            self.recorder.add_bundle(&i.api_hash.no_docs.hash, &bytes);
-        }
+        add_bundles(&self.recorder, device);
+    }
+}
+
+/// Put the API bundles a capture needs into the describe blocks: the tap's own (its records are ordinary
+/// wire_weaver types) and the device's, so a capture is explained without the device or a local cache.
+fn add_bundles(recorder: &Recorder, device: &DynClient) {
+    let tap = wire_weaver_client::ww_tap::api().make_owned();
+    if let Some(bundle) = wire_weaver_client::snapshots::get(&tap)
+        && let Ok(bytes) =
+            wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(bundle)
+    {
+        let hash = wire_weaver_client::ww_self::signature::api_hash(&bytes);
+        recorder.add_bundle(&hash, &bytes);
+    }
+    if let Some(i) = device.device_introspect()
+        && let Ok(bytes) =
+            wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(&*i.api_bundle)
+    {
+        recorder.add_bundle(&i.api_hash.no_docs.hash, &bytes);
     }
 }
 
@@ -317,13 +323,23 @@ pub(crate) struct Monitor {
     decoder: Decoder,
     view: ViewArgs,
     t0: Option<u64>,
+    /// Text goes to stderr: colour by what stderr is, not stdout
+    stderr: bool,
 }
 
 impl Monitor {
     /// `local_cache`: look device APIs up in `~/.wire_weaver` when a capture doesn't carry them.
     pub(crate) fn new(view: ViewArgs, local_cache: bool) -> Self {
+        Self::with_frames(view, local_cache, true)
+    }
+
+    /// `frames`: the recorder gave frames too (else messages only, and are printed as they come).
+    pub(crate) fn with_frames(view: ViewArgs, local_cache: bool, frames: bool) -> Self {
         // explained at every layer: requests and stats go by their names, not ids
-        let decoder = Decoder::new(DecoderConfig::default());
+        let decoder = Decoder::new(DecoderConfig {
+            frames,
+            ..DecoderConfig::default()
+        });
         Monitor {
             decoder: if local_cache {
                 decoder.with_local_cache()
@@ -332,7 +348,14 @@ impl Monitor {
             },
             view,
             t0: None,
+            stderr: false,
         }
+    }
+
+    /// Printed to stderr: colour codes only where stderr is a terminal (stdout may be the other way round).
+    pub(crate) fn for_stderr(mut self) -> Self {
+        self.stderr = true;
+        self
     }
 
     pub(crate) fn block(&mut self, block: &Block<'_>, out: &mut impl Write) -> Result<()> {
@@ -349,6 +372,11 @@ impl Monitor {
     fn drain(&mut self, out: &mut impl Write) -> Result<()> {
         while let Some(d) = self.decoder.next() {
             if let Some(text) = self.render(&d) {
+                let text = if self.stderr && !console::colors_enabled_stderr() {
+                    console::strip_ansi_codes(&text).into_owned()
+                } else {
+                    text
+                };
                 out.write_all(text.as_bytes())?;
             }
         }
@@ -723,7 +751,7 @@ pub(crate) async fn monitor(args: MonitorArgs, device: DynClient, tap: LiveTap) 
     let (mut feed, recorder) = LiveFeed::new(tap);
     let view = args.view;
     run_live(device, recorder, args.duration, move |stop| {
-        let mut monitor = Monitor::new(view, false);
+        let mut monitor = Monitor::with_frames(view, false, view.layer == Layer::Frame);
         let mut out = std::io::stdout().lock();
         consume(&mut feed, &stop, |b| monitor.block(b, &mut out))?;
         monitor.finish(&mut out)

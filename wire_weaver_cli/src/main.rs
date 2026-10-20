@@ -1,6 +1,6 @@
 use crate::cli::{Cli, Commands};
 use crate::cmd::config::ConfigCommand;
-use crate::cmd::tap::{Layer, LiveTap};
+use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result};
 use clap::{CommandFactory, FromArgMatches};
@@ -39,6 +39,7 @@ async fn run() -> Result<()> {
         _ => tracing::Level::INFO,
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
+    cli.check_tap()?;
     let selection = match &cli.command {
         Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) => Some(Selection::resolve(
             &matches,
@@ -54,7 +55,18 @@ async fn run() -> Result<()> {
         Commands::Capture(args) => Some(LiveTap::new(args.layer())),
         _ => None,
     };
-    let mut device = match &selection {
+    // `--monitor` / `--capture` of a command that connects: its own tap, from the start of the connection
+    let flag_tap = cli
+        .tap
+        .active()
+        .then(|| Attached::start(&cli.tap))
+        .transpose()?;
+    let recorder = match (&tap, &flag_tap) {
+        (Some(tap), _) => Some(tap.recorder.clone()),
+        (None, Some(attached)) => Some(attached.recorder()),
+        _ => None,
+    };
+    let device = match &selection {
         Some(selection) if cli.need_device() => Some(
             DynClient::from_config({
                 let config = if cli.traits_only() {
@@ -62,8 +74,8 @@ async fn run() -> Result<()> {
                 } else {
                     selection.client_config()
                 };
-                match &tap {
-                    Some(tap) => config.tap(tap.recorder.clone()),
+                match recorder {
+                    Some(recorder) => config.tap(recorder),
                     None => config,
                 }
             })
@@ -73,12 +85,54 @@ async fn run() -> Result<()> {
                 format!(
                     "connecting to device ({selection}), run 'ww list' to see connected devices"
                 )
-            })?,
+            }),
         ),
         _ => None,
     };
+    let mut device = match device {
+        Some(Ok(device)) => Some(device),
+        Some(Err(e)) => {
+            // the tap saw the failed connect too: let it print and close its file
+            if let Some(attached) = flag_tap
+                && let Err(tap_err) = attached.finish()
+            {
+                eprintln!("tap: {tap_err:#}");
+            }
+            return Err(e);
+        }
+        None => None,
+    };
+    if let (Some(attached), Some(device)) = (&flag_tap, &device) {
+        attached.add_bundles(device);
+    }
 
-    match cli.command {
+    let command_result = run_command(cli.command, &selection, &mut device, tap).await;
+    if let Some(attached) = flag_tap {
+        // the recording ends with the disconnect
+        if let Some(device) = device.take() {
+            _ = device.disconnect().asynch().await;
+        }
+        let tap_result = attached.finish();
+        match (&command_result, tap_result) {
+            (Ok(_), Err(e)) => return Err(e),
+            (Err(_), Err(e)) => eprintln!("tap: {e:#}"),
+            _ => {}
+        }
+    }
+    if command_result? && let Some(device) = device {
+        device.disconnect().asynch().await?;
+    }
+    Ok(())
+}
+
+/// Runs the command; `false` when the device is gone or about to be (nothing to disconnect from).
+async fn run_command(
+    command: Commands,
+    selection: &Option<Selection>,
+    device: &mut Option<DynClient>,
+    tap: Option<LiveTap>,
+) -> Result<bool> {
+    match command {
         Commands::List(args) => cmd::list::list(args, selection.as_ref().unwrap()).await?,
         Commands::USBLoopback {
             duration_sec,
@@ -121,7 +175,7 @@ async fn run() -> Result<()> {
             cmd::dfu::dfu(dfu_cmd, device.as_ref().unwrap()).await?;
             if resets_device {
                 // the device is gone or about to, nothing to disconnect from
-                return Ok(());
+                return Ok(false);
             }
         }
         Commands::Counters(args) => cmd::counters::counters(args, device.as_ref().unwrap()).await?,
@@ -142,9 +196,5 @@ async fn run() -> Result<()> {
         }
     }
 
-    if let Some(device) = device {
-        device.disconnect().asynch().await?;
-    }
-
-    Ok(())
+    Ok(true)
 }

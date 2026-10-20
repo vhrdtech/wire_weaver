@@ -11,7 +11,7 @@ use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
 use crate::cmd::settings::SettingsCommand;
 use crate::cmd::stream::StreamArgs;
-use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs};
+use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
 use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, Parser, Subcommand};
@@ -30,6 +30,9 @@ use wire_weaver_client::internal::LoopbackParams;
 pub(crate) struct Cli {
     #[command(flatten)]
     pub(crate) device: DeviceArgs,
+
+    #[command(flatten)]
+    pub(crate) tap: TapFlags,
 
     #[command(subcommand)]
     pub(crate) command: Commands,
@@ -226,6 +229,31 @@ impl Cli {
                 | Commands::Info(_)
                 | Commands::USBLoopback { .. }
         )
+    }
+
+    /// `--monitor` / `--capture` tap the command's own connection: refused where there is none, or where the
+    /// command is a tap itself.
+    pub fn check_tap(&self) -> anyhow::Result<()> {
+        if !self.tap.active() {
+            return self.tap.check();
+        }
+        let own_tap = match &self.command {
+            Commands::Monitor(_) | Commands::Capture(_) => true,
+            Commands::Stats(args) => args.file.is_none(),
+            _ => false,
+        };
+        if own_tap {
+            anyhow::bail!(
+                "--monitor and --capture tap the connection of another command: `ww monitor` and `ww capture` are the tap itself, use their own options (--layer, --bytes, --bits, -o)"
+            );
+        }
+        // `ww explain` may connect, but only to look an API up
+        if matches!(self.command, Commands::Explain(_)) || !self.need_device() {
+            anyhow::bail!(
+                "--monitor and --capture need a command that opens a device connection (info, observe, stream, introspect, dfu, counters, report, usb-loopback); this one doesn't"
+            );
+        }
+        self.tap.check()
     }
 
     pub fn need_device(&self) -> bool {

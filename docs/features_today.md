@@ -287,7 +287,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Units known at run time](std_library/ww_si.md#units-known-only-at-run-time)**: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.
 - **[Date and time](std_library/ww_date_time.md)**: `ww_date_time`.
 - **[IO family](std_library/io_family.md)**: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span>
-- **[GPIO](std_library/ww_gpio.md)**: Pins and banks, and reading or writing several pins at one instant.
+- **[GPIO](std_library/ww_gpio.md)**: Pins and banks: levels, modes, pulls and edge events.
 - **[CAN bus](std_library/ww_can_bus.md)**: From a simple bridge to a bus debugger.
 - **[Logs](std_library/ww_log.md)**: `defmt` logs over a reliable stream, including what was logged before the host connected. <span class="ww-status">hardware check open</span>
 - **[Indicators](std_library/ww_indication.md)**: LEDs off, essential or normal, and a blink to find a unit on the bench.

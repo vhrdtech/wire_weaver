@@ -9,7 +9,7 @@ mod tests {
     use wire_weaver_client::StreamEvent;
     use ww_gpio::{
         BankCapabilities, BankConfig, GpioError, GpioErrorOwned, IoPinEnabledEvents, IoPinEvent,
-        Level, MAX_PORT_PINS, Mode, PinCapabilities, PinLevel, Pull, Speed, Volt,
+        Level, Mode, PinCapabilities, Pull, Speed, Volt,
     };
     use ww_stream::tx::Counted;
 
@@ -18,9 +18,6 @@ mod tests {
         name: &'static str,
         reference_voltage: Volt,
         pins: Vec<PinModel>,
-        /// `read_inputs` / `write_outputs` act at one instant (one port register), as on an MCU port; otherwise pin
-        /// by pin, as on an IO expander behind a slow bus.
-        simultaneous: bool,
     }
 
     /// State of one mock pin, mirrored by the test's assertions.
@@ -49,13 +46,11 @@ mod tests {
                 name: "PA",
                 reference_voltage: ww_si::Volt::milli(3300u16),
                 pins: vec![PinModel::default(); 4],
-                simultaneous: true,
             },
             BankModel {
                 name: "PB",
                 reference_voltage: ww_si::Volt::milli(1800u16),
                 pins: vec![PinModel::default(); 2],
-                simultaneous: false,
             },
         ]
     }
@@ -80,8 +75,6 @@ mod tests {
             pub pending: Vec<([UNib32; 2], IoPinEvent)>,
             pub stream_sessions: u32,
             pub start: std::time::Instant,
-            /// The answer of the last `read_inputs`, borrowed by its reply.
-            pub inputs: Vec<Level>,
         }
 
         impl Server {
@@ -98,7 +91,6 @@ mod tests {
                     pending: Vec::new(),
                     stream_sessions: 0,
                     start: std::time::Instant::now(),
-                    inputs: Vec::new(),
                 }
             }
 
@@ -149,72 +141,11 @@ mod tests {
                 ValidIndices::range_u32(0..self.banks.lock().unwrap()[bank].pins.len() as u32)
             }
 
-            fn bank_read_inputs(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
-                pins: MaxLen<RefVec<'_, UNib32>, MAX_PORT_PINS>,
-            ) -> RpcResult<Result<MaxLen<RefVec<'_, Level>, MAX_PORT_PINS>, GpioError<'_>>>
-            {
-                let bank = index_chain[0].0 as usize;
-                let banks = self.banks.lock().unwrap();
-                let bank = &banks[bank];
-                self.inputs.clear();
-                for pin in pins.iter() {
-                    let Ok(pin) = pin else {
-                        return Ready(Err(invalid("malformed pin index")));
-                    };
-                    let Some(pin) = bank.pins.get(pin.0 as usize) else {
-                        return Ready(Err(invalid("no such pin")));
-                    };
-                    // Loopback, as `input_level`.
-                    self.inputs.push(pin.output_level);
-                }
-                drop(banks);
-                Ready(Ok(MaxLen::new_unchecked(RefVec::Slice {
-                    slice: &self.inputs,
-                })))
-            }
-
-            fn bank_write_outputs(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
-                levels: MaxLen<RefVec<'_, PinLevel>, MAX_PORT_PINS>,
-            ) -> RpcResult<Result<(), GpioError<'_>>> {
-                let bank = index_chain[0].0 as usize;
-                // Every entry is checked before anything is written.
-                let mut writes = Vec::with_capacity(levels.len());
-                {
-                    let banks = self.banks.lock().unwrap();
-                    for entry in levels.iter() {
-                        let Ok(entry) = entry else {
-                            return Ready(Err(invalid("malformed entry")));
-                        };
-                        let pin = entry.pin.0 as usize;
-                        if pin >= banks[bank].pins.len() || writes.iter().any(|(p, _)| *p == pin) {
-                            return Ready(Err(invalid("no such pin, or listed twice")));
-                        }
-                        writes.push((pin, entry.level));
-                    }
-                }
-                for (pin, level) in writes {
-                    let index_chain = [index_chain[0], UNib32(pin as u32)];
-                    let before = self.with_pin_mut(index_chain, |pin| {
-                        std::mem::replace(&mut pin.output_level, level)
-                    });
-                    self.edge(index_chain, before, level);
-                }
-                Ready(Ok(()))
-            }
-
             fn bank_capabilities(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                index_chain: [UNib32; 1],
+                _index_chain: [UNib32; 1],
             ) -> RpcResult<BankCapabilities<'_>> {
-                let simultaneous =
-                    self.banks.lock().unwrap()[index_chain[0].0 as usize].simultaneous;
                 Ready(BankCapabilities {
                     io_levels: MaxLen::new(RefVec::Slice {
                         slice: &const {
@@ -240,8 +171,6 @@ mod tests {
                     custom_mode: Default::default(),
                     custom_pull: Default::default(),
                     custom_speed: Default::default(),
-                    simultaneous_read: simultaneous,
-                    simultaneous_write: simultaneous,
                 })
             }
 
@@ -457,15 +386,6 @@ mod tests {
                 let (bank, pin) = Self::idx(index_chain);
                 f(&mut self.banks.lock().unwrap()[bank].pins[pin])
             }
-        }
-
-        /// `InvalidArgument` for the one argument of `read_inputs` / `write_outputs`.
-        fn invalid(reason: &'static str) -> GpioError<'static> {
-            CommonError::InvalidArgument {
-                arg: 0,
-                reason: MaxLen::new_unchecked(reason),
-            }
-            .into()
         }
 
         pub mod api_impl {
@@ -692,144 +612,6 @@ mod tests {
                     assert_eq!(pos, expect_pos);
                     assert_eq!(value, IoPinEvent::RisingEdge);
                     assert!(t.is_some());
-                }
-                ev => panic!("{ev:?}"),
-            }
-        }
-        events.close().await.unwrap();
-    }
-
-    fn levels(pins: &[(u32, Level)]) -> MaxLen<Vec<PinLevel>, MAX_PORT_PINS> {
-        let levels = pins
-            .iter()
-            .map(|&(pin, level)| PinLevel {
-                pin: UNib32(pin),
-                level,
-            })
-            .collect::<Vec<_>>();
-        MaxLen::new(levels).unwrap()
-    }
-
-    fn pins(pins: &[u32]) -> MaxLen<Vec<UNib32>, MAX_PORT_PINS> {
-        MaxLen::new(pins.iter().map(|&p| UNib32(p)).collect::<Vec<_>>()).unwrap()
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn port_read_write() {
-        let (device, banks) = start("io_gpio/port_read_write");
-        let client = connect(&device).await;
-
-        let caps = client.bank(0).capabilities().call().await.unwrap();
-        assert!(caps.simultaneous_read && caps.simultaneous_write);
-        let caps = client.bank(1).capabilities().call().await.unwrap();
-        assert!(!caps.simultaneous_read && !caps.simultaneous_write);
-
-        let mut bank = client.bank(0);
-        bank.write_outputs(levels(&[
-            (0, Level::High),
-            (3, Level::High),
-            (1, Level::Low),
-        ]))
-        .call()
-        .await
-        .unwrap();
-        let read = bank.read_inputs(pins(&[3, 2, 1, 0])).call().await.unwrap();
-        assert_eq!(
-            read.into_inner(),
-            vec![Level::High, Level::Low, Level::Low, Level::High]
-        );
-        // the same register as the per-pin calls
-        assert_eq!(
-            bank.pin(3).output_level().call().await.unwrap(),
-            Level::High
-        );
-        assert_eq!(banks.lock().unwrap()[0].pins[0].output_level, Level::High);
-
-        // an empty list is a no-op
-        bank.write_outputs(levels(&[])).call().await.unwrap();
-        let read = bank.read_inputs(pins(&[])).call().await.unwrap();
-        assert!(read.is_empty());
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn port_write_refused_entirely() {
-        let (device, banks) = start("io_gpio/port_write_refused_entirely");
-        let client = connect(&device).await;
-        let mut bank = client.bank(1);
-
-        // pin 5 isn't in PB: nothing is written, not even pin 0
-        let r = bank
-            .write_outputs(levels(&[(0, Level::High), (5, Level::High)]))
-            .call()
-            .await
-            .unwrap_err();
-        assert!(matches!(
-            r.device(),
-            Some(GpioErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
-        ));
-        // a pin listed twice
-        let r = bank
-            .write_outputs(levels(&[(1, Level::High), (1, Level::Low)]))
-            .call()
-            .await
-            .unwrap_err();
-        assert!(matches!(
-            r.device(),
-            Some(GpioErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
-        ));
-        assert!(
-            banks.lock().unwrap()[1]
-                .pins
-                .iter()
-                .all(|p| p.output_level == Level::Low)
-        );
-
-        let r = bank.read_inputs(pins(&[0, 2])).call().await.unwrap_err();
-        assert!(matches!(
-            r.device(),
-            Some(GpioErrorOwned::Common(
-                CommonErrorOwned::InvalidArgument { .. }
-            ))
-        ));
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn port_write_edges() {
-        let (device, _banks) = start("io_gpio/port_write_edges");
-        let client = connect(&device).await;
-        let mut bank = client.bank(0);
-
-        let ((), mut events) = bank
-            .pin(2)
-            .event(ww_gpio::IoPinEnabledEventsOwned {
-                rising: true,
-                falling: true,
-                custom: Default::default(),
-            })
-            .call()
-            .await
-            .unwrap()
-            .unwrap();
-
-        // pin 2 changes once per write, pin 1 is not watched
-        bank.write_outputs(levels(&[(1, Level::High), (2, Level::High)]))
-            .call()
-            .await
-            .unwrap();
-        bank.write_outputs(levels(&[(2, Level::Low)]))
-            .call()
-            .await
-            .unwrap();
-        bank.pin(0).output_level().call().await.unwrap();
-        for (expect_pos, expect) in [(0, IoPinEvent::RisingEdge), (1, IoPinEvent::FallingEdge)] {
-            match events.recv_event().await.unwrap() {
-                StreamEvent::Item { pos, value, .. } => {
-                    assert_eq!(pos, expect_pos);
-                    assert_eq!(value, expect);
                 }
                 ev => panic!("{ev:?}"),
             }

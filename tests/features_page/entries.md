@@ -268,7 +268,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/ww_si.md#units-known-only-at-run-time
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
-- STD-5, STD-30 | GPIO | Pins and banks, and reading or writing several pins at one instant. | std_library/ww_gpio.md
+- STD-5 | GPIO | Pins and banks: levels, modes, pulls and edge events. | std_library/ww_gpio.md
 - STD-29 | CAN bus | From a simple bridge to a bus debugger. | std_library/ww_can_bus.md
 - STD-26 | Logs | `defmt` logs over a reliable stream, including what was logged before the host connected. | std_library/ww_log.md
 - STD-28 | Indicators | LEDs off, essential or normal, and a blink to find a unit on the bench. | std_library/ww_indication.md

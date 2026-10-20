@@ -22,13 +22,6 @@
 
 ### 🚀 Features
 
-- `Bank::read_inputs(pins) -> levels` and `Bank::write_outputs(levels)` (STD-30): the input levels of a list of
-  pins (indices into `pin[]`), answered in the same order, and the output levels of a list of `PinLevel { pin, level }`,
-  all or nothing, without changing any pin's mode. Both act at one instant (one register read / write) where
-  `BankCapabilities::simultaneous_read` / `simultaneous_write` say so, pin by pin in list order otherwise. At most
-  `MAX_PORT_PINS` (64) pins per call. Bank indices 1 and 2, from its reserved range; the capabilities are appended
-  with `#[default = false]`, so older devices read as "not simultaneous". Servers implement
-  `<bank>_read_inputs` / `<bank>_write_outputs` (`Common(Unsupported)` where the bank can't).
 - `Pin::event` and the `pull` / `speed` properties list their errors with `#[errors(..)]` (API-32), now that stream
   functions and properties can carry one, instead of a hand-written `# Errors` note: rustdoc, introspection and the
   client's warning about an unlisted error see them.

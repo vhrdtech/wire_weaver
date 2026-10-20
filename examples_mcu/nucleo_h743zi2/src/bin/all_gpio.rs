@@ -19,10 +19,7 @@ use wire_weaver_usb_embassy::{
     LinkConfig, UsbBuffers, UsbDevice, UsbServer, UsbTimings, usb_init,
 };
 use ww_stream::tx::Counted;
-use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode, PinCapabilities, PinLevel,
-    Pull, Speed,
-};
+use ww_gpio::{BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode, PinCapabilities, Pull, Speed};
 
 bind_interrupts!(struct Irqs {
     OTG_FS => usb::InterruptHandler<USB_OTG_FS>;
@@ -74,8 +71,6 @@ struct ServerState {
     pin_name: [u8; 4],
     pin_events: Counted,
     stream_sessions: u32,
-    /// The answer of the last `port_read_inputs`, borrowed by its reply
-    inputs: [Level; MAX_PORT_PINS],
     bank: [Gpio; 11],
 }
 
@@ -127,7 +122,6 @@ async fn main(spawner: embassy_executor::Spawner) {
         pin_name: [0; 4],
         pin_events: Counted::new(),
         stream_sessions: 0,
-        inputs: [Level::Low; MAX_PORT_PINS],
         bank: [
             GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF, GPIOG, GPIOH, GPIOI, GPIOJ, GPIOK,
         ],
@@ -197,9 +191,6 @@ impl ServerState {
             custom_mode: Default::default(),
             custom_pull: Default::default(),
             custom_speed: Default::default(),
-            // one IDR read, one BSRR write
-            simultaneous_read: true,
-            simultaneous_write: true,
         })
     }
 
@@ -236,59 +227,6 @@ impl ServerState {
             _ => "",
         };
         Ready(name)
-    }
-
-    async fn port_read_inputs(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 1],
-        pins: MaxLen<RefVec<'_, UNib32>, MAX_PORT_PINS>,
-    ) -> RpcResult<Result<MaxLen<RefVec<'_, Level>, MAX_PORT_PINS>, GpioError<'_>>> {
-        let bank_idx = index[0].0 as usize;
-        // every pin from the same instant
-        let idr = self.bank[bank_idx].idr().read();
-        let mut len = 0;
-        for pin in pins.iter() {
-            let pin_idx = match pin {
-                Ok(pin) if pin.0 < 16 => pin.0 as usize,
-                _ => return Ready(Err(invalid_pin())),
-            };
-            self.inputs[len] = match idr.idr(pin_idx) {
-                Idr::HIGH => Level::High,
-                Idr::LOW => Level::Low,
-            };
-            len += 1;
-        }
-        Ready(Ok(MaxLen::new_unchecked(RefVec::Slice {
-            slice: &self.inputs[..len],
-        })))
-    }
-
-    async fn port_write_outputs(
-        &mut self,
-        _cx: &mut Context<'_, impl EventOut>,
-        index: [UNib32; 1],
-        levels: MaxLen<RefVec<'_, PinLevel>, MAX_PORT_PINS>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
-        let bank_idx = index[0].0 as usize;
-        // every pin in one BSRR write, so they change at the same instant
-        let mut bsrr = stm32_metapac::gpio::regs::Bsrr(0);
-        let mut listed = 0u16;
-        for entry in levels.iter() {
-            let entry = match entry {
-                Ok(entry) if entry.pin.0 < 16 && listed & (1 << entry.pin.0) == 0 => entry,
-                _ => return Ready(Err(invalid_pin())),
-            };
-            let pin_idx = entry.pin.0 as usize;
-            listed |= 1 << pin_idx;
-            if entry.level.is_high() {
-                bsrr.set_bs(pin_idx, true);
-            } else {
-                bsrr.set_br(pin_idx, true);
-            }
-        }
-        self.bank[bank_idx].bsrr().write_value(bsrr);
-        Ready(Ok(()))
     }
 
     async fn port_pin_set_output_level(
@@ -540,14 +478,4 @@ impl ServerState {
         let _pin_idx = index[0].0 as usize;
         ValidIndices::range_u32(0..16)
     }
-}
-
-/// `InvalidArgument` of `port_read_inputs` / `port_write_outputs`: an index that isn't a pin of the port, or one listed
-/// twice.
-fn invalid_pin() -> GpioError<'static> {
-    CommonError::InvalidArgument {
-        arg: 0,
-        reason: MaxLen::new_unchecked("no such pin, or listed twice"),
-    }
-    .into()
 }

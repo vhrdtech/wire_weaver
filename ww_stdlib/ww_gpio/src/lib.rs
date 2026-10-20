@@ -9,9 +9,6 @@ pub use ww_si::Volt;
 /// Most discrete IO levels a bank lists in [BankCapabilities::io_levels].
 pub const MAX_IO_LEVELS: usize = 8;
 
-/// Most pins one [Bank::read_inputs] or [Bank::write_outputs] call addresses.
-pub const MAX_PORT_PINS: usize = 64;
-
 /// A bank of related IO pins.
 /// Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).
 #[ww_trait]
@@ -22,27 +19,7 @@ pub trait Bank {
     /// * List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)
     ww_impl!(pin[]: Pin);
 
-    /// 1. Input levels of `pins` (indices into `pin[]`), answered in the same order: sampled at one instant where
-    /// [BankCapabilities::simultaneous_read] says so, pin by pin in list order otherwise. Reads the input register
-    /// like [Pin::input_level], whatever mode a pin is in.
-    /// `InvalidArgument` for an index that isn't a pin of the bank, `Unsupported` if the bank can't do it.
-    #[errors(Common(InvalidArgument, Unsupported))]
-    fn read_inputs(
-        pins: MaxLen<RefVec<'i, UNib32>, MAX_PORT_PINS>,
-    ) -> Result<MaxLen<RefVec<'i, Level>, MAX_PORT_PINS>, GpioError<'i>>;
-
-    /// 2. Sets the output levels of the listed pins: at one instant (one register write) where
-    /// [BankCapabilities::simultaneous_write] says so, pin by pin in list order otherwise. Writes the output
-    /// register like [Pin::set_output_level]: a pin's mode (direction) doesn't change, an input keeps the level for
-    /// when it becomes an output. Nothing is written if any entry is refused.
-    /// `InvalidArgument` for an index that isn't a pin of the bank or is listed twice, `Unsupported` if the bank
-    /// can't do it, `InUse` / `NoPower` / `Refused` as in [Pin::set_mode].
-    #[errors(Common(InvalidArgument, Unsupported, InUse, NoPower, Refused))]
-    fn write_outputs(
-        levels: MaxLen<RefVec<'i, PinLevel>, MAX_PORT_PINS>,
-    ) -> Result<(), GpioError<'i>>;
-
-    reserved!(3..=7);
+    reserved!(1..=7);
 
     /// Capabilities that each pin of the bank supports.
     fn capabilities() -> BankCapabilities<'i>;
@@ -114,21 +91,6 @@ pub trait Pin {
 
     /// What this pin can do: modes, pulls, speeds, whether it sends events, and its name.
     fn capabilities() -> PinCapabilities<'i>;
-}
-
-/// One entry of [Bank::write_outputs]: a pin (index into `Bank::pin[]`) and the level to drive it to.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, PartialEq, Eq),
-    final_structure
-)]
-pub struct PinLevel {
-    /// Index into `Bank::pin[]`.
-    pub pin: UNib32,
-    /// Output level to set.
-    pub level: Level,
 }
 
 /// What one pin can do, see `Pin::capabilities`.
@@ -324,13 +286,6 @@ pub struct BankCapabilities<'i> {
     pub custom_pull: RefVec<'i, &'i str>,
     /// Descriptions of the bank's `Speed::Custom` variants, indexed by their `u8` payload.
     pub custom_speed: RefVec<'i, &'i str>,
-
-    /// [Bank::read_inputs] samples every pin of one call at the same instant (one register read).
-    #[default = false]
-    pub simultaneous_read: bool,
-    /// [Bank::write_outputs] sets every pin of one call at the same instant (one register write).
-    #[default = false]
-    pub simultaneous_write: bool,
 }
 
 impl Mode {

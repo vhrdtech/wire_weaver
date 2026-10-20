@@ -10,8 +10,8 @@ use wire_weaver::prelude::*;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, MAX_PORT_PINS, Mode,
-    PinCapabilities, PinLevel, Pull, Speed,
+    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode,
+    PinCapabilities, Pull, Speed,
 };
 use ww_stream::tx::Counted;
 
@@ -75,8 +75,6 @@ impl ServerState {
             custom_mode: Default::default(),
             custom_pull: Default::default(),
             custom_speed: Default::default(),
-            simultaneous_read: false,
-            simultaneous_write: false,
         };
         Ready(cap)
     }
@@ -99,24 +97,6 @@ impl ServerState {
         _cx: &mut Context<'_, impl BlockingEventOut>,
         _index: [UNib32; 1],
     ) -> RpcResult<&'_ str> {
-        ww_unimplemented!()
-    }
-
-    fn port_read_inputs(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 1],
-        _pins: MaxLen<RefVec<'_, UNib32>, MAX_PORT_PINS>,
-    ) -> RpcResult<Result<MaxLen<RefVec<'_, Level>, MAX_PORT_PINS>, GpioError<'_>>> {
-        ww_unimplemented!()
-    }
-
-    fn port_write_outputs(
-        &mut self,
-        _cx: &mut Context<'_, impl BlockingEventOut>,
-        _index: [UNib32; 1],
-        _levels: MaxLen<RefVec<'_, PinLevel>, MAX_PORT_PINS>,
-    ) -> RpcResult<Result<(), GpioError<'_>>> {
         ww_unimplemented!()
     }
 

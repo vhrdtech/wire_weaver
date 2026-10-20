@@ -55,6 +55,9 @@
         <loc>https://ww.vhrd.tech/api/settings/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/stream_compression/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/stream_protocol/</loc>
       </url>
       <url>

@@ -1631,6 +1631,8 @@
       
         
       
+        
+      
     
     
     
@@ -1828,6 +1830,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stream_compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compressed streams
 
     
   </span>
@@ -5366,6 +5395,8 @@ the device time of its first unit, if any:</p>
 </span></code></pre></div>
 <p><code>stream_&lt;name&gt;()</code> may return anything that dereferences to the state, e.g. a mutex guard when a producer task shares
 it. Counted streams work in sync servers too (<code>&lt;name&gt;_send_blocking</code>).</p>
+<p>The state can also be a <code>ww_stream::codec::Compressed</code>, which sends the items LZ4-compressed to hosts that decode it
+(see <a href="../stream_compression/">Compressed streams</a>); anything implementing <code>ww_stream::codec::CountedState</code> will do.</p>
 <h3 id="reliable-streams">Reliable streams<a class="headerlink" href="#reliable-streams" title="Permanent link">&para;</a></h3>
 <p>A reliable stream's state is a <code>ww_stream::tx::Reliable&lt;S&gt;</code> with a store <code>S</code> that keeps every event until the host
 acknowledges it: <code>RamRing&lt;N&gt;</code> in RAM, <code>PersistentRamRing&lt;N&gt;</code> across a soft reset, or <code>LogStore</code> on an SD card or flash

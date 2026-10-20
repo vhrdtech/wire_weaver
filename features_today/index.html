@@ -1796,6 +1796,8 @@
       
         
       
+        
+      
     
     
     
@@ -1990,6 +1992,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stream_compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compressed streams
 
     
   </span>
@@ -5439,6 +5468,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/observing/#cells-sampling-from-an-interrupt">Observe cells</a></strong>: Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of <code>sample()</code> at opt-level z, the same wire.</li>
 <li><strong><a href="../articles/series/#cpu-and-flash-on-a-microcontroller">A cheaper observe poll</a></strong>: The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes.</li>
 <li><strong><a href="../api/batching/">Batched streams</a></strong>: A stream opts into sending samples many per event as a compressed <code>Series</code> instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python.</li>
+<li><strong><a href="../api/stream_compression/">Compressed streams</a></strong>: A counted stream of text (a UART, a log) goes LZ4-compressed with history across events, 3-5x, when the host decodes it; older hosts get it as it is. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../types/#worst-case-size-at-compile-time">Size analysis</a></strong>: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/traits/#in-rustdoc">API docs in rustdoc</a></strong>: <code>#[ww_trait]</code> also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span></li>
 <li><strong>Code generation from <code>build.rs</code></strong>: <code>gen_server</code> / <code>gen_client</code> as an alternative to the macros.</li>
@@ -5459,7 +5489,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/credit_sinks/#resume">Resume checked on hardware</a></strong>: A UART sink on a real board put 1 MB on the line exactly once through link drops and a host restart.</li>
 <li><strong><a href="../api/addressing/">Trait paths</a></strong>: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#documentation-doc">Documentation</a>, <a href="../features/#examples-ex">Examples</a>, <a href="../features/#testing-ci-and-performance-test">Testing, CI and performance</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#documentation-doc">Documentation</a>, <a href="../features/#examples-ex">Examples</a>, <a href="../features/#testing-ci-and-performance-test">Testing, CI and performance</a> in the feature tracker.</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>The server is the code on the device that answers requests. It is generated from the trait, needs neither <code>std</code> nor an
 allocator and does no IO itself, so it runs on any MCU and RTOS over the transport you choose.</p>

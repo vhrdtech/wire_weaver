@@ -1626,6 +1626,8 @@
       
         
       
+        
+      
     
     
     
@@ -1820,6 +1822,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/stream_compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compressed streams
 
     
   </span>
@@ -5700,7 +5729,7 @@ over UDP on localhost.</p>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        49 B  03 04 00 10 57 57 44 50 01 92 …
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>← Ok({ steps: 10, resumed: false, resume_from: 0 })
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>        13 B  03 80 80 0a 00 00 00 00 00 00 …
-</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, args: tail(0:[]) }
+</span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>         5 B  04 04 28 00 02
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>← ()
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>         6 B  04 80 00 00 00 00
@@ -6217,7 +6246,7 @@ source hash, WRITE hash), the image against the descriptor.</p>
 </span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>        49 B  03 04 00 00 57 57 44 50 01 92 …
 </span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>← Ok({ steps: 10, resumed: false, resume_from: 0 })
 </span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>        13 B  03 80 80 0a 00 00 00 00 00 00 …
-</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, args: tail(0:[]) }
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
 </span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>         5 B  04 04 28 00 02
 </span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>← ()
 </span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>         6 B  04 80 00 00 00 00

@@ -1624,6 +1624,8 @@
       
         
       
+        
+      
     
     
     
@@ -1818,6 +1820,33 @@
     
   
   Batching streams and properties
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/stream_compression/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Compressed streams
 
     
   </span>
@@ -5926,6 +5955,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>recv_batch()</code> (numpy columns, <code>ww_self::SeriesColumn::from_items</code>) (piece 6, no-arg streams only); batched observe is
   API-39. Docs: <code>docs/api/batching.md</code> (how-to, sealing, budgets, the motor demo's numbers). Motor demo
   (<code>motor_sim</code> repo): every <code>Foc</code> property and <code>Control</code>'s 13 measured values are <code>+observe+batched</code>.</li>
+<li>🧪 <strong>API-55 Compressed counted streams</strong> · <code>v0.5</code> — a counted stream's events carry their serialized item as
+  one LZ4 block that copies from the items before it (history kept across events, SRV-27 <code>ww_lz4</code>), so a byte
+  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
+  <code>StreamOpen { codecs }</code> is the host's offer, <code>StreamOpened { codec }</code> the device's answer (<code>StreamCodec::Lz4 {
+  history }</code>), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
+  <code>HeadExt::codec_restart</code> marks where the history starts over: at open and resume, after an event the device
+  couldn't send, and every 32 KiB, so a link loss heals; the host drops what it can't decode until then and reports
+  it as a link gap (<code>StreamStats::lost_codec</code>, <code>codec_bytes_in</code> / <code>_out</code>). The API doesn't change: the device opts
+  in per stream with its state, <code>ww_stream::codec::Compressed</code> (feature <code>lz4</code>) instead of <code>Counted</code>, through
+  <code>ww_stream::codec::CountedState</code>; <code>ClientConfig::stream_compression(false)</code> turns the host's offer off. Typed and
+  dynamic clients and Python decode alike (<code>docs/api/stream_compression.md</code>; tests <code>ww_stream</code> <code>tests::codec</code>,
+  <code>wire_weaver_client</code> <code>compressed_stream_decodes_and_heals</code>, <code>tests/io_uart</code> <code>rx_compressed</code>). To check on
+  hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
+  reliable streams, sinks (host -&gt; device).</li>
+</ul>
+<h2 id="server-device-side-srv">Server / device side (<code>SRV</code>)<a class="headerlink" href="#server-device-side-srv" title="Permanent link">&para;</a></h2>
+<ul>
 <li>✅ <strong>API-39 Batched property samples (observe every sample)</strong> — a <code>ro+observe+batched</code> property observed in
   <code>ObserveMode::Samples { every_us, max_age_us }</code> sends every sample the device takes as a <code>Series&lt;T&gt;</code> in its
   <code>Batched&lt;T&gt;</code> slot of the level's update, their times shared by the level (API-49)
@@ -6050,34 +6096,33 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 - 💡 <strong>API-51 Stream codecs across items</strong> — any stream or observed property could send each item as a diff against
   the one before, generic over <code>T</code>, from the derive per leaf: integers as delta or delta of delta, floats XOR coded,
   enums, units, strings and <code>bool</code> as one "same" bit or the new value, a whole item "unchanged" bit; byte items
-  (UART or CAN frames) XOR'd with the previous one or through a small no_std LZ window. Declared in the API
+  (UART or CAN frames) XOR'd with the previous one or through a small no_std LZ window (LZ4 across a
+  counted stream's events is API-55). Declared in the API
   (<code>#[stream(T, codec = auto)]</code>), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a <code>Series</code> batch can't take (no size
-  bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.</p>
-<h2 id="server-device-side-srv">Server / device side (<code>SRV</code>)<a class="headerlink" href="#server-device-side-srv" title="Permanent link">&para;</a></h2>
-<ul>
-<li>✅ <strong>SRV-1 <code>no_std</code>, no-alloc server</strong>, IO-free generated code.</li>
-<li>✅ <strong>SRV-2 Sans-IO <code>DeviceLink</code></strong>, async <code>Server</code> with <code>wait()</code>/<code>handle()</code> for a user-owned event loop, and
-  <code>blocking::Server</code>.</li>
-<li>✅ <strong>SRV-3 Fully split TX and RX flows</strong> for every transport (fixed the half-duplex interlock), framing without IO.</li>
-<li>✅ <strong>SRV-4 User handlers called straight from the RX loop</strong>, transport glue extracted into <code>ww_device</code>.</li>
-<li>✅ <strong>SRV-5 Device descriptors</strong>: serial, WireWeaver version, API id, version, hash and user label in the USB interface
-  string.</li>
-<li>✅ <strong>SRV-6 Media</strong>: USB (embassy), RTT, WebSocket and UDP (both also on <code>embassy-net</code>).</li>
-<li>✅ <strong>SRV-7 UDP device medium</strong> — <code>ww_device::udp</code>, one frame per datagram over any datagram socket, one host at a
-  time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>).</li>
-<li>✅ <strong>SRV-15 Stream stores and backfill</strong> — <code>ww_stream::store</code>: what a reliable stream (API-30) keeps until the
+  bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- ✅ <strong>SRV-1 <code>no_std</code>, no-alloc server</strong>, IO-free generated code.
+- ✅ <strong>SRV-2 Sans-IO <code>DeviceLink</code></strong>, async <code>Server</code> with <code>wait()</code>/<code>handle()</code> for a user-owned event loop, and
+  <code>blocking::Server</code>.
+- ✅ <strong>SRV-3 Fully split TX and RX flows</strong> for every transport (fixed the half-duplex interlock), framing without IO.
+- ✅ <strong>SRV-4 User handlers called straight from the RX loop</strong>, transport glue extracted into <code>ww_device</code>.
+- ✅ <strong>SRV-5 Device descriptors</strong>: serial, WireWeaver version, API id, version, hash and user label in the USB interface
+  string.
+- ✅ <strong>SRV-6 Media</strong>: USB (embassy), RTT, WebSocket and UDP (both also on <code>embassy-net</code>).
+- ✅ <strong>SRV-7 UDP device medium</strong> — <code>ww_device::udp</code>, one frame per datagram over any datagram socket, one host at a
+  time, another host takes over by starting link setup (<code>docs/transport/udp.md</code>).
+- ✅ <strong>SRV-15 Stream stores and backfill</strong> — <code>ww_stream::store</code>: what a reliable stream (API-30) keeps until the
   host acknowledges it: <code>RamRing</code> (API-30) and <code>LogStore</code>, a power-cut safe log on a block device (feature
   <code>log-store</code>; <code>SdMedium</code> on an <code>embedded-sdmmc</code> <code>BlockDevice</code> with <code>sdmmc</code>, <code>NorMedium</code> on an
   <code>embedded-storage-async</code> <code>NorFlash</code> with <code>nor-flash</code>) that keeps session, positions and clock epochs across reboots;
   drop-newest or drop-oldest when full, counted exactly. Tested with a power cut at every write
-  (<code>ww_stream/src/tests/log_store.rs</code>); <code>docs/api/stream_stores.md</code>.</li>
-<li>✅ <strong>SRV-16 Persistent RAM store</strong> — <code>ww_stream::store::PersistentRamRing</code> (feature <code>persistent-ram</code>): a reliable
+  (<code>ww_stream/src/tests/log_store.rs</code>); <code>docs/api/stream_stores.md</code>.
+- ✅ <strong>SRV-16 Persistent RAM store</strong> — <code>ww_stream::store::PersistentRamRing</code> (feature <code>persistent-ram</code>): a reliable
   stream's store in <code>.uninit</code> RAM that survives a soft reset (fault → reset), for the logs before a crash (STD-26).
   Header slots and records checked by CRC at boot, so garbage after a power-on is never taken for data; continues
   session and positions like <code>LogStore</code>, a new clock epoch per boot. Tested with a fault after every byte written
-  (<code>ww_stream/src/tests/persistent_ram.rs</code>); <code>docs/api/stream_stores.md</code>.</li>
-<li>✅ <strong>SRV-18 Observed properties on the device</strong> — servers of APIs with <code>+observe</code> properties answer <code>Observe</code>
+  (<code>ww_stream/src/tests/persistent_ram.rs</code>); <code>docs/api/stream_stores.md</code>.
+- ✅ <strong>SRV-18 Observed properties on the device</strong> — servers of APIs with <code>+observe</code> properties answer <code>Observe</code>
   requests (API-38) and send <code>PropertyUpdate</code>s from the generated <code>poll_properties</code>: <code>ObserveState</code> with one table
   per trait level sized at compile time, a sparse <code>&lt;Trait&gt;Update</code> per level (DER-13), <code>mark_changed_&lt;name&gt;()</code> (called
   for <code>value_on_changed</code> writes), periodic properties sampled through their getter. A token bucket per level at the
@@ -6087,20 +6132,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   entry. Levels under a resource array answer <code>OperationNotSupported</code> until their bound is known (API-29), <code>+observe</code>
   properties in an array or <code>#[optional]</code> aren't observable yet. <code>ww_stream::observe</code>,
   <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code> (fake clock, real host event loop),
-  <code>ww_stream/src/observe/tests.rs</code>.</li>
-<li>✅ <strong>SRV-20 deferred-nested-levels Deferred return helpers on nested levels</strong> — <code>&lt;prefix&gt;_&lt;method&gt;_send_return</code>,
+  <code>ww_stream/src/observe/tests.rs</code>.
+- ✅ <strong>SRV-20 deferred-nested-levels Deferred return helpers on nested levels</strong> — <code>&lt;prefix&gt;_&lt;method&gt;_send_return</code>,
   <code>_send_return_blocking</code> and <code>_ser_return_event</code> are generated for deferred methods on nested trait levels too, named
   like the handler (<code>plug_vbus_cycle_send_return</code>); <code>method_model</code> patterns match the prefixed name. Test
-  <code>tests/methods</code> (<code>deferred_on_nested_level</code>), <code>docs/api/methods.md#deferred</code>.</li>
-<li>✅ <strong>SRV-21 handler-model Sync handlers in an async server</strong> — <code>ww_codegen!(.., handler_model =
+  <code>tests/methods</code> (<code>deferred_on_nested_level</code>), <code>docs/api/methods.md#deferred</code>.
+- ✅ <strong>SRV-21 handler-model Sync handlers in an async server</strong> — <code>ww_codegen!(.., handler_model =
   "device.settings.*|meter.reading=async, _=sync")</code>: per item (regex over its dotted path, first match, <code>_</code> the
   default, <code>use_async</code> without one) its handlers are <code>async fn</code> or plain <code>fn</code>; the dispatcher and <code>poll_properties</code>
   call sync ones without <code>.await</code>, a level whose items are all sync gets a plain <code>fn</code> dispatcher. A handler of the
   other kind is a compile error (<code>wire_weaver::handler</code> checks), so is a pattern that matches nothing.
   <code>ww api scaffold --handler-model</code>. Donguru: -20.2 KiB flash at <code>z</code>, -12.6 KiB at 3. <code>docs/api/handlers.md</code>; test
-  <code>tests/observe</code> (a mixed server).</li>
-<li>✅ <strong>SRV-23 observe-table-unsized One observe table code for every level</strong> — <code>ww_stream::observe::ObserveTable&lt;S: ?Sized = [Slot]&gt;</code>: a level stores <code>ObserveTable&lt;[Slot; N]&gt;</code>, the methods (<code>apply</code>, <code>plan</code>, <code>commit</code>, ...) are compiled once, on <code>ObserveTable&lt;[Slot]&gt;</code>; <code>LevelDesc</code> is slices, the plan and the selection keep their per-slot state in caller storage (<code>Due</code>, <code>Mark</code>), and levels without observable properties answer <code>Observe</code> through one shared path (<code>refuse_all</code>). Donguru: −13.3 KiB flash at <code>opt-level = 3</code>, −9.4 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>.</li>
-<li>✅ <strong>SRV-25 event-driven-observe No fixed observe tick</strong> — a device sleeps until something observed is due
+  <code>tests/observe</code> (a mixed server).
+- ✅ <strong>SRV-23 observe-table-unsized One observe table code for every level</strong> — <code>ww_stream::observe::ObserveTable&lt;S: ?Sized = [Slot]&gt;</code>: a level stores <code>ObserveTable&lt;[Slot; N]&gt;</code>, the methods (<code>apply</code>, <code>plan</code>, <code>commit</code>, ...) are compiled once, on <code>ObserveTable&lt;[Slot]&gt;</code>; <code>LevelDesc</code> is slices, the plan and the selection keep their per-slot state in caller storage (<code>Due</code>, <code>Mark</code>), and levels without observable properties answer <code>Observe</code> through one shared path (<code>refuse_all</code>). Donguru: −13.3 KiB flash at <code>opt-level = 3</code>, −9.4 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>.
+- ✅ <strong>SRV-25 event-driven-observe No fixed observe tick</strong> — a device sleeps until something observed is due
   instead of polling every millisecond. <code>ObserveState::next_wake(now_us)</code> (<code>ObserveTable::next_wake</code> per level: the
   periodic grid, <code>last + min</code> of a changed property, <code>last + max</code> of a beat, a held level's bucket refill, a batch
   sealed or as old as allowed; <code>None</code> when nothing comes due without a change); a generated <code>ObserveSignal</code> any task
@@ -6108,16 +6153,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   wake between a change and the sleep (<code>ww_stream::wake</code>); <code>with_wake</code> on samplers and cells writers;
   <code>ww_device::Server::wait_until(at)</code>; <code>ww api scaffold</code> prints the signal. Tests: <code>ww_stream</code> (polling only at
   <code>next_wake</code> sends what polling every µs does), <code>tests/observe</code> (fake clock: polls only on the grid, a change from
-  another thread sent at once), <code>tests/observe_batched</code>. <code>docs/api/observing.md#the-server-loop</code>.</li>
-<li>✅ <strong>SRV-24 shared-observe-loop One observe loop for every level</strong> — the algorithm of <code>poll_properties</code> (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is <code>ww_stream::observe</code>'s, sync: <code>plan_level</code>, <code>select</code>, <code>write</code>, <code>ser_update</code>. The generated <code>poll_properties</code> is one loop over the levels with one send site; per property it gives only a <code>size</code> and a <code>write</code> arm (through <code>&amp;mut dyn FnMut</code>) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. <code>ObserveState::level</code> / <code>oldest_batch</code> / <code>remove_oldest_batch</code> reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at <code>opt-level = 3</code>, −5.0 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code>, <code>tests/observe_batched</code>, <code>ww_stream/src/observe/tests.rs</code>. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Donguru B153A (<code>plug</code> with <code>cc</code> unimplemented).</li>
-<li>✅ <strong>SRV-22 error-seq-per-item Error sites numbered the same in every server</strong> — <code>err_seq</code> of an <code>Error</code> is no
+  another thread sent at once), <code>tests/observe_batched</code>. <code>docs/api/observing.md#the-server-loop</code>.
+- ✅ <strong>SRV-24 shared-observe-loop One observe loop for every level</strong> — the algorithm of <code>poll_properties</code> (plan, overhead, selection, measuring, writing, commit, missed counts, batches of samples) is <code>ww_stream::observe</code>'s, sync: <code>plan_level</code>, <code>select</code>, <code>write</code>, <code>ser_update</code>. The generated <code>poll_properties</code> is one loop over the levels with one send site; per property it gives only a <code>size</code> and a <code>write</code> arm (through <code>&amp;mut dyn FnMut</code>) and awaits its async getters (SRV-21) itself, reading an unbounded async value once. <code>ObserveState::level</code> / <code>oldest_batch</code> / <code>remove_oldest_batch</code> reach a level by its number. Donguru, on top of SRV-21 and SRV-23: −5.8 KiB flash at <code>opt-level = 3</code>, −5.0 KiB at <code>z</code>. <code>ww_stream/src/observe.rs</code>, <code>docs/api/observing.md#the-device-side</code>; tests <code>tests/observe</code>, <code>tests/observe_batched</code>, <code>ww_stream/src/observe/tests.rs</code>. A value that can't be had at write time is dropped alone (counted missed), the rest of the update goes; tested on Donguru B153A (<code>plug</code> with <code>cc</code> unimplemented).
+- ✅ <strong>SRV-22 error-seq-per-item Error sites numbered the same in every server</strong> — <code>err_seq</code> of an <code>Error</code> is no
   longer one counter across the generated server (705 numbers on Donguru) but fixed per site
   (<code>ww_client_server::err_seq</code>): item steps in step order and the same for every item (0 kind not taken, 1 decode,
   2 handler, 3 encode, ..), level sites (40..), request sites (48..), deferred return (32..). With the build, the
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at <code>z</code>, -1.7 KiB at 3. <code>Error::site()</code>, the host prints <code>Unimplemented at item site 2 (handler)</code>.
-  <code>docs/api/errors.md#where-on-the-device-an-error-came-from</code>; tests <code>tests/methods</code>, <code>tests/traits</code>.</li>
-<li>✅ <strong>SRV-26 Device-side engine for I2C and SPI slaves</strong> — <code>ww_bus_slave</code>, no_std, sans-IO, no alloc: <code>I2cSlave</code> and
+  <code>docs/api/errors.md#where-on-the-device-an-error-came-from</code>; tests <code>tests/methods</code>, <code>tests/traits</code>.
+- ✅ <strong>SRV-26 Device-side engine for I2C and SPI slaves</strong> — <code>ww_bus_slave</code>, no_std, sans-IO, no alloc: <code>I2cSlave</code> and
   <code>SpiSlave</code> do what STD-35's API promises, so a firmware only wires its peripheral's interrupts to them. I2C: the
   register map (pointer bytes, auto-increment, wrap at <code>len</code>, page wrap, <code>read_only</code>), host updates staged until the
   stop, the answer queue with <code>Fill</code>, <code>Stretch { max }</code> (deadline, <code>resume</code>, <code>ReadWaiting</code>) and <code>Nack</code>
@@ -6125,8 +6170,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>SpiRegisters</code> frames (address, <code>rw</code> bit, dummy bytes before read data), the answer picked at the first <code>miso()</code>
   (FIFO preload, <code>rewind</code>); 8-bit words only. Events built as <code>I2cSlaveEvent</code> / <code>SpiSlaveFrame</code>. <code>const fn new</code> for a
   <code>static</code>; 58-100 instructions per byte on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> bin <code>qemu-bus-slave</code>).
-  <code>docs/api/bus_slave.md</code>, tests <code>ww_bus_slave/tests</code>. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).</li>
-<li>✅ <strong>SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams</strong> — <code>ww_lz4</code>, no_std, no alloc: each chunk of a
+  <code>docs/api/bus_slave.md</code>, tests <code>ww_bus_slave/tests</code>. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).
+- ✅ <strong>SRV-27 ww-lz4-encoder Streaming LZ4 encoder for byte streams</strong> — <code>ww_lz4</code>, no_std, no alloc: each chunk of a
   stream (UART RX, a log) becomes one standard LZ4 block whose matches reach back into earlier chunks, so 512 B chunks
   of shell text go 3.2-5.1x and 64 B chunks 2.4-3.3x (captured boot log, <code>ls</code>/<code>rg</code> colour output, <code>top</code>), about 2x
   without history. <code>Encoder&lt;HASH, BUF&gt;</code> with a <code>const fn new(keep)</code> for a <code>static</code>: a hash table of <code>u16</code> positions
@@ -6136,23 +6181,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   encoder only retries every 4 KiB (<code>with_backoff</code>). Feature <code>ram</code> puts the hot code (1.3 KiB) in <code>.data.ww_lz4</code>.
   Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
-  <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.</li>
-<li>🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
+  <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.
+- 🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
   <code>nmi-handler</code>) or a bus error (STM32H7, <code>DBECCERR</code>, ignored under FAULTMASK + <code>BFHFNMIGN</code>), so sequential-storage
   skips it. Never <code>MultiwriteNorFlash</code>. Blocking and async. <code>docs/api/ecc_flash.md</code>. On hardware: a G0B1 (B153A)
   store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
-  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.</li>
-<li>⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
+  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
+- ⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
-  std/no_std:</li>
-<li><code>wire_weaver</code> stays lean (<code>shrink_wrap</code>, macros, <code>ww_version</code>, result types) since every API crate and
-    <code>ww_stdlib</code> crate depends on it;</li>
-<li><code>ww_device</code> re-exports <code>wire_weaver</code>, <code>ww_framer</code>, <code>ww_link</code> and gets features <code>usb-embassy</code>, <code>rtt</code>, <code>udp</code>,
-    <code>ws</code>, <code>defmt</code>, <code>embassy-time</code>, <code>std</code>;</li>
-<li><code>wire_weaver_client</code> re-exports <code>wire_weaver</code> with transport features.</li>
-</ul>
+  std/no_std:
+  - <code>wire_weaver</code> stays lean (<code>shrink_wrap</code>, macros, <code>ww_version</code>, result types) since every API crate and
+    <code>ww_stdlib</code> crate depends on it;
+  - <code>ww_device</code> re-exports <code>wire_weaver</code>, <code>ww_framer</code>, <code>ww_link</code> and gets features <code>usb-embassy</code>, <code>rtt</code>, <code>udp</code>,
+    <code>ws</code>, <code>defmt</code>, <code>embassy-time</code>, <code>std</code>;
+  - <code>wire_weaver_client</code> re-exports <code>wire_weaver</code> with transport features.</p>
 <p>Requires: codegen emitting paths through the role crate (or a <code>crate = ".."</code> argument / <code>proc-macro-crate</code>;
   <code>WIRE_WEAVER_REEXPORTS</code> in the crate walker is partly there), and <code>wire_weaver_usb_embassy</code> building in the
   root workspace or merging into <code>ww_device</code>. Separately consider making <code>wire_weaver</code>'s <code>std</code> default off.</p>

@@ -37,6 +37,9 @@ pub struct DecoderConfig {
     pub link_wait_ns: u64,
     /// Explain requests and events with the API bundle (the expensive step); off: titles only.
     pub explain: bool,
+    /// The recorder gave frames as well as messages. Off (messages only), a framed link's messages are given out at
+    /// once instead of waiting [DecoderConfig::link_wait_ns] for frames that were not recorded.
+    pub frames: bool,
 }
 
 impl Default for DecoderConfig {
@@ -44,6 +47,7 @@ impl Default for DecoderConfig {
         DecoderConfig {
             link_wait_ns: 200_000_000,
             explain: true,
+            frames: true,
         }
     }
 }
@@ -263,10 +267,10 @@ impl Decoder {
             });
         }
         self.next_seq = Some(block.seq + 1);
-        for r in block.records() {
-            let Ok(r) = r else {
-                continue;
-            };
+        // a block stores its records track by track: back in time order, so a reply comes after its request
+        let mut records: Vec<_> = block.records().filter_map(Result::ok).collect();
+        records.sort_by_key(|r| r.t);
+        for r in records {
             self.stats.at(r.t);
             if r.track == ww_tape::DESCRIBE_TRACK {
                 if block.kind == BlockKind::Describe {
@@ -491,7 +495,7 @@ impl Decoder {
             kind: m.kind,
             bytes: m.bytes,
         });
-        if !framed || (!d.frames_seen && dir == Dir::Rx) {
+        if !framed || !self.config.frames || (!d.frames_seen && dir == Dir::Rx) {
             // rx frames come before their messages: none seen means none will be
             let p = d.records.pop_front().expect("pushed");
             self.give_message(link, dir, p.t, Some(p), None);

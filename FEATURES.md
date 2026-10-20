@@ -1336,7 +1336,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Outcome` and timing. Commands are `Free`, need the `ww_block` lease, or are `Restricted` (CMD42, CMD27) unless
   the firmware builds with `raw-sd-unrestricted` (`ww_sd::check_access`). Tier T0 of P2628. API crate, snapshot,
   docs page `docs/std_library/ww_sd.md` and the round trip `tests/block_sd` done, the scaffold compiles; a device
-  needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's `Sdmmc`).
+  needs a raw-command hook in its SD driver (not checked yet for embassy-stm32's `Sdmmc`). The docs page says how a
+  device in SPI mode fills the answers ("In SPI mode", from rePort's `sd_proto` engine); rePort's simulator serves
+  `SdCard` on a simulated card in SPI mode (usb_io_fw IF-8).
 - 💡 **STD-33 `ww_settings` single-sector mode** — a store in one sector with a RAM copy, for a part with exactly
   one sector to spare; a power cut during its erase loses every group (the window is the whole erase, 1 to 4 s on a
   128 KiB sector, see `docs/api/settings.md#parts-with-big-sectors`). Only if a device needs it.

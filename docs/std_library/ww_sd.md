@@ -61,7 +61,8 @@ The answer `RawResponse` has:
 - `outcome`: `Ok`, `ResponseTimeout`, `ResponseCrc`, `DataTimeout`, `DataCrc`, `BusyTimeout` or `Other { code }`.
   What the card did is data, not an error of the call, so the bytes and the timing come back on a failure too (R3 has
   no CRC: a controller that checks it anyway reports `ResponseCrc` with good bytes).
-- `response`: the response bytes, MSB first, without start bit, index and CRC (4 bytes, 16 for R2).
+- `response`: the response bytes, MSB first, without start bit, index and CRC (4 bytes, 16 for R2; in SPI mode
+  see [below](#in-spi-mode)).
 - `status`: the card status bits of an R1 or R1b response as `CardStatus`, with the bits as constants
   (`CardStatus::ILLEGAL_COMMAND`, ...), `current_state()` and `is_error()`.
 - `data`: what the data phase read.
@@ -70,6 +71,27 @@ The answer `RawResponse` has:
 
 An error of the call means the command wasn't sent: `NoCard`, `BadLease`, `Restricted`, `Common(Unsupported)` for a
 command the interface doesn't have (SPI mode), `Common(InvalidArgument)`.
+
+### In SPI mode
+
+A card in SPI mode answers with R1-based responses of its own, and some commands don't exist there. A device whose
+`capabilities().interface` is `Spi` fills the answer like this (as rePort's `sd_proto` engine does):
+
+- `response`: the bytes as the card sent them, R1 first: 1 byte for R1 and R1b, 2 for R2 (CMD13, ACMD13: R1 and the
+  second status byte), 5 for R3 and R7 (R1 and the OCR or the CMD8 echo).
+- `status`: R1 (and R2's second byte) mapped onto the SD bus card status bits, for every response: the error bits
+  where SPI mode has them, `CURRENT_STATE` 0 (idle) while R1 says idle, else 4 (tran).
+- The response format comes from the device's command table; the host's `ResponseType` is used only for an index
+  the table doesn't know.
+- CMD9, CMD10, CMD6, CMD30, ACMD13, ACMD22 and ACMD51 read their block (CSD, CID, the switch status, ...) into
+  `data` also with `DataPhase::None`, since the card sends it either way.
+- Commands only the SD bus has (CMD2, CMD3, CMD7, CMD11, CMD15, CMD19, ACMD6) answer `Common(Unsupported)`, and so
+  does `reinit` with a 4-bit bus.
+- `Outcome::Other { code }`: 0x01-0x0f a read answered with this data error token (bit 0 error, 1 CC error, 2 card
+  ECC failed, 3 out of range), 0x10 written data refused with a write error, 0x11 a byte that is no data response
+  token, 0x12 the bus driver failed.
+- `registers().rca` is 0, and an `InitStep`'s `response` holds the OCR (R3) or the CMD8 echo (R7) where the command
+  has one, else R1 in bits 7:0 and R2's second byte in bits 15:8.
 
 ### What a command needs
 

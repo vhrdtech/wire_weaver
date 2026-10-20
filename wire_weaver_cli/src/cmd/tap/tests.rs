@@ -3,77 +3,169 @@
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
 use super::*;
+use wire_weaver_client::observe::ObserveMode;
+use wire_weaver::shrink_wrap::UNib32;
 use crate::util::resolve;
 use wire_weaver_client::ww_numeric::NumericValue;
 use wire_weaver_client::ww_self::ValueOwned;
 use wire_weaver_client::{ClientConfig, DynResource};
 
 mod server {
-    use tests_common::TestProcessEvents;
+    use tests_common::TestProcessEventsAsync;
     use wire_weaver::prelude::*;
+    use ww_stream::observe::ObserveLimits;
+    use ww_user_info::{UserInfoCaps, UserInfoError};
 
     pub struct Server {
         pub blob: [u8; 512],
         pub speed: u16,
+        /// Counts up at every poll: the observed `load` changes each time
+        pub load: u16,
+        pub name: String,
+        pub observe: api_impl::ObserveState,
+        pub buf: Vec<u8>,
     }
 
     impl Server {
-        fn add(
+        pub fn new(speed: u16) -> Self {
+            Server {
+                blob: core::array::from_fn(|i| i as u8),
+                speed,
+                load: 1000,
+                name: "tapped".into(),
+                observe: api_impl::ObserveState::new(ObserveLimits::DEFAULT),
+                buf: vec![0; 512],
+            }
+        }
+
+        async fn add(
             &mut self,
-            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _cx: &mut Context<'_, impl EventOut>,
             a: u32,
             b: u32,
         ) -> RpcResult<u32> {
             Ready(a.wrapping_add(b))
         }
 
-        fn blob(
+        async fn blob(
             &mut self,
-            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _cx: &mut Context<'_, impl EventOut>,
             len: u16,
         ) -> RpcResult<RefVec<'_, u8>> {
             Ready(RefVec::new_bytes(&self.blob[..(len as usize).min(512)]))
         }
 
-        fn get_speed(
+        async fn get_speed(
             &mut self,
-            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _cx: &mut Context<'_, impl EventOut>,
         ) -> GetResult<u16, ()> {
             Value(self.speed)
         }
 
-        fn set_speed(
+        async fn set_speed(
             &mut self,
-            _cx: &mut Context<'_, impl BlockingEventOut>,
+            _cx: &mut Context<'_, impl EventOut>,
             value: u16,
         ) -> SetResult<()> {
             self.speed = value;
             Set
         }
+
+        async fn get_load(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u16, ()> {
+            Value(self.load)
+        }
+
+        async fn get_state(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u8, ()> {
+            Value(3)
+        }
+
+        async fn set_user_name(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            value: MaxLen<&'_ str, 32>,
+        ) -> SetResult<UserInfoError<'_>> {
+            self.name = value.to_string();
+            Set
+        }
+
+        async fn get_user_name(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<MaxLen<&'_ str, 32>, UserInfoError<'_>> {
+            Value(MaxLen::new_unchecked(&self.name))
+        }
+
+        async fn set_user_notes(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _value: MaxLen<&'_ str, 256>,
+        ) -> SetResult<UserInfoError<'_>> {
+            Unimplemented.into()
+        }
+
+        async fn get_user_notes(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<MaxLen<&'_ str, 256>, UserInfoError<'_>> {
+            Unimplemented.into()
+        }
+
+        fn observe_state(&mut self) -> &mut api_impl::ObserveState {
+            &mut self.observe
+        }
+    }
+
+    impl api_impl::TapDemoConsts for Server {
+        const USER_CAPABILITIES: UserInfoCaps = UserInfoCaps {
+            name_max: 32,
+            notes_max: 0,
+            persistent: false,
+        };
     }
 
     pub mod api_impl {
         wire_weaver::ww_codegen!(
             tap_api :: TapDemo for super::Server,
-            server = true, no_alloc = true, use_async = false,
+            server = true, no_alloc = true, use_async = true,
             method_model = "_=immediate",
             property_model = "_=get_set",
         );
     }
 
-    impl TestProcessEvents for Server {
+    impl TestProcessEventsAsync for Server {
         type Medium = ();
 
-        fn process_request_bytes<'a>(
+        async fn process_request_bytes<'a>(
             &mut self,
             bytes: &[u8],
             scratch: &'a mut [u8],
-            out: &mut impl BlockingEventOut,
+            out: &mut impl EventOut,
             medium: (),
         ) -> Result<&'a [u8], ShrinkWrapError> {
             self.process_request_bytes(bytes, scratch, out, medium)
+                .await
+        }
+
+        async fn poll(&mut self, out: &mut impl EventOut, now_ms: u64) {
+            let mut buf = core::mem::take(&mut self.buf);
+            // the device took a new reading
+            self.load += 1;
+            self.mark_changed_load();
+            _ = self.poll_properties(out, (), now_ms * 1000, &mut buf).await;
+            self.buf = buf;
         }
     }
+}
+
+/// A demo device on simulated USB.
+fn demo_device(path: &str, speed: u16) -> tests_common::TestDevice {
+    tests_common::start_device_async_usb(
+        path,
+        64,
+        server::Server::new(speed),
+        tap_api::TAP_DEMO_FULL_GID,
+        server::api_impl::api_hash(),
+    )
 }
 
 fn u32v(v: u32) -> ValueOwned {
@@ -102,16 +194,7 @@ fn views() -> [ViewArgs; 3] {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn monitor_capture_and_explain_file_agree() {
-    let device = tests_common::start_device_usb(
-        "cli/tap",
-        64,
-        server::Server {
-            blob: core::array::from_fn(|i| i as u8),
-            speed: 7,
-        },
-        tap_api::TAP_DEMO_FULL_GID,
-        server::api_impl::api_hash(),
-    );
+    let device = demo_device("cli/tap", 7);
     // as main.rs does: the tap first, then the connection that records into it
     let tap = LiveTap::new(Layer::Frame);
     let client = DynClient::from_config(
@@ -259,16 +342,7 @@ impl Write for Shared {
 /// read back by `ww explain FILE` as the same text.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn monitor_and_capture_flags_on_a_commands_own_client() {
-    let device = tests_common::start_device_usb(
-        "cli/tap_flags",
-        64,
-        server::Server {
-            blob: [0; 512],
-            speed: 7,
-        },
-        tap_api::TAP_DEMO_FULL_GID,
-        server::api_impl::api_hash(),
-    );
+    let device = demo_device("cli/tap_flags", 7);
     let dir = std::env::temp_dir().join(format!("ww_cli_tap_flags_{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("cmd.wwtape");
@@ -343,6 +417,138 @@ async fn monitor_and_capture_flags_on_a_commands_own_client() {
         .unwrap();
     assert!(err.to_string().contains("exists"), "{err}");
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A live tap on `device` printed as `--monitor=api` does and captured to a file: the monitor's text and the file.
+async fn tapped_session(
+    name: &str,
+    device: &tests_common::TestDevice,
+    traits_only: bool,
+    session: impl AsyncFnOnce(&DynClient),
+) -> (String, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("ww_cli_tap_{name}_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("cap.wwtape");
+    let _ = std::fs::remove_file(&path);
+    let flags = TapFlags {
+        monitor: Some(Layer::Api),
+        tap_bytes: false,
+        tap_bits: false,
+        capture: Some(path.clone()),
+    };
+    let printed = Shared::default();
+    let attached = Attached::start_with(&flags, Box::new(printed.clone())).unwrap();
+    let config = ClientConfig::new()
+        .in_process_path(device.path())
+        .tap(attached.recorder());
+    let config = if traits_only {
+        config.traits_only()
+    } else {
+        config
+    };
+    let client = DynClient::from_config(config)
+        .connect()
+        .await
+        .expect("connect");
+    attached.add_bundles(&client);
+    session(&client).await;
+    client.disconnect().asynch().await.unwrap();
+    attached.finish().unwrap();
+    let printed = String::from_utf8(printed.0.lock().unwrap().clone()).unwrap();
+    (printed, path)
+}
+
+/// What `ww explain FILE` prints of a capture.
+fn replayed(path: &std::path::Path, layer: Layer) -> String {
+    let view = ViewArgs {
+        layer,
+        bytes: false,
+        bits: false,
+    };
+    let mut out = vec![];
+    replay(&mut FileFeed::open(path, false).unwrap(), view, false, &mut out).unwrap();
+    String::from_utf8(out).unwrap()
+}
+
+/// TOOL-9: an `Observe` and its answer read as property names with the modes asked and granted, every update as the
+/// properties it carries with their values (two in the first one, as the device sends them together), all of it
+/// the same from a capture.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn observe_requests_replies_and_updates_are_decoded() {
+    let device = demo_device("cli/tap_observe", 7);
+    let (printed, path) = tapped_session("observe", &device, false, async |client| {
+        let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+        let level = resolve(root, "").unwrap();
+        let props = level.observable_properties().unwrap();
+        let names: Vec<_> = props.iter().map(|(_, n, _)| n.as_str()).collect();
+        assert_eq!(names, ["load", "state"]);
+        let entries = props
+            .iter()
+            .map(|(i, ..)| (*i, ObserveMode::OnChange { min_us: UNib32(0) }))
+            .collect();
+        let mut observer = level.observe(client.cmd(), entries).await.unwrap();
+        // the first update has both properties, later ones only what changed
+        for _ in 0..3 {
+            observer.recv().await.unwrap();
+        }
+    })
+    .await;
+    let lines = |what: &str| -> Vec<&str> { printed.lines().filter(|l| l.contains(what)).collect() };
+    assert!(
+        lines("Request Observe")[0].contains("load: on change; state: on change; others off"),
+        "{printed}"
+    );
+    let granted = lines("Event Value")[0];
+    assert!(
+        granted.contains("load: on change") && granted.contains("budget "),
+        "{printed}"
+    );
+    let updates = lines("Event PropertyUpdate");
+    assert!(updates.len() >= 3, "{printed}");
+    // typed values, not hex
+    assert!(
+        updates[0].contains("load: 10") && updates[0].contains("state: 3"),
+        "{printed}"
+    );
+    assert!(
+        updates.iter().all(|l| !l.contains("0x01")),
+        "no raw hex: {printed}"
+    );
+    // the load changes at every poll, the state never: later updates carry the load alone
+    assert!(
+        updates[2].contains("load: 10") && !updates[2].contains("state"),
+        "{printed}"
+    );
+    assert_eq!(replayed(&path, Layer::Api), printed);
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
+
+/// TOOL-9: calls through a global trait id (`ww info` and friends) are named by the trait's crate and decoded from
+/// the snapshot the host carries, with and without the device API (a command that never introspects).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn global_trait_calls_are_named_and_decoded() {
+    for (traits_only, name) in [(false, "global"), (true, "global_traits_only")] {
+        let device = demo_device(&format!("cli/tap_{name}"), 7);
+        let (printed, path) = tapped_session(name, &device, traits_only, async |client| {
+            let user = ww_report::clients::UserInfoClient::new(client);
+            let n = user.read_name().read().await.unwrap();
+            assert_eq!(&*n, "tapped");
+        })
+        .await;
+        assert!(
+            printed.contains("Request Read ww_user_info::UserInfo.name"),
+            "{printed}"
+        );
+        assert!(
+            printed
+                .lines()
+                .any(|l| l.contains("Event Value ww_user_info::UserInfo.name  \"tapped\"")
+                    && l.contains("reply to #")),
+            "{printed}"
+        );
+        assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
+        std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
 }
 
 /// What the command line says, parsed and checked the way `run` does.

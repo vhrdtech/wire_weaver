@@ -4563,6 +4563,7 @@ name = "tap_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_user_info",
 ]
 
 [[package]]
@@ -5575,6 +5576,8 @@ dependencies = [
  "ww_report",
  "ww_settings",
  "ww_si",
+ "ww_stream",
+ "ww_user_info",
 ]
 
 [[package]]

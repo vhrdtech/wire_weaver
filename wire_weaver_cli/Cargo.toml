@@ -47,5 +47,7 @@ ww_si = { workspace = true, features = ["std"] }
 [dev-dependencies]
 tap_api.workspace = true
 tests_common.workspace = true
+ww_stream.workspace = true
+ww_user_info = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true

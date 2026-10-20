@@ -253,6 +253,24 @@ pub fn start_device_usb<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     )
 }
 
+/// Same as [start_device_async], over simulated USB like [start_device_usb].
+pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    packet_size: usize,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_on(
+        path,
+        Media::Usb(packet_size),
+        AsyncServer(server),
+        version,
+        api_hash,
+        (),
+    )
+}
+
 /// How the device is connected to the host.
 #[derive(Copy, Clone)]
 enum Media {

@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `RevisionSource::Provisional` (STD-24), appended after `Assumed`: a provisional record a bench or developer wrote
+  in flash, standing in for the production record. Wire-compatible: older readers get the `future_version` variant.
+
 ### ⚠️ Breaking
 
 - Reworked (STD-24, never published): the six string properties are replaced by the const item

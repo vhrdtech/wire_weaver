@@ -1,0 +1,82 @@
+// ww_board_info 0.2.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "PCB and PCBA information (STD-24).",
+    "",
+    "One const item, [BoardInfo::BOARD], answers everything a host or a support case asks about the board: its name,",
+    "revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.",
+], crate_idx: 0, trait_name: "ww_board_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None),
+]), types: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Where a board\'s revision comes from.",
+        "",
+        "A unit running on an assumed revision is a different support case from one that read its own record.",
+    ], ident: "RevisionSource", generics: [], variants: [
+        (docs: [
+            "A record written in production (OTP, EEPROM, flash).",
+        ], ident: "Record", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Resistor straps or a revision pin read at boot.",
+        ], ident: "Strap", fields: Named([
+            (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+                "The raw value read.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Neither: the firmware assumes the revision it was built for.",
+        ], ident: "Assumed", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A provisional record a bench or developer wrote in editable storage (flash), standing in for the production",
+            "record until it is written; not a production record.",
+        ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
+        29,
+        39,
+        248,
+        111,
+        249,
+        238,
+        133,
+        56,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The PCB and its assembly, see [BoardInfo::BOARD].",
+    ], ident: "BoardSummary", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "Board series, `B200`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("revision"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: String), docs: [
+            "Hardware revision as printed on the board, `B`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("revision_source"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "How the firmware knows the revision.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "PCB assembly variant.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bom_variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "PCB assembly BOM variant.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("serial"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "Serial number.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
+            "Build date, if available.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "The PCB and its assembly.",
+        "",
+        "Never fails: what the device doesn\'t know is an empty string or `None`.",
+    ], crate_idx: 0, trait_name: "BoardInfo", items: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
+            "Everything the device knows about its board, in one value.",
+        ], optional: None),
+    ]), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_board_info", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

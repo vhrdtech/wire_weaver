@@ -217,6 +217,7 @@ async fn board(client: &BoardInfoClient) -> Part<Board> {
                     Source::Record => "record".to_string(),
                     Source::Strap { value } => format!("strap {value}"),
                     Source::Assumed => "assumed".to_string(),
+                    Source::Provisional => "provisional record".to_string(),
                     other => format!("{other:?}"),
                 },
                 variant: b.variant.to_string(),

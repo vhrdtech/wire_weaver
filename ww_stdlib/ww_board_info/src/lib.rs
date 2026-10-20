@@ -55,4 +55,8 @@ pub enum RevisionSource {
     },
     /// Neither: the firmware assumes the revision it was built for.
     Assumed,
+    /// A provisional record a bench or developer wrote in editable storage (flash), standing in for the production
+    /// record until it is written; not a production record.
+    #[since = "0.2.0"]
+    Provisional,
 }

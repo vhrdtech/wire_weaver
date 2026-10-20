@@ -203,6 +203,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   typed and dynamic observers per sample, `ww observe --samples`, Python `recv_batch()`. Wire: API hashes of APIs
   with readable properties change. See the `wire_weaver_core`, `ww_client_server`, `ww_stream`,
   `wire_weaver_client`, `ww_self` changelogs and `docs/api/observing.md`.
+- `ww_board_info` (STD-24): `RevisionSource::Provisional`, a provisional board record written in flash by a bench or
+  developer; `ww info` shows it as "provisional record".
 
 ### Changed
 

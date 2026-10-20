@@ -23,7 +23,7 @@ It never fails; what a device does not know is an empty string or `None`.
 |---|---|
 | `name` | Board series, `B200` (32 bytes) |
 | `revision` | Revision as printed on the board, `B` (8 bytes) |
-| `revision_source` | `Record`, `Strap { value }` or `Assumed` |
+| `revision_source` | `Record`, `Strap { value }`, `Assumed` or `Provisional` |
 | `variant`, `bom_variant`, `serial` | Assembly variant, BOM variant, serial number (32 bytes each) |
 | `build_date` | `Option<DateTime>` |
 
@@ -36,6 +36,9 @@ It never fails; what a device does not know is an empty string or `None`.
   show what was measured.
 * `Assumed` - neither exists: the firmware assumes the revision it was built for. A unit on an assumed revision is a
   different case from one that read its record.
+* `Provisional` - a provisional record a bench or developer wrote in editable storage (flash), standing in for the
+  production record until it is written; not a production record. Added later as an appended variant: older hosts
+  read it as their `future_version` variant.
 
 Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.

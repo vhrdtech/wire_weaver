@@ -771,7 +771,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn stuck_device_times_out() {
-        let (device, m) = start(
+        let (device, _m) = start(
             "credit/stuck",
             Config::new(64, 64).drain_at(1_000_000, Duration::ZERO),
         );
@@ -840,7 +840,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn status_read_shows_the_session() {
-        let (device, m) = start(
+        let (device, _m) = start(
             "credit/status",
             Config::new(256, 128).drain_at(1000, Duration::ZERO),
         );

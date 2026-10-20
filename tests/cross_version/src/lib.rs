@@ -2,12 +2,16 @@
 //! reported as `cross_version_api` 0.3.0) is rebooted by a host built against the new version 0.4.0. The new
 //! generated client can't connect (the user API check refuses it), but a `traits_only` connection can, and its
 //! `ww_dfu::BootControl` calls reach the trait through a global trait path, wherever the old API put it.
+//!
+//! The trait clients send `GlobalCompact` paths (the trait's `ww_global` id): served like `GlobalFull`, and a
+//! device built before the trait had an id (it answers `TraitNotFound` to every compact path) is asked again with
+//! `GlobalFull`, and only that way from then on.
 
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;
-    use wire_weaver::ww_version::{FullVersion, Version};
+    use wire_weaver::ww_version::{CompactVersion, FullVersion, GlobalTypeId, Version};
     use wire_weaver_client::{Attachment, CallError, Commander, DynClient, Error};
     use ww_client_server::ErrorKindOwned;
     use ww_dfu::{BootState, BootTarget};
@@ -17,6 +21,10 @@ mod tests {
     struct Calls {
         rebooted_into: Option<BootTarget>,
         led_on: bool,
+        /// Path kind of every request: `compact <id>`, `full <crate>::<trait>` or `absolute`
+        paths: Vec<String>,
+        /// Answer every `GlobalCompact` path with `TraitNotFound`, as firmware built before API-20 did
+        pre_compact: bool,
     }
 
     /// Firmware already in the field: built from the 0.3.0 API.
@@ -94,6 +102,33 @@ mod tests {
                 out: &mut impl BlockingEventOut,
                 medium: (),
             ) -> Result<&'a [u8], ShrinkWrapError> {
+                use ww_client_server::{PathKind, PathKindOwned, Request};
+                let request = Request::from_ww_bytes(bytes)?;
+                let mut calls = self.calls.write().unwrap();
+                calls.paths.push(match &request.path_kind {
+                    PathKind::Absolute { .. } => "absolute".into(),
+                    PathKind::GlobalCompact { gid, .. } => format!("compact {}", gid.gid.id.0),
+                    PathKind::GlobalFull {
+                        gid, trait_name, ..
+                    } => {
+                        format!("full {}::{trait_name}", gid.crate_id)
+                    }
+                });
+                if calls.pre_compact && matches!(request.path_kind, PathKind::GlobalCompact { .. })
+                {
+                    drop(calls);
+                    // an id no server knows: the generated code answers TraitNotFound, as an old one did to any id
+                    let mut old = request.make_owned()?;
+                    if let PathKindOwned::GlobalCompact { gid, .. } = &mut old.path_kind {
+                        gid.gid = ww_global::GlobalTypeId::new(4000);
+                    }
+                    let mut old = old.to_ww_bytes_owned()?;
+                    let seq = Request::peek_seq(bytes)?;
+                    let len = Request::set_seq(&mut old, seq)?.len();
+                    let old = old.split_off(old.len() - len);
+                    return self.process_request_bytes(&old, scratch, out, medium);
+                }
+                drop(calls);
                 self.process_request_bytes(bytes, scratch, out, medium)
             }
         }
@@ -166,8 +201,18 @@ mod tests {
     }
 
     fn start_old_device(path: &str) -> (Arc<RwLock<Calls>>, tests_common::TestDevice) {
+        start_device(path, false)
+    }
+
+    fn start_device(
+        path: &str,
+        pre_compact: bool,
+    ) -> (Arc<RwLock<Calls>>, tests_common::TestDevice) {
         let _ = tracing_subscriber::fmt::try_init();
-        let calls = Arc::new(RwLock::new(Calls::default()));
+        let calls = Arc::new(RwLock::new(Calls {
+            pre_compact,
+            ..Calls::default()
+        }));
         let server = old_device::OldDevice {
             calls: calls.clone(),
         };
@@ -280,5 +325,122 @@ mod tests {
             "{r:?}"
         );
         assert!(!calls.read().unwrap().led_on);
+    }
+
+    fn paths(calls: &RwLock<Calls>) -> Vec<String> {
+        calls.read().unwrap().paths.clone()
+    }
+
+    fn is_trait_not_found<T: std::fmt::Debug>(r: &Result<T, Error>) -> bool {
+        matches!(r, Err(Error::RemoteError(e)) if matches!(e.kind, ErrorKindOwned::TraitNotFound))
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn compact_trait_path_served() {
+        let (calls, device) = start_old_device("cross_version/compact");
+        let client = connect_traits_only(&device).await;
+        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID
+            .expect("BootControl has a ww_global id")
+            .gid
+            .id
+            .0;
+        let mut boot = BootControl::new(
+            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+        );
+        assert_eq!(
+            boot.boot_state().call().await.unwrap(),
+            BootState::Confirmed
+        );
+        boot.reboot(BootTarget::Updater).call().await.unwrap();
+        assert_eq!(
+            calls.read().unwrap().rebooted_into,
+            Some(BootTarget::Updater)
+        );
+        assert_eq!(
+            paths(&calls),
+            [format!("compact {id}"), format!("compact {id}")]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn compact_trait_path_not_found() {
+        let (calls, device) = start_old_device("cross_version/compact_not_found");
+        let client = connect_traits_only(&device).await;
+        let boot = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap();
+        let call = |gid: CompactVersion| {
+            let path = [UNib32(0)]; // boot_state
+            client
+                .cmd()
+                .prepare_call::<BootState, Error>(
+                    ww_client_server::PathKind::GlobalCompact {
+                        gid,
+                        path_from_trait: RefVec::Slice { slice: &path },
+                    },
+                    Ok(vec![]),
+                    "BootControl::boot_state",
+                )
+                .call()
+        };
+        // an id the registry doesn't have, a crate's id (ww_log), BootControl of an incompatible ww_dfu version
+        let unknown = CompactVersion::new(GlobalTypeId::new(4000), 0, 1, 0);
+        let crate_id = CompactVersion::new(ww_global::WW_LOG, 0, 1, 0);
+        let old_version = CompactVersion::new(boot.gid, 0, 2, 0);
+        for gid in [unknown, crate_id, old_version] {
+            let r = call(gid).await;
+            assert!(is_trait_not_found(&r), "{gid:?}: {r:?}");
+        }
+        assert_eq!(call(boot).await.unwrap(), BootState::Confirmed);
+        // the incompatible version is asked again with GlobalFull (it could be a device from before the id), the
+        // others have no trait to name; the compatible version still goes compact
+        let id = boot.gid.id.0;
+        assert_eq!(
+            paths(&calls),
+            [
+                "compact 4000".to_string(),
+                "compact 0".into(),
+                format!("compact {id}"),
+                "full ww_dfu::BootControl".into(),
+                format!("compact {id}"),
+            ]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn device_without_compact_ids_asked_again_with_full_path() {
+        let (calls, device) = start_device("cross_version/pre_compact", true);
+        let client = connect_traits_only(&device).await;
+        let id = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap().gid.id.0;
+        let mut boot = BootControl::new(
+            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+        );
+        assert_eq!(
+            boot.boot_state().call().await.unwrap(),
+            BootState::Confirmed
+        );
+        boot.reboot(BootTarget::Updater).call().await.unwrap();
+        assert_eq!(
+            calls.read().unwrap().rebooted_into,
+            Some(BootTarget::Updater)
+        );
+        // one TraitNotFound, then the connection remembers the trait goes by its full path
+        assert_eq!(
+            paths(&calls),
+            [
+                format!("compact {id}"),
+                "full ww_dfu::BootControl".into(),
+                "full ww_dfu::BootControl".into(),
+            ]
+        );
+        // a new connection tries the compact path again
+        client.cmd().disconnect().asynch().await.unwrap();
+        let client = connect_traits_only(&device).await;
+        let mut boot = BootControl::new(
+            client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
+        );
+        boot.boot_state().call().await.unwrap();
+        assert_eq!(
+            paths(&calls)[3..],
+            [format!("compact {id}"), "full ww_dfu::BootControl".into()]
+        );
     }
 }

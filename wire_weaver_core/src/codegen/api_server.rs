@@ -923,10 +923,9 @@ fn global_traits_recursive(
     traits: &mut Vec<GlobalTrait>,
 ) {
     let crate_version = api_bundle.crate_version(level.crate_idx.0).unwrap();
-    if !traits
-        .iter()
-        .any(|t| t.crate_version.crate_id == crate_version.crate_id && t.trait_name == level.trait_name)
-    {
+    if !traits.iter().any(|t| {
+        t.crate_version.crate_id == crate_version.crate_id && t.trait_name == level.trait_name
+    }) {
         traits.push(GlobalTrait {
             path: path.clone(),
             crate_version: crate_version.clone(),

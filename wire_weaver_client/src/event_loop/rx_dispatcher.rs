@@ -3,6 +3,7 @@ use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
 use crate::client::sink::SinkLink;
 use crate::event_loop::command::StreamOpenHook;
+use crate::event_loop::core::FullRetry;
 use crate::event_loop::event_queue::{EventReceiver, EventSender};
 use crate::{Error, RawStreamEvent, SeqTy};
 use std::collections::HashMap;
@@ -12,7 +13,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, trace, warn};
 use wire_weaver::prelude::UVlq32Backfill;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
-use ww_client_server::{EventKind, PathKindOwned, RequestKindOwned};
+use ww_client_server::{ErrorKind, EventKind, PathKindOwned, RequestKindOwned};
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
 pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
@@ -44,6 +45,8 @@ pub(crate) enum DispatcherCommand {
         timeout: Duration,
         /// The request opens a counted or reliable stream
         hook: Option<Box<StreamOpenHook>>,
+        /// The request has a `GlobalCompact` path: sent again with this one on `TraitNotFound` (API-20)
+        retry: Option<Box<FullRetry>>,
     },
     OnStreamEvent {
         path_kind: PathKindOwned,
@@ -95,6 +98,11 @@ pub(crate) struct RxDispatcher {
     response_map: HashMap<SeqTy, (ResponseSenderWrapper, Instant, Instant)>,
     /// Requests that open a counted or reliable stream, by seq
     stream_opens: HashMap<SeqTy, Box<StreamOpenHook>>,
+    /// Requests with a `GlobalCompact` path, by seq: the same request with a `GlobalFull` path and the timeout
+    full_retries: HashMap<SeqTy, (Box<FullRetry>, Duration)>,
+    /// Requests the device answered `TraitNotFound` to with a compact path, to be sent again by tx with
+    /// [Self::take_retries]
+    retries: Vec<Retry>,
     /// Open counted and reliable streams, by path
     positioned: HashMap<Vec<UNib32>, Arc<Shared>>,
     /// Time base of the streams' receivers, and when they were polled last
@@ -117,6 +125,14 @@ pub(crate) struct RxDispatcher {
 
 struct ResponseSenderWrapper(Option<ResponseSender>);
 
+/// A request to send again with a `GlobalFull` path: the request, its response sender, timeout and stream hook.
+pub(crate) type Retry = (
+    Box<FullRetry>,
+    ResponseSender,
+    Duration,
+    Option<Box<StreamOpenHook>>,
+);
+
 impl ResponseSenderWrapper {
     fn send(&mut self, r: Result<Vec<u8>, Error>) -> Result<(), ()> {
         if let Some(tx) = self.0.take() {
@@ -136,11 +152,15 @@ impl RxDispatcher {
                 done_tx,
                 timeout,
                 hook,
+                retry,
             } => {
-                if self.respond_later(now, seq, done_tx, timeout)
-                    && let Some(hook) = hook
-                {
-                    self.stream_opens.insert(seq, hook);
+                if self.respond_later(now, seq, done_tx, timeout) {
+                    if let Some(hook) = hook {
+                        self.stream_opens.insert(seq, hook);
+                    }
+                    if let Some(retry) = retry {
+                        self.full_retries.insert(seq, (retry, timeout));
+                    }
                 }
             }
             DispatcherCommand::OnStreamEvent {
@@ -173,6 +193,11 @@ impl RxDispatcher {
         std::mem::take(&mut self.freed)
     }
 
+    /// Requests to send again with a `GlobalFull` path, since the last call.
+    pub fn take_retries(&mut self) -> Vec<Retry> {
+        std::mem::take(&mut self.retries)
+    }
+
     fn respond_later(
         &mut self,
         now: Instant,
@@ -203,6 +228,7 @@ impl RxDispatcher {
             // the seq is still in use by the new request, so it is not freed here
         }
         self.stream_opens.remove(&seq);
+        self.full_retries.remove(&seq);
         true
     }
 
@@ -218,6 +244,7 @@ impl RxDispatcher {
             .collect();
         for seq in due {
             self.stream_opens.remove(&seq);
+            self.full_retries.remove(&seq);
             if let Some((mut done_tx, _, release_at)) = self.response_map.remove(&seq) {
                 _ = done_tx.send(Err(Error::Timeout));
                 trace!("pruned {seq:?}");
@@ -391,7 +418,20 @@ impl RxDispatcher {
                 }
             },
             Err(e) => {
-                if let Some(mut done_tx) = self.take_response(event.seq.0) {
+                let seq = event.seq.0;
+                if matches!(e.kind(), ErrorKind::TraitNotFound)
+                    && let Some((retry, timeout)) = self.full_retries.remove(&seq)
+                    && let Some(mut done_tx) = self.take_response(seq)
+                    && let Some(done_tx) = done_tx.0.take()
+                {
+                    // a device built before the trait got its ww_global id: ask again by crate and trait name
+                    debug!(
+                        "TraitNotFound for compact {:?}, asking again with GlobalFull",
+                        retry.compact
+                    );
+                    let hook = self.stream_opens.remove(&seq);
+                    self.retries.push((retry, done_tx, timeout, hook));
+                } else if let Some(mut done_tx) = self.take_response(seq) {
                     _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
                 } else {
                     self.unexpected_reply(event.seq.0);
@@ -463,6 +503,7 @@ impl RxDispatcher {
     }
 
     fn take_response(&mut self, seq: SeqTy) -> Option<ResponseSenderWrapper> {
+        self.full_retries.remove(&seq);
         let (done_tx, _, _) = self.response_map.remove(&seq)?;
         self.freed.push(seq);
         Some(done_tx)
@@ -482,6 +523,7 @@ impl RxDispatcher {
     fn cancel_all_requests(&mut self) {
         trace!("canceling all requests");
         self.stream_opens.clear();
+        self.full_retries.clear();
         for (seq, (mut done_tx, _, _)) in self.response_map.drain() {
             _ = done_tx.send(Err(Error::Disconnected));
             self.freed.push(seq);

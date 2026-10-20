@@ -50,10 +50,6 @@ pub struct Commander {
     /// "Some" cases are only for trait clients (`client = "trait_client"`). API root client (`client = "std_client"`) uses absolute addressing.
     base_path: Option<Vec<UNib32>>,
 
-    /// Mapping from FullVersion (crate name as string + semver) and trait name to trait GID of a much smaller size.
-    /// Optimally, should be requested from a device, so that newly assigned GIDs not yet known to a device are not used.
-    /// But can also be forced to a known GID if performance is critical.
-    gid_map: HashMap<(FullVersionOwned, String), CompactVersion>,
     default_timeout: Duration,
     pub(crate) connected_device: DeviceApiInfo,
     /// Client API and types, client signature. None if DynClient.
@@ -110,7 +106,6 @@ impl Commander {
         Self {
             transport_cmd_tx,
             base_path: None,
-            gid_map: HashMap::new(),
             default_timeout: DEFAULT_REQUEST_TIMEOUT,
             connected_device: DeviceApiInfo::empty(),
             client_introspect: None,
@@ -838,13 +833,14 @@ impl Commander {
                         path.push(n?);
                     }
                     PathKindOwned::Absolute { path }
-                } else if let Some(compact) = self
-                    .gid_map
-                    .get(&(gid.make_owned(), trait_name.to_string()))
+                } else if let Some(id) = ww_global::trait_id(gid.crate_id, trait_name)
+                    && gid.version.pre.is_none()
                 {
-                    // NOTE: lookup needs an owned key, FullVersionOwned can't implement Borrow<FullVersion<'_>> (it borrows &str)
+                    // the trait's ww_global id is shorter on the wire; a device built before the id existed answers
+                    // TraitNotFound and the event loop asks again with GlobalFull (API-20)
+                    let v = &gid.version;
                     PathKindOwned::GlobalCompact {
-                        gid: *compact,
+                        gid: CompactVersion::new(id, v.major.0, v.minor.0, v.patch.0),
                         path_from_trait: path_from_trait.iter().collect::<Result<Vec<_>, _>>()?,
                     }
                 } else {

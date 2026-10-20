@@ -148,6 +148,7 @@ impl RxCore {
                 done_tx,
                 timeout,
                 hook,
+                retry,
             } => {
                 self.dispatcher.handle_cmd(
                     now,
@@ -156,6 +157,7 @@ impl RxCore {
                         done_tx,
                         timeout,
                         hook,
+                        retry,
                     },
                 );
             }
@@ -356,6 +358,14 @@ impl RxCore {
         for seq in self.dispatcher.take_freed() {
             self.output.push_back(RxOutput::ToTx(ToTx::Freed(seq)));
         }
+        for (retry, done_tx, timeout, hook) in self.dispatcher.take_retries() {
+            self.output.push_back(RxOutput::ToTx(ToTx::RetryFull {
+                retry,
+                done_tx,
+                timeout,
+                hook,
+            }));
+        }
         if self.phase == Phase::Up {
             for bytes in self.dispatcher.poll_streams(now) {
                 self.output.push_back(RxOutput::ToTx(ToTx::Send(bytes)));
@@ -380,6 +390,9 @@ impl RxCore {
         self.last_rx_at = None;
         // freed seqs don't matter anymore, tx clears in-flight on exit
         self.dispatcher.take_freed();
+        for (_, done_tx, _, _) in self.dispatcher.take_retries() {
+            _ = done_tx.send(Err(Error::Disconnected));
+        }
         if notify_tx {
             self.output
                 .push_back(RxOutput::ToTx(ToTx::PeerGone(result)));

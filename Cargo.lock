@@ -1051,6 +1051,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_dfu",
+ "ww_global",
 ]
 
 [[package]]
@@ -5622,6 +5623,7 @@ dependencies = [
  "ww_client_server",
  "ww_device",
  "ww_framer",
+ "ww_global",
  "ww_link",
  "ww_lz4",
  "ww_numeric",

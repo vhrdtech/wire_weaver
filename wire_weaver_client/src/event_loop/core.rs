@@ -64,6 +64,14 @@ pub(crate) enum ToTx {
     Freed(SeqTy),
     /// A request without a reply (seq 0), e.g., a stream's `Ack`: sent only while the link is up.
     Send(Vec<u8>),
+    /// The device answered `TraitNotFound` to a request with a `GlobalCompact` path: send it again with its
+    /// `GlobalFull` path, and that trait's later requests too (API-20).
+    RetryFull {
+        retry: Box<FullRetry>,
+        done_tx: ResponseSender,
+        timeout: Duration,
+        hook: Option<Box<StreamOpenHook>>,
+    },
     /// `Loopback` message received, for a running loopback test. `intact` is [loopback::is_intact] of its data.
     Loopback { seq: u32, len: usize, intact: bool },
     /// Rx is exiting (remote Disconnect, peer timeout, read error, ...) and tx should too,
@@ -81,6 +89,8 @@ pub(crate) enum ToRx {
         timeout: Duration,
         /// The request opens a counted or reliable stream
         hook: Option<Box<StreamOpenHook>>,
+        /// The request has a `GlobalCompact` path: what to send instead on `TraitNotFound`
+        retry: Option<Box<FullRetry>>,
     },
     OnStreamEvent {
         path_kind: Box<PathKindOwned>,
@@ -106,6 +116,16 @@ pub(crate) enum ToRx {
     /// Tx decided to exit (command, commander dropped, setup timeout, write error), rx should too.
     /// Error, if any, is reported to a pending `connected_tx` by rx.
     Stop(Option<String>),
+}
+
+/// A request that goes out with a `GlobalCompact` path, serialized again with the trait's `GlobalFull` path (seq
+/// placeholder in place): sent instead when the device answers `TraitNotFound`, which a device built before the
+/// trait got its `ww_global` id does (API-20).
+#[derive(Debug)]
+pub(crate) struct FullRetry {
+    /// `ww_global` id, major and minor version of the trait's crate
+    pub(crate) compact: (u32, u32, u32),
+    pub(crate) bytes: Vec<u8>,
 }
 
 fn is_due(deadline: Option<Instant>, now: Instant) -> bool {

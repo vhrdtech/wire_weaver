@@ -10,7 +10,7 @@ use ww_link::{DisconnectReason, LinkSetup, Message};
 use ww_version::{FullVersionOwned, VersionOwned};
 
 use super::loopback::{LOOPBACK_HEADER_LEN, LoopbackTest, Status, TestOut};
-use super::{ToRx, ToTx, is_due};
+use super::{FullRetry, ToRx, ToTx, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
@@ -122,6 +122,9 @@ pub(crate) struct TxCore {
     next_seq: SeqTy,
     pub(crate) max_seq: SeqTy,
     in_flight: HashSet<SeqTy>,
+    /// `ww_global` id, major and minor version of traits the device answered `TraitNotFound` to with a compact
+    /// path: their requests go out with a `GlobalFull` path on this connection (API-20)
+    full_only: HashSet<(u32, u32, u32)>,
 
     /// Messages sent while link setup is in progress, sent out once the link is up.
     /// RxCore reports the connection to the user before LinkReady reaches tx, so the first
@@ -160,6 +163,7 @@ impl TxCore {
             next_seq: 1,
             max_seq: crate::DEFAULT_MAX_SEQ,
             in_flight: HashSet::new(),
+            full_only: HashSet::new(),
             held_until_up: VecDeque::new(),
             waiting_for_seq: VecDeque::new(),
             loopback: None,
@@ -398,6 +402,7 @@ impl TxCore {
             }
             None => (0, None),
         };
+        let retry = self.global_compact(&mut bytes);
         // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
         // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
         // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
@@ -437,6 +442,7 @@ impl TxCore {
                 done_tx,
                 timeout,
                 hook,
+                retry,
             }));
         }
         self.output.push_back(TxOutput::Send {
@@ -445,6 +451,49 @@ impl TxCore {
         });
         if self.unflushed_since.is_none() {
             self.unflushed_since = Some(now);
+        }
+    }
+
+    /// A request with a `GlobalCompact` path (API-20) goes out with the trait's `GlobalFull` path instead when the
+    /// device answered `TraitNotFound` to its id before on this connection; otherwise the full form is returned, for
+    /// rx to send again on `TraitNotFound`. None for other requests, and for ids the registry doesn't name a trait with.
+    fn global_compact(&self, bytes: &mut Vec<u8>) -> Option<Box<FullRetry>> {
+        use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned};
+        use ww_client_server::{PathKind, PathKindOwned, Request};
+        let req = Request::from_ww_bytes(bytes).ok()?;
+        let PathKind::GlobalCompact {
+            gid,
+            path_from_trait,
+        } = &req.path_kind
+        else {
+            return None;
+        };
+        let compact_id = gid.gid.id.0;
+        let entry = ww_global::entry(compact_id)
+            .filter(|e| e.kind == ww_global::EntryKind::Trait && e.retired.is_none())?;
+        let (crate_name, Some(trait_name)) = entry.split() else {
+            return None;
+        };
+        let mut full = req.make_owned().ok()?;
+        full.seq = wire_weaver::prelude::UVlq32Backfill(0);
+        full.path_kind = PathKindOwned::GlobalFull {
+            gid: FullVersionOwned::new(
+                crate_name.into(),
+                VersionOwned::new(gid.major.0, gid.minor.0, gid.patch.0),
+            ),
+            trait_name: trait_name.into(),
+            path_from_trait: path_from_trait.iter().collect::<Result<_, _>>().ok()?,
+        };
+        let full = full.to_ww_bytes_owned().ok()?;
+        let compact = (compact_id, gid.major.0, gid.minor.0);
+        if self.full_only.contains(&compact) {
+            *bytes = full;
+            None
+        } else {
+            Some(Box::new(FullRetry {
+                compact,
+                bytes: full,
+            }))
         }
     }
 
@@ -513,6 +562,15 @@ impl TxCore {
                 } else {
                     debug!("loopback message while no test runs, ignoring");
                 }
+            }
+            ToTx::RetryFull {
+                retry,
+                done_tx,
+                timeout,
+                hook,
+            } => {
+                self.full_only.insert(retry.compact);
+                self.on_send_message(now, retry.bytes, Some((done_tx, timeout)), hook);
             }
             ToTx::Freed(seq) => {
                 self.in_flight.remove(&seq);

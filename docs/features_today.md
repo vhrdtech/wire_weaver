@@ -124,9 +124,11 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Resend and resume inside a batch](api/stream_protocol.md#positions-inside-an-event)**: A resend or a resume from the middle of a multi-unit item gets only the units you don't have.
 - **[Credit sinks without a size limit](api/stream_protocol.md#positions-wrap-at-256-mib)**: Sessions of any length, positions at most 4 bytes on the wire.
 - **[Credit sinks that resume](api/credit_sinks.md)**: A sink (UART tx, a DFU plan) continues after a reconnect or a host restart, on the same acknowledgements as reliable streams. <span class="ww-status">hardware check open</span>
+- **[Reconnect](api/credit_sinks.md#resume)**: `Commander::reconnect()` connects again after `disconnect().keep_streams()` and resumes streams, sinks and observers. <span class="ww-status">in progress</span>
+- **[Resume checked on hardware](api/credit_sinks.md#resume)**: A UART sink on a real board put 1 MB on the line exactly once through link drops and a host restart.
 - **[Trait paths](api/addressing.md)**: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [API model and codegen](features.md#api-model-and-codegen-api), [Documentation](features.md#documentation-doc) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [API model and codegen](features.md#api-model-and-codegen-api), [Documentation](features.md#documentation-doc), [Examples](features.md#examples-ex), [Testing, CI and performance](features.md#testing-ci-and-performance-test) in the feature tracker.</p>
 
 ## Device side
 

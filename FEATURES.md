@@ -1417,9 +1417,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (plain struct, enum, list, bit fields, `Option`, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints `.text` +
   `.rodata`, or the largest symbols (`shrink_wrap/size_bench`, results in `docs/serdes/code_size.md`).
-- 📋 **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's UART tx credit sink (API-34) on omarchy-m1:
-  a reconnect in the middle of a transfer (USB unplugged and plugged back, `keep_streams` and `resume_streams()`)
-  puts every byte on the line exactly once, and a restarted host continues from a saved cursor.
+- ✅ **TEST-26 Credit sink resume on hardware** · `v0.5` — Donguru's header UART tx credit sink (API-34) on omarchy-m1
+  (USART5, 921 600 Bd, jumper IO7-IO8, `donguru-core/examples/uart_resume` in typec_dongle): 1 MB of numbered lines,
+  every byte on the line exactly once and in order (0 mismatches) in a plain run (14.3 s, 70 kB/s), with 4 link drops
+  (`disconnect().keep_streams()`, 200 ms down, `Commander::reconnect()` 10-22 ms incl. resume, first flush after it
+  0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
+  past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
+  firmware's pipes.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

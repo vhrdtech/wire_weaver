@@ -29,9 +29,10 @@ use ww_stream::codec::Compressed;
 
 // 4096 hash entries (8 KiB) and 12 KiB of history, 4 KiB of it kept when the buffer slides: 20 KiB of RAM
 type RxStream = Compressed<ww_lz4::Encoder<4096, 12288>>;
-// built at compile time, in place: never build it on the stack
-static RX: ConstStaticCell<RxStream> = ConstStaticCell::new(Compressed::new(ww_lz4::Encoder::new(4096)));
-let rx: &'static mut RxStream = RX.take();
+// set up in place: never build it on the stack, and not as a const either (`ConstStaticCell::new(Compressed::new(..))`
+// works, but keeps the 20 KiB as an initializer in flash)
+static RX: StaticCell<RxStream> = StaticCell::new();
+let rx: &'static mut RxStream = Compressed::init(RX.uninit(), |c| ww_lz4::Encoder::init(c, 4096));
 
 impl ServerState {
     fn stream_rx(&mut self) -> &mut RxStream {

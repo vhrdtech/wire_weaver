@@ -233,3 +233,16 @@ fn item_error_restarts() {
     assert!(restarts(&head));
     assert_eq!(Decoder::new().decode(&data).unwrap(), line(1));
 }
+
+#[test]
+fn init_in_place_is_new() {
+    let mut a = std::boxed::Box::new(Compressed::new(Enc::new(1024)));
+    let mut slot = std::boxed::Box::new(core::mem::MaybeUninit::<Compressed<Enc>>::uninit());
+    let b = Compressed::init(&mut slot, |c| Enc::init(c, 1024));
+    assert!(!b.is_compressing());
+    a.open_offered(1, Some(&LZ4));
+    b.open_offered(1, Some(&LZ4));
+    for i in 0..200 {
+        assert_eq!(send(&mut *a, &line(i)), send(b, &line(i)));
+    }
+}

@@ -316,3 +316,18 @@ proptest! {
         assert_eq!(dec.decode(&[0x04, 1, 0, 0x00]).unwrap(), [last; 8]);
     }
 }
+
+#[test]
+fn init_in_place_is_new() {
+    let data = data::text(64 * 1024, 7);
+    let mut a = Box::new(Encoder::<1024, 4096>::new(1024));
+    let mut slot = Box::new(std::mem::MaybeUninit::<Encoder<1024, 4096>>::uninit());
+    let b = Encoder::init(&mut slot, 1024);
+    let mut out_a = vec![0u8; max_block_len(512)];
+    let mut out_b = out_a.clone();
+    for chunk in data.chunks(512) {
+        let na = a.compress_slice(chunk, &mut out_a).unwrap();
+        let nb = b.compress_slice(chunk, &mut out_b).unwrap();
+        assert_eq!(out_a[..na], out_b[..nb]);
+    }
+}

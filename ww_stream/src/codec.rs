@@ -18,6 +18,7 @@
 //! restart.
 
 use crate::tx::Counted;
+use core::mem::MaybeUninit;
 use crate::{HeadExt, Opened, ResumeError, StreamCursor, StreamHead};
 use wire_weaver::shrink_wrap::Error;
 use ww_client_server::stream::{StreamCodec, StreamCodecs, StreamStatus};
@@ -137,6 +138,26 @@ impl<C: ItemCodec> Compressed<C> {
             restart: true,
             since_restart: 0,
             restart_every: DEFAULT_RESTART_EVERY,
+        }
+    }
+
+    /// Sets up a counted stream with no session yet in `slot` (a `StaticCell`'s `uninit()`), its codec set up in
+    /// place by `codec`, e.g. `|c| ww_lz4::Encoder::init(c, 4096)`: a `static` built by [Compressed::new] keeps the
+    /// codec's buffers as an initializer in flash (`.data`), one set up here takes RAM only.
+    pub fn init(
+        slot: &mut MaybeUninit<Self>,
+        codec: impl FnOnce(&mut MaybeUninit<C>) -> &mut C,
+    ) -> &mut Self {
+        let p = slot.as_mut_ptr();
+        // each field written once, through raw pointers: nothing of `slot` is read before it is set
+        unsafe {
+            (&raw mut (*p).stream).write(Counted::new());
+            codec(&mut *(&raw mut (*p).codec).cast::<MaybeUninit<C>>());
+            (&raw mut (*p).on).write(false);
+            (&raw mut (*p).restart).write(true);
+            (&raw mut (*p).since_restart).write(0);
+            (&raw mut (*p).restart_every).write(DEFAULT_RESTART_EVERY);
+            slot.assume_init_mut()
         }
     }
 

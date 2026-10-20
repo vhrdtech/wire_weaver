@@ -36,6 +36,8 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+use core::mem::MaybeUninit;
+
 #[cfg(feature = "std")]
 mod decoder;
 #[cfg(feature = "std")]
@@ -111,6 +113,23 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
             missed: 0,
             skip: 0,
         }
+    }
+
+    /// Sets up an empty encoder in `slot` (a `StaticCell`'s `uninit()`), the same as [`new`](Self::new): a `static`
+    /// built by `new` keeps its whole buffer as an initializer in flash (`.data`), one set up here takes RAM only.
+    pub fn init(slot: &mut MaybeUninit<Self>, keep: usize) -> &mut Self {
+        #[allow(clippy::let_unit_value)]
+        let () = Self::CHECK;
+        assert!(keep < BUF, "keep must leave room for a chunk");
+        // all zero is an empty encoder (the tables, positions and counters), only the settings are not
+        let enc = unsafe {
+            slot.as_mut_ptr().write_bytes(0, 1);
+            slot.assume_init_mut()
+        };
+        enc.keep = keep;
+        enc.miss_bytes = 1024;
+        enc.retry_bytes = 4096;
+        enc
     }
 
     /// After chunks of `miss_bytes` in a row that didn't shrink, send the next `retry_bytes` bytes as literals without

@@ -342,9 +342,20 @@ command's own connection, so the traffic of a real call is seen without a ww ser
 ```
 $ ww -l donguru-m1 --monitor=api info
 ...
-   0.093976 L0 → Request Read  #3
-   0.097889 L0 ← Event Value (reply to #3 in 3.91 ms)
+   0.082878 L0 → Request Read ww_firmware_info::FirmwareInfo.FIRMWARE #3
+   0.085630 L0 ← Event Value ww_firmware_info::FirmwareInfo.FIRMWARE  FirmwareSummary { name: "donguru", .. } (reply to #3 in 2.75 ms)
+$ ww -l donguru-m1 --monitor=api observe meter
+   0.120178 L0 → Request Observe meter  reading: on change; temperature: on change; totals: on change; others off #3
+   0.123055 L0 ← Event Value meter  reading: on change (min 1 ms); temperature: on change (min 1 ms); totals: on change (min 1 ms); budget 2000 B/s (reply to #3 in 2.88 ms)
+   0.124580 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5228 mV, current: 7 mA }, temperature: 34000 m°C, ..
+   0.134138 L0 ← Event PropertyUpdate meter  reading: MeterReading { vbus_in: 5229 mV, current: 6 mA }
 ```
+
+Requests are named by the device's API, and calls through global traits (`ww info` reads `ww_firmware_info`,
+`ww_board_info`, `ww_user_info`, ..) by the trait's crate and name, decoded from the snapshots `ww` carries, also when
+the command never reads the device's own API. An `Observe` shows the property names with the mode asked and the one
+granted, an update the properties it carries with their values. Ctrl+C and SIGTERM (`timeout`) end the command with the
+capture finished and renamed.
 
 Commands that don't connect (`list`, `explain`, `api`, `udev`, `elf`, `config`, `settings`) refuse the flags with an
 error, and so do `ww monitor`, `ww capture` and `ww stats`, which are the tap themselves.

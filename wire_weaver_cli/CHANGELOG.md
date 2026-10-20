@@ -1,5 +1,11 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- Live `--monitor` / `ww monitor` never named paths (`Request Observe [2]`) while the same traffic from a `--capture` file did: the device's API reached the capture's describe blocks only with the next data block, after the messages that needed it, and was written in its resolved form (which a decoder could not always read). It is handed over at once, as the device sent it, and live and file print the same text (TOOL-14).
+- SIGINT and SIGTERM (a `timeout`) end a command with `--capture`, and `ww monitor` / `ww capture` / `ww stats`, with the capture file synced and renamed, not left as `FILE.partial` (TOOL-14).
+- `ww explain PATH/TO/FILE.wwtape` of a file that does not exist is an error naming it, not a connect to a device.
+
 ### ⚠️ Breaking
 
 - The package is renamed from `ww` to `wire_weaver_cli` (the `ww` name on crates.io belongs to an unrelated crate), the
@@ -8,6 +14,7 @@
 
 ### 🚀 Features
 
+- The tap shows what a call reads (TOOL-9, TOOL-14): `Observe` requests and their answers as property names with the modes asked and granted (`reading: on change; temperature: every 10 ms; budget 2000 B/s`), `PropertyUpdate` events as the properties they carry with typed values, batched updates included (`reading: MeterReading { vbus_in: 5231 mV, .. }, temperature: 33800 m°C`), calls through global traits as `ww_user_info::UserInfo.name` with their values (`ww info`, `ww report`, also when the command never introspects the device), values of calls with the units of their types.
 - Global `--monitor[=frame|link|api]` (default `link`; `--monitor-bytes`, `--monitor-bits`) and `--capture FILE` on every command that opens a device connection (`info`, `observe`, `stream`, `introspect`, `dfu`, `counters`, `report`, `usb-loopback`) (TOOL-14): the command's own client is tapped from the link setup on, printed to stderr as `ww monitor` prints it (stdout stays the command's) and/or saved to a capture file `ww explain FILE` reads, e.g. `ww -l blinky --monitor=api info` shows its requests and the replies paired with them. Commands that don't connect, and `ww monitor` / `ww capture` / `ww stats`, refuse the flags. `ww monitor`, `ww capture` and `ww stats` are unchanged; `ww monitor --layer link|api` now prints a call's requests as they happen, in order with their replies (decoder fix in `wire_weaver_client`).
 
 - `ww pins list` and `ww pins test` (TOOL-15): pin tests on any device serving `ww_pin_diag::PinDiag`, found through its introspection data (`--at` when it has several). `test POINTS` takes names, `P<n>` ids, ranges (`GPIO2..=GPIO7`) and globs (`'chain.*'`), checks pulls, shorts to GND, to the supply and between the points, prints a table with what wasn't checked or was refused, gives every point back at the end (also on Ctrl-C and errors) and exits 1 on a short. `--watch` points are only read, `--plan FILE` adds expectations, narrower allow lists and `same_net`, `--save FILE` writes what the board shows into the plan. Point names complete live from the device.

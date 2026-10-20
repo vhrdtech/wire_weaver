@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- The tap decoder and `envelope` (TOOL-9, TOOL-14): `explain_request` / `explain_event` take the device API as an `Option` and explain requests through `GlobalFull` paths from the snapshots (`envelope::global_trait`), `explain_reply` (an `Observe`'s answer is `ObserveGranted`, not a property), `PropertyUpdate` data read by the level's `+observe` properties (`DynResource::observe_schema`), `Envelope::types` (the types of the payload values, to show units) and `Envelope::resource`. `Decoder::add_bundle` and describe blocks take a device's bundle as it was sent, snapshot-known traits are put back.
+
 ### ⚠️ Breaking
 
 - `Sink` of a credit sink runs on `ww_stream::sink::SinkTx` (API-34): it opens with `StreamOpen` and a session it names (random), waits for the answer, writes `SinkWrite` / `SinkWriteUnits`, takes `Ack` / `Resend` and opens its session again when the device answers `Close`; it needs a device with the same change. Positions count units: `credit_progress()` returns units (one per value, the bytes of a byte sink's payload), no longer bytes. A device that lost the session (a reboot) fails the call with the new `StreamError::SinkSessionLost { device_at, acked }` (`SinkAhead` for a device ahead of what was sent). `client::credit` (`CreditTx`) is gone, `CreditConfig` is in `client::sink` (still re-exported at the root).

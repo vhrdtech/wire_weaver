@@ -1058,6 +1058,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `expect`. Library `ww_pin_probe` (`probe::run` over a `Pins` trait, `mock::MockBoard`), end to end in
   `tests/pin_diag`. Hardware check open: on rePort once it serves `PinDiag`. Names sent as ids show as `#<id>`
   (STD-48).
+  The live decoder gets the device's API as soon as the command has it (the recorder hands a bundle over at once,
+  as the device sent it, snapshot-known traits put back by the decoder), so a live print and the capture's replay
+  are the same text; SIGINT and SIGTERM end a flagged command or `ww monitor` / `capture` / `stats` with the
+  capture finished, synced and renamed; `ww explain` of a path-like WHAT that is no file says so without
+  connecting.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.
@@ -1078,7 +1083,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client::envelope` (a whole request or event: the `ww_client_server` envelope field by field, the
   payload by its resource); `ww explain WHAT HEX | --value EXPR | 'call(..)' [--request]`, `ww explain request|event
   HEX`. Captures and the live link: `ww explain FILE` / `ww monitor --layer api --bits` (TOOL-14), replies explained by
-  their request's seq. Open: payloads under a global trait path, multi requests and property updates; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
+  their request's seq; `Observe` requests and their grants read as property names and modes, `PropertyUpdate`s as the
+  properties they carry with typed values (units as in `ww observe`); calls through global traits (`GlobalFull`
+  paths: `ww info`, `ww report`, ..) are named `ww_user_info::UserInfo.name` and decoded from the snapshots the host
+  carries, also by a command that never introspects the device. Open: `GlobalCompact` paths, multi requests; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
   expression input.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq

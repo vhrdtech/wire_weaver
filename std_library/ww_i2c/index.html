@@ -2808,6 +2808,34 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#slave-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slave mode
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Slave mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#clock-stretching-and-a-host-that-is-too-slow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Clock stretching and a host that is too slow
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5170,6 +5198,34 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#slave-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slave mode
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Slave mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#clock-stretching-and-a-host-that-is-too-slow" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Clock stretching and a host that is too slow
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5384,7 +5440,7 @@
 <h1 id="ww_i2c">ww_i2c<a class="headerlink" href="#ww_i2c" title="Permanent link">&para;</a></h1>
 <p>Part of the <a href="../io_family/">IO trait family</a>. <code>ww_i2c</code> is a global WireWeaver trait family for an I2C bus reachable through a device: a USB adapter, a dev board,
 or an instrument. A host can configure the bus, run write/read/transaction calls against a slave address, scan the
-bus, see and recover stuck lines, let the device poll a few registers on its own (<a href="#i2cwatch"><code>I2cWatch</code></a>), or watch
+bus, see and recover stuck lines, make the device a slave answering another master (<a href="#slave-mode">slave mode</a>), let the device poll a few registers on its own (<a href="#i2cwatch"><code>I2cWatch</code></a>), or watch
 every transaction on the bus without taking part in it (<a href="#i2cmonitor"><code>I2cMonitor</code></a>). It is <code>no_std</code> by default and
 depends only on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>Second</code> and <code>Volt</code> reference types).</p>
 <p>Add it to a device API crate with:</p>
@@ -5403,7 +5459,7 @@ depends only on <code>wire_weaver</code> and <code>ww_si</code> (for the <code>S
 <tbody>
 <tr>
 <td><code>I2c</code></td>
-<td>Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery.</td>
+<td>Configure the bus, write, read, write-read, transactions, scan, bus lines and recovery; optionally a slave.</td>
 <td>Every I2C master</td>
 </tr>
 <tr>
@@ -5524,6 +5580,63 @@ too), for devices that only sniff and implement no <code>I2c</code>.</p>
 <code>io_level</code>, as in <code>I2cConfig</code>; the adapter's pull-ups stay as they are, the watched bus has its own), closing it
 stops. Its unit is a transaction: the event head carries the time of each start condition and exactly how many
 records the device dropped and where (<a href="../../api/stream_reliability/">stream delivery</a>).</p>
+<h3 id="slave-mode">Slave mode<a class="headerlink" href="#slave-mode" title="Permanent link">&para;</a></h3>
+<p>A device with the <code>slave</code> group of <code>I2c</code> (<a href="../../api/optional_items/">optional</a>, left out with
+<code>omit = ["i2c.slave"]</code>) stands in for a chip on another master's bus, at an address of its own:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">I2c</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="c1">// ...</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">I2cSlaveCapabilities</span><span class="p">;</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="cp">#[stream(I2cSlaveEvent&lt;&#39;i&gt;, counted)]</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_events</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">I2cSlaveConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_map_write</span><span class="p">(</span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_WRITE_LEN</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_map_read</span><span class="p">(</span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_READ_LEN</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">I2cError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">    </span><span class="cp">#[credit]</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">slave_answers</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_READ_LEN</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_clear_answers</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Opening <code>slave_events</code> with an <code>I2cSlaveConfig { addr, io_level, answers }</code> starts it, closing the stream stops it
+(the address is not acknowledged any more). <code>answers</code> picks where the bytes of the master's reads come from:</p>
+<ul>
+<li><code>I2cSlaveAnswers::Registers { pointer_bytes, len, page, read_only }</code> - a register map on the device, filled and
+  read back by the host with <code>slave_map_write</code> / <code>slave_map_read</code>, before and while the slave runs. The first
+  <code>pointer_bytes</code> bytes of each master write set the pointer (big-endian), the rest are stored from it; reads come
+  from the pointer; both go up by one per byte and wrap at <code>len</code>, writes within their <code>page</code> as in an EEPROM. The
+  device answers at bus speed with the host out of the loop, and a host update takes effect between two master
+  transactions, never inside one, so the master never reads half of a multi-byte value. EEPROMs, sensors, PMICs,
+  anything register-based.</li>
+<li><code>I2cSlaveAnswers::Queue { empty }</code> - answers the host sends on the <code>slave_answers</code> <a href="../../api/credit_sinks/">credit
+  sink</a>, one per master read: a shorter read leaves the rest unsent, a longer one gets the
+  fill byte. For command-response protocols where the host computes each answer.</li>
+</ul>
+<p><code>slave_events</code> returns one <code>I2cSlaveEvent::Transfer</code> per transaction addressed to the device (what the master wrote
+or what the device sent, the register pointer, how many bytes were fill and how long SCL was held), and
+<code>I2cSlaveEvent::ReadWaiting</code> as soon as the master reads with no answer queued. The write just before it (a command,
+a register address) is the previous event, so a host answering live reads the request, computes the answer and sends
+it on <code>slave_answers</code>.</p>
+<h4 id="clock-stretching-and-a-host-that-is-too-slow">Clock stretching and a host that is too slow<a class="headerlink" href="#clock-stretching-and-a-host-that-is-too-slow" title="Permanent link">&para;</a></h4>
+<p><code>I2cSlaveUnderrun</code> (<code>empty</code> above) says what the device does when the master reads and no answer is there:</p>
+<ul>
+<li><code>Fill(byte)</code> - sends <code>byte</code> for every byte read (<code>0xFF</code> is what a released bus reads); the master never waits.</li>
+<li><code>Stretch { max, fill }</code> - holds SCL low until an answer comes, at most <code>max</code> per read, then sends <code>fill</code> for the
+  rest. The answer that comes late goes to the next read, and <code>I2cSlaveTransfer::filled</code> tells the host it was late.</li>
+<li><code>Nack</code> - doesn't acknowledge the address while the queue is empty, writes included, as an EEPROM busy with a page
+  write does; a master polling for an acknowledge gets one once an answer is queued.</li>
+</ul>
+<p>A host answer takes a round trip over the link: a few milliseconds on USB full speed, more on a busy host (measure
+it on the device at hand with <code>I2cSlaveTransfer::stretched</code>). The I2C specification puts no limit on stretching, but
+SMBus devices give up after 25 ms (<code>tTIMEOUT</code>), many masters have timeouts of their own, and some can't be stretched
+at all (the Raspberry Pi's BCM2835 controller corrupts the transfer). Use <code>Stretch</code> only with a master that takes it,
+with <code>max</code> below its timeout, and the register map whenever an answer can be prepared ahead.
+<code>I2cSlaveCapabilities</code> tells the map size, the queue depth, the longest stretch (<code>None</code>: none on demand), whether
+<code>Nack</code> works, 10-bit addresses and the fastest SCL the slave keeps up with.</p>
 <h2 id="addresses">Addresses<a class="headerlink" href="#addresses" title="Permanent link">&para;</a></h2>
 <p><code>I2cAddress</code> is 7-bit (<code>0x50</code> for a 24C02 EEPROM, not <code>0xA0</code>) or 10-bit, as in the I2C specification and
 embedded-hal (<code>SevenBitAddress</code> / <code>TenBitAddress</code>): <code>I2cAddress::seven(0x50)</code>, <code>I2cAddress::ten(0x350)</code>, both
@@ -5547,8 +5660,17 @@ up with the device's other data.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>I2cConfig</code> - <code>mode: I2cMode</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>i2c_configure</code>.</li>
-<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed: Hertz, monitor }</code>, <code>Slave { addr, monitor }</code> (data paths
-  for slave mode are not defined yet), <code>MonitorOnly</code>.</li>
+<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed: Hertz, monitor }</code>, <code>MonitorOnly</code>. Slave mode is
+  <code>slave_events</code>, not a mode.</li>
+<li><code>I2cSlaveConfig</code> - <code>addr: I2cAddress</code>, <code>io_level: Option&lt;Volt&gt;</code>, <code>answers: I2cSlaveAnswers</code>.</li>
+<li><code>I2cSlaveAnswers</code> - <code>Registers { pointer_bytes: u8, len: u32, page: Option&lt;u16&gt;, read_only: bool }</code> or
+  <code>Queue { empty: I2cSlaveUnderrun }</code>, see <a href="#slave-mode">slave mode</a>.</li>
+<li><code>I2cSlaveUnderrun</code> - <code>Fill(u8)</code>, <code>Stretch { max: Second, fill: u8 }</code>, <code>Nack</code>.</li>
+<li><code>I2cSlaveEvent&lt;'i&gt;</code> - <code>Transfer(I2cSlaveTransfer)</code> or <code>ReadWaiting</code>.</li>
+<li><code>I2cSlaveTransfer&lt;'i&gt;</code> - <code>end: Second</code>, <code>read: bool</code>, <code>kind: I2cRecordKind</code>, <code>pointer: Option&lt;u32&gt;</code>, <code>bytes</code>
+  (bounded by <code>MAX_RECORD_LEN</code>), <code>filled: u16</code>, <code>stretched: Option&lt;Second&gt;</code>.</li>
+<li><code>I2cSlaveCapabilities</code> - <code>map_len</code>, <code>max_pointer_bytes</code>, <code>queue_len</code>, <code>max_stretch: Option&lt;Second&gt;</code>,
+  <code>nack_when_empty</code>, <code>ten_bit_address</code>, <code>max_freq: Hertz</code>.</li>
 <li><code>I2cReadKind&lt;'i&gt;</code> - <code>Plain</code> (start, address+read, <code>len</code> bytes, stop) or <code>RepeatedStart { write }</code> (start,
   address+write, <code>write</code>, repeated start, address+read, <code>len</code> bytes, stop), bounded by <code>MAX_WRITE_READ_LEN</code>.</li>
 <li><code>I2cOp&lt;'i&gt;</code> - <code>Write(MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WRITE_LEN&gt;)</code> or <code>Read(u16)</code>, one operation of <code>i2c_transaction</code>.</li>
@@ -5559,7 +5681,8 @@ up with the device's other data.</p>
   adapter can).</li>
 <li><code>I2cCapabilities&lt;'i&gt;</code> - <code>io_levels</code>, <code>io_level_min</code> / <code>io_level_max</code>, <code>max_write_len</code>, <code>max_read_len</code>,
   <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>driver_name</code> (bounded by <code>MAX_NAME_LEN</code>), <code>master_supported</code> /
-  <code>slave_supported</code> / <code>monitor_supported</code>, <code>ten_bit_addresses</code>, <code>pullups</code>, <code>bus_recovery</code>.</li>
+  <code>monitor_supported</code>, <code>ten_bit_addresses</code>, <code>pullups</code>, <code>bus_recovery</code>. Slave mode is in the device's introspection
+  (the <code>slave</code> group) and <code>I2cSlaveCapabilities</code>.</li>
 <li><code>I2cWatchCapabilities</code> - <code>max_watches: u32</code> (at most <code>MAX_WATCHES</code>, 512), <code>max_len</code> (at most <code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
 <li><code>I2cWatchConfig&lt;'i&gt;</code> - <code>addr</code>, <code>kind: I2cReadKind&lt;'i&gt;</code>, <code>len</code>, <code>period: Second</code>, <code>report: I2cWatchReport&lt;'i&gt;</code>.</li>
 <li><code>I2cWatchReport&lt;'i&gt;</code> - <code>Always</code>, <code>Changed { mask }</code>, <code>Matches { bytes }</code>, see <a href="#i2cwatch"><code>I2cWatch</code></a> above.</li>
@@ -5583,20 +5706,20 @@ specific to I2C and a caller acts on: <code>Nack</code> (retry an EEPROM busy wi
 <code>Overrun</code>, <code>BufferTooBig</code> (split the transfer), <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>. Each method lists the variants
 it returns with <code>#[errors(..)]</code>, shown in its rustdoc and checked on the client. The enum is unsized, so a newer
 device's variant reads as <code>Unknown(n)</code> on an older host instead of failing the call.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">match</span><span class="w"> </span><span class="n">dev</span><span class="p">.</span><span class="n">i2c</span><span class="p">().</span><span class="n">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">I2cErrorOwned</span><span class="p">::</span><span class="n">Nack</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* not there, or busy */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">e</span><span class="p">))</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">common</span><span class="p">().</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* the same handling as for any other crate */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">r</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">match</span><span class="w"> </span><span class="n">dev</span><span class="p">.</span><span class="n">i2c</span><span class="p">().</span><span class="n">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">I2cErrorOwned</span><span class="p">::</span><span class="n">Nack</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* not there, or busy */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">e</span><span class="p">))</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">common</span><span class="p">().</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* the same handling as for any other crate */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">r</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="composing-into-a-device-api-and-testing-testsio_i2c">Composing into a device API, and testing (<code>tests/io_i2c</code>)<a class="headerlink" href="#composing-into-a-device-api-and-testing-testsio_i2c" title="Permanent link">&para;</a></h2>
 <p>A device exposes the traits it implements on its API root, see <code>tests/io_i2c_api</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[ww_api_root]</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IoI2cTest</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2c</span><span class="p">);</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_watch</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cWatch</span><span class="p">);</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_monitor</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cMonitor</span><span class="p">);</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="cp">#[ww_api_root]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">IoI2cTest</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2c</span><span class="p">);</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_watch</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cWatch</span><span class="p">);</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="n">ww_impl</span><span class="o">!</span><span class="p">(</span><span class="n">i2c_monitor</span><span class="p">:</span><span class="w"> </span><span class="nc">ww_i2c</span><span class="p">::</span><span class="n">I2cMonitor</span><span class="p">);</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>tests/io_i2c</code> runs a mock server implementing all three traits on <code>ww_device::Server</code> (through
 <code>tests_common::start_device</code>, the same in-process harness <code>tests/credit_sink</code> and <code>tests/streams</code> use), simulating

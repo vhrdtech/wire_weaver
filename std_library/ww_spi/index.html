@@ -2813,6 +2813,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#slave-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slave mode
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5071,6 +5082,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#slave-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Slave mode
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5229,8 +5251,8 @@
 
 <h1 id="ww_spi">ww_spi<a class="headerlink" href="#ww_spi" title="Permanent link">&para;</a></h1>
 <p>Part of the <a href="../io_family/">IO trait family</a>. <code>ww_spi</code> is a global WireWeaver trait for talking to the SPI devices
-on a bus remotely: full-duplex transfers, transactions with CS held across several operations, plain writes, and
-watching a bus without taking part. It is <code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for
+on a bus remotely: full-duplex transfers, transactions with CS held across several operations, plain writes,
+watching a bus without taking part, and standing in for a chip on another master's bus (<a href="#slave-mode">slave mode</a>). It is <code>no_std</code> by default and depends only on <code>wire_weaver</code> and <code>ww_si</code> (for
 the <code>Hertz</code>, <code>Second</code> and <code>Volt</code> quantity types).</p>
 <p>Add it to a device API crate with:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
@@ -5275,7 +5297,8 @@ several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, m
   <code>SpiOp::Read</code> and <code>SpiOp::Transfer</code>, concatenated in order. This is how a command-then-response exchange (write a
   register address, then read it) stays under one CS assertion instead of two separate <code>transfer</code> calls.</li>
 <li><code>write</code> - like <code>transfer</code>, ignoring what comes back.</li>
-<li><code>capabilities</code> - frequency range, word sizes, master/slave support, IO levels; see <a href="#types">Types</a> below.</li>
+<li><code>capabilities</code> - frequency range, word sizes, master support, IO levels; see <a href="#types">Types</a> below. Slave mode is
+  in the device's introspection (the <code>slave</code> group) and <code>slave_capabilities</code>.</li>
 <li><code>configure</code> - sets the bus (role, frequency, mode 0-3, bit order, word size, CS mode, IO level) in one
   <code>SpiConfig</code> and answers with what was actually set: the frequency the hardware settled on, never above what was
   asked, and the IO level in effect (<code>io_level: None</code> leaves it as it is). <code>SpiRole::Disabled</code> releases the pins.</li>
@@ -5287,13 +5310,66 @@ several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, m
   (<a href="../../api/stream_reliability/">stream delivery</a>). A device without monitoring hardware leaves it out, and a
   host sees that in the device's introspection.</li>
 </ul>
+<h3 id="slave-mode">Slave mode<a class="headerlink" href="#slave-mode" title="Permanent link">&para;</a></h3>
+<p>A device with the <code>slave</code> group of <code>Spi</code> (<a href="../../api/optional_items/">optional</a>, left out with
+<code>omit = ["spi.slave"]</code>) answers another master on its bus:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="n">Spi</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="c1">// ...</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_capabilities</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SpiSlaveCapabilities</span><span class="p">;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="cp">#[stream(SpiSlaveFrame&lt;&#39;i&gt;, counted)]</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_frames</span><span class="p">(</span><span class="n">config</span><span class="p">:</span><span class="w"> </span><span class="nc">SpiSlaveConfig</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_map_write</span><span class="p">(</span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_map_read</span><span class="p">(</span><span class="n">offset</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">len</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SpiError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">    </span><span class="cp">#[credit]</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="n">sink</span><span class="o">!</span><span class="p">(</span><span class="n">slave_answers</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">SPI_MAX</span><span class="o">&gt;</span><span class="p">);</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">    </span><span class="cp">#[optional(slave)]</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">slave_clear_answers</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u32</span><span class="p">;</span>
+</span><span id="__span-3-18"><a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Opening <code>slave_frames</code> with a <code>SpiSlaveConfig</code> (mode, bit order, word size, IO level, <code>answers</code>) starts it, closing
+the stream stops it (MISO released); <code>transfer</code>, <code>transaction</code> and <code>write</code> answer <code>WrongState</code> meanwhile. Every frame
+comes back as a <code>SpiSlaveFrame</code> with what the master sent and what the device answered.</p>
+<p>SPI has no clock stretching: the master clocks whenever it likes, so what the device sends has to be ready before CS
+goes active. <code>answers</code> picks where it comes from:</p>
+<ul>
+<li><code>SpiSlaveAnswers::Queue { idle, repeat_last }</code> - answers the host sends on the <code>slave_answers</code> <a href="../../api/credit_sinks/">credit
+  sink</a>, one per frame (CS assertion). A shorter frame leaves the rest unsent, a longer one
+  gets <code>idle</code> for the rest. With none queued when CS goes active (the host was too slow), the frame sends <code>idle</code>, or
+  the last answer again with <code>repeat_last</code> (a status the master polls), and <code>SpiSlaveFrame::underrun</code> says so; an
+  answer that comes during a frame waits for the next one. A device with a TX FIFO loads a frame's first bytes
+  before CS goes active, so "queued in time" means there by the time it loads them. This fits protocols where the master sends a command,
+  waits, and reads the answer in a frame of its own, or polls until it is there.</li>
+<li><code>SpiSlaveAnswers::Registers(SpiRegisters { addr_bytes, rw, dummy_bytes, idle, len })</code> - a register map on the
+  device, filled and read back with <code>slave_map_write</code> / <code>slave_map_read</code>. The first <code>addr_bytes</code> bytes of a frame are
+  the address (big-endian), <code>rw</code> (<code>ReadOnly</code>, <code>SetIsRead { bit }</code>, <code>ClearIsRead { bit }</code>) says from a bit of the
+  first byte whether the frame reads or writes, <code>dummy_bytes</code> are clocked between address and data of a read frame (a write frame has none). The device has
+  to turn the address around into data within a bit time or the dummy bytes, so this works up to
+  <code>SpiSlaveCapabilities::map_max_freq</code> without dummy bytes, and each dummy byte gives it 8 more bit times. A host
+  update takes effect between two frames.</li>
+</ul>
+<p><code>SpiSlaveCapabilities</code> tells the fastest SCK with the queue (<code>max_freq</code>), the queue depth, the map size, the widest
+address and <code>map_max_freq</code> (<code>None</code>: no register map).</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>SpiConfig</code> - <code>role: SpiRole</code>, <code>freq: Hertz</code>, <code>mode: SpiMode</code>, <code>bit_order: BitOrder</code>, <code>word_bits: u8</code>,
   <code>cs: CsMode</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>Spi::configure</code>.</li>
 <li><code>SpiMonitorConfig</code> - <code>mode</code>, <code>bit_order</code>, <code>word_bits</code>, <code>io_level</code>: the subset of <code>SpiConfig</code> a monitor needs to
   decode frames, the argument of <code>Spi::monitor</code>.</li>
-<li><code>SpiRole</code> - <code>Disabled</code>, <code>Master</code>, <code>Slave</code>. Data paths for slave mode are not defined yet.</li>
+<li><code>SpiRole</code> - <code>Disabled</code>, <code>Master</code>. Slave mode is <code>slave_frames</code>, not a role.</li>
+<li><code>SpiSlaveConfig</code> - <code>mode</code>, <code>bit_order</code>, <code>word_bits</code>, <code>io_level</code>, <code>answers: SpiSlaveAnswers</code>.</li>
+<li><code>SpiSlaveAnswers</code> - <code>Queue { idle: u8, repeat_last: bool }</code> or <code>Registers(SpiRegisters)</code>, see
+  <a href="#slave-mode">slave mode</a>.</li>
+<li><code>SpiRegisters</code> - <code>addr_bytes: u8</code>, <code>rw: SpiRwBit</code>, <code>dummy_bytes: u8</code>, <code>idle: u8</code>, <code>len: u32</code>.</li>
+<li><code>SpiRwBit</code> - <code>ReadOnly</code>, <code>SetIsRead { bit: u8 }</code>, <code>ClearIsRead { bit: u8 }</code>.</li>
+<li><code>SpiSlaveFrame&lt;'i&gt;</code> - <code>end: Second</code>, <code>truncated</code>, <code>overrun</code> (the device lost MOSI bytes), <code>underrun</code> (no answer was
+  queued), <code>addr: Option&lt;u32&gt;</code>, <code>mosi</code> / <code>miso</code>.</li>
+<li><code>SpiSlaveCapabilities</code> - <code>max_freq: Hertz</code>, <code>queue_len</code>, <code>map_len</code>, <code>max_addr_bytes</code>, <code>map_max_freq: Option&lt;Hertz&gt;</code>.</li>
 <li><code>SpiMode</code> - <code>Mode0</code>..<code>Mode3</code>, the usual CPOL/CPHA numbering; <code>sized</code>, 2 bits.</li>
 <li><code>BitOrder</code> - <code>MsbFirst</code>, <code>LsbFirst</code>; <code>sized</code>, 1 bit.</li>
 <li><code>CsMode</code> - <code>Auto</code> (asserted per transfer/transaction, released after), <code>Manual</code> (only <code>Spi::set_cs</code>), <code>None</code> (not
@@ -5301,8 +5377,8 @@ several buses nests it as an array, <code>ww_impl!(spi[]: ww_spi::Spi)</code>, m
 <li><code>SpiOp&lt;'i&gt;</code> - one operation of a <code>Spi::transaction</code>: <code>Write</code>, <code>Read(u16)</code>, <code>Transfer</code>, <code>Delay(Second)</code>.</li>
 <li><code>SpiFrame&lt;'i&gt;</code> - one frame seen by <code>Spi::monitor</code>: <code>end: Second</code> (CS released; asserted is the head's time),
   <code>truncated</code>, <code>mosi</code> / <code>miso: MaxLen&lt;RefVec&lt;'i, u8&gt;, SPI_MAX&gt;</code>.</li>
-<li><code>SpiCapabilities&lt;'i&gt;</code> - <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>min_word_bits</code> / <code>max_word_bits: u8</code>, <code>master</code> /
-  <code>slave: bool</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code>
+<li><code>SpiCapabilities&lt;'i&gt;</code> - <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>min_word_bits</code> / <code>max_word_bits: u8</code>, <code>master:
+  bool</code>, <code>io_levels: MaxLen&lt;RefVec&lt;'i, Volt&gt;, MAX_IO_LEVELS&gt;</code>, <code>io_level_min</code> / <code>io_level_max: Option&lt;Volt&gt;</code>
   (an adjustable supply), <code>max_len: u32</code> (largest transfer this device does, at most <code>SPI_MAX</code>).</li>
 <li><code>SpiError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), <code>BufferTooBig</code>; unsized
   (<code>unib32</code> discriminant), evolvable. Each method lists the variants it returns (<code>#[errors]</code>).</li>

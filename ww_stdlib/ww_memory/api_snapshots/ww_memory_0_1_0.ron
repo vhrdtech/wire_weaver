@@ -18,7 +18,7 @@
 ], crate_idx: 0, trait_name: "ww_memory", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Memory8", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -44,7 +44,7 @@
         (docs: [
             "All watch slots are taken.",
         ], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "Access rights of a memory region.",
     ], ident: "Access", generics: [], variants: [
@@ -54,7 +54,7 @@
         (docs: [], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Memory or registers with 8-bit addresses and 8-bit words.",
@@ -126,13 +126,13 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U8)),
             NumericAny(Base(U8)),
-        ]), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(64)), crate_idx: 0),
     InLine(level: (docs: [
         "Memory or registers with 32-bit addresses and 32-bit words.",
     ], crate_idx: 0, trait_name: "Memory32", items: [
@@ -203,13 +203,13 @@
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U32)),
             NumericAny(Base(U32)),
-        ]), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
+        ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
         ], optional: None),
-        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "access", docs: [
+        (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(65)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_memory", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

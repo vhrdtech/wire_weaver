@@ -69,6 +69,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
             docs: collect_docs(&entry.lib_rs_ast.attrs),
             crate_idx: UNib32(0),
             trait_name: scratch.ext_crates[0].crate_id.clone(),
+            compact_id: None,
             items,
         },
         types: scratch.types,

@@ -165,6 +165,10 @@ pub struct ApiLevel<'i> {
     pub crate_idx: UNib32,
     pub trait_name: &'i str,
     pub items: RefVec<'i, ApiItem<'i>>,
+    /// The trait's id in the `ww_global` registry (`crate::Trait`), when it has one: servers answer
+    /// `PathKind::GlobalCompact` requests with it (API-20). `None` in bundles made before ids existed.
+    #[default = None]
+    pub compact_id: Option<UNib32>,
 }
 
 #[derive_shrink_wrap(

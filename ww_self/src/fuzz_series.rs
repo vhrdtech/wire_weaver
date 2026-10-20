@@ -374,6 +374,7 @@ pub fn bundle_of(types: Vec<TypeOwned>, items: Vec<crate::ApiItemOwned>) -> ApiB
             docs: vec![],
             crate_idx: UNib32(0),
             trait_name: "SeriesCheck".into(),
+            compact_id: None,
             items,
         },
         types: types

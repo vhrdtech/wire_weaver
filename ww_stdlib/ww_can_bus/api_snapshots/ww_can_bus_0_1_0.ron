@@ -56,7 +56,7 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "CanGroup", docs: [], optional: None),
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "CanTimeTriggered", docs: [], optional: None),
     (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "CanXl", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         126,
         49,
@@ -1134,11 +1134,11 @@
             "The configuration in effect, as `configure` last answered it (with the mode now in effect): for a host",
             "attaching to a running node.",
         ], optional: None),
-        (id: 3, kind: Property(ty: OutOfLine(type_idx: 24), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 24), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Error state and counters of the controller. The device sends it to observers when the error state changes",
             "(and may on counter changes), so a bus-off or a wake-up reaches the host without polling.",
         ], optional: None),
-        (id: 4, kind: StreamFn(ty: OutOfLine(type_idx: 28), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "rx", docs: [
+        (id: 4, kind: StreamFn(ty: OutOfLine(type_idx: 28), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "rx", docs: [
             "Received frames, in the order they were received. A counted stream, unit: frame; the head\'s time is when",
             "the frame was received (see [Capabilities::timestamps]), and the head counts the frames the device lost (a",
             "full receive FIFO, a full link buffer).",
@@ -1174,12 +1174,12 @@
             "Drops every frame queued for sending, including those already handed to the controller and not yet on the",
             "bus; answers how many were dropped. Each one is reported on `tx_events` as [TxOutcome::Aborted].",
         ], optional: Some((group: None))),
-        (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 31), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tx_events", docs: [
+        (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 31), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "tx_events", docs: [
             "When each sent frame went on the bus, or why it didn\'t: one event per frame of `tx` (and of `tx_buffer`),",
             "with its [TxFrame::marker] and the time it waited in the queue. A counted stream, unit: frame; the head\'s",
             "time is when the frame was sent.",
         ], optional: Some((group: None))),
-        (id: 10, kind: StreamFn(ty: OutOfLine(type_idx: 34), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_errors", docs: [
+        (id: 10, kind: StreamFn(ty: OutOfLine(type_idx: 34), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "bus_errors", docs: [
             "Every error the controller detected on the bus: kind, phase and whether it was sending or receiving. A",
             "counted stream, unit: error; the head\'s time is when the error was detected. For analyzers and bus",
             "debuggers; [Status] has the counters and the last error without it.",
@@ -1189,7 +1189,7 @@
             "codes of both phases, flags of the last received FD frame, protocol exception, measured transceiver delay.",
             "Reading resets what the controller resets on a read (last error codes, error logging counter).",
         ], optional: Some((group: None))),
-        (id: 12, kind: Property(ty: OutOfLine(type_idx: 38), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
+        (id: 12, kind: Property(ty: OutOfLine(type_idx: 38), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "bus_load", docs: [
             "Bus load the device measures over [BusLoad::window], sent to observers once per window.",
         ], optional: Some((group: None))),
         (id: 13, kind: Method(args: [
@@ -1283,7 +1283,7 @@
             "Switches the transceiver (standby pin, silent pin, sleep) and answers the mode in effect. `Unsupported` for",
             "a mode it doesn\'t have ([Capabilities::transceiver_modes]).",
         ], optional: Some((group: Some("transceiver")))),
-        (id: 19, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
+        (id: 19, kind: Property(ty: OutOfLine(type_idx: 48), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "transceiver_state", docs: [
             "Transceiver mode and the bus wiring faults it detects; sent to observers when a fault appears or clears.",
         ], optional: Some((group: Some("transceiver")))),
         (id: 20, kind: Method(args: [
@@ -1297,7 +1297,7 @@
             "Switches the terminator and answers the one in effect. `Unsupported` for a value not in",
             "[Capabilities::termination].",
         ], optional: Some((group: Some("terminator")))),
-        (id: 21, kind: Property(ty: OutOfLine(type_idx: 49), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "termination", docs: [
+        (id: 21, kind: Property(ty: OutOfLine(type_idx: 49), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "termination", docs: [
             "The terminator in effect.",
         ], optional: Some((group: Some("terminator")))),
         (id: 22, kind: Method(args: [
@@ -1310,7 +1310,7 @@
             "In [Mode::Test]: drives the TX pin as `tx` says and answers the level on the RX pin. `WrongState` in any",
             "other mode.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(42)), crate_idx: 0),
     InLine(level: (docs: [
         "Controllers that share a clock, power and message memory, as all FDCAN instances of an STM32: none of them can be",
         "clocked, powered down or re-laid out alone. The group is enabled (clocked) or disabled as a whole; each",
@@ -1339,7 +1339,7 @@
             "Disables the group\'s clock, its lowest power state. Every controller must be in [Mode::Off] first",
             "(`WrongState` names the one that isn\'t).",
         ], optional: None),
-        (id: 4, kind: Property(ty: OutOfLine(type_idx: 55), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
+        (id: 4, kind: Property(ty: OutOfLine(type_idx: 55), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "group_state", docs: [
             "Enabled (with the clock in effect) or disabled; sent to observers on every change.",
         ], optional: None),
         (id: 5, kind: Method(args: [
@@ -1358,7 +1358,7 @@
             "What the group guarantees together, under the current clock and system load: a device whose controllers",
             "share a bus to the host or a CPU knows it, the host can\'t.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(88)), crate_idx: 0),
     InLine(level: (docs: [
         "Time-triggered CAN (ISO 11898-4, TTCAN) of one controller: a schedule of time windows in a matrix of basic",
         "cycles started by a reference message. A device puts it next to its controllers, `ww_impl!(can_tt[]:",
@@ -1388,11 +1388,11 @@
             "Replaces the trigger list (time marks of the matrix cycle). `OutOfMemory` when it doesn\'t fit the trigger",
             "memory, `InvalidArgument` for an unsorted list or a buffer the controller doesn\'t have.",
         ], optional: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 62), access: ReadOnly(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 62), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "tt_status", docs: [
             "Synchronisation state, master role, cycle count and error level; sent to observers on every change of the",
             "state or the error level.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(89)), crate_idx: 0),
     InLine(level: (docs: [
         "CAN XL frames of one controller (behind the `xl` cargo feature, so devices without XL don\'t carry its 2 KiB",
         "frames): a device puts it next to its controllers, `ww_impl!(can_xl[]: ww_can_bus::CanXl)`, element `i` being",
@@ -1410,13 +1410,13 @@
             "Configures the XL data phase (`None`: no XL frames) and answers what was set. Needs CAN FD configured on the",
             "controller (`WrongState`); a timing or transceiver mode switching it can\'t do is `Unsupported`.",
         ], optional: None),
-        (id: 1, kind: StreamFn(ty: OutOfLine(type_idx: 65), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "rx_xl", docs: [
+        (id: 1, kind: StreamFn(ty: OutOfLine(type_idx: 65), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "rx_xl", docs: [
             "Received XL frames. A counted stream, unit: frame; the head\'s time is when the frame was received.",
         ], optional: None),
         (id: 2, kind: FlowSink(ty: OutOfLine(type_idx: 66), flow: Credit), multiplicity: Flat, since: None, ident: "tx_xl", docs: [
             "XL frames to send; credit-based. Reported on `Can::tx_events` with their marker, where present.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(90)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_can_bus", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -417,6 +417,7 @@ mod tests {
                 docs: docs("root"),
                 crate_idx: UNib32(0),
                 trait_name: "Root".into(),
+                compact_id: None,
                 items: vec![
                     item(
                         0,
@@ -462,6 +463,7 @@ mod tests {
                         docs: docs("sub"),
                         crate_idx: UNib32(0),
                         trait_name: "Sub".into(),
+                        compact_id: None,
                         items: vec![],
                     },
                     crate_idx: UNib32(0),

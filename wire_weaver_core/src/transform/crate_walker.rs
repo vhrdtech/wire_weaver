@@ -1,4 +1,4 @@
-use super::api::convert_api_items;
+use super::api::{compact_trait_id, convert_api_items};
 use super::util::{UseLeaf, collect_docs, use_tree_leaves};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
@@ -79,6 +79,7 @@ fn load_inner(
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
         crate_idx: 0.into(),
+        compact_id: compact_trait_id(&entry, &trait_name),
         trait_name,
         items,
     };
@@ -199,6 +200,12 @@ pub(crate) struct CrateContext {
     mod_path: Vec<ModSegment>,
     // crate_path: PathBuf,
     // lib_rs_source: String,
+}
+
+impl CrateContext {
+    pub(crate) fn crate_name(&self) -> &str {
+        &self.version.crate_id
+    }
 }
 
 /// A module on the way from the crate root to a [CrateContext].

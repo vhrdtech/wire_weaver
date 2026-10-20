@@ -58,7 +58,7 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Adc", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "AdcStream", docs: [], optional: None),
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "AdcCapture", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
         191,
         150,
@@ -391,7 +391,7 @@
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their units and ranges.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(44)), crate_idx: 0),
     InLine(level: (docs: [
         "Continuous sampling, sent on the `samples` stream.",
         "",
@@ -408,7 +408,7 @@
                 "InUse",
                 "NoPower",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "samples", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "samples", docs: [
             "Raw samples of `config.channels` at `config.rate` sample sets per second, whole sample sets interleaved in",
             "the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware",
             "can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set. `InvalidArgument`",
@@ -417,7 +417,7 @@
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, formats and limits of streaming.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(45)), crate_idx: 0),
     InLine(level: (docs: [
         "Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.",
     ], crate_idx: 0, trait_name: "AdcCapture", items: [
@@ -460,7 +460,7 @@
         (id: 4, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "capture_abort", docs: [
             "Stops an armed or running capture and drops its data.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(96)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_adc", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

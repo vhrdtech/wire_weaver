@@ -56,7 +56,7 @@
     "See `tests/counters` for a complete server.",
 ], crate_idx: 0, trait_name: "ww_counters", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Size and use of one counter buffer, in 32-bit words.",
     ], ident: "BufferInfo", generics: [], fields: Named([
@@ -156,7 +156,7 @@
         "[CountersError]: `Common(Unsupported)` for the backup buffer on a device without one, `Common(InvalidArgument)`",
         "for an offset past the used words.",
     ], crate_idx: 0, trait_name: "Counters", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
         ], optional: None),
         (id: 1, kind: Method(args: [
@@ -192,13 +192,13 @@
                 "Unsupported",
                 "Busy",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "watch", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "watch", docs: [
             "Words that changed since the last event, sent every `period` (at least the device\'s minimum, which opening",
             "answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.",
             "",
             "Optional: a device leaves it out (`omit = [\"counters.watch\"]`), polling `read` works everywhere.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(13)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

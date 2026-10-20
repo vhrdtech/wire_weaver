@@ -20,7 +20,7 @@
     "external pull-down doesn\'t.",
 ], crate_idx: 0, trait_name: "ww_pin_diag", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PinDiag", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Interned", signature: [
         152,
         192,
@@ -175,7 +175,7 @@
         (id: 3, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "release_all", docs: [
             "Every point set since the last release goes back to the firmware\'s safe state and to its function.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(136)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_pin_diag", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

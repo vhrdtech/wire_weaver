@@ -1,9 +1,13 @@
 // ww_global 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_global", items: []), types: [
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Global id registry: small numbers for commonly used crates and traits, so that a request can name a trait in",
+    "a few bits instead of its crate name and version (`PathKind::GlobalCompact`). Ids are assigned by hand in",
+    "`wire_weaver_gid.json`, see the README for the ranges and rules.",
+], crate_idx: 0, trait_name: "ww_global", items: [], compact_id: None), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "GlobalTypeId", generics: [], fields: Named([
         (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

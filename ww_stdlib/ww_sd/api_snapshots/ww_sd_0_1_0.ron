@@ -26,7 +26,7 @@
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_sd", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "SdCard", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How the controller talks to the card, see [Capabilities::interface].",
     ], ident: "Interface", generics: [], variants: [
@@ -398,7 +398,7 @@
             "`raw-sd-unrestricted`, `Common(Unsupported)` for a command the interface doesn\'t have (SPI mode),",
             "`Common(InvalidArgument)` for an index above 63 or a data phase over [MAX_DATA].",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(105)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_sd", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

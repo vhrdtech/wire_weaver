@@ -150,6 +150,7 @@ impl Gen<'_> {
                 docs: vec![],
                 crate_idx: UNib32(0),
                 trait_name: "Fuzz".into(),
+                compact_id: None,
                 items,
             },
             types,

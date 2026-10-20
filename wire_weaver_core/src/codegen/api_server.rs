@@ -370,11 +370,15 @@ pub fn gen_server(
                             }
                         }
                     }
-                    // TODO(API-20): compact ids of traits are not in the API model yet, no trait has one assigned
-                    PathKind::GlobalCompact { .. } => {
-                        wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
-                        event_builder.finish(false, &mut wr);
-                        return wr.finish_and_take();
+                    PathKind::GlobalCompact { gid, path_from_trait } => {
+                        match ww_global_compact_trait_path(gid) {
+                            Some(base) => (base, path_from_trait),
+                            None => {
+                                wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
+                                event_builder.finish(false, &mut wr);
+                                return wr.finish_and_take();
+                            }
+                        }
                     }
                 };
 
@@ -849,7 +853,8 @@ fn poll_streams_fn(
     }
 }
 
-/// Absolute path of every global trait in the API tree, for requests with a global trait path (API-20).
+/// Absolute path of every global trait in the API tree, for requests with a global trait path (API-20), by crate and
+/// trait name (`GlobalFull`) or by the trait's `ww_global` id (`GlobalCompact`).
 ///
 /// Traits under a resource array are left out (a global path can't select an index), and when a trait is implemented
 /// several times, the first one in depth first, id order is used. A trait matches when the requested crate version is
@@ -857,17 +862,30 @@ fn poll_streams_fn(
 fn global_trait_path(api_bundle: &ApiBundleOwned) -> TokenStream {
     let mut traits = vec![];
     global_traits_recursive(api_bundle, &api_bundle.root, &mut vec![], &mut traits);
-    let arms = traits.iter().map(|(path, crate_version, trait_name)| {
-        let crate_id = crate_version.crate_id.as_str();
+    let version_check = |gid: TokenStream, crate_version: &FullVersionOwned| {
         let (major, minor) = (crate_version.version.major.0, crate_version.version.minor.0);
-        let version_check = if major >= 1 {
-            quote! { gid.version.major.0 == #major }
+        if major >= 1 {
+            quote! { #gid.major.0 == #major }
         } else {
-            quote! { gid.version.major.0 == 0 && gid.version.minor.0 == #minor }
-        };
+            quote! { #gid.major.0 == 0 && #gid.minor.0 == #minor }
+        }
+    };
+    let arms = traits.iter().map(|t| {
+        let crate_id = t.crate_version.crate_id.as_str();
+        let trait_name = t.trait_name.as_str();
+        let path = &t.path;
+        let version_check = version_check(quote! { gid.version }, &t.crate_version);
         quote! {
             (#crate_id, #trait_name) if #version_check => Some(&[#(UNib32(#path)),*]),
         }
+    });
+    let compact_arms = traits.iter().filter_map(|t| {
+        let id = t.compact_id?;
+        let path = &t.path;
+        let version_check = version_check(quote! { gid }, &t.crate_version);
+        Some(quote! {
+            #id if #version_check => Some(&[#(UNib32(#path)),*]),
+        })
     });
     quote! {
         /// Absolute path of a global trait in this API, None if it's not implemented in a compatible version.
@@ -877,25 +895,44 @@ fn global_trait_path(api_bundle: &ApiBundleOwned) -> TokenStream {
                 _ => None,
             }
         }
+
+        /// Absolute path of a global trait in this API by its `ww_global` id, None if it's not implemented in a
+        /// compatible version or has no id.
+        #[allow(unused_variables)]
+        fn ww_global_compact_trait_path(gid: &wire_weaver::ww_version::CompactVersion) -> Option<&'static [UNib32]> {
+            match gid.gid.id.0 {
+                #(#compact_arms)*
+                _ => None,
+            }
+        }
     }
+}
+
+/// A trait in the API tree that a global path can reach.
+struct GlobalTrait {
+    path: Vec<u32>,
+    crate_version: FullVersionOwned,
+    trait_name: String,
+    compact_id: Option<u32>,
 }
 
 fn global_traits_recursive(
     api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
     path: &mut Vec<u32>,
-    traits: &mut Vec<(Vec<u32>, FullVersionOwned, String)>,
+    traits: &mut Vec<GlobalTrait>,
 ) {
     let crate_version = api_bundle.crate_version(level.crate_idx.0).unwrap();
     if !traits
         .iter()
-        .any(|(_, v, name)| v.crate_id == crate_version.crate_id && *name == level.trait_name)
+        .any(|t| t.crate_version.crate_id == crate_version.crate_id && t.trait_name == level.trait_name)
     {
-        traits.push((
-            path.clone(),
-            crate_version.clone(),
-            level.trait_name.clone(),
-        ));
+        traits.push(GlobalTrait {
+            path: path.clone(),
+            crate_version: crate_version.clone(),
+            trait_name: level.trait_name.clone(),
+            compact_id: level.compact_id.map(|id| id.0),
+        });
     }
     for item in &level.items {
         if !matches!(item.kind, ApiItemKindOwned::Trait { .. })

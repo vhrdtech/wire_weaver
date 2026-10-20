@@ -9,7 +9,7 @@
     "flash budget doesn\'t support.",
 ], crate_idx: 0, trait_name: "ww_indication", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Indication", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Global operation mode, see [Indication::mode].",
         "",
@@ -83,10 +83,10 @@
         "Device indication control: a global mode every indicator follows, with optional brightness, identify and",
         "names.",
     ], crate_idx: 0, trait_name: "Indication", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Global operation mode every indicator follows.",
         ], optional: None),
-        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false, batched: false), write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
+        (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
             "Brightness of all indicators; one setting covers every one of them. Left out by a device whose",
             "indicators have no adjustable brightness.",
         ], optional: Some((group: None))),
@@ -101,11 +101,11 @@
             "Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to",
             "`mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.",
         ], optional: Some((group: None))),
-        (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
+        (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
             "Indicator names, in the device\'s own order. Left out (empty on devices that implement it with nothing to",
             "name) to save flash.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(25)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

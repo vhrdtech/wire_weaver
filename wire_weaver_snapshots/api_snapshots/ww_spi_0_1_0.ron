@@ -55,7 +55,7 @@
     "method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_spi", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -549,7 +549,7 @@
         (id: 12, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "slave_clear_answers", docs: [
             "Drops every queued answer and returns how many there were.",
         ], optional: Some((group: Some("slave")))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(40)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

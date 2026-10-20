@@ -26,7 +26,7 @@
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_block", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlockDevice", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Kind of medium, see [Geometry::kind].",
         "",
@@ -299,7 +299,7 @@
             "[BlockDevice::written] once on the medium (or refused). Credit-based (API-28): the host never sends more",
             "than the device has room for. For long jobs and slow links: writing a prepared filesystem, an image.",
         ], optional: Some((group: Some("bulk")))),
-        (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 7), delivery: Counted, args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "written", docs: [
+        (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 7), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "written", docs: [
             "The outcome of each run of [BlockDevice::write_runs], in the order they came. A counted stream, unit: run.",
         ], optional: Some((group: Some("bulk")))),
         (id: 9, kind: StreamFn(ty: OutOfLine(type_idx: 8), delivery: Counted, args: [
@@ -311,12 +311,12 @@
             ])),
             (ident: "NoMedium", nested: None),
             (ident: "OutOfRange", nested: None),
-        ])), multiplicity: Flat, since: None, ident: "read_runs", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "read_runs", docs: [
             "Bulk read: `count` blocks from `lba` as runs of up to [Geometry::max_blocks] on this stream, at the link\'s",
             "full speed instead of one call per run. The stream ends when the last run is sent; opening it again starts",
             "another range. A counted stream, unit: block.",
         ], optional: Some((group: Some("bulk")))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(104)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_block", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

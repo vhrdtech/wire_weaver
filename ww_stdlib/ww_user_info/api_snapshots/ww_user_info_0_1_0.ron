@@ -11,7 +11,7 @@
     "that cannot save returns `Fault`, one that cannot interrupt a flash operation `Busy`.",
 ], crate_idx: 0, trait_name: "ww_user_info", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UserInfo", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device keeps of the user\'s name and notes.",
     ], ident: "UserInfoCaps", generics: [], fields: Named([
@@ -24,7 +24,7 @@
         (ident: Some("persistent"), default: None, since: None, ty: Bool, docs: [
             "A written value survives a power cycle.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -50,7 +50,7 @@
                 "What the device keeps, from `CAPABILITIES`.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A name and notes the user gives this unit.",
@@ -60,28 +60,28 @@
         "Writes return [UserInfoError]: `TooLong` for a value above what [UserInfo::CAPABILITIES] says, `Common(Busy)`",
         "while storage can\'t be touched, `Common(Fault)` when saving failed.",
     ], crate_idx: 0, trait_name: "UserInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
             "Lengths this device keeps and whether a written value survives a power cycle.",
         ], optional: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
                 "Busy",
                 "Fault",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "name", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "Short name of the unit, shown by `ww list`.",
         ], optional: None),
-        (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(256), ty: String), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
+        (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(256), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
                 "Busy",
                 "Fault",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "notes", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "notes", docs: [
             "Free-form notes about the unit. A device with no room for them leaves this out.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(12)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

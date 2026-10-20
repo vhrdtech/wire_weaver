@@ -48,7 +48,7 @@
 ], crate_idx: 0, trait_name: "ww_logic_analyzer", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogicAnalyzer", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
         94,
         190,
@@ -543,7 +543,7 @@
         (id: 6, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "abort", docs: [
             "Stops an armed or running capture and drops its data.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(120)), crate_idx: 0),
     InLine(level: (docs: [
         "Continuous capture, sent on the `data` stream.",
         "",
@@ -570,7 +570,7 @@
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 30)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, channels and encodings of streaming.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(121)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

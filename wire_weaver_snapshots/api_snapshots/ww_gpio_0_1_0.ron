@@ -7,7 +7,7 @@
 ], crate_idx: 0, trait_name: "ww_gpio", items: [
     (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Bank", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Pin", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Digital output level - High and Low.",
     ], ident: "Level", generics: [], variants: [
@@ -294,7 +294,7 @@
         (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(33)), crate_idx: 0),
     InLine(level: (docs: [
         "A bank of related IO pins.",
         "Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).",
@@ -323,7 +323,7 @@
         (id: 10, kind: Method(args: [], return_ty: Some(String), errors: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "User-friendly bank name, e.g. `\"PA\"`.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(32)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

@@ -19,6 +19,13 @@ pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, Error> {
+    if !attr.is_empty() {
+        return Err(Error::new_spanned(
+            attr,
+            "a trait's global id is not written in code: add `crate::Trait` to ww_global/wire_weaver_gid.json, \
+             the codegen looks it up by name (API-20)",
+        ));
+    }
     let item_trait: ItemTrait = syn::parse2(item)?;
     let trait_name = item_trait.ident.to_string();
     let crate_path = PathBuf::from(
@@ -51,6 +58,7 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, E
         item_trait.ident.span(),
     );
     let full_gid_doc = format!("Crate name and full version of the [{trait_name}] API.");
+    let trait_ident = &item_trait.ident;
     let compact_gid_doc = format!(
         "Global ID and version of the [{trait_name}] API, if it has one in the registry, shorter on the wire than [{full_gid}]."
     );
@@ -59,7 +67,7 @@ fn ww_trait_inner(attr: TokenStream, item: TokenStream) -> Result<TokenStream, E
         #[doc = #full_gid_doc]
         pub const #full_gid: ww_version::FullVersion = wire_weaver::full_version!();
         #[doc = #compact_gid_doc]
-        pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#attr);
+        pub const #compact_gid: Option<ww_version::CompactVersion> = wire_weaver::compact_version!(#trait_ident);
     })
 }
 

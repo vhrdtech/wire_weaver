@@ -46,7 +46,7 @@
     (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PwmChannel", docs: [], optional: None),
     (id: 2, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "PwmCapture", docs: [], optional: None),
     (id: 3, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         126,
         49,
@@ -279,7 +279,7 @@
         (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
             "The current output, or [PwmState::Idle] if stopped.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(49)), crate_idx: 0),
     InLine(level: (docs: [
         "PWM outputs: frequency, duty cycle and polarity, channel by channel.",
     ], crate_idx: 0, trait_name: "Pwm", items: [
@@ -289,7 +289,7 @@
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their groups and the frequency and duty range.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(48)), crate_idx: 0),
     InLine(level: (docs: [
         "One capture input, measuring over successive `gate` windows: streamed, or polled.",
     ], crate_idx: 0, trait_name: "PwmCaptureChannel", items: [
@@ -302,7 +302,7 @@
                 "InUse",
                 "Refused",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "capture", docs: [
+        ]), batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "capture", docs: [
             "Measurements of `config`, one per `gate`, until the host closes the stream. Opening returns what was actually",
             "set (the nearest gate the hardware can do). Unit: measurement; the head\'s time is the end of its window.",
             "`Unsupported` when this mode isn\'t available on this channel, `InvalidArgument` for a gate out of range or",
@@ -330,14 +330,14 @@
             "The last measurement.",
             "`WrongState`: no measurement yet; `PwmCaptureChannel::set_capture` first, then wait for at least one `gate`.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(98)), crate_idx: 0),
     InLine(level: (docs: [
         "Pulse measurement: frequency, duty cycle, pulse width or edge count, channel by channel.",
     ], crate_idx: 0, trait_name: "PwmCapture", items: [
         (id: 0, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Array(index_type_idx: None), since: None, ident: "channel", docs: [
             "One capture input per channel; channel `n` is the same index as `Pwm`\'s, see [PwmChannelInfo::capture].",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(97)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -57,7 +57,7 @@
 ], crate_idx: 0, trait_name: "ww_firmware_info", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Version", signature: [
         93,
         154,
@@ -276,18 +276,18 @@
         "",
         "All items are constant for the life of a firmware image.",
     ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
-        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
             "Name, version, git commit, build time and profile.",
         ], optional: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
             "GNU build id of the image (20 bytes with sha1), empty when the firmware didn\'t keep the note. A host finds",
             "the ELF by it.",
         ], optional: None),
-        (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
+        (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
             "The `bedrock_build_info` compact record as stored in flash (header with magic, length and CRC-32 included):",
             "crate features, dependencies, compiler, target. The full record is in the ELF only.",
         ], optional: Some((group: None))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(8)), crate_idx: 0),
     InLine(level: (docs: [
         "Why the device last reset and what the firmware saved before it, see [LastReset::last_reset].",
         "",
@@ -303,7 +303,7 @@
         (id: 2, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "clear", docs: [
             "Forget the crash record and zero the boot counter, after the host saved them.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(9)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -36,7 +36,7 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PatternGenerator", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "WaveformGenerator", docs: [], optional: None),
     (id: 2, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "WaveformChannel", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output.",
     ], ident: "PgChannelInfo", generics: [], fields: Named([
@@ -455,7 +455,7 @@
         (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Where the generator stands.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(128)), crate_idx: 0),
     InLine(level: (docs: [
         "One DAC output.",
     ], crate_idx: 0, trait_name: "WaveformChannel", items: [
@@ -494,7 +494,7 @@
             "Table of an [Shape::Arbitrary] waveform, raw codes appended in order; `Open` starts a new table, `Close`",
             "completes it. The credit is the free table memory.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(130)), crate_idx: 0),
     InLine(level: (docs: [
         "DAC outputs.",
     ], crate_idx: 0, trait_name: "WaveformGenerator", items: [
@@ -515,7 +515,7 @@
             "up.",
             "`Unsupported`: the channels don\'t share a clock.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(129)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_signal_generator", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -9,7 +9,7 @@
     "on a reboot into a ROM bootloader sharing the same id (RP2350 BOOTSEL, STM32 DFU) finds the unit again by it.",
 ], crate_idx: 0, trait_name: "ww_uid", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What an id\'s bytes are.",
     ], ident: "UidKind", generics: [], variants: [
@@ -30,7 +30,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Who provides an id.",
     ], ident: "UidSource", generics: [], variants: [
@@ -51,7 +51,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One unique id of a unit, where it comes from and what kind of number it is.",
     ], ident: "UniqueId", generics: [], fields: Named([
@@ -64,7 +64,7 @@
         (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The id, up to 16 bytes: 6 for a MAC, 8 for an EUI-64, 16 for a UUID, a chip\'s own length otherwise.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The unique ids of this unit.",
@@ -72,10 +72,10 @@
         "The list is never empty on a device that has any id at all; the first entry is the primary id, see the",
         "[crate](crate) documentation.",
     ], crate_idx: 0, trait_name: "Uid", items: [
-        (id: 0, kind: Property(ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None, errors: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
+        (id: 0, kind: Property(ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
             "All ids of this unit, the primary one first. At most 4.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(11)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

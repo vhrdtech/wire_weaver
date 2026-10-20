@@ -83,7 +83,7 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "I2c", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "I2cWatch", docs: [], optional: None),
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "I2cMonitor", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
         94,
         190,
@@ -759,7 +759,7 @@
         (id: 15, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "slave_clear_answers", docs: [
             "Drops every queued answer (after the master gave up on a request, say) and returns how many there were.",
         ], optional: Some((group: Some("slave")))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(38)), crate_idx: 0),
     InLine(level: (docs: [
         "Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for",
         "(every result, a change under a mask, or a match with a value), so the host doesn\'t poll over the link.",
@@ -814,7 +814,7 @@
         (id: 5, kind: Method(args: [], return_ty: Some(MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U32))))), errors: None), multiplicity: Flat, since: None, ident: "watch_list", docs: [
             "Slots in use.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(80)), crate_idx: 0),
     InLine(level: (docs: [
         "Watches the bus without taking part: every transaction becomes one [I2cRecord] on the `records` stream.",
         "",
@@ -838,7 +838,7 @@
             "stream, unit: transaction; the head\'s time is the start condition, and the host learns exactly how many",
             "records the device dropped. `Unsupported` for an IO level the adapter can\'t do.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(81)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

@@ -46,7 +46,7 @@
     "(`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_onewire", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "OneWire", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A 1-Wire ROM id: an 8-bit family code, a 48-bit serial number, and a CRC8 of the other seven bytes",
         "(`bytes[0..7]`), most to least significant as read off the bus.",
@@ -292,7 +292,7 @@
             "for the next step (the agreed bit when there is no fork, the caller\'s `direction` at a fork). `WrongState`",
             "when no `Search ROM` command was sent since the last reset, or after more than 64 calls.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(72)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

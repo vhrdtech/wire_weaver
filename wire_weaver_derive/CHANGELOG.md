@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `#[ww_trait(N)]` / `#[ww_api_root(N)]` with a global id are a compile error (API-20): ids are not written in code, they live in `ww_global/wire_weaver_gid.json` keyed `crate::Trait`. `<TRAIT>_COMPACT_GID` is looked up there by crate and trait name, so every `ww_stdlib` trait has one now. `compact_version!(Trait)` takes the trait name (`compact_version!()` the crate) instead of an id expression.
 - `#[ww_trait]` / `#[ww_api_root]` emit a Rust trait of the same name and visibility that describes the API for
   rustdoc (DOC-6), instead of private `SrcMarker*` aliases. It is checked by the compiler in the API crate, so
   definitions that slipped through before fail now: types must be valid Rust (`RefVec<'i, &'i str>` instead of

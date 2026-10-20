@@ -84,12 +84,9 @@ pub fn ww_impl(args: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// Global IDs:
-/// If trait have a global unique ID in the registry, provide it in parenthesis:
-/// ```ignore
-/// #[ww_trait(123)]
-/// pub trait Abc { }
-/// ```
+/// Global IDs: a trait with an id in the [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global)
+/// (keyed `crate::Trait` in `wire_weaver_gid.json`) gets it in its `*_COMPACT_GID` const, looked up by name; the
+/// number is never written in code.
 #[proc_macro_attribute]
 pub fn ww_trait(attr: TokenStream, item: TokenStream) -> TokenStream {
     ww_trait::ww_trait(attr.into(), item.into()).into()
@@ -108,7 +105,9 @@ pub fn full_version(item: TokenStream) -> TokenStream {
     version::full_version(item.into()).into()
 }
 
-/// Create CompactVersion with the crate name and major.minor.patch numbers during compile time.
+/// Create CompactVersion with the global id and major.minor.patch numbers of this crate during compile time:
+/// `compact_version!(Trait)` for `this_crate::Trait`, `compact_version!()` for the crate itself. `None` when the
+/// [ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global) has no id for it.
 #[proc_macro]
 pub fn compact_version(item: TokenStream) -> TokenStream {
     version::compact_version(item.into()).into()

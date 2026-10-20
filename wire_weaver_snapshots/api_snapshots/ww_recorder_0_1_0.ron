@@ -26,7 +26,7 @@
 ], crate_idx: 0, trait_name: "ww_recorder", items: [
     (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Recorder", docs: [], optional: None),
     (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Track", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The type of a track\'s items, see [TrackInfo::item_type]. A host finds crate, version and type path in the",
         "device\'s API from the track\'s path, and recognises kinds of data (a CAN frame, a defmt frame) by these.",
@@ -519,33 +519,33 @@
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Where the track comes from and what it carries.",
         ], optional: None),
-        (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "enabled", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [
             "Whether the track is written. A disabled track keeps its place in the table and its position; its items are",
             "counted as dropped. Takes effect at once; the system track (0) can\'t be disabled (`Unsupported`).",
         ], optional: None),
-        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "durability", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
         ], optional: Some((group: Some("track_settings")))),
-        (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "compression", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "compression", docs: [
             "Compression of the track\'s batches, see [Compression]. Optional: a device without a codec leaves it out,",
             "and tracks are stored plain.",
         ], optional: Some((group: None))),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "What the track has stored and lost.",
         ], optional: Some((group: Some("counting")))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(113)), crate_idx: 0),
     InLine(level: (docs: [
         "Control of a recorder: a logger that writes tracks to a card or flash.",
         "",
@@ -655,12 +655,12 @@
             "Writes what is in RAM to the card now (all tracks), instead of waiting for `flush_bytes` or",
             "`flush_interval_ms`. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
         ], optional: None),
-        (id: 10, kind: Property(ty: OutOfLine(type_idx: 25), access: ReadWrite(observe: false, batched: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
+        (id: 10, kind: Property(ty: OutOfLine(type_idx: 25), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
             ])),
-        ])), multiplicity: Flat, since: None, ident: "settings", docs: [
+        ]), batched: None), multiplicity: Flat, since: None, ident: "settings", docs: [
             "Settings: flush thresholds, full policy, recording mode, USB view. Each field says when it takes effect.",
         ], optional: None),
         (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 26)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
@@ -676,7 +676,7 @@
             "mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device",
             "without a USB view leaves it out.",
         ], optional: Some((group: Some("usb")))),
-    ]), crate_idx: 0),
+    ], compact_id: Some(112)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

@@ -493,6 +493,7 @@ pub(crate) fn convert_trait(
         return Ok(UNib32(idx as u32));
     }
     let items = convert_api_items(item_trait, current_crate, scratch)?;
+    let compact_id = compact_trait_id(current_crate, &trait_name);
     let trait_idx = scratch.root_bundle.traits.len() as u32;
     scratch
         .root_bundle
@@ -503,10 +504,16 @@ pub(crate) fn convert_trait(
                 crate_idx,
                 trait_name,
                 items,
+                compact_id,
             },
             crate_idx,
         });
     Ok(UNib32(trait_idx))
+}
+
+/// Id of the trait in the `ww_global` registry, looked up by crate and trait name (API-20).
+pub(crate) fn compact_trait_id(current_crate: &CrateContext, trait_name: &str) -> Option<UNib32> {
+    ww_global::trait_id(current_crate.crate_name(), trait_name).map(|gid| gid.id)
 }
 
 /// ww_impl!(gpio: Gpio) or stream!(data: Packet)

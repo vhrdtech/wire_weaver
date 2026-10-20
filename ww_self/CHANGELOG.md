@@ -131,6 +131,7 @@
 
 ### 🚀 Features
 
+- `ApiLevel::compact_id` (`#[default = None]`, API-20): the trait's id in the `ww_global` registry. Trailing and `None` for user traits, so introspection bytes don't change; signatures leave it out, assigning an id changes no signature. Snapshots record it.
 * Dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` writes a `Series` (top level or inside
   another value) from a `ValueOwned::Vec` of its items with `CodecPolicy::SMALLEST`, and `ValueOwned::ser_series_dyn`
   with a given policy: the bytes of `Series::with_policy(items, policy)` (codec choice, restarts, evolvable struct

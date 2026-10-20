@@ -10,7 +10,7 @@
     "the others lock to it and publish `time_map` points that map their local time to the shared one.",
 ], crate_idx: 0, trait_name: "ww_timebase", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
-]), types: [
+], compact_id: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -206,7 +206,7 @@
             "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None),
-    ]), crate_idx: 0),
+    ], compact_id: Some(24)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

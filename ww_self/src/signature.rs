@@ -280,6 +280,7 @@ impl<'a, 'r> Canonical<'a, 'r> {
                 docs: vec![],
                 crate_idx: UNib32(0),
                 trait_name: String::new(),
+                compact_id: None,
                 items: vec![],
             },
             types: self.out_types.into_iter().map(Option::unwrap).collect(),
@@ -327,6 +328,8 @@ impl VisitMut for Canonical<'_, '_> {
 
     fn visit_api_level(&mut self, node: &mut ApiLevelOwned) {
         self.remap(&mut node.crate_idx, Self::crate_idx);
+        // the registry id names the trait, it is not part of its definition: assigning one changes no signature
+        node.compact_id = None;
         visit_mut::visit_api_level(self, node)
     }
 

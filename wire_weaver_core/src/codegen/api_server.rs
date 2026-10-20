@@ -1958,6 +1958,10 @@ fn handle_stream_fn(
     );
     let with_granted = maybe_quote(batched, quote! { .with_max_age_us(Some(granted)) });
     let max_age_arg = maybe_quote(batched, quote! { max_age_us, });
+    // a counted stream's state is anything `ww_stream::codec::CountedState`: `Counted`, or `Compressed` that takes
+    // a codec out of the host's offer (API-55)
+    let codec_counted = delivery == Delivery::Counted && !batched;
+    let codecs_arg = maybe_quote(codec_counted, quote! { codecs, });
 
     let args: Vec<ArgumentOwned> = stream.args.to_vec();
     let (args_des, args_list) = des_args(
@@ -1997,6 +2001,11 @@ fn handle_stream_fn(
             #closed_opened #with_granted
         },
         Delivery::Plain => quote! {},
+        Delivery::Counted if codec_counted => quote! {
+            let session = self.new_stream_session();
+            let (opened, codec) = ww_stream::codec::CountedState::open_offered(#state, session, codecs.as_ref());
+            opened.to_wire(&[]).with_codec(codec)
+        },
         Delivery::Counted => quote! {
             #grant
             let session = self.new_stream_session();
@@ -2028,7 +2037,7 @@ fn handle_stream_fn(
     let es_open = item_err_seq("stream", "OPEN");
     let open_call = cx.call(ident, quote! { self.#prefixed_ident(cx, #idx #args_list) });
     let open = quote! {
-        RequestKind::StreamOpen { resume: None, #max_age_arg #maybe_args } => {
+        RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
             #args_des
             match #open_call {
                 RpcResult::Ready(output) => {
@@ -2060,20 +2069,35 @@ fn handle_stream_fn(
                 })
             }
         };
-        quote! {
-            RequestKind::StreamOpen { resume: Some(cursor), #max_age_arg .. } => {
-                #grant
-                let r = #state #inner .resume(*cursor)#store_await;
-                let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
-                #ev_kind_builder
-                opened.to_wire(&[]) #with_granted .ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
-                Ok(WrAction::WrittenOk(event_kind_builder))
+        if codec_counted {
+            quote! {
+                RequestKind::StreamOpen { resume: Some(cursor), codecs, .. } => {
+                    let r = ww_stream::codec::CountedState::resume_offered(#state, *cursor, codecs.as_ref());
+                    let (opened, codec) = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
+                    #ev_kind_builder
+                    opened.to_wire(&[]).with_codec(codec).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                    Ok(WrAction::WrittenOk(event_kind_builder))
+                }
+            }
+        } else {
+            quote! {
+                RequestKind::StreamOpen { resume: Some(cursor), #max_age_arg .. } => {
+                    #grant
+                    let r = #state #inner .resume(*cursor)#store_await;
+                    let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
+                    #ev_kind_builder
+                    opened.to_wire(&[]) #with_granted .ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                    Ok(WrAction::WrittenOk(event_kind_builder))
+                }
             }
         }
     };
     let detach = match delivery {
         Delivery::Plain if batched => quote! { #state.stream.close(); },
         Delivery::Plain => quote! {},
+        Delivery::Counted if codec_counted => {
+            quote! { ww_stream::codec::CountedState::detach(#state); }
+        }
         _ => quote! { #state #inner .detach(); },
     };
     let close_call = cx.call(ident, quote! { self.#close_fn(cx, #idx) });
@@ -2122,6 +2146,11 @@ fn handle_stream_fn(
             }
         },
     };
+    let status_call = if codec_counted {
+        quote! { ww_stream::codec::CountedState::status(#state) }
+    } else {
+        quote! { #state #inner .status() }
+    };
     let status = if delivery == Delivery::Plain {
         quote! {}
     } else {
@@ -2133,7 +2162,7 @@ fn handle_stream_fn(
         );
         quote! {
             RequestKind::Read => {
-                let status: ww_client_server::stream::StreamStatus = #state #inner .status();
+                let status: ww_client_server::stream::StreamStatus = #status_call;
                 #ev_kind_builder
                 #ser_status
                 Ok(WrAction::WrittenOk(event_kind_builder))

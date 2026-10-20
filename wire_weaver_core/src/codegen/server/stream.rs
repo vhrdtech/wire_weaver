@@ -98,7 +98,6 @@ pub(crate) fn stream_ser_methods_recursive(
                     no_alloc,
                     &maybe_index_arg,
                     &let_index_chain,
-                    is_array,
                 ));
                 continue;
             }
@@ -267,11 +266,9 @@ fn positioned_ser_methods(
     no_alloc: bool,
     maybe_index_arg: &TokenStream,
     let_index_chain: &TokenStream,
-    is_array: bool,
 ) -> TokenStream {
     let is_bytes = ty.is_byte_slice(bundle).unwrap();
     let is_lifetime = ty.is_lifetime(bundle).unwrap();
-    let maybe_index = maybe_quote(is_array, quote! { index, });
     let check_max_len = match ty.max_len(bundle).unwrap() {
         Some(max_len) if is_bytes => {
             let max_len = max_len as usize;
@@ -356,7 +353,7 @@ fn positioned_ser_methods(
                 pub async fn #send<#value_lifetime>(
                     &self,
                     #maybe_index_arg
-                    stream: &mut ww_stream::tx::Counted,
+                    stream: &mut impl ww_stream::codec::CountedState,
                     value: & #value_ty,
                     units: u64,
                     t: Option<ww_stream::Second>,
@@ -365,7 +362,12 @@ fn positioned_ser_methods(
                     let Some(head) = stream.head(units, t) else {
                         return Ok(());
                     };
-                    let r = wire_weaver::EventOut::send_with(out, |scratch| self.#ser(#maybe_index &head, value, scratch).map(|bytes| bytes.len())).await;
+                    let r = wire_weaver::EventOut::send_with(out, |scratch| {
+                        #let_index_chain
+                        ww_client_server::stream::ser_stream_item_event(scratch, &index_chain, &head, |buf: &mut [u8]| {
+                            stream.write_item(buf, #write_item)
+                        }).map(|bytes| bytes.len())
+                    }).await;
                     if r.is_err() {
                         stream.unsent(&head);
                     }
@@ -376,7 +378,7 @@ fn positioned_ser_methods(
                 pub fn #send_blocking<#value_lifetime>(
                     &self,
                     #maybe_index_arg
-                    stream: &mut ww_stream::tx::Counted,
+                    stream: &mut impl ww_stream::codec::CountedState,
                     value: & #value_ty,
                     units: u64,
                     t: Option<ww_stream::Second>,
@@ -385,7 +387,12 @@ fn positioned_ser_methods(
                     let Some(head) = stream.head(units, t) else {
                         return Ok(());
                     };
-                    let r = wire_weaver::BlockingEventOut::send_with_blocking(out, |scratch| self.#ser(#maybe_index &head, value, scratch).map(|bytes| bytes.len()));
+                    let r = wire_weaver::BlockingEventOut::send_with_blocking(out, |scratch| {
+                        #let_index_chain
+                        ww_client_server::stream::ser_stream_item_event(scratch, &index_chain, &head, |buf: &mut [u8]| {
+                            stream.write_item(buf, #write_item)
+                        }).map(|bytes| bytes.len())
+                    });
                     if r.is_err() {
                         stream.unsent(&head);
                     }

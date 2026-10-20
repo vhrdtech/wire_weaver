@@ -16,6 +16,7 @@
 //! | [sched] | [Scheduler](sched::Scheduler): which stream sends next, by priority | device |
 //! | [sink] | [SinkCredit](sink::SinkCredit), [SinkTx](sink::SinkTx): credit sinks, host to device, on the same messages (API-34) | device, host |
 //! | [batch] | [Batcher](batch::Batcher), [Outbox](batch::Outbox), [Batched](batch::Batched): items as a struct of arrays, sent as one `Series` per event (API-41) | device |
+//! | [codec] | [Compressed](codec::Compressed), [CountedState](codec::CountedState): counted streams whose items go through a codec with history, negotiated at open (API-55) | device |
 //! | [counters] | [StreamCnt](counters::StreamCnt) (`cnt` instance counters with the `cnt` feature), [TxStats](counters::TxStats) | device |
 //!
 //! **Sharing with producer tasks.** A [Reliable](tx::Reliable) is one `&mut` state: the producer pushes into it and
@@ -24,6 +25,7 @@
 //! held only for a push or a store read, never while the link is busy: a slow link never stalls a producer.
 
 pub mod batch;
+pub mod codec;
 pub mod counters;
 pub mod observe;
 pub mod rx;

@@ -157,6 +157,16 @@ impl Counted {
         Some(head)
     }
 
+    /// Drop a codec restart marker an unsent event left for the next one (API-55): the codec marks its own.
+    pub(crate) fn clear_codec_restart(&mut self) {
+        if let Some(ext) = &mut self.pending_ext {
+            ext.codec_restart = false;
+            if *ext == HeadExt::default() {
+                self.pending_ext = None;
+            }
+        }
+    }
+
     /// State for a read on the stream.
     pub fn status(&self) -> StreamStatus {
         StreamStatus {

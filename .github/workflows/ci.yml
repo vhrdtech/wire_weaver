@@ -133,6 +133,16 @@ jobs:
       - run: uv run --group dev pytest -q tests/test_conformance.py
         working-directory: wire_weaver_py
 
+  # ww_lz4's blocks decoded by C liblz4 (python-lz4)
+  lz4-c:
+    name: ww_lz4 against liblz4
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: cargo run -q -p ww_lz4 --example liblz4_vectors | uv run -q --script ww_lz4/tests/liblz4/check.py
+
   # the docs site's own Markdown extensions (docs_ext: the `bits` fence)
   docs-ext:
     name: docs extensions (Python)

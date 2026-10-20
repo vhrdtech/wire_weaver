@@ -12,6 +12,12 @@ test:
     just test-conformance-py
     # the docs site's Markdown extensions (the `bits` fence)
     uv run --group dev pytest -q docs_ext
+    # ww_lz4's blocks decoded by C liblz4
+    just test-lz4-c
+
+# ww_lz4's blocks of a few streams decoded by C liblz4 (python-lz4 with the earlier bytes as dictionary)
+test-lz4-c:
+    cargo run -q -p ww_lz4 --example liblz4_vectors | uv run -q --script ww_lz4/tests/liblz4/check.py
 
 # Fill in the golden bytes of new conformance cases ("bytes": "?") from the derive and write docs/serdes/conformance_matrix.md (TEST-23)
 conformance-update:

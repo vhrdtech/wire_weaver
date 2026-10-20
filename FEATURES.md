@@ -1192,7 +1192,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
     `build.rs`, `build_id()` reader; `LastReset` (`ResetRecord` with a `Fault` per architecture behind `cortex-m` /
-    `riscv`, stack words, `boot_count`, `clear`). `BoardInfo::BOARD` with `RevisionSource` (`Record`, `Strap`, `Assumed`, `Provisional`). `Uid::IDS`, first id is
+    `riscv`, stack words, `boot_count`, `clear`). `BoardInfo::BOARD` with `RevisionSource` (`Record`, `Strap`, `Assumed`, `Provisional`) and optional `REWORKS`
+    (`Rework { id, title, applied }`, up to 16; `ww info` prints them). `Uid::IDS`, first id is
     the primary one (USB serial). `UserInfo` with bounded `name` / optional `notes`, `UserInfoError`, `CAPABILITIES`
     and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
     `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant

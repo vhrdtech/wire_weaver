@@ -43,6 +43,7 @@ impl<T> Part<T> {
             {
                 Part::NotImplemented
             }
+            Error::NotImplementedByDevice { .. } => Part::NotImplemented,
             _ => Part::Error(e.to_string()),
         }
     }
@@ -76,6 +77,17 @@ pub struct Board {
     pub bom_variant: String,
     pub serial: String,
     pub build_date: Option<String>,
+    /// Reworks of the board and whether each is applied; `NotImplemented` when the device doesn't keep the list
+    pub reworks: Part<Vec<Rework>>,
+}
+
+/// One rework of the board, `ww_board_info::Rework`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Rework {
+    /// `rework-5`
+    pub id: String,
+    pub title: String,
+    pub applied: bool,
 }
 
 /// One id of `ww_uid::Uid`, the first of the list is the primary one.
@@ -210,6 +222,19 @@ async fn board(client: &BoardInfoClient) -> Part<Board> {
     match Part::from_result(client.read_BOARD().read().await) {
         Part::Value(b) => {
             use ww_board_info::RevisionSource as Source;
+            let reworks = match client.read_REWORKS().read().await {
+                Ok(list) => Part::Value(
+                    list.as_slice()
+                        .iter()
+                        .map(|r| Rework {
+                            id: r.id.to_string(),
+                            title: r.title.to_string(),
+                            applied: r.applied,
+                        })
+                        .collect(),
+                ),
+                Err(e) => Part::from_error(e),
+            };
             Part::Value(Board {
                 name: b.name.to_string(),
                 revision: b.revision.to_string(),
@@ -224,6 +249,7 @@ async fn board(client: &BoardInfoClient) -> Part<Board> {
                 bom_variant: b.bom_variant.to_string(),
                 serial: b.serial.to_string(),
                 build_date: b.build_date.as_ref().map(date_time),
+                reworks,
             })
         }
         Part::NotImplemented => Part::NotImplemented,

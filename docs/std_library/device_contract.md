@@ -14,7 +14,7 @@ same global traits.
 |---|---|---|---|
 | What firmware, which build? | [`ww_firmware_info`](ww_firmware_info.md) | `FirmwareInfo` | name, version, git, build time, profile, **build id** |
 | Why did it last reset? | [`ww_firmware_info`](ww_firmware_info.md) | `LastReset` | cause, boot count, fault registers, stack, panic message |
-| Which board? | [`ww_board_info`](ww_board_info.md) | `BoardInfo` | name, revision and where it came from, variant, BOM, serial |
+| Which board? | [`ww_board_info`](ww_board_info.md) | `BoardInfo` | name, revision and where it came from, variant, BOM, serial, optional list of reworks |
 | Which unit? | [`ww_uid`](ww_uid.md) | `Uid` | chip id, MAC, ..., the first is the primary id |
 | What did the user call it? | [`ww_user_info`](ww_user_info.md) | `UserInfo` | label and notes, whether they survive a power cycle |
 | What has it counted? | [`ww_counters`](ww_counters.md) | `Counters` | the `cnt` counters, decoded with the ELF |

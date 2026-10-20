@@ -245,6 +245,21 @@ pub fn render_info(info: &DeviceInfo) -> String {
             let _ = write!(o, ", built {d}");
         }
         o.push('\n');
+        // a device that doesn't keep the list says nothing
+        match &b.reworks {
+            Part::Value(list) if list.is_empty() => o.push_str("Reworks    none\n"),
+            Part::Value(list) => {
+                for (i, r) in list.iter().enumerate() {
+                    let label = if i == 0 { "Reworks    " } else { "           " };
+                    let state = if r.applied { "applied" } else { "not applied" };
+                    let _ = writeln!(o, "{label}{} {} ({state})", r.id, r.title);
+                }
+            }
+            Part::NotImplemented => {}
+            Part::Error(e) => {
+                let _ = writeln!(o, "Reworks    unavailable: {e}");
+            }
+        }
     });
     match &info.ids {
         Part::Value(ids) if ids.is_empty() => out.push_str("Ids        none\n"),

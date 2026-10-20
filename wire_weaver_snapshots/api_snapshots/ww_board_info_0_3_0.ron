@@ -1,0 +1,102 @@
+// ww_board_info 0.3.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "PCB and PCBA information (STD-24).",
+    "",
+    "One const item, [BoardInfo::BOARD], answers everything a host or a support case asks about the board: its name,",
+    "revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.",
+    "[BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied.",
+], crate_idx: 0, trait_name: "ww_board_info", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None),
+], compact_id: None), types: [
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Where a board\'s revision comes from.",
+        "",
+        "A unit running on an assumed revision is a different support case from one that read its own record.",
+    ], ident: "RevisionSource", generics: [], variants: [
+        (docs: [
+            "A record written in production (OTP, EEPROM, flash).",
+        ], ident: "Record", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Resistor straps or a revision pin read at boot.",
+        ], ident: "Strap", fields: Named([
+            (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+                "The raw value read.",
+            ], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Neither: the firmware assumes the revision it was built for.",
+        ], ident: "Assumed", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "A provisional record a bench or developer wrote in editable storage (flash), standing in for the production",
+            "record until it is written; not a production record.",
+        ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
+        29,
+        39,
+        248,
+        111,
+        249,
+        238,
+        133,
+        56,
+    ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The PCB and its assembly, see [BoardInfo::BOARD].",
+    ], ident: "BoardSummary", generics: [], fields: Named([
+        (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "Board series, `B200`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("revision"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: String), docs: [
+            "Hardware revision as printed on the board, `B`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("revision_source"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
+            "How the firmware knows the revision.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "PCB assembly variant.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bom_variant"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "PCB assembly BOM variant.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("serial"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
+            "Serial number.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
+            "Build date, if available.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One rework of the board, see [BoardInfo::REWORKS].",
+    ], ident: "Rework", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
+            "Stable short id, `rework-5`: the name used in the rework list of the board\'s documentation. Text, not an",
+            "`Interned` id: an id of the firmware\'s string table changes with every build and needs the ELF to read, while",
+            "a rework is a fact about the hardware that a support case must read from any unit.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("title"), default: None, since: None, ty: MaxLen(max_len: Fixed(48), ty: String), docs: [
+            "What it is, `cut trace to U3 pin 4`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("applied"), default: None, since: None, ty: Bool, docs: [
+            "Whether this unit has it applied.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+], traits: [
+    InLine(level: (docs: [
+        "The PCB and its assembly.",
+        "",
+        "Never fails: what the device doesn\'t know is an empty string or `None`.",
+    ], crate_idx: 0, trait_name: "BoardInfo", items: [
+        (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
+            "Everything the device knows about its board, in one value.",
+        ], optional: None),
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 3))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "REWORKS", docs: [
+            "Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this",
+            "unit; for bring-up boards, where units of one revision differ. Left out by devices that don\'t keep the list.",
+        ], optional: Some((group: None))),
+    ], compact_id: Some(10)), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

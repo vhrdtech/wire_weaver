@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `BoardInfo::REWORKS` (STD-24, `ww_board_info` 0.3.0): an optional list of the reworks of a bring-up board (`id`,
+  `title`, `applied`), so a unit says which patches of its PCB revision it has; `ww info` and `ww report` print it.
 - `ww pins test` / `ww pins list` (TOOL-15, crate `ww_pin_probe`): shorts to GND, to the supply and between points,
   and pulls, on any device serving `PinDiag` at any path; points by names, ids, ranges and globs, plan files with
   expectations (`--plan`, `--save`), every point released at the end.

@@ -40,6 +40,28 @@ It never fails; what a device does not know is an empty string or `None`.
   production record until it is written; not a production record. Added later as an appended variant: older hosts
   read it as their `future_version` variant.
 
+## Reworks
+
+Bring-up boards of one revision differ: some have a cut trace, a jumper or a swapped part that others lack. A device
+that keeps the list serves it as an optional const item:
+
+```rust
+#[optional]
+const REWORKS: MaxLen<RefVec<'i, Rework<'i>>, MAX_REWORKS>; // 16 entries
+```
+
+| `Rework` field | Meaning |
+|---|---|
+| `id` | Stable short id, `rework-5`, as in the board's documentation (16 bytes) |
+| `title` | What it is, `cut trace to U3 pin 4` (48 bytes) |
+| `applied` | Whether this unit has it |
+
+The id is text, not an `Interned` (STD-48) index: an index changes with every firmware build and needs the ELF
+to read, while a rework is a fact about the hardware that any support case must read from any unit. A device that
+keeps no list leaves it out (`omit = ["board.REWORKS"]` in `ww_codegen!`, see [optional items](../api/optional_items.md)):
+the client answers `NotImplementedByDevice` without asking. `ww info` and `ww report` print the list when it is served.
+Added in 0.3.0 as an appended item, so older devices and hosts are unaffected.
+
 Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.
 

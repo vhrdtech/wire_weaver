@@ -5,7 +5,7 @@
 mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use ww_board_info::{BoardSummary, RevisionSource};
+    use ww_board_info::{BoardSummary, RevisionSource, Rework};
 
     mod server {
         use super::*;
@@ -35,6 +35,23 @@ mod tests {
                     }),
                 }
             }
+
+            /// Bring-up board with some reworks applied.
+            const BOARD_REWORKS: MaxLen<RefVec<'static, Rework<'static>>, 16> =
+                MaxLen::new_unchecked(RefVec::Slice {
+                    slice: &[
+                        Rework {
+                            id: MaxLen::new_unchecked("rework-1"),
+                            title: MaxLen::new_unchecked("0R to 10k on R12"),
+                            applied: true,
+                        },
+                        Rework {
+                            id: MaxLen::new_unchecked("rework-3"),
+                            title: MaxLen::new_unchecked("cut trace to U3 pin 4"),
+                            applied: false,
+                        },
+                    ],
+                });
         }
 
         pub mod api_impl {
@@ -44,6 +61,54 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BOARD=fn",
+            );
+        }
+
+        impl TestProcessEvents for Server {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    /// A device that doesn't keep a rework list: `REWORKS` is left out with `omit`.
+    mod plain_server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+        use wire_weaver::BlockingEventOut;
+
+        pub struct Server;
+
+        impl api_impl::BoardInfoTestConsts for Server {
+            fn board_board(&self) -> BoardSummary<'_> {
+                BoardSummary {
+                    name: MaxLen::new_unchecked("B200"),
+                    revision: MaxLen::new_unchecked("A"),
+                    revision_source: RevisionSource::Assumed,
+                    variant: MaxLen::new_unchecked(""),
+                    bom_variant: MaxLen::new_unchecked(""),
+                    serial: MaxLen::new_unchecked(""),
+                    build_date: None,
+                }
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                board_info_api :: BoardInfoTest for super::Server,
+                server = true, no_alloc = true, use_async = false,
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                const_model = "BOARD=fn",
+                omit = ["board.REWORKS"],
             );
         }
 
@@ -142,6 +207,46 @@ mod tests {
         assert_eq!(b.revision_source, RevisionSource::Assumed);
         assert!(b.variant.is_empty() && b.bom_variant.is_empty() && b.serial.is_empty());
         assert!(b.build_date.is_none());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reworks_round_trip() {
+        let device = start("board_info/reworks", RevisionSource::Record, true);
+        let client = connect(&device).await;
+        let reworks = client.board().read_REWORKS().read().await.unwrap();
+        let reworks: Vec<_> = reworks.as_slice().iter().collect();
+        assert_eq!(reworks.len(), 2);
+        assert_eq!(*reworks[0].id, "rework-1");
+        assert_eq!(*reworks[0].title, "0R to 10k on R12");
+        assert!(reworks[0].applied);
+        assert_eq!(*reworks[1].id, "rework-3");
+        assert!(!reworks[1].applied);
+    }
+
+    /// A device that leaves `REWORKS` out: the client reports it without asking, BOARD still works.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn device_without_reworks() {
+        let _ = tracing_subscriber::fmt::try_init();
+        let device = tests_common::start_device(
+            "board_info/plain",
+            plain_server::Server,
+            board_info_api::BOARD_INFO_TEST_FULL_GID,
+            plain_server::api_impl::api_hash(),
+        );
+        let client = connect(&device).await;
+        assert_eq!(
+            *client.board().read_BOARD().read().await.unwrap().revision,
+            "A"
+        );
+        let err = client.board().read_REWORKS().read().await.unwrap_err();
+        assert!(
+            matches!(
+                err,
+                wire_weaver_client::Error::NotImplementedByDevice { ref resource, .. }
+                    if resource == "board.REWORKS"
+            ),
+            "{err:?}"
+        );
     }
 
     #[test]

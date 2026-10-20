@@ -3,6 +3,7 @@
 //!
 //! One const item, [BoardInfo::BOARD], answers everything a host or a support case asks about the board: its name,
 //! revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.
+//! [BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied.
 
 use wire_weaver::prelude::*;
 pub use ww_date_time::DateTime;
@@ -14,6 +15,28 @@ pub use ww_date_time::DateTime;
 pub trait BoardInfo {
     /// Everything the device knows about its board, in one value.
     const BOARD: BoardSummary<'i>;
+
+    /// Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this
+    /// unit; for bring-up boards, where units of one revision differ. Left out by devices that don't keep the list.
+    #[optional]
+    #[since = "0.3.0"]
+    const REWORKS: MaxLen<RefVec<'i, Rework<'i>>, MAX_REWORKS>;
+}
+
+/// Most reworks a board lists.
+pub const MAX_REWORKS: usize = 16;
+
+/// One rework of the board, see [BoardInfo::REWORKS].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct Rework<'i> {
+    /// Stable short id, `rework-5`: the name used in the rework list of the board's documentation. Text, not an
+    /// `Interned` id: an id of the firmware's string table changes with every build and needs the ELF to read, while
+    /// a rework is a fact about the hardware that a support case must read from any unit.
+    pub id: MaxLen<&'i str, 16>,
+    /// What it is, `cut trace to U3 pin 4`.
+    pub title: MaxLen<&'i str, 48>,
+    /// Whether this unit has it applied.
+    pub applied: bool,
 }
 
 /// The PCB and its assembly, see [BoardInfo::BOARD].

@@ -110,7 +110,7 @@ ww_tape = { version = "0.1.0", path = "./ww_tape", default-features = false }
 # ww_stdlib, each crate has its own version
 ww_adc = { version = "0.1.0", path = "./ww_stdlib/ww_adc", default-features = false }
 ww_block = { version = "0.1.0", path = "./ww_stdlib/ww_block", default-features = false }
-ww_board_info = { version = "0.2.0", path = "./ww_stdlib/ww_board_info", default-features = false }
+ww_board_info = { version = "0.3.0", path = "./ww_stdlib/ww_board_info", default-features = false }
 ww_can_bus = { version = "0.1.0", path = "./ww_stdlib/ww_can_bus", default-features = false }
 ww_client_server = { version = "0.2.0", path = "./ww_stdlib/ww_client_server", default-features = false }
 ww_counters = { version = "0.1.0", path = "./ww_stdlib/ww_counters", default-features = false }

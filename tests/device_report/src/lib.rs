@@ -308,6 +308,22 @@ mod tests {
                 }
             }
 
+            const BOARD_REWORKS: MaxLen<RefVec<'static, ww_board_info::Rework<'static>>, 16> =
+                MaxLen::new_unchecked(RefVec::Slice {
+                    slice: &[
+                        ww_board_info::Rework {
+                            id: MaxLen::new_unchecked("rework-1"),
+                            title: MaxLen::new_unchecked("0R to 10k on R12"),
+                            applied: true,
+                        },
+                        ww_board_info::Rework {
+                            id: MaxLen::new_unchecked("rework-3"),
+                            title: MaxLen::new_unchecked("cut trace to U3 pin 4"),
+                            applied: false,
+                        },
+                    ],
+                });
+
             fn uid_ids(&self) -> MaxLen<RefVec<'_, UniqueId<'_>>, 4> {
                 static VALUE: [u8; 8] = [0xe6, 0x61, 0x38, 0x71, 0x23, 0x5b, 0x1c, 0x2d];
                 MaxLen::new_unchecked(RefVec::Slice {
@@ -446,6 +462,19 @@ mod tests {
         assert_eq!(board.revision, "B");
         assert_eq!(board.revision_source, "strap 2");
         assert_eq!(board.serial, "RP-0042");
+        let reworks = board.reworks.value().expect("reworks");
+        assert_eq!(reworks.len(), 2);
+        assert_eq!(reworks[0].id, "rework-1");
+        assert!(reworks[0].applied && !reworks[1].applied);
+        let text = ww_report::report::render_info(&info);
+        assert!(
+            text.contains("Reworks    rework-1 0R to 10k on R12 (applied)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("           rework-3 cut trace to U3 pin 4 (not applied)"),
+            "{text}"
+        );
 
         let ids = info.ids.value().expect("ids");
         assert_eq!(ids.len(), 1);

@@ -5446,8 +5446,9 @@ called with, what to <code>free()</code> once that value is consumed; <code>last
 <p>A credit sink's session lives on the device until another session is opened (or the device reboots), so a transfer
 goes on after the link or the host program went away, from where the device is: nothing the device took is sent
 again, nothing is lost.</p>
-<p><strong>After a reconnect</strong>, with the program still running: disconnect with <code>disconnect().keep_streams()</code>, and after the
-new connection <code>Commander::resume_streams()</code> (it also resumes counted and reliable streams and observers). It
+<p><strong>After a reconnect</strong>, with the program still running: disconnect with <code>disconnect().keep_streams()</code>, and connect
+again with <code>Commander::reconnect()</code> (the same transport and device selection, the same handles), which calls
+<code>Commander::resume_streams()</code> (it also resumes counted and reliable streams and observers). That
 registers every sink on the new connection and opens a credit sink's session again; the sink sends what the device
 didn't acknowledge, from the device's position, and goes on. While the link is down, <code>send()</code> and <code>flush()</code> wait for
 the resume (<code>try_send()</code> returns <code>false</code>); <code>resume_streams()</code> counts each session that goes on.</p>
@@ -5455,8 +5456,8 @@ the resume (<code>try_send()</code> returns <code>false</code>); <code>resume_st
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">line</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">// .. the link goes</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">cmd</span><span class="p">.</span><span class="n">disconnect</span><span class="p">().</span><span class="n">keep_streams</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// .. connected again through the same commander</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">cmd</span><span class="p">.</span><span class="n">resume_streams</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// .. the device is back</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">cmd</span><span class="p">.</span><span class="n">reconnect</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">next_line</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// the device gets the rest of `line`, then `next_line`</span>
 </span></code></pre></div>
 <p><strong>After a restart</strong> of the host program, the program saves the sink's cursor with its own progress:

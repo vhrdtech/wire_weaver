@@ -5425,9 +5425,11 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/stream_protocol/#positions-inside-an-event">Resend and resume inside a batch</a></strong>: A resend or a resume from the middle of a multi-unit item gets only the units you don't have.</li>
 <li><strong><a href="../api/stream_protocol/#positions-wrap-at-256-mib">Credit sinks without a size limit</a></strong>: Sessions of any length, positions at most 4 bytes on the wire.</li>
 <li><strong><a href="../api/credit_sinks/">Credit sinks that resume</a></strong>: A sink (UART tx, a DFU plan) continues after a reconnect or a host restart, on the same acknowledgements as reliable streams. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../api/credit_sinks/#resume">Reconnect</a></strong>: <code>Commander::reconnect()</code> connects again after <code>disconnect().keep_streams()</code> and resumes streams, sinks and observers. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../api/credit_sinks/#resume">Resume checked on hardware</a></strong>: A UART sink on a real board put 1 MB on the line exactly once through link drops and a host restart.</li>
 <li><strong><a href="../api/addressing/">Trait paths</a></strong>: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#documentation-doc">Documentation</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#documentation-doc">Documentation</a>, <a href="../features/#examples-ex">Examples</a>, <a href="../features/#testing-ci-and-performance-test">Testing, CI and performance</a> in the feature tracker.</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>The server is the code on the device that answers requests. It is generated from the trait, needs neither <code>std</code> nor an
 allocator and does no IO itself, so it runs on any MCU and RTOS over the transport you choose.</p>

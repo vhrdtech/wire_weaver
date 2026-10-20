@@ -48,6 +48,7 @@ ww_client_server = { workspace = true, features = ["std"] }
 ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_link = { workspace = true, features = ["std"] }
+ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
@@ -62,3 +63,4 @@ tokio = { workspace = true, features = ["net", "test-util"] }
 wire_weaver_core = { workspace = true }
 ww_device = { workspace = true, features = ["udp", "ws"] }
 ww_self = { workspace = true, features = ["fuzz"] }
+ww_stream = { workspace = true, features = ["std", "lz4"] }

@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- Compressed counted streams (API-55): generated server code opens, resumes, closes and reads a (not batched) counted stream through `ww_stream::codec::CountedState` and answers the codec it took in `StreamOpened`, so `stream_<name>()` may return a `ww_stream::codec::Compressed` as well as a `Counted`; the scaffold names it.
 - `#[optional]` / `#[optional(group)]` on a whole `ww_impl!` (API-54), left out with `omit = [..]` / `omit_if(<cfg>) = [..]` like other optional items: the server generates no dispatch below it (cfg-gated for `omit_if`) and calls none of its handlers, its `const` items are left out of the `<Root>Consts` trait (or cfg-gated), `poll_streams` doesn't send its streams, and the device's model lists the trait in the omitted items of the level holding it, so clients fail every call below it locally. `ww api scaffold` notes an optional trait in its section and `--omit` leaves the whole section out. See `docs/api/optional_items.md#optional-traits`.
 - The generated client has `<sink>_resume(cursor)` (`_resume_blocking`) for credit sinks (API-34): the sink with the position where the device is, to continue a session after a restart of the host program.
 
@@ -18,6 +19,7 @@
 
 ### ⚠️ Breaking
 
+- Generated `<name>_send` / `<name>_send_blocking` of a counted stream take `stream: &mut impl ww_stream::codec::CountedState` (was `&mut ww_stream::tx::Counted`, which still fits) and need `ww_stream` 0.5 with `codec`. Code that reads `StreamOpen` in a hand-written dispatcher matches the new `codecs` field (API-55).
 - Credit sinks on the stream protocol (API-34): generated server code opens a sink with `RequestKind::StreamOpen` and the host's session (`SinkCredit::open(cursor)`, answered with `StreamOpened` and its buffer, then an `Ack` with the grant; a new session calls `sideband_<name>` with `Open` first, a resume doesn't), takes `SinkWrite` / `SinkWriteUnits`, answers `Query` and sends `Ack` / `Resend` / `Close`, and a read on the sink returns its `StreamStatus`. `credit_<name>()` returns a `ww_stream::sink::SinkCredit` (was `ww_client_server::credit::SinkCredit`): a firmware crate with a credit sink depends on `ww_stream` (as for counted and reliable streams), change the type and replace `take_credit()` by `take_ack()`. `ww api scaffold` prints the new type. The generated client has `<sink>_status()` for credit sinks.
 
 - Generated servers number their error sites the `ww_client_server::err_seq` way (SRV-22): the same step of every item, every level and request site has a fixed number, instead of one counter across the server. Hosts that decoded an `err_seq` against a build's own numbering read it from `err_seq` now; the wire format is unchanged. Donguru: -1.5 KiB flash at `z`, -1.7 KiB at 3, the error arms are shared code.

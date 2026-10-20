@@ -549,6 +549,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `recv_batch()` (numpy columns, `ww_self::SeriesColumn::from_items`) (piece 6, no-arg streams only); batched observe is
   API-39. Docs: `docs/api/batching.md` (how-to, sealing, budgets, the motor demo's numbers). Motor demo
   (`motor_sim` repo): every `Foc` property and `Control`'s 13 measured values are `+observe+batched`.
+- 🧪 **API-55 Compressed counted streams** · `v0.5` — a counted stream's events carry their serialized item as
+  one LZ4 block that copies from the items before it (history kept across events, SRV-27 `ww_lz4`), so a byte
+  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
+  `StreamOpen { codecs }` is the host's offer, `StreamOpened { codec }` the device's answer (`StreamCodec::Lz4 {
+  history }`), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
+  `HeadExt::codec_restart` marks where the history starts over: at open and resume, after an event the device
+  couldn't send, and every 32 KiB, so a link loss heals; the host drops what it can't decode until then and reports
+  it as a link gap (`StreamStats::lost_codec`, `codec_bytes_in` / `_out`). The API doesn't change: the device opts
+  in per stream with its state, `ww_stream::codec::Compressed` (feature `lz4`) instead of `Counted`, through
+  `ww_stream::codec::CountedState`; `ClientConfig::stream_compression(false)` turns the host's offer off. Typed and
+  dynamic clients and Python decode alike (`docs/api/stream_compression.md`; tests `ww_stream` `tests::codec`,
+  `wire_weaver_client` `compressed_stream_decodes_and_heals`, `tests/io_uart` `rx_compressed`). To check on
+  hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
+  reliable streams, sinks (host -> device).
+
+## Server / device side (`SRV`)
+
 - ✅ **API-39 Batched property samples (observe every sample)** — a `ro+observe+batched` property observed in
   `ObserveMode::Samples { every_us, max_age_us }` sends every sample the device takes as a `Series<T>` in its
   `Batched<T>` slot of the level's update, their times shared by the level (API-49)
@@ -673,25 +690,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **API-51 Stream codecs across items** — any stream or observed property could send each item as a diff against
   the one before, generic over `T`, from the derive per leaf: integers as delta or delta of delta, floats XOR coded,
   enums, units, strings and `bool` as one "same" bit or the new value, a whole item "unchanged" bit; byte items
-  (UART or CAN frames) XOR'd with the previous one or through a small no_std LZ window. Declared in the API
+  (UART or CAN frames) XOR'd with the previous one or through a small no_std LZ window (LZ4 across a
+  counted stream's events is API-55). Declared in the API
   (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
-- 📋 **API-55 Compressed counted streams** · `v0.5` — a counted stream's events carry their serialized item as
-  one LZ4 block that copies from the items before it (history kept across events, SRV-27 `ww_lz4`), so a byte
-  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
-  `StreamOpen { codecs }` is the host's offer, `StreamOpened { codec }` the device's answer (`StreamCodec::Lz4 {
-  history }`), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
-  `HeadExt::codec_restart` marks where the history starts over: at open and resume, after an event the device
-  couldn't send, and every few KiB, so a link loss heals; the host drops what it can't decode until then and reports
-  it lost. The API doesn't change (`ww_uart::Uart::rx` stays a `stream!`), the device opts in per stream with its
-  stream state. Done: the wire types (`ww_client_server::stream`). Missing: the device side (`ww_stream`, codegen),
-  host decoding in `wire_weaver_client` (dynamic client and Python through it), e2e tests, docs. Not planned yet:
-  a restart the host asks for, reliable and batched streams, sinks (host -> device). First user: Donguru's UART
-  rx (typec_dongle FW-42).
-
-## Server / device side (`SRV`)
-
 - ✅ **SRV-1 `no_std`, no-alloc server**, IO-free generated code.
 - ✅ **SRV-2 Sans-IO `DeviceLink`**, async `Server` with `wait()`/`handle()` for a user-owned event loop, and
   `blocking::Server`.

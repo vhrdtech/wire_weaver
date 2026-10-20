@@ -35,6 +35,7 @@ pub struct ClientConfig {
     max_seq: Option<SeqTy>,
     traits_only: bool,
     stream_queue_bytes: Option<usize>,
+    no_stream_compression: bool,
     link_setup_timeout: Option<Duration>,
     tap: Option<ww_tap::Recorder>,
 }
@@ -49,6 +50,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
     pub(crate) stream_queue_bytes: usize,
+    /// [ClientConfig::stream_compression]
+    pub(crate) stream_compression: bool,
     /// Milliseconds, saturating, see [ClientConfig::link_setup_timeout]
     pub(crate) link_setup_timeout_ms: Option<std::num::NonZeroU32>,
     pub(crate) introspect_client: Option<IntrospectBundle>,
@@ -252,6 +255,7 @@ impl ClientConfig {
             stream_queue_bytes: s
                 .stream_queue_bytes
                 .unwrap_or(crate::DEFAULT_STREAM_QUEUE_BYTES),
+            stream_compression: !s.no_stream_compression,
             link_setup_timeout_ms: s.link_setup_timeout.and_then(|t| {
                 std::num::NonZeroU32::new(u32::try_from(t.as_millis()).unwrap_or(u32::MAX))
             }),
@@ -456,6 +460,16 @@ impl ClientConfig {
     pub fn stream_queue_bytes(self, bytes: usize) -> Self {
         let mut c = self;
         c.stream_queue_bytes = Some(bytes);
+        c
+    }
+
+    /// Offer the device to compress counted streams (API-55, LZ4 with history across events), on by default. A
+    /// device whose stream compresses (`ww_stream::codec::Compressed`) then sends its events compressed and this
+    /// client decodes them; off, every stream sends its events as they are. Per stream:
+    /// [PreparedStreamOpen::compression](crate::client::prepared_stream_open::PreparedStreamOpen::compression).
+    pub fn stream_compression(self, on: bool) -> Self {
+        let mut c = self;
+        c.no_stream_compression = !on;
         c
     }
 

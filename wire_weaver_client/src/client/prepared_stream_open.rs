@@ -193,6 +193,8 @@ pub struct PreparedStreamOpen<R, S: StreamHandle> {
     pub(crate) ack_mode: AckMode,
     pub(crate) window: u32,
     pub(crate) queue_bytes: usize,
+    /// Counted streams: offer the device to compress (API-55)
+    pub(crate) compression: bool,
     pub(crate) timeout_override: Option<Duration>,
     /// The result is a `Result` the type doesn't know of ([RawOpenResult]): open only when it is `Ok`
     pub(crate) raw_fallible: bool,
@@ -245,6 +247,14 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
     /// default.
     pub fn queue_bytes(mut self, bytes: usize) -> Self {
         self.queue_bytes = bytes;
+        self
+    }
+
+    /// Counted streams: offer the device to compress the events (API-55), see
+    /// [ClientConfig::stream_compression](crate::ClientConfig::stream_compression) (the default comes from there).
+    /// Off, the device sends them as they are.
+    pub fn compression(mut self, on: bool) -> Self {
+        self.compression = on;
         self
     }
 
@@ -341,7 +351,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             seq: UVlq32Backfill(0),
             path_kind: self.path_kind.clone(),
             kind: RequestKindOwned::StreamOpen {
-                codecs: None,
+                codecs: codec_offer(self.delivery, self.compression),
                 resume: self.resume,
                 max_age_us: self.max_age_us.map(UNib32),
                 args: TailBytesOwned(self.args.clone()),
@@ -377,6 +387,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
                 window: self.window,
                 queue_bytes: self.queue_bytes,
                 max_age_us: self.max_age_us,
+                compression: self.compression,
             },
         );
         let cmd = Command::OpenStream {
@@ -406,31 +417,49 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
     }
 }
 
+/// The codecs a host offers when it opens a stream (API-55): LZ4 for counted streams with `compression` on.
+pub(crate) fn codec_offer(
+    delivery: Option<ww_self::Delivery>,
+    compression: bool,
+) -> Option<ww_client_server::stream::StreamCodecs> {
+    (compression && delivery == Some(ww_self::Delivery::Counted))
+        .then_some(ww_client_server::stream::StreamCodecs { lz4: true })
+}
+
+/// The device's answer to an open, decoded.
+pub(crate) struct DecodedOpened {
+    pub opened: Opened,
+    /// The codec the device took (API-55)
+    pub codec: Option<ww_client_server::stream::StreamCodec>,
+    /// The stream function's serialized result
+    pub result: Vec<u8>,
+}
+
 /// Decode the device's answer to an open: `StreamOpened` with the stream function's result in it.
-pub(crate) fn decode_opened(bytes: &[u8]) -> Result<(Opened, Vec<u8>), Error> {
+pub(crate) fn decode_opened(bytes: &[u8]) -> Result<DecodedOpened, Error> {
     let opened = StreamOpenedOwned::from_ww_bytes_owned(bytes)?;
-    let result = opened.result.0.clone();
-    Ok((
-        Opened {
+    Ok(DecodedOpened {
+        opened: Opened {
             session: opened.session.0,
             oldest: opened.oldest.0,
             live_from: opened.live_from.0,
             resume_from: opened.resume_from.map(|p| p.0),
         },
-        result,
-    ))
+        codec: opened.codec,
+        result: opened.result.0,
+    })
 }
 
 /// For the event loop: whether an answer to an open says the stream is open (decodes `R`).
 pub(crate) fn is_open<R: StreamOpenResult>(bytes: &[u8]) -> bool {
     decode_opened(bytes)
-        .and_then(|(_, result)| Ok(R::from_ww_bytes_owned(&result)?))
+        .and_then(|d| Ok(R::from_ww_bytes_owned(&d.result)?))
         .is_ok_and(|r| r.is_open())
 }
 
 /// Whether the result in an answer to an open is an `Ok` (a `Result` starts with its is-ok flag).
 fn is_ok_result(bytes: &[u8]) -> bool {
-    decode_opened(bytes).is_ok_and(|(_, result)| BufReader::new(&result).read_bool() == Ok(true))
+    decode_opened(bytes).is_ok_and(|d| BufReader::new(&d.result).read_bool() == Ok(true))
 }
 
 fn finish<R: StreamOpenResult, S: StreamHandle>(
@@ -441,7 +470,7 @@ fn finish<R: StreamOpenResult, S: StreamHandle>(
     unpack: Option<Unpack<S::Item>>,
 ) -> Result<R::With<S>, Error> {
     let decoded = response.and_then(|r| r).and_then(|bytes| {
-        let (_, result) = decode_opened(&bytes)?;
+        let result = decode_opened(&bytes)?.result;
         Ok((R::from_ww_bytes_owned(&result)?, open_check(&bytes)))
     });
     if let (Ok((r, _)), Some(check)) = (&decoded, error_check) {

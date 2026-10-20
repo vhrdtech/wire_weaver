@@ -396,6 +396,7 @@ fn create_commander_inner(
     commander.set_local_timeout(config.default_timeout);
     commander.traits_only = config.traits_only;
     commander.set_stream_queue_bytes(config.stream_queue_bytes);
+    commander.set_stream_compression(config.stream_compression);
     if let Some(introspect_client) = config.introspect_client {
         if introspect_client.api_hash.no_docs == device_api_info.user_api_hash.no_docs {
             // connected device API is exactly the same as client, no need to download or look for cached one

@@ -67,6 +67,7 @@ pub struct Commander {
     pub(crate) traits_only: bool,
     /// Bytes of items queued per stream on the host
     stream_queue_bytes: usize,
+    stream_compression: bool,
     streams: StreamRegistry,
     sinks: SinkRegistry,
     consts: ConstCache,
@@ -117,6 +118,7 @@ impl Commander {
             api_match: ApiMatch::NoClientApi,
             traits_only: false,
             stream_queue_bytes: crate::DEFAULT_STREAM_QUEUE_BYTES,
+            stream_compression: true,
             streams: StreamRegistry::default(),
             sinks: SinkRegistry::default(),
             consts: ConstCache::default(),
@@ -254,6 +256,12 @@ impl Commander {
         self.stream_queue_bytes = bytes;
     }
 
+    /// Offer compression on counted streams, see
+    /// [ClientConfig::stream_compression](crate::ClientConfig::stream_compression).
+    pub fn set_stream_compression(&mut self, on: bool) {
+        self.stream_compression = on;
+    }
+
     /// Open a stream by calling its stream function (generated `name(args)`): `delivery` is None for a plain
     /// stream (handle `S` = [Stream](crate::Stream)), the kind of a counted or reliable one (`S` =
     /// [PositionedStream](crate::PositionedStream)); `args` are the serialized arguments like
@@ -279,6 +287,7 @@ impl Commander {
             ack_mode: AckMode::default(),
             window: crate::DEFAULT_WINDOW,
             queue_bytes: self.stream_queue_bytes,
+            compression: self.stream_compression,
             timeout_override: None,
             raw_fallible: false,
             error_check: None,
@@ -568,12 +577,13 @@ impl Commander {
             }
             let path = inner.path.clone();
             let max_age_us = inner.max_age_us();
+            let codecs = inner.codec_offer();
             drop(inner);
             let bytes = ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
                 path_kind: PathKindOwned::Absolute { path },
                 kind: RequestKindOwned::StreamOpen {
-                    codecs: None,
+                    codecs,
                     resume: Some(cursor),
                     max_age_us: max_age_us.map(UNib32),
                     args: TailBytesOwned(vec![]),

@@ -91,6 +91,14 @@ pub struct StreamStats {
     pub lost_store: u64,
     /// Units dropped because this stream's queue on the host was full (plain and counted streams).
     pub lost_host: u64,
+    /// Compressed streams (API-55): units of events that arrived but couldn't be decoded, because an event before
+    /// them was lost on the link (until the device's next codec restart) or a block was corrupt. Reported as
+    /// `Gap { cause: Link }`; not in `lost_link`.
+    pub lost_codec: u64,
+    /// Compressed streams (API-55): bytes of events decoded, as they came over the link, and what they decoded to
+    /// (the serialized items); the ratio is what compression saved.
+    pub codec_bytes_in: u64,
+    pub codec_bytes_out: u64,
     /// Events received twice.
     pub duplicates: u64,
     /// Events that arrived after their units were reported as a link gap.
@@ -161,6 +169,8 @@ pub(crate) struct PositionedConfig {
     pub queue_bytes: usize,
     /// Batched: what the host asked as the most a batch may wait on the device, µs, asked again on a resume
     pub max_age_us: Option<u32>,
+    /// Counted: offer the device to compress (API-55), again on a resume
+    pub compression: bool,
 }
 
 /// Receiving state of one counted or reliable stream, shared between the event loop and the user's handles.
@@ -183,6 +193,14 @@ pub(crate) struct Inner {
     /// Units dropped since the last item that fit, per run (counted streams), reported as one gap
     host_gap: [Option<ww_stream::rx::Gap>; 2],
     lost_host: u64,
+    /// The codec the device took at the last open or resume (API-55): events are decoded with it
+    decoder: Option<ww_lz4::Decoder>,
+    /// The decoder has every event since the device's last codec restart
+    in_step: bool,
+    /// Units of events that couldn't be decoded since the last decoded one, per run, reported as one gap
+    codec_gap: [Option<ww_stream::rx::Gap>; 2],
+    lost_codec: u64,
+    codec_bytes: (u64, u64),
     /// An event loop feeds this stream (it is registered with a connected dispatcher)
     pub(crate) attached: bool,
     /// Every handle is gone, or closed: the event loop forgets the stream
@@ -217,6 +235,11 @@ impl Shared {
                 split: false,
                 host_gap: [None, None],
                 lost_host: 0,
+                decoder: None,
+                in_step: false,
+                codec_gap: [None, None],
+                lost_codec: 0,
+                codec_bytes: (0, 0),
                 attached: false,
                 closed: false,
                 device_closed: false,
@@ -251,10 +274,31 @@ impl Inner {
         self.config.max_age_us
     }
 
-    /// The device answered the open (or a resume from `cursor`).
-    pub(crate) fn opened(&mut self, cursor: Option<StreamCursor>, opened: &Opened) {
+    /// The codecs to offer when opening or resuming (API-55).
+    pub(crate) fn codec_offer(&self) -> Option<ww_client_server::stream::StreamCodecs> {
+        crate::client::prepared_stream_open::codec_offer(
+            Some(self.config.delivery),
+            self.config.compression,
+        )
+    }
+
+    /// The device answered the open (or a resume from `cursor`), taking `codec` (API-55).
+    pub(crate) fn opened(
+        &mut self,
+        cursor: Option<StreamCursor>,
+        opened: &Opened,
+        codec: Option<ww_client_server::stream::StreamCodec>,
+    ) {
         // positions may start over (another session): a drop still being counted ends here
         self.flush_host_gaps();
+        // the device starts its history over at the first event (it marks it)
+        self.decoder = match codec {
+            Some(ww_client_server::stream::StreamCodec::Lz4 { .. }) => {
+                Some(self.decoder.take().unwrap_or_default())
+            }
+            None => None,
+        };
+        self.in_step = false;
         let (gaps, ended) = self.rx.opened(cursor, opened);
         self.attached = true;
         if let Some(cursor) = cursor {
@@ -276,9 +320,28 @@ impl Inner {
                 backfill_done,
                 skip,
             } => {
-                self.push_gaps(&gaps);
-                let reliable = self.is_reliable();
                 let i = run_index(run);
+                if gaps.iter().next().is_some() {
+                    // in position order: units not decoded before the new gaps
+                    self.flush_codec_gap(i);
+                }
+                self.push_gaps(&gaps);
+                let decoded;
+                let data = match self.decode(&head, &gaps, run, skip, data) {
+                    Some(Some(bytes)) => {
+                        decoded = bytes;
+                        decoded.as_slice()
+                    }
+                    Some(None) => data,
+                    None => {
+                        if backfill_done {
+                            self.push(Entry::BackfillDone);
+                        }
+                        return;
+                    }
+                };
+                self.flush_codec_gap(i);
+                let reliable = self.is_reliable();
                 if !reliable && self.queued_bytes + data.len() > self.config.queue_bytes {
                     // plain drop-newest: reported as one gap once an item fits again
                     let gap = self.host_gap[i].get_or_insert(ww_stream::rx::Gap {
@@ -366,8 +429,66 @@ impl Inner {
         self.closed || self.device_closed
     }
 
+    /// Decode an accepted event of a compressed stream (API-55): `Some(None)` for a stream that isn't compressed,
+    /// `Some(Some(item))`, or `None` when it can't be decoded (counted as a gap).
+    fn decode(
+        &mut self,
+        head: &StreamHead,
+        gaps: &Gaps,
+        run: Run,
+        skip: u64,
+        data: &[u8],
+    ) -> Option<Option<Vec<u8>>> {
+        let Some(decoder) = &mut self.decoder else {
+            return Some(None);
+        };
+        if head.ext.is_some_and(|e| e.codec_restart) {
+            decoder.reset();
+            self.in_step = true;
+        } else if gaps.iter().any(|g| g.cause == Cause::Link) {
+            // the device's history has events the decoder never saw
+            self.in_step = false;
+        }
+        if self.in_step {
+            match decoder.decode(data) {
+                Ok(item) => {
+                    self.codec_bytes.0 += data.len() as u64;
+                    self.codec_bytes.1 += item.len() as u64;
+                    return Some(Some(item.to_vec()));
+                }
+                Err(e) => {
+                    warn!("stream {:?}: event at {}: {e}", self.path, head.pos);
+                    self.in_step = false;
+                }
+            }
+        }
+        let gap = self.codec_gap[run_index(run)].get_or_insert(ww_stream::rx::Gap {
+            run,
+            at: head.pos + skip,
+            units: 0,
+            cause: Cause::Link,
+        });
+        gap.units = head.end() - gap.at;
+        self.lost_codec += head.units - skip;
+        None
+    }
+
+    /// Report the units of a run that couldn't be decoded (API-55), once something after them was.
+    fn flush_codec_gap(&mut self, i: usize) {
+        if let Some(gap) = self.codec_gap[i].take() {
+            warn!(
+                "stream {:?}: {} units at {} not decoded: an event before them was lost, waiting for the device's codec restart",
+                self.path, gap.units, gap.at
+            );
+            self.push(Entry::Gap(gap));
+        }
+    }
+
     /// Report the units dropped because the host queue was full (counted streams) that no item has closed yet.
     fn flush_host_gaps(&mut self) {
+        for i in 0..self.codec_gap.len() {
+            self.flush_codec_gap(i);
+        }
         for i in 0..self.host_gap.len() {
             if let Some(gap) = self.host_gap[i].take() {
                 warn!(
@@ -452,6 +573,9 @@ impl Inner {
             lost_link: rx.lost_link,
             lost_store: rx.lost_store,
             lost_host: self.lost_host,
+            lost_codec: self.lost_codec,
+            codec_bytes_in: self.codec_bytes.0,
+            codec_bytes_out: self.codec_bytes.1,
             duplicates: rx.duplicates,
             late: rx.late,
             out_of_order: rx.out_of_order,
@@ -845,6 +969,7 @@ mod tests {
                 window: DEFAULT_WINDOW,
                 queue_bytes,
                 max_age_us: None,
+                compression: true,
             },
         )
     }
@@ -867,14 +992,14 @@ mod tests {
             live_from: 0,
             resume_from: None,
         };
-        inner.opened(None, &opened(1));
+        inner.opened(None, &opened(1), None);
         for pos in 0..100 {
             inner.on_item(StreamHead::at(pos), &[0; 8]);
         }
         assert!(inner.host_gap[0].is_some());
         inner.disconnected(true);
         let cursor = inner.cursor();
-        inner.opened(cursor, &opened(2));
+        inner.opened(cursor, &opened(2), None);
         inner.on_item(StreamHead::at(0), &[0; 8]);
         let got = entries(&mut inner);
         assert!(got[2].contains("at: 2, units: 98, cause: Host"), "{got:?}");
@@ -885,5 +1010,61 @@ mod tests {
         let gap = inner.host_gap[0].unwrap();
         assert_eq!((gap.at, gap.units), (0, 1));
         assert_eq!(inner.lost_host, 99);
+    }
+
+    /// A compressed counted stream (API-55) from `ww_stream`'s `Compressed`: items come out decoded; an event lost
+    /// on the link makes the ones after it undecodable until the device's next codec restart, reported as one gap.
+    #[test]
+    fn compressed_stream_decodes_and_heals() {
+        use ww_client_server::stream::StreamCodecs;
+        use ww_stream::codec::{Compressed, CountedState};
+        let mut dev = Compressed::new(ww_lz4::Encoder::<1024, 4096>::new(1024)).restart_every(600);
+        let (opened, codec) = dev.open_offered(1, Some(&StreamCodecs { lz4: true }));
+        assert!(codec.is_some());
+        let shared = counted(1 << 20);
+        let mut inner = shared.lock();
+        inner.opened(None, &opened, codec);
+        let item = |i: u64| format!("line {i}: the same text again and again\r\n").into_bytes();
+        for i in 0..40 {
+            let bytes = item(i);
+            let head = dev.head(bytes.len() as u64, None).unwrap();
+            let mut buf = [0u8; 256];
+            let n = dev
+                .write_item(&mut buf, |b: &mut [u8]| {
+                    b[..bytes.len()].copy_from_slice(&bytes);
+                    Ok(bytes.len())
+                })
+                .unwrap();
+            if i == 10 {
+                continue; // lost on the link
+            }
+            inner.on_item(head, &buf[..n]);
+        }
+        let mut items = vec![];
+        let mut gaps = vec![];
+        while let Some(e) = inner.pop(None) {
+            match e {
+                Entry::Item { bytes, .. } => items.push(bytes),
+                Entry::Gap(g) => gaps.push((g.at, g.units, g.cause)),
+                other => panic!("{other:?}"),
+            }
+        }
+        let len = |i: u64| item(i).len() as u64;
+        let at = |i: u64| (0..i).map(len).sum::<u64>();
+        // event 10 lost on the link, 11.. not decodable until the restart after 600 bytes (event 15)
+        let first_back = (11..40)
+            .find(|&i| at(i) >= 600 && at(i) - at(i - 1) > 0 && items.contains(&item(i)))
+            .unwrap();
+        assert_eq!(gaps[0], (at(10), len(10), Cause::Link));
+        assert_eq!(gaps[1], (at(11), at(first_back) - at(11), Cause::Link));
+        assert_eq!(gaps.len(), 2, "{gaps:?}");
+        let want: Vec<_> = (0..40)
+            .filter(|&i| i < 10 || i >= first_back)
+            .map(item)
+            .collect();
+        assert_eq!(items, want);
+        let stats = inner.stats();
+        assert_eq!(stats.lost_codec, at(first_back) - at(11));
+        assert_eq!(stats.lost_link, len(10));
     }
 }

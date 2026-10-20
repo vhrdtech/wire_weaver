@@ -9,11 +9,15 @@ mod tests {
     use wire_weaver::prelude::*;
     use wire_weaver_client::StreamEvent;
     use ww_client_server::StreamSideband;
+    use ww_stream::codec::Compressed;
     use ww_stream::tx::Counted;
     use ww_uart::{
         Baud, Capabilities, DataBits, Mode, MonitorChunk, MonitorConfig, MonitorLine, Parity, Pin,
         RxChunk, StopBits, UartConfig, UartError, UartErrorOwned,
     };
+
+    /// The rx stream compresses for hosts that decode it (API-55), as a firmware with a fast UART would.
+    type RxStream = Compressed<ww_lz4::Encoder<1024, 4096>>;
 
     /// One character at 115 200 Bd, in µs.
     const CHAR_TIME_US: u32 = 87;
@@ -48,6 +52,8 @@ mod tests {
         tx_sideband: Vec<StreamSideband>,
         /// The `rx` stream is open.
         rx_open: bool,
+        /// The `rx` stream compressed the last chunks it sent.
+        rx_compressing: bool,
         /// Set while `Uart::monitor` is open.
         monitor_config: Option<MonitorConfig>,
         /// Bursts the test makes arrive, sent on `rx` or `lines` (with `Some(line)`) before the next request.
@@ -72,6 +78,7 @@ mod tests {
                 tx_bytes: vec![],
                 tx_sideband: vec![],
                 rx_open: false,
+                rx_compressing: false,
                 monitor_config: None,
                 received: vec![],
             }
@@ -118,7 +125,7 @@ mod tests {
         pub struct Server {
             pub m: Arc<Mutex<Model>>,
             pub uart_tx_credit: SinkCredit,
-            pub rx: Counted,
+            pub rx: RxStream,
             pub lines: Counted,
             pub stream_sessions: u32,
             pub start: std::time::Instant,
@@ -127,7 +134,11 @@ mod tests {
         impl Server {
             /// The event loop's producer: bytes the lines received, as chunks of the open streams.
             fn produce(&mut self, out: &mut impl BlockingEventOut) {
-                let received = std::mem::take(&mut self.m.lock().unwrap().received);
+                let received = {
+                    let mut m = self.m.lock().unwrap();
+                    m.rx_compressing = self.rx.is_compressing();
+                    std::mem::take(&mut m.received)
+                };
                 // the mock's line runs at about 115 200 Bd: 87 µs per character, back to back, bursts a few
                 // character times apart
                 let mut first_us = self.start.elapsed().as_micros() as u32;
@@ -178,7 +189,7 @@ mod tests {
                 self.m.lock().unwrap().rx_open = false;
             }
 
-            fn stream_uart_rx(&mut self) -> &mut Counted {
+            fn stream_uart_rx(&mut self) -> &mut RxStream {
                 &mut self.rx
             }
 
@@ -358,7 +369,7 @@ mod tests {
         let server = sync_server::Server {
             m: m.clone(),
             uart_tx_credit: ww_stream::sink::SinkCredit::new(ww_uart::UART_TX_MAX as u32),
-            rx: Counted::new(),
+            rx: Compressed::new(ww_lz4::Encoder::new(1024)),
             lines: Counted::new(),
             stream_sessions: 0,
             start: std::time::Instant::now(),
@@ -536,6 +547,83 @@ mod tests {
         }
         rx.close().await.unwrap();
         eventually(&m, |m| !m.rx_open).await;
+    }
+
+    /// A shell's output through the compressed `rx` stream (API-55): every chunk comes out as it went in, through
+    /// the device's restarts; a host that turns compression off gets the same chunks sent as they are.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rx_compressed() {
+        for compression in [true, false] {
+            let (device, m) = start("io_uart/rx_compressed", Model::default());
+            let client = StdClient::config(|c| {
+                c.in_process_path(device.path())
+                    .stream_compression(compression)
+            })
+            .connect()
+            .await
+            .expect("connect");
+            let mut rx = client.uart().rx().call().await.unwrap();
+            let chunks: Vec<Vec<u8>> = (0..300)
+                .map(|i| {
+                    format!(
+                        "[{:5}.{:06}] usb 1-{}: new full-speed USB device number {i} using xhci_hcd\r\n",
+                        i / 9,
+                        i * 7919 % 1_000_000,
+                        i % 4
+                    )
+                    .into_bytes()
+                })
+                .collect();
+            for (n, chunk) in chunks.iter().enumerate() {
+                m.lock().unwrap().received.push(Burst::rx(chunk, None));
+                if n % 5 == 4 {
+                    client.uart().tx_pending().call().await.unwrap();
+                }
+            }
+            // the mock's outbox drops what doesn't fit (a `Device` gap): the events after it start the codec's
+            // history over and decode
+            let at: std::collections::HashMap<u64, &Vec<u8>> = chunks
+                .iter()
+                .scan(0u64, |pos, c| {
+                    let p = *pos;
+                    *pos += c.len() as u64;
+                    Some((p, c))
+                })
+                .collect();
+            let total: u64 = chunks.iter().map(|c| c.len() as u64).sum();
+            let (mut pos, mut items) = (0, 0);
+            while pos < total {
+                match rx.recv_event().await.unwrap() {
+                    StreamEvent::Item { pos: p, value, .. } => {
+                        assert_eq!(p, pos);
+                        assert_eq!(value.bytes.into_inner().as_slice(), at[&p].as_slice());
+                        pos += at[&p].len() as u64;
+                        items += 1;
+                    }
+                    StreamEvent::Gap {
+                        at, units, cause, ..
+                    } => {
+                        assert_eq!((at, cause), (pos, wire_weaver_client::Cause::Device));
+                        pos += units;
+                    }
+                    ev => panic!("{ev:?}"),
+                }
+            }
+            assert!(items > 100, "{items} chunks arrived");
+            assert_eq!(m.lock().unwrap().rx_compressing, compression);
+            let stats = rx.stats();
+            assert_eq!(stats.lost_codec, 0);
+            if compression {
+                // log lines with history: well over 2x
+                assert!(
+                    stats.codec_bytes_out > 2 * stats.codec_bytes_in,
+                    "{stats:?}"
+                );
+            } else {
+                assert_eq!(stats.codec_bytes_in, 0);
+            }
+            rx.close().await.unwrap();
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

@@ -105,6 +105,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-50 | Observe cells | Sample a level from an interrupt in place, value by value into a ring of atomics: a quarter of the cycles and a tenth of the stack of `sample()` at opt-level z, the same wire. | api/observing.md#cells-sampling-from-an-interrupt
 - API-52 | A cheaper observe poll | The poll that sends a level's samples spends its time on the codec: half the cycles at opt-level 3, a third at z, the same bytes. | articles/series.md#cpu-and-flash-on-a-microcontroller
 - API-41 | Batched streams | A stream opts into sending samples many per event as a compressed `Series` instead of one at a time, for plain, counted and reliable streams; typed and dynamic clients, the CLI and Python. | api/batching.md
+- API-55 | Compressed streams | A counted stream of text (a UART, a log) goes LZ4-compressed with history across events, 3-5x, when the host decodes it; older hosts get it as it is. | api/stream_compression.md
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc
 - API-8 | Code generation from `build.rs` | `gen_server` / `gen_client` as an alternative to the macros. |

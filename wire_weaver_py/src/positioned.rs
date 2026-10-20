@@ -332,6 +332,9 @@ impl PositionedStream {
         d.set_item("lost_link", st.lost_link)?;
         d.set_item("lost_store", st.lost_store)?;
         d.set_item("lost_host", st.lost_host)?;
+        d.set_item("lost_codec", st.lost_codec)?;
+        d.set_item("codec_bytes_in", st.codec_bytes_in)?;
+        d.set_item("codec_bytes_out", st.codec_bytes_out)?;
         d.set_item("duplicates", st.duplicates)?;
         d.set_item("late", st.late)?;
         d.set_item("out_of_order", st.out_of_order)?;

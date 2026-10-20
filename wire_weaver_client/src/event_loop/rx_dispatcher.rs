@@ -406,14 +406,14 @@ impl RxDispatcher {
         if !(hook.is_open)(bytes) {
             return;
         }
-        let Ok((opened, _)) = decode_opened(bytes) else {
+        let Ok(decoded) = decode_opened(bytes) else {
             return;
         };
         let mut inner = hook.shared.lock();
         if inner.closed {
             return;
         }
-        inner.opened(hook.resume, &opened);
+        inner.opened(hook.resume, &decoded.opened, decoded.codec);
         let path = inner.path.clone();
         drop(inner);
         hook.shared.wake();

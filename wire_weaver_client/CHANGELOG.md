@@ -2,10 +2,12 @@
 
 ### 🚀 Features
 
+- Compressed counted streams (API-55): the host offers LZ4 when it opens or resumes a counted stream and decodes the events before they are queued (typed, dynamic and Python clients alike, with `ww_lz4::Decoder`); events after a link loss that can't be decoded until the device's next codec restart come out as one `Gap { cause: Link }` and count in `StreamStats::lost_codec`; `StreamStats::codec_bytes_in` / `codec_bytes_out` say what compression saved. `ClientConfig::stream_compression(false)`, `Commander::set_stream_compression` and `PreparedStreamOpen::compression(false)` turn the offer off.
 - The tap decoder and `envelope` (TOOL-9, TOOL-14): `explain_request` / `explain_event` take the device API as an `Option` and explain requests through `GlobalFull` paths from the snapshots (`envelope::global_trait`), `explain_reply` (an `Observe`'s answer is `ObserveGranted`, not a property), `PropertyUpdate` data read by the level's `+observe` properties (`DynResource::observe_schema`), `Envelope::types` (the types of the payload values, to show units) and `Envelope::resource`. `Decoder::add_bundle` and describe blocks take a device's bundle as it was sent, snapshot-known traits are put back.
 
 ### ⚠️ Breaking
 
+- `StreamStats` has `lost_codec`, `codec_bytes_in` and `codec_bytes_out` (API-55): code building it by hand adds them. `RequestKind::StreamOpen` carries `codecs` (a wire change, see `ww_client_server`).
 - `Sink` of a credit sink runs on `ww_stream::sink::SinkTx` (API-34): it opens with `StreamOpen` and a session it names (random), waits for the answer, writes `SinkWrite` / `SinkWriteUnits`, takes `Ack` / `Resend` and opens its session again when the device answers `Close`; it needs a device with the same change. Positions count units: `credit_progress()` returns units (one per value, the bytes of a byte sink's payload), no longer bytes. A device that lost the session (a reboot) fails the call with the new `StreamError::SinkSessionLost { device_at, acked }` (`SinkAhead` for a device ahead of what was sent). `client::credit` (`CreditTx`) is gone, `CreditConfig` is in `client::sink` (still re-exported at the root).
 
 - `Command::Connect` has a `tap: Option<ww_tap::Recorder>` field (None: the default recorder); code building it by hand adds `tap: None`. `TraceEvent` / `Command::RegisterTracer` work as before, now an adapter over the tap's message and link event records, so events arrive batched (at most the recorder's flush time, 10 ms, later).

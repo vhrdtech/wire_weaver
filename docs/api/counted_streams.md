@@ -66,6 +66,9 @@ state.rx_stream.lost(dropped_bytes);
 `stream_<name>()` may return anything that dereferences to the state, e.g. a mutex guard when a producer task shares
 it. Counted streams work in sync servers too (`<name>_send_blocking`).
 
+The state can also be a `ww_stream::codec::Compressed`, which sends the items LZ4-compressed to hosts that decode it
+(see [Compressed streams](stream_compression.md)); anything implementing `ww_stream::codec::CountedState` will do.
+
 ### Reliable streams
 
 A reliable stream's state is a `ww_stream::tx::Reliable<S>` with a store `S` that keeps every event until the host

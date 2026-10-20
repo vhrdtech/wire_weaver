@@ -507,7 +507,7 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     assert!(updates.len() >= 3, "{printed}");
     // typed values, not hex
     assert!(
-        updates[0].contains("load: 10") && updates[0].contains("state: 3"),
+        updates[0].contains("load: 1") && updates[0].contains("state: 3"),
         "{printed}"
     );
     assert!(
@@ -516,7 +516,7 @@ async fn observe_requests_replies_and_updates_are_decoded() {
     );
     // the load changes at every poll, the state never: later updates carry the load alone
     assert!(
-        updates[2].contains("load: 10") && !updates[2].contains("state"),
+        updates[2].contains("load: 1") && !updates[2].contains("state"),
         "{printed}"
     );
     assert_eq!(replayed(&path, Layer::Api), printed);

@@ -2563,6 +2563,8 @@
       
         
       
+        
+      
     
     
     
@@ -2946,6 +2948,33 @@
     
   
   ww_memory
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/ww_pin_diag/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_pin_diag
 
     
   </span>
@@ -6644,6 +6673,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>STD-46 More I2C slave addressing</strong> — a second address or an address mask (one emulator answering for several
   chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
   so this is per-device capability.</li>
+<li>🚧 <strong>STD-47 <code>ww_pin_diag</code> pin tests</strong> · <code>v0.5.x</code> — <code>PinDiag { const POINTS; set(point, PointState); read(point);
+  release_all() }</code>: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
+  bring-up, verification and production tests; the firmware keeps its board's rules and answers <code>NotCapable</code>,
+  <code>Common(InUse)</code> or <code>Refused { rule }</code>. Done: crate, docs page <code>docs/std_library/ww_pin_diag.md</code>, test pair
+  <code>tests/pin_diag</code> (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot.
+  Missing: <code>ww pins test</code> (quick short test on any device) and plan files, a device implementing it (rePort).</li>
+<li>🚧 <strong>STD-48 <code>ww_interned</code> strings as ids</strong> · <code>v0.5.x</code> — <code>Interned { Id(UNib32), Text(&amp;str) }</code> for names and reasons;
+  ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
+  id). Missing: an accessor for <code>defmt::Str</code>'s index (upstream), the host lookup in the ELF directory.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>

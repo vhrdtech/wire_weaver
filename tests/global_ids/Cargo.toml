@@ -1,0 +1,16 @@
+[package]
+name = "global_ids"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Checks that every public trait of ww_stdlib has an id in the ww_global registry (API-20)."
+
+[dependencies]
+
+[dev-dependencies]
+syn.workspace = true
+toml.workspace = true
+ww_global.workspace = true

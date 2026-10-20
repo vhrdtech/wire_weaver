@@ -45,6 +45,10 @@ test-power-cut:
 dfu-transcripts:
     DFU_TRANSCRIPTS=update cargo nextest run -p dfu_scenarios
 
+# Append ids newly assigned in ww_global/wire_weaver_gid.json to its append-only lock (API-20)
+gid-lock:
+    GID_LOCK=update cargo nextest run -p ww_global assigned_ids
+
 # Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page

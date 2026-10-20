@@ -2096,6 +2096,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "global_ids"
+version = "0.1.0"
+dependencies = [
+ "syn 3.0.3",
+ "toml",
+ "ww_global",
+]
+
+[[package]]
 name = "hash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -5364,7 +5364,7 @@
 
 <h1 id="stream-protocol">Stream protocol<a class="headerlink" href="#stream-protocol" title="Permanent link">&para;</a></h1>
 <p>How streams and sinks work on the wire and inside: the head of counted and reliable stream events, their
-acknowledgements, the credit messages of credit sinks, and the <code>ww_stream</code> state machines generated code drives. For
+acknowledgements, the same messages for credit sinks, and the <code>ww_stream</code> state machines generated code drives. For
 using streams, read <a href="../streams/">Streams</a>, <a href="../counted_streams/">Counted and reliable streams</a>,
 <a href="../stream_reliability/">Stream delivery</a> and <a href="../credit_sinks/">Credit sinks and sideband</a> first. The wire types live
 in <code>ww_client_server</code> (<a href="../../std_library/ww_client_server/">its page</a>).</p>
@@ -5454,14 +5454,14 @@ bytes, since what runs out on the receiving side is memory:</p>
 <td>received every unit before <code>have</code> (live run) and before <code>backfill</code> (backfill run, while there is one); the sender may have up to <code>grant</code> bytes of events in flight beyond them</td>
 </tr>
 <tr>
-<td><code>ResendFrom { from, grant }</code></td>
+<td><code>Resend { from, grant }</code></td>
 <td>receiver → sender</td>
 <td>units from <code>from</code> on are missing, in whichever run <code>from</code> falls: send again from there</td>
 </tr>
 <tr>
 <td><code>Query { sent, backfill }</code></td>
 <td>sender → receiver</td>
-<td>"I have sent up to here, where are you?", when out of credit or nothing was heard for a while; answered with <code>Ack</code> or <code>ResendFrom</code></td>
+<td>"I have sent up to here, where are you?", when out of credit or nothing was heard for a while; answered with <code>Ack</code> or <code>Resend</code></td>
 </tr>
 </tbody>
 </table>
@@ -5469,7 +5469,7 @@ bytes, since what runs out on the receiving side is memory:</p>
 <ul>
 <li><strong>The device</strong> keeps every event in its store until an <code>Ack</code> passes it, sends while the bytes in flight before the
   next event are below the grant (so a grant smaller than an item can't stall the stream), and goes back on
-  <code>ResendFrom</code> (go-back-N). A <code>ResendFrom</code> acknowledges nothing (with <code>Explicit</code> the host may have received more
+  <code>Resend</code> (go-back-N). A <code>Resend</code> acknowledges nothing (with <code>Explicit</code> the host may have received more
   than its user code confirmed); the host sends an <code>Ack</code> right before it when its position moved. With no host,
   nothing is acknowledged: the store fills, then data is dropped and counted.</li>
 <li><strong>The host</strong> accepts events of each run in order only, drops duplicates, asks for a resend once per gap, and
@@ -5483,87 +5483,117 @@ bytes, since what runs out on the receiving side is memory:</p>
 <h3 id="positions-inside-an-event">Positions inside an event<a class="headerlink" href="#positions-inside-an-event" title="Permanent link">&para;</a></h3>
 <p>An event of several units (a block of samples, a batch) has positions inside it, and the host can stand at one of
 them: user code confirmed part of a batch (<code>ack(pos)</code> with <code>Explicit</code>, items saved one by one) and resumes from that
-cursor, or a <code>ResendFrom</code> comes from such a position. The device never splits an event: it sends the event that holds
+cursor, or a <code>Resend</code> comes from such a position. The device never splits an event: it sends the event that holds
 the position, whole and with its own <code>pos</code> (a store reads "the event that holds <code>pos</code>, or the first one after it").
 The host takes it without the units it has (<code>Verdict::Accept { skip }</code> of <code>ww_stream::rx::Receiver</code>): a typed
 <code>PositionedStream</code> gives it with <code>pos</code> and <code>units</code> of the new part, the value is the whole item. The same holds for
 ranges the host had before a resume (they may end inside an event). An event that is all had is a duplicate.</p>
-<p>On USB the link doesn't lose, so <code>ResendFrom</code> never happens and an <code>Ack</code> is a few bytes every half window: a reliable
+<p>On USB the link doesn't lose, so <code>Resend</code> never happens and an <code>Ack</code> is a few bytes every half window: a reliable
 stream costs almost nothing more than a counted one there, and adds backfill and bounded host memory.</p>
 <h2 id="credit-sinks-on-the-wire">Credit sinks on the wire<a class="headerlink" href="#credit-sinks-on-the-wire" title="Permanent link">&para;</a></h2>
 <p>A credit sink is its own resource kind (<code>ApiItemKind::FlowSink { ty, flow: FlowControl::Credit }</code> in <code>ww_self</code>), so
-turning a plain sink into a credit sink is an API break: its writes change. Each write is a
-<code>ww_client_server::CreditWrite { pos: UVlq32, data: TailBytes }</code> inside <code>RequestKind::Write</code>, <code>pos</code> being the byte
-position of the item's first byte since the session's <code>Open</code>, modulo 2^28 (see <a href="#positions-wrap-at-256-mib">below</a>):
-1 byte for the first 128 bytes of a session, 2 up to 16 KiB, 3 up to 2 MiB, never more than 4. Three sideband
-messages carry the rest:</p>
+turning a plain sink into a credit sink is an API break: its writes change. It speaks the streams' protocol the other
+way round: the host is the sender, the device the receiver, with the same <code>Ack</code>, <code>Resend</code> and <code>Query</code>. The state
+machines are <code>ww_stream::sink::SinkCredit</code> (device) and <code>ww_stream::sink::SinkTx</code> (host, sans-IO), both driven by
+generated code and the host runtime.</p>
+<p><strong>Positions count units, named by the host</strong>: one per item by default, the bytes of the payload on a byte sink, or
+what user code says (<code>send_units</code>), at least one per item, so an empty item takes a position too. <strong>Grants count
+bytes</strong> of items as written, the serialized value of each write, since what runs out on the device is its buffer.</p>
+<p>Each write is its own request kind: <code>RequestKind::SinkWrite { pos: UVlq32, data: TailBytes }</code> for an item of one
+unit, exactly as long as a plain <code>Write</code> of the same data in every request (a variant of its own costs nothing,
+a flag for the units would cost a byte whenever the discriminant ends a byte), and <code>SinkWriteUnits { units: UVlq64,
+pos, data }</code> otherwise. <code>pos</code> is the position of the item's first unit in the session, modulo 2^28 (see
+<a href="#positions-wrap-at-256-mib">below</a>): 1 byte for the first 128 units of a session, 2 up to 16 Ki, 3 up to 2 Mi,
+never more than 4. The sideband messages carry the rest:</p>
 <table>
 <thead>
 <tr>
-<th>Sideband</th>
+<th>Message</th>
 <th>Direction</th>
 <th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Credit { have, grant }</code></td>
-<td>device → host</td>
-<td><code>have</code> bytes of items accepted in order; the host may send up to byte <code>have + grant</code></td>
-</tr>
-<tr>
-<td><code>CreditQuery { sent }</code></td>
+<td><code>StreamOpen { resume: Some(StreamCursor { session, pos }) }</code></td>
 <td>host → device</td>
-<td>"I have sent up to byte <code>sent</code>, where are you?", answered with <code>Credit</code> or <code>Resend</code></td>
+<td>opens the host's session: a new one at 0, or its own again</td>
 </tr>
 <tr>
-<td><code>Resend { have, grant }</code></td>
+<td><code>StreamOpened { session, live_from, capacity, .. }</code></td>
 <td>device → host</td>
-<td>writes after <code>have</code> were lost: send again from byte <code>have</code> (an item boundary), up to <code>have + grant</code></td>
+<td>the answer: where the device is in that session (a full <code>u64</code> position) and its buffer in bytes</td>
+</tr>
+<tr>
+<td><code>Ack { have, backfill: None, grant }</code></td>
+<td>device → host</td>
+<td>every unit before <code>have</code> accepted in order; the host may have up to <code>grant</code> bytes in flight beyond them</td>
+</tr>
+<tr>
+<td><code>Query { sent, backfill: None }</code></td>
+<td>host → device</td>
+<td>"I have sent up to unit <code>sent</code>, where are you?", answered with <code>Ack</code> or <code>Resend</code></td>
+</tr>
+<tr>
+<td><code>Resend { from, grant }</code></td>
+<td>device → host</td>
+<td>writes from unit <code>from</code> on were lost: send again from there (an item boundary), with up to <code>grant</code> bytes in flight</td>
+</tr>
+<tr>
+<td><code>Close</code></td>
+<td>both</td>
+<td>the host ends the session; from the device: it has no session for a write (rebooted, or closed), open again</td>
 </tr>
 </tbody>
 </table>
-<p>All three carry the whole state, so losing one is harmless: the next one, or the answer to the next query, replaces
-it. Their positions are <code>UNib32</code>, modulo 2^28 as well.</p>
+<p>All of them carry the whole state, so losing one is harmless: the next one, or the answer to the next query,
+replaces it. Positions in <code>Ack</code>, <code>Query</code> and <code>Resend</code> are <code>UVlq64</code>, holding values below 2^28 for sinks.</p>
 <ol>
-<li><code>Open</code> starts a session: the device resets its counters and answers with <code>Credit { have: 0, grant: capacity }</code>.
-   Credit events left over from an earlier session are ignored by the host until this one arrives.</li>
-<li>The host sends an item while <code>pos + its length &lt;= have + grant</code>, keeping a copy of everything after <code>have</code> for a
-   resend (at most the device's capacity).</li>
-<li>The device counts accepted bytes (<code>have</code>) and bytes it <strong>freed</strong> (consumed, e.g. written to flash); its limit is
-   <code>freed + capacity</code>. When the limit has moved by at least <code>threshold</code> since the last grant, it sends a new
-   <code>Credit</code>: a large threshold means few acknowledgements over a slow link, a small one keeps the link full.</li>
-<li>When the host is out of credit and nothing arrives for <code>query_interval</code>, it sends <code>CreditQuery</code>. This recovers from a
-   lost <code>Credit</code>, from a device that freed less than <code>threshold</code>, and finds lost data at the end of a transfer.</li>
-<li><code>flush()</code> sends <code>CreditQuery</code> and waits until <code>have == sent</code>: on a reliable link with a buffer that holds the whole
-   transfer, the one acknowledgement it needs.</li>
+<li><strong>The host names the session</strong> (random, never 0, or picked by user code) and opens it with its cursor. The device
+   keeps a session it is in: the same session again (a reconnect, a repeated or late duplicate open on UDP) changes
+   nothing and answers where it is; any other session starts at 0. It answers with <code>StreamOpened</code>, then an <code>Ack</code>
+   with the grant. The host takes in sideband only after the answer, so an <code>Ack</code> before it is never mistaken for one
+   of an earlier session.</li>
+<li>A device answering behind what the host had acknowledged in that session has lost it (a reboot): the host reports
+   it (<code>StreamError::SinkSessionLost</code>) and user code decides. One answering ahead of what was sent is a host bug,
+   except for a restarted host that opens with a saved cursor: it continues from where the device is.</li>
+<li>The host sends an item while the bytes in flight plus its length stay within the grant, and while at most
+   <code>MAX_WINDOW</code> units are in flight, keeping a copy of everything not acknowledged for a resend.</li>
+<li>The device counts accepted units (<code>have</code>), accepted bytes and bytes it <strong>freed</strong> (consumed, e.g. written to
+   flash); its byte limit is <code>freed + capacity</code>. When the limit has moved by at least <code>threshold</code> since the last
+   grant, it sends a new <code>Ack</code>: a large threshold means few acknowledgements over a slow link, a small one keeps the
+   link full.</li>
+<li>When the host is out of credit and nothing arrives for <code>query_interval</code>, it sends <code>Query</code> (and the open again when
+   it wasn't answered). This recovers from a lost <code>Ack</code> or answer, from a device that freed less than <code>threshold</code>,
+   and finds lost data at the end of a transfer. <code>flush()</code> sends <code>Query</code> and waits until <code>have == sent</code>.</li>
+<li><code>Close</code> ends the session on the device; a later write there answers <code>Close</code> once, and the host opens its session
+   again, nothing lost. A read on the sink returns its <code>StreamStatus</code> (open, session, position, bytes buffered,
+   capacity).</li>
 </ol>
 <p>On a lossy medium (UDP, LoRa, LTE-M) the device accepts a write only at <code>pos == have</code>: one before it is a duplicate
 from a resend and is dropped; one after it means something was lost, so it is dropped too and the device sends
-<code>Resend { have, grant }</code>, once per gap. A <code>CreditQuery { sent }</code> with <code>sent &gt; have</code> means writes were lost after the
-last one that arrived; the device answers with <code>Resend</code> instead of <code>Credit</code>. On <code>Resend</code> the host goes back to <code>have</code>
-and sends everything again from its copy (go-back-N). Requests are processed in order, so when the device sees a
-<code>CreditQuery</code>, everything sent before it has arrived or is lost; a plain <code>Credit</code> never rewinds the host, the rest may
-still be in flight. An empty item takes one position, so its loss is noticed like any other.</p>
+<code>Resend</code>, once per gap. A <code>Query { sent }</code> with <code>sent &gt; have</code> means writes were lost after the last one that arrived;
+the device answers with <code>Resend</code> instead of <code>Ack</code>. On <code>Resend</code> the host goes back to <code>from</code> and sends everything again
+from its copy (go-back-N). Requests are processed in order, so when the device sees a <code>Query</code>, everything sent before
+it has arrived or is lost; an <code>Ack</code> never rewinds the host, the rest may still be in flight.</p>
 <h3 id="positions-wrap-at-256-mib">Positions wrap at 256 MiB<a class="headerlink" href="#positions-wrap-at-256-mib" title="Permanent link">&para;</a></h3>
 <p>Both sides count positions in <code>u64</code>, so a session has no size limit. On the wire a position is sent modulo 2^28
-(<code>credit::POS_MODULUS</code>, <code>credit::wire_pos()</code>), the most a <code>UVlq32</code> holds in 4 bytes, and the receiver takes the full
-position nearest to the one it expects (<code>credit::extend_pos()</code>: from 2^27 behind it to 2^27 ahead, serial number
-arithmetic as in TCP). A value of 2^28 or more is no position: the device drops such a write (<code>CreditVerdict::Invalid</code>),
-the host ignores such a credit event.</p>
-<p>That reads every position right as long as it is less than 2^27 (128 MiB) away from what the receiver expects. Credit
-keeps it so: what the host has in flight, sent but not acknowledged, never exceeds the device's buffer, and the buffer
-is at most <code>credit::MAX_WINDOW</code>, 64 MiB, a quarter of the modulus. <code>SinkCredit::new</code> and <code>sized_for</code> refuse a larger
-one (a compile error in a <code>const</code>), <code>try_sized_for</code> and <code>set_capacity</code> return <code>SinkCreditError::BufferTooLarge</code>, and
-the host never puts more than <code>MAX_WINDOW</code> in flight whatever the device grants. One window on either side of the
-reference takes half the modulus; the other half is the margin for a late packet, a duplicate held back on UDP. Such a
-packet looks like a write from ahead (a gap, answered with a <code>Resend</code>) only when it arrives more than 64 MiB of traffic
-late, and like the expected write only when exactly a multiple of 256 MiB late: half a minute at 10 MB/s, far beyond
-how long a datagram lives on a network. Ordered links (USB, RTT, WebSocket) never deliver a late packet at all.</p>
-<p>The modulus is the same on every link and fixed by the protocol: nothing is announced at <code>Open</code>, there is nothing to
+(<code>ww_stream::sink::POS_MODULUS</code>, <code>wire_pos()</code>), the most a <code>UVlq32</code> holds in 4 bytes, and the receiver takes the full
+position nearest to the one it expects (<code>extend_pos()</code>: from 2^27 behind it to 2^27 ahead, serial number arithmetic as
+in TCP). A value of 2^28 or more is no position: the device drops such a write (<code>SinkVerdict::Invalid</code>), the host
+ignores such an event.</p>
+<p>That reads every position right as long as it is less than 2^27 away from what the receiver expects. The bound keeps
+it so, in two parts: what the host has in flight never exceeds the device's buffer in bytes, at most
+<code>ww_stream::sink::MAX_WINDOW</code> (64 MiB, a quarter of the modulus), and never more than <code>MAX_WINDOW</code> units either, which
+the host enforces since it names the units; an item of more is refused. <code>SinkCredit::new</code> and <code>sized_for</code> refuse a
+larger buffer (a compile error in a <code>const</code>), <code>try_sized_for</code> and <code>set_capacity</code> return
+<code>SinkCreditError::BufferTooLarge</code>. One window on either side of the reference takes half the modulus; the other half
+is the margin for a late packet, a duplicate held back on UDP. Such a packet looks like a write from ahead (a gap,
+answered with a <code>Resend</code>) only when it arrives more than 64 Mi units late, and like the expected write only when
+exactly a multiple of 256 Mi units late: far beyond how long a datagram lives on a network. Ordered links (USB, RTT,
+WebSocket) never deliver a late packet at all.</p>
+<p>The modulus is the same on every link and fixed by the protocol: nothing is announced at the open, there is nothing to
 configure.</p>
-<p>Credit sinks are planned to move onto the positions, acknowledgements and resume of counted and reliable streams
-(<code>API-34</code> in the <a href="../../features/">Feature tracker</a>).</p>
 <h2 id="sending-producers-the-event-loop-and-priorities">Sending: producers, the event loop and priorities<a class="headerlink" href="#sending-producers-the-event-loop-and-priorities" title="Permanent link">&para;</a></h2>
 <p>A <code>ww_stream::tx::Reliable</code> is one state: the producer pushes events into it, whether a host is there or not, and the
 event loop reads the next event out of it and sends it. Shared between tasks, it sits behind the firmware's async
@@ -5579,7 +5609,7 @@ device without generated code, it is:</p>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">if</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">block_bytes</span><span class="p">,</span><span class="w"> </span><span class="n">sets</span><span class="p">,</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">t</span><span class="p">)).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">Pushed</span><span class="p">::</span><span class="n">Lost</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* counted, reported to the host */</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">samples</span><span class="p">.</span><span class="n">lost</span><span class="p">(</span><span class="n">dropped_sets</span><span class="p">);</span><span class="w"> </span><span class="c1">// the producer&#39;s own ring overflowed: goes into the next event&#39;s `lost`</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1">// event loop: what may go out now, the host&#39;s Ack / ResendFrom, a Query when the host went silent</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1">// event loop: what may go out now, the host&#39;s Ack / Resend, a Query when the host went silent</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">ev</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">next_event</span><span class="p">(</span><span class="n">Run</span><span class="p">::</span><span class="n">Live</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send ev.head and ev.item */</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">samples</span><span class="p">.</span><span class="n">on_host_sideband</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sideband</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="k">if</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">query</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">samples</span><span class="p">.</span><span class="n">poll_query</span><span class="p">(</span><span class="n">now_ms</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* send it */</span><span class="w"> </span><span class="p">}</span>
@@ -5594,7 +5624,7 @@ above a bulk ADC stream, a logger the other way round. Plain streams write direc
 needs a priority is counted or reliable.</p>
 <p>On the host, <code>ww_stream::rx::Receiver</code> takes each event's head (<code>on_item</code>) and returns a <code>Verdict</code>: accept (with the
 gaps before it, each with its run, position, size and cause: <code>Device</code>, <code>Link</code>, <code>Store</code> or <code>Host</code>), duplicate, already
-had, late or out of order; <code>poll(now_ms)</code> returns the next <code>Ack</code> or <code>ResendFrom</code> to send. It runs in the client's
+had, late or out of order; <code>poll(now_ms)</code> returns the next <code>Ack</code> or <code>Resend</code> to send. It runs in the client's
 event loop behind every <code>PositionedStream</code>, see <a href="../counted_streams/#host-side-positionedstreamt">Counted and reliable streams on the
 host</a>.</p>
 <h2 id="the-ww_stream-crate">The <code>ww_stream</code> crate<a class="headerlink" href="#the-ww_stream-crate" title="Permanent link">&para;</a></h2>

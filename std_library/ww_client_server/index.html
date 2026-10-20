@@ -3882,10 +3882,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#credit-based-flow-control-for-sinks-credit-module" class="md-nav__link">
+  <a href="#credit-sinks" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Credit-based flow control for sinks (<code>credit</code> module)
+        Credit sinks
       </span>
     </span>
   </a>
@@ -5160,10 +5160,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#credit-based-flow-control-for-sinks-credit-module" class="md-nav__link">
+  <a href="#credit-sinks" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Credit-based flow control for sinks (<code>credit</code> module)
+        Credit sinks
       </span>
     </span>
   </a>
@@ -5398,20 +5398,14 @@ built on this protocol and the full wire-format picture; this section is the raw
 </ul>
 <p>Old hosts never send <code>Observe</code>, so they never receive a <code>PropertyUpdate</code>. A device without observe support answers
 <code>Observe</code> with <code>OperationNotSupported</code>.</p>
-<h2 id="credit-based-flow-control-for-sinks-credit-module">Credit-based flow control for sinks (<code>credit</code> module)<a class="headerlink" href="#credit-based-flow-control-for-sinks-credit-module" title="Permanent link">&para;</a></h2>
-<p><code>SinkCredit</code> is the sans-IO device-side state machine behind a <code>#[credit] sink!(..)</code> (<a href="../../api/credit_sinks/#credit-sinks">credit sinks</a>):
-generated code feeds it every write's byte position and length via <code>on_write</code> (returning a <code>CreditVerdict</code>:
-<code>Accept</code>, <code>Duplicate</code>, <code>Gap</code> with an optional <code>Resend</code> to send, or <code>Invalid</code>), and user code only sets its capacity and calls
-<code>free(len)</code> as it consumes accepted bytes. <code>take_credit()</code> returns a <code>StreamSideband::Credit</code> to send once enough
-has been freed (or immediately after <code>open()</code>); <code>query(sent)</code> answers a host's <code>CreditQuery</code>. <code>SinkCredit::new</code>
-takes a plain buffer capacity; <code>sized_for</code>/<code>try_sized_for</code> additionally take the sink's largest item
-(<code>&lt;SINK&gt;_MAX_ITEM_BYTES</code> from the generated code) and panic (or return <code>SinkCreditError::BufferTooSmall</code>, for
-<code>try_sized_for</code>) if the buffer couldn't even hold one. A buffer larger than <code>MAX_WINDOW</code> (64 MiB) is refused the same
-way (<code>BufferTooLarge</code>).</p>
-<p>Positions (<code>have()</code>, <code>freed()</code>, <code>limit()</code>) are <code>u64</code> from the session's start, with no limit on a session's size; on
-the wire they go modulo <code>POS_MODULUS</code> (2^28), <code>wire_pos()</code> and <code>extend_pos()</code> convert between the two
-(<a href="../../api/stream_protocol/#positions-wrap-at-256-mib">positions wrap at 256 MiB</a>). <code>open_at(pos)</code> starts a session at
-<code>pos</code> instead of 0, for tests of long sessions with the host starting at the same position.</p>
+<h2 id="credit-sinks">Credit sinks<a class="headerlink" href="#credit-sinks" title="Permanent link">&para;</a></h2>
+<p>A <code>#[credit] sink!(..)</code> (<a href="../../api/credit_sinks/#credit-sinks">credit sinks</a>) uses the messages of reliable streams
+the other way round: the host opens its session with <code>RequestKind::StreamOpen { resume: Some(cursor) }</code> (answered
+with <code>stream::StreamOpened</code>, whose <code>capacity</code> is the sink's buffer), writes with <code>RequestKind::SinkWrite { pos, data }</code>
+(one unit) or <code>SinkWriteUnits { units, pos, data }</code> (build both with <code>RequestKind::sink_write(units, pos, data)</code>, read
+them with <code>as_sink_write()</code>), and the device answers with <code>StreamSideband::Ack</code>, <code>Resend</code> and <code>Query</code>. A read of the
+sink returns its <code>stream::StreamStatus</code>. The state machines, <code>SinkCredit</code> on the device and <code>SinkTx</code> on the host, are
+in <code>ww_stream::sink</code> (<a href="../../api/stream_protocol/#credit-sinks-on-the-wire">stream protocol</a>).</p>
 <h2 id="worst-case-message-sizes-max_len-module">Worst-case message sizes (<code>max_len</code> module)<a class="headerlink" href="#worst-case-message-sizes-max_len-module" title="Permanent link">&para;</a></h2>
 <p><code>call_request</code>/<code>call_request_compact</code>/<code>value_event</code> compute the upper bound in bytes of a <code>Request</code>/<code>Event</code> for a
 given resource path and argument/return <code>MaxSize</code> (SW-19) - <code>None</code> when something in them is unbounded. This is

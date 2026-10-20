@@ -5424,6 +5424,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/credit_sinks/">Credit sinks</a></strong>: Flow control for data sent to a device, so its buffer never overflows, and lossy links resume where they stopped.</li>
 <li><strong><a href="../api/stream_protocol/#positions-inside-an-event">Resend and resume inside a batch</a></strong>: A resend or a resume from the middle of a multi-unit item gets only the units you don't have.</li>
 <li><strong><a href="../api/stream_protocol/#positions-wrap-at-256-mib">Credit sinks without a size limit</a></strong>: Sessions of any length, positions at most 4 bytes on the wire.</li>
+<li><strong><a href="../api/credit_sinks/">Credit sinks that resume</a></strong>: A sink (UART tx, a DFU plan) continues after a reconnect or a host restart, on the same acknowledgements as reliable streams. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/addressing/">Trait paths</a></strong>: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span></li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#documentation-doc">Documentation</a> in the feature tracker.</p>

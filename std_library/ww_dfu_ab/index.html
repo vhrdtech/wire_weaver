@@ -5647,12 +5647,16 @@ step that fails ends the session with <code>PlanAck { status: Failed(error) }</c
 device has is answered with <code>BulkStatus::Gap</code> and the position to resend from. A cut during the swap is resumed by
 the bootloader.</p>
 <p><strong>Resume.</strong> <code>begin_bulk</code> with the same header answers <code>resumed: true</code> and <code>resume_from</code> in <strong>bytes</strong> after the header;
-the host sends from there. The transcript shows a host that restarts half way.</p>
+the host sends from there. The <code>plan</code> sink continues its own session too: a host that saved <code>Sink::cursor()</code> opens it
+again with <code>plan_resume(cursor)</code>, which answers how many segments the device has in it (one unit per segment), so
+nothing the device already took is sent again and a device that lost the session (a reset) is reported as
+<code>StreamError::SinkSessionLost</code>: the host starts over. See <a href="../../api/credit_sinks/#resume">credit sinks</a>. The
+transcript shows a host that restarts half way.</p>
 <p><strong>What the device checks</strong>: each segment's offset against what it has, each step as it completes (COPY source hash,
 WRITE hash, index ranges), the image against the descriptor in <code>finish</code>.</p>
 <h4 id="transcript_1">Transcript<a class="headerlink" href="#transcript_1" title="Permanent link">&para;</a></h4>
-<p>The host sends three segments, restarts (a new connection), resumes at byte 192, gets one <code>Complete</code>, finishes,
-reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on localhost.</p>
+<p>The host sends three segments, restarts (a new connection), resumes at byte 192 and continues the <code>plan</code> sink's
+session at segment 3, gets one <code>Complete</code>, finishes, reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on localhost.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>   ── device runs the app
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>→ node.node()
@@ -5670,22 +5674,22 @@ reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on lo
 </span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        49 B  03 04 00 00 57 57 44 50 01 92 …
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>← Ok({ steps: 11, resumed: false, resume_from: 0 })
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>        13 B  03 80 80 0b 00 00 00 00 00 00 …
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>→ bulk.plan: open
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>         4 B  04 04 16 02
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>← bulk.plan: credit: have 0 bytes, may send 2062 more
-</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>         7 B  00 83 41 50 e9 84 02
-</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>← written
-</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>         2 B  04 81
-</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0)
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>        75 B  00 04 14 00 00 00 00 00 01 00 …
-</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 70)
-</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        75 B  00 04 14 46 40 00 00 00 e6 bd …
-</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 140)
-</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        76 B  00 04 14 81 0c 80 00 00 00 28 …
-</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>→ bulk.plan: credit query: sent 210 bytes
-</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>         6 B  05 04 16 6a a3 02
-</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>← bulk.plan: credit: have 210 bytes, may send 2062 more
-</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>         8 B  05 83 41 5a a3 e9 84 02
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>→ bulk.plan: open its session at 0
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>         8 B  04 04 18 80 01 00 00 02
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>← bulk.plan: ack: have 0 units, may send 2062 more bytes
+</span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>         8 B  00 83 41 50 00 90 0e 02
+</span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>← bulk.plan: opened at 0, buffer of 2062 bytes
+</span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>         9 B  04 80 01 00 00 40 90 0e 00
+</span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>        75 B  00 04 1a 00 00 00 00 00 01 00 …
+</span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 1, 1 unit)
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        75 B  00 04 1a 01 40 00 00 00 e6 bd …
+</span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 2, 1 unit)
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        75 B  00 04 1a 02 80 00 00 00 28 29 …
+</span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>→ bulk.plan: query: sent 3 units
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>         6 B  05 04 16 70 03 02
+</span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>← bulk.plan: ack: have 3 units, may send 2062 more bytes
+</span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>         8 B  05 83 41 50 03 90 0e 02
 </span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>   ── host restarts; the device keeps its session
 </span><span id="__span-4-35"><a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a>→ Disconnect(RequestByUser)
 </span><span id="__span-4-36"><a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>         1 B  02
@@ -5698,49 +5702,50 @@ reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on lo
 </span><span id="__span-4-43"><a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>         5 B  02 04 28 00 02
 </span><span id="__span-4-44"><a id="__codelineno-4-44" name="__codelineno-4-44" href="#__codelineno-4-44"></a>← ()
 </span><span id="__span-4-45"><a id="__codelineno-4-45" name="__codelineno-4-45" href="#__codelineno-4-45"></a>         6 B  02 80 00 00 00 00
-</span><span id="__span-4-46"><a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a>→ bulk.plan: open
-</span><span id="__span-4-47"><a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>         4 B  03 04 16 02
-</span><span id="__span-4-48"><a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>← bulk.plan: credit: have 0 bytes, may send 2062 more
-</span><span id="__span-4-49"><a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a>         7 B  00 83 41 50 e9 84 02
-</span><span id="__span-4-50"><a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a>← written
-</span><span id="__span-4-51"><a id="__codelineno-4-51" name="__codelineno-4-51" href="#__codelineno-4-51"></a>         2 B  03 81
-</span><span id="__span-4-52"><a id="__codelineno-4-52" name="__codelineno-4-52" href="#__codelineno-4-52"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 0)
-</span><span id="__span-4-53"><a id="__codelineno-4-53" name="__codelineno-4-53" href="#__codelineno-4-53"></a>        75 B  00 04 14 00 c0 00 00 00 02 04 …
-</span><span id="__span-4-54"><a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 70)
-</span><span id="__span-4-55"><a id="__codelineno-4-55" name="__codelineno-4-55" href="#__codelineno-4-55"></a>        75 B  00 04 14 46 00 01 00 00 e7 cd …
-</span><span id="__span-4-56"><a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 140)
-</span><span id="__span-4-57"><a id="__codelineno-4-57" name="__codelineno-4-57" href="#__codelineno-4-57"></a>        50 B  00 04 14 81 0c 40 01 00 00 d6 …
-</span><span id="__span-4-58"><a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>← bulk.plan_ack ⇒ { have: 359, status: Complete }
-</span><span id="__span-4-59"><a id="__codelineno-4-59" name="__codelineno-4-59" href="#__codelineno-4-59"></a>         9 B  00 82 42 67 01 00 00 20 02
-</span><span id="__span-4-60"><a id="__codelineno-4-60" name="__codelineno-4-60" href="#__codelineno-4-60"></a>→ bulk.plan: credit query: sent 184 bytes
-</span><span id="__span-4-61"><a id="__codelineno-4-61" name="__codelineno-4-61" href="#__codelineno-4-61"></a>         6 B  04 04 16 68 f2 02
-</span><span id="__span-4-62"><a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>← bulk.plan: credit: have 184 bytes, may send 2062 more
-</span><span id="__span-4-63"><a id="__codelineno-4-63" name="__codelineno-4-63" href="#__codelineno-4-63"></a>         8 B  04 83 41 58 f2 e9 84 02
-</span><span id="__span-4-64"><a id="__codelineno-4-64" name="__codelineno-4-64" href="#__codelineno-4-64"></a>→ stage.finish()
-</span><span id="__span-4-65"><a id="__codelineno-4-65" name="__codelineno-4-65" href="#__codelineno-4-65"></a>         4 B  05 03 60 02
-</span><span id="__span-4-66"><a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a>← Ok(Staged)
-</span><span id="__span-4-67"><a id="__codelineno-4-67" name="__codelineno-4-67" href="#__codelineno-4-67"></a>         3 B  05 80 82
-</span><span id="__span-4-68"><a id="__codelineno-4-68" name="__codelineno-4-68" href="#__codelineno-4-68"></a>→ boot.reboot(into: App)
-</span><span id="__span-4-69"><a id="__codelineno-4-69" name="__codelineno-4-69" href="#__codelineno-4-69"></a>         5 B  06 01 30 00 02
-</span><span id="__span-4-70"><a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a>← Ok(())
-</span><span id="__span-4-71"><a id="__codelineno-4-71" name="__codelineno-4-71" href="#__codelineno-4-71"></a>         3 B  06 80 80
-</span><span id="__span-4-72"><a id="__codelineno-4-72" name="__codelineno-4-72" href="#__codelineno-4-72"></a>← Disconnect(RequestByUser)
-</span><span id="__span-4-73"><a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a>         1 B  02
-</span><span id="__span-4-74"><a id="__codelineno-4-74" name="__codelineno-4-74" href="#__codelineno-4-74"></a>   ── device resets (into the app)
-</span><span id="__span-4-75"><a id="__codelineno-4-75" name="__codelineno-4-75" href="#__codelineno-4-75"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
-</span><span id="__span-4-76"><a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a>   ── device runs the app
-</span><span id="__span-4-77"><a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
-</span><span id="__span-4-78"><a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a>→ boot.confirm()
-</span><span id="__span-4-79"><a id="__codelineno-4-79" name="__codelineno-4-79" href="#__codelineno-4-79"></a>         4 B  01 01 10 02
-</span><span id="__span-4-80"><a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>← Ok(())
-</span><span id="__span-4-81"><a id="__codelineno-4-81" name="__codelineno-4-81" href="#__codelineno-4-81"></a>         3 B  01 80 80
-</span><span id="__span-4-82"><a id="__codelineno-4-82" name="__codelineno-4-82" href="#__codelineno-4-82"></a>→ node.node()
-</span><span id="__span-4-83"><a id="__codelineno-4-83" name="__codelineno-4-83" href="#__codelineno-4-83"></a>         4 B  02 00 00 02
-</span><span id="__span-4-84"><a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, app_version: Some(2),
-</span><span id="__span-4-85"><a id="__codelineno-4-85" name="__codelineno-4-85" href="#__codelineno-4-85"></a>      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
-</span><span id="__span-4-86"><a id="__codelineno-4-86" name="__codelineno-4-86" href="#__codelineno-4-86"></a>      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
-</span><span id="__span-4-87"><a id="__codelineno-4-87" name="__codelineno-4-87" href="#__codelineno-4-87"></a>      stage: true, stage_bulk: true } }
-</span><span id="__span-4-88"><a id="__codelineno-4-88" name="__codelineno-4-88" href="#__codelineno-4-88"></a>        42 B  02 80 00 00 73 69 6d 2d 64 66 …
+</span><span id="__span-4-46"><a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a>   ── the plan sink continues its session where the device is
+</span><span id="__span-4-47"><a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>→ bulk.plan: open its session at 3
+</span><span id="__span-4-48"><a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>         8 B  03 04 18 80 01 03 00 02
+</span><span id="__span-4-49"><a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a>← bulk.plan: ack: have 3 units, may send 2062 more bytes
+</span><span id="__span-4-50"><a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a>         8 B  00 83 41 50 03 90 0e 02
+</span><span id="__span-4-51"><a id="__codelineno-4-51" name="__codelineno-4-51" href="#__codelineno-4-51"></a>← bulk.plan: opened at 3, buffer of 2062 bytes
+</span><span id="__span-4-52"><a id="__codelineno-4-52" name="__codelineno-4-52" href="#__codelineno-4-52"></a>         9 B  03 80 01 03 03 40 90 0e 00
+</span><span id="__span-4-53"><a id="__codelineno-4-53" name="__codelineno-4-53" href="#__codelineno-4-53"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 3, 1 unit)
+</span><span id="__span-4-54"><a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>        75 B  00 04 1a 03 c0 00 00 00 02 04 …
+</span><span id="__span-4-55"><a id="__codelineno-4-55" name="__codelineno-4-55" href="#__codelineno-4-55"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 4, 1 unit)
+</span><span id="__span-4-56"><a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>        75 B  00 04 1a 04 00 01 00 00 e7 cd …
+</span><span id="__span-4-57"><a id="__codelineno-4-57" name="__codelineno-4-57" href="#__codelineno-4-57"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 5, 1 unit)
+</span><span id="__span-4-58"><a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>        49 B  00 04 1a 05 40 01 00 00 d6 1a …
+</span><span id="__span-4-59"><a id="__codelineno-4-59" name="__codelineno-4-59" href="#__codelineno-4-59"></a>← bulk.plan_ack ⇒ { have: 359, status: Complete }
+</span><span id="__span-4-60"><a id="__codelineno-4-60" name="__codelineno-4-60" href="#__codelineno-4-60"></a>         9 B  00 82 42 67 01 00 00 20 02
+</span><span id="__span-4-61"><a id="__codelineno-4-61" name="__codelineno-4-61" href="#__codelineno-4-61"></a>→ bulk.plan: query: sent 6 units
+</span><span id="__span-4-62"><a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>         6 B  04 04 16 70 06 02
+</span><span id="__span-4-63"><a id="__codelineno-4-63" name="__codelineno-4-63" href="#__codelineno-4-63"></a>← bulk.plan: ack: have 6 units, may send 2062 more bytes
+</span><span id="__span-4-64"><a id="__codelineno-4-64" name="__codelineno-4-64" href="#__codelineno-4-64"></a>         8 B  04 83 41 50 06 90 0e 02
+</span><span id="__span-4-65"><a id="__codelineno-4-65" name="__codelineno-4-65" href="#__codelineno-4-65"></a>→ stage.finish()
+</span><span id="__span-4-66"><a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a>         4 B  05 03 60 02
+</span><span id="__span-4-67"><a id="__codelineno-4-67" name="__codelineno-4-67" href="#__codelineno-4-67"></a>← Ok(Staged)
+</span><span id="__span-4-68"><a id="__codelineno-4-68" name="__codelineno-4-68" href="#__codelineno-4-68"></a>         3 B  05 80 82
+</span><span id="__span-4-69"><a id="__codelineno-4-69" name="__codelineno-4-69" href="#__codelineno-4-69"></a>→ boot.reboot(into: App)
+</span><span id="__span-4-70"><a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a>         5 B  06 01 30 00 02
+</span><span id="__span-4-71"><a id="__codelineno-4-71" name="__codelineno-4-71" href="#__codelineno-4-71"></a>← Ok(())
+</span><span id="__span-4-72"><a id="__codelineno-4-72" name="__codelineno-4-72" href="#__codelineno-4-72"></a>         3 B  06 80 80
+</span><span id="__span-4-73"><a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a>← Disconnect(RequestByUser)
+</span><span id="__span-4-74"><a id="__codelineno-4-74" name="__codelineno-4-74" href="#__codelineno-4-74"></a>         1 B  02
+</span><span id="__span-4-75"><a id="__codelineno-4-75" name="__codelineno-4-75" href="#__codelineno-4-75"></a>   ── device resets (into the app)
+</span><span id="__span-4-76"><a id="__codelineno-4-76" name="__codelineno-4-76" href="#__codelineno-4-76"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
+</span><span id="__span-4-77"><a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a>   ── device runs the app
+</span><span id="__span-4-78"><a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
+</span><span id="__span-4-79"><a id="__codelineno-4-79" name="__codelineno-4-79" href="#__codelineno-4-79"></a>→ boot.confirm()
+</span><span id="__span-4-80"><a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>         4 B  01 01 10 02
+</span><span id="__span-4-81"><a id="__codelineno-4-81" name="__codelineno-4-81" href="#__codelineno-4-81"></a>← Ok(())
+</span><span id="__span-4-82"><a id="__codelineno-4-82" name="__codelineno-4-82" href="#__codelineno-4-82"></a>         3 B  01 80 80
+</span><span id="__span-4-83"><a id="__codelineno-4-83" name="__codelineno-4-83" href="#__codelineno-4-83"></a>→ node.node()
+</span><span id="__span-4-84"><a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>         4 B  02 00 00 02
+</span><span id="__span-4-85"><a id="__codelineno-4-85" name="__codelineno-4-85" href="#__codelineno-4-85"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, app_version: Some(2),
+</span><span id="__span-4-86"><a id="__codelineno-4-86" name="__codelineno-4-86" href="#__codelineno-4-86"></a>      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
+</span><span id="__span-4-87"><a id="__codelineno-4-87" name="__codelineno-4-87" href="#__codelineno-4-87"></a>      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
+</span><span id="__span-4-88"><a id="__codelineno-4-88" name="__codelineno-4-88" href="#__codelineno-4-88"></a>      stage: true, stage_bulk: true } }
+</span><span id="__span-4-89"><a id="__codelineno-4-89" name="__codelineno-4-89" href="#__codelineno-4-89"></a>        42 B  02 80 00 00 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
 <summary>Wire bytes: 28 UDP datagrams (link setup and pings left out)</summary>
@@ -5756,65 +5761,68 @@ reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on lo
 </span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>          5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
 </span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>          00 3c 02
 </span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>→    5 B  04 04 04 16 02
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>←   11 B  07 00 83 41 50 e9 84 02 02 04 81
-</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>→  239 B  08 4b 00 04 14 00 00 00 00 00 01 00 00 01 01 00
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>          01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
-</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>          f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
-</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>          67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01 ff
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>          97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4b 00
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>          04 14 46 40 00 00 00 e6 bd 84 3c 31 2f c7 a7 fe
-</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>          d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e
-</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>          02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03 02 00
-</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>          ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20 76 32
-</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>          11 db 28 16 4c de 9f 00 89 02 08 4c 00 04 14 81
-</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>          0c 80 00 00 00 28 29 f3 40 2e 64 f6 b7 40 41 0b
-</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>          58 46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b
-</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>          88 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b
-</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>          b8 a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f
-</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>          b2 57 d1 be fc 00 89 02 06 05 04 16 6a a3 02
-</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>←   10 B  08 08 05 83 41 5a a3 e9 84 02
-</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>   ── host restarts; the device keeps its session
-</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>→    3 B  30 c1 02
-</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>→   51 B  08 31 01 04 00 00 57 57 44 50 01 92 10 00 00 02
-</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>          00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c c3
-</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>          5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
-</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>          00 3c 02
-</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>←   15 B  08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
-</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>→    6 B  05 02 04 28 00 02
-</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>←    7 B  06 02 80 00 00 00 00
-</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>→    5 B  04 03 04 16 02
-</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>←   11 B  07 00 83 41 50 e9 84 02 02 03 81
-</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>→  213 B  08 4b 00 04 14 00 c0 00 00 00 02 04 00 04 00 a8
-</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>          09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49 c0
-</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>          f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d 3c 65
-</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a>          75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac 8d 6c 95
-</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>          a5 54 cf b5 c4 a5 84 ad bd 6c 00 89 02 08 4b 00
-</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>          04 14 46 00 01 00 00 e7 cd dc bd 9c c5 d5 84 ff
-</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>          e5 f4 d5 b4 dd ed 9c 17 fd 0c ed cc f5 05 b4 2f
-</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>          15 03 06 00 d1 8f 7c e6 80 78 12 57 40 00 6f 74
-</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>          61 94 9a 86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be
-</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>          02 c4 ca b6 df 63 f8 00 89 02 08 32 00 04 14 81
-</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>          0c 40 01 00 00 d6 1a dc e2 ce f7 7b 10 ee 32 f4
-</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a>          fa e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24
-</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a>          2a 16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 04
-</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a>          04 16 68 f2 02
-</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 04 83 41
-</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a>          58 f2 e9 84 02
-</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>→    5 B  04 05 03 60 02
-</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>←    4 B  03 05 80 82
-</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>→    6 B  05 06 01 30 00 02
-</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>←    4 B  03 06 80 80
-</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>←    3 B  30 c1 02
-</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>   ── device resets (into the app)
-</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
-</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>   ── device runs the app
-</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>→    5 B  04 01 01 10 02
-</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>←    4 B  03 01 80 80
-</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>→    5 B  04 02 00 00 02
-</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>←   44 B  08 2a 02 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>→   10 B  08 08 04 04 18 80 01 00 00 02
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 04 80 01 00
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>          00 40 90 0e 00
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>→  238 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01 00
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>          01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>          f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>          67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01 ff
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>          97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4b 00
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>          04 1a 01 40 00 00 00 e6 bd 84 3c 31 2f c7 a7 fe
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>          d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>          02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03 02 00
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>          ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20 76 32
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>          11 db 28 16 4c de 9f 00 89 02 08 4b 00 04 1a 02
+</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>          80 00 00 00 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
+</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>          46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
+</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>          76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
+</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>          a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f b2
+</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>          57 d1 be fc 00 89 02 06 05 04 16 70 03 02
+</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>←   10 B  08 08 05 83 41 50 03 90 0e 02
+</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>   ── host restarts; the device keeps its session
+</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>→    3 B  30 c1 02
+</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>→   51 B  08 31 01 04 00 00 57 57 44 50 01 92 10 00 00 02
+</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>          00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c c3
+</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>          5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
+</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>          00 3c 02
+</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>←   15 B  08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
+</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>→    6 B  05 02 04 28 00 02
+</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>←    7 B  06 02 80 00 00 00 00
+</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>   ── the plan sink continues its session where the device is
+</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>→   10 B  08 08 03 04 18 80 01 03 00 02
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>←   21 B  08 08 00 83 41 50 03 90 0e 02 08 09 03 80 01 03
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>          03 40 90 0e 00
+</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a>→  212 B  08 4b 00 04 1a 03 c0 00 00 00 02 04 00 04 00 a8
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>          09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49 c0
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>          f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d 3c 65
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>          75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac 8d 6c 95
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>          a5 54 cf b5 c4 a5 84 ad bd 6c 00 89 02 08 4b 00
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>          04 1a 04 00 01 00 00 e7 cd dc bd 9c c5 d5 84 ff
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>          e5 f4 d5 b4 dd ed 9c 17 fd 0c ed cc f5 05 b4 2f
+</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>          15 03 06 00 d1 8f 7c e6 80 78 12 57 40 00 6f 74
+</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a>          61 94 9a 86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be
+</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a>          02 c4 ca b6 df 63 f8 00 89 02 08 31 00 04 1a 05
+</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a>          40 01 00 00 d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa
+</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a>          e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a
+</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a>          16 3f c3 58 36 7a 3c 42 2e 57 db 7c 02 06 04 04
+</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>          16 70 06 02
+</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 04 83 41
+</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>          50 06 90 0e 02
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>→    5 B  04 05 03 60 02
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>←    4 B  03 05 80 82
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>→    6 B  05 06 01 30 00 02
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>←    4 B  03 06 80 80
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>←    3 B  30 c1 02
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>   ── device resets (into the app)
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>   ── device runs the app
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>→    5 B  04 01 01 10 02
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>←    4 B  03 01 80 80
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>→    5 B  04 02 00 00 02
+</span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72" href="#__codelineno-5-72"></a>←   44 B  08 2a 02 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73" href="#__codelineno-5-73"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74" href="#__codelineno-5-74"></a>          c1 ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="2r-app-step-flip-shuttle">2R-APP-STEP: Flip Shuttle<a class="headerlink" href="#2r-app-step-flip-shuttle" title="Permanent link">&para;</a></h2>
@@ -6082,30 +6090,30 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>         5 B  04 04 28 00 02
 </span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>← ()
 </span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>         6 B  04 80 00 00 00 00
-</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>→ bulk.plan: open
-</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>         4 B  05 04 16 02
-</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>← bulk.plan: credit: have 0 bytes, may send 2062 more
-</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>         7 B  00 83 41 50 e9 84 02
-</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>← written
-</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>         2 B  05 81
-</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0)
-</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        75 B  00 04 14 00 00 00 00 00 01 00 …
-</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 70)
-</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>        75 B  00 04 14 46 40 00 00 00 e6 bd …
-</span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 140)
-</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        76 B  00 04 14 81 0c 80 00 00 00 28 …
-</span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 210)
-</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>        76 B  00 04 14 81 52 c0 00 00 00 02 …
-</span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 280)
-</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>        76 B  00 04 14 82 18 00 01 00 00 e7 …
-</span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 350)
-</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>        50 B  00 04 14 82 5e 40 01 00 00 d6 …
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>→ bulk.plan: open its session at 0
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>         8 B  05 04 18 80 01 00 00 02
+</span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>← bulk.plan: ack: have 0 units, may send 2062 more bytes
+</span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>         8 B  00 83 41 50 00 90 0e 02
+</span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>← bulk.plan: opened at 0, buffer of 2062 bytes
+</span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>         9 B  05 80 01 00 00 40 90 0e 00
+</span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        75 B  00 04 1a 00 00 00 00 00 01 00 …
+</span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 1, 1 unit)
+</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>        75 B  00 04 1a 01 40 00 00 00 e6 bd …
+</span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 2, 1 unit)
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        75 B  00 04 1a 02 80 00 00 00 28 29 …
+</span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 3, 1 unit)
+</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>        75 B  00 04 1a 03 c0 00 00 00 02 04 …
+</span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 4, 1 unit)
+</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>        75 B  00 04 1a 04 00 01 00 00 e7 cd …
+</span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 5, 1 unit)
+</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>        49 B  00 04 1a 05 40 01 00 00 d6 1a …
 </span><span id="__span-10-40"><a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>← bulk.plan_ack ⇒ { have: 359, status: Complete }
 </span><span id="__span-10-41"><a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>         9 B  00 82 42 67 01 00 00 20 02
-</span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>→ bulk.plan: credit query: sent 394 bytes
-</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>         6 B  06 04 16 6a 96 02
-</span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>← bulk.plan: credit: have 394 bytes, may send 2062 more
-</span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>         8 B  06 83 41 5a 96 e9 84 02
+</span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>→ bulk.plan: query: sent 6 units
+</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>         6 B  06 04 16 70 06 02
+</span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>← bulk.plan: ack: have 6 units, may send 2062 more bytes
+</span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>         8 B  06 83 41 50 06 90 0e 02
 </span><span id="__span-10-46"><a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>→ stage.finish()
 </span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>         4 B  07 03 60 02
 </span><span id="__span-10-48"><a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a>← Ok(Staged)
@@ -6166,63 +6174,64 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>→    6 B  05 04 04 28 00 02
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>←    7 B  06 04 80 00 00 00 00
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>→    5 B  04 05 04 16 02
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>←   11 B  07 00 83 41 50 e9 84 02 02 05 81
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>→  447 B  08 4b 00 04 14 00 00 00 00 00 01 00 00 01 01 00
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>          01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>          f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>          67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01 ff
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>          97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4b 00
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>          04 14 46 40 00 00 00 e6 bd 84 3c 31 2f c7 a7 fe
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>          d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>          02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03 02 00
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>          ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20 76 32
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>          11 db 28 16 4c de 9f 00 89 02 08 4c 00 04 14 81
-</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>          0c 80 00 00 00 28 29 f3 40 2e 64 f6 b7 40 41 0b
-</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>          58 46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b
-</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>          88 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b
-</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>          b8 a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f
-</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>          b2 57 d1 be fc 00 89 02 08 4c 00 04 14 81 52 c0
-</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>          00 00 00 02 04 00 04 00 a8 09 c6 1b 42 94 29 60
-</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>          03 05 00 3b f9 a7 bd 49 c0 f8 87 40 00 6e 65 74
-</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>          20 76 32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75 54
-</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>          7d 8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5 84
-</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>          ad bd 6c 00 89 02 08 4c 00 04 14 82 18 00 01 00
-</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>          00 e7 cd dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed
-</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>          9c 17 fd 0c ed cc f5 05 b4 2f 15 03 06 00 d1 8f
-</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>          7c e6 80 78 12 57 40 00 6f 74 61 94 9a 86 af 33
-</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>          c8 a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63
-</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>          f8 00 89 02 08 32 00 04 14 82 5e 40 01 00 00 d6
-</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>          1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28 06
-</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>          4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58 36
-</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>          7a 3c 42 2e 57 db 7c 02 06 06 04 16 6a 96 02
-</span><span id="__span-11-45"><a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
-</span><span id="__span-11-46"><a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>          5a 96 e9 84 02
-</span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>→    5 B  04 07 03 60 02
-</span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>←    4 B  03 07 80 82
-</span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>→    6 B  05 08 01 30 00 02
-</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>←    4 B  03 08 80 80
-</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>←    3 B  30 c1 02
-</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>   ── device resets (into the app)
-</span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
-</span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>   ── device runs the app
-</span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-</span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
-</span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
-</span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>→    5 B  04 02 01 20 02
-</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>←    4 B  03 02 80 80
-</span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>→    6 B  05 03 01 30 00 02
-</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>←    4 B  03 03 80 80
-</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>←    3 B  30 c1 02
-</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>   ── device resets (into the app)
-</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
-</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>   ── device runs the app
-</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
-</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>          e0 02 14 10 20 02 00 00 00 f0 01 57
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>→   10 B  08 08 05 04 18 80 01 00 00 02
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 05 80 01 00
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>          00 40 90 0e 00
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>→  443 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01 00
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>          01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>          f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>          67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01 ff
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>          97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4b 00
+</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>          04 1a 01 40 00 00 00 e6 bd 84 3c 31 2f c7 a7 fe
+</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>          d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e
+</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>          02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03 02 00
+</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>          ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20 76 32
+</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>          11 db 28 16 4c de 9f 00 89 02 08 4b 00 04 1a 02
+</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>          80 00 00 00 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
+</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>          46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
+</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>          76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
+</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>          a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f b2
+</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>          57 d1 be fc 00 89 02 08 4b 00 04 1a 03 c0 00 00
+</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>          00 02 04 00 04 00 a8 09 c6 1b 42 94 29 60 03 05
+</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>          00 3b f9 a7 bd 49 c0 f8 87 40 00 6e 65 74 20 76
+</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>          32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75 54 7d 8d
+</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>          3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5 84 ad bd
+</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>          6c 00 89 02 08 4b 00 04 1a 04 00 01 00 00 e7 cd
+</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>          dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd
+</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>          0c ed cc f5 05 b4 2f 15 03 06 00 d1 8f 7c e6 80
+</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>          78 12 57 40 00 6f 74 61 94 9a 86 af 33 c8 a6 ea
+</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>          ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8 00 89
+</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>          02 08 31 00 04 1a 05 40 01 00 00 d6 1a dc e2 ce
+</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>          f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a 0c 12 fe
+</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>          27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a 3c 42 2e
+</span><span id="__span-11-45"><a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>          57 db 7c 02 06 06 04 16 70 06 02
+</span><span id="__span-11-46"><a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
+</span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>          50 06 90 0e 02
+</span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>→    5 B  04 07 03 60 02
+</span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>←    4 B  03 07 80 82
+</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>→    6 B  05 08 01 30 00 02
+</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>←    4 B  03 08 80 80
+</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>←    3 B  30 c1 02
+</span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>   ── device resets (into the app)
+</span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
+</span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>   ── device runs the app
+</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
+</span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>          c1 ef 0d 30 00 00 00 00 00 f0 01 57
+</span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
+</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>→    5 B  04 02 01 20 02
+</span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>←    4 B  03 02 80 80
+</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>→    6 B  05 03 01 30 00 02
+</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>←    4 B  03 03 80 80
+</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>←    3 B  30 c1 02
+</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>   ── device resets (into the app)
+</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
+</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>   ── device runs the app
+</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
+</span><span id="__span-11-72"><a id="__codelineno-11-72" name="__codelineno-11-72" href="#__codelineno-11-72"></a>          e0 02 14 10 20 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 

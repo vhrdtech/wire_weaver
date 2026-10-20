@@ -2220,6 +2220,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resume
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5138,6 +5149,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#resume" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Resume
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5303,6 +5325,14 @@ UART bridge, frames for a CAN transmitter.</p>
 one write, as sent. The host sends an item only when all of it fits into the credit left, and never splits one. Out of
 credit, <code>send()</code> waits, <code>send_blocking()</code> blocks and <code>try_send()</code> returns <code>Ok(false)</code>, so the host never outruns the
 device's receive buffer, however slow the device or fast the link.</p>
+<p><strong>Positions count units</strong>, which the host names for each item: one per value by default, the bytes of the payload
+on a byte sink (<code>[u8]</code>, a UART's tx), or what <code>send_units(value, units)</code> says (at least one). So the device's
+position, its <code>have</code>, means something to user code on both sides: bytes on the line, samples, segments. Credit stays
+in bytes, positions in units.</p>
+<p><strong>The host names the session</strong>: every open is a <code>StreamOpen</code> with the host's session and position, a new random one
+at 0 for <code>open()</code> and the first <code>send()</code>, or one user code picks with <code>open_session(session)</code> (from a hash of the data,
+say). The device keeps a session it is in: an open of the same session (a repeated or late one, a reconnect)
+changes nothing and answers where it is; any other starts at 0.</p>
 <h3 id="why-bytes-and-not-values">Why bytes and not values<a class="headerlink" href="#why-bytes-and-not-values" title="Permanent link">&para;</a></h3>
 <p>What runs out on a device is RAM: the bytes of its receive buffer. Counting values (one slot per write) would make
 the device size every slot for the largest value, so a buffer that holds sixteen 1 KiB pieces would also hold only
@@ -5320,18 +5350,19 @@ item</strong>, or the host could never send it. Three things keep a transfer fro
 <li><strong>A re-grant lets the largest item in.</strong> The device re-grants once it freed <code>threshold</code> bytes (half the buffer by
   default); <code>sized_for</code> caps the threshold at <code>buffer - largest item + 1</code>, so a host waiting for room for a big item
   always gets it with the next grant. With an unbounded type, set the threshold that way yourself
-  (<code>with_threshold</code>), or a waiting host only learns of the room from its next <code>CreditQuery</code>.</li>
+  (<code>with_threshold</code>), or a waiting host only learns of the room from its next <code>Query</code>.</li>
 <li><strong>The device consumes without waiting for more.</strong> A device that collects data before writing it out (a flash page)
   has to write it once less room than the largest item is left: the host can't send the next item before that.</li>
 </ul>
-<p>At the other end, a buffer is at most 64 MiB (<code>credit::MAX_WINDOW</code>): <code>sized_for</code> doesn't compile with a larger one,
+<p>At the other end, a buffer is at most 64 MiB (<code>ww_stream::sink::MAX_WINDOW</code>): <code>sized_for</code> doesn't compile with a larger one,
 <code>try_sized_for</code> and <code>set_capacity</code> return <code>SinkCreditError::BufferTooLarge</code>. That keeps positions on the wire short
 and unambiguous (<a href="../stream_protocol/#positions-wrap-at-256-mib">positions wrap at 256 MiB</a>); a session itself has no
-size limit.</p>
+size limit. The host also keeps at most <code>MAX_WINDOW</code> units in flight, and refuses an item of more.</p>
 <h3 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h3>
 <p>Generated server code does the bookkeeping; user code says how many bytes it can buffer and when it frees some. A
-credit sink has one more handler, <code>credit_&lt;name&gt;()</code>, returning its state, a <code>ww_client_server::credit::SinkCredit</code>,
-usually a field of the server (arrays of sinks get the index chain and need one state per index):</p>
+credit sink has one more handler, <code>credit_&lt;name&gt;()</code>, returning its state, a <code>ww_stream::sink::SinkCredit</code> (so the
+firmware crate depends on <code>ww_stream</code>), usually a field of the server (arrays of sinks get the index chain and need
+one state per index):</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">const</span><span class="w"> </span><span class="n">BUF</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4096</span><span class="p">;</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="sd">/// Some(1024), from the API&#39;s MaxLen bound</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">const</span><span class="w"> </span><span class="n">LARGEST</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">plan_max_item_bytes</span><span class="p">();</span>
@@ -5369,32 +5400,86 @@ usually a field of the server (arrays of sinks get the index chain and need one 
 </span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>A handler of a typed sink gets the value, not its bytes: <code>SinkCredit::last_item_len()</code> is the size of the item it was
-called with, what to <code>free()</code> once that value is consumed.</p>
+called with, what to <code>free()</code> once that value is consumed; <code>last_item_units()</code> its units as the host named them.</p>
 <ul>
-<li>On <code>Open</code>, generated code calls <code>SinkCredit::open()</code> (a new session), then <code>sideband_&lt;name&gt;</code> as for any sideband
-  (it may change the capacity there), then sends the initial credit.</li>
-<li>On a write, generated code checks its position, calls <code>write_&lt;name&gt;</code> for writes in order only, and after it
-  returns sends new credit if <code>free()</code> moved the limit far enough.</li>
-<li><code>CreditQuery</code> is answered by generated code, <code>sideband_&lt;name&gt;</code> doesn't see it.</li>
+<li>On <code>StreamOpen</code>, generated code calls <code>SinkCredit::open(cursor)</code> (the host's session: kept if it is the one the
+  device is in, else a new one at 0); for a new session it calls <code>sideband_&lt;name&gt;</code> with <code>Open</code> first, so user code
+  sees where one logical write starts (it may change the capacity there; a resume of the same session doesn't call
+  it). Then it answers with <code>StreamOpened</code> (where the device is, its buffer) and sends an <code>Ack</code> with the grant. An
+  open without the host's session is refused.</li>
+<li>On a write (<code>SinkWrite</code>, <code>SinkWriteUnits</code>), generated code checks its position, calls <code>write_&lt;name&gt;</code> for writes in
+  order only, and after it returns sends an <code>Ack</code> with new credit if <code>free()</code> moved the limit far enough. A write
+  after a lost one asks for a <code>Resend</code> (once per gap); a write while the device has no session (it rebooted, or the
+  host closed) answers <code>Close</code> once, and the host opens its session again.</li>
+<li><code>Query</code> is answered by generated code, <code>sideband_&lt;name&gt;</code> doesn't see it; <code>Close</code> ends the session
+  (<code>SinkCredit::close()</code>), then goes to <code>sideband_&lt;name&gt;</code> like any other sideband (it may free what is left there).</li>
+<li>A read on the sink (<code>&lt;name&gt;_status()</code> on the host) returns its <code>StreamStatus</code>: open or not, the session, the
+  position, bytes buffered and the capacity.</li>
 <li>Data freed outside a handler (e.g. after a flash write in the event loop):
-  <code>if let Some(sb) = state.plan_credit.take_credit()</code>, send it with
+  <code>if let Some(sb) = state.plan_credit.take_ack()</code>, send it with
   <code>stream_data_ser().plan_sideband_send_blocking(sb, out)</code> (<code>plan_sideband_send</code> in an async server).
-  If that is skipped, the host's next <code>CreditQuery</code> picks it up after its query interval.</li>
+  If that is skipped, the host's next <code>Query</code> picks it up after its query interval.</li>
 <li><code>SinkCredit::overruns()</code> counts bytes the host sent beyond its credit (should stay 0; such writes still reach the
   handler).</li>
 </ul>
 <h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
-<p><code>Sink&lt;T&gt;</code> of a credit sink works like any other: <code>send()</code> opens the session if needed and waits for credit. Besides:</p>
+<p><code>Sink&lt;T&gt;</code> of a credit sink works like any other: <code>send()</code> opens a session if needed and waits for credit. Besides:</p>
 <ul>
+<li><code>open()</code> starts a new session and returns once the device answered; <code>open_session(session)</code> the same with the
+  session named by user code.</li>
+<li><code>send_units(value, units)</code> (<code>_blocking</code>, <code>try_send_units</code>) sends a value that takes <code>units</code> positions;
+  <code>send_bytes()</code> on a byte sink counts its bytes.</li>
 <li><code>flush()</code> / <code>flush_blocking()</code> / <code>try_flush()</code> waits until the device accepted everything sent so far, resending
   what was lost; <code>close()</code> flushes first, then sends <code>Close</code>.</li>
-<li><code>credit_progress()</code> returns <code>(accepted, sent)</code> bytes of the session (<code>u64</code>, a session has no size limit), e.g. for
+<li><code>credit_progress()</code> returns <code>(accepted, sent)</code> units of the session (<code>u64</code>, a session has no size limit), e.g. for
   a progress bar.</li>
+<li>A device that lost the session (it answers an open behind what it had acknowledged, after a reboot) fails the call
+  with <code>StreamError::SinkSessionLost { device_at, acked }</code>: what was sent from <code>device_at</code> on is gone, user code
+  decides what to do (a DFU plan starts over); the next value opens a new session. A link that went down without
+  <code>keep_streams</code> fails the call with <code>UnexpectedEvent(Disconnected)</code> and ends the session on the host; to go on after
+  a reconnect or a restart, see <a href="#resume">Resume</a>.</li>
 <li><code>set_credit_config(CreditConfig { query_interval, stall_timeout })</code> tunes it to the link: <code>query_interval</code> (1 s by
   default) longer than the link's round trip, <code>stall_timeout</code> (30 s by default) longer than the device's worst stall
   (a flash sector erase takes 1-2 s); with no progress for that long, <code>send()</code> fails with a timeout.</li>
 </ul>
-<p>The dynamic client and Python speak the same protocol for credit sinks. How the credit is exchanged, and how
+<h3 id="resume">Resume<a class="headerlink" href="#resume" title="Permanent link">&para;</a></h3>
+<p>A credit sink's session lives on the device until another session is opened (or the device reboots), so a transfer
+goes on after the link or the host program went away, from where the device is: nothing the device took is sent
+again, nothing is lost.</p>
+<p><strong>After a reconnect</strong>, with the program still running: disconnect with <code>disconnect().keep_streams()</code>, and after the
+new connection <code>Commander::resume_streams()</code> (it also resumes counted and reliable streams and observers). It
+registers every sink on the new connection and opens a credit sink's session again; the sink sends what the device
+didn't acknowledge, from the device's position, and goes on. While the link is down, <code>send()</code> and <code>flush()</code> wait for
+the resume (<code>try_send()</code> returns <code>false</code>); <code>resume_streams()</code> counts each session that goes on.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">uart_tx</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">line</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1">// .. the link goes</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">cmd</span><span class="p">.</span><span class="n">disconnect</span><span class="p">().</span><span class="n">keep_streams</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1">// .. connected again through the same commander</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">cmd</span><span class="p">.</span><span class="n">resume_streams</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">next_line</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// the device gets the rest of `line`, then `next_line`</span>
+</span></code></pre></div>
+<p><strong>After a restart</strong> of the host program, the program saves the sink's cursor with its own progress:
+<code>Sink::cursor()</code> is the session and the position up to which the device accepted everything. The new program
+continues with <code>&lt;sink&gt;_resume(cursor)</code> (<code>Sink::resume(cursor)</code> on a sink it has, <code>_blocking</code> variants), which
+returns the sink and the position where the device is: at or after the saved one, since the device may have accepted
+more before the old program went. User code continues its own data there, the byte at that offset on a byte sink:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// old program: from time to time, with what it sent</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">save</span><span class="p">(</span><span class="n">tx</span><span class="p">.</span><span class="n">cursor</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="n">state</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1">// new program</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="k">mut</span><span class="w"> </span><span class="n">tx</span><span class="p">,</span><span class="w"> </span><span class="n">at</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">client</span><span class="p">.</span><span class="n">uart_tx_resume</span><span class="p">(</span><span class="n">saved_cursor</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">tx</span><span class="p">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="n">data</span><span class="p">[</span><span class="n">at</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">usize</span><span class="o">..</span><span class="p">]).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<p><strong>A device that lost the session</strong> (it rebooted while the host was away) answers the open at 0: <code>resume()</code> and, after
+a reconnect, the sink's next call fail with <code>StreamError::SinkSessionLost { device_at, acked }</code>, and
+<code>resume_streams()</code> doesn't count the sink. What the device had is gone; user code decides (a DFU plan starts over
+with <code>open()</code>, see <a href="../../std_library/ww_dfu_ab/#2c-app-bulk-swap-freight">ww_dfu</a>).</p>
+<p>A resume opens the same session (<code>StreamOpen</code> with the cursor), so a device's <code>sideband_&lt;name&gt;</code> doesn't see an <code>Open</code>:
+for user code on the device, the logical write goes on. A late duplicate of an open (UDP) answers where the device is
+and changes nothing. What can't be told apart is described in
+<a href="../stream_protocol/#credit-sinks-on-the-wire"><code>ww_stream::sink</code></a>.</p>
+<p>The dynamic client and Python speak the same protocol for credit sinks (Python: <code>sink.cursor</code>,
+<code>sink.resume(cursor)</code>, <code>ww.SessionLost</code>). How the credit is exchanged, and how
 writes lost on UDP are found and resent: <a href="../stream_protocol/#credit-sinks-on-the-wire">Stream protocol</a>.</p>
 <h2 id="sideband">Sideband<a class="headerlink" href="#sideband" title="Permanent link">&para;</a></h2>
 <p>Next to its data, every stream and sink has a sideband channel in both directions, <code>StreamSideband</code> values sent in
@@ -5413,19 +5498,15 @@ order with the data. Generated code uses it for the protocol, user code may use 
 </tr>
 <tr>
 <td><code>Open</code></td>
-<td>the host opens a sink (credit sinks: a new session)</td>
+<td>the host opens a plain sink; a credit sink's handler gets it when a <code>StreamOpen</code> starts a new session</td>
 </tr>
 <tr>
 <td><code>FrameSync</code>, <code>SizeHint(n)</code>, <code>User(n)</code></td>
 <td>free for the API's own meaning: frame boundaries in a byte stream, the size of what follows, application events</td>
 </tr>
 <tr>
-<td><code>Credit</code>, <code>CreditQuery</code>, <code>Resend</code></td>
-<td>credit sinks, handled by generated code</td>
-</tr>
-<tr>
-<td><code>Ack</code>, <code>ResendFrom</code>, <code>Query</code></td>
-<td>counted and reliable streams, handled by generated code</td>
+<td><code>Ack</code>, <code>Resend</code>, <code>Query</code></td>
+<td>counted and reliable streams and credit sinks, handled by generated code</td>
 </tr>
 </tbody>
 </table>
@@ -5433,26 +5514,26 @@ order with the data. Generated code uses it for the protocol, user code may use 
 <code>Some(sideband)</code> sends it back as a sideband event on the same stream, <code>None</code> only acknowledges the request. Either way
 the host's request gets its answer. Counted and reliable streams take only <code>Close</code> and the protocol messages, other
 sideband is refused.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1">// host</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">stream</span><span class="p">.</span><span class="n">sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">match</span><span class="w"> </span><span class="n">stream</span><span class="p">.</span><span class="n">recv_any</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="n">TypedStreamEvent</span><span class="p">::</span><span class="n">Sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">n</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* .. */</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">}</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1">// device</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="k">fn</span><span class="w"> </span><span class="nf">sideband_uart_rx</span><span class="p">(</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="n">sideband</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamSideband</span><span class="p">,</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StreamSideband</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">sideband</span><span class="p">)</span><span class="w"> </span><span class="c1">// echo</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// host</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">stream</span><span class="p">.</span><span class="n">sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">match</span><span class="w"> </span><span class="n">stream</span><span class="p">.</span><span class="n">recv_any</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">TypedStreamEvent</span><span class="p">::</span><span class="n">Sideband</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">n</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* .. */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1">// device</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="k">fn</span><span class="w"> </span><span class="nf">sideband_uart_rx</span><span class="p">(</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="n">_cx</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">Context</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="p">,</span><span class="w"> </span><span class="k">impl</span><span class="w"> </span><span class="n">BlockingEventOut</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="n">sideband</span><span class="p">:</span><span class="w"> </span><span class="nc">StreamSideband</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">StreamSideband</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="nb">Some</span><span class="p">(</span><span class="n">sideband</span><span class="p">)</span><span class="w"> </span><span class="c1">// echo</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The device sends sideband events on its own with <code>stream_data_ser().&lt;name&gt;_sideband_send(sideband, out)</code>
 (<code>_sideband_send_blocking</code>, <code>&lt;name&gt;_sideband(sideband, scratch)</code>), for streams and sinks alike; a <code>Close</code> this way ends
 a stream on the host (<code>recv_all_bytes()</code> returns, a <code>PositionedStream</code> sees <code>Closed</code>):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1">// e.g. tell the host a sink&#39;s buffer is full</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">uart_tx_sideband_send</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1">// e.g. tell the host a sink&#39;s buffer is full</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">server_impl</span><span class="p">::</span><span class="n">stream_data_ser</span><span class="p">().</span><span class="n">uart_tx_sideband_send</span><span class="p">(</span><span class="n">StreamSideband</span><span class="p">::</span><span class="n">User</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span><span class="w"> </span><span class="n">cx</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
 </span></code></pre></div>
 <p>On the host, a <code>Stream</code> returns sideband events from <code>recv_any()</code>, a <code>Sink</code> from <code>recv_sideband()</code> (<code>_blocking</code>,
 <code>try_recv_sideband()</code>); credit events of a credit sink are used up internally.</p>

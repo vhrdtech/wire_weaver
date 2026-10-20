@@ -5737,20 +5737,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>API-10 Type paths from Cargo</strong>: trait source path, external types in API crates as full paths.</li>
 <li>✅ <strong>API-11 Sync and async servers, async / blocking / promise clients</strong> from the same trait.</li>
 <li>✅ <strong>API-28 Credit-based flow control for sinks</strong> — <code>#[credit] sink!(..)</code>: the device grants credit in bytes of
-  items (the serialized value of each write, never split; <code>StreamSideband::Credit { have, grant }</code>), so a receive
+  items (the serialized value of each write, never split; the grant of an <code>Ack</code> since API-34), so a receive
   buffer holds as many items as fit whatever their sizes; the host waits when out of credit (async, blocking,
   <code>try_send</code>), writes carry the byte position of their first byte so a lossy medium resumes with go-back-N from <code>have</code>
-  (<code>Resend</code>, <code>CreditQuery</code>), <code>flush()</code> waits for the final ack. No deadlock: generated <code>&lt;SINK&gt;_MAX_ITEM_BYTES</code> (from
+  (<code>Resend</code>, <code>Query</code>), <code>flush()</code> waits for the final ack. No deadlock: generated <code>&lt;SINK&gt;_MAX_ITEM_BYTES</code> (from
   <code>MAX_SIZE</code>, <code>MaxLen</code> bounds included) and <code>SinkCredit::sized_for()</code> check at compile time that the buffer holds the
   largest item and cap the re-grant threshold, the host fails an item bigger than the buffer with
-  <code>StreamError::ItemTooBig</code>. Device state in <code>ww_client_server::credit::SinkCredit</code>, dynamic and Python clients too.
+  <code>StreamError::ItemTooBig</code>. Device state in <code>ww_stream::sink::SinkCredit</code> (API-34), dynamic and Python clients too.
   Used by <code>ww_dfu</code> <code>StageBulk::plan</code>. For bulk transfers (chunky OTA plans over LTE-M/LoRa/UDP), UART bridges, CAN
   tx. See also CLT-18 backpressure (<code>docs/api/credit_sinks.md</code>, <code>tests/credit_sink</code>).</li>
-<li>✅ <strong>API-42 Credit-sink positions without a session limit</strong> · <code>v0.5</code> — host (<code>CreditTx</code>) and device (<code>SinkCredit</code>)
-  count positions in <code>u64</code>, the wire carries them modulo 2^28 (<code>credit::POS_MODULUS</code>, at most 4 bytes as a <code>UVlq32</code>,
-  <code>UNib32</code> in the sideband), the receiver extends them from the position it expects (serial number arithmetic). The
+<li>✅ <strong>API-42 Credit-sink positions without a session limit</strong> · <code>v0.5</code> — host (<code>SinkTx</code>) and device (<code>SinkCredit</code>)
+  count positions in <code>u64</code>, the wire carries them modulo 2^28 (<code>ww_stream::sink::POS_MODULUS</code>, at most 4 bytes as a
+  <code>UVlq32</code>), the receiver extends them from the position it expects (serial number arithmetic). The
   buffer is at most <code>MAX_WINDOW</code> (64 MiB, a quarter of the modulus), checked at compile time by <code>sized_for</code>, and the
-  host never has more in flight; one fixed modulus on every link, nothing negotiated at <code>Open</code>. Tested over a seeded
+  host never has more in flight; one fixed modulus on every link, nothing negotiated at the open. Tested over a seeded
   lossy link (loss, duplicates, reordering, reconnects) with sessions starting near the wrap and far past 4 GiB
   (<code>docs/api/stream_protocol.md#positions-wrap-at-256-mib</code>).</li>
 <li>✅ <strong>API-43 Generic types in APIs</strong> · <code>v0.5</code> — generic structs and enums (DER-14, <code>Timed&lt;Ampere&gt;</code>, <code>Window&lt;4&gt;</code>,
@@ -5787,12 +5787,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>wire_weaver_core</code> unit tests, <code>ww api tree</code> (<code>docs/types.md#type-aliases</code>). <code>use .. as ..</code> renames are followed
   (API-46).</li>
 <li>✅ <strong>API-47 Resend and resume from inside a multi-unit event</strong> · <code>v0.5</code> — an event of several units (a block, a
-  batch, API-41) may be asked for again from a position inside it: a <code>ResendFrom</code> there, or a resume from a cursor
+  batch, API-41) may be asked for again from a position inside it: a <code>Resend</code> there, or a resume from a cursor
   user code confirmed in the middle of it (<code>AckMode::Explicit</code>). The device sends the event that holds the position
   whole (<code>StreamStore::read</code> returns it for every store), the host's <code>Receiver</code> takes it with
   <code>Verdict::Accept { skip }</code> (also for ranges it had before a resume), <code>PositionedStream</code> gives the new units. Fixed
-  with it: <code>ResendFrom</code> no longer counts as an acknowledgement on the device (the store kept less than an explicit
-  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late <code>ResendFrom</code>
+  with it: <code>Resend</code> no longer counts as an acknowledgement on the device (the store kept less than an explicit
+  host had confirmed), acknowledgements and resends are valid up to the highest position sent (a late <code>Resend</code>
   on a reordering link stalled a backfill), the store is released when the backfill run ends in <code>next_event</code>. Tests
   <code>ww_stream</code> <code>tests/sim.rs</code> (batches of 1..64 units, a resend from every position inside, a resume cursor inside a
   batch, chaos with acks inside batches), <code>wire_weaver_client</code> <code>stream_e2e_tests</code>
@@ -5818,7 +5818,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>ww_stream::tx::Counted</code> / <code>Reliable</code>), resume by cursor (<code>name_resume(cursor)</code>), answer a read with their
   <code>StreamStatus</code> (<code>name_status()</code>), send with <code>stream_data_ser().&lt;name&gt;_send</code> (counted) or push into the store with
   <code>&lt;name&gt;_push</code> (reliable), which the generated <code>poll_streams</code> sends by priority between requests and resends on the
-  host's <code>ResendFrom</code>; <code>ww api scaffold</code>, introspection (<code>ApiItemKind::StreamFn</code>), compatibility check and API diff
+  host's <code>Resend</code>; <code>ww api scaffold</code>, introspection (<code>ApiItemKind::StreamFn</code>), compatibility check and API diff
   know them. Includes API-15. Not yet: reliable streams in resource arrays (<code>poll_streams</code> refuses them), the open
   arguments in <code>StreamStatus</code>, stream functions in the dynamic client and Python (CLT-23), streams that detach by
   themselves when the link goes down (a resume re-attaches) (<code>docs/api/stream_reliability.md</code>,
@@ -5957,7 +5957,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>API-30 Counted and reliable streams</strong> · <code>v0.5</code> — counted streams put a head in every event (flags and a
   length-coded 64-bit <code>pos</code> in units the device names when it sends, the event's <code>units</code>, <code>lost</code>, optional device time
   <code>t</code>), so drops on the device, link losses and duplicates are reported exactly and item types carry no <code>seq</code> /
-  <code>lost</code> / <code>t</code> fields (IO family D4, D5). Reliable streams add <code>Ack</code> / <code>ResendFrom</code> / <code>Query</code> (go-back-N, grants in
+  <code>lost</code> / <code>t</code> fields (IO family D4, D5). Reliable streams add <code>Ack</code> / <code>Resend</code> / <code>Query</code> (go-back-N, grants in
   bytes), keep unacknowledged events in a store, resume by cursor after a reconnect with the latest values first and
   the backlog beside them; a send scheduler with priorities between streams; typed <code>cnt</code> counters
   (<code>docs/api/stream_reliability.md</code>). Done, the protocol core: wire types in <code>ww_client_server::stream</code>
@@ -5966,12 +5966,27 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Scheduler</code>, <code>StreamCnt</code>; sans-IO, <code>no_std</code>, tested over a seeded lossy link with random disconnects),
   <code>ww_self::ApiItemKind::StreamFn</code>, codegen (API-31), the host runtime (CLT-23). Missing: credit sinks on it
   (API-34). The persistent store is done (SRV-15).</li>
-<li>📋 <strong>API-34 Credit sinks on the stream protocol</strong> · <code>v0.5</code> — <code>Ack</code> / <code>Query</code> / <code>Resend</code> shared with reliable
-  streams, sessions and resume for credit sinks, so a DFU plan continues after a reconnect; <code>SinkCredit</code> moves into
-  <code>ww_stream</code> (<code>docs/api/stream_reliability.md</code>). Sink positions stay as API-42 has them (<code>u64</code> in state, modulo
-  2^28 on the wire, bounded by the window), streams keep their full <code>UVlq64</code> positions (their gaps are unbounded);
-  a resume cursor for a sink would carry a full position. A session id in <code>Open</code> and its answer would also stop a
-  late duplicate <code>Open</code> (UDP) from resetting a running session.</li>
+<li>🧪 <strong>API-34 Credit sinks on the stream protocol</strong> · <code>v0.5</code> — <code>Ack</code> / <code>Query</code> / <code>Resend</code> shared with reliable
+  streams, sessions and resume for credit sinks, so a sink (UART tx, a DFU plan) continues after a reconnect.
+  Positions count units the host names per item (1 by default, the payload's bytes for a byte sink), grants count
+  bytes; positions stay as API-42 has them (<code>u64</code> in state, modulo 2^28 on the wire), the host keeps at most
+  <code>MAX_WINDOW</code> bytes and units in flight; streams keep their full <code>UVlq64</code> positions (their gaps are unbounded). The
+  host names the session in <code>StreamOpen</code>'s cursor, so a repeated or late duplicate open (UDP) no longer resets a
+  running session. Done: the protocol core, <code>ww_stream::sink</code> (<code>SinkCredit</code> on the device, <code>SinkTx</code> on the host),
+  <code>RequestKind::SinkWrite</code> / <code>SinkWriteUnits</code>, and the switch-over: generated server code (open by <code>StreamOpen</code>, a
+  read returns <code>StreamStatus</code>), the host <code>Sink</code> (<code>send_units</code>, <code>open_session</code>, a device that lost the session is
+  reported), dynamic client and Python, <code>ww_dfu</code>, every test crate; the old <code>Credit</code> / <code>CreditQuery</code> / <code>Resend</code>,
+  <code>CreditWrite</code> and <code>ww_client_server::credit</code> are gone, <code>ResendFrom</code> is <code>Resend</code>. Resume in the host API:
+  <code>Sink::cursor()</code>, sinks in <code>disconnect().keep_streams()</code> / <code>Commander::resume_streams()</code> (the session goes on from
+  where the device is, nothing repeated or lost), the generated <code>&lt;sink&gt;_resume(cursor)</code> after a host restart,
+  <code>StreamError::SinkSessionLost</code> for a device that lost the session; Python <code>Sink.cursor</code> / <code>resume</code> /
+  <code>ww.SessionLost</code>. Tests: <code>wire_weaver_client</code> <code>event_loop/sink_e2e_tests.rs</code> (reconnect in the middle of a
+  transfer with lost writes, a rebooted device, a restarted host, a late duplicate open), <code>tests/credit_sink</code>,
+  the 2C-APP-BULK DFU scenario. See <code>docs/api/credit_sinks.md#resume</code>. To check on hardware: TEST-26.</li>
+<li>💡 <strong>API-53 Sink functions</strong> — <code>#[sink(T, credit)] fn uart_tx(config: TxConfig) -&gt; Result&lt;A, E&gt;</code>, the
+  counterpart of stream functions (API-31): a sink opened with a configuration and a typed result, a new session
+  exactly when the configuration changes. The wire has it (<code>StreamOpen { args }</code>); codegen and the host API are
+  missing.</li>
 <li>💡 <strong>API-24 Guarded calls for critical resources</strong> · <code>v0.5.x</code> — for safety-critical actions, such as starting a motor
   or switching high power, a request that happens to match predefined bytes must not be enough. Add an extra
   check, e.g. a CRC over the resource identity and arguments (a "strict mode" per resource), or a
@@ -6746,6 +6761,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (plain struct, enum, list, bit fields, <code>Option</code>, decode or encode only, the request/reply codec of a small
   softcore firmware and the same by hand) for RV32I, RV32IC, Cortex-M0 and Cortex-M4F/M7 and prints <code>.text</code> +
   <code>.rodata</code>, or the largest symbols (<code>shrink_wrap/size_bench</code>, results in <code>docs/serdes/code_size.md</code>).</li>
+<li>📋 <strong>TEST-26 Credit sink resume on hardware</strong> · <code>v0.5</code> — Donguru's UART tx credit sink (API-34) on omarchy-m1:
+  a reconnect in the middle of a transfer (USB unplugged and plugged back, <code>keep_streams</code> and <code>resume_streams()</code>)
+  puts every byte on the line exactly once, and a restarted host continues from a saved cursor.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>

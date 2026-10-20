@@ -5580,6 +5580,11 @@ example a boot counter combined with an open counter). A <strong>cursor</strong>
 </ul>
 <p>A host that saves data also saves the cursor with it, and resumes from it after a restart: with explicit
 acknowledgements (below), nothing is lost even when the host crashes between receiving data and saving it.</p>
+<p>Credit sinks, the other direction, have sessions and cursors too, with the roles swapped: the host sends, so the
+host names the session, and the device's position says how far it accepted. A sink continues after
+<code>disconnect().keep_streams()</code> and <code>Commander::resume_streams()</code> from where the device is, and a restarted host
+continues from a saved <code>Sink::cursor()</code> with <code>&lt;sink&gt;_resume(cursor)</code>; a device that lost the session is reported
+(<code>StreamError::SinkSessionLost</code>). See <a href="../credit_sinks/#resume">credit sinks</a>.</p>
 <h2 id="latest-values-while-backfilling">Latest values while backfilling<a class="headerlink" href="#latest-values-while-backfilling" title="Permanent link">&para;</a></h2>
 <p>A resumed reliable stream has two <strong>runs</strong> of positions, each delivered in order:</p>
 <ul>

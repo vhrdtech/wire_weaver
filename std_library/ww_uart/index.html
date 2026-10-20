@@ -5367,7 +5367,8 @@ stream. It composes with the rest of the API using <a href="../../api/traits/"><
   when its last byte arrived, if the device measures it (<a href="#time">Time</a> below).</li>
 <li><code>tx</code> - bytes to send, a <a href="../../api/credit_sinks/">credit sink</a> (API-28): the host tracks the device's TX buffer
   (<code>Capabilities::tx_buffer</code>) and never sends more than it holds, so a large write (e.g. a file piped to the UART)
-  can't overrun it.</li>
+  can't overrun it. Its positions count bytes of the payload (API-34), so the device's position is the bytes taken
+  for the line, and <code>credit_progress()</code> on the host says how many.</li>
 <li><code>capabilities()</code> - what this device supports: baud rate range, flow control modes, IO levels, buffer sizes.</li>
 <li><code>configure</code> - the whole line configuration in one <a href="#types"><code>UartConfig</code></a> (baud rate, data bits, parity, stop bits,
   mode, back-feed detector, IO level, the idle time that ends a chunk), answered with what was actually set: the

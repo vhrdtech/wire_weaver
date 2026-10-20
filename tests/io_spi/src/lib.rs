@@ -560,8 +560,8 @@ mod tests {
         use tests_common::TestProcessEvents;
         use ww_bus_slave::SpiSlave;
         use ww_client_server::StreamSideband;
-        use ww_client_server::credit::SinkCredit;
         use ww_spi::{SpiSlaveCapabilities, SpiSlaveConfig};
+        use ww_stream::sink::SinkCredit;
 
         /// Same sizes as `ww_bus_slave`'s own host tests: a 64-byte map, 3 answers of up to 8 bytes, 8 frames of up
         /// to 16 bytes each way.

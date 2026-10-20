@@ -3330,6 +3330,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#reworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reworks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5118,6 +5129,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#reworks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Reworks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5306,6 +5328,39 @@ It never fails; what a device does not know is an empty string or <code>None</co
   production record until it is written; not a production record. Added later as an appended variant: older hosts
   read it as their <code>future_version</code> variant.</li>
 </ul>
+<h2 id="reworks">Reworks<a class="headerlink" href="#reworks" title="Permanent link">&para;</a></h2>
+<p>Bring-up boards of one revision differ: some have a cut trace, a jumper or a swapped part that others lack. A device
+that keeps the list serves it as an optional const item:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="cp">#[optional]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">const</span><span class="w"> </span><span class="n">REWORKS</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">Rework</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_REWORKS</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// 16 entries</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>Rework</code> field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Stable short id, <code>rework-5</code>, as in the board's documentation (16 bytes)</td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>What it is, <code>cut trace to U3 pin 4</code> (48 bytes)</td>
+</tr>
+<tr>
+<td><code>applied</code></td>
+<td>Whether this unit has it</td>
+</tr>
+</tbody>
+</table>
+<p>The id is text, not an <code>Interned</code> (STD-48) index: an index changes with every firmware build and needs the ELF
+to read, while a rework is a fact about the hardware that any support case must read from any unit. A device that
+keeps no list leaves it out (<code>omit = ["board.REWORKS"]</code> in <code>ww_codegen!</code>, see <a href="../../api/optional_items/">optional items</a>):
+the client answers <code>NotImplementedByDevice</code> without asking. <code>ww info</code> and <code>ww report</code> print the list when it is served.
+Added in 0.3.0 as an appended item, so older devices and hosts are unaffected.</p>
 <p>Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.</p>
 <p><code>BoardSummary</code> has no <code>defmt::Format</code> (its <code>DateTime</code> has none).</p>

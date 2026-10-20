@@ -434,7 +434,7 @@ mod tests {
         // a new connection tries the compact path again
         client.cmd().disconnect().asynch().await.unwrap();
         let client = connect_traits_only(&device).await;
-        let mut boot = BootControl::new(
+        let boot = BootControl::new(
             client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
         );
         boot.boot_state().call().await.unwrap();

@@ -1915,6 +1915,7 @@ dependencies = [
  "shrink_wrap",
  "syn 3.0.3",
  "wire_weaver_snapshots",
+ "ww_global",
  "ww_numeric",
  "ww_self",
  "ww_version",
@@ -1932,6 +1933,7 @@ dependencies = [
  "subprocess",
  "syn 3.0.3",
  "wire_weaver_core",
+ "ww_global",
 ]
 
 [[package]]

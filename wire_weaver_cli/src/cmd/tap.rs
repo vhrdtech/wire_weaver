@@ -431,7 +431,13 @@ impl Monitor {
                 let link = d.link.unwrap_or(0);
                 if self.view.layer == Layer::Api {
                     let api = m.api.as_ref()?;
-                    let bundle = self.decoder.link_api(link).map(|r| r.bundle().clone());
+                    // the API of the message's own resource (a global trait's), else the device's
+                    let bundle = api
+                        .envelope
+                        .as_ref()
+                        .and_then(|e| e.resource.as_ref())
+                        .or_else(|| self.decoder.link_api(link))
+                        .map(|r| r.bundle().clone());
                     _ = writeln!(s, "{head} {}", api_line(m, api, bundle.as_deref()));
                     if self.view.bits
                         && let (Some(e), Some(bundle)) = (&api.envelope, &bundle)
@@ -619,7 +625,7 @@ fn api_line(
 ) -> String {
     let mut s = format!("{} {}", arrow(m.dir), style(&api.title).bold());
     if let (Some(e), Some(bundle)) = (&api.envelope, bundle) {
-        let fields = payload_text(&e.explained, bundle);
+        let fields = payload_text(e, bundle);
         if !fields.is_empty() {
             _ = write!(s, "  {fields}");
         }
@@ -639,16 +645,17 @@ fn api_line(
     s
 }
 
-/// The payload's values: `a: 1, b: 2` for arguments, the value alone otherwise.
-fn payload_text(
-    e: &wire_weaver_client::ww_self::explain::Explained,
-    bundle: &ApiBundleOwned,
-) -> String {
-    let parts = &e.parts;
+/// The payload's values: `a: 1, b: 2` for arguments or the properties of an update, the value alone otherwise, a
+/// text where there is no value (what an `Observe` asks or was granted).
+fn payload_text(e: &wire_weaver_client::envelope::Envelope, bundle: &ApiBundleOwned) -> String {
+    let parts = &e.explained.parts;
     let Some(at) = parts.iter().position(|p| {
-        p.ty == "TailBytes"
-            && matches!(p.label.as_str(), "args" | "data")
-            && p.kind == PartKind::Value
+        p.kind == PartKind::Value
+            && match p.label.as_str() {
+                "args" | "data" => p.ty == "TailBytes",
+                "cfg" | "granted" => true,
+                _ => false,
+            }
     }) else {
         return String::new();
     };
@@ -657,7 +664,10 @@ fn payload_text(
     if let Some(v) = &payload.value {
         return fmt_value(v, None, bundle);
     }
-    let values = match &e.result {
+    if let Some(text) = &payload.note {
+        return text.clone();
+    }
+    let values = match &e.explained.result {
         Ok(v) => v,
         Err(err) => return style(format!("({err:#})")).red().to_string(),
     };
@@ -670,9 +680,12 @@ fn payload_text(
     values
         .iter()
         .enumerate()
-        .map(|(i, v)| match names.get(i) {
-            Some(name) if !name.is_empty() => format!("{name}: {}", fmt_value(v, None, bundle)),
-            _ => fmt_value(v, None, bundle),
+        .map(|(i, v)| {
+            let value = fmt_value(v, e.types.get(i), bundle);
+            match names.get(i) {
+                Some(name) if !name.is_empty() => format!("{name}: {value}"),
+                _ => value,
+            }
         })
         .collect::<Vec<_>>()
         .join(", ")

@@ -9,27 +9,40 @@
 use crate::DynResource;
 use crate::client::dynamic::DynResourceKind;
 use anyhow::{Result, anyhow};
+use std::ops::Range;
 use std::sync::Arc;
 use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::buf_reader::Cursors;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver::shrink_wrap::{BufReader, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill};
+use wire_weaver::shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill};
 use ww_client_server::{
     EventKind, PathKind, PathKindOwned, Request, RequestKind, RequestKindOwned, RequestOwned,
 };
+use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode};
 use ww_numeric::NumericValue;
 use ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
-use ww_self::{ApiBundleOwned, TypeOwned, ValueOwned};
+use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeOwned, ValueOwned};
+use ww_version::FullVersionOwned;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 /// A request or event explained, with a title saying what it is.
 pub struct Envelope {
     pub title: String,
     pub explained: Explained,
+    /// The type of each value in `explained.result` when it is known (a property's, the arguments'), for showing
+    /// them with their units; empty otherwise.
+    pub types: Vec<TypeOwned>,
+    /// The resource the request is for (or the event is about), when the API knows it.
+    pub resource: Option<DynResource>,
 }
 
-/// Explain `bytes` as a request (as the host sends it), its payload by the resource its path names in `root`'s API.
-pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
-    let mut b = Builder::new(bytes, root);
+/// Explain `bytes` as a request (as the host sends it), its payload by the resource its path names in `root`'s API,
+/// or in the snapshot of a global trait ([global_trait]). Without a `root` (the API of the device is not known) only
+/// the requests through global traits are explained.
+pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>>) -> Envelope {
+    let root = root.into();
+    let mut b = Builder::new(bytes);
     let mut title = "Request".to_string();
     let result = (|| {
         let mut rd = BufReader::new(bytes);
@@ -54,7 +67,9 @@ pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
                     ids(&chain),
                     None,
                 );
-                let resource = root.descend(&chain);
+                let resource = root
+                    .ok_or_else(|| anyhow!("the device API is not known"))
+                    .and_then(|root| root.descend(&chain).map_err(|e| anyhow!("{e}")));
                 if let Some(part) = b.parts.last_mut() {
                     part.note = Some(match &resource {
                         Ok(r) => r.path().to_string(),
@@ -63,8 +78,37 @@ pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
                 }
                 resource.ok()
             }
+            PathKind::GlobalFull {
+                gid,
+                trait_name,
+                path_from_trait,
+            } => {
+                // a trait of a crate that is known from a snapshot, wherever the device has it
+                let chain: Vec<u32> = path_from_trait
+                    .iter()
+                    .map(|i| i.map(|i| i.0))
+                    .collect::<Result<_, _>>()?;
+                let resource = global_trait(&gid.make_owned(), trait_name)
+                    .ok_or_else(|| {
+                        anyhow!("{}@{} is not known here", gid.crate_id, trait_name)
+                    })
+                    .and_then(|t| t.descend(&chain).map_err(|e| anyhow!("{e}")));
+                b.leaf(
+                    1,
+                    "path",
+                    "PathKind::GlobalFull",
+                    at,
+                    b.at(&rd),
+                    ids(&chain),
+                    Some(match &resource {
+                        Ok(r) => r.path().to_string(),
+                        Err(e) => format!("{}::{trait_name}: {e}", gid.crate_id),
+                    }),
+                );
+                resource.ok()
+            }
             other => {
-                // a path through a global trait id: shown, its payload not explained yet
+                // a path through a compact global id: shown, its payload not explained
                 b.leaf(
                     1,
                     "path",
@@ -77,6 +121,8 @@ pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
                 None
             }
         };
+
+        b.set_resource(resource.clone());
 
         let at = b.at(&rd);
         let kind: RequestKind = rd.read()?;
@@ -102,6 +148,22 @@ pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
                 resource.as_ref().map(|r| what.of(r, false)),
             )?;
         }
+        if let (RequestKind::Observe { cfg }, Some(level)) = (&kind, &resource) {
+            let names = level_names(level);
+            let entries = cfg.entries.iter().collect::<Result<Vec<_>, _>>()?;
+            let mut text = observe_text(&entries, &names);
+            if !cfg.patch {
+                text += if text.is_empty() {
+                    "stop observing"
+                } else {
+                    "; others off"
+                };
+            }
+            if let Some(budget) = cfg.budget {
+                text += &format!("; budget {} B/s", budget.0);
+            }
+            b.text(2, "cfg", "ObserveRequest", at.front_bit..end.front_bit, text);
+        }
         Ok(())
     })();
     b.finish(title, result)
@@ -109,12 +171,24 @@ pub fn explain_request(bytes: &[u8], root: &DynResource) -> Envelope {
 
 /// Explain `bytes` as an event (as the device sends it). A stream's data names its stream; a method's return value
 /// or a property read doesn't (only `seq` ties it to its request): `for_resource` gives it.
-pub fn explain_event(
+pub fn explain_event<'r>(
     bytes: &[u8],
-    root: &DynResource,
+    root: impl Into<Option<&'r DynResource>>,
     for_resource: Option<&DynResource>,
 ) -> Envelope {
-    let mut b = Builder::new(bytes, root);
+    explain_reply(bytes, root.into(), for_resource, false)
+}
+
+/// [explain_event] knowing what the event answers: with `observe` the value is what an `Observe` request of the
+/// trait level `for_resource` was granted (`ObserveGranted`), not a property.
+pub fn explain_reply<'r>(
+    bytes: &[u8],
+    root: impl Into<Option<&'r DynResource>>,
+    for_resource: Option<&DynResource>,
+    observe: bool,
+) -> Envelope {
+    let root = root.into();
+    let mut b = Builder::new(bytes);
     let mut title = "Event".to_string();
     let result = (|| {
         let mut rd = BufReader::new(bytes);
@@ -131,7 +205,10 @@ pub fn explain_event(
         };
         let kind = match event {
             Err(e) => {
-                title = "Event error".to_string();
+                title = match for_resource {
+                    Some(r) => format!("Event error {}", r.path()),
+                    None => "Event error".to_string(),
+                };
                 b.node(
                     1,
                     "result",
@@ -198,7 +275,7 @@ pub fn explain_event(
                     .iter()
                     .map(|i| i.map(|i| i.0))
                     .collect::<Result<_, _>>()?;
-                Some(root.descend(&chain).map_err(|e| anyhow!("{e}")))
+                root.map(|root| root.descend(&chain).map_err(|e| anyhow!("{e}")))
             }
             _ => None,
         };
@@ -210,6 +287,7 @@ pub fn explain_event(
             }
             None => for_resource.cloned(),
         };
+        b.set_resource(resource.clone());
         if let Some(r) = &resource {
             title = format!("Event {variant} {}", r.path());
         } else if title == "Event" {
@@ -220,14 +298,28 @@ pub fn explain_event(
             EventKind::StreamData { data, .. } | EventKind::StreamItem { data, .. } => {
                 Some(data.as_slice())
             }
-            // a level's update is a sparse struct made for the observe request, not a type of the API
+            // a level's update is a sparse struct made for the observe request, not a type of the API: its slots
+            // are the level's `+observe` properties
             EventKind::PropertyUpdate { data, .. } => {
-                b.payload(3, "data", data.as_slice(), None)?;
+                b.update(3, data.as_slice(), resource.as_ref())?;
                 None
             }
             _ => None,
         };
-        if let Some(slice) = payload {
+        if let (Some(slice), true, Some(level)) = (payload, observe, &resource) {
+            let granted = ObserveGranted::from_ww_bytes(slice)?;
+            let names = level_names(level);
+            let entries = granted.entries.iter().collect::<Result<Vec<_>, _>>()?;
+            let mut text = observe_text(&entries, &names);
+            for r in granted.refused.iter() {
+                let r = r?;
+                text += &format!("; {} refused: {:?}", name_of(&names, r.index.0), r.reason);
+            }
+            text += &format!("; budget {} B/s", granted.budget.0);
+            let text = text.trim_start_matches("; ").to_string();
+            let front = b.range_of(slice)?;
+            b.text(3, "granted", "ObserveGranted", front, text);
+        } else if let Some(slice) = payload {
             b.payload(
                 3,
                 "data",
@@ -306,14 +398,18 @@ impl Payload {
 /// The parts of an envelope, built as its fields are read.
 struct Builder<'b> {
     base: &'b [u8],
-    bundle: Arc<ApiBundleOwned>,
+    /// The API the payload is read by: that of the resource, once known.
+    bundle: Option<Arc<ApiBundleOwned>>,
     parts: Vec<Part>,
     /// Result of the payload's decode, when there is one.
     payload: Option<Result<Vec<ValueOwned>>>,
+    /// Types of the payload's values when known.
+    types: Vec<TypeOwned>,
+    resource: Option<DynResource>,
 }
 
 impl<'b> Builder<'b> {
-    fn new(base: &'b [u8], root: &DynResource) -> Self {
+    fn new(base: &'b [u8]) -> Self {
         let whole = Part {
             depth: 0,
             label: String::new(),
@@ -326,10 +422,17 @@ impl<'b> Builder<'b> {
         };
         Builder {
             base,
-            bundle: root.bundle().clone(),
+            bundle: None,
             parts: vec![whole],
             payload: None,
+            types: vec![],
+            resource: None,
         }
+    }
+
+    fn set_resource(&mut self, resource: Option<DynResource>) {
+        self.bundle = resource.as_ref().map(|r| r.bundle().clone());
+        self.resource = resource;
     }
 
     fn at(&self, rd: &BufReader) -> Cursors {
@@ -458,12 +561,16 @@ impl<'b> Builder<'b> {
             value: None,
             note: None,
         });
+        let bundle = self
+            .bundle
+            .clone()
+            .ok_or_else(|| anyhow!("no API to explain the payload by"))?;
         let explained = match &target {
-            Target::Value(ty) => explain(slice, ty, &self.bundle),
+            Target::Value(ty) => explain(slice, ty, &bundle),
             Target::Args(defs) => explain_fields(
                 slice,
                 defs.iter().map(|(n, t)| (n.as_str(), t)),
-                &self.bundle,
+                &bundle,
             ),
         };
         for mut part in explained.parts {
@@ -473,6 +580,91 @@ impl<'b> Builder<'b> {
             self.parts.push(part);
         }
         self.payload = Some(explained.result);
+        self.types = match target {
+            Target::Value(ty) => vec![ty],
+            Target::Args(defs) => defs.into_iter().map(|(_, ty)| ty).collect(),
+        };
+        Ok(())
+    }
+
+    /// Bits of the envelope that `slice`, borrowed from it, covers.
+    fn range_of(&self, slice: &[u8]) -> Result<Range<usize>> {
+        let offset = (slice.as_ptr() as usize)
+            .checked_sub(self.base.as_ptr() as usize)
+            .filter(|o| o + slice.len() <= self.base.len())
+            .ok_or_else(|| anyhow!("payload is not inside the envelope"))?;
+        Ok(offset * 8..(offset + slice.len()) * 8)
+    }
+
+    /// Text where there are no values to show, e.g. what an `Observe` asked for.
+    fn text(&mut self, depth: usize, label: &str, ty: &str, front: Range<usize>, text: String) {
+        self.parts.push(Part {
+            depth,
+            label: label.into(),
+            kind: PartKind::Value,
+            ty: ty.into(),
+            front,
+            back: 0..0,
+            value: None,
+            note: Some(text),
+        });
+    }
+
+    /// A level's `PropertyUpdate` data at `slice`: the properties it carries, each with its place in it, by the
+    /// level's `+observe` properties.
+    fn update(
+        &mut self,
+        depth: usize,
+        slice: &[u8],
+        level: Option<&DynResource>,
+    ) -> Result<()> {
+        let Some(level) = level else {
+            return self.payload(depth, "data", slice, None);
+        };
+        let offset = (slice.as_ptr() as usize)
+            .checked_sub(self.base.as_ptr() as usize)
+            .filter(|o| o + slice.len() <= self.base.len())
+            .ok_or_else(|| anyhow!("payload is not inside the envelope"))?;
+        self.parts.push(Part {
+            depth,
+            label: "data".into(),
+            kind: PartKind::Value,
+            ty: "TailBytes".into(),
+            front: offset * 8..(offset + slice.len()) * 8,
+            back: 0..0,
+            value: None,
+            note: None,
+        });
+        let slots = level
+            .observe_schema()
+            .map_err(|e| anyhow!("{e}"))?
+            .view(slice);
+        let slots = match slots {
+            Ok(slots) => slots,
+            Err(e) => {
+                self.payload = Some(Err(e));
+                return Ok(());
+            }
+        };
+        let mut values = vec![];
+        for s in slots {
+            self.parts.push(Part {
+                depth: depth + 1,
+                label: s.name,
+                kind: PartKind::Value,
+                ty: s
+                    .ty
+                    .human_name(false, level.bundle())
+                    .unwrap_or_else(|_| format!("{:?}", s.ty)),
+                front: s.front.start + offset * 8..s.front.end + offset * 8,
+                back: s.back.start + offset * 2..s.back.end + offset * 2,
+                value: None,
+                note: None,
+            });
+            values.push(s.value);
+            self.types.push(s.ty);
+        }
+        self.payload = Some(Ok(values));
         Ok(())
     }
 
@@ -490,6 +682,8 @@ impl<'b> Builder<'b> {
                 result,
                 len: self.base.len(),
             },
+            types: self.types,
+            resource: self.resource,
         }
     }
 }
@@ -533,4 +727,87 @@ pub(crate) fn event_variant(kind: &EventKind) -> &'static str {
         EventKind::StreamItem { .. } => "StreamItem",
         EventKind::PropertyUpdate { .. } => "PropertyUpdate",
     }
+}
+
+/// Property names of a trait level by resource index, as far as they can be observed.
+fn level_names(level: &DynResource) -> Vec<(u32, String)> {
+    level
+        .observe_schema()
+        .map(|s| s.props().iter().map(|(i, n, _)| (*i, n.clone())).collect())
+        .unwrap_or_default()
+}
+
+fn name_of(names: &[(u32, String)], index: u32) -> String {
+    match names.iter().find(|(i, _)| *i == index) {
+        Some((_, name)) => name.clone(),
+        None => format!("[{index}]"),
+    }
+}
+
+/// `reading on change, temperature every 10 ms`: how each property of an `Observe` is observed.
+fn observe_text(entries: &[ObserveEntry], names: &[(u32, String)]) -> String {
+    entries
+        .iter()
+        .map(|e| format!("{}: {}", name_of(names, e.index.0), mode_text(&e.mode)))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn mode_text(mode: &ObserveMode) -> String {
+    match mode {
+        ObserveMode::Off => "off".into(),
+        ObserveMode::OnChange { min_us } if min_us.0 == 0 => "on change".into(),
+        ObserveMode::OnChange { min_us } => format!("on change (min {})", us(min_us.0)),
+        ObserveMode::Periodic { every_us } => format!("every {}", us(every_us.0)),
+        ObserveMode::OnChangeOrBeat { min_us, max_us } => format!("on change (min {}), beat every {}", us(min_us.0), us(max_us.0)),
+        ObserveMode::Samples {
+            every_us,
+            max_age_us,
+        } if every_us.0 == 0 => format!("every sample (batches up to {})", us(max_age_us.0)),
+        ObserveMode::Samples {
+            every_us,
+            max_age_us,
+        } => format!(
+            "a sample every {} (batches up to {})",
+            us(every_us.0),
+            us(max_age_us.0)
+        ),
+        other => format!("{other:?}"),
+    }
+}
+
+fn us(us: u32) -> String {
+    match us {
+        0 => "0 µs".into(),
+        us if us % 1_000_000 == 0 => format!("{} s", us / 1_000_000),
+        us if us % 1_000 == 0 => format!("{} ms", us / 1_000),
+        us => format!("{us} µs"),
+    }
+}
+
+/// The trait `trait_name` of crate `version` as a level, from the API snapshots this host carries
+/// ([crate::snapshots]): the traits a device leaves out of its introspection data, and what a request through a
+/// global trait id (`PathKind::GlobalFull`) names. `None` when the version is not embedded or has no such trait.
+pub fn global_trait(version: &FullVersionOwned, trait_name: &str) -> Option<DynResource> {
+    type Key = (FullVersionOwned, String);
+    static CACHE: Mutex<Option<HashMap<Key, Option<DynResource>>>> = Mutex::new(None);
+    let mut cache = CACHE.lock().unwrap();
+    cache
+        .get_or_insert_with(HashMap::new)
+        .entry((version.clone(), trait_name.to_string()))
+        .or_insert_with(|| {
+            let mut bundle = crate::snapshots::get(version)?.clone();
+            crate::client::introspect::inline_known(&mut bundle).ok()?;
+            let idx = bundle.traits.iter().position(|t| {
+                matches!(
+                    t,
+                    ApiLevelLocationOwned::InLine { level, crate_idx }
+                        if level.trait_name == trait_name
+                            && bundle.ext_crates.get(crate_idx.0 as usize) == Some(version)
+                )
+            })?;
+            let path = format!("{}::{trait_name}", version.crate_id);
+            Some(DynResource::trait_level(Arc::new(bundle), idx as u32, path))
+        })
+        .clone()
 }

@@ -106,6 +106,21 @@ impl DynResource {
         }
     }
 
+    /// A trait of `bundle` as a level of its own, with `path` as its display name (e.g. `ww_dfu::Dfu`): the way
+    /// a request through a global trait id reaches its resources. Paths below it read `ww_dfu::Dfu.status`.
+    pub(crate) fn trait_level(bundle: Arc<ApiBundleOwned>, trait_idx: u32, path: String) -> Self {
+        DynResource {
+            bundle,
+            index_chain: vec![],
+            path,
+            item: None,
+            node: Node::Level {
+                trait_idx: Some(trait_idx),
+            },
+            omitted: false,
+        }
+    }
+
     pub fn bundle(&self) -> &Arc<ApiBundleOwned> {
         &self.bundle
     }
@@ -537,7 +552,7 @@ impl DynResource {
         Ok(self.observe_schema()?.batched_indices().collect())
     }
 
-    fn observe_schema(&self) -> Result<LevelSchema, Error> {
+    pub(crate) fn observe_schema(&self) -> Result<LevelSchema, Error> {
         let level = self.level()?;
         let props_iter = level
             .items

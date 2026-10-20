@@ -27,7 +27,7 @@ use ww_tape::{Block, BlockKind, Describe};
 use super::reassembly::{FrameOutcome, FramePart, Reassembled, Reassembler, walker};
 use super::stats::Stats;
 use crate::DynResource;
-use crate::envelope::{Envelope, event_variant, explain_event, explain_request, request_variant};
+use crate::envelope::{Envelope, event_variant, explain_reply, explain_request, request_variant};
 
 /// Settings of a [Decoder].
 #[derive(Clone, Debug)]
@@ -166,8 +166,11 @@ struct DirState {
 struct RequestSent {
     no: u64,
     t: u64,
-    chain: Option<Vec<u32>>,
+    /// The resource the request is for, when the API knows it.
+    target: Option<DynResource>,
     what: String,
+    /// An `Observe`: its `Value` answer is what the level was granted, not a property.
+    observe: bool,
 }
 
 #[derive(Default)]
@@ -642,10 +645,8 @@ impl Decoder {
                     }
                     _ => None,
                 };
-                let envelope = root
-                    .as_ref()
-                    .filter(|_| explain && r.is_some())
-                    .map(|root| Arc::new(explain_request(bytes, root)));
+                let envelope = (explain && r.is_some())
+                    .then(|| Arc::new(explain_request(bytes, root.as_ref())));
                 let title = match (&envelope, &r) {
                     (Some(e), _) => e.title.clone(),
                     (None, Some(r)) => format!(
@@ -664,7 +665,17 @@ impl Decoder {
                     .count += 1;
                 if seq != 0 {
                     let l = self.links.get_mut(&link).expect("known");
-                    l.requests.insert(seq, RequestSent { no, t, chain, what });
+                    let observe = matches!(r.as_ref().map(|r| &r.kind), Some(ww_client_server::RequestKind::Observe { .. }));
+                    l.requests.insert(
+                        seq,
+                        RequestSent {
+                            no,
+                            t,
+                            target: envelope.as_ref().and_then(|e| e.resource.clone()),
+                            what,
+                            observe,
+                        },
+                    );
                 }
                 Some(ApiInfo {
                     title,
@@ -695,14 +706,16 @@ impl Decoder {
                     p.reply_sum_ns += dt;
                     p.reply_max_ns = p.reply_max_ns.max(dt);
                 }
-                let for_resource = match (&root, sent.as_ref().and_then(|s| s.chain.as_ref())) {
-                    (Some(root), Some(chain)) => root.descend(chain).ok(),
-                    _ => None,
-                };
-                let envelope = root
-                    .as_ref()
-                    .filter(|_| explain)
-                    .map(|root| Arc::new(explain_event(bytes, root, for_resource.as_ref())));
+                let for_resource = sent.as_ref().and_then(|s| s.target.clone());
+                let observe = sent.as_ref().is_some_and(|s| s.observe);
+                let envelope = explain.then(|| {
+                    Arc::new(explain_reply(
+                        bytes,
+                        root.as_ref(),
+                        for_resource.as_ref(),
+                        observe,
+                    ))
+                });
                 let title = match &envelope {
                     Some(e) => e.title.clone(),
                     None => match &e.result {

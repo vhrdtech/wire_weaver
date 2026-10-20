@@ -16,6 +16,7 @@
 use crate::observe::{Granted, LevelConfig, LevelUpdate, ObserveMode, Observed, Observer, Second};
 use crate::{Error, StreamError};
 use std::collections::BTreeMap;
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::Instant;
 use wire_weaver::shrink_wrap::option_any_vec::OptionAnyVec;
@@ -106,6 +107,24 @@ enum DynSlot {
     Samples(Vec<ValueOwned>),
 }
 
+/// A present slot of an update, by position in `props`, with the place it takes in the update's data.
+struct Slot {
+    k: usize,
+    slot: DynSlot,
+    front: Range<usize>,
+    back: Range<usize>,
+}
+
+/// A present property of an update, see [LevelSchema::view].
+pub(crate) struct SlotView {
+    pub name: String,
+    pub ty: TypeOwned,
+    pub value: ValueOwned,
+    /// Bits read from the front of the update's data, nibbles from its back.
+    pub front: Range<usize>,
+    pub back: Range<usize>,
+}
+
 const BATCHED_ONE: u8 = 0;
 const BATCHED_SAMPLES: u8 = 1;
 
@@ -140,25 +159,69 @@ impl LevelSchema {
     /// The present slots of one `PropertyUpdate`'s data, by position in `props`. A present slot past the ones in
     /// the schema (a newer device) is left unread: the enclosing `Unsized` bound skips it, same as a generated
     /// sparse struct with fewer fields than the data would.
-    fn decode_slots(&self, data: &[u8]) -> anyhow::Result<Vec<(usize, DynSlot)>> {
+    fn decode_slots(&self, data: &[u8]) -> anyhow::Result<Vec<Slot>> {
         let vec = OptionAnyVec::new(data)?;
         let mut iter = vec.iter();
         let mut out = Vec::with_capacity(self.props.len());
         for (k, ((index, _, ty), batched)) in self.props.iter().zip(&self.batched).enumerate() {
+            let mut at = None;
             let slot =
-                iter.read_slot_with::<DynSlot, anyhow::Error>(*index, |rd| match batched {
-                    None => Ok(DynSlot::One(ValueOwned::des_shrink_wrap_field_dyn(
-                        rd,
-                        ty,
-                        &self.bundle,
-                    )?)),
-                    Some(batched) => self.decode_batched(rd, ty, batched),
+                iter.read_slot_with::<DynSlot, anyhow::Error>(*index, |rd| {
+                    let from = rd.cursors_in(data);
+                    let slot = match batched {
+                        None => DynSlot::One(ValueOwned::des_shrink_wrap_field_dyn(
+                            rd,
+                            ty,
+                            &self.bundle,
+                        )?),
+                        Some(batched) => self.decode_batched(rd, ty, batched)?,
+                    };
+                    at = from.zip(rd.cursors_in(data));
+                    Ok(slot)
                 })?;
             if let Some(slot) = slot {
-                out.push((k, slot));
+                let (front, back) = at.map_or((0..0, 0..0), |(from, to)| {
+                    (
+                        from.front_bit..to.front_bit,
+                        to.back_nibble.min(from.back_nibble)..from.back_nibble,
+                    )
+                });
+                out.push(Slot {
+                    k,
+                    slot,
+                    front,
+                    back,
+                });
             }
         }
         Ok(out)
+    }
+
+    /// The present slots of one `PropertyUpdate`'s data as they are, for a tap to show what an update carries:
+    /// name, type and value of each, and the bits and nibbles it takes in `data`. A `+batched` property's samples
+    /// are all there (a `Series`), without the times, which belong to the event.
+    pub(crate) fn view(&self, data: &[u8]) -> anyhow::Result<Vec<SlotView>> {
+        Ok(self
+            .decode_slots(data)?
+            .into_iter()
+            .map(|Slot { k, slot, front, back }| {
+                let (_, name, ty) = &self.props[k];
+                let (ty, value) = match (slot, &self.batched[k]) {
+                    (DynSlot::One(value), _) => (ty.clone(), value),
+                    (DynSlot::Samples(items), Some(b)) => {
+                        (b.series_ty.clone(), ValueOwned::Vec(items))
+                    }
+                    (DynSlot::Samples(items), None) => (ty.clone(), ValueOwned::Vec(items)),
+                };
+                SlotView {
+                    name: name.clone(),
+                    ty,
+                    value,
+                    front,
+                    back,
+                }
+            })
+            .collect())
     }
 
     /// A `Batched<T>` slot (API-39), `Unsized`: its length, a nibble tag, then `T` or a byte-aligned series.
@@ -203,7 +266,7 @@ impl LevelSchema {
         let mut values = Vec::with_capacity(self.props.len());
         let mut samples = vec![];
         let times = sample_times.unwrap_or_default();
-        for (k, slot) in self.decode_slots(data)? {
+        for Slot { k, slot, .. } in self.decode_slots(data)? {
             let name = &self.props[k].1;
             let batched = self.batched[k].is_some();
             let items = match slot {

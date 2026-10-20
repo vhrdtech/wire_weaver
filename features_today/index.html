@@ -1794,6 +1794,8 @@
       
         
       
+        
+      
     
     
     
@@ -2069,6 +2071,33 @@
     
   
   ECC-safe flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/bus_slave/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  I2C and SPI slave engine
 
     
   </span>
@@ -5418,6 +5447,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/observing/#the-device-side">Observed properties</a></strong>: The device sends property changes within the budget each host asked for.</li>
 <li><strong><a href="../api/observing/#the-server-loop">Event-driven observe</a></strong>: The device sleeps until an observed property is due, and wakes at once when one changes.</li>
 <li><strong><a href="../api/ecc_flash/">ECC-safe STM32 flash</a></strong>: Reads a flash word broken by a power cut as zeros instead of crashing. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../api/bus_slave/">I2C and SPI slave engine</a></strong>: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
@@ -5565,7 +5595,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_adc/">ADC</a></strong>: Single reads, sample streams and triggered captures.</li>
 <li><strong><a href="../std_library/ww_pwm/">PWM</a></strong>: Outputs and input capture.</li>
 <li><strong><a href="../std_library/ww_timebase/">Device time</a></strong>: A clock with sync to a shared time source.</li>
-<li><strong><a href="../std_library/ww_i2c/#slave-mode">I2C and SPI slave</a></strong>: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../std_library/ww_i2c/#slave-mode">I2C and SPI slave</a></strong>: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../std_library/ww_logic_analyzer/">Logic analyzer</a></strong>: Triggered captures, transitions compressed. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../std_library/ww_signal_generator/">Signal generator</a></strong>: Replays captures, drives DAC channels. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../std_library/ww_counters/">Counters</a></strong>: A device's <code>cnt</code> counters, named on the host from its firmware file.</li>

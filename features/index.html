@@ -1622,6 +1622,8 @@
       
         
       
+        
+      
     
     
     
@@ -1897,6 +1899,33 @@
     
   
   ECC-safe flash
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/bus_slave/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  I2C and SPI slave engine
 
     
   </span>
@@ -6036,6 +6065,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   request path and the error kind it still pinpoints one site, and identical error arms are shared code: Donguru
   -1.5 KiB flash at <code>z</code>, -1.7 KiB at 3. <code>Error::site()</code>, the host prints <code>Unimplemented at item site 2 (handler)</code>.
   <code>docs/api/errors.md#where-on-the-device-an-error-came-from</code>; tests <code>tests/methods</code>, <code>tests/traits</code>.</li>
+<li>✅ <strong>SRV-26 Device-side engine for I2C and SPI slaves</strong> — <code>ww_bus_slave</code>, no_std, sans-IO, no alloc: <code>I2cSlave</code> and
+  <code>SpiSlave</code> do what STD-35's API promises, so a firmware only wires its peripheral's interrupts to them. I2C: the
+  register map (pointer bytes, auto-increment, wrap at <code>len</code>, page wrap, <code>read_only</code>), host updates staged until the
+  stop, the answer queue with <code>Fill</code>, <code>Stretch { max }</code> (deadline, <code>resume</code>, <code>ReadWaiting</code>) and <code>Nack</code>
+  (<code>acks_address</code>), <code>unsent</code> for a TX FIFO loaded ahead. SPI: queue answers (<code>idle</code>, <code>repeat_last</code>, <code>underrun</code>) and
+  <code>SpiRegisters</code> frames (address, <code>rw</code> bit, dummy bytes before read data), the answer picked at the first <code>miso()</code>
+  (FIFO preload, <code>rewind</code>); 8-bit words only. Events built as <code>I2cSlaveEvent</code> / <code>SpiSlaveFrame</code>. <code>const fn new</code> for a
+  <code>static</code>; 58-100 instructions per byte on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> bin <code>qemu-bus-slave</code>).
+  <code>docs/api/bus_slave.md</code>, tests <code>ww_bus_slave/tests</code>. First firmware user: usb_io_fw IF-5 (rePort, RP2350B).</li>
 <li>🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
@@ -6059,13 +6097,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
   informing the device.</li>
-<li>📋 <strong>SRV-26 Device-side engine for I2C and SPI slaves</strong> · <code>v0.5.x</code> — a no_std, sans-IO crate (<code>ww_bus_slave</code>)
-  doing what STD-35's API promises, so every firmware (rePort RP2350, STM32 boards) only wires its peripheral to it:
-  the register map with pointer bytes, auto-increment, page wrap and host updates applied between two transfers; the
-  answer queue with I2C underrun policies and the stretch deadline; SPI frame answers and the register frame layout
-  (address, <code>rw</code> bit, dummy bytes); building <code>I2cSlaveEvent</code> / <code>SpiSlaveFrame</code> records. Byte-level hooks callable
-  from an interrupt (address, byte written, byte wanted, stop; CS edges), state in a <code>static</code> set up in place,
-  instruction counts per byte on QEMU.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
 <li>💡 <strong>SRV-12 std server on Tower</strong> · <code>v0.5</code>.</li>
@@ -6504,6 +6535,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>sequential-storage</code> 8 isn't. Docs <code>docs/api/settings.md</code> (pages, erase stalls on G0 / F4 / H7, big-sector
   options) and <code>docs/evolution/rules.md#settings-stored-on-a-device</code>, tests <code>ww_settings/tests</code> (<code>just
   test-power-cut</code>). Hardware check open: real power cuts on a G0B1 (TEST-21), dump decoder (TOOL-12), demo (EX).</li>
+<li>🧪 <strong>STD-35 Slave data paths in <code>ww_i2c</code> and <code>ww_spi</code></strong> · <code>v0.5.x</code> — an <code>#[optional(slave)]</code> group in <code>I2c</code> and
+  in <code>Spi</code>: opening the counted <code>slave_events</code> / <code>slave_frames</code> stream with a config starts slave mode (closing stops
+  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
+  answers come from a register map the host fills and reads back (<code>slave_map_write</code> / <code>slave_map_read</code>, applied
+  between two transfers) or from the <code>slave_answers</code> credit sink, one answer per read or frame. A host that is too
+  slow: I2C <code>I2cSlaveUnderrun</code> (<code>Fill</code>, <code>Stretch { max }</code> with <code>ReadWaiting</code> sent at once, <code>Nack</code> while empty), SPI
+  the idle byte or the last answer again, flagged <code>underrun</code>. Limits of clock stretching (SMBus 25 ms, masters
+  without it) in the crate docs and <code>docs/std_library/ww_i2c.md#slave-mode</code>. <code>I2cMode::Slave</code>, <code>SpiRole::Slave</code> and
+  the <code>slave</code> capability flags are gone. API, snapshots, docs, the device-side engine (SRV-26, <code>ww_bus_slave</code>) and an
+  end-to-end test of both slaves done: <code>tests/io_i2c</code> / <code>tests/io_spi</code> drive <code>I2cSlave</code> / <code>SpiSlave</code> byte by byte as a
+  simulated master (test-only <code>slave_bus</code> / <code>slave_pump</code> methods, a fake clock) through the real host and device event
+  loops: register maps with page wrap and host updates between transactions, the answer queues, stretching to the
+  deadline and past it, <code>Nack</code>, <code>repeat_last</code>, cleared answers and dropped events. Open: a check on real silicon, with
+  the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
@@ -6582,17 +6627,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   checksum, COBS, SLIP, Modbus RTU, NMEA; picked by the host when it opens the stream (<code>Uart::frames(cfg)</code>), no new
   firmware. Frames of a bounded length are what a batched stream can take, where a raw byte stream can't (no size
   bound); with API-51, each frame XOR'd with the last one of the same key (Modbus address, NMEA sentence, CAN ID).</li>
-<li>🚧 <strong>STD-35 Slave data paths in <code>ww_i2c</code> and <code>ww_spi</code></strong> · <code>v0.5.x</code> — an <code>#[optional(slave)]</code> group in <code>I2c</code> and
-  in <code>Spi</code>: opening the counted <code>slave_events</code> / <code>slave_frames</code> stream with a config starts slave mode (closing stops
-  it) and reports every transfer (bytes both ways, register pointer or address, fill bytes, stretch time); the
-  answers come from a register map the host fills and reads back (<code>slave_map_write</code> / <code>slave_map_read</code>, applied
-  between two transfers) or from the <code>slave_answers</code> credit sink, one answer per read or frame. A host that is too
-  slow: I2C <code>I2cSlaveUnderrun</code> (<code>Fill</code>, <code>Stretch { max }</code> with <code>ReadWaiting</code> sent at once, <code>Nack</code> while empty), SPI
-  the idle byte or the last answer again, flagged <code>underrun</code>. Limits of clock stretching (SMBus 25 ms, masters
-  without it) in the crate docs and <code>docs/std_library/ww_i2c.md#slave-mode</code>. <code>I2cMode::Slave</code>, <code>SpiRole::Slave</code> and
-  the <code>slave</code> capability flags are gone. API, snapshots and docs done; open: the shared device-side engine (SRV-26)
-  and an end-to-end test of both slaves in <code>tests/io_i2c</code> / <code>tests/io_spi</code> against a simulated master. First user:
-  the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).</li>
 <li>💡 <strong>STD-44 SPI slave data-ready line</strong> — a GPIO the slave asserts while an answer is queued (or the register map
   changed), as most SPI slave protocols with a computed answer have (ESP32 handshake, nRF IRQ); the master reads only
   when it is set, so the answer queue needs no polling. Part of <code>SpiSlaveConfig</code>, the pin named by the board.</li>

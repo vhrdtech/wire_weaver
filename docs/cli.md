@@ -97,6 +97,7 @@ From there:
 | [`ww counters`](cli_reference.md#ww-counters)        | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
 | [`ww info`](cli_reference.md#ww-info)                | yes, any API   | What the device is: firmware, board, ids, label, last reset        |
 | [`ww report`](cli_reference.md#ww-report)            | yes, any API   | A bug report in one file: info, counters, stored log, crash, decoded with the ELF |
+| [`ww pins`](cli_reference.md#ww-pins)                | yes, with `PinDiag` | Pin tests: shorts to GND, the supply and each other, pulls; plan files |
 | [`ww elf`](cli_reference.md#ww-elf)                  | no             | The ELF directory: `ww elf add` a release archive, `ww elf id`     |
 | [`ww settings`](cli_reference.md#ww-settings)        | no             | Decodes a `ww_settings::Store` flash dump                          |
 | [`ww bootsel`](cli_reference.md#ww-bootsel)          | a boot ROM     | RP2040 / RP2350 in BOOTSEL mode: list, flash, reboot, follow back  |

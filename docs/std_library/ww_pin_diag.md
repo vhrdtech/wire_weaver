@@ -88,3 +88,25 @@ index is being proposed upstream. Until then a device sends `Text`.
 
 The test pair `tests/pin_diag` runs these against a mock board with a shorted pair, an external pull-up, an
 input-only pin, two interlocked shift register outputs and a pin held by a function.
+
+## `ww pins`: the tests on any device
+
+`ww pins test` does all of the above on any device serving `PinDiag`, found through its introspection data wherever
+the API has it, so a board needs no test code of its own on the host:
+
+```
+$ ww pins list
+$ ww pins test GPIO0,GPIO5,P8,GPIO2..=GPIO7,'chain.*'
+$ ww pins test --plan b200a.toml
+$ ww pins test GPIO0..=GPIO9 --save b200a.toml
+```
+
+Each point is tested only with what its caps allow; what can't be checked says *not checked*, a refusal says
+*refused* with the device's reason, and neither stops the run. `release_all` ends every run, also on Ctrl-C and
+errors. A plan file adds expectations per point (`expect = "pull_up"`), narrower `allow` lists, and the points that
+are one net on the board; `--save` writes what a good board shows into it. The options, the selection syntax and the
+plan format: [command reference](../cli_reference.md#ww-pins).
+
+The tests are a library, `ww_pin_probe`, so a test bench uses them without the CLI: `probe::run` over anything
+implementing its `Pins` trait (`device::DevicePins` for a connected device, `mock::MockBoard` for tests), with
+`select::select` for the point list and `plan::Plan` / `plan::save` for plan files.

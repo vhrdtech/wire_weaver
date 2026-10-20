@@ -1050,6 +1050,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that connects print (to stderr) or save that command's own connection, with the same `Monitor`, `LiveFeed` and
   `TapeWriter`; the tap decoder orders a block's records by time so a reply is paired with its request
   (`docs/cli_reference.md#ww-monitor`).
+- 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
+  (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
+  supply and between points, only what each point's caps allow, refusals shown, `release_all` at the end also on
+  Ctrl-C and errors, exit 1 on a fault. Points by names, `P<n>` ids, ranges and globs on names and groups, `--watch`
+  points only read; plan files with `expect`, narrower `allow`, `[shorts] among` / `same_net`, `--save` into
+  `expect`. Library `ww_pin_probe` (`probe::run` over a `Pins` trait, `mock::MockBoard`), end to end in
+  `tests/pin_diag`. Hardware check open: on rePort once it serves `PinDiag`. Names sent as ids show as `#<id>`
+  (STD-48).
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.
@@ -1305,11 +1313,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   release_all() }`: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
   bring-up, verification and production tests; the firmware keeps its board's rules and answers `NotCapable`,
   `Common(InUse)` or `Refused { rule }`. Done: crate, docs page `docs/std_library/ww_pin_diag.md`, test pair
-  `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot.
-  Missing: `ww pins test` (quick short test on any device) and plan files, a device implementing it (rePort).
+  `tests/pin_diag` (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
+  the host tests and plan files are TOOL-15 (`ww pins test`). Missing: a device implementing it (rePort).
 - 🚧 **STD-48 `ww_interned` strings as ids** · `v0.5.x` — `Interned { Id(UNib32), Text(&str) }` for names and reasons;
   ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
-  id). Missing: an accessor for `defmt::Str`'s index (upstream), the host lookup in the ELF directory.
+  id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
+  `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.
 
 ## Examples (`EX`)
 

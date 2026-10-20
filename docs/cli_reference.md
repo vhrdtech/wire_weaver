@@ -521,6 +521,72 @@ ww report --serial 4B333720 -o report.md
 
 Reading the log does not empty the device's store.
 
+## `ww pins`
+
+Pin tests on any device serving [`ww_pin_diag::PinDiag`](std_library/ww_pin_diag.md), wherever in its API: found
+through the device's introspection data (`--at diag.pins` picks one when there are several). `ww pins list` shows
+the points and what each can do, `ww pins test` tests them:
+
+```
+$ ww pins test GPIO0..=GPIO2,DET,LED --plan b200a.toml
+ID  NAME   GROUP  PULLS                    GND          SUPPLY       SHORTED TO  NOTES
+P0  GPIO0  mcu    floating ✗ want pull-up  ok           ok           GPIO1
+P1  GPIO1  mcu    floating                 ok           ok           GPIO0
+P2  GPIO2  mcu    held low                 SHORT        ok           ok
+P3  DET    mcu    not checked              not checked  not checked  ok          no internal pulls; can't drive high; can't drive low
+P4  LED    mcu    refused                  refused      refused      refused     in use by indication
+5 points: 1 short(s) to GND or the supply, 1 short(s) between points, 1 expectation(s) not met
+```
+
+Per point, only with what its caps allow: **pulls** (input with the pull-up, then the pull-down, each after driving
+the opposite level: external pull-up, pull-down, floating, or held high / low when the point also is shorted to that
+rail), **GND** (drive high weakly, read back: low is a short), **supply** (drive low weakly, read back: high is a
+short), then **shorted to**: each point driven low alone with the others on pull-up, then high alone with the others
+on pull-down; who follows is connected to it. Outputs that can't be read (shift register outputs) are sources only,
+so `ww pins test 'chain.*,mcu.*'` shows which MCU pins each output reaches. A check a point can't do says *not
+checked*, a refusal of the firmware (`not capable`, `in use by ...`, `refused: <rule>`) says *refused*, with the
+reason in NOTES; neither stops the test. Every point is given back with `release_all` at the end, also on Ctrl-C and
+errors. The exit code is 0 when nothing is shorted and, with a plan, every expectation is met, 1 otherwise.
+
+| Command / option | Description                                                                                       |
+|------------------|---------------------------------------------------------------------------------------------------|
+| `list [--format json]` | Points with id, name, group and caps (`read`, `pull_up`, `pull_down`, `drive_low`, `drive_high`, `weak_drive`) |
+| `test POINTS`    | Points to test, comma separated: names (`GPIO0`), ids (`P8`), ranges (`GPIO2..=GPIO7`, `GPIO2..GPIO8` without the end, `P2..=P7`), globs on names (`GPIO1*`) and on groups with names (`'chain.*'`). A name wins over an id (a point named `P8` is that point); a part that matches nothing is an error. Without points: the plan's, without a plan all |
+| `--watch POINTS` | Points only read, never set: their level, and whether they follow the tested points             |
+| `--plan FILE`    | Expectations, narrower allow lists and nets, see below; its `target` is the default for `--at`   |
+| `--save FILE`    | Write the pull class each tested point shows into `expect` of FILE (created if missing)          |
+| `--at PATH`      | Where `PinDiag` is in the device's API, by item names (`diag.pins`), when it has more than one   |
+
+A plan file lives in the firmware repo, one per board revision:
+
+```toml
+target = "diag.pins"
+
+[[point]]
+names = ["GPIO3..=GPIO7"]      # names, ids, ranges and globs, as on the command line
+expect = "pull_up"             # pull_up, pull_down, floating, held_high, held_low
+[[point]]
+name = "GPIO2"
+expect = "floating"
+[[point]]
+name = "GPIO0"
+allow = ["read"]               # read, pull_up, pull_down, drive_low, drive_high: only narrows
+
+[shorts]
+among = ["GPIO0..=GPIO8"]      # the points tested against each other (default: all tested points)
+same_net = [["GPIO26", "GPIO34"]]  # one net: connected is right, not connected is a fault
+```
+
+An entry naming a point exactly wins over a range or glob for `expect`, a later entry over an earlier one; the
+`allow` lists of all matching entries apply. `--save` on a known good board fills `expect` (an existing file keeps
+its comments and order; a point is taken out of a `names` list whose `expect` differs, into its own entry), after
+which `ww pins test --plan FILE` is the pass/fail test. Connections between points are not saved: put real nets into
+`same_net` by hand.
+
+Point names complete live from the device (selected by env variables and `ww.toml`). Names a firmware sends as
+string ids ([`ww_interned`](std_library/ww_pin_diag.md#ww_interned)) show as `#17` and are selected that way; looking
+them up in the firmware's ELF is pending (STD-48).
+
 ## `ww elf`
 
 The ELF directory (`~/.cache/ww/elf`, or the ones in `WW_ELF_PATH`), where firmware ELFs are found by build id for

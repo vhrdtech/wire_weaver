@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    mod optional_traits;
+
     use std::collections::HashMap;
     use std::sync::{Arc, RwLock};
     use wire_weaver::prelude::*;

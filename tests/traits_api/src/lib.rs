@@ -81,3 +81,27 @@ trait I2c {
     #[optional]
     stream!(i2c_monitor: u8);
 }
+
+/// Optional trait attachments (API-54): a server leaves a whole `ww_impl!` out with `omit = [..]` or `omit_if`.
+#[ww_trait]
+trait Board {
+    fn ping() -> u8;
+    /// Pin diagnostics, a firmware feature.
+    #[optional]
+    ww_impl!(diag: Diag);
+    /// Probes and their count: a resource array of a trait and a method, both or neither.
+    #[optional(probes)]
+    ww_impl!(probe[]: Gpio);
+    #[optional(probes)]
+    fn probe_count() -> u8;
+}
+
+#[ww_trait]
+trait Diag {
+    fn read(point: u16) -> u8;
+    /// Served without a handler, from the server's consts trait.
+    const POINTS: u16;
+    ww_impl!(sub: Subgroup);
+    #[optional]
+    fn release_all();
+}

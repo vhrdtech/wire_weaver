@@ -156,6 +156,7 @@ fn item_kind_name(kind: &ApiItemKindOwned) -> &'static str {
     match kind {
         ApiItemKindOwned::Method { .. } => "method",
         ApiItemKindOwned::Property { .. } => "property",
+        ApiItemKindOwned::Trait { .. } => "ww_impl!",
         _ => "item",
     }
 }
@@ -442,14 +443,7 @@ fn convert_api_item_impl(
         "ww_impl! is a trait, list the errors on its items",
     )
     .context(current_crate.err_context())?;
-    if get_optional_attr(&item_macro.attrs, current_crate)?.is_some() {
-        return Err(anyhow!(
-            "#[optional] on ww_impl!({}: ..): only methods, properties and streams can be optional, \
-             mark the items of the trait instead",
-            args.resource_name
-        )
-        .context(current_crate.err_context()));
-    }
+    let optional = get_optional_attr(&item_macro.attrs, current_crate)?;
     Ok(ApiItemOwned {
         id: UNib32(idx),
         kind,
@@ -457,7 +451,7 @@ fn convert_api_item_impl(
         since,
         ident: args.resource_name.to_string(),
         docs: collect_docs(&item_macro.attrs),
-        optional: None,
+        optional,
     })
 }
 

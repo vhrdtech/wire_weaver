@@ -681,6 +681,23 @@ trait Traits traits_api@0.1.0
         }
     }
 
+    /// A left-out `#[optional]` `ww_impl!` (API-54) is marked, its items are still listed.
+    #[test]
+    fn renders_omitted_traits() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/traits_api");
+        let mut bundle = wire_weaver_core::load(&path, Some("Board".into()), false).unwrap();
+        bundle.root_omitted = Some(vec![shrink_wrap::UNib32(1)]);
+        let tree = render(&bundle, true);
+        for line in [
+            "├─ 1 #[optional] impl diag: traits_api::Diag (left out by this device)\n",
+            "│  ├─ 0 fn read(point: u16) -> u8\n",
+            "├─ 2 #[optional(probes)] impl probe[]: traits_api::Gpio\n",
+        ] {
+            assert!(tree.contains(line), "{line}{tree}");
+        }
+    }
+
     /// `#[errors(..)]` of a property and a stream function (API-32), with its `# Errors`.
     #[test]
     fn renders_error_lists_of_properties_and_stream_fns() {

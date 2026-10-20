@@ -5,6 +5,8 @@
 
 #[cfg(test)]
 mod tests {
+    mod optional_trait;
+
     use std::time::Duration;
     use streams_batched_api::{Frame, Sample, SampleError};
     use tests_common::TestDevice;

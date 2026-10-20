@@ -115,7 +115,7 @@ pub fn gen_server_scaffold(
         handlers: String::new(),
         positioned: false,
     };
-    s.level(root, None, "root".into(), 0, "", &[])?;
+    s.level(root, None, "root".into(), 0, "", &[], None)?;
     if s.positioned {
         writeln!(
             s.fields,
@@ -289,7 +289,9 @@ impl Scaffold<'_> {
     /// Mirrors `process_request_inner_recursive` and `level_matchers`: `prefix` is the chain of trait item
     /// idents handler names are prefixed with, `level_name_chain` is `root_<..>` used in valid indices handler
     /// names, `index_len` is the length of the index chain passed to handlers on this level, `item_path` the trait
-    /// item idents from the root (for omitted items).
+    /// item idents from the root (for omitted items), `optional` what `omit = [..]` names to leave out the level's
+    /// `#[optional]` `ww_impl!` (API-54).
+    #[allow(clippy::too_many_arguments)]
     fn level(
         &mut self,
         level: &ApiLevelOwned,
@@ -298,20 +300,32 @@ impl Scaffold<'_> {
         index_len: usize,
         path: &str,
         item_path: &[String],
+        optional: Option<String>,
     ) -> Result<()> {
         let omitted = self.omissions.level(item_path);
         let crate_name = level.crate_name(self.api_bundle)?;
         let at = if path.is_empty() { "root" } else { path };
         writeln!(
             self.handlers,
-            "// ---- {crate_name}::{} at {at} ----\n",
+            "// ---- {crate_name}::{} at {at} ----",
             level.trait_name
         )?;
+        if let Some(name) = optional {
+            writeln!(
+                self.handlers,
+                "// optional, all handlers of {at} can be left out with omit = [\"{name}\"]"
+            )?;
+        }
+        writeln!(self.handlers)?;
         for item in &level.items {
             if omitted.contains_key(&item.id.0) {
                 continue;
             }
-            if let Some(optional) = &item.optional {
+            // an optional trait gets its note in its own section, and here above its valid indices if an array
+            if let Some(optional) = &item.optional
+                && !(matches!(item.kind, ApiItemKindOwned::Trait { .. })
+                    && matches!(item.multiplicity, Multiplicity::Flat))
+            {
                 let name = optional.group.as_ref().unwrap_or(&item.ident);
                 let is_const = matches!(
                     item.kind,
@@ -376,11 +390,22 @@ impl Scaffold<'_> {
             }
         }
         for item in &level.items {
-            if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
+            if !matches!(item.kind, ApiItemKindOwned::Trait { .. })
+                || omitted.contains_key(&item.id.0)
+            {
                 continue;
             }
             let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
             let child = item.get_as_level(self.api_bundle)?;
+            let optional = item.optional.as_ref().map(|optional| {
+                let name = optional.group.as_ref().unwrap_or(&item.ident);
+                item_path
+                    .iter()
+                    .chain([name])
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(".")
+            });
             let child_prefix = match prefix {
                 Some(prefix) => format!("{prefix}_{}", item.ident),
                 None => item.ident.clone(),
@@ -400,6 +425,7 @@ impl Scaffold<'_> {
                 index_len + is_array as usize,
                 &child_path,
                 &child_item_path,
+                optional,
             )?;
         }
         Ok(())

@@ -214,6 +214,7 @@ pub fn gen_server(
     let process_request_inner = process_request_inner_recursive(
         "root".into(),
         &[],
+        &quote! {},
         &omissions,
         api_bundle,
         api_level,
@@ -250,7 +251,7 @@ pub fn gen_server(
             &mut max_len_consts,
         );
     }
-    let poll_streams = poll_streams(api_bundle, cx.handlers);
+    let poll_streams = poll_streams(api_bundle, &omissions, cx.handlers);
     let observe_items = observe.items(
         api_bundle,
         config.no_alloc,
@@ -467,16 +468,25 @@ struct PolledStream {
 }
 
 /// Streams of the API `poll_streams` sends for, or an error message for one it can't send.
+/// Items left out in this combination of `omit_if` conditions (`active`, see [Omissions::cfg_combinations]) and their
+/// streams are skipped.
+#[allow(clippy::too_many_arguments)]
 fn polled_streams_recursive(
     api_bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
+    omissions: &Omissions,
+    active: &[bool],
     prefix: Option<&String>,
     names: &mut Vec<String>,
     path: &mut Vec<u32>,
     under_array: bool,
     out: &mut Vec<Result<PolledStream, String>>,
 ) {
+    let omitted = omissions.omitted_in(names, active);
     for item in &level.items {
+        if omitted.contains(&item.id.0) {
+            continue;
+        }
         let is_array = matches!(item.multiplicity, Multiplicity::Array { .. });
         path.push(item.id.0);
         match &item.kind {
@@ -514,6 +524,8 @@ fn polled_streams_recursive(
                 polled_streams_recursive(
                     api_bundle,
                     child,
+                    omissions,
+                    active,
                     Some(&prefix),
                     names,
                     path,
@@ -533,33 +545,72 @@ fn polled_streams_recursive(
 /// `ww_stream` picks (priority, live before backfill, round-robin), and their queries. Not generated without
 /// reliable or batched streams. A blocking server gets a blocking one for batched counted and plain streams
 /// (reliable streams need an async server).
-fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStream {
-    let use_async = handlers.use_async;
-    let mut streams = vec![];
-    polled_streams_recursive(
-        api_bundle,
-        &api_bundle.root,
-        None,
-        &mut vec![],
-        &mut vec![],
-        false,
-        &mut streams,
-    );
-    let mut errors = TokenStream::new();
-    let mut ok = vec![];
-    for s in streams {
-        match s {
-            Ok(s) => ok.push(s),
-            Err(e) => errors.extend(quote! { compile_error!(#e); }),
+///
+/// With `omit_if` conditions that leave out polled streams (or the traits holding them), one `poll_streams` per
+/// combination of the conditions, each under its `#[cfg(..)]`, with the same signature.
+fn poll_streams(
+    api_bundle: &ApiBundleOwned,
+    omissions: &Omissions,
+    handlers: Handlers<'_>,
+) -> TokenStream {
+    let mut errors: Vec<String> = vec![];
+    let mut combinations = vec![];
+    for (cfg, active) in omissions.cfg_combinations() {
+        let mut streams = vec![];
+        polled_streams_recursive(
+            api_bundle,
+            &api_bundle.root,
+            omissions,
+            &active,
+            None,
+            &mut vec![],
+            &mut vec![],
+            false,
+            &mut streams,
+        );
+        let mut ok = vec![];
+        for s in streams {
+            match s {
+                Ok(s) => ok.push(s),
+                Err(e) if !errors.contains(&e) => errors.push(e),
+                Err(_) => {}
+            }
         }
+        if !handlers.use_async {
+            // a blocking server with reliable streams already got a compile error from its dispatcher
+            ok.retain(|s| s.delivery != Delivery::Reliable);
+        }
+        combinations.push((cfg, ok));
     }
-    if !use_async {
-        // a blocking server with reliable streams already got a compile error from its dispatcher
-        ok.retain(|s| s.delivery != Delivery::Reliable);
-    }
-    if ok.is_empty() {
+    let errors = quote! { #(compile_error!(#errors);)* };
+    if combinations.iter().all(|(_, ok)| ok.is_empty()) {
         return errors;
     }
+    let any_batched = combinations
+        .iter()
+        .any(|(_, ok)| ok.iter().any(|s| s.batched));
+    let paths = |ok: &[PolledStream]| ok.iter().map(|s| s.path.clone()).collect::<Vec<_>>();
+    let first = paths(&combinations[0].1);
+    if combinations.iter().all(|(_, ok)| paths(ok) == first) {
+        let ok = &combinations[0].1;
+        let poll_streams = poll_streams_fn(ok, None, any_batched, handlers);
+        return quote! { #errors #poll_streams };
+    }
+    let fns = combinations
+        .iter()
+        .map(|(cfg, ok)| poll_streams_fn(ok, cfg.as_ref(), any_batched, handlers));
+    quote! { #errors #(#fns)* }
+}
+
+/// `poll_streams` sending for `ok`, under `#[cfg(cfg)]`; `any_batched` when a batched stream is in any combination
+/// of `omit_if` conditions (the `scratch` argument).
+fn poll_streams_fn(
+    ok: &[PolledStream],
+    cfg: Option<&TokenStream>,
+    any_batched: bool,
+    handlers: Handlers<'_>,
+) -> TokenStream {
+    let use_async = handlers.use_async;
     let maybe_async = maybe_quote(use_async, quote! { async });
     // `self.stream_<name>()`, the stream's state
     let state_of = |s: &PolledStream| {
@@ -577,7 +628,7 @@ fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStr
             quote! { wire_weaver::BlockingEventOut::send_with_blocking(out, #closure) }
         }
     };
-    let any_batched = ok.iter().any(|s| s.batched);
+    let this_batched = ok.iter().any(|s| s.batched);
 
     // batched counted and plain streams: every sealed batch goes out right away
     let mut batched_direct = TokenStream::new();
@@ -723,7 +774,12 @@ fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStr
     let (scratch_arg, now_us, scratch_doc) = if any_batched {
         (
             quote! { scratch: &mut ww_stream::batch::Scratch<SCRATCH>, },
-            quote! { let now_us = now_ms.saturating_mul(1000); },
+            if this_batched {
+                quote! { let now_us = now_ms.saturating_mul(1000); }
+            } else {
+                // batched streams are left out in this combination of omit_if conditions
+                quote! { let _ = scratch; }
+            },
             quote! {
                 ///
                 /// Batched streams (API-41): a batch is sealed once its first item is as old as the host allows (seen
@@ -738,10 +794,15 @@ fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStr
         (quote! {}, quote! {}, quote! {})
     };
     // without reliable streams the scheduler's inputs go unused
-    let unused = maybe_quote(
+    let mut unused = maybe_quote(
         reliable.is_empty(),
         quote! { let _ = (now_ms, budget_bytes); },
     );
+    if ok.is_empty() {
+        // every polled stream is left out in this combination of omit_if conditions
+        unused.extend(quote! { let _ = (out, buf); });
+    }
+    let cfg = cfg.map(|cfg| quote! { #[cfg(#cfg)] });
     let generics = if any_batched {
         quote! { <const SCRATCH: usize> }
     } else {
@@ -767,10 +828,9 @@ fn poll_streams(api_bundle: &ApiBundleOwned, handlers: Handlers<'_>) -> TokenStr
         )
     };
     quote! {
-        #errors
-
         #budget_doc
         #scratch_doc
+        #cfg
         pub #maybe_async fn poll_streams #generics (
             &mut self,
             out: &mut #out_bound,
@@ -1093,6 +1153,7 @@ fn level_awaits(
 fn process_request_inner_recursive(
     level_name_chain: String,
     item_path: &[String],
+    cfg_attrs: &TokenStream,
     omissions: &Omissions,
     api_bundle: &ApiBundleOwned,
     api_level: &ApiLevelOwned,
@@ -1106,10 +1167,11 @@ fn process_request_inner_recursive(
             || (introspect.is_some() && cx.use_async),
         quote! { async },
     );
+    let omitted = omissions.level(item_path);
     let level_matchers = level_matchers(
         api_bundle,
         api_level,
-        &omissions.level(item_path),
+        &omitted,
         &level_name_chain,
         index_chain,
         crate_name,
@@ -1127,6 +1189,7 @@ fn process_request_inner_recursive(
     let mut ts = quote! {
         // index chain and in_multi make 8 below an array
         #[allow(clippy::too_many_arguments)]
+        #cfg_attrs
         #maybe_async fn #process_fn_name<'a>(
             &mut self,
             #maybe_index_chain_def
@@ -1153,6 +1216,12 @@ fn process_request_inner_recursive(
         if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
             continue;
         };
+        // an omitted `#[optional] ww_impl!` (API-54): no dispatch below it, so no handler of it is called
+        let cfg_attrs = match omitted.get(&item.id.0) {
+            Some(Omission::Always) => continue,
+            Some(Omission::When(cfg)) => quote! { #cfg_attrs #[cfg(not(#cfg))] },
+            None => cfg_attrs.clone(),
+        };
         let level = item.get_as_level(api_bundle).unwrap();
         let mut cx = cx.clone();
         cx.push_suffix(&item.ident);
@@ -1166,6 +1235,7 @@ fn process_request_inner_recursive(
         ts.extend(process_request_inner_recursive(
             level_name_chain,
             &item_path,
+            &cfg_attrs,
             omissions,
             api_bundle,
             level,
@@ -1750,6 +1820,7 @@ fn consts_trait(
         &api_bundle.root,
         omissions,
         &[],
+        &quote! {},
         None,
         IndexChain::new(),
         cx,
@@ -1778,6 +1849,7 @@ fn consts_trait_recursive(
     level: &ApiLevelOwned,
     omissions: &Omissions,
     item_path: &[String],
+    cfg_attrs: &TokenStream,
     prefix: Option<&String>,
     index_chain: IndexChain,
     cx: &ApiServerCGContext,
@@ -1785,9 +1857,12 @@ fn consts_trait_recursive(
 ) {
     let omitted = omissions.level(item_path);
     for item in &level.items {
-        if omitted.contains_key(&item.id.0) {
-            continue;
-        }
+        // a const left out with omit_if (or inside a trait left out so) is only in the trait when its arm is
+        let cfg_attrs = match omitted.get(&item.id.0) {
+            Some(Omission::Always) => continue,
+            Some(Omission::When(cfg)) => quote! { #cfg_attrs #[cfg(not(#cfg))] },
+            None => cfg_attrs.clone(),
+        };
         let mut index_chain = index_chain;
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
@@ -1814,6 +1889,7 @@ fn consts_trait_recursive(
                 };
                 items.extend(quote! {
                     #(#docs)*
+                    #cfg_attrs
                     #item_def
                 });
             }
@@ -1830,6 +1906,7 @@ fn consts_trait_recursive(
                     child,
                     omissions,
                     &item_path,
+                    &cfg_attrs,
                     Some(&prefix),
                     index_chain,
                     cx,

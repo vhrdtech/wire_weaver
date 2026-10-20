@@ -230,7 +230,8 @@ pub(crate) fn get_stream_fn_attr(
     Ok(Some(parsed))
 }
 
-/// `#[optional]` or `#[optional(group)]` on a method, property or stream (API-16), `None` for a required item.
+/// `#[optional]` or `#[optional(group)]` on a method, property, stream or `ww_impl!` (API-16), `None` for a required
+/// item.
 pub(crate) fn get_optional_attr(
     attrs: &[Attribute],
     current_crate: &CrateContext,

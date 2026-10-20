@@ -63,3 +63,11 @@ pub enum SampleError {
     /// Gain 0.
     ZeroGain,
 }
+
+/// The batched streams in an optional trait (API-54): a server leaving it out has no polled streams to send for.
+#[ww_trait]
+trait BatchedBoard {
+    fn ping() -> u8;
+    #[optional]
+    ww_impl!(streams: StreamsBatched);
+}

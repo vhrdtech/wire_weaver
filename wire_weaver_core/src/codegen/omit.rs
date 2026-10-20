@@ -137,6 +137,19 @@ impl Omissions {
             .collect()
     }
 
+    /// Ids of the items of the level reached through `path` (trait item idents from the root) that are left out in a
+    /// combination of the `omit_if` conditions (`active`, see [Self::cfg_combinations]).
+    pub(crate) fn omitted_in(&self, path: &[String], active: &[bool]) -> Vec<u32> {
+        let Some(level) = self.levels.get(path) else {
+            return vec![];
+        };
+        level
+            .iter()
+            .filter(|(_, cfg)| cfg.is_none_or(|idx| active[idx]))
+            .map(|(id, _)| *id)
+            .collect()
+    }
+
     /// Every combination of the `omit_if` conditions: `#[cfg(..)]` contents (`None` when there are no conditions)
     /// and which conditions are true in it. One combination with nothing true when there are no conditions.
     pub(crate) fn cfg_combinations(&self) -> Vec<(Option<TokenStream>, Vec<bool>)> {
@@ -166,10 +179,10 @@ impl Omissions {
         let mut paths: Vec<_> = self.levels.keys().collect();
         paths.sort();
         for path in paths {
-            let ids: Vec<UNib32> = self.levels[path]
-                .iter()
-                .filter(|(_, cfg)| cfg.is_none_or(|idx| active[idx]))
-                .map(|(id, _)| UNib32(*id))
+            let ids: Vec<UNib32> = self
+                .omitted_in(path, active)
+                .into_iter()
+                .map(UNib32)
                 .collect();
             if ids.is_empty() {
                 continue;

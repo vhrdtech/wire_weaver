@@ -263,6 +263,7 @@ impl<'a> Checker<'a> {
             }
             self.bounds_raised(&path, bounds.narrower);
             self.compare_error_lists(&path, old_item, new_item);
+            self.compare_optional(&path, old_item, new_item);
         }
         for new_item in &new.items {
             // moved ones are already reported
@@ -322,6 +323,35 @@ impl<'a> Checker<'a> {
             }
         };
         self.compatible.push(format!("{path}: {change}"));
+    }
+
+    /// `#[optional]` / `#[optional(group)]` (API-16, API-54) is not on the wire, but a server leaves items out by name
+    /// or group (`omit = [..]`): a change that makes such a server lack a handler is a break of its Rust code.
+    fn compare_optional(&mut self, path: &str, old: &ApiItemOwned, new: &ApiItemOwned) {
+        let group = |g: &Option<String>| match g {
+            Some(g) => format!("#[optional({g})]"),
+            None => "#[optional]".to_string(),
+        };
+        match (&old.optional, &new.optional) {
+            (None, None) => {}
+            (None, Some(o)) => self.compatible.push(format!(
+                "{path}: made {} (a device may leave it out, a client gets Unimplemented)",
+                group(&o.group)
+            )),
+            (Some(_), None) => self.breaking.push(format!(
+                "{path}: no longer #[optional] (a server leaving it out with omit = [..] no longer compiles)"
+            )),
+            (Some(o), Some(n)) if o.group == n.group => {}
+            (Some(o), Some(n)) if o.group.is_none() => self.compatible.push(format!(
+                "{path}: #[optional] became {} (omit by its name still works)",
+                group(&n.group)
+            )),
+            (Some(o), Some(n)) => self.breaking.push(format!(
+                "{path}: {} became {} (a server leaving out its group with omit = [..] no longer leaves it out)",
+                group(&o.group),
+                group(&n.group)
+            )),
+        }
     }
 
     fn compare_types(&mut self) {
@@ -1075,6 +1105,48 @@ mod tests {
                 }}
                 "#
         )
+    }
+
+    /// Making an item or a `ww_impl!` optional is compatible, making it required again or moving it to another group
+    /// breaks servers that leave it out (API-16, API-54).
+    #[test]
+    fn optional_items_and_traits() {
+        let api = |diag: &str, read: &str| {
+            format!(
+                r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    {diag}
+                    ww_impl!(diag: Diag);
+                }}
+
+                #[ww_trait]
+                pub trait Diag {{
+                    {read}
+                    fn read() -> u8;
+                }}
+                "#
+            )
+        };
+        let report = report(&api("", ""), &api("#[optional]", "#[optional]"));
+        assert_eq!(report.change, Change::Compatible, "{report:?}");
+        assert_eq!(
+            report.compatible,
+            [
+                "Api::diag: made #[optional] (a device may leave it out, a client gets Unimplemented)",
+                "Diag::read: made #[optional] (a device may leave it out, a client gets Unimplemented)"
+            ]
+        );
+        let report = self::report(&api("#[optional]", ""), &api("#[optional(debug)]", ""));
+        assert_eq!(report.change, Change::Compatible, "{report:?}");
+        assert_breaking(
+            &self::report(&api("#[optional]", ""), &api("", "")),
+            "Api::diag: no longer #[optional]",
+        );
+        assert_breaking(
+            &self::report(&api("#[optional(a)]", ""), &api("#[optional(b)]", "")),
+            "Api::diag: #[optional(a)] became #[optional(b)]",
+        );
     }
 
     /// An `#[errors(..)]` list of a stream function or a property changing is compatible and reported, as for

@@ -67,7 +67,7 @@ pub struct Request<'i> {
 /// implemented several times, the first one in the tree (depth first, in id order) answers.
 /// [ErrorKind::TraitNotFound] when the device doesn't implement a compatible version of the trait.
 ///
-/// [Global ID registry](https://github.com/vhrdtech/ww_stdlib/tree/main/ww_global)
+/// [Global ID registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global)
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug, Clone), final_structure, ww_repr = nib)]
 pub enum PathKind<'i> {
     /// Full path to a resource, regardless of whether it is in a trait or not.

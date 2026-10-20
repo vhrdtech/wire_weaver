@@ -50,11 +50,12 @@ not "are these the exact same build". `FullVersion::is_protocol_compatible` addi
 
 `Version`, `FullVersion` and `CompactVersion` all have a `const fn new(..)` (plus `Version::full` for `pre`/`build`
 and `CompactVersion`/`VersionTriplet` likewise), but code using WireWeaver's codegen rarely builds one directly.
-`wire_weaver::full_version!()` and `wire_weaver::compact_version!(gid)` (from `wire_weaver_derive`) expand to a
+`wire_weaver::full_version!()` and `wire_weaver::compact_version!(Trait)` (from `wire_weaver_derive`) expand to a
 `FullVersion`/`Option<CompactVersion>` built from the calling crate's own `Cargo.toml` version (`CARGO_PKG_NAME`,
 `CARGO_PKG_VERSION_*`) at compile time. `#[ww_trait]` and `#[ww_api_root]` use exactly these macros to emit a
 `<TRAIT>_FULL_GID: FullVersion` and `<TRAIT>_COMPACT_GID: Option<CompactVersion>` constant next to every API trait -
-`compact_version!` returns `None` unless the trait was given a global type id (`#[ww_trait(gid)]`).
+`compact_version!` looks the trait up by crate and trait name in the `ww_global` registry and returns `None` when it
+has no id there (`compact_version!()` gives the crate's own id), see [addressing](../api/addressing.md).
 
 ## On the wire
 

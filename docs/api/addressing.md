@@ -57,12 +57,39 @@ could mean anything. `ww dfu reboot` in the [CLI](../cli.md) does exactly this.
 
 ## Global trait addressing (CompactVersion)
 
-`CompactVersion` is the short form: a globally unique type id and the version numbers, all `UNib32`. Unique ids
-can't come from crate names, so they are assigned by hand and tracked in git, in the
-[ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global).
+`CompactVersion` is the short form: the trait's id in the
+[ww_global registry](https://github.com/vhrdtech/wire_weaver/tree/master/ww_global) and its crate's version numbers,
+all `UNib32`. A `ww_user_info::UserInfo` read takes 6 bytes this way and 24 with `FullVersion`.
 
-Servers don't serve compact trait paths yet (`ErrorKind::TraitNotFound`): compact ids of traits are not in the API
-model, and none is assigned so far (API-20).
+Every public trait in `ww_stdlib` has an id, one per trait, keyed `crate::Trait`, in the same number space as the few
+crates that have one (`ww_log` = 0, `wire_weaver_usb_link` = 512, `ww_client_server` = 513). Small numbers are
+shorter on the wire, so the ranges go by encoded size:
+
+| Ids     | Size     | For                                                                                     |
+|---------|----------|-----------------------------------------------------------------------------------------|
+| 0-7     | 1 nibble | `ww_log` (crate) and `ww_log::LogDefmt` only, 2-7 kept free                              |
+| 8-63    | 1 byte   | the device contract and common IO: firmware and board info, identity, counters, firmware update, clock, indication, GPIO, UART, I2C, SPI, CAN, ADC, PWM |
+| 64-511  | 1.5 byte | all other reusable traits                                                               |
+| 512+    | 2 bytes  | link and protocol crates                                                                |
+
+Ids are assigned by hand in `ww_global/wire_weaver_gid.json` and nowhere else: code never carries the number. The
+codegen looks a trait's id up by its crate and trait name (`<TRAIT>_COMPACT_GID`, `ApiLevel::compact_id` in the API
+model), so moving a trait to another module, reordering traits or adding a sibling trait changes nothing. A rename or
+a move to another crate keeps the id (the old name goes into `aliases`), ids are never reused (a removed trait is
+marked `retired`), and `assigned_ids.lock` keeps every id ever assigned, checked by a test. `ww api check` reports a
+trait whose id changed or disappeared as a breaking change.
+
+A server serves a `GlobalCompact` path like a `GlobalFull` one: it finds the trait by its id wherever it sits in the
+API tree, checks that the requested version is protocol compatible with its own (same major, and same minor before
+1.0), and answers `ErrorKind::TraitNotFound` otherwise, also for an id it doesn't know, a crate's id or a trait under
+a resource array. Serving it costs 64 bytes of flash and about 170 instructions more than an absolute path on a
+Cortex-M3 (`GlobalFull`: about 790), see `examples_mcu/mcu_qemu/src/bin/global_paths.rs`.
+
+The host prefers the compact form: a global call to a trait the registry knows goes out with its id, whether the
+client asked for `GlobalFull` or not. A device built before the trait had an id answers `TraitNotFound`; the client
+then sends the same request again with `GlobalFull` and keeps using it for that trait for the rest of the
+connection. The tap decoder, `ww --monitor=api` and `ww explain` name compact calls through the registry and decode
+them from the trait's snapshot.
 
 ## API report
 

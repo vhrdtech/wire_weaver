@@ -618,9 +618,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   paths of nested traits counted exactly (now the worst case of the full path), the same consts on the client.
 - 📋 **API-19 Change dispatcher match order** to process common requests faster · `v0.5.x`.
 - 🚧 **API-20 Trait paths on the server side** · `v0.5` — servers serve `PathKind::GlobalFull` requests (crate,
-  version and trait name) wherever the trait sits in the tree, `ErrorKind::TraitNotFound` otherwise
-  (`tests/cross_version`, `docs/api/addressing.md`). Missing: `PathKind::GlobalCompact` (compact ids of
-  traits are not in the API model yet, none is assigned), traits under a resource array.
+  version and trait name) and `PathKind::GlobalCompact` ones (the trait's `ww_global` id) wherever the trait sits in
+  the tree, `ErrorKind::TraitNotFound` otherwise (`tests/cross_version`, `docs/api/addressing.md`). Every public
+  `ww_stdlib` trait has an id (`ww_global/wire_weaver_gid.json`, looked up by crate and trait name, guarded by
+  `tests/global_ids` and `assigned_ids.lock`), the API model carries it (`ApiLevel::compact_id`), the client sends
+  compact paths and falls back to `GlobalFull` for devices built before an id existed, the tap decoder and
+  `ww explain` name compact calls; 64 B of flash on a Cortex-M3 (`examples_mcu/mcu_qemu` `qemu-global-paths`).
+  Missing: traits under a resource array.
 - 📋 **API-21 `no_alloc = false` servers** — don't compile today.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).
@@ -1032,7 +1036,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **EVO-1 Evolution rules** in `docs/evolution/rules.md`: crate layers and version bumping.
 - ✅ **EVO-2 SHA signatures** of APIs and types, hashing only the major version (or `0.minor`), version independent.
 - ✅ **EVO-3 Crate version recorded in bundles**.
-- ✅ **EVO-4 Global traits referenced by hash**, global type registry (`ww_global`).
+- ✅ **EVO-4 Global traits referenced by hash**, global type registry (`ww_global`): one id per `crate::Trait` for every
+  public `ww_stdlib` trait, by hand in `wire_weaver_gid.json`, renames keep the id through `aliases`, ids never
+  reused (`retired`), `assigned_ids.lock` append-only and checked; `ww api check` flags a changed id (API-20).
 - ✅ **EVO-5 API snapshots** of `ww_global` and `ww_stdlib` (`wire_weaver_snapshots`, `ww api save`), left out of
   introspection data and put back by the client.
 - ✅ **EVO-6 Evolution checker and report**: `ww api check` / `ww api diff` (`docs/evolution/checker_tool.md`).

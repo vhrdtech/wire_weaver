@@ -22,8 +22,8 @@ ww_client_server = { version = "0.2", default-features = false }
   RequestKind<'i>`. `Request::set_seq`/`peek_seq` fill in or read `seq` in an already-serialized buffer without
   touching the rest, since a client picks the id only right before sending.
 * `PathKind<'i>` - how a resource is addressed, one of three ways: `Absolute { path }` (a plain index path,
-  smallest on the wire), `GlobalCompact { gid: CompactVersion, path_from_trait }` (a global
-  [trait id](ww_version.md), for traits used often enough to have one assigned), `GlobalFull { gid: FullVersion,
+  smallest on the wire), `GlobalCompact { gid: CompactVersion, path_from_trait }` (the trait's
+  [ww_global id](../api/addressing.md#global-trait-addressing-compactversion), every `ww_stdlib` trait has one), `GlobalFull { gid: FullVersion,
   trait_name, path_from_trait }` (any crates.io trait, by crate name and version - biggest, since it carries the
   name as a string). A server honors a global path wherever the matching trait sits in its API tree (API-20), after
   checking its own version is protocol-compatible (`FullVersion::is_protocol_compatible`) - what makes a global

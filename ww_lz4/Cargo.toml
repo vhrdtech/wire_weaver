@@ -11,7 +11,7 @@ repository.workspace = true
 default = []
 # the host side Decoder
 std = ["dep:lz4_flex"]
-# hot encoder code in .data.ww_lz4: cortex-m-rt copies it to SRAM, no flash wait states
+# hot encoder code in .data.ww_lz4 on bare metal (target_os = "none"): cortex-m-rt copies it to SRAM, no flash wait states
 ram = []
 
 [dependencies]

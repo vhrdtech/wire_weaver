@@ -8,14 +8,18 @@ use std::time::{Duration, Instant};
 
 use ww_lz4::{Decoder, Encoder, max_block_len};
 
-fn stream<const H: usize, const B: usize>(enc: &mut Encoder<H, B>, data: &[u8], chunk: usize) -> (usize, Duration) {
-    let mut dec = Decoder::new(enc.max_chunk());
+fn stream<const H: usize, const B: usize>(
+    enc: &mut Encoder<H, B>,
+    data: &[u8],
+    chunk: usize,
+) -> (usize, Duration) {
+    let mut dec = Decoder::new();
     let mut blocks = Vec::new();
     let mut out = vec![0u8; max_block_len(chunk)];
     let mut spent = Duration::ZERO;
     for c in data.chunks(chunk) {
         let t = Instant::now();
-        let n = enc.compress_slice(c, &mut out);
+        let n = enc.compress_slice(c, &mut out).unwrap();
         spent += t.elapsed();
         blocks.push(n);
         assert_eq!(dec.decode(&out[..n]).expect("decodes"), c);

@@ -11,12 +11,16 @@ import lz4
 import lz4.block
 
 streams = blocks = 0
+end = False
 history = b""
 name = ""
 for line in sys.stdin:
     line = line.strip()
     if line.startswith("# "):
         name, history, streams = line[2:], b"", streams + 1
+        continue
+    if line == "end":
+        end = True
         continue
     if line == "reset":
         history = b""
@@ -29,6 +33,6 @@ for line in sys.stdin:
     history += plain
     blocks += 1
 
-if streams == 0:
-    sys.exit("no streams on stdin")
+if streams == 0 or not end:
+    sys.exit("the vectors stopped before their end (did the example fail?)")
 print(f"liblz4 {lz4.library_version_string()} decoded {blocks} blocks of {streams} streams")

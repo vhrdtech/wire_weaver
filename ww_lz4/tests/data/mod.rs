@@ -22,18 +22,59 @@ impl Rng {
 
 /// A boot log: timestamps, a few recurring subsystems and words.
 pub fn text(len: usize, seed: u64) -> Vec<u8> {
-    const SUBSYS: &[&str] = &["usb 1-1", "systemd[1]", "kernel", "NetworkManager[812]", "pci 0000:00:1f.3"];
+    const SUBSYS: &[&str] = &[
+        "usb 1-1",
+        "systemd[1]",
+        "kernel",
+        "NetworkManager[812]",
+        "pci 0000:00:1f.3",
+    ];
     const WORDS: &[&str] = &[
-        "Started", "device", "new", "full-speed", "USB", "number", "using", "xhci_hcd", "Reached", "target", "Mounting",
-        "configuration", "interface", "driver", "registered", "link", "is", "up", "carrier", "acquired", "Finished",
-        "of", "the", "for", "with", "service", "socket", "0x1f", "enabled", "ok",
+        "Started",
+        "device",
+        "new",
+        "full-speed",
+        "USB",
+        "number",
+        "using",
+        "xhci_hcd",
+        "Reached",
+        "target",
+        "Mounting",
+        "configuration",
+        "interface",
+        "driver",
+        "registered",
+        "link",
+        "is",
+        "up",
+        "carrier",
+        "acquired",
+        "Finished",
+        "of",
+        "the",
+        "for",
+        "with",
+        "service",
+        "socket",
+        "0x1f",
+        "enabled",
+        "ok",
     ];
     let mut r = Rng::new(seed);
     let mut out = Vec::with_capacity(len + 128);
     let mut t = 0u64;
     while out.len() < len {
         t += r.below(40_000) as u64;
-        out.extend_from_slice(format!("[{:5}.{:06}] {}: ", t / 1_000_000, t % 1_000_000, SUBSYS[r.below(SUBSYS.len())]).as_bytes());
+        out.extend_from_slice(
+            format!(
+                "[{:5}.{:06}] {}: ",
+                t / 1_000_000,
+                t % 1_000_000,
+                SUBSYS[r.below(SUBSYS.len())]
+            )
+            .as_bytes(),
+        );
         for i in 0..3 + r.below(9) {
             if i > 0 {
                 out.push(b' ');
@@ -52,8 +93,12 @@ pub fn tui(len: usize, seed: u64) -> Vec<u8> {
     let mut out = Vec::with_capacity(len + 4096);
     while out.len() < len {
         out.extend_from_slice(b"\x1b[H\x1b[1mtop - load average: ");
-        out.extend_from_slice(format!("{}.{:02}\x1b[m\x1b[K\r\n", r.below(4), r.below(100)).as_bytes());
-        out.extend_from_slice(b"\x1b[7m    PID USER      PR  NI    VIRT    RES  %CPU  %MEM COMMAND\x1b[m\x1b[K\r\n");
+        out.extend_from_slice(
+            format!("{}.{:02}\x1b[m\x1b[K\r\n", r.below(4), r.below(100)).as_bytes(),
+        );
+        out.extend_from_slice(
+            b"\x1b[7m    PID USER      PR  NI    VIRT    RES  %CPU  %MEM COMMAND\x1b[m\x1b[K\r\n",
+        );
         for row in 0..30 {
             out.extend_from_slice(
                 format!(

@@ -14,12 +14,13 @@
 //! let enc = unsafe { &mut *(&raw mut ENC) }; // or a StaticCell, a Mutex, ..
 //!
 //! let mut block = [0u8; max_block_len(512)];
-//! let input = enc.input(512); // the free tail of the history, at least 512 bytes
+//! let input = enc.input(512)?; // the free tail of the history, at least 512 bytes
 //! let line = b"[    0.000000] Linux version 6.17.2-arch1-1\r\n";
 //! input[..line.len()].copy_from_slice(line); // DMA or serialize straight into it
-//! let n = enc.compress(line.len(), &mut block);
-//! # assert!(n > 0);
+//! let n = enc.compress(line.len(), &mut block)?;
 //! // send block[..n]; on stream open or lost bytes, enc.reset() and the decoder's reset()
+//! # assert!(n > 0);
+//! # Ok::<(), ww_lz4::Error>(())
 //! ```
 //!
 //! A chunk that doesn't shrink goes out as a literal-only block (still valid LZ4, the decoder needs no flag), and
@@ -28,8 +29,8 @@
 //!
 //! The encoder lives in a `static` and is set up in place by the `const fn` [`Encoder::new`]: it is mostly buffer
 //! (`BUF` bytes of history plus 2 bytes per hash entry), never build it on the stack. Feature `ram` puts the hot
-//! functions in `.data.ww_lz4`, which cortex-m-rt copies to SRAM: no flash wait states, about 30 % fewer cycles on a
-//! Cortex-M0+ with code in flash.
+//! functions in `.data.ww_lz4` on bare-metal targets, which cortex-m-rt copies to SRAM: no flash wait states, about
+//! 30 % fewer cycles than from flash on an STM32G0 at 64 MHz (1.5 KiB of RAM). It does nothing on a host.
 #![no_std]
 
 #[cfg(feature = "std")]
@@ -82,8 +83,14 @@ pub struct Encoder<const HASH: usize, const BUF: usize> {
 
 impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
     const CHECK: () = {
-        assert!(HASH.is_power_of_two() && HASH >= 16 && HASH <= 1 << 16, "HASH must be a power of two, 16..=65536");
-        assert!(BUF > MF_LIMIT && BUF <= 1 << 16, "BUF must be 13..=65536 bytes");
+        assert!(
+            HASH.is_power_of_two() && HASH >= 16 && HASH <= 1 << 16,
+            "HASH must be a power of two, 16..=65536"
+        );
+        assert!(
+            BUF > MF_LIMIT && BUF <= 1 << 16,
+            "BUF must be 13..=65536 bytes"
+        );
     };
 
     /// An empty encoder; `keep` bytes of history survive when the buffer slides, so chunks are at most `BUF - keep`
@@ -126,41 +133,55 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
         self.skip = 0;
     }
 
+    /// How far back a block may reach: the history a decoder must keep, `min(BUF - 1, 65535)`.
+    pub const HISTORY: usize = if BUF - 1 < MAX_DISTANCE {
+        BUF - 1
+    } else {
+        MAX_DISTANCE
+    };
+
     /// Largest chunk [`input`](Self::input) can give: `BUF - keep`.
     pub const fn max_chunk(&self) -> usize {
         BUF - self.keep
     }
 
-    /// The free tail of the buffer, at least `want` bytes (at most [`max_chunk`](Self::max_chunk)): put the next
-    /// chunk at its start, then [`compress`](Self::compress) it. Slides the history first when the tail is shorter,
-    /// keeping the last `keep` bytes.
-    pub fn input(&mut self, want: usize) -> &mut [u8] {
-        assert!(want <= BUF - self.keep, "chunk longer than BUF - keep");
+    /// The free tail of the buffer, at least `want` bytes: put the next chunk at its start, then
+    /// [`compress`](Self::compress) it. Slides the history first when the tail is shorter, keeping the last `keep`
+    /// bytes; [`Error::ChunkTooLong`] when `want` is over [`max_chunk`](Self::max_chunk).
+    pub fn input(&mut self, want: usize) -> Result<&mut [u8], Error> {
+        if want > BUF - self.keep {
+            return Err(Error::ChunkTooLong);
+        }
         if BUF - self.len < want {
             let drop = self.len - self.keep;
             self.buf.copy_within(drop..self.len, 0);
             self.pos = self.pos.wrapping_add(drop as u32);
             self.len = self.keep;
         }
-        &mut self.buf[self.len..]
+        Ok(&mut self.buf[self.len..])
     }
 
     /// Compresses the first `len` bytes of [`input`](Self::input)'s tail into `out` (at least
-    /// [`max_block_len(len)`](max_block_len) bytes) as one LZ4 block and returns its length. The bytes become history.
-    pub fn compress(&mut self, len: usize, out: &mut [u8]) -> usize {
-        assert!(len <= BUF - self.len, "chunk longer than the free tail");
-        assert!(out.len() >= max_block_len(len), "out shorter than max_block_len");
+    /// [`max_block_len(len)`](max_block_len) bytes) as one LZ4 block and returns its length; the bytes become
+    /// history. A chunk that doesn't shrink goes out as a literal-only block, at most `max_block_len(len)` bytes.
+    pub fn compress(&mut self, len: usize, out: &mut [u8]) -> Result<usize, Error> {
+        if len > BUF - self.len {
+            return Err(Error::ChunkTooLong);
+        }
+        if out.len() < max_block_len(len) {
+            return Err(Error::OutTooShort);
+        }
         let start = self.len;
         self.len += len;
         if self.skip >= len {
             self.skip -= len;
-            return literals(out, &self.buf[start..self.len]);
+            return Ok(literals(out, &self.buf[start..self.len]));
         }
         self.skip = 0;
         match encode_block(&mut self.table, &self.buf[..self.len], self.pos, start, out) {
             Some(n) => {
                 self.missed = 0;
-                n
+                Ok(n)
             }
             None => {
                 // stays above miss_bytes until a chunk shrinks, so a retry that misses backs off at once
@@ -168,17 +189,37 @@ impl<const HASH: usize, const BUF: usize> Encoder<HASH, BUF> {
                 if self.miss_bytes != 0 && self.missed >= self.miss_bytes {
                     self.skip = self.retry_bytes;
                 }
-                literals(out, &self.buf[start..self.len])
+                Ok(literals(out, &self.buf[start..self.len]))
             }
         }
     }
 
     /// Copies `chunk` in through [`input`](Self::input) and [`compress`](Self::compress)es it.
-    pub fn compress_slice(&mut self, chunk: &[u8], out: &mut [u8]) -> usize {
-        self.input(chunk.len())[..chunk.len()].copy_from_slice(chunk);
+    pub fn compress_slice(&mut self, chunk: &[u8], out: &mut [u8]) -> Result<usize, Error> {
+        self.input(chunk.len())?[..chunk.len()].copy_from_slice(chunk);
         self.compress(chunk.len(), out)
     }
 }
+
+/// A call the encoder can't do; nothing changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    /// The chunk is longer than [`Encoder::max_chunk`], or than the tail [`Encoder::input`] gave.
+    ChunkTooLong,
+    /// `out` is shorter than [`max_block_len`] of the chunk.
+    OutTooShort,
+}
+
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::ChunkTooLong => f.write_str("chunk longer than the encoder's free buffer"),
+            Error::OutTooShort => f.write_str("output buffer shorter than max_block_len"),
+        }
+    }
+}
+
+impl core::error::Error for Error {}
 
 #[inline(always)]
 fn read32(b: &[u8], i: usize) -> u32 {
@@ -187,8 +228,18 @@ fn read32(b: &[u8], i: usize) -> u32 {
 
 /// Greedy LZ4 of `buf[start..]` with `buf[..start]` as history into `out`; `None` when the block isn't shorter than
 /// the input. Not generic, so a firmware carries it once whatever the encoder's sizes.
-#[cfg_attr(feature = "ram", unsafe(link_section = ".data.ww_lz4"), inline(never))]
-fn encode_block(table: &mut [u16], buf: &[u8], pos: u32, start: usize, out: &mut [u8]) -> Option<usize> {
+#[cfg_attr(
+    all(feature = "ram", target_os = "none"),
+    unsafe(link_section = ".data.ww_lz4"),
+    inline(never)
+)]
+fn encode_block(
+    table: &mut [u16],
+    buf: &[u8],
+    pos: u32,
+    start: usize,
+    out: &mut [u8],
+) -> Option<usize> {
     let end = buf.len();
     let limit = end - start;
     let shift = 32 - table.len().trailing_zeros();
@@ -255,17 +306,29 @@ fn encode_block(table: &mut [u16], buf: &[u8], pos: u32, start: usize, out: &mut
 }
 
 /// A literal-only block of `lit`.
-#[cfg_attr(feature = "ram", unsafe(link_section = ".data.ww_lz4"), inline(never))]
+#[cfg_attr(
+    all(feature = "ram", target_os = "none"),
+    unsafe(link_section = ".data.ww_lz4"),
+    inline(never)
+)]
 fn literals(out: &mut [u8], lit: &[u8]) -> usize {
     let o = put_token_len(out, 0, lit.len(), 0);
     out[o..o + lit.len()].copy_from_slice(lit);
     o + lit.len()
 }
 
-#[cfg_attr(feature = "ram", unsafe(link_section = ".data.ww_lz4"), inline(never))]
+#[cfg_attr(
+    all(feature = "ram", target_os = "none"),
+    unsafe(link_section = ".data.ww_lz4"),
+    inline(never)
+)]
 fn put_token_len(out: &mut [u8], o: usize, lit: usize, low: u8) -> usize {
     out[o] = ((lit.min(15) as u8) << 4) | low;
-    if lit >= 15 { put_len(out, o + 1, lit - 15) } else { o + 1 }
+    if lit >= 15 {
+        put_len(out, o + 1, lit - 15)
+    } else {
+        o + 1
+    }
 }
 
 /// LZ4's length continuation bytes: 255 while more follows, then the rest.
@@ -280,7 +343,11 @@ fn put_len(out: &mut [u8], mut o: usize, mut r: usize) -> usize {
     o + 1
 }
 
-#[cfg_attr(feature = "ram", unsafe(link_section = ".data.ww_lz4"), inline(never))]
+#[cfg_attr(
+    all(feature = "ram", target_os = "none"),
+    unsafe(link_section = ".data.ww_lz4"),
+    inline(never)
+)]
 fn emit(out: &mut [u8], o: usize, lit: &[u8], offset: usize, mlen: usize) -> usize {
     let ml = mlen - MIN_MATCH;
     let mut o = put_token_len(out, o, lit.len(), ml.min(15) as u8);
@@ -289,5 +356,9 @@ fn emit(out: &mut [u8], o: usize, lit: &[u8], offset: usize, mlen: usize) -> usi
     out[o] = offset as u8;
     out[o + 1] = (offset >> 8) as u8;
     o += 2;
-    if ml >= 15 { put_len(out, o, ml - 15) } else { o }
+    if ml >= 15 {
+        put_len(out, o, ml - 15)
+    } else {
+        o
+    }
 }

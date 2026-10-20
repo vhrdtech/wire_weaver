@@ -6,8 +6,12 @@ use proptest::prelude::*;
 use ww_lz4::{Decoder, Encoder, max_block_len};
 
 /// Feeds `data` in chunks of `sizes` (cycled), checks every block, returns the total block length.
-fn run<const H: usize, const B: usize>(enc: &mut Encoder<H, B>, data: &[u8], sizes: &[usize]) -> usize {
-    let mut dec = Decoder::new(enc.max_chunk());
+fn run<const H: usize, const B: usize>(
+    enc: &mut Encoder<H, B>,
+    data: &[u8],
+    sizes: &[usize],
+) -> usize {
+    let mut dec = Decoder::new();
     let mut out = vec![0u8; max_block_len(enc.max_chunk())];
     let mut plain = vec![0u8; enc.max_chunk()];
     let (mut at, mut total) = (0, 0);
@@ -16,17 +20,25 @@ fn run<const H: usize, const B: usize>(enc: &mut Encoder<H, B>, data: &[u8], siz
             break;
         }
         let chunk = &data[at..(at + size).min(data.len())];
-        let input = enc.input(chunk.len());
+        let input = enc.input(chunk.len()).unwrap();
         assert!(input.len() >= chunk.len());
         input[..chunk.len()].copy_from_slice(chunk);
-        let n = enc.compress(chunk.len(), &mut out);
+        let n = enc.compress(chunk.len(), &mut out).unwrap();
         let block = &out[..n];
-        assert!(n <= literal_len(chunk.len()), "a block is never longer than its literal-only form");
+        assert!(
+            n <= literal_len(chunk.len()),
+            "a block is never longer than its literal-only form"
+        );
 
         let dict = &data[at.saturating_sub(ww_lz4::MAX_DISTANCE)..at];
-        let m = lz4_flex::block::decompress_into_with_dict(block, &mut plain, dict).expect("lz4_flex decodes");
+        let m = lz4_flex::block::decompress_into_with_dict(block, &mut plain, dict)
+            .expect("lz4_flex decodes");
         assert_eq!(&plain[..m], chunk, "lz4_flex round trip at {at}");
-        assert_eq!(dec.decode(block).expect("Decoder decodes"), chunk, "Decoder round trip at {at}");
+        assert_eq!(
+            dec.decode(block).expect("Decoder decodes"),
+            chunk,
+            "Decoder round trip at {at}"
+        );
         at += chunk.len();
         total += n;
         if size == 0 && sizes.iter().all(|&s| s == 0) {
@@ -46,15 +58,29 @@ fn ratio(data: &[u8], total: usize) -> f64 {
 
 #[test]
 fn text_tui_random_in_64_and_512_byte_chunks() {
-    let inputs = [("text", data::text(96 * 1024, 1)), ("tui", data::tui(96 * 1024, 2)), ("random", data::random(32 * 1024, 3))];
+    let inputs = [
+        ("text", data::text(96 * 1024, 1)),
+        ("tui", data::tui(96 * 1024, 2)),
+        ("random", data::random(32 * 1024, 3)),
+    ];
     for (name, d) in &inputs {
         for chunk in [64, 512] {
             let small = run(&mut Encoder::<1024, 2048>::new(1024), d, &[chunk]);
-            let big = run(&mut Box::new(Encoder::<4096, 12288>::new(4096)), d, &[chunk]);
+            let big = run(
+                &mut Box::new(Encoder::<4096, 12288>::new(4096)),
+                d,
+                &[chunk],
+            );
             let (small, big) = (ratio(d, small), ratio(d, big));
             match *name {
-                "random" => assert!(small > 0.96 && big > 0.96, "{name} {chunk}: {small:.2} {big:.2}"),
-                _ => assert!(small > 1.3 && big >= small * 0.98, "{name} {chunk}: {small:.2} {big:.2}"),
+                "random" => assert!(
+                    small > 0.96 && big > 0.96,
+                    "{name} {chunk}: {small:.2} {big:.2}"
+                ),
+                _ => assert!(
+                    small > 1.3 && big >= small * 0.98,
+                    "{name} {chunk}: {small:.2} {big:.2}"
+                ),
             }
         }
     }
@@ -64,17 +90,21 @@ fn text_tui_random_in_64_and_512_byte_chunks() {
 fn empty_and_one_byte_chunks() {
     let mut enc = Encoder::<1024, 2048>::new(1024);
     let mut out = [0u8; max_block_len(1)];
-    assert_eq!(enc.compress_slice(&[], &mut out), 1);
+    assert_eq!(enc.compress_slice(&[], &mut out).unwrap(), 1);
     assert_eq!(out[0], 0, "an empty block is one zero token");
-    let mut dec = Decoder::new(enc.max_chunk());
+    let mut dec = Decoder::new();
     assert_eq!(dec.decode(&out[..1]).unwrap(), b"");
-    let n = enc.compress_slice(b"x", &mut out);
+    let n = enc.compress_slice(b"x", &mut out).unwrap();
     assert_eq!(&out[..n], &[0x10, b'x']);
     assert_eq!(dec.decode(&out[..n]).unwrap(), b"x");
 
     let d = data::text(8 * 1024, 4);
     run(&mut Encoder::<1024, 2048>::new(1024), &d, &[1]);
-    run(&mut Encoder::<1024, 2048>::new(1024), &d, &[0, 1, 0, 13, 12, 14, 0, 300]);
+    run(
+        &mut Encoder::<1024, 2048>::new(1024),
+        &d,
+        &[0, 1, 0, 13, 12, 14, 0, 300],
+    );
 }
 
 #[test]
@@ -100,7 +130,12 @@ fn many_slides_of_a_small_buffer() {
 fn history_crosses_chunks() {
     // the same line in every chunk: with history each block is a single match after the first
     let line = b"root@donguru:~# cat /proc/cpuinfo | grep MHz\r\n";
-    let d: Vec<u8> = line.iter().copied().cycle().take(line.len() * 200).collect();
+    let d: Vec<u8> = line
+        .iter()
+        .copied()
+        .cycle()
+        .take(line.len() * 200)
+        .collect();
     let total = run(&mut Encoder::<1024, 2048>::new(1024), &d, &[line.len()]);
     assert!(ratio(&d, total) > 4.4, "{:.2}", ratio(&d, total));
 }
@@ -111,20 +146,25 @@ fn reset_starts_the_history_over() {
     let (first, second) = d.split_at(8 * 1024);
     let mut enc = Encoder::<1024, 4096>::new(2048);
     let mut fresh = Encoder::<1024, 4096>::new(2048);
-    let mut dec = Decoder::new(enc.max_chunk());
+    let mut dec = Decoder::new();
     let (mut a, mut b) = ([0u8; max_block_len(512)], [0u8; max_block_len(512)]);
     for c in first.chunks(512) {
-        let n = enc.compress_slice(c, &mut a);
+        let n = enc.compress_slice(c, &mut a).unwrap();
         assert_eq!(dec.decode(&a[..n]).unwrap(), c);
     }
     enc.reset();
     dec.reset();
     for (i, c) in second.chunks(512).enumerate() {
-        let n = enc.compress_slice(c, &mut a);
-        let m = fresh.compress_slice(c, &mut b);
-        assert_eq!(&a[..n], &b[..m], "after reset the blocks depend on the bytes since alone");
+        let n = enc.compress_slice(c, &mut a).unwrap();
+        let m = fresh.compress_slice(c, &mut b).unwrap();
+        assert_eq!(
+            &a[..n],
+            &b[..m],
+            "after reset the blocks depend on the bytes since alone"
+        );
         let mut plain = [0u8; 512];
-        let k = lz4_flex::block::decompress_into_with_dict(&a[..n], &mut plain, &second[..i * 512]).unwrap();
+        let k = lz4_flex::block::decompress_into_with_dict(&a[..n], &mut plain, &second[..i * 512])
+            .unwrap();
         assert_eq!(&plain[..k], c);
         assert_eq!(dec.decode(&a[..n]).unwrap(), c);
     }
@@ -136,16 +176,16 @@ fn backs_off_on_random_and_comes_back_on_text() {
     let text = data::text(16 * 1024, 9);
     let mut enc = Encoder::<1024, 2048>::new(1024).with_backoff(1024, 4096);
     let mut out = [0u8; max_block_len(512)];
-    let mut dec = Decoder::new(enc.max_chunk());
+    let mut dec = Decoder::new();
     for c in noise.chunks(512) {
-        let n = enc.compress_slice(c, &mut out);
+        let n = enc.compress_slice(c, &mut out).unwrap();
         assert_eq!(n, literal_len(c.len()), "random goes out as literals");
         assert_eq!(dec.decode(&out[..n]).unwrap(), c);
     }
     // backed off: the first 4 KiB of text (8 chunks) at most go as literals, then it compresses again
     let mut sizes = vec![];
     for c in text.chunks(512) {
-        let n = enc.compress_slice(c, &mut out);
+        let n = enc.compress_slice(c, &mut out).unwrap();
         assert_eq!(dec.decode(&out[..n]).unwrap(), c);
         sizes.push(n);
     }
@@ -163,26 +203,67 @@ fn never_backing_off_still_sends_literals() {
 
 #[test]
 fn decoder_errors() {
-    let mut dec = Decoder::new(16);
-    // a literal run of 20 bytes is longer than max_chunk
-    let mut long = vec![0xf0, 5];
-    long.extend_from_slice(&[b'a'; 20]);
-    assert_eq!(dec.decode(&long), Err(ww_lz4::DecodeError::TooLong));
+    use ww_lz4::DecodeError;
+    let mut dec = Decoder::new();
+    // empty, a literal run longer than the block, a sequence cut after its token or inside its offset
+    for bad in [
+        &[][..],
+        &[0xf0, 5, b'a'],
+        &[0x30, b'a'],
+        &[0x14, b'a', 1],
+        &[0x1f, b'a', 1, 0],
+    ] {
+        assert_eq!(dec.decode(bad), Err(DecodeError), "{bad:?}");
+    }
     // a match reaching back before the start of the stream
-    assert_eq!(dec.decode(&[0x10, b'a', 9, 0, 0x00]), Err(ww_lz4::DecodeError::Corrupt));
+    assert_eq!(dec.decode(&[0x10, b'a', 9, 0, 0x00]), Err(DecodeError));
     // the history is unchanged after an error
     assert_eq!(dec.decode(&[0x20, b'o', b'k']).unwrap(), b"ok");
+    assert_eq!(dec.decode(&[0x02, 2, 0, 0x00]).unwrap(), b"okokok");
+}
+
+#[test]
+fn encoder_errors_change_nothing() {
+    use ww_lz4::Error;
+    let mut enc = Encoder::<256, 1024>::new(512);
+    let mut out = [0u8; max_block_len(512)];
+    assert_eq!(enc.input(513).err(), Some(Error::ChunkTooLong));
+    assert_eq!(
+        enc.compress(100, &mut out[..max_block_len(100) - 1]),
+        Err(Error::OutTooShort)
+    );
+    assert_eq!(enc.compress(1025, &mut out), Err(Error::ChunkTooLong));
+    assert_eq!(
+        enc.compress_slice(&[0; 600], &mut out),
+        Err(Error::ChunkTooLong)
+    );
+    // the tail was 1024 bytes before a chunk, now shorter than another 1000
+    enc.compress_slice(b"abc", &mut out).unwrap();
+    assert_eq!(enc.compress(1022, &mut out), Err(Error::ChunkTooLong));
+    let mut dec = Decoder::new();
+    let n = enc
+        .compress_slice(b"abcabcabcabcabcabcabc", &mut out)
+        .unwrap();
+    dec.decode(b"\x30abc").unwrap();
+    assert_eq!(dec.decode(&out[..n]).unwrap(), b"abcabcabcabcabcabcabc");
+    assert_eq!(Encoder::<256, 1024>::HISTORY, 1023);
+    assert_eq!(Encoder::<4096, 65536>::HISTORY, 65535);
 }
 
 #[test]
 fn decoder_keeps_64_kib_of_history() {
     // a match 65535 back, after the decoder trimmed its history more than once
     let d = data::random(300 * 1024, 11);
-    let mut dec = Decoder::new(65536);
+    let mut dec = Decoder::new();
     let mut at = 0usize;
     for c in d.chunks(65536) {
         let mut block = vec![0u8; lz4_flex::block::get_maximum_output_size(c.len())];
-        let n = lz4_flex::block::compress_into_with_dict(c, &mut block, &d[at.saturating_sub(65535)..at]).unwrap();
+        let n = lz4_flex::block::compress_into_with_dict(
+            c,
+            &mut block,
+            &d[at.saturating_sub(65535)..at],
+        )
+        .unwrap();
         assert_eq!(dec.decode(&block[..n]).unwrap(), c);
         at += c.len();
     }

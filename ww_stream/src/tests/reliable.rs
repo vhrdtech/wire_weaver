@@ -227,6 +227,7 @@ fn producer_lost_and_ext() {
     push(&mut dev, 1, 0);
     dev.lost(10);
     let ext = HeadExt {
+        codec_restart: false,
         clock_epoch: Some(UVlq32(1)),
     };
     dev.set_ext(ext);

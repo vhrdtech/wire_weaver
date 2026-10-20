@@ -90,6 +90,7 @@ fn ext_goes_into_the_next_head_once() {
     let mut c = Counted::new();
     c.open(1);
     let ext = HeadExt {
+        codec_restart: false,
         clock_epoch: Some(UVlq32(2)),
     };
     c.set_ext(ext);

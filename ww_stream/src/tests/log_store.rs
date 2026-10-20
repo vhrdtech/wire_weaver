@@ -112,6 +112,7 @@ where
 /// What the sender stored, with the clock epoch the store added to the first event after a mount.
 fn with_epoch(mut ev: Ev, epoch: u32) -> Ev {
     ev.head.ext = Some(HeadExt {
+        codec_restart: false,
         clock_epoch: Some(UVlq32(epoch)),
     });
     ev
@@ -714,6 +715,7 @@ fn s5_reboot_keeps_session_marks_epoch() {
     let mut s = reboot(s, cfg);
     let mut ev = g.event();
     ev.head.ext = Some(HeadExt {
+        codec_restart: false,
         clock_epoch: Some(UVlq32(99)),
     });
     push(&mut s, &ev).unwrap();

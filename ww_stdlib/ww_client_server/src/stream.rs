@@ -75,6 +75,51 @@ impl StreamHead {
 pub struct HeadExt {
     /// The device's clock restarted (a reboot) before this event: timestamps from here on belong to this epoch.
     pub clock_epoch: Option<UVlq32>,
+    /// Compressed streams (API-55): the codec starts over at this event, which references nothing sent before it.
+    /// The host decodes from here on; events after a gap it can't explain wait for the next such event.
+    #[default = false]
+    pub codec_restart: bool,
+}
+
+impl HeadExt {
+    /// Only the codec restart marker (API-55).
+    pub const CODEC_RESTART: HeadExt = HeadExt {
+        clock_epoch: None,
+        codec_restart: true,
+    };
+}
+
+/// Codecs a host decodes, offered when it opens a stream (API-55, [RequestKind::StreamOpen](crate::RequestKind::StreamOpen)).
+/// Evolvable: a codec added later is a field appended here.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq, Default)
+)]
+pub struct StreamCodecs {
+    /// [StreamCodec::Lz4].
+    pub lz4: bool,
+}
+
+/// Codec a device compresses a stream's events with (API-55), answered in [StreamOpened::codec] out of the host's
+/// [StreamCodecs] offer. Applies to counted streams' [EventKind::StreamItem](crate::EventKind::StreamItem) events:
+/// their data is the codec's output, the serialized item comes out of the host's decoder.
+///
+/// `final_structure`, so [StreamOpened::ser_head] can write it in place before the stream function's result. New
+/// codecs are new variants: a device only answers one the host offered, so a host never reads a variant it doesn't
+/// know.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, Clone, Copy, PartialEq, Eq),
+    final_structure,
+    ww_repr = nib
+)]
+pub enum StreamCodec {
+    /// Each event's data is one LZ4 block (the LZ4 block format, no frame) that may copy from up to `history` bytes
+    /// of the items decoded before it, back to the last [HeadExt::codec_restart]. An item that doesn't compress is a
+    /// block of literals only.
+    Lz4 { history: UVlq32 },
 }
 
 /// A point in a stream: a position in a session. The host keeps one per open stream and passes it back to resume
@@ -120,6 +165,9 @@ pub struct StreamOpened<'i> {
     /// Batched streams (API-41): the most a batch waits on the device before it is sent, in µs, granted for the
     /// `max_age_us` of [StreamOpen](crate::RequestKind::StreamOpen); `None` for a stream that isn't batched.
     pub max_age_us: Option<UNib32>,
+    /// Compressed streams (API-55): the codec the device took out of the host's offer, `None` for events sent as
+    /// they are (no offer, or a stream that doesn't compress).
+    pub codec: Option<StreamCodec>,
     /// Serialized result of the stream function (its `Result<T, E>`), empty for `stream!`.
     pub result: TailBytes<'i>,
 }
@@ -128,6 +176,12 @@ impl StreamOpened<'_> {
     /// With the `max_age_us` a batched stream granted (API-41).
     pub fn with_max_age_us(mut self, max_age_us: Option<u32>) -> Self {
         self.max_age_us = max_age_us.map(UNib32);
+        self
+    }
+
+    /// With the codec a compressed stream took (API-55).
+    pub fn with_codec(mut self, codec: Option<StreamCodec>) -> Self {
+        self.codec = codec;
         self
     }
 
@@ -148,6 +202,7 @@ impl StreamOpened<'_> {
         wr.write(&self.resume_from)?;
         wr.write(&self.capacity)?;
         wr.write(&self.max_age_us)?;
+        wr.write(&self.codec)?;
         wr.align_byte();
         Ok(())
     }
@@ -565,6 +620,7 @@ mod tests {
             t: Some(MICROS),
             ext: Some(HeadExt {
                 clock_epoch: Some(UVlq32(3)),
+                ..HeadExt::default()
             }),
         };
         let b = bytes(&ext);
@@ -575,6 +631,48 @@ mod tests {
             ..StreamHead::at(5)
         };
         bytes(&empty_ext);
+    }
+
+    /// API-55: the codec restart marker is the ext's one byte of flags and its size; the clock epoch reads the same.
+    #[test]
+    fn codec_restart_marker() {
+        let head = StreamHead {
+            ext: Some(HeadExt::CODEC_RESTART),
+            units: 512,
+            ..StreamHead::at(5)
+        };
+        let b = bytes(&head);
+        assert_eq!(b.len(), 2 + 2 + 2, "{b:02x?}");
+
+        // an ext of an older device (no codec_restart) reads as no restart
+        #[derive_shrink_wrap(borrowed, derive(Debug))]
+        struct OldExt {
+            clock_epoch: Option<UVlq32>,
+        }
+        let mut buf = [0u8; 16];
+        let old = OldExt {
+            clock_epoch: Some(UVlq32(3)),
+        }
+        .to_ww_bytes(&mut buf)
+        .unwrap()
+        .to_vec();
+        let ext = HeadExt::from_ww_bytes(&old).unwrap();
+        assert_eq!(ext.clock_epoch, Some(UVlq32(3)));
+        assert!(!ext.codec_restart);
+    }
+
+    /// API-55: the codec answer of an open and the host's offer.
+    #[test]
+    fn codec_offer_and_answer() {
+        let mut buf = [0u8; 16];
+        let offer = StreamCodecs { lz4: true };
+        let b = offer.to_ww_bytes(&mut buf).unwrap().to_vec();
+        assert_eq!(StreamCodecs::from_ww_bytes(&b).unwrap(), offer);
+        let codec = StreamCodec::Lz4 {
+            history: UVlq32(4096),
+        };
+        let b = codec.to_ww_bytes(&mut buf).unwrap().to_vec();
+        assert_eq!(StreamCodec::from_ww_bytes(&b).unwrap(), codec);
     }
 
     /// A 32 GB byte stream near its end, events of 1 KiB: 8 bytes, 13 with a timestamp.
@@ -654,6 +752,7 @@ mod tests {
             resume_from: Some(UVlq64(10)),
             max_age_us: None,
             capacity: None,
+            codec: None,
             result: TailBytes(&[0xaa]),
         };
         let b = opened.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -731,6 +830,9 @@ mod tests {
             resume_from: Some(UVlq64(2)),
             max_age_us: Some(UNib32(20_000)),
             capacity: None,
+            codec: Some(StreamCodec::Lz4 {
+                history: UVlq32(4096),
+            }),
             result: TailBytes(&result_bytes),
         };
         let mut buf = [0u8; 64];

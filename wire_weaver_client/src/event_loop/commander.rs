@@ -573,6 +573,7 @@ impl Commander {
                 seq: UVlq32Backfill(0),
                 path_kind: PathKindOwned::Absolute { path },
                 kind: RequestKindOwned::StreamOpen {
+                    codecs: None,
                     resume: Some(cursor),
                     max_age_us: max_age_us.map(UNib32),
                     args: TailBytesOwned(vec![]),
@@ -1364,6 +1365,7 @@ impl TransportCommander {
             seq: UVlq32Backfill(0),
             path_kind,
             kind: RequestKindOwned::StreamOpen {
+                codecs: None,
                 resume: Some(cursor),
                 max_age_us: None,
                 args: TailBytesOwned(vec![]),

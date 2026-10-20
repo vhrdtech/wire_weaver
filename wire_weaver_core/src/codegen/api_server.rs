@@ -1986,6 +1986,7 @@ fn handle_stream_fn(
             resume_from: None,
             capacity: None,
             max_age_us: None,
+            codec: None,
             result: TailBytes(&[]),
         }
     };

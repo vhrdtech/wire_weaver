@@ -677,6 +677,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- 📋 **API-55 Compressed counted streams** · `v0.5` — a counted stream's events carry their serialized item as
+  one LZ4 block that copies from the items before it (history kept across events, SRV-27 `ww_lz4`), so a byte
+  stream of text (a UART at 6 Mbaud of shell or TUI output, 3-5x) fits a slower link. Negotiated at open:
+  `StreamOpen { codecs }` is the host's offer, `StreamOpened { codec }` the device's answer (`StreamCodec::Lz4 {
+  history }`), so an older host gets the events as they are; an item that doesn't shrink goes as a block of literals.
+  `HeadExt::codec_restart` marks where the history starts over: at open and resume, after an event the device
+  couldn't send, and every few KiB, so a link loss heals; the host drops what it can't decode until then and reports
+  it lost. The API doesn't change (`ww_uart::Uart::rx` stays a `stream!`), the device opts in per stream with its
+  stream state. Done: the wire types (`ww_client_server::stream`). Missing: the device side (`ww_stream`, codegen),
+  host decoding in `wire_weaver_client` (dynamic client and Python through it), e2e tests, docs. Not planned yet:
+  a restart the host asks for, reliable and batched streams, sinks (host -> device). First user: Donguru's UART
+  rx (typec_dongle FW-42).
 
 ## Server / device side (`SRV`)
 

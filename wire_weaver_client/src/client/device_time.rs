@@ -100,7 +100,10 @@ mod tests {
             (Prefix::Micro, (1 << 32) + 5)
         );
         // no epoch: counts on
-        time.on_head(Some(&HeadExt { clock_epoch: None }));
+        time.on_head(Some(&HeadExt {
+            codec_restart: false,
+            clock_epoch: None,
+        }));
         time.on_head(None);
         assert_eq!(
             full(time.unwrap(Second::micro(6u32))),
@@ -108,6 +111,7 @@ mod tests {
         );
         // the device rebooted: its clock counts from 0 again
         time.on_head(Some(&HeadExt {
+            codec_restart: false,
             clock_epoch: Some(UVlq32(2)),
         }));
         assert_eq!(full(time.unwrap(Second::micro(7u32))), (Prefix::Micro, 7));

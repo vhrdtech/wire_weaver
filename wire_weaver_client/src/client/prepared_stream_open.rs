@@ -341,6 +341,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
             seq: UVlq32Backfill(0),
             path_kind: self.path_kind.clone(),
             kind: RequestKindOwned::StreamOpen {
+                codecs: None,
                 resume: self.resume,
                 max_age_us: self.max_age_us.map(UNib32),
                 args: TailBytesOwned(self.args.clone()),

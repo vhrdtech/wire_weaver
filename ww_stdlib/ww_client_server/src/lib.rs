@@ -15,7 +15,7 @@ use ww_version::{CompactVersion, FullVersion};
 use observe::ObserveRequest;
 #[cfg(feature = "std")]
 use observe::ObserveRequestOwned;
-use stream::{StreamCursor, StreamHead};
+use stream::{StreamCodecs, StreamCursor, StreamHead};
 
 #[cfg(feature = "std")]
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
@@ -154,6 +154,9 @@ pub enum RequestKind<'i> {
         /// latency choice; `None` takes the device's default. The device clamps it and answers with what it
         /// granted ([stream::StreamOpened::max_age_us]). Ignored by streams that aren't batched.
         max_age_us: Option<UNib32>,
+        /// Compressed streams (API-55): the codecs this host decodes; `None` (an older host) or an empty offer gets
+        /// the events as they are. The device answers the one it took in [stream::StreamOpened::codec].
+        codecs: Option<StreamCodecs>,
         /// Arguments of the stream function, serialized like [RequestKind::Call] arguments.
         args: TailBytes<'i>,
     },
@@ -705,10 +708,12 @@ impl RequestKind<'_> {
             RequestKind::StreamOpen {
                 resume,
                 max_age_us,
+                codecs,
                 args,
             } => RequestKindOwned::StreamOpen {
                 resume: *resume,
                 max_age_us: *max_age_us,
+                codecs: *codecs,
                 args: args.make_owned(),
             },
             RequestKind::SinkWrite { pos, data } => RequestKindOwned::SinkWrite {
@@ -898,6 +903,7 @@ mod tests {
                 resume_from: None,
                 max_age_us: None,
                 capacity: None,
+                codec: None,
                 result: TailBytes(&[]),
             }
             .with_capacity(capacity)

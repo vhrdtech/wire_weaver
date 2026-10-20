@@ -73,6 +73,7 @@ impl Opened {
             resume_from: self.resume_from.map(UVlq64),
             max_age_us: None,
             capacity: None,
+            codec: None,
             result: TailBytes(result),
         }
     }

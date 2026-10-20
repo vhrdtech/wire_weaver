@@ -166,6 +166,7 @@ fn big_positions_and_full_heads() {
         lost: Some(1 << 33),
         t: Some(t),
         ext: Some(crate::HeadExt {
+            codec_restart: false,
             clock_epoch: Some(wire_weaver::shrink_wrap::UVlq32(u32::MAX)),
         }),
     };

@@ -105,6 +105,7 @@ fn survives_a_soft_reset() {
     // a sender's own epoch is kept
     let mut h = head(32, 1);
     h.ext = Some(crate::HeadExt {
+        codec_restart: false,
         clock_epoch: Some(UVlq32(99)),
     });
     block_on(store.push(&h, b"x")).unwrap();

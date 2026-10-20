@@ -6426,6 +6426,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   that connects print (to stderr) or save that command's own connection, with the same <code>Monitor</code>, <code>LiveFeed</code> and
   <code>TapeWriter</code>; the tap decoder orders a block's records by time so a reply is paired with its request
   (<code>docs/cli_reference.md#ww-monitor</code>).</li>
+<li>🧪 <strong>TOOL-15 <code>ww pins test</code> / <code>ww pins list</code></strong> · <code>v0.5.x</code> — pin tests on any device serving <code>ww_pin_diag::PinDiag</code>
+  (STD-47) at any path, found by introspection (<code>docs/cli_reference.md#ww-pins</code>): pulls, shorts to GND, to the
+  supply and between points, only what each point's caps allow, refusals shown, <code>release_all</code> at the end also on
+  Ctrl-C and errors, exit 1 on a fault. Points by names, <code>P&lt;n&gt;</code> ids, ranges and globs on names and groups, <code>--watch</code>
+  points only read; plan files with <code>expect</code>, narrower <code>allow</code>, <code>[shorts] among</code> / <code>same_net</code>, <code>--save</code> into
+  <code>expect</code>. Library <code>ww_pin_probe</code> (<code>probe::run</code> over a <code>Pins</code> trait, <code>mock::MockBoard</code>), end to end in
+  <code>tests/pin_diag</code>. Hardware check open: on rePort once it serves <code>PinDiag</code>. Names sent as ids show as <code>#&lt;id&gt;</code>
+  (STD-48).</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See <code>docs/dev_tool.md</code>.</li>
@@ -6681,11 +6689,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   release_all() }</code>: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
   bring-up, verification and production tests; the firmware keeps its board's rules and answers <code>NotCapable</code>,
   <code>Common(InUse)</code> or <code>Refused { rule }</code>. Done: crate, docs page <code>docs/std_library/ww_pin_diag.md</code>, test pair
-  <code>tests/pin_diag</code> (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot.
-  Missing: <code>ww pins test</code> (quick short test on any device) and plan files, a device implementing it (rePort).</li>
+  <code>tests/pin_diag</code> (mock board: short, external pull-up, input-only pin, interlocked outputs, held pin), snapshot;
+  the host tests and plan files are TOOL-15 (<code>ww pins test</code>). Missing: a device implementing it (rePort).</li>
 <li>🚧 <strong>STD-48 <code>ww_interned</code> strings as ids</strong> · <code>v0.5.x</code> — <code>Interned { Id(UNib32), Text(&amp;str) }</code> for names and reasons;
   ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
-  id). Missing: an accessor for <code>defmt::Str</code>'s index (upstream), the host lookup in the ELF directory.</li>
+  id), <code>ww pins</code> finds the ELF by build id (<code>ww_pin_probe::device::Names</code>). Missing: an accessor for
+  <code>defmt::Str</code>'s index (upstream, <code>Table::get_str</code>), reading the ids from the ELF's table with it.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>

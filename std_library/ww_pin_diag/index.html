@@ -3092,6 +3092,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ww-pins-the-tests-on-any-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww pins</code>: the tests on any device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5177,6 +5188,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#ww-pins-the-tests-on-any-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww pins</code>: the tests on any device
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5407,6 +5429,22 @@ index is being proposed upstream. Until then a device sends <code>Text</code>.</
 </ul>
 <p>The test pair <code>tests/pin_diag</code> runs these against a mock board with a shorted pair, an external pull-up, an
 input-only pin, two interlocked shift register outputs and a pin held by a function.</p>
+<h2 id="ww-pins-the-tests-on-any-device"><code>ww pins</code>: the tests on any device<a class="headerlink" href="#ww-pins-the-tests-on-any-device" title="Permanent link">&para;</a></h2>
+<p><code>ww pins test</code> does all of the above on any device serving <code>PinDiag</code>, found through its introspection data wherever
+the API has it, so a board needs no test code of its own on the host:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww pins list
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>$ ww pins test GPIO0,GPIO5,P8,GPIO2..=GPIO7,&#39;chain.*&#39;
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>$ ww pins test --plan b200a.toml
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>$ ww pins test GPIO0..=GPIO9 --save b200a.toml
+</span></code></pre></div>
+<p>Each point is tested only with what its caps allow; what can't be checked says <em>not checked</em>, a refusal says
+<em>refused</em> with the device's reason, and neither stops the run. <code>release_all</code> ends every run, also on Ctrl-C and
+errors. A plan file adds expectations per point (<code>expect = "pull_up"</code>), narrower <code>allow</code> lists, and the points that
+are one net on the board; <code>--save</code> writes what a good board shows into it. The options, the selection syntax and the
+plan format: <a href="../../cli_reference/#ww-pins">command reference</a>.</p>
+<p>The tests are a library, <code>ww_pin_probe</code>, so a test bench uses them without the CLI: <code>probe::run</code> over anything
+implementing its <code>Pins</code> trait (<code>device::DevicePins</code> for a connected device, <code>mock::MockBoard</code> for tests), with
+<code>select::select</code> for the point list and <code>plan::Plan</code> / <code>plan::save</code> for plan files.</p>
 
 
 

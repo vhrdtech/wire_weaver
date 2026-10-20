@@ -481,8 +481,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   optional items can be left out (compile error otherwise). A call answers `Unimplemented` from the level's fallback
   arm (`id < ITEM_COUNT`), the device's model lists the omitted items (`ww_self` `omitted`, `root_omitted`), so the
   generated and dynamic clients and Python fail locally with `NotImplementedByDevice`; `ww api scaffold --omit`, CLI
-  tree and Python show them (`docs/api/optional_items.md`, `tests/traits`). Not yet: `#[optional]` on
-  `ww_impl!`, the GUI (`wire_weaver_tool`).
+  tree and Python show them (`docs/api/optional_items.md`, `tests/traits`). Whole traits: API-54. Not yet: the GUI
+  (`wire_weaver_tool`).
+- ✅ **API-54 Optional traits** — `#[optional]` / `#[optional(group)]` on a `ww_impl!` (a single trait or an array),
+  left out with `omit` / `omit_if` like API-16 items: no dispatch below it and none of its handlers (cfg-gated with
+  `omit_if`), its consts out of (or cfg-gated in) the consts trait, its streams not sent by `poll_streams` (one per
+  `omit_if` combination, same signature), the device's model marks it left out so clients fail every call below it
+  locally; `ww api scaffold` and `ww api tree` show it, `ww api check` classifies `#[optional]` changes
+  (`docs/api/optional_items.md#optional-traits`, `docs/evolution/rules.md#optional-items`, `tests/traits`,
+  `tests/streams_batched`). Not yet: `+observe` properties of a trait left out with `omit_if` aren't observed in
+  either build.
 - ✅ **API-32 Per-method error lists** — `#[errors(Common(InUse), Nack, ..)]` on a trait method, a stream function
   (the open's `Result` error) or above a `property!` with an error type (its reads and writes): checked against the
   error enum when the trait is parsed (a compile error on a wrong name), in the API model (`ww_self` `Method`,

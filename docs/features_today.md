@@ -101,6 +101,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[Optional items](api/optional_items.md)**: Leave out what a board doesn't have, with no flash spent, and clients know before they call.
+- **[Optional traits](api/optional_items.md#optional-traits)**: Leave a whole block of the API out of a build, e.g. behind a Cargo feature, and clients see it is not there.
 - **[Error lists](api/methods.md#error-lists)**: Which errors each method can return, shown in docs and tools and checked in tests.
 - **[Stream functions](api/streams.md#stream-functions)**: Open a stream with typed arguments and a result, like a method call.
 - **[Observing properties](api/observing.md)**: Ask a device to send changes on change or periodically, within a byte budget.

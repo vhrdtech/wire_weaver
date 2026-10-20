@@ -199,6 +199,20 @@ Making a property `+batched` (API-39) or not changes its observe slot (a `Batche
 the API crate. The times of the samples travel in the `PropertyUpdate` event, not in a slot, so adding resources to a
 level with `+batched` properties follows the usual rules.
 
+### Optional items
+
+`#[optional]` / `#[optional(group)]` on a method, property, stream or `ww_impl!` (API-16, API-54) is not on the wire:
+an item keeps its id whether a device has it or not, and a device leaving it out answers `Unimplemented`, which a
+client already has to handle for any call. But servers name optional items and groups in `omit = [..]` / `omit_if`,
+so `ww api check` treats the marker by what it does to their Rust code:
+
+* Making an item or a `ww_impl!` optional: compatible. Clients of the new version learn from a device's model that it
+  may leave it out; clients of the old version get `Unimplemented` from a device that does.
+* Putting an `#[optional]` item into a group (`#[optional]` to `#[optional(group)]`): compatible, `omit` by the item's
+  name still works.
+* Making an optional item required again, moving it to another group or out of its group: a break of the API crate.
+  A server leaving it out no longer compiles (no handler), or silently keeps an item it meant to leave out.
+
 ### API model
 
 API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model

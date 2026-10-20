@@ -4,7 +4,7 @@ level: advanced
 
 # Optional items
 
-A method, property or stream of a trait can be marked optional. A device's server may then leave it out when it is
+A method, property, stream or whole `ww_impl!` of a trait can be marked optional. A device's server may then leave it out when it is
 built: no dispatch arm, no handler to write, no stub answering "not implemented". A client calling it gets
 `Unimplemented`, and a client with the device's introspection data knows it without asking.
 `tests/traits` has a worked example; [Errors](errors.md#unsupported-is-not-unimplemented) tells `Unimplemented`
@@ -31,14 +31,16 @@ ww_codegen!(nucleo_api::Nucleo for Server, server = true, omit = ["i2c.i2c_wiggl
 
 ## Marking items optional
 
-- `#[optional]` on a method, property or stream lets a device leave it out. `#[optional(group)]` names a set of items
+- `#[optional]` on a method, property, stream or `ww_impl!` lets a device leave it out (see
+  [Optional traits](#optional-traits)). `#[optional(group)]` names a set of items
   that go together: leaving the group out leaves out all of them.
 - Only marked items can be left out: the API author decides what is optional, the rest of the trait stays a contract
   every device keeps. Leaving out a required item is a compile error that lists the trait's optional items and groups.
 - An item keeps its resource index whether a device has it or not, so clients address it the same way everywhere.
 - The marker is part of the trait's signature: marking an item optional later changes the API model, and its
   snapshot has to be saved again.
-- `#[optional]` on `ww_impl!` (a whole trait) is rejected; mark the trait's items instead.
+- Changing the marker later follows the [evolution rules](../evolution/rules.md#optional-items): making an item
+  optional is compatible, making it required again or moving it to another group is a break.
 
 ## Leaving items out
 
@@ -63,6 +65,50 @@ conditions, under `#[cfg(all(..))]`; at most 4 different conditions per `ww_code
 
 `ww api scaffold --omit i2c.pullups,reset` leaves the stubs of these items out and writes the same `omit = [..]` into
 the generated `ww_codegen!` call; the stubs of optional items it keeps carry a comment naming their path.
+
+## Optional traits
+
+`#[optional]` on a `ww_impl!` makes the whole trait attachment optional, with everything below it: its items, its
+nested traits, its consts. It is for a block a firmware has only with one of its features, such as pin diagnostics
+served only in a debug build:
+
+```rust
+#[ww_api_root]
+trait Board {
+    fn ping() -> u8;
+    /// Pin diagnostics, the firmware's `pin-diag` feature.
+    #[optional]
+    ww_impl!(diag: ww_pin_diag::PinDiag);
+    /// Probes and their count: both or neither.
+    #[optional(probes)]
+    ww_impl!(probe[]: Probe);
+    #[optional(probes)]
+    fn probe_count() -> u8;
+}
+
+ww_codegen!(
+    board_api::Board for Server,
+    server = true,
+    omit_if(not(feature = "pin-diag")) = ["diag"],
+    omit = ["probes"]
+);
+```
+
+- Leaving the trait out leaves out every handler below it (`diag_set`, `diag_read`, ..), the `valid_indices` of a
+  trait array, and the trait's `const` items in the consts trait. With `omit_if`, give the handlers (and the
+  consts' values) the same condition: `#[cfg(feature = "pin-diag")]`.
+- A trait array (`probe[]`) is left out with all its indices; a group may hold traits and items together.
+- Streams of a left-out trait are not sent by `poll_streams`. With `omit_if`, there is one `poll_streams` per
+  combination of the conditions, all with the same signature, so the firmware calls it the same way in every build.
+- Items inside an optional trait can be optional on their own (`omit = ["diag.release_all"]`), for the builds that
+  keep the trait.
+- On the wire it is the same as an omitted item: the trait keeps its id, a request to anything below it is answered
+  `Unimplemented` by the fallback arm of the level holding the trait, and the device's model lists the trait in that
+  level's omitted items, so clients fail every call below it locally. Its definition stays in the introspection
+  data, so tools show what the device leaves out.
+- `ww api scaffold` notes optional traits in their section of handlers, `--omit diag` leaves the section out.
+- Not yet: `+observe` properties of a trait left out with `omit_if` are not observed in either build (as an optional
+  property left out with `omit_if`); with `omit`, or in a trait that isn't left out, they are observed as usual.
 
 ## What a client sees
 

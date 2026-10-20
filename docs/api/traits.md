@@ -58,6 +58,22 @@ index to an item's path ([Resources addressing](addressing.md)), so there are 4 
 When every byte counts, keep the tree shallow and put the most used items first: indices `0..=7` take 4 bits on the
 wire.
 
+## Optional trait attachments
+
+A `ww_impl!` marked `#[optional]` (or `#[optional(group)]`) is a block some builds of a firmware leave out, e.g. one
+behind a Cargo feature. A server leaves it out with `ww_codegen!(.., omit = ["diag"])` or
+`omit_if(not(feature = "pin-diag")) = ["diag"]`: no handlers to write for it, and clients see in the device's
+introspection data that it is left out instead of getting `Unimplemented` from every item. See
+[Optional items](optional_items.md#optional-traits).
+
+```rust
+#[ww_api_root]
+trait Board {
+    #[optional]
+    ww_impl!(diag: ww_pin_diag::PinDiag);
+}
+```
+
 TODO: splitting into multiple files
 
 ## Reusing traits from other crates

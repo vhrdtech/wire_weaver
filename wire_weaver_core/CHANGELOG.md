@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `#[optional]` / `#[optional(group)]` on a whole `ww_impl!` (API-54), left out with `omit = [..]` / `omit_if(<cfg>) = [..]` like other optional items: the server generates no dispatch below it (cfg-gated for `omit_if`) and calls none of its handlers, its `const` items are left out of the `<Root>Consts` trait (or cfg-gated), `poll_streams` doesn't send its streams, and the device's model lists the trait in the omitted items of the level holding it, so clients fail every call below it locally. `ww api scaffold` notes an optional trait in its section and `--omit` leaves the whole section out. See `docs/api/optional_items.md#optional-traits`.
 - The generated client has `<sink>_resume(cursor)` (`_resume_blocking`) for credit sinks (API-34): the sink with the position where the device is, to continue a session after a restart of the host program.
 
 - `ObserveSignal` (SRV-25), generated for an API with `+observe` properties: a `static` any task or interrupt marks a property changed through (`SIGNAL.mark_changed_<name>()`, a bit and a wake) or wakes the server task with (`wake()`, `wait()`, `as_wake()` from `ww_stream::wake::Signal`); `ObserveState::take_changes(&signal)` moves the changes into the tables.
@@ -65,6 +66,8 @@
 
 ### 🐛 Fixes
 
+- `omit_if` on an optional `const` item dropped it from the `<Root>Consts` trait in every build, so the build that keeps it didn't compile; it is cfg-gated now (API-16).
+- `poll_streams` called the state handlers (`stream_<name>()`) of reliable and batched streams left out with `omit` / `omit_if`; it skips them now, one `poll_streams` per combination of `omit_if` conditions with the same signature (API-16).
 - Generated `ObserveState::next_wake` returns `None` at once while nothing is observed (SRV-25), new `ObserveState::is_active()`: it walked every level and the batched levels' outboxes on each wake of the server task, which made small USB requests to Donguru 17 % slower (FW-40: 64 B host to device 301 instead of 361 kB/s).
 - `ObserveState::reset()` (the link went down) drops the rows taken before it (API-39, API-50): rows waiting in a sampler's batch or in a cells level's ring went to the next host that observed the level in `Samples` mode, stamped with their old times (seen on Donguru: 18 rows 88 s old at the start of a `dg power watch --samples`). Test `reset_drops_waiting_rows` in `tests/observe_batched`.
 

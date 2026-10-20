@@ -272,6 +272,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dfu_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_dfu",
+]
+
+[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -376,12 +384,14 @@ dependencies = [
  "cortex-m",
  "cortex-m-rt",
  "cortex-m-semihosting",
+ "dfu_api",
  "foc_observe_api",
  "panic-semihosting",
  "static_cell",
  "wire_weaver",
  "ww_bus_slave",
  "ww_client_server",
+ "ww_dfu",
  "ww_framer",
  "ww_gpio",
  "ww_i2c",
@@ -909,6 +919,7 @@ dependencies = [
  "shrink_wrap",
  "syn 3.0.3",
  "wire_weaver_snapshots",
+ "ww_global",
  "ww_numeric",
  "ww_self",
  "ww_version",
@@ -926,6 +937,7 @@ dependencies = [
  "subprocess",
  "syn 3.0.3",
  "wire_weaver_core",
+ "ww_global",
 ]
 
 [[package]]
@@ -955,6 +967,13 @@ dependencies = [
  "wire_weaver",
  "ww_global",
  "ww_si",
+]
+
+[[package]]
+name = "ww_dfu"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
 ]
 
 [[package]]

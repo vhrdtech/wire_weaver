@@ -23,6 +23,8 @@ ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = [
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
+dfu_api = { path = "../../tests/dfu_api", default-features = false }
+ww_dfu = { path = "../../ww_stdlib/ww_dfu", default-features = false }
 
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]
@@ -35,6 +37,13 @@ bench = false
 [[bin]]
 name = "qemu-ww-gpio"
 path = "src/bin/ww_gpio.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-global-paths"
+path = "src/bin/global_paths.rs"
 test = false
 doctest = false
 bench = false

@@ -13,6 +13,9 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `ww pins test` / `ww pins list` (TOOL-15, crate `ww_pin_probe`): shorts to GND, to the supply and between points,
+  and pulls, on any device serving `PinDiag` at any path; points by names, ids, ranges and globs, plan files with
+  expectations (`--plan`, `--save`), every point released at the end.
 - `ww_pin_diag` (STD-47): one generic trait for pin tests, `PinDiag { const POINTS; set; read; release_all }`, so
   one host tool finds shorts, pulls and floating pins on any board; the firmware keeps its board's rules and refuses
   with `NotCapable`, `Common(InUse)` or `Refused { rule }`. `ww_interned` (STD-48): `Interned { Id, Text }`, names

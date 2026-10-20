@@ -9,6 +9,7 @@ use crate::cmd::info::{InfoArgs, ReportArgs};
 use crate::cmd::introspect::IntrospectArgs;
 use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
+use crate::cmd::pins::PinsCommand;
 use crate::cmd::settings::SettingsCommand;
 use crate::cmd::stream::StreamArgs;
 use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
@@ -144,6 +145,13 @@ pub(crate) enum Commands {
     /// found say so, the rest is still there.
     Report(ReportArgs),
 
+    /// Pin tests on any device serving ww_pin_diag::PinDiag: shorts to GND, the supply and each other, pulls (TOOL-15)
+    ///
+    /// Works wherever the device's API has PinDiag, found through its introspection data. `ww pins list` shows the
+    /// points, `ww pins test` tests them, with a plan file for expectations and rules.
+    #[command(subcommand)]
+    Pins(PinsCommand),
+
     /// The ELF directory: firmware ELFs stored by build id, for counters, log and crash decoding
     #[command(subcommand)]
     Elf(ElfCommand),
@@ -250,7 +258,7 @@ impl Cli {
         // `ww explain` may connect, but only to look an API up
         if matches!(self.command, Commands::Explain(_)) || !self.need_device() {
             anyhow::bail!(
-                "--monitor and --capture need a command that opens a device connection (info, observe, stream, introspect, dfu, counters, report, usb-loopback); this one doesn't"
+                "--monitor and --capture need a command that opens a device connection (info, observe, stream, introspect, dfu, counters, report, pins, usb-loopback); this one doesn't"
             );
         }
         self.tap.check()
@@ -271,6 +279,7 @@ impl Cli {
             Commands::Bootsel(_) => false,
             Commands::Dfu(_) => true,
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
+            Commands::Pins(_) => true,
             Commands::Elf(_) => false,
             Commands::Settings(_) => false,
             #[cfg(target_os = "linux")]

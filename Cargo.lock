@@ -3436,6 +3436,7 @@ dependencies = [
  "ww_gpio",
  "ww_interned",
  "ww_pin_diag",
+ "ww_pin_probe",
 ]
 
 [[package]]
@@ -5570,6 +5571,7 @@ dependencies = [
  "ww_counters",
  "ww_dfu",
  "ww_numeric",
+ "ww_pin_probe",
  "ww_report",
  "ww_settings",
  "ww_si",
@@ -5947,6 +5949,24 @@ dependencies = [
  "wire_weaver",
  "ww_gpio",
  "ww_interned",
+]
+
+[[package]]
+name = "ww_pin_probe"
+version = "0.5.0"
+dependencies = [
+ "anyhow",
+ "cnt_core",
+ "serde",
+ "tokio",
+ "toml",
+ "toml_edit",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_gpio",
+ "ww_interned",
+ "ww_pin_diag",
+ "ww_report",
 ]
 
 [[package]]

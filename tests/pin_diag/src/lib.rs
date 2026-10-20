@@ -1,5 +1,6 @@
 //! `ww_pin_diag` end to end: a mock board on `ww_device::Server` through `tests_common::start_device`, the generated
-//! client through the real host event loop.
+//! client through the real host event loop, and `ww_pin_probe` (what `ww pins` runs) through a `DynClient` that finds
+//! `PinDiag` in the device's introspection data.
 
 #[cfg(test)]
 mod tests {
@@ -380,5 +381,56 @@ mod tests {
             .call()
             .await
             .unwrap();
+    }
+
+    /// What `ww pins test` does: PinDiag found at `pins` by introspection, every test through the dynamic client.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn probe_through_introspection() {
+        use wire_weaver_client::{ClientConfig, DynClient};
+        use ww_pin_probe::device::{DevicePins, Names};
+        use ww_pin_probe::plan::PullClass;
+        use ww_pin_probe::probe::{Check, Setup, run};
+        use ww_pin_probe::select::select;
+
+        let _ = tracing_subscriber::fmt::try_init();
+        let device = tests_common::start_device(
+            "pin_diag/probe_dyn",
+            server::Server::new(),
+            pin_diag_api::PIN_DIAG_TEST_FULL_GID,
+            server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        assert!(DevicePins::find(&client, Some("diag")).is_err());
+        let mut pins = DevicePins::find(&client, None).unwrap();
+        assert_eq!(pins.at.name, "pins");
+        let raw = pins.raw_points().await.unwrap();
+        // EX0's name is an id: shown as #17, the device has no build id to find an ELF by
+        let names = Names::for_device(&client, &raw).await;
+        assert!(names.note.as_deref().unwrap().contains("no build id"));
+        let points = names.points(&raw);
+        assert_eq!(points[EX0 as usize].name, "#17");
+
+        let selected = select(&points, &["P0..=P2,DET,#17,EX1,LED"]).unwrap();
+        let setup = Setup::new(&points, &selected, &[], None).unwrap();
+        let report = run(&mut pins, &setup, std::future::pending::<()>(), |_, _| {})
+            .await
+            .unwrap();
+        let point = |id: u16| report.point(id).unwrap();
+        assert_eq!(point(P2).pulls, Check::Done(PullClass::PullUp));
+        assert_eq!(point(P0).gnd, Check::Done(false));
+        assert_eq!(point(DET).pulls, Check::Done(PullClass::Floating));
+        assert!(matches!(point(DET).gnd, Check::NotChecked(_)));
+        assert!(matches!(point(LED).pulls, Check::Refused(_)));
+        assert_eq!(point(EX0).pulls, Check::NotChecked("can't be read".into()));
+        let pairs: Vec<_> = report.connections.iter().map(|c| (c.a, c.b)).collect();
+        assert_eq!(pairs, vec![(P0, P1)]);
+        assert_eq!(report.shorts(), 1);
+        // everything given back: P0 floats low again
+        let mut check = DevicePins::find(&client, Some("pins")).unwrap();
+        use ww_pin_probe::Pins;
+        assert_eq!(check.read(P0).await.unwrap(), Level::Low);
     }
 }

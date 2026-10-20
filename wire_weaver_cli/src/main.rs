@@ -35,7 +35,8 @@ async fn run() -> Result<()> {
         | Commands::Stream(_)
         | Commands::Monitor(_)
         | Commands::Stats(_)
-        | Commands::Capture(_) => tracing::Level::WARN,
+        | Commands::Capture(_)
+        | Commands::Pins(_) => tracing::Level::WARN,
         _ => tracing::Level::INFO,
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
@@ -119,19 +120,35 @@ async fn run() -> Result<()> {
             _ => {}
         }
     }
-    if command_result? && let Some(device) = device {
+    let ran = command_result?;
+    if ran.disconnect
+        && let Some(device) = device
+    {
         device.disconnect().asynch().await?;
+    }
+    if !ran.passed {
+        // a test that found a fault, after disconnecting
+        std::process::exit(1);
     }
     Ok(())
 }
 
-/// Runs the command; `false` when the device is gone or about to be (nothing to disconnect from).
+/// How a command ended.
+struct Ran {
+    /// `false` when the device is gone or about to be (nothing to disconnect from).
+    disconnect: bool,
+    /// `false` when a test found a fault (`ww pins test`): exit code 1.
+    passed: bool,
+}
+
+/// Runs the command.
 async fn run_command(
     command: Commands,
     selection: &Option<Selection>,
     device: &mut Option<DynClient>,
     tap: Option<LiveTap>,
-) -> Result<bool> {
+) -> Result<Ran> {
+    let mut passed = true;
     match command {
         Commands::List(args) => cmd::list::list(args, selection.as_ref().unwrap()).await?,
         Commands::USBLoopback {
@@ -175,12 +192,18 @@ async fn run_command(
             cmd::dfu::dfu(dfu_cmd, device.as_ref().unwrap()).await?;
             if resets_device {
                 // the device is gone or about to, nothing to disconnect from
-                return Ok(false);
+                return Ok(Ran {
+                    disconnect: false,
+                    passed,
+                });
             }
         }
         Commands::Counters(args) => cmd::counters::counters(args, device.as_ref().unwrap()).await?,
         Commands::Info(args) => cmd::info::info(args, device.as_ref().unwrap()).await?,
         Commands::Report(args) => cmd::info::report(args, device.as_ref().unwrap()).await?,
+        Commands::Pins(pins_cmd) => {
+            passed = cmd::pins::pins(pins_cmd, device.as_ref().unwrap()).await?
+        }
         Commands::Elf(elf_cmd) => cmd::elf::elf(elf_cmd)?,
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
@@ -196,5 +219,8 @@ async fn run_command(
         }
     }
 
-    Ok(true)
+    Ok(Ran {
+        disconnect: true,
+        passed,
+    })
 }

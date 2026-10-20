@@ -9,6 +9,7 @@ pub(crate) mod info;
 pub(crate) mod introspect;
 pub(crate) mod list;
 pub(crate) mod observe;
+pub(crate) mod pins;
 pub(crate) mod settings;
 pub(crate) mod stream;
 pub(crate) mod tap;

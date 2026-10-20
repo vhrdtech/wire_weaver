@@ -19,6 +19,7 @@ members = [
     "ww_framer",
     "ww_global",
     "ww_link",
+    "ww_pin_probe",
     "ww_report",
     "ww_self",
     "ww_settings/*",
@@ -72,6 +73,8 @@ strum_macros = "0.28"
 syn = { version = "3", features = ["full", "extra-traits"] }
 thiserror = "2"
 tokio = "1"
+toml = "1"
+toml_edit = "0.25"
 tracing-subscriber = "0.3"
 
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
@@ -89,6 +92,7 @@ ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false 
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
 ww_picoboot = { package = "picoboot_host", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
+ww_pin_probe = { version = "0.5.0", path = "./ww_pin_probe" }
 ww_report = { version = "0.5.0", path = "./ww_report" }
 ww_settings = { version = "0.5.0", path = "./ww_settings/ww_settings" }
 ww_settings_derive = { version = "0.5.0", path = "./ww_settings/ww_settings_derive" }

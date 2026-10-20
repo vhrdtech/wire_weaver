@@ -28,8 +28,8 @@ serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "sync"] }
-toml = "1"
-toml_edit = "0.25"
+toml.workspace = true
+toml_edit.workspace = true
 tracing = "0.1"
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
@@ -39,6 +39,7 @@ wire_weaver_core.workspace = true
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
+ww_pin_probe.workspace = true
 ww_report.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }

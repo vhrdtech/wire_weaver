@@ -1,0 +1,25 @@
+[package]
+name = "ww_pin_probe"
+version.workspace = true
+authors.workspace = true
+description = "Host side of ww_pin_diag: shorts, pulls and floating pins on any WireWeaver device serving PinDiag, plan files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+cnt_core.workspace = true
+serde = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["macros", "sync"] }
+toml.workspace = true
+toml_edit.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_gpio = { workspace = true, features = ["std"] }
+ww_interned = { workspace = true, features = ["std"] }
+ww_pin_diag = { workspace = true, features = ["std"] }
+ww_report.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -18,3 +18,4 @@ ww_client_server.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
 ww_interned = { workspace = true, features = ["std"] }
 ww_pin_diag = { workspace = true, features = ["std"] }
+ww_pin_probe.workspace = true

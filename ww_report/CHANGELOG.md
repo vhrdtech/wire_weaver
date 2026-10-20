@@ -8,6 +8,7 @@
   `collect_report` and `render_report` (`ww report`: info, counters, the stored `defmt` log and the crash's addresses
   decoded with the ELF found by build id), `Contract` (clients of every trait on one connection), `find_trait`
   (absolute path of a trait in a device's introspection data, which the log stream needs) (CLT-25). The last reset shows `boots_since_crash` (STD-27).
+- `find_all_traits`: every place a trait is implemented at, with the path's names (`diag.pins`), for `ww pins` (TOOL-15).
 
 ### 🐛 Fixes
 

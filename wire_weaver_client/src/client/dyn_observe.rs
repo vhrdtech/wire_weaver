@@ -165,20 +165,17 @@ impl LevelSchema {
         let mut out = Vec::with_capacity(self.props.len());
         for (k, ((index, _, ty), batched)) in self.props.iter().zip(&self.batched).enumerate() {
             let mut at = None;
-            let slot =
-                iter.read_slot_with::<DynSlot, anyhow::Error>(*index, |rd| {
-                    let from = rd.cursors_in(data);
-                    let slot = match batched {
-                        None => DynSlot::One(ValueOwned::des_shrink_wrap_field_dyn(
-                            rd,
-                            ty,
-                            &self.bundle,
-                        )?),
-                        Some(batched) => self.decode_batched(rd, ty, batched)?,
-                    };
-                    at = from.zip(rd.cursors_in(data));
-                    Ok(slot)
-                })?;
+            let slot = iter.read_slot_with::<DynSlot, anyhow::Error>(*index, |rd| {
+                let from = rd.cursors_in(data);
+                let slot = match batched {
+                    None => {
+                        DynSlot::One(ValueOwned::des_shrink_wrap_field_dyn(rd, ty, &self.bundle)?)
+                    }
+                    Some(batched) => self.decode_batched(rd, ty, batched)?,
+                };
+                at = from.zip(rd.cursors_in(data));
+                Ok(slot)
+            })?;
             if let Some(slot) = slot {
                 let (front, back) = at.map_or((0..0, 0..0), |(from, to)| {
                     (
@@ -204,23 +201,30 @@ impl LevelSchema {
         Ok(self
             .decode_slots(data)?
             .into_iter()
-            .map(|Slot { k, slot, front, back }| {
-                let (_, name, ty) = &self.props[k];
-                let (ty, value) = match (slot, &self.batched[k]) {
-                    (DynSlot::One(value), _) => (ty.clone(), value),
-                    (DynSlot::Samples(items), Some(b)) => {
-                        (b.series_ty.clone(), ValueOwned::Vec(items))
+            .map(
+                |Slot {
+                     k,
+                     slot,
+                     front,
+                     back,
+                 }| {
+                    let (_, name, ty) = &self.props[k];
+                    let (ty, value) = match (slot, &self.batched[k]) {
+                        (DynSlot::One(value), _) => (ty.clone(), value),
+                        (DynSlot::Samples(items), Some(b)) => {
+                            (b.series_ty.clone(), ValueOwned::Vec(items))
+                        }
+                        (DynSlot::Samples(items), None) => (ty.clone(), ValueOwned::Vec(items)),
+                    };
+                    SlotView {
+                        name: name.clone(),
+                        ty,
+                        value,
+                        front,
+                        back,
                     }
-                    (DynSlot::Samples(items), None) => (ty.clone(), ValueOwned::Vec(items)),
-                };
-                SlotView {
-                    name: name.clone(),
-                    ty,
-                    value,
-                    front,
-                    back,
-                }
-            })
+                },
+            )
             .collect())
     }
 

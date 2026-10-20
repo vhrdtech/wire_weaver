@@ -2,7 +2,7 @@ use crate::cli::{Cli, Commands};
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use clap::{CommandFactory, FromArgMatches};
 use wire_weaver_client::DynClient;
 
@@ -41,6 +41,9 @@ async fn run() -> Result<()> {
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
     cli.check_tap()?;
+    if let Commands::Explain(args) = &cli.command {
+        args.check()?;
+    }
     let selection = match &cli.command {
         Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) => Some(Selection::resolve(
             &matches,
@@ -67,27 +70,35 @@ async fn run() -> Result<()> {
         (None, Some(attached)) => Some(attached.recorder()),
         _ => None,
     };
+    // a tapped run ends cleanly on SIGINT / SIGTERM: the capture file is finished and renamed, not left `.partial`
+    let stop = (tap.is_some() || flag_tap.is_some()).then(util::StopSignal::install);
     let device = match &selection {
-        Some(selection) if cli.need_device() => Some(
-            DynClient::from_config({
-                let config = if cli.traits_only() {
-                    selection.client_config().traits_only()
-                } else {
-                    selection.client_config()
-                };
-                match recorder {
-                    Some(recorder) => config.tap(recorder),
-                    None => config,
-                }
-            })
-            .connect()
-            .await
-            .with_context(|| {
-                format!(
-                    "connecting to device ({selection}), run 'ww list' to see connected devices"
-                )
-            }),
-        ),
+        Some(selection) if cli.need_device() => {
+            let config = if cli.traits_only() {
+                selection.client_config().traits_only()
+            } else {
+                selection.client_config()
+            };
+            let config = match recorder {
+                Some(recorder) => config.tap(recorder),
+                None => config,
+            };
+            let connect = async {
+                DynClient::from_config(config)
+                    .connect()
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "connecting to device ({selection}), run 'ww list' to see connected devices"
+                        )
+                    })
+            };
+            Some(
+                util::guard(stop.clone(), connect)
+                    .await
+                    .unwrap_or_else(|| Err(anyhow!("stopped while connecting"))),
+            )
+        }
         _ => None,
     };
     let mut device = match device {
@@ -107,7 +118,16 @@ async fn run() -> Result<()> {
         attached.add_bundles(device);
     }
 
-    let command_result = run_command(cli.command, &selection, &mut device, tap).await;
+    // a flagged command that is stopped (`observe` runs until it is) ends as if it was done: the tap is finished below
+    let command_result = util::guard(
+        flag_tap.is_some().then(|| stop.clone()).flatten(),
+        run_command(cli.command, &selection, &mut device, tap, stop),
+    )
+    .await
+    .unwrap_or(Ok(Ran {
+        disconnect: true,
+        passed: true,
+    }));
     if let Some(attached) = flag_tap {
         // the recording ends with the disconnect
         if let Some(device) = device.take() {
@@ -147,6 +167,7 @@ async fn run_command(
     selection: &Option<Selection>,
     device: &mut Option<DynClient>,
     tap: Option<LiveTap>,
+    stop: Option<util::StopSignal>,
 ) -> Result<Ran> {
     let mut passed = true;
     match command {
@@ -174,18 +195,18 @@ async fn run_command(
         // these disconnect themselves, so the recording ends with the disconnect
         Commands::Monitor(args) => {
             let (device, tap) = (device.take().unwrap(), tap.unwrap());
-            cmd::tap::monitor(args, device, tap).await?
+            cmd::tap::monitor(args, device, tap, stop.unwrap()).await?
         }
         Commands::Stats(args) => match &args.file {
             Some(_) => cmd::tap::stats_file(&args)?,
             None => {
                 let (device, tap) = (device.take().unwrap(), tap.unwrap());
-                cmd::tap::stats(args, device, tap).await?
+                cmd::tap::stats(args, device, tap, stop.unwrap()).await?
             }
         },
         Commands::Capture(args) => {
             let (device, tap) = (device.take().unwrap(), tap.unwrap());
-            cmd::tap::capture(args, device, tap).await?
+            cmd::tap::capture(args, device, tap, stop.unwrap()).await?
         }
         Commands::Dfu(dfu_cmd) => {
             let resets_device = dfu_cmd.resets_device();

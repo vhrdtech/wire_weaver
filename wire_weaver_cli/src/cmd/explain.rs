@@ -76,6 +76,25 @@ impl ExplainArgs {
         self.crate_path.is_none() && self.bundle.is_none() && !self.is_capture()
     }
 
+    /// A WHAT that is written like a file (a path, a `.wwtape`) but is none: said before anything connects, a
+    /// device would only be asked to explain a name that is no type or resource.
+    pub(crate) fn check(&self) -> Result<()> {
+        if !self.hex.is_empty() || self.file.is_some() || self.value.is_some() {
+            return Ok(());
+        }
+        let what = self.what.as_str();
+        let looks_like_a_file = what.contains('/')
+            || what.starts_with('~')
+            || what.ends_with(".wwtape")
+            || what.ends_with(".wwtape.partial");
+        if looks_like_a_file && !std::path::Path::new(what).exists() {
+            bail!(
+                "'{what}': no such capture file (a type or resource name is not written as a path)"
+            );
+        }
+        Ok(())
+    }
+
     /// WHAT is a capture file, and nothing else is given: it carries its APIs.
     fn is_capture(&self) -> bool {
         self.hex.is_empty()

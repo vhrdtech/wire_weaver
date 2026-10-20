@@ -3,9 +3,9 @@
 //! it, and the capture read back the way `ww explain FILE` reads it: the same text.
 
 use super::*;
-use wire_weaver_client::observe::ObserveMode;
-use wire_weaver::shrink_wrap::UNib32;
 use crate::util::resolve;
+use wire_weaver::shrink_wrap::UNib32;
+use wire_weaver_client::observe::ObserveMode;
 use wire_weaver_client::ww_numeric::NumericValue;
 use wire_weaver_client::ww_self::ValueOwned;
 use wire_weaver_client::{ClientConfig, DynResource};
@@ -55,10 +55,7 @@ mod server {
             Ready(RefVec::new_bytes(&self.blob[..(len as usize).min(512)]))
         }
 
-        async fn get_speed(
-            &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
-        ) -> GetResult<u16, ()> {
+        async fn get_speed(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u16, ()> {
             Value(self.speed)
         }
 
@@ -466,7 +463,13 @@ fn replayed(path: &std::path::Path, layer: Layer) -> String {
         bits: false,
     };
     let mut out = vec![];
-    replay(&mut FileFeed::open(path, false).unwrap(), view, false, &mut out).unwrap();
+    replay(
+        &mut FileFeed::open(path, false).unwrap(),
+        view,
+        false,
+        &mut out,
+    )
+    .unwrap();
     String::from_utf8(out).unwrap()
 }
 
@@ -493,7 +496,8 @@ async fn observe_requests_replies_and_updates_are_decoded() {
         }
     })
     .await;
-    let lines = |what: &str| -> Vec<&str> { printed.lines().filter(|l| l.contains(what)).collect() };
+    let lines =
+        |what: &str| -> Vec<&str> { printed.lines().filter(|l| l.contains(what)).collect() };
     assert!(
         lines("Request Observe")[0].contains("load: on change; state: on change; others off"),
         "{printed}"
@@ -540,14 +544,103 @@ async fn global_trait_calls_are_named_and_decoded() {
             "{printed}"
         );
         assert!(
-            printed
-                .lines()
-                .any(|l| l.contains("Event Value ww_user_info::UserInfo.name  \"tapped\"")
-                    && l.contains("reply to #")),
+            printed.lines().any(|l| l
+                .contains("Event Value ww_user_info::UserInfo.name  \"tapped\"")
+                && l.contains("reply to #")),
             "{printed}"
         );
         assert_eq!(replayed(&path, Layer::Api), printed, "{name}");
         std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+}
+
+/// TOOL-14: SIGTERM (a `timeout`, a service manager) ends a command with `--capture` like Ctrl-C does: the capture is
+/// finished and renamed, not left as FILE.partial.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn sigterm_finishes_the_capture_file() {
+    let device = demo_device("cli/tap_sigterm", 7);
+    let dir = std::env::temp_dir().join(format!("ww_cli_tap_sigterm_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("cap.wwtape");
+    let _ = std::fs::remove_file(&path);
+    let flags = TapFlags {
+        monitor: None,
+        tap_bytes: false,
+        tap_bits: false,
+        capture: Some(path.clone()),
+    };
+    let attached = Attached::start_with(&flags, Box::new(std::io::sink())).unwrap();
+    // as main.rs does: installed before connecting
+    let stop = crate::util::StopSignal::install();
+    let client = DynClient::from_config(
+        ClientConfig::new()
+            .in_process_path(device.path())
+            .tap(attached.recorder()),
+    )
+    .connect()
+    .await
+    .expect("connect");
+    attached.add_bundles(&client);
+
+    // a command that does not end by itself, until the signal
+    let own_pid = std::process::id().to_string();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let status = std::process::Command::new("kill")
+            .args(["-TERM", &own_pid])
+            .status()
+            .unwrap();
+        assert!(status.success());
+    });
+    let root = DynResource::root(client.device_introspect().unwrap().api_bundle.clone());
+    let level = resolve(root, "").unwrap();
+    let entries = [(3, ObserveMode::OnChange { min_us: UNib32(0) })].into();
+    let mut observer = level.observe(client.cmd(), entries).await.unwrap();
+    let ended = crate::util::guard(Some(stop), async {
+        loop {
+            observer.recv().await.unwrap();
+        }
+    })
+    .await;
+    assert_eq!(ended, None::<()>, "the signal ended the command");
+
+    client.disconnect().asynch().await.unwrap();
+    attached.finish().unwrap();
+    assert!(path.exists(), "renamed");
+    assert!(
+        !path.with_file_name("cap.wwtape.partial").exists(),
+        "not left partial"
+    );
+    assert!(is_capture(path.to_str().unwrap()));
+    let text = replayed(&path, Layer::Api);
+    assert!(text.contains("Request Observe"), "{text}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+/// A WHAT written like a file that is none is an error before any device is asked.
+#[test]
+fn explain_of_a_missing_capture_is_an_error_not_a_connect() {
+    use clap::{CommandFactory, FromArgMatches};
+    let explain = |args: &[&str]| {
+        let matches = crate::cli::Cli::command()
+            .try_get_matches_from(std::iter::once(&"ww").chain(args))
+            .unwrap();
+        match crate::cli::Cli::from_arg_matches(&matches).unwrap().command {
+            crate::cli::Commands::Explain(args) => args.check(),
+            _ => unreachable!(),
+        }
+    };
+    let err = explain(&["explain", "/nonexistent/dir/run.wwtape"]).unwrap_err();
+    assert!(err.to_string().contains("no such capture file"), "{err}");
+    assert!(explain(&["explain", "run.wwtape"]).is_err());
+    // names of types and resources, a file given with --file, hex: not files
+    for ok in [
+        &["explain", "u8", "05"][..],
+        &["explain", "motor.speed"],
+        &["explain", "request", "--file", "/nonexistent/x.bin"],
+    ] {
+        assert!(explain(ok).is_ok(), "{ok:?}");
     }
 }
 

@@ -9,22 +9,24 @@
 use crate::DynResource;
 use crate::client::dynamic::DynResourceKind;
 use anyhow::{Result, anyhow};
+use std::collections::HashMap;
 use std::ops::Range;
 use std::sync::Arc;
+use std::sync::Mutex;
 use wire_weaver::prelude::UNib32;
 use wire_weaver::shrink_wrap::buf_reader::Cursors;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
-use wire_weaver::shrink_wrap::{BufReader, DeserializeShrinkWrap, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill};
+use wire_weaver::shrink_wrap::{
+    BufReader, DeserializeShrinkWrap, SerializeShrinkWrapOwned, UVlq32, UVlq32Backfill,
+};
+use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode};
 use ww_client_server::{
     EventKind, PathKind, PathKindOwned, Request, RequestKind, RequestKindOwned, RequestOwned,
 };
-use ww_client_server::observe::{ObserveEntry, ObserveGranted, ObserveMode};
 use ww_numeric::NumericValue;
 use ww_self::explain::{Explained, Part, PartKind, explain, explain_fields};
 use ww_self::{ApiBundleOwned, ApiLevelLocationOwned, TypeOwned, ValueOwned};
 use ww_version::FullVersionOwned;
-use std::collections::HashMap;
-use std::sync::Mutex;
 
 /// A request or event explained, with a title saying what it is.
 pub struct Envelope {
@@ -89,9 +91,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
                     .map(|i| i.map(|i| i.0))
                     .collect::<Result<_, _>>()?;
                 let resource = global_trait(&gid.make_owned(), trait_name)
-                    .ok_or_else(|| {
-                        anyhow!("{}@{} is not known here", gid.crate_id, trait_name)
-                    })
+                    .ok_or_else(|| anyhow!("{}@{} is not known here", gid.crate_id, trait_name))
                     .and_then(|t| t.descend(&chain).map_err(|e| anyhow!("{e}")));
                 b.leaf(
                     1,
@@ -162,7 +162,13 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
             if let Some(budget) = cfg.budget {
                 text += &format!("; budget {} B/s", budget.0);
             }
-            b.text(2, "cfg", "ObserveRequest", at.front_bit..end.front_bit, text);
+            b.text(
+                2,
+                "cfg",
+                "ObserveRequest",
+                at.front_bit..end.front_bit,
+                text,
+            );
         }
         Ok(())
     })();
@@ -567,11 +573,9 @@ impl<'b> Builder<'b> {
             .ok_or_else(|| anyhow!("no API to explain the payload by"))?;
         let explained = match &target {
             Target::Value(ty) => explain(slice, ty, &bundle),
-            Target::Args(defs) => explain_fields(
-                slice,
-                defs.iter().map(|(n, t)| (n.as_str(), t)),
-                &bundle,
-            ),
+            Target::Args(defs) => {
+                explain_fields(slice, defs.iter().map(|(n, t)| (n.as_str(), t)), &bundle)
+            }
         };
         for mut part in explained.parts {
             part.depth += depth + 1;
@@ -612,12 +616,7 @@ impl<'b> Builder<'b> {
 
     /// A level's `PropertyUpdate` data at `slice`: the properties it carries, each with its place in it, by the
     /// level's `+observe` properties.
-    fn update(
-        &mut self,
-        depth: usize,
-        slice: &[u8],
-        level: Option<&DynResource>,
-    ) -> Result<()> {
+    fn update(&mut self, depth: usize, slice: &[u8], level: Option<&DynResource>) -> Result<()> {
         let Some(level) = level else {
             return self.payload(depth, "data", slice, None);
         };
@@ -759,7 +758,11 @@ fn mode_text(mode: &ObserveMode) -> String {
         ObserveMode::OnChange { min_us } if min_us.0 == 0 => "on change".into(),
         ObserveMode::OnChange { min_us } => format!("on change (min {})", us(min_us.0)),
         ObserveMode::Periodic { every_us } => format!("every {}", us(every_us.0)),
-        ObserveMode::OnChangeOrBeat { min_us, max_us } => format!("on change (min {}), beat every {}", us(min_us.0), us(max_us.0)),
+        ObserveMode::OnChangeOrBeat { min_us, max_us } => format!(
+            "on change (min {}), beat every {}",
+            us(min_us.0),
+            us(max_us.0)
+        ),
         ObserveMode::Samples {
             every_us,
             max_age_us,

@@ -6,6 +6,7 @@
 //! this process opened) or a file ([FileFeed]); a ww server's tap of every client's link (SRV-13) is one more feed.
 
 use crate::cmd::explain;
+use crate::util::StopSignal;
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow};
 use clap::{Args, ValueEnum, ValueHint};
@@ -228,8 +229,9 @@ fn add_bundles(recorder: &Recorder, device: &DynClient) {
         recorder.add_bundle(&hash, &bytes);
     }
     if let Some(i) = device.device_introspect()
-        && let Ok(bytes) =
-            wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(&*i.sent_api_bundle)
+        && let Ok(bytes) = wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(
+            &*i.sent_api_bundle,
+        )
     {
         recorder.add_bundle(&i.api_hash.no_docs.hash, &bytes);
     }
@@ -736,6 +738,7 @@ async fn run_live<T: Send + 'static>(
     device: DynClient,
     recorder: Recorder,
     duration: Option<f64>,
+    mut stopped: StopSignal,
     consumer: impl FnOnce(Arc<AtomicBool>) -> Result<T> + Send + 'static,
 ) -> Result<T> {
     let stop = Arc::new(AtomicBool::new(false));
@@ -750,7 +753,7 @@ async fn run_live<T: Send + 'static>(
         }
     };
     tokio::select! {
-        _ = tokio::signal::ctrl_c() => {}
+        _ = stopped.wait() => {}
         _ = wait => {}
     }
     _ = device.disconnect().asynch().await;
@@ -759,11 +762,16 @@ async fn run_live<T: Send + 'static>(
     thread.await?
 }
 
-pub(crate) async fn monitor(args: MonitorArgs, device: DynClient, tap: LiveTap) -> Result<()> {
+pub(crate) async fn monitor(
+    args: MonitorArgs,
+    device: DynClient,
+    tap: LiveTap,
+    stop: StopSignal,
+) -> Result<()> {
     tap.add_bundles(&device);
     let (mut feed, recorder) = LiveFeed::new(tap);
     let view = args.view;
-    run_live(device, recorder, args.duration, move |stop| {
+    run_live(device, recorder, args.duration, stop, move |stop| {
         let mut monitor = Monitor::with_frames(view, false, view.layer == Layer::Frame);
         let mut out = std::io::stdout().lock();
         consume(&mut feed, &stop, |b| monitor.block(b, &mut out))?;
@@ -772,11 +780,16 @@ pub(crate) async fn monitor(args: MonitorArgs, device: DynClient, tap: LiveTap) 
     .await
 }
 
-pub(crate) async fn stats(args: StatsArgs, device: DynClient, tap: LiveTap) -> Result<()> {
+pub(crate) async fn stats(
+    args: StatsArgs,
+    device: DynClient,
+    tap: LiveTap,
+    stop: StopSignal,
+) -> Result<()> {
     tap.add_bundles(&device);
     let (mut feed, recorder) = LiveFeed::new(tap);
     let every = Duration::from_secs_f64(args.every.max(0.01));
-    run_live(device, recorder, args.duration, move |stop| {
+    run_live(device, recorder, args.duration, stop, move |stop| {
         let view = ViewArgs {
             layer: Layer::Frame,
             bytes: false,
@@ -821,7 +834,12 @@ pub(crate) fn stats_file(args: &StatsArgs) -> Result<()> {
     Ok(())
 }
 
-pub(crate) async fn capture(args: CaptureArgs, device: DynClient, tap: LiveTap) -> Result<()> {
+pub(crate) async fn capture(
+    args: CaptureArgs,
+    device: DynClient,
+    tap: LiveTap,
+    stop: StopSignal,
+) -> Result<()> {
     tap.add_bundles(&device);
     let policy = args.sync.0;
     let writer = if args.append {
@@ -837,42 +855,44 @@ pub(crate) async fn capture(args: CaptureArgs, device: DynClient, tap: LiveTap) 
         e => anyhow!("{}: {e}", args.output.display()),
     })?;
     let (mut feed, recorder) = LiveFeed::new(tap);
-    let (path, blocks, bytes, lost) = run_live(device, recorder, args.duration, move |stop| {
-        let mut writer = writer;
-        let shown = writer.current_path().display().to_string();
-        let bar = ProgressBar::new_spinner().with_style(
-            ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
-        );
-        bar.enable_steady_tick(Duration::from_millis(200));
-        let mut lost = 0u64;
-        let mut next_seq = None;
-        // a failed write or sync ends the capture: the file stays as it is (its valid prefix reads), never retried
-        let result = consume_idle(&mut feed, &stop, |b| {
-            let Some(b) = b else {
-                return Ok(writer.tick()?);
-            };
-            writer.write_block(b.bytes())?;
-            if let Some(n) = next_seq
-                && b.seq > n
-            {
-                lost += b.seq - n;
-            }
-            next_seq = Some(b.seq + 1);
-            bar.set_message(format!(
-                "capturing to {shown}: {} blocks, {}",
-                writer.blocks(),
-                writer.bytes().human_count_bytes()
-            ));
-            Ok(())
-        });
-        bar.finish_and_clear();
-        let (blocks, bytes) = (writer.blocks(), writer.bytes());
-        let current = writer.current_path().to_path_buf();
-        result.with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
-        let path = writer.finish()?;
-        Ok((path, blocks, bytes, lost))
-    })
-    .await?;
+    let (path, blocks, bytes, lost) =
+        run_live(device, recorder, args.duration, stop, move |stop| {
+            let mut writer = writer;
+            let shown = writer.current_path().display().to_string();
+            let bar = ProgressBar::new_spinner().with_style(
+                ProgressStyle::with_template("{spinner} {msg} ({elapsed})").expect("template"),
+            );
+            bar.enable_steady_tick(Duration::from_millis(200));
+            let mut lost = 0u64;
+            let mut next_seq = None;
+            // a failed write or sync ends the capture: the file stays as it is (its valid prefix reads), never retried
+            let result = consume_idle(&mut feed, &stop, |b| {
+                let Some(b) = b else {
+                    return Ok(writer.tick()?);
+                };
+                writer.write_block(b.bytes())?;
+                if let Some(n) = next_seq
+                    && b.seq > n
+                {
+                    lost += b.seq - n;
+                }
+                next_seq = Some(b.seq + 1);
+                bar.set_message(format!(
+                    "capturing to {shown}: {} blocks, {}",
+                    writer.blocks(),
+                    writer.bytes().human_count_bytes()
+                ));
+                Ok(())
+            });
+            bar.finish_and_clear();
+            let (blocks, bytes) = (writer.blocks(), writer.bytes());
+            let current = writer.current_path().to_path_buf();
+            result
+                .with_context(|| format!("capture stopped, {} kept as it is", current.display()))?;
+            let path = writer.finish()?;
+            Ok((path, blocks, bytes, lost))
+        })
+        .await?;
     println!(
         "{} {blocks} blocks, {} to {}{}",
         style("captured").green(),

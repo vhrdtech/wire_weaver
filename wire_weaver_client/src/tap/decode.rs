@@ -665,7 +665,10 @@ impl Decoder {
                     .count += 1;
                 if seq != 0 {
                     let l = self.links.get_mut(&link).expect("known");
-                    let observe = matches!(r.as_ref().map(|r| &r.kind), Some(ww_client_server::RequestKind::Observe { .. }));
+                    let observe = matches!(
+                        r.as_ref().map(|r| &r.kind),
+                        Some(ww_client_server::RequestKind::Observe { .. })
+                    );
                     l.requests.insert(
                         seq,
                         RequestSent {

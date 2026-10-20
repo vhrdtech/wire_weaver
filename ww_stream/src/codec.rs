@@ -225,3 +225,34 @@ impl<C: ItemCodec> CountedState for Compressed<C> {
         self.restart = true;
     }
 }
+
+/// LZ4 with the items before as history (`ww_lz4`), answered as [StreamCodec::Lz4] to a host that offers it.
+#[cfg(any(feature = "lz4", test))]
+impl<const HASH: usize, const BUF: usize> ItemCodec for ww_lz4::Encoder<HASH, BUF> {
+    fn answer(&self, offer: &StreamCodecs) -> Option<StreamCodec> {
+        offer.lz4.then_some(StreamCodec::Lz4 {
+            history: wire_weaver::shrink_wrap::UVlq32(Self::HISTORY as u32),
+        })
+    }
+
+    fn restart(&mut self) {
+        self.reset();
+    }
+
+    fn compress(
+        &mut self,
+        item: impl FnOnce(&mut [u8]) -> Result<usize, Error>,
+        out: &mut [u8],
+    ) -> Result<(usize, usize), Error> {
+        // the longest item whose worst case block still fits `out`
+        let fits = out.len().saturating_sub(16) * 255 / 256;
+        let want = fits.min(self.max_chunk());
+        let input = self
+            .input(want)
+            .map_err(|_| Error::OutOfBoundsWriteRawSlice)?;
+        let len = item(&mut input[..want])?;
+        let n = ww_lz4::Encoder::compress(self, len, out)
+            .map_err(|_| Error::OutOfBoundsWriteRawSlice)?;
+        Ok((len, n))
+    }
+}

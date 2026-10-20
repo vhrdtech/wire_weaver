@@ -702,7 +702,13 @@ impl Scaffold<'_> {
             }
         }
         let (delivery_state, kind, keeps) = match stream.delivery {
-            Delivery::Counted => ("ww_stream::tx::Counted", "counted", "positions, sessions"),
+            Delivery::Counted => (
+                "ww_stream::tx::Counted",
+                "counted",
+                // API-55: any `ww_stream::codec::CountedState`
+                "positions, sessions; `ww_stream::codec::Compressed<ww_lz4::Encoder<..>>` compresses for hosts that \
+                 decode it",
+            ),
             Delivery::Reliable => (
                 "ww_stream::tx::Reliable<ww_stream::store::RamRing<4096>>",
                 "reliable",

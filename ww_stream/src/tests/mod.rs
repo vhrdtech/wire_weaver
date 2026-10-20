@@ -1,3 +1,4 @@
+mod codec;
 mod counted;
 mod log_store;
 mod persistent_ram;

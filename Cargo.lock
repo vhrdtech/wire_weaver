@@ -6114,6 +6114,7 @@ dependencies = [
  "portable-atomic",
  "wire_weaver",
  "ww_client_server",
+ "ww_lz4",
  "ww_si",
 ]
 

@@ -89,7 +89,7 @@ pub enum Added {
     Invalid,
 }
 
-/// Fits device time to host time from [Sample]s, see the [module docs](self).
+/// Fits device time to host time from [Sample]s, see the [crate docs](crate).
 #[derive(Clone, Debug)]
 pub struct Estimator {
     config: EstimatorConfig,

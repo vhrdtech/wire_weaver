@@ -27,6 +27,9 @@ pub(crate) const QUEUE_DATA_BYTES: usize = 1024 * 1024;
 /// A seq can grow from 1 to 5 bytes on the way to the device: a client is told the device takes this much less.
 const SEQ_GROWTH: usize = 4;
 
+/// Link message kind, payload, and whether it counts as droppable data.
+type Item = (u8, Vec<u8>, bool);
+
 /// What the device's task sends one client, in order.
 pub(crate) struct TunnelQueue {
     inner: Mutex<QueueInner>,
@@ -35,8 +38,7 @@ pub(crate) struct TunnelQueue {
 
 #[derive(Default)]
 struct QueueInner {
-    /// Link message kind, payload, and whether it counts as droppable data
-    items: VecDeque<(u8, Vec<u8>, bool)>,
+    items: VecDeque<Item>,
     data_bytes: usize,
     dropped: u64,
     /// The device is gone: the client gets `Disconnect` once the items are out
@@ -103,7 +105,7 @@ impl TunnelQueue {
     }
 
     /// What is queued, and the reason to disconnect with once it is out if the device is gone.
-    fn take(&self) -> (Vec<(u8, Vec<u8>, bool)>, Option<DisconnectReason>) {
+    fn take(&self) -> (Vec<Item>, Option<DisconnectReason>) {
         let mut inner = self.inner.lock().unwrap();
         inner.data_bytes = 0;
         let items = inner.items.drain(..).collect();

@@ -836,15 +836,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_hub::main_if_hub()`, the typed `ww_hub::client::HubClient`. Starting it detached is CLT-39's, `handover`
   SRV-30's; `take` came with SRV-29. Tested on Linux; check open on macOS and
   Windows (compiles for both).
-- 🧪 **SRV-29 Hub device multiplexing** · `v0.5.x` — device tunnels in `ww_hub` (`docs/transport/hub.md#device-tunnels-srv-29`,
-  `ClientConfig::hub_device`): one client event loop per open device (`Command::Forward` / `ForwardSink`), a
-  `ww_device::DeviceLink` per client tunnel answering like the device, seq remap, stream opens counted per path and
-  fanned out, observe settings merged per level, introspection from cache, bounded per-client queues (stream data
-  dropped and counted, replies never), devices opened on demand and closed after a linger (30 s), lock file mode
-  `hub`, `registry().take`. The hub reads only seq, path and kind, never a user API. E2E in `tests/hub`; measured
-  against direct USB on three boards (`tests/hub/examples/hub_loopback.rs`, about 14 µs per round trip). Tested on
-  Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the first client's,
-  streams on trait paths are not counted per client.
+- 🧪 **SRV-29 Hub device multiplexing** · `v0.5.x` — device tunnels in `ww_hub`
+  (`docs/transport/hub.md#device-tunnels-srv-29`, `ClientConfig::hub_device`): one client event loop per open device
+  (`Command::Forward` / `ForwardSink`), a `ww_device::DeviceLink` per client tunnel answering like the device, seq
+  remap, stream opens counted per path and fanned out, observe settings merged per level, introspection from cache,
+  bounded per-client queues (stream data dropped and counted, replies never), devices opened on demand and closed after
+  a linger (30 s), lock file mode `hub`, `registry().take`. The hub reads only seq, path and kind, never a user API. E2E
+  in `tests/hub`; measured against direct USB on three boards (`tests/hub/examples/hub_loopback.rs`: throughput as
+  direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
+  wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
+  first client's, streams on trait paths are not counted per client.
 - 📋 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
   versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
   newer replaces older, so it converges); a refusal names both versions and the fix.

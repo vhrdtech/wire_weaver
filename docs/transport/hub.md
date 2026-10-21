@@ -265,16 +265,38 @@ The hub runs one `wire_weaver_client` event loop per open device and gives each 
 
 ### What it costs
 
-Every message crosses a local socket twice more (client → hub, hub → client), with a task wake each way. On an idle
-PC that is about 14 µs per round trip (in-process device: 20 → 34 µs); on a busy one each wake can also wait for a
-CPU, so the cost grows with load. `tests/hub/examples/hub_loopback.rs` runs `ww usb-loopback`'s test directly and
-through an in-process hub in alternating rounds and compares the medians:
+Every message crosses a local socket twice more (client → hub, hub → client), each a wake of another process. The
+hub serves on one thread (`ww_hub::run_blocking`), so inside it a message is handed from task to task without waking
+another thread. What that costs depends on how deeply the CPU sleeps between messages more than on the hub's own work:
+
+- With a device in the hub's process, the hub adds about 35 µs per round trip on an idle PC.
+- Over USB, the hub's own round trip to the device is as fast as a direct client's (480 µs on the b200 board,
+  direct 510-600 µs), but the two extra wakes come from cores that went idle while the transfer was on its way: 16 B
+  round trips are 10-25 % fewer on an idle PC, 3-13 % fewer while other programs keep the cores busy.
+- Messages that don't wait for each other (stream data, a batch of requests) are not slowed down: throughput is the
+  same as direct within the run-to-run spread, and so is a host → device stream once enough messages are in
+  flight (the benchmark's host → device stage keeps 64 at most, so it shows the latency too).
+
+`tests/hub/examples/hub_loopback.rs` runs `ww usb-loopback`'s test directly and through a hub on a runtime of its
+own, in alternating rounds, and compares the medians:
 
 ```sh
 cargo run --release -p hub --example hub_loopback -- usb:c0de:cafe:<serial> [seconds] [packet size|max] [rounds]
 ```
 
-BENCH_TABLE
+Medians of 7 rounds of 2 s per stage on an idle PC (omarchy-m1, Apple M1 under Asahi Linux, load 2-6), direct → hub:
+
+| Device                          | Size  | Round trips/s        | Host → device         | Device → host          |
+|---------------------------------|-------|----------------------|-----------------------|------------------------|
+| donguru (USB FS)                | 16 B  | 3373 → 2883 (−15 %)  | 8859 → 7440 msg/s     | 26118 → 26111 msg/s    |
+| donguru (USB FS)                | max   | 350 → 345 (−1 %)     | 735 → 767 kB/s        | 537 → 535 kB/s         |
+| b200 (USB FS)                   | 16 B  | 2461 → 1886 (−23 %)  | 12554 → 10087 msg/s   | 38429 → 38614 msg/s    |
+| b200 (USB FS)                   | max   | 112 → 131 (+17 %)    | 362 → 457 kB/s        | 547 → 552 kB/s         |
+| B135 (USB HS)                   | 16 B  | 6252 → 4474 (−28 %)  | 16701 → 16013 msg/s   | 159730 → 159029 msg/s  |
+| B135 (USB HS)                   | max   | 1060 → 1088 (+3 %)   | 11.0 → 12.7 MB/s      | 18.9 → 20.4 MB/s       |
+| in the hub's process            | 16 B  | 36771 → 16131 (−56 %) | 25620 → 25489 msg/s  | 698446 → 667606 msg/s  |
+
+Single runs swing by ±15 % on a PC that does other work: compare medians of several rounds.
 
 ## Who holds a device (CLT-38)
 

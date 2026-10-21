@@ -18,6 +18,7 @@
 
 ### 🐛 Bug Fixes
 
+- `PeerMeta`'s 24-byte cut no longer slices a `str` with a panic path (CLT-41): the panic's `char` formatting pulled core's unicode tables into every firmware, 6.0 KB of flash on B135 (thumbv7em, opt-level 3).
 - UDP: the datagram that starts link setup may be 16 bytes now (was 8), `GetDeviceInfo` carries the 8-byte token (TR-15).
 - RTT devices no longer panic on their first request ("Found waker not created by the Embassy executor"): the async
   `Server`'s check for another waiting request polls with the task's own waker instead of a no-op one, which

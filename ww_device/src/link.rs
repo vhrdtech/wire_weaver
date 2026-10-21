@@ -194,8 +194,11 @@ fn cut(s: &str) -> wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }> 
     while !s.is_char_boundary(end) {
         end -= 1;
     }
-    // fits by construction
-    s[..end].try_into().unwrap_or_default()
+    // fits by construction; `get`, not `s[..end]`: the slice's panic path would pull core's unicode tables (4.5 KB)
+    // into the firmware
+    s.get(..end)
+        .and_then(|s| s.try_into().ok())
+        .unwrap_or_default()
 }
 
 pub struct DeviceLink<'a> {

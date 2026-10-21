@@ -33,7 +33,7 @@ pub use client::positioned::{
     AckMode, Cause, DEFAULT_STREAM_QUEUE_BYTES, DEFAULT_WINDOW, PositionedStream, Run, Second,
     StreamEvent, StreamStats,
 };
-pub use client::prepared_call::PreparedCall;
+pub use client::prepared_call::{PendingCall, PreparedCall};
 pub use client::prepared_connection::PreparedConnection;
 pub use client::prepared_disconnect::PreparedDisconnect;
 pub use client::prepared_read::PreparedRead;

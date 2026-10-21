@@ -194,6 +194,8 @@ impl App {
             profile: Profile::InPlace,
             product: MaxLen::new("sim-rp2350").unwrap(),
             geometry_id: 0,
+            product_id: 0,
+            seal: ww_dfu::Seal::Unsigned,
             app_version: Some(self.version),
             version_floor: 0,
             manifest_digest: None,

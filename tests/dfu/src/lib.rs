@@ -93,6 +93,8 @@ mod tests {
                     profile: Profile::AB(SlotSwitch::Copy),
                     product: MaxLen::new("dfu-test").unwrap(),
                     geometry_id: 0x1234_5678,
+                    product_id: 1,
+                    seal: ww_dfu::Seal::Ed25519,
                     app_version: Some(7),
                     version_floor: 5,
                     manifest_digest: Some([1, 2, 3, 4, 5, 6, 7, 8]),

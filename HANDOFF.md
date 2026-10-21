@@ -22,13 +22,15 @@ Branch `s/21oct2026-hub-tunnels`, built on session ww-hub's `s/21oct2026-ww-hub`
   - Ideas for the profile: host→device throughput on HS is limited by the forward path per message (tunnel task: decode with DeviceLink, `Vec` per request, tokio Mutex lock + `cmd.send` per message, ForwardFlush per batch → maybe more, smaller USB transfers than direct: check flush count per second direct vs hub). Batch: send a whole client batch as one lock + one command set; check that `ForwardFlush` isn't splitting USB frames that direct mode fills.
 - Criterion (design): ≤ 10 % fewer round trips/s on USB FS, ≤ 5 % throughput. Max-size meets it; 16 B still to be confirmed at low load. If still over: next hop to cut is the tunnel task on the reply path (write to the socket from the router), or measure per-hop with `tokio-console`/perf.
 
-## Next
+## Next (state 21 Oct 23:25)
 
-1. Rerun the benchmark at low load (all three boards: donguru 204B319B5431, B135 344533413431, b200 18AC50BA11FFB7C1; 16 and max), put a table into `docs/transport/hub.md`.
-2. Docs section "Device tunnels (SRV-29)" in `docs/transport/hub.md` (anchor `#device-tunnels-srv-29` is already linked): connecting (`hub_device`, CLT-39's `WW_HUB`), what the hub does (seq remap, streams, observe merge, introspection cache, queues, linger, lock file mode hub, take), limits (shared counted/reliable streams: acks/resends from the first client only; sinks one client; streams on trait paths not counted, events of unknown paths go to all clients; loopback echoes to the client that sent last; device keys usb/rtt/inproc), cost + numbers. Level advanced (page already is).
-3. FEATURES.md SRV-29 → 🧪 or ✅ with pointer (hardware measured on omarchy-m1), entry line in `tests/features_page/entries.md`, `just features-page`. Root `CHANGELOG.md` [Unreleased] entry. Finish wire_weaver_client CHANGELOG (see above), tests/hub needs none.
-4. `just test`, `just lint` (fmt, `cargo sort -w -g`, clippy -D warnings, typos), ask before `just build-docs`.
-5. `git rm HANDOFF.md`, commit, `tpm work ready --note "..."`, tell parent ww-hub it's ready to cherry-pick.
+Done since the last note: docs section "Device tunnels (SRV-29)" in `docs/transport/hub.md` (with `BENCH_TABLE` placeholder under "What it costs"), FEATURES SRV-29 🧪 (+ SRV-28 take done), `tests/features_page/entries.md` line, root/client/ww_hub/ww_local_socket CHANGELOGs; perf commit (buffered `MessageReader`, request + ForwardFlush together, forwarded messages wait for ForwardFlush in tx core, test `forwarded_wait_for_forward_flush`).
+
+Profile findings: in-process the hub costs ~14 µs per round trip (two socket crossings + wakes). Host→device 16 B on FS was −12..−20 % only because the test keeps 64 messages in flight (latency-bound): with `markers_in_flight: 8` both paths are equal (0.0 %). Max-size throughput is level on all boards. FS round trips swing −4 … −15 % with load.
+
+1. Benchmark after the perf commit: `$CLAUDE_JOB_DIR/tmp/bench3.txt` (all boards, 16 and max, 7 rounds). Put the table in place of `BENCH_TABLE`; update the "14 µs" figures if they changed.
+2. `just features-page`, `just test`, `just lint` (ask before `just build-docs`).
+3. `git rm HANDOFF.md`, commit, `tpm work ready --note "..."`, tell parent ww-hub (cherry-pick) and that criterion status is as measured.
 
 ## Gotchas
 

@@ -30,6 +30,12 @@ rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
 i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
 uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
 in_process = ["dep:ww_device"] # device running in the same process (simulators, tests)
+local_socket = [
+    "dep:ww_local_socket",
+    "dep:interprocess",
+    "dep:ww_device",
+    "tokio/io-util",
+] # device served by another process (or the ww hub): Unix socket, named pipe on Windows
 
 [dependencies]
 anyhow.workspace = true
@@ -37,6 +43,7 @@ either = "1"
 futures-lite = "2.6"
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 hex = { workspace = true, features = ["std"] }
+interprocess = { workspace = true, optional = true }
 nusb.workspace = true # TODO: try to use without tokio?
 probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "builtin-formats"], optional = true }
 ron.workspace = true
@@ -54,6 +61,7 @@ ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
 ww_link = { workspace = true, features = ["std"] }
+ww_local_socket = { workspace = true, optional = true }
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true

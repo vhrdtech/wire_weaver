@@ -1063,10 +1063,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `LinkSetup` (`examples_mcu/nucleo_g0b1re` `ww_rtt` and an embedded_bedrock template firmware on Donguru, 16 Oct
   2026). Fixed: the check polls once with the calling task's waker (`ww_device` `server.rs` `poll_once_here`);
   checked on Donguru over RTT through a J-Link. USB was not affected (no timer in its read).
-- 📋 **TR-16 Local socket transport** · `v0.5.x` — client feature `local_socket` (`interprocess`: a Unix socket on
-  Linux and macOS, a named pipe on Windows), `kind | payload` messages as over WebSocket after a small preamble that
-  picks the hub or a device; user-only socket and pipe, peer checked. Also connects to a device served by another
-  process (`IpcPath`).
+- 🧪 **TR-16 Local socket transport** · `v0.5.x` — client feature `local_socket`: a device served by another process
+  on the same PC (`ClientConfig::ipc_path`), over a Unix socket (Linux, macOS) or a named pipe (Windows) through
+  `interprocess` (crate `ww_local_socket`): user-only (0700 runtime dir, 0600 socket, owner-only pipe DACL, the peer's
+  user checked on both ends), the frozen `WWHB` preamble that picks the hub or a device, then `len | kind | payload`
+  messages. Device side `local_socket::device::device_medium()` for `ww_device::Server`
+  (`docs/transport/hub.md`). Tested on Linux, end to end with the device e2e suite; check open on macOS and Windows
+  (compiles for both).
 - 💡 **TR-10 One-shot connect** — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra

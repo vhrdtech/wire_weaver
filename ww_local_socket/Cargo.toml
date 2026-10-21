@@ -1,0 +1,23 @@
+[package]
+name = "ww_local_socket"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver over local sockets: user-only Unix sockets and named pipes, the hub preamble, message framing"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[dependencies]
+interprocess = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "time", "net"] }
+tracing = "0.1"
+
+[target.'cfg(windows)'.dependencies]
+widestring.workspace = true
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["io-util", "time", "rt", "macros"] }

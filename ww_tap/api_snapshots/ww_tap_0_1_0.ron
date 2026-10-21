@@ -37,6 +37,9 @@
             "In-process with simulated USB packets.",
         ], ident: "InProcessUsb", fields: Unit, discriminant: 5, since: None),
         (docs: [], ident: "Other", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "Local socket (Unix domain socket, named pipe), e.g. to the ww hub (TR-16); messages as they are.",
+        ], ident: "LocalSocket", fields: Unit, discriminant: 7, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerChecksum", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),

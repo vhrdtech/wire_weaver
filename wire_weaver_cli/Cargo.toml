@@ -35,7 +35,7 @@ toml_edit.workspace = true
 tracing = "0.1"
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu"] }
+wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "local_socket"] }
 
 wire_weaver_core.workspace = true
 ww_clock_sync.workspace = true

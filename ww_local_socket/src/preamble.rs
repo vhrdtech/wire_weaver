@@ -231,6 +231,11 @@ impl Preamble {
     }
 }
 
+/// `DisconnectReason::Other(DISCONNECT_LENT)`: the hub closes a device's tunnels with it when it lends the device to
+/// a program outside the hub (`ww hub lend`, SRV-32). Until the device is returned, a new tunnel to it is answered
+/// [Status::Lent].
+pub const DISCONNECT_LENT: u8 = 1;
+
 /// The hub's answer to a [Preamble].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -243,6 +248,8 @@ pub enum Status {
     PreambleVersion,
     /// The client's `ww_link` / API model versions are not served by this hub's build
     Versions,
+    /// The device is lent to a program outside the hub (`ww hub lend`, SRV-32): try again after it is returned
+    Lent,
     /// A status this side doesn't know (from a later hub)
     Other(u8),
 }
@@ -255,6 +262,7 @@ impl Status {
             Status::HeldElsewhere => 2,
             Status::PreambleVersion => 3,
             Status::Versions => 4,
+            Status::Lent => 5,
             Status::Other(s) => s,
         }
     }
@@ -266,6 +274,7 @@ impl Status {
             2 => Status::HeldElsewhere,
             3 => Status::PreambleVersion,
             4 => Status::Versions,
+            5 => Status::Lent,
             s => Status::Other(s),
         }
     }
@@ -279,6 +288,7 @@ impl fmt::Display for Status {
             Status::HeldElsewhere => write!(f, "the device is held by another program"),
             Status::PreambleVersion => write!(f, "preamble version not served"),
             Status::Versions => write!(f, "this program's WireWeaver versions are not served"),
+            Status::Lent => write!(f, "the device is lent to another program"),
             Status::Other(s) => write!(f, "status {s}"),
         }
     }
@@ -462,5 +472,21 @@ mod tests {
         let later = b"WWHB\x02\x09\x010";
         let a = Answer::read(&mut &later[..]).await.unwrap();
         assert_eq!((a.version, a.status), (2, Status::Other(9)));
+    }
+
+    /// Status numbers are frozen: an older side reads a newer one as `Other(n)`.
+    #[test]
+    fn status_numbers() {
+        for (status, n) in [
+            (Status::Ok, 0),
+            (Status::UnknownDevice, 1),
+            (Status::HeldElsewhere, 2),
+            (Status::PreambleVersion, 3),
+            (Status::Versions, 4),
+            (Status::Lent, 5),
+        ] {
+            assert_eq!(status.to_u8(), n);
+            assert_eq!(Status::from_u8(n), status);
+        }
     }
 }

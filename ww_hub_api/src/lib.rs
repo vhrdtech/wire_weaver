@@ -58,6 +58,10 @@ pub trait Registry {
 /// A claim belongs to the program's client instance (the instance id of its `ClientMeta`, CLT-41) as the OS user it
 /// runs as: every connection of that instance, to the hub's API and to the device, may use the resource. It is
 /// released by [Claims::release], when the instance's last connection closes (a crash frees it), or after its ttl.
+///
+/// Device-wide exclusive access (SRV-32: firmware updates, settings writes) is a claim on the root path: every other
+/// program's calls and writes are refused, and the hub pauses its clock steering of the device (SRV-31) while it is
+/// held. [Claims::lend] goes one step further for a tool that isn't a WireWeaver program (probe-rs, dfu-util).
 #[ww_trait]
 pub trait Claims {
     /// Claims the resource at `path` (resource ids from the device's root, array indices included, as in a request)
@@ -69,11 +73,18 @@ pub trait Claims {
         ttl_s: Option<u32>,
     ) -> Result<u32, ClaimError<'i>>;
 
-    /// Releases a claim this client instance holds.
+    /// Releases a claim this client instance holds. A lent device ([Claims::lend]) is returned: the hub opens it
+    /// again if it held it before.
     fn release(id: u32) -> Result<(), ReleaseError>;
 
     /// Claims held on the device `key`.
     fn claims(key: &'i str) -> RefVec<'i, ClaimEntry<'i>>;
+
+    /// Lends the device `key` to a program outside the hub (`ww hub lend`, SRV-32): a root claim, and the hub closes
+    /// the device (its tunnels see a disconnect with `ww_local_socket::DISCONNECT_LENT`) and doesn't open it again
+    /// until the claim is released, answering new tunnels `Status::Lent` meanwhile. Returns once the device is
+    /// closed, so the other program can open it right after.
+    fn lend(key: &'i str, purpose: &'i str, ttl_s: Option<u32>) -> Result<u32, ClaimError<'i>>;
 }
 
 /// See [Hub::info].
@@ -235,6 +246,9 @@ pub struct ClaimEntry<'i> {
     pub since_ms: u64,
     /// Released by itself then, ms since the Unix epoch.
     pub expires_ms: Option<u64>,
+    /// The device is lent out with it ([Claims::lend]): closed by the hub until the claim is released.
+    #[default = false]
+    pub lent: bool,
 }
 
 /// Why [Claims::claim] failed.
@@ -305,5 +319,14 @@ pub enum Event<'i> {
     Released {
         key: &'i str,
         id: u32,
+    },
+    /// The device was lent to a program outside the hub with the claim `id` (SRV-32), and closed
+    Lent {
+        key: &'i str,
+        id: u32,
+    },
+    /// A lent device was returned: the hub opens it again on demand (at once if it held it before)
+    Returned {
+        key: &'i str,
     },
 }

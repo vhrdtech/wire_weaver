@@ -67,7 +67,7 @@ pub(crate) struct Resource {
 
 impl Resource {
     /// The device's root: always claimable, exclusively.
-    fn root() -> Self {
+    pub(crate) fn root() -> Self {
         Resource {
             kind: ClaimKind::Exclusive,
             label: String::new(),
@@ -348,6 +348,15 @@ pub(crate) fn in_use_reply(
         .unwrap_or_default()
 }
 
+/// A device lent out with a claim (SRV-32): how the hub held it before, so it opens it again when it is returned.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Lend {
+    /// The hub had the device open
+    pub(crate) reopen: bool,
+    /// ... and kept without clients (`Registry::take`)
+    pub(crate) keep: bool,
+}
+
 #[derive(Debug)]
 pub(crate) struct Claim {
     pub(crate) id: u32,
@@ -359,6 +368,8 @@ pub(crate) struct Claim {
     pub(crate) holder: ClientEntryOwned,
     pub(crate) since_ms: u64,
     pub(crate) expires: Option<(Instant, u64)>,
+    /// Lent out with it (`Claims::lend`)
+    pub(crate) lend: Option<Lend>,
 }
 
 impl Claim {
@@ -373,6 +384,7 @@ impl Claim {
             holder: self.holder.clone(),
             since_ms: self.since_ms,
             expires_ms: self.expires.map(|(_, ms)| ms),
+            lent: self.lend.is_some(),
         }
     }
 
@@ -411,6 +423,8 @@ pub(crate) struct NewClaim {
     pub(crate) owner: Owner,
     pub(crate) holder: ClientEntryOwned,
     pub(crate) ttl_s: Option<u32>,
+    /// A lend (`Claims::lend`): a root claim that closes the device
+    pub(crate) lend: bool,
 }
 
 impl Claims {
@@ -470,6 +484,7 @@ impl Claims {
             holder: new.holder,
             since_ms: now_ms,
             expires: ttl,
+            lend: new.lend.then(Lend::default),
         });
         Ok(self.list.last().expect("just pushed"))
     }
@@ -535,6 +550,28 @@ impl Claims {
     pub(crate) fn any_on(&self, key: &str) -> bool {
         self.list.iter().any(|c| c.key == key)
     }
+
+    /// The claim the device `key` is lent out with, if it is.
+    pub(crate) fn lent(&self, key: &str) -> Option<&Claim> {
+        self.list.iter().find(|c| c.key == key && c.lend.is_some())
+    }
+
+    /// How the hub held the device before it lent it with claim `id`.
+    pub(crate) fn set_lend(&mut self, id: u32, lend: Lend) {
+        if let Some(c) = self
+            .list
+            .iter_mut()
+            .find(|c| c.id == id && c.lend.is_some())
+        {
+            c.lend = Some(lend);
+        }
+    }
+
+    /// Whether a program holds the whole device `key` (a claim on its root, a lend included): the hub doesn't steer
+    /// its clock meanwhile (SRV-32, SRV-31).
+    pub(crate) fn root_held(&self, key: &str) -> bool {
+        self.list.iter().any(|c| c.key == key && c.path.is_empty())
+    }
 }
 
 #[cfg(test)]
@@ -575,6 +612,7 @@ mod tests {
                 since_ms: 0,
             },
             ttl_s,
+            lend: false,
         }
     }
 
@@ -693,6 +731,40 @@ mod tests {
         assert!(c.expire(now).is_empty());
         assert_eq!(c.expire(now + std::time::Duration::from_secs(5)).len(), 1);
         take(&mut c, new(2, &[1], ex(), None)).unwrap();
+    }
+
+    /// A root claim holds the whole device (steering paused, SRV-32); a lend is one too, and says so.
+    #[test]
+    fn root_and_lent() {
+        let mut c = Claims::default();
+        let ex = || res(ClaimKind::Exclusive, &[]);
+        take(&mut c, new(1, &[1], ex(), None)).unwrap();
+        assert!(!c.root_held("dev"));
+        assert!(c.lent("dev").is_none());
+        // the root over another program's bus: refused
+        assert!(take(&mut c, new(2, &[], ex(), None)).is_err());
+        let mut lend = new(1, &[], Resource::root(), None);
+        lend.lend = true;
+        let id = take(&mut c, lend).unwrap();
+        assert!(c.root_held("dev"));
+        assert_eq!(c.lent("dev").map(|l| l.id), Some(id));
+        assert!(c.lent("dev").unwrap().entry().lent);
+        c.set_lend(
+            id,
+            Lend {
+                reopen: true,
+                keep: false,
+            },
+        );
+        let gone = c.release(&owner(1), id).unwrap();
+        assert_eq!(
+            gone.lend,
+            Some(Lend {
+                reopen: true,
+                keep: false
+            })
+        );
+        assert!(!c.root_held("dev"));
     }
 
     #[test]

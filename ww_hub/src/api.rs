@@ -179,6 +179,9 @@ mod server {
                         }),
                     }
                 }
+                Err(ww_local_socket::Status::Lent) => Err(TakeErrorOwned::Failed {
+                    why: format!("lent to {}", self.hub.lent_to(&key).unwrap_or_default()),
+                }),
                 Err(_) => Err(TakeErrorOwned::UnknownDevice),
             })
         }
@@ -206,6 +209,21 @@ mod server {
             id: u32,
         ) -> RpcResult<Result<(), ReleaseError>> {
             RpcResult::Ready(self.hub.release(self.id, id))
+        }
+
+        async fn claims_lend(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: String,
+            purpose: String,
+            ttl_s: Option<u32>,
+        ) -> RpcResult<Result<u32, ClaimErrorOwned>> {
+            RpcResult::Ready(
+                self.hub
+                    .lend(self.id, key, purpose, ttl_s)
+                    .await
+                    .map_err(|e| *e),
+            )
         }
 
         async fn claims_claims(

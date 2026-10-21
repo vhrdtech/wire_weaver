@@ -366,6 +366,7 @@ impl Bound {
                     break exit.unwrap_or(Exit::Shutdown);
                 }
                 _ = tokio::time::sleep(IDLE_CHECK) => {
+                    self.hub.expire_claims();
                     if self.hub.idle_for() >= self.config.idle_exit {
                         break Exit::Idle;
                     }
@@ -630,7 +631,7 @@ impl Hub {
         id
     }
 
-    fn client_left(&self, id: u32) {
+    fn client_left(self: &Arc<Self>, id: u32) {
         let mut state = self.state.lock().unwrap();
         let owner = owner_of(&state, id);
         state.clients.remove(&id);
@@ -644,15 +645,127 @@ impl Hub {
         let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
     }
 
-    /// Tells the registry's listeners that claims went.
-    pub(crate) fn claims_released(&self, gone: &[claims::Claim]) {
+    /// Tells the registry's listeners that claims went; a lent device is returned, and opened again if the hub held
+    /// it before.
+    pub(crate) fn claims_released(self: &Arc<Self>, gone: &[claims::Claim]) {
         for c in gone {
             debug!("ww hub: claim {} on {} released", c.id, c.key);
             let _ = self.events.send(ww_hub_api::EventOwned::Released {
                 key: c.key.clone(),
                 id: c.id,
             });
+            if let Some(lend) = c.lend {
+                info!("ww hub: {} returned", c.key);
+                let _ = self
+                    .events
+                    .send(ww_hub_api::EventOwned::Returned { key: c.key.clone() });
+                if lend.reopen {
+                    let (hub, key) = (self.clone(), c.key.clone());
+                    tokio::spawn(async move {
+                        let msg = match lend.keep {
+                            true => device::ToDevice::Keep,
+                            false => device::ToDevice::Open,
+                        };
+                        if let Err(e) = hub.send_to_device(&key, msg).await {
+                            debug!("ww hub: opening {key} again after its lend: {e}");
+                        }
+                    });
+                }
+            }
         }
+    }
+
+    /// Drops the claims whose ttl ran out (checked as the hub goes, so a lent device is returned on time).
+    fn expire_claims(self: &Arc<Self>) {
+        let expired = self.state.lock().unwrap().claims.expire(Instant::now());
+        self.claims_released(&expired);
+    }
+
+    /// `Claims::lend` of client `id` (SRV-32): a root claim, then the device is closed (its tunnels told why) and
+    /// stays closed until the claim goes. Returns once the device is closed.
+    pub(crate) async fn lend(
+        self: &Arc<Self>,
+        id: u32,
+        key: String,
+        purpose: String,
+        ttl_s: Option<u32>,
+    ) -> Result<u32, Box<ww_hub_api::ClaimErrorOwned>> {
+        if !device::has_transport(&key) {
+            return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice.into());
+        }
+        let (claimed, expired) = {
+            let mut state = self.state.lock().unwrap();
+            let expired = state.claims.expire(Instant::now());
+            let new = claims::NewClaim {
+                key: key.clone(),
+                path: vec![],
+                resource: claims::Resource::root(),
+                purpose,
+                owner: owner_of(&state, id),
+                holder: client_entry(&state, id),
+                ttl_s,
+                lend: true,
+            };
+            let claimed = state
+                .claims
+                .claim(new, Instant::now(), unix_ms())
+                .map(|c| c.id);
+            (claimed, expired)
+        };
+        self.claims_released(&expired);
+        let claim_id = claimed?;
+        // tunnels that come now are answered `Lent`: the claim is in
+        let slot = self.device_slot(&key);
+        let handle = slot.lock().await.take();
+        let lend = match handle {
+            Some(handle) => {
+                let (done, closed) = tokio::sync::oneshot::channel();
+                match handle.tx.send(device::ToDevice::Lend { done }) {
+                    Ok(()) => closed.await.unwrap_or_default(),
+                    // its task ends by itself (the device is gone)
+                    Err(_) => claims::Lend::default(),
+                }
+            }
+            None => claims::Lend::default(),
+        };
+        let still = {
+            let mut state = self.state.lock().unwrap();
+            state.claims.set_lend(claim_id, lend);
+            state.claims.lent(&key).is_some_and(|c| c.id == claim_id)
+        };
+        info!("ww hub: client {id} borrows {key} (claim {claim_id})");
+        let _ = self.events.send(ww_hub_api::EventOwned::Claimed {
+            key: key.clone(),
+            id: claim_id,
+        });
+        let _ = self.events.send(ww_hub_api::EventOwned::Lent {
+            key: key.clone(),
+            id: claim_id,
+        });
+        if !still {
+            // released while the device closed (the borrower left): it is returned already, open it again now
+            if lend.reopen {
+                let msg = match lend.keep {
+                    true => device::ToDevice::Keep,
+                    false => device::ToDevice::Open,
+                };
+                let _ = self.send_to_device(&key, msg).await;
+            }
+        }
+        Ok(claim_id)
+    }
+
+    /// The claim device `key` is lent out with, as `in use by ..` text.
+    pub(crate) fn lent_to(&self, key: &str) -> Option<String> {
+        self.state.lock().unwrap().claims.lent(key).map(|c| c.by())
+    }
+
+    /// Whether the hub leaves the clock of device `key` alone: a program holds the whole device (a root claim, a lend),
+    /// e.g. for a firmware update (SRV-32).
+    // TODO(SRV-31): the hub's steering asks this before each steer point and skips the device while it is true.
+    #[allow(dead_code)]
+    pub(crate) fn steering_paused(&self, key: &str) -> bool {
+        self.state.lock().unwrap().claims.root_held(key)
     }
 
     /// `Claims::claim` of client `id` (SRV-34): what the resource is comes from the device's API, so the device is
@@ -665,19 +778,26 @@ impl Hub {
         purpose: String,
         ttl_s: Option<u32>,
     ) -> Result<u32, Box<ww_hub_api::ClaimErrorOwned>> {
-        let (reply, bundle) = tokio::sync::oneshot::channel();
-        if self
-            .send_to_device(&key, device::ToDevice::Bundle { reply })
-            .await
-            .is_err()
-        {
-            return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice.into());
-        }
-        let bundle = tokio::time::timeout(BUNDLE_TIMEOUT, bundle)
-            .await
-            .ok()
-            .and_then(Result::ok)
-            .flatten();
+        // a lent device isn't opened for its API: the lend's own claim decides
+        let lent = self.state.lock().unwrap().claims.lent(&key).is_some();
+        let bundle = match lent {
+            true => None,
+            false => {
+                let (reply, bundle) = tokio::sync::oneshot::channel();
+                if self
+                    .send_to_device(&key, device::ToDevice::Bundle { reply })
+                    .await
+                    .is_err()
+                {
+                    return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice.into());
+                }
+                tokio::time::timeout(BUNDLE_TIMEOUT, bundle)
+                    .await
+                    .ok()
+                    .and_then(Result::ok)
+                    .flatten()
+            }
+        };
         let resource = claims::resolve(bundle.as_deref(), &path)?;
         let mut state = self.state.lock().unwrap();
         let expired = state.claims.expire(Instant::now());
@@ -689,6 +809,7 @@ impl Hub {
             owner: owner_of(&state, id),
             holder: client_entry(&state, id),
             ttl_s,
+            lend: false,
         };
         let claimed = state
             .claims
@@ -706,7 +827,11 @@ impl Hub {
     }
 
     /// `Claims::release` of client `id`.
-    pub(crate) fn release(&self, id: u32, claim: u32) -> Result<(), ww_hub_api::ReleaseError> {
+    pub(crate) fn release(
+        self: &Arc<Self>,
+        id: u32,
+        claim: u32,
+    ) -> Result<(), ww_hub_api::ReleaseError> {
         let mut state = self.state.lock().unwrap();
         let owner = owner_of(&state, id);
         let gone = state.claims.release(&owner, claim)?;
@@ -716,7 +841,7 @@ impl Hub {
     }
 
     /// `Claims::claims`: the ones held on `key`.
-    pub(crate) fn claims_on(&self, key: &str) -> Vec<ww_hub_api::ClaimEntryOwned> {
+    pub(crate) fn claims_on(self: &Arc<Self>, key: &str) -> Vec<ww_hub_api::ClaimEntryOwned> {
         let mut state = self.state.lock().unwrap();
         let expired = state.claims.expire(Instant::now());
         let entries = state
@@ -801,6 +926,9 @@ impl Hub {
             },
             None => msg,
         };
+        if self.lent_to(key).is_some() {
+            return Err(Status::Lent);
+        }
         let handle = device::open(self, key, slot.clone()).await?;
         let _ = handle.tx.send(msg);
         *guard = Some(handle);

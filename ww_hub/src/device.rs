@@ -35,6 +35,9 @@ use crate::tunnel::{DeviceLinkInfo, TunnelQueue};
 /// than any client waits, as the hub doesn't know a call's own timeout.
 const FORWARD_TIMEOUT: Duration = Duration::from_secs(600);
 
+/// How long a lend waits for the device's event loop to let the device go.
+const LEND_CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// The hub itself as the requester of an introspection fetch (for claims): no tunnel has this id.
 const HUB_ITSELF: u32 = u32::MAX;
 
@@ -63,6 +66,13 @@ pub(crate) enum ToDevice {
     },
     /// The hub exits: close the device now
     Close,
+    /// Nothing: sent to have the device opened (a lent one returned)
+    Open,
+    /// Lent to a program outside the hub (SRV-32): close the tunnels saying so, close the device, then answer how
+    /// the hub held it
+    Lend {
+        done: oneshot::Sender<claims::Lend>,
+    },
 }
 
 /// One slot per device key: whoever opens or closes the device holds it, so a tunnel joins either the running task or
@@ -80,6 +90,11 @@ impl WwClient for Raw {
     fn from_cmd(cmd: Commander) -> Self {
         Raw(cmd)
     }
+}
+
+/// Whether the hub knows how to reach a device by `key`'s scheme.
+pub(crate) fn has_transport(key: &str) -> bool {
+    config_for(key).is_some()
 }
 
 /// How the hub reaches the device behind a key: `usb:<vid>:<pid>:<serial>[:<iface>]`, `rtt:<probe serial>:<chip>`
@@ -144,6 +159,9 @@ pub(crate) async fn join(
             .is_ok()
     {
         return Ok(handle.clone());
+    }
+    if hub.lent_to(key).is_some() {
+        return Err(Status::Lent);
     }
     let handle = open(hub, key, slot.clone()).await?;
     let _ = handle.tx.send(ToDevice::Join {
@@ -555,6 +573,8 @@ impl Task {
         // the slot no longer names this task
         let mut released = false;
         let mut keep = false;
+        // lent out (SRV-32): who waits for the device to be closed
+        let mut lend = None;
         loop {
             let linger = self.hub.linger();
             let linger_at = idle_since.filter(|_| !keep).map(|t| t + linger);
@@ -567,6 +587,13 @@ impl Task {
             tokio::select! {
                 msg = rx.recv() => {
                     let Some(msg) = msg else { break };
+                    if let ToDevice::Lend { done } = msg {
+                        // the hub took the handle out of the slot already
+                        released = true;
+                        rx.close();
+                        lend = Some(done);
+                        break;
+                    }
                     let mut state = self.device.state.lock().await;
                     let r = state.on_message(msg);
                     if self.device.send_out(&mut state, true).await.is_err() || r.is_err() {
@@ -621,12 +648,37 @@ impl Task {
             rx.close();
         }
         while let Ok(msg) = rx.try_recv() {
-            if let ToDevice::Join { queue, .. } = msg {
-                queue.close();
+            match msg {
+                ToDevice::Join { queue, .. } if lend.is_some() => queue.close_lent(),
+                ToDevice::Join { queue, .. } => queue.close(),
+                // a lend that came after another close: the device is closed
+                ToDevice::Lend { done } => _ = done.send(claims::Lend::default()),
+                _ => {}
             }
         }
         for queue in self.device.state.lock().await.tunnels.values() {
-            queue.close();
+            match lend.is_some() {
+                true => queue.close_lent(),
+                false => queue.close(),
+            }
+        }
+        if let Some(done) = lend {
+            // the other program opens the device right after: wait until the event loop let it go
+            let (cmd, closed) =
+                Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser);
+            if self.device.cmd.send(cmd).await.is_ok()
+                && tokio::time::timeout(LEND_CLOSE_TIMEOUT, closed)
+                    .await
+                    .is_err()
+            {
+                warn!(
+                    "ww hub: {} not closed within {LEND_CLOSE_TIMEOUT:?} for its lend",
+                    self.key
+                );
+            }
+            self.hub.device_closed(&self.key);
+            let _ = done.send(claims::Lend { reopen: true, keep });
+            return;
         }
         self.hub.device_closed(&self.key);
     }
@@ -641,6 +693,9 @@ impl State {
             }
             ToDevice::Leave { id } => self.leave(id)?,
             ToDevice::Keep => self.keep = true,
+            ToDevice::Open => {}
+            // taken by the task itself
+            ToDevice::Lend { done } => _ = done.send(claims::Lend::default()),
             ToDevice::Bundle { reply } => match &self.introspect {
                 Introspect::Cached(_) => {
                     let _ = reply.send(self.bundle());

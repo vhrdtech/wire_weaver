@@ -13,7 +13,7 @@ use wire_weaver::ww_version::{ApiHash, ApiHashPair, CompactVersion, GlobalTypeId
 use wire_weaver_client::DeviceApiInfo;
 use wire_weaver_client::in_process::TokioClock;
 use ww_device::link::{Received, Transmit};
-use ww_device::ww_link::Kind;
+use ww_device::ww_link::{DisconnectReason, Kind};
 use ww_device::{Clock, DeviceLink, LinkConfig, LinkEvent};
 use ww_local_socket::{MessageReader, MessageWriter, Peer};
 
@@ -41,6 +41,8 @@ struct QueueInner {
     dropped: u64,
     /// The device is gone: the client gets `Disconnect` once the items are out
     closed: bool,
+    /// ... because it is lent out (SRV-32): the `Disconnect` says so
+    lent: bool,
 }
 
 impl TunnelQueue {
@@ -85,16 +87,31 @@ impl TunnelQueue {
         self.notify.notify_one();
     }
 
+    /// [Self::close], the device lent to a program outside the hub: the client's `Disconnect` carries
+    /// [ww_local_socket::DISCONNECT_LENT].
+    pub(crate) fn close_lent(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.closed = true;
+        inner.lent = true;
+        drop(inner);
+        self.notify.notify_one();
+    }
+
     /// Stream events dropped so far.
     pub(crate) fn dropped(&self) -> u64 {
         self.inner.lock().unwrap().dropped
     }
 
-    fn take(&self) -> (Vec<(u8, Vec<u8>, bool)>, bool) {
+    /// What is queued, and the reason to disconnect with once it is out if the device is gone.
+    fn take(&self) -> (Vec<(u8, Vec<u8>, bool)>, Option<DisconnectReason>) {
         let mut inner = self.inner.lock().unwrap();
         inner.data_bytes = 0;
         let items = inner.items.drain(..).collect();
-        (items, inner.closed)
+        let closed = inner.closed.then_some(match inner.lent {
+            true => DisconnectReason::Other(ww_local_socket::DISCONNECT_LENT),
+            false => DisconnectReason::RequestByUser,
+        });
+        (items, closed)
     }
 }
 
@@ -217,10 +234,14 @@ pub(crate) async fn serve(
                     }
                     writer.push(kind, &bytes);
                 }
-                if closed {
+                if let Some(reason) = closed {
                     device_gone = true;
-                    // the hub hands over (SRV-30): the client reconnects to the next one
-                    link.disconnect(hub.closing_reason());
+                    // lent (SRV-32) says so; else the hub may be handing over (SRV-30): the client reconnects
+                    // to the next one
+                    link.disconnect(match reason {
+                        DisconnectReason::RequestByUser => hub.closing_reason(),
+                        lent => lent,
+                    });
                 }
             },
             _ = timer => link.handle_timeout(clock.now()),
@@ -271,11 +292,17 @@ mod tests {
         let (items, closed) = q.take();
         let firsts: Vec<u8> = items.iter().map(|(_, b, _)| b[0]).collect();
         assert_eq!(firsts, [0, 2, 3]);
-        assert!(!closed);
+        assert_eq!(closed, None);
         // taken: room again
         q.push_data(vec![4; QUEUE_DATA_BYTES]);
         assert_eq!(q.dropped(), 1);
         q.close();
-        assert!(q.take().1);
+        assert_eq!(q.take().1, Some(DisconnectReason::RequestByUser));
+        let q = TunnelQueue::new();
+        q.close_lent();
+        assert_eq!(
+            q.take().1,
+            Some(DisconnectReason::Other(ww_local_socket::DISCONNECT_LENT))
+        );
     }
 }

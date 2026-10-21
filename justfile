@@ -17,6 +17,14 @@ test:
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
     just test-lz4-c
+    # ww_ecc_flash's read modes on a simulated flash (mcu/ workspace)
+    just test-ecc-flash
+
+# ww_ecc_flash's zeros and strict reads on a simulated flash, with each family's word size
+[working-directory('mcu')]
+test-ecc-flash:
+    cargo test -q -p ww_ecc_flash --features stm32h7
+    cargo test -q -p ww_ecc_flash --features stm32g0
 
 # ww_lz4's blocks of a few streams decoded by C liblz4 (python-lz4 with the earlier bytes as dictionary)
 test-lz4-c:
@@ -121,6 +129,7 @@ check-examples-mcu:
     @just check-examples-mcu-stm32h725ig
     @just check-examples-mcu-rp2
     @just check-examples-mcu-ecc-flash-g0b1
+    @just check-examples-mcu-ecc-flash-h7
 
 [working-directory('examples_mcu/mcu_qemu_m4f')]
 check-examples-mcu-qemu-m4f:
@@ -154,6 +163,17 @@ check-examples-mcu-nucleo-g0b1re:
 check-examples-mcu-ecc-flash-g0b1:
     # Checking ecc_flash_g0b1
     @cargo check --bins
+
+[working-directory('examples_mcu/ecc_flash_h7')]
+check-examples-mcu-ecc-flash-h7:
+    # Checking ecc_flash_h7
+    @cargo check
+
+# Hardware check of ww_ecc_flash on an STM32H725IG: real ECC errors from a scratch flash word programmed twice, read
+# in zeros and strict mode; replaces the board's firmware, erases 0x080E0000.. (probe: PROBE_RS_PROBE=VID:PID)
+[working-directory('examples_mcu/ecc_flash_h7')]
+hw-ecc-flash-h7:
+    cargo run --release
 
 [working-directory('examples_mcu/usb_stm32h725ig')]
 check-examples-mcu-stm32h725ig:

@@ -47,7 +47,28 @@ let flash = unsafe { EccSafeFlash::new(flash, FLASH_BASE as u32) };
 let mut map = MapStorage::<u8, _, _>::new(flash, const { MapConfig::new(0x7_0000..0x7_2000) }, Cache::new_uncached());
 ```
 
-`ww_ecc_flash::ecc_errors()` counts the words read as zeros since boot, worth reporting in device diagnostics.
+`ww_ecc_flash::ecc_errors()` counts the words that failed their ECC check since boot, worth reporting in device
+diagnostics.
+
+### Strict mode: bootloaders and image checks
+
+Zeros are right for a store, not for code that checks or boots an image: an image with a torn word should be taken
+as unreadable, not hashed with zeros in it (it would fail its hash anyway, but the bootloader can't tell a torn word
+from a wrong image, and a progress flag of zeros looks set). `EccSafeFlash::new_strict` gives an `EccStrictFlash`,
+whose read fails with `Error::Ecc { offset }` at the first flash word that fails its ECC check (`offset` of that
+word, aligned to the ECC word; the bytes before it are read, the rest of the buffer is not). `Error::is_ecc()` tells
+it from other errors. The mode is a type parameter, so a firmware carries only the one it uses.
+
+```rust
+use ww_ecc_flash::{EccSafeFlash, EccStrictFlash};
+
+// SAFETY: offsets of embassy's `Flash` start at FLASH_BASE
+let flash: EccStrictFlash<_> = unsafe { EccSafeFlash::new_strict(Flash::new_blocking(p.FLASH), FLASH_BASE as u32) };
+```
+
+chunky (`chunky_mcu_updater`) takes it directly with its feature `ww-ecc-flash`: `chunky::ecc::EccError` is
+implemented for `ww_ecc_flash::Error`, so `chunky::ecc::try_read` sees `ReadFault::Ecc` and `chunky::ecc::Masked`
+reads a torn word as zeros where chunky wants that (progress words, the floor counter).
 
 ### STM32G0: the NMI handler
 
@@ -82,7 +103,9 @@ error on a cache linefill may be reported imprecisely, and an imprecise bus erro
   cut 1-20 ms into their ~22 ms still leave the page fully erased, programs stop between double words. So a reset
   never produces an ECC error on G0: only a real power cut does, and the zeros path is still to be run on hardware
   with one (TEST-21 in [Features](../features.md)).
-- STM32H7: built, not run on hardware.
+- Both modes on a simulated flash (host tests, `just test-ecc-flash`): reads at any offset and length, a broken word
+  as zeros or as `Error::Ecc` with its offset, an erase healing it, 8-, 16- and 32-byte words, blocking and async.
+- STM32H7: built, not run on hardware yet; `examples_mcu/ecc_flash_h7` makes a real ECC error to check it (below).
 
 ## Running the hardware test
 
@@ -95,3 +118,11 @@ PROBE_RS_PROBE=1366:0105 cargo run --release --bin reset_cut  # what a reset lea
 ```
 
 It erases and writes flash at `0x0807_0000..0x0807_2000` and `0x0807_4000..0x0807_4800`, and replaces the firmware.
+
+On an STM32H725IG (B135), `examples_mcu/ecc_flash_h7` (`just hw-ecc-flash-h7`) makes real uncorrectable ECC
+errors: programming only clears bits, so a 32-byte flash word programmed twice holds the AND of both data and of
+both ECCs, which mostly don't match. It programs even words of the last sector once and odd words twice, then
+checks that zeros mode reads the failed words as zeros and counts them, that strict mode fails with `Error::Ecc`
+at the same words, and that the words read right after an erase. It also reports the words the flash corrected,
+and whether a second program of all zeros reads clean. It ends with `ECC-STRICT H7 PASSED`; it erases
+`0x080E_0000..0x0810_0000` and replaces the firmware.

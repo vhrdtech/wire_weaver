@@ -12,6 +12,7 @@
 //!   `ww_link`'s, the same as over WebSocket.
 
 mod dir;
+pub mod files;
 mod framing;
 mod preamble;
 mod socket;

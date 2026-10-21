@@ -194,10 +194,32 @@ pub mod device {
                 new_writer: writer_rx,
             },
             DeviceRx {
-                listener,
-                version: version.to_string(),
+                listener: Some((listener, version.to_string())),
                 max: max_message_len,
                 reader: None,
+                writer_tx,
+            },
+        )
+    }
+
+    /// Tx and rx halves for [ww_device::Server] on one connection whose preamble was already answered, e.g. by the
+    /// hub, which accepts every connection itself and picks what serves it by the preamble. Once the client leaves,
+    /// the medium stays down for good: the caller ends the server when the link goes down.
+    pub fn connection_medium(
+        rx: RecvHalf,
+        tx: SendHalf,
+        max_message_len: usize,
+    ) -> (DeviceTx, DeviceRx) {
+        let (writer_tx, writer_rx) = mpsc::unbounded_channel();
+        (
+            DeviceTx {
+                writer: Some(MessageWriter::new(tx)),
+                new_writer: writer_rx,
+            },
+            DeviceRx {
+                listener: None,
+                max: max_message_len,
+                reader: Some(MessageReader::new(rx, max_message_len)),
                 writer_tx,
             },
         )
@@ -257,8 +279,8 @@ pub mod device {
     }
 
     pub struct DeviceRx {
-        listener: Listener,
-        version: String,
+        /// Accepts the next client, with the version for the preamble answer; `None` for a single connection
+        listener: Option<(Listener, String)>,
         max: usize,
         reader: Option<MessageReader<RecvHalf>>,
         writer_tx: mpsc::UnboundedSender<MessageWriter<SendHalf>>,
@@ -267,7 +289,10 @@ pub mod device {
     impl DeviceRx {
         /// Accepts one client: reads its preamble, answers, hands the write half to [DeviceTx].
         async fn accept_one(&mut self) -> std::io::Result<bool> {
-            let (stream, peer) = self.listener.accept().await?;
+            let Some((listener, version)) = &self.listener else {
+                return Ok(false);
+            };
+            let (stream, peer) = listener.accept().await?;
             let (mut rx, mut tx) = stream.split();
             let preamble = tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await;
             let status = match preamble {
@@ -293,8 +318,7 @@ pub mod device {
                     ..
                 })) => Status::UnknownDevice,
             };
-            tx.write_all(&Answer::new(status, &self.version).encode())
-                .await?;
+            tx.write_all(&Answer::new(status, version).encode()).await?;
             if status != Status::Ok {
                 return Ok(false);
             }
@@ -331,6 +355,10 @@ pub mod device {
         async fn wait_connected(&mut self) {
             if self.reader.is_some() {
                 return;
+            }
+            if self.listener.is_none() {
+                // a single connection that ended: nothing comes after it
+                return std::future::pending().await;
             }
             loop {
                 match self.accept_one().await {

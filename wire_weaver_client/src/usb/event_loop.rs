@@ -402,6 +402,7 @@ mod tests {
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
                 tap: None,
+                client_meta: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
@@ -455,6 +456,7 @@ mod tests {
                 max_seq: crate::DEFAULT_MAX_SEQ,
                 link_setup_timeout_ms: None,
                 tap: None,
+                client_meta: None,
                 client_version: Box::new(FullVersionOwned::new(
                     "".into(),
                     VersionOwned::new(0, 0, 0),

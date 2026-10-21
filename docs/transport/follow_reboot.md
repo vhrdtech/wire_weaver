@@ -124,7 +124,7 @@ let back = follow::stm32_dfu_update(&serial, &image, None, &mut ()).await?;
 ```
 
 `stm32_dfu_update()` and the `ww_stm32_dfu` re-export need the `stm32_dfu` Cargo feature of `wire_weaver_client`;
-`stm32_dfu_update_with()` takes the bus and the DFU opener as arguments and needs neither. `ww_stm32_dfu` is the DfuSe
+`stm32_dfu_update_with()` retries the open of the DFU interface for `Timeouts::open` (3 s), since the bootloader can be listed before the host's USB stack lets it be opened; it takes the bus and the DFU opener as arguments and needs neither. `ww_stm32_dfu` is the DfuSe
 host on its own (`stm32_dfu_host`, no WireWeaver dependency): `usb::open(Some(serial))` gives a `Dfuse` with
 `flash()` (erase, write, read back, progress callback), `erase_sector`, `read`, `write`, `leave`, and the parsed
 `layout()`; the sector sizes come from the device's own layout string, so one tool fits all STM32 families.
@@ -136,6 +136,12 @@ ww stm32dfu flash bootloader.elf -s 3A0B          # erase, write, verify, jump t
 ww stm32dfu flash app.bin --addr 0x08060000 --leave-addr 0x08000000 -s 3A0B
 ww stm32dfu flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
                                                   # after the app was asked to reboot(Updater)
+```
+
+```sh
+ww stm32dfu read 0x08060000 0x80 -s 3A0B          # hexdump; -o FILE writes the raw bytes
+ww stm32dfu erase 0x08060000 -s 3A0B              # the sector containing the address
+ww stm32dfu erase --sectors 3..=5 -s 3A0B         # sectors by index (A..B excludes B, A..=B includes it)
 ```
 
 `--no-leave` stays in DFU, `--no-verify` skips the read-back. On Linux the bootloader needs a udev rule for access

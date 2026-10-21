@@ -14,6 +14,7 @@
 
 ### 🚀 Features
 
+- `ww stm32dfu read ADDR LEN [-o FILE]` (hexdump, or raw bytes into a file) and `ww stm32dfu erase ADDR | --sectors A..B` (CLT-34).
 - `ww stm32dfu list | info | flash`: STM32 system bootloader in DFU mode over `ww_stm32_dfu`; `flash` takes an ELF or a binary (`--addr`), shows a progress bar, verifies by reading back, jumps to flash (`--leave-addr`, `--no-leave`) and with `--wait` / `--follow` follows a device that rebooted itself into the bootloader (CLT-34). Serial numbers of DFU devices complete for `--serial`. `info` shows the ROM bootloader version and id; `flash` notes after the jump that a V9.x bootloader needs a power cycle before the firmware can set up PWR.
 
 - `--monitor=api`, `ww monitor` and `ww explain` show calls through a compact global trait id (API-20) by trait and resource name with their decoded values, as for `GlobalFull` paths; global trait calls of `ww info` and friends go out compact now (6 bytes for a `UserInfo` read).

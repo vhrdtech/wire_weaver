@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `follow::stm32_dfu_update_with` takes its opener as `AsyncFn` and retries it for the new `Timeouts::open` (3 s); `Timeouts` has the new field (CLT-34).
 - `follow::stm32_dfu_update()` (feature `stm32_dfu`) and `stm32_dfu_update_with()`: after a firmware rebooted into the STM32 system bootloader (ROM DFU), wait for it under the same serial number, erase, write and verify an image over DfuSe, jump to flash and wait for the firmware to come back (CLT-34). `Follow::back_in_stm32_dfu`, `Found::Stm32Dfu`, `follow::is_stm32_dfu`, `follow::stm32_serial`, `FollowError::Stm32Dfu`; the `ww_stm32_dfu` re-export with the feature.
 
 - Compressed counted streams (API-55): the host offers LZ4 when it opens or resumes a counted stream and decodes the events before they are queued (typed, dynamic and Python clients alike, with `ww_lz4::Decoder`); events after a link loss that can't be decoded until the device's next codec restart come out as one `Gap { cause: Link }` and count in `StreamStats::lost_codec`; `StreamStats::codec_bytes_in` / `codec_bytes_out` say what compression saved. `ClientConfig::stream_compression(false)`, `Commander::set_stream_compression` and `PreparedStreamOpen::compression(false)` turn the offer off.

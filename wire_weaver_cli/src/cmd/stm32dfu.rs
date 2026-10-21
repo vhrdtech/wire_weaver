@@ -31,6 +31,43 @@ pub(crate) enum Stm32DfuCommand {
     ///
     /// Example: ww stm32dfu flash target/thumbv7em-none-eabihf/release/bootloader --wait 10 --follow -s 3A0B1C2D4E5F
     Flash(FlashArgs),
+
+    /// Read memory: a hexdump to the terminal, or raw bytes into a file with -o
+    ///
+    /// Example: ww stm32dfu read 0x08060000 0x80 -s 3A0B
+    Read(ReadArgs),
+
+    /// Erase the flash sector containing ADDR, or sectors by index (see 'ww stm32dfu info' for the layout)
+    ///
+    /// Sector indices count from the start of the first memory region; A..B is A up to but not including B, A..=B
+    /// includes B. Example: ww stm32dfu erase --sectors 3..=5 -s 3A0B
+    Erase(EraseArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct ReadArgs {
+    /// Start address
+    #[arg(value_parser = parse_addr)]
+    addr: u32,
+
+    /// Number of bytes
+    #[arg(value_parser = parse_addr)]
+    len: u32,
+
+    /// Write the raw bytes into this file instead of printing a hexdump
+    #[arg(short, long, value_hint = ValueHint::FilePath)]
+    output: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub(crate) struct EraseArgs {
+    /// Erase the sector containing this address
+    #[arg(value_parser = parse_addr, required_unless_present = "sectors", conflicts_with = "sectors")]
+    addr: Option<u32>,
+
+    /// Sector indices A..B or A..=B
+    #[arg(long, value_name = "A..B")]
+    sectors: Option<String>,
 }
 
 #[derive(Args)]
@@ -83,6 +120,8 @@ pub(crate) async fn stm32dfu(cmd: Stm32DfuCommand, selection: &Selection) -> Res
         Stm32DfuCommand::List => list().await,
         Stm32DfuCommand::Info => info(serial.as_deref()).await,
         Stm32DfuCommand::Flash(args) => flash(args, serial).await,
+        Stm32DfuCommand::Read(args) => read(args, serial.as_deref()).await,
+        Stm32DfuCommand::Erase(args) => erase(args, serial.as_deref()).await,
     }
 }
 
@@ -145,6 +184,130 @@ async fn info(serial: Option<&str>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+async fn read(args: ReadArgs, serial: Option<&str>) -> Result<()> {
+    let mut dfu = usb::open(serial).await?;
+    let bar = progress_bar("read")?;
+    bar.set_length(args.len as u64);
+    let data = dfu
+        .read(args.addr, args.len as usize, &mut |n| bar.inc(n as u64))
+        .await?;
+    bar.finish_and_clear();
+    match args.output {
+        Some(path) => {
+            std::fs::write(&path, &data).with_context(|| format!("writing {}", path.display()))?;
+            eprintln!(
+                "{} {} bytes into {}",
+                style("✔").green(),
+                data.len(),
+                path.display()
+            );
+        }
+        None => {
+            for (i, line) in data.chunks(16).enumerate() {
+                let hex: Vec<String> = line.iter().map(|b| format!("{b:02x}")).collect();
+                let text: String = line
+                    .iter()
+                    .map(|b| {
+                        if b.is_ascii_graphic() || *b == b' ' {
+                            *b as char
+                        } else {
+                            '.'
+                        }
+                    })
+                    .collect();
+                println!(
+                    "{:08x}  {:<47}  |{text}|",
+                    args.addr as usize + i * 16,
+                    hex.join(" ")
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `A..B` or `A..=B` as a range of sector indices.
+fn parse_sectors(s: &str) -> Result<std::ops::Range<usize>> {
+    let (a, b, inclusive) = match s.split_once("..=") {
+        Some((a, b)) => (a, b, true),
+        None => {
+            let (a, b) = s
+                .split_once("..")
+                .ok_or_else(|| anyhow!("expected A..B or A..=B"))?;
+            (a, b, false)
+        }
+    };
+    let a: usize = a.trim().parse().context("first sector index")?;
+    let b: usize = b.trim().parse().context("last sector index")?;
+    Ok(a..b + usize::from(inclusive))
+}
+
+async fn erase(args: EraseArgs, serial: Option<&str>) -> Result<()> {
+    let mut dfu = usb::open(serial).await?;
+    let sectors: Vec<u32> = match (args.addr, &args.sectors) {
+        (Some(addr), _) => {
+            let (base, _, region) = dfu
+                .layout()
+                .sector_at(addr)
+                .ok_or_else(|| anyhow!("{addr:#010x} is not in the memory layout"))?;
+            if !region.erasable {
+                bail!("{addr:#010x} is not erasable memory");
+            }
+            vec![base]
+        }
+        (None, Some(spec)) => {
+            let range = parse_sectors(spec)?;
+            let all: Vec<u32> = dfu
+                .layout()
+                .regions
+                .iter()
+                .filter(|r| r.erasable)
+                .flat_map(|r| (0..r.sectors).map(move |i| r.start + i * r.sector_size))
+                .collect();
+            if range.is_empty() || range.end > all.len() {
+                bail!(
+                    "sectors {spec}: the layout has {} erasable sectors",
+                    all.len()
+                );
+            }
+            all[range].to_vec()
+        }
+        (None, None) => unreachable!("clap requires one"),
+    };
+    let bar = progress_bar("erase")?;
+    bar.set_style(
+        ProgressStyle::with_template("{msg:7} [{bar:40.cyan/blue}] {pos}/{len} sectors")?
+            .progress_chars("#>-"),
+    );
+    bar.set_length(sectors.len() as u64);
+    for addr in &sectors {
+        dfu.erase_sector(*addr).await?;
+        bar.inc(1);
+    }
+    bar.finish_and_clear();
+    eprintln!(
+        "{} erased {} sector(s) from {:#010x}",
+        style("✔").green(),
+        sectors.len(),
+        sectors[0]
+    );
+    Ok(())
+}
+
+fn progress_bar(msg: &'static str) -> Result<ProgressBar> {
+    let bar = ProgressBar::new(0).with_message(msg);
+    bar.set_style(
+        ProgressStyle::with_template(
+            "{msg:7} [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec})",
+        )?
+        .progress_chars("#>-"),
+    );
+    if !console::Term::stderr().is_term() {
+        bar.set_draw_target(indicatif::ProgressDrawTarget::hidden());
+    }
+    Ok(bar)
 }
 
 /// `0x93` as `V9.3`.

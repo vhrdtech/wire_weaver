@@ -146,6 +146,7 @@ async fn reboot2_boots_the_written_image() {
         Timeouts {
             to_bootsel: Duration::from_secs(1),
             to_app: Duration::from_millis(300),
+            ..Timeouts::default()
         },
     )
     .await
@@ -273,4 +274,38 @@ async fn update_through_stm32_rom_dfu() {
     assert_eq!(dev.booted().await, Mode::App(2));
     let app = connect(&serial).await;
     assert_eq!(app.node().node().call().await.unwrap().app_version, Some(2));
+}
+
+/// The bootloader is listed before the host's USB stack lets it be opened: the open is tried again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stm32_open_is_retried() {
+    use crate::stm32::{FLASH, Stm32Report};
+    use std::sync::atomic::{AtomicU32, Ordering};
+    let mut dev = Stm32Report::start([1, 2, 3], &app_image(1, 2000));
+    assert_eq!(dev.booted().await, Mode::App(1));
+    let mut bus = dev.bus();
+    let serial = dev.serial.clone();
+    let app = connect(&serial).await;
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
+    drop(app);
+    let image = ww_stm32_dfu::Image::from_bin(FLASH, app_image(2, 3000)).unwrap();
+    let opener = bus.clone();
+    let tries = AtomicU32::new(0);
+    follow::stm32_dfu_update_with(
+        &Follow::new(&serial),
+        &mut bus,
+        async |info| {
+            if tries.fetch_add(1, Ordering::SeqCst) < 2 {
+                return Err(ww_stm32_dfu::Error::Other("permission denied".into()));
+            }
+            opener.open(info)
+        },
+        &image,
+        None,
+        &mut (),
+        Timeouts::default(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(tries.load(Ordering::SeqCst), 3);
 }

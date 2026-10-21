@@ -267,6 +267,9 @@ pub struct Timeouts {
     pub to_bootsel: Duration,
     /// From the reboot out of BOOTSEL until the firmware enumerates.
     pub to_app: Duration,
+    /// How long opening the DFU interface is retried after the bootloader showed up in the listing: it can be
+    /// listed before the host's USB stack lets it be opened (permissions, a driver still binding).
+    pub open: Duration,
 }
 
 impl Default for Timeouts {
@@ -274,6 +277,7 @@ impl Default for Timeouts {
         Timeouts {
             to_bootsel: Duration::from_secs(10),
             to_app: Duration::from_secs(10),
+            open: Duration::from_secs(3),
         }
     }
 }
@@ -364,11 +368,13 @@ pub async fn stm32_dfu_update(
 /// reboot into it: wait for the bootloader with the same serial number, `open` its DFU interface, erase and write
 /// `image` and verify it, leave DFU by jumping to `leave_addr` (the start of the first memory region when `None`),
 /// wait for the firmware to come back. Returns the device as it came back, connect to it by its serial number.
+///
+/// `open` is called again for [Timeouts::open] when it fails: the bootloader can be listed before it can be opened.
 #[allow(clippy::too_many_arguments)]
 pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     follow: &Follow,
     bus: &mut impl Bus,
-    open: impl AsyncFnOnce(&DeviceInfo) -> Result<I, ww_stm32_dfu::Error>,
+    open: impl AsyncFn(&DeviceInfo) -> Result<I, ww_stm32_dfu::Error>,
     image: &ww_stm32_dfu::Image,
     leave_addr: Option<u32>,
     progress: &mut impl ww_stm32_dfu::Progress,
@@ -380,7 +386,9 @@ pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     };
     let rom = follow.back_in_stm32_dfu(bus, timeouts.to_bootsel).await?;
     tracing::debug!("{} is in the STM32 DFU bootloader: {rom}", follow.serial);
-    let io = open(&rom).await.map_err(dfu_err)?;
+    let io = open_retrying(&rom, open, timeouts.open)
+        .await
+        .map_err(dfu_err)?;
     let mut dfu = ww_stm32_dfu::Dfuse::new(io).map_err(dfu_err)?;
     dfu.flash(image, &ww_stm32_dfu::FlashOptions::default(), progress)
         .await
@@ -389,4 +397,23 @@ pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     dfu.leave(leave_addr).await.map_err(dfu_err)?;
     drop(dfu);
     follow.back_in_wire_weaver(bus, timeouts.to_app).await
+}
+
+/// `open`, tried again every 100 ms until it works or `within` is over; the last error otherwise.
+async fn open_retrying<I>(
+    info: &DeviceInfo,
+    open: impl AsyncFn(&DeviceInfo) -> Result<I, ww_stm32_dfu::Error>,
+    within: Duration,
+) -> Result<I, ww_stm32_dfu::Error> {
+    let deadline = Instant::now() + within;
+    loop {
+        match open(info).await {
+            Ok(io) => return Ok(io),
+            Err(e) if Instant::now() >= deadline => return Err(e),
+            Err(e) => {
+                tracing::debug!("opening {info}: {e}, trying again");
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+    }
 }

@@ -152,20 +152,18 @@ async fn info(serial: Option<&str>) -> Result<()> {
     let device = usb::find(serial).await?;
     println!("serial {}", device.serial_number().unwrap_or("?"));
     match Dfuse::new(NusbIo::open(&device, 0).await?) {
-        Ok(mut dfu) => {
-            match dfu.rom_id().await {
-                Some(v) => println!(
-                    "bootloader version {} (byte at {ROM_ID_ADDR:#010x}){}",
-                    version_name(v),
-                    if locks_pwr_cr3(v) {
-                        ", locks PWR_CR3 on STM32H72x/73x (a power cycle after it)"
-                    } else {
-                        ""
-                    }
-                ),
-                None => println!("bootloader version: not readable"),
-            }
-        }
+        Ok(mut dfu) => match dfu.rom_id().await {
+            Some(v) => println!(
+                "bootloader version {} (byte at {ROM_ID_ADDR:#010x}){}",
+                version_name(v),
+                if locks_pwr_cr3(v) {
+                    ", locks PWR_CR3 on STM32H72x/73x (a power cycle after it)"
+                } else {
+                    ""
+                }
+            ),
+            None => println!("bootloader version: not readable"),
+        },
         Err(e) => println!("{e}"),
     }
     for (alt, name) in usb::alt_settings(&device).await? {

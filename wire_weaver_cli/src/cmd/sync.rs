@@ -382,7 +382,8 @@ fn spread(statuses: &[Option<Status>]) -> Option<(i64, i64, usize)> {
 }
 
 /// When each device, and then all of them, converged: `Locked` by their own word, and the residual within the
-/// tolerance by the host's. Fed the statuses with the time since the start (ns), so tests drive it.
+/// tolerance by the host's. A check whose half round trip is beyond the tolerance can't tell either way (a USB
+/// hiccup): it changes nothing. Fed the statuses with the time since the start (ns), so tests drive it.
 struct Convergence {
     within_ns: i64,
     since: Vec<Option<u64>>,
@@ -398,11 +399,12 @@ enum Event {
         after: u64,
         residual: i64,
     },
-    /// Device `index` is no longer within: its state now, and residual.
+    /// Device `index` is no longer within: its state now, residual and half the check's round trip.
     Left {
         index: usize,
         state: Option<SyncState>,
         residual: Option<i64>,
+        half_rtt: Option<i64>,
     },
     /// Every synced device converged, the last one after this many ns; their residuals' spread and uncertainty.
     All {
@@ -426,6 +428,10 @@ impl Convergence {
         for (index, (since, status)) in self.since.iter_mut().zip(statuses).enumerate() {
             let Some(s) = status else { continue };
             let state = s.device.map(|d| d.state);
+            let half_rtt = s.check_rtt.map(|r| r as i64 / 2);
+            if state == Some(SyncState::Locked) && half_rtt.is_some_and(|h| h > self.within_ns) {
+                continue;
+            }
             let within = state == Some(SyncState::Locked)
                 && s.residual.is_some_and(|r| r.abs() <= self.within_ns);
             match (within, *since) {
@@ -443,6 +449,7 @@ impl Convergence {
                         index,
                         state,
                         residual: s.residual,
+                        half_rtt,
                     });
                 }
                 _ => {}
@@ -491,15 +498,17 @@ impl Event {
                 index,
                 state,
                 residual,
+                half_rtt,
             } => format!(
-                "{} {} left: {}, residual {}",
+                "{} {} left: {}, residual {}{}",
                 style("✗").yellow(),
                 names[*index],
                 match state {
                     Some(s) => format!("{s:?}").to_lowercase(),
                     None => "no status".into(),
                 },
-                residual.map_or("unknown".into(), |r| signed_us(r / 1000))
+                residual.map_or("unknown".into(), |r| signed_us(r / 1000)),
+                half_rtt.map_or(String::new(), |h| format!(" ±{}", us(h / 1000)))
             ),
             Event::All {
                 count,
@@ -702,10 +711,14 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(
             events[0].line(&names, 2000),
-            "✗ rePort left: acquiring, residual +5.00 ms"
+            "✗ rePort left: acquiring, residual +5.00 ms ±100 µs"
         );
         now[1] = status(SyncState::Locked, 100);
         assert_eq!(c.update(7 * s, &now).len(), 2);
+        // a check with a 6 ms round trip says nothing about 9 ms off: still converged
+        let mut slow = status(SyncState::Locked, -9_000);
+        slow.as_mut().unwrap().check_rtt = Some(6_000_000);
+        assert_eq!(c.update(8 * s, &[now[0].clone(), slow, None]), []);
         assert_eq!(
             phase_line(&now),
             "LED phase: 1.00 ms apart across 2 devices (±100 µs), 0.033 % of a 3 s breath\n"

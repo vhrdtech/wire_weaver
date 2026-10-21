@@ -574,7 +574,8 @@ Until Ctrl+C or `--duration`; then the devices go on in holdover on their last s
 | `RTT`      | the shortest round trip of the fit                                                                   |
 
 A device has converged once it says `locked` and its residual is within `--within-us`; all have converged once every
-device that serves a clock has. The LED phase is the spread of the residuals: every device starts its LED cycles on
+device that serves a clock has. A check whose half round trip is beyond `--within-us` (a USB hiccup) can't tell
+either way and changes nothing. The LED phase is the spread of the residuals: every device starts its LED cycles on
 UTC multiples of the period, so two devices' breaths are apart by the difference of their residuals.
 
 | Option / argument | Default | Description                                                                          |

@@ -539,32 +539,52 @@ or `target/` of the cargo project in the current directory. See [ww_counters](st
 
 Keeps several devices' clocks on the host's UTC at once (TOOL-16), with the `ww_clock_sync` crate: each device's
 `ww_timebase::Clock::now()` is read a few times a second, fitted against the host's monotonic clock (offset and
-rate, from the readings with the shortest round trips) and steered once a second with `Clock::steer`, see
-[host sync](std_library/ww_timebase.md#host-sync-std-49). Works with any device serving `Clock` with the `host_sync`
-group anywhere in its API; a device locked to a sync line only takes note (source `line`). Devices with a shared
-clock align their animations to UTC, so their LEDs breathe in phase
-([`ww_indication`](std_library/ww_indication.md#animations-in-phase-std-50)). What it looks like (the values are for
-illustration, not a measurement):
+rate, from the readings with the shortest round trips) and steered with `Clock::steer`, ten times a second while the
+device is acquiring and once a second once it says locked, see
+[host sync](std_library/ww_timebase.md#host-sync-std-49) and its [states](std_library/ww_timebase.md#states). Works
+with any device serving `Clock` with the `host_sync` group anywhere in its API; a device locked to a sync line only
+takes note (source `line`). Devices with a shared clock align their animations to UTC, so their LEDs breathe in
+phase ([`ww_indication`](std_library/ww_indication.md#animations-in-phase-std-50)). What it looks like (the values are
+for illustration, not a measurement):
 
 ```
 $ ww sync --mode normal
-DEVICE           STATE   SOURCE  RATE            RTT     RESIDUAL  SAMPLES  NOTE
-Donguru A1B2C3   locked  host    -9871.204 ppm   412 µs  -37 µs    80
-rePort bench-2   locked  host    +12.880 ppm     95 µs   +6 µs     80
+✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
+✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
+✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
+✓ all 3 within 2.00 ms after 6.3 s, LED phase 704 µs apart (±700 µs)
+DEVICE                STATE   SOURCE  RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
+B135 USB-FDCAN 3445   locked  host    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
+rePort bench-2        locked  host    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
+Donguru A1B2C3        locked  host    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+LED phase: 704 µs apart across 3 devices (±700 µs), 0.023 % of a 3 s breath
 ```
 
-The table is redrawn every second on a terminal (every 5 s into a pipe) until Ctrl+C or `--duration`; then the
-devices go on in holdover on their last steer point. `RATE` is how much faster shared time runs than the device's
-clock (an HSI running 1 % fast is about -9900 ppm), `RTT` the shortest round trip of the fit, `RESIDUAL` the device's
-shared time minus the host's UTC at the middle of a `shared_now()` round trip (good to half that round trip).
+On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
+when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
+Until Ctrl+C or `--duration`; then the devices go on in holdover on their last steer point.
+
+| Column     | What it is                                                                                          |
+|------------|-----------------------------------------------------------------------------------------------------|
+| `STATE`    | the device's own `sync_status`: `acquiring` until it is within its lock tolerance, then `locked`     |
+| `RESIDUAL` | the device's shared time minus the host's UTC at the middle of a `shared_now()` round trip, ± half that round trip: what the sync achieves, and the device's LED lead on UTC |
+| `ERROR`    | the device's own error bound: the host's error estimate in the last point, plus slew left and holdover |
+| `RATE`     | how much faster shared time runs than the device's clock (an HSI running 1 % fast is about -9900 ppm) |
+| `SLEW`     | offset the device still slews in (5 % of its clock while acquiring, 1 % once locked)                |
+| `RTT`      | the shortest round trip of the fit                                                                   |
+
+A device has converged once it says `locked` and its residual is within `--within-us`; all have converged once every
+device that serves a clock has. The LED phase is the spread of the residuals: every device starts its LED cycles on
+UTC multiples of the period, so two devices' breaths are apart by the difference of their residuals.
 
 | Option / argument | Default | Description                                                                          |
 |-------------------|---------|--------------------------------------------------------------------------------------|
 | `DEVICE...`       | all     | Serial numbers or user labels, or parts of them, each matching exactly one device    |
 | `--mode MODE`     |         | Also write the indication mode: `all-off`, `only-essential`, `normal`               |
 | `--duration S`    | Ctrl+C  | Stop after this many seconds                                                         |
-| `--poll-ms MS`    | `200`   | Time between two readings of each device's clock                                     |
-| `--steer-ms MS`   | `1000`  | Time between two steer points                                                        |
+| `--poll-ms MS`    | `200`   | Time between two readings of each device's clock once locked (100 ms before)        |
+| `--steer-ms MS`   | `1000`  | Time between two steer points once locked (100 ms before)                            |
+| `--within-us US`  | `2000`  | Residual within which a locked device counts as converged                            |
 
 The device selection flags (`--product`, `--api`, ...) narrow which devices `DEVICE...` is matched against.
 

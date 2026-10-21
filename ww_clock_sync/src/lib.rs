@@ -24,4 +24,4 @@ mod sync;
 pub use device_time::{DeviceTime, DeviceTimeError};
 pub use estimator::{Added, Estimator, EstimatorConfig, Fit, Sample};
 pub use host_clock::HostClock;
-pub use sync::{ClockClient, ClockSync, Options, Status};
+pub use sync::{ClockClient, ClockSync, Options, Pace, Status};

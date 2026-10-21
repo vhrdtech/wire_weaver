@@ -9,6 +9,10 @@
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 ### 🚀 Features
 
+- `SyncStatus::slew_us: Option<i32>` (`#[default = None]`, wire-compatible): the offset a device still slews in, µs.
+  `SyncState::Acquiring` now also means "following a source, not within the device's lock tolerance yet" and
+  `Locked` "within it" (bedrock boards: 2 ms of slew left plus the source's error); the states are documented in
+  the trait and in `docs/std_library/ww_timebase.md#states` (STD-49).
 - Host sync and one UTC timescale (STD-49): shared time is UTC, and a device follows its best source, a locked
   sync line before a host steering it, before holdover, before free. New optional group `host_sync` of `Clock`:
   `steer(point: SteerPoint) -> Result<Option<SyncSource>, ClockError>` (a host's fit: `local` in the prefix and

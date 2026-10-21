@@ -1,5 +1,14 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `ww sync` shows how far each device is and when it got there (TOOL-16): per device the state (`acquiring` until
+  it is within its lock tolerance, then `locked`), the residual against the host's UTC with ± half the check's
+  round trip, the device's error bound, rate, the offset still to slew and the round trip; a line when a device
+  converges (locked and its residual within `--within-us`, default 2000) or falls out, and `all N within X after
+  N s` with the LED phase spread; the LED phase spread under the table. Steers ten times a second until a device is
+  locked. On a terminal a live table, into a pipe only those lines (no colour) and the table at the end.
+
 ### 🐛 Fixes
 
 - `ww stm32dfu flash --wait` retries opening the bootloader for 3 s, as `--follow` does: right after it enumerates, udev may not have set its permissions yet ("opening device: permission denied", seen once in three updates of a B135 rev B) (CLT-34).

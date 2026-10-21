@@ -1152,7 +1152,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
   `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; Ctrl+C leaves the devices in holdover.
-  `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
+  when each device and then all are within `--within-us` (locked by their word, residual by the host's), the LED
+  phase spread; steered at 10 Hz until locked; quiet into a pipe. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
   tpm P2618#21oct-1707.
 - 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
   (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
@@ -1222,7 +1224,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the host's error estimate; a line-locked device only notes the point; `shared_now()`; `set_sources` / `sources`: an
   explicit ordered list of allowed sources, `None` keeps the fixed ranking), `SyncSource` (`Host`,
   `Line`), `SyncStatus::source` / `error`, `TimeMapPoint::source` (the seam of a switch, slewed, not stepped),
-  `SyncState::Conflict` (two masters on a line). `configure_sync` stays the line's role, the IRIG-B / PPS model is
+  `SyncState::Conflict` (two masters on a line), `SyncStatus::slew_us`; `Acquiring` until within the device's lock
+  tolerance, then `Locked` (`docs/std_library/ww_timebase.md#states`), the host steering at 10 Hz until then. `configure_sync` stays the line's role, the IRIG-B / PPS model is
   unchanged. Host side: crate `ww_clock_sync` (`Estimator`: min-RTT samples of `now()`, least squares over a 30 s
   window against the monotonic clock; `DeviceTime`; `HostClock`; `ClockSync` for any process holding a connection),
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in

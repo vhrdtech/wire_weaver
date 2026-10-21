@@ -82,10 +82,11 @@ pub trait Clock {
 * `SyncFormat` - `IrigB`, `Pps`; `unib32` discriminant, evolvable.
 * `SyncSource` - `Host`, `Line { format }`: what the shared clock follows; `unib32` discriminant, evolvable.
 * `SyncStatus` - `state: SyncState`, `offset: Option<Second>` (local minus shared time at the last lock),
-  `last_lock: Option<Second>`, `source: Option<SyncSource>`, `error: Option<Second>` (estimated bound against UTC);
-  the last two `#[default = None]`, read as `None` from devices built before them.
-* `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`, `Conflict` (two masters on the line); `unib32`
-  discriminant, evolvable.
+  `last_lock: Option<Second>`, `source: Option<SyncSource>`, `error: Option<Second>` (estimated bound against UTC),
+  `slew_us: Option<i32>` (offset still to slew in); the last three `#[default = None]`, read as `None` from devices
+  built before them.
+* `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`, `Conflict` (two masters on the line), see
+  [States](#states); `unib32` discriminant, evolvable.
 * `TimeMapPoint` - one `time_map` item: `local: Second`, `shared: Second` (UTC, in the prefix and storage of
   `local`), `state: SyncState`, `source: Option<SyncSource>` (`#[default = None]`).
 * `SteerPoint` - `local: Second`, `shared_us: u64` (UTC), `rate_ppb: i32`, `error_us: u32`: device time `local` is
@@ -119,6 +120,26 @@ boards only on different PCs agree to those PCs' NTP (ms, plenty for LEDs, see
 
 `configure_sync` stays the line's role (`Off`, `Master`, `Slave` in `IrigB` or `Pps`); host steering needs no
 configuration. `sync_status()` says which source the device follows (`source`) and its estimated error (`error`).
+
+### States
+
+`sync_status().state` and `TimeMapPoint::state` say how far a device's shared time can be trusted:
+
+| State       | Source followed | Means                                                                                        |
+|-------------|-----------------|----------------------------------------------------------------------------------------------|
+| `Free`      | none            | never steered (or in holdover too long): shared time, if any, is nobody's                    |
+| `Acquiring` | yes             | following the source, but not within the lock tolerance yet: still slewing, or the source's error is too large |
+| `Locked`    | yes             | within the lock tolerance of the source: LEDs are in phase, scheduled actions line up          |
+| `Holdover`  | the last one    | the points stopped: coasting on the last offset and rate, the error grows with time            |
+| `Conflict`  | -               | the master of a line sees another master on it                                               |
+
+The tolerance is the device's: `slew_us` (what is left to slew in) plus the source's own error must be within it to
+enter `Locked`, and a new point that finds the clock more than twice that far off (or steps it) goes back to
+`Acquiring`. bedrock boards (`bedrock_sync`) use 2 ms (a full-speed USB board's own error bound is about 1 ms), plenty for LEDs, and slew 5 % while acquiring (250 ms gone in
+5 s) and 1 % once locked; shared time never jumps or goes back except for a step beyond 1 s. A host steers more often
+while a device is acquiring (`ww_clock_sync` 10 Hz, then 1 Hz once locked). `Locked` only says the device agrees
+with its source: how close the source is to UTC is `error`, and what the host measures is the residual of
+`shared_now()` against its own clock (`ww sync` shows both).
 
 ### Choosing the sources
 

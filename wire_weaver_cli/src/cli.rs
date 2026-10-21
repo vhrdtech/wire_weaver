@@ -128,13 +128,16 @@ pub(crate) enum Commands {
     /// Keep several devices' clocks on the host's UTC, Klipper-style, and show how well they follow (TOOL-16)
     ///
     /// Works with any device serving ww_timebase::Clock with host sync, anywhere in its API: each device's clock is
-    /// read a few times a second, fitted against the host's (offset and rate) and steered once a second. A device
-    /// locked to a sync line only takes note. Devices with a shared clock breathe and blink in phase (ww_indication).
-    /// Until Ctrl+C, then the devices go on in holdover. Examples:
+    /// read a few times a second, fitted against the host's (offset and rate) and steered, ten times a second while
+    /// it is acquiring and once a second once locked. A device locked to a sync line only takes note. Devices with a
+    /// shared clock breathe and blink in phase (ww_indication). Shows per device the state, the residual against the
+    /// host's UTC, error, rate and slew left, a line when each and then all of them have converged, and the LED
+    /// phase spread. Until Ctrl+C, then the devices go on in holdover. Examples:
     ///
     ///   ww sync                          every connected device the selection matches
     ///   ww sync A1B2 bench-left          two devices by serial or label
     ///   ww sync --mode normal            and set their indication mode
+    ///   ww sync --within-us 500          converged only within 0.5 ms
     #[command(verbatim_doc_comment)]
     Sync(SyncArgs),
 

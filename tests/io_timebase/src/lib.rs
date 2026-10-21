@@ -52,6 +52,7 @@ mod tests {
                     last_lock: None,
                     source: None,
                     error: None,
+                    slew_us: None,
                 },
                 times_of_day: Vec::new(),
                 steer: None,
@@ -158,6 +159,7 @@ mod tests {
                             last_lock: None,
                             source: None,
                             error: None,
+                            slew_us: None,
                         };
                         self.send_point(
                             cx,
@@ -177,6 +179,7 @@ mod tests {
                             last_lock: Some(local),
                             source: None,
                             error: None,
+                            slew_us: None,
                         };
                         self.send_point(
                             cx,
@@ -196,6 +199,7 @@ mod tests {
                             last_lock: None,
                             source: None,
                             error: None,
+                            slew_us: None,
                         };
                         self.send_point(
                             cx,
@@ -219,6 +223,7 @@ mod tests {
                                 format: SyncFormat::IrigB,
                             }),
                             error: None,
+                            slew_us: None,
                         };
                         self.send_point(
                             cx,
@@ -305,6 +310,7 @@ mod tests {
                     last_lock: Some(point.local),
                     source: Some(SyncSource::Host),
                     error: Some(micros(point.error_us)),
+                    slew_us: Some(0),
                 };
                 drop(m);
                 self.send_point(
@@ -568,7 +574,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn host_sync_steers_the_device_onto_utc() {
-        use ww_clock_sync::{ClockSync, EstimatorConfig, Options};
+        use ww_clock_sync::{ClockSync, EstimatorConfig, Options, Pace};
         let (device, m) = start("timebase/host");
         let client = connect(&device).await;
         let mut time_map = client.clock().time_map().call().await.unwrap();
@@ -579,6 +585,11 @@ mod tests {
             poll: Duration::from_millis(2),
             steer_every: Duration::from_millis(20),
             check_every: Some(Duration::from_millis(20)),
+            acquire: Pace {
+                poll: Duration::from_millis(2),
+                steer_every: Duration::from_millis(10),
+                check_every: Some(Duration::from_millis(20)),
+            },
             estimator: EstimatorConfig {
                 min_span: Duration::from_millis(40),
                 ..EstimatorConfig::default()

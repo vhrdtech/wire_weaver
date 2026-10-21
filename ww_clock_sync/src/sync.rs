@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use wire_weaver_client::Commander;
-use ww_timebase::{SyncSource, SyncStatus};
+use ww_timebase::{SyncSource, SyncState, SyncStatus};
 
 /// Client of `ww_timebase::Clock` wherever the device implements it (a global trait path, API-20).
 pub struct ClockClient {
@@ -29,28 +29,62 @@ mod clock_client {
     );
 }
 
-/// How [ClockSync] polls and steers.
+/// How [ClockSync] polls and steers: at [Options::acquire] while the device is getting there, at the normal pace
+/// once it says it is `Locked`.
 #[derive(Copy, Clone, Debug)]
 pub struct Options {
-    /// Time between two `now()` readings.
+    /// Time between two `now()` readings, once locked.
     pub poll: Duration,
-    /// Time between two steer points, once there is a fit.
+    /// Time between two steer points, once locked (and there is a fit).
     pub steer_every: Duration,
-    /// Time between two checks of the device's shared time (`shared_now`, `sync_status`): the residual offset in
-    /// [Status]. `None`: never.
+    /// Time between two checks of the device's shared time (`shared_now`, `sync_status`), once locked: the
+    /// residual offset and the device's state in [Status]. `None`: never, and the device's state is never known,
+    /// so it stays at the acquiring pace.
     pub check_every: Option<Duration>,
+    /// The pace while the device isn't `Locked` yet (`Free`, `Acquiring`, `Holdover`, or not checked yet): more
+    /// steer points, so the device follows the young fit closely and is within its tolerance sooner.
+    pub acquire: Pace,
     /// The fit's window and filter.
     pub estimator: EstimatorConfig,
 }
 
+/// Poll, steer and check intervals of one phase, see [Options].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Pace {
+    pub poll: Duration,
+    pub steer_every: Duration,
+    pub check_every: Option<Duration>,
+}
+
 impl Default for Options {
-    /// `now()` five times a second, a steer point every second, a check every 5 s, [EstimatorConfig::default].
+    /// Once locked `now()` five times a second, a steer point every second, a check every 5 s; while acquiring all
+    /// three ten times as often, and a check every second; [EstimatorConfig::default].
     fn default() -> Self {
         Options {
             poll: Duration::from_millis(200),
             steer_every: Duration::from_secs(1),
             check_every: Some(Duration::from_secs(5)),
+            acquire: Pace {
+                poll: Duration::from_millis(100),
+                steer_every: Duration::from_millis(100),
+                check_every: Some(Duration::from_secs(1)),
+            },
             estimator: EstimatorConfig::default(),
+        }
+    }
+}
+
+impl Options {
+    /// The pace for a device in `state` (as its last check said, `None` before one): normal once `Locked`, the
+    /// acquiring one otherwise.
+    pub fn pace(&self, state: Option<SyncState>) -> Pace {
+        match state {
+            Some(SyncState::Locked) => Pace {
+                poll: self.poll,
+                steer_every: self.steer_every,
+                check_every: self.check_every,
+            },
+            _ => self.acquire,
         }
     }
 }
@@ -72,6 +106,8 @@ pub struct Status {
     pub answered: bool,
     /// The device's own status at the last check.
     pub device: Option<SyncStatus>,
+    /// Polling and steering at [Options::acquire]: the device didn't say `Locked` at the last check.
+    pub acquiring: bool,
     /// At the last check: the device's shared time minus the host's UTC at the middle of the round trip, in ns.
     /// What the sync achieves, within half that round trip ([Status::check_rtt]).
     pub residual: Option<i64>,
@@ -142,10 +178,13 @@ async fn run(
     let mut status = Status::default();
     let mut next_steer = 0;
     let mut next_check = 0;
-    let mut poll = tokio::time::interval(options.poll);
-    poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut next_poll = tokio::time::Instant::now();
     loop {
-        poll.tick().await;
+        let pace = options.pace(status.device.map(|d| d.state));
+        status.acquiring = pace != options.pace(Some(SyncState::Locked));
+        tokio::time::sleep_until(next_poll).await;
+        // a slow answer delays the next reading rather than bunching them up
+        next_poll = (next_poll + pace.poll).max(tokio::time::Instant::now());
         let sent = host.monotonic_ns();
         let now = client.now().call().await;
         let received = host.monotonic_ns();
@@ -171,10 +210,10 @@ async fn run(
         if let Some(fit) = status.fit
             && received >= next_steer
         {
-            next_steer = received + options.steer_every.as_nanos() as u64;
+            next_steer = received + pace.steer_every.as_nanos() as u64;
             steer(&mut client, &device_time, &fit, &host, &mut status).await;
         }
-        if let Some(every) = options.check_every
+        if let Some(every) = pace.check_every
             && status.steers > 0
             && received >= next_check
         {
@@ -229,5 +268,27 @@ async fn check(client: &mut ClockClient, host: &HostClock, status: &mut Status) 
     match client.sync_status().call().await {
         Ok(device) => status.device = Some(device),
         Err(e) => status.error = Some(format!("sync_status: {e}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn faster_until_locked() {
+        let o = Options::default();
+        let normal = o.pace(Some(SyncState::Locked));
+        assert_eq!(normal.steer_every, Duration::from_secs(1));
+        for state in [
+            None,
+            Some(SyncState::Free),
+            Some(SyncState::Acquiring),
+            Some(SyncState::Holdover),
+        ] {
+            let p = o.pace(state);
+            assert_eq!(p, o.acquire, "{state:?}");
+            assert!(p.steer_every < normal.steer_every && p.poll < normal.poll);
+        }
     }
 }

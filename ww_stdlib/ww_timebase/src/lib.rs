@@ -64,7 +64,8 @@ pub trait Clock {
     /// A host's fit of this device's clock (STD-49), sent about once a second. The device follows it when it has
     /// nothing better and `Host` is allowed (see `set_sources`): its shared clock becomes
     /// `shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed
-    /// there from where it was, not stepped), `sync_status` and `time_map` say `Locked` with source `Host`, and
+    /// there from where it was, not stepped), `sync_status` and `time_map` say source `Host`, `Acquiring` until the
+    /// device is within its lock tolerance of the points and `Locked` from then on (see [SyncState]), and
     /// `Holdover` when the points stop coming. A device locked to a better source (a sync line), or one whose source
     /// list leaves `Host` out, keeps what it follows and only notes the point: the host then correlates through
     /// `time_map` instead of steering. Returns the source the device follows after taking the point, `None` when
@@ -171,10 +172,16 @@ pub struct SyncStatus {
     /// devices built before sources were reported.
     #[default = None]
     pub source: Option<SyncSource>,
-    /// Estimated bound of the shared clock's error against UTC: the source's own error and what holdover adds
-    /// since. `None` when the device can't tell.
+    /// Estimated bound of the shared clock's error against UTC: the source's own error, the offset still to slew
+    /// in and what holdover adds since. `None` when the device can't tell.
     #[default = None]
     pub error: Option<Second>,
+    /// Offset still to slew in, µs: where the source puts shared time minus where the shared clock is now
+    /// (positive: it runs fast until it caught up). 0 once it has; `None` from devices that don't tell (built
+    /// before this field, or not slewing in software). A plain `i32`, as `SteerPoint::shared_us` is a plain
+    /// number: a device without signed numbers in `ww_numeric` sends it too.
+    #[default = None]
+    pub slew_us: Option<i32>,
 }
 
 /// State of a device's shared clock, see `SyncStatus::state` and `TimeMapPoint::state`.
@@ -187,9 +194,14 @@ pub struct SyncStatus {
 pub enum SyncState {
     /// No source yet (sync off and no host steering, or no signal seen): the shared clock runs free.
     Free,
-    /// A signal is present but not yet locked onto: the shared clock keeps its previous source or runs free.
+    /// A source is followed but the shared clock isn't within the device's lock tolerance of it yet (still slewing
+    /// in an offset, or the source's own error is too large; a sync line seen but not yet decoded). Shared time
+    /// runs and moves towards the source, without jumps; LEDs on several boards may be visibly apart.
     Acquiring,
-    /// Locked to `SyncStatus::source`: `offset` and `last_lock` of `SyncStatus` are current.
+    /// Following `SyncStatus::source` and within the device's lock tolerance of it (the offset still to slew plus
+    /// the source's error; bedrock boards use 2 ms): shared time is the source's, LEDs are in phase.
+    /// `offset` and `last_lock` of `SyncStatus` are current. A device falls back to `Acquiring` when a new point
+    /// finds it well outside the tolerance.
     Locked,
     /// Was locked, lost its source, and is coasting on the last known offset and rate until one comes back or it
     /// times out.

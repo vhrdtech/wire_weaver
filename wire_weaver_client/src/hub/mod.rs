@@ -15,6 +15,8 @@ use std::time::Duration;
 #[cfg(feature = "hub")]
 mod client;
 #[cfg(feature = "hub")]
+mod exclusive;
+#[cfg(feature = "hub")]
 mod opens;
 #[cfg(feature = "hub")]
 mod route;
@@ -23,6 +25,8 @@ mod start;
 
 #[cfg(feature = "hub")]
 pub use client::HubClient;
+#[cfg(feature = "hub")]
+pub use exclusive::{Exclusive, Lend, describe_claim};
 #[cfg(feature = "hub")]
 pub use opens::{Opens, record_open};
 #[cfg(feature = "hub")]

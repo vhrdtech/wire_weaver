@@ -1074,4 +1074,41 @@ mod tests {
         assert_eq!(b.add(2, 3).call().await.unwrap(), 5);
         bench.stop().await;
     }
+
+    /// `hub::Exclusive`, as `ww dfu` takes it: nothing while the hub doesn't hold the device; once it does, the
+    /// program's own device connection (same `ClientMeta`) goes on and another program's is refused naming it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn exclusive_helper_through_the_hub() {
+        use wire_weaver_client::hub::Exclusive;
+        let bench = start("exclusive-helper", Duration::from_secs(30));
+        let socket = PathBuf::from(bench.socket());
+        let meta = ClientMeta::new().program("ww dfu");
+        assert!(
+            Exclusive::take_at(&socket, &bench.key, &meta, "ww dfu flash")
+                .await
+                .unwrap()
+                .is_none(),
+            "the hub doesn't hold it"
+        );
+        let own = bench.client_with(|c| c.client_meta(meta.clone())).await;
+        let other = bench.program("bob").await;
+        let exclusive = Exclusive::take_at(&socket, &bench.key, &meta, "ww dfu flash")
+            .await
+            .unwrap()
+            .expect("taken");
+        assert_eq!(own.bus(0).send(1).call().await.unwrap(), 1);
+        assert_eq!(
+            refused(other.dev.bus(0).send(1).call().await),
+            in_use("ww dfu")
+        );
+        // a second one is refused, saying by whom and why
+        let e = Exclusive::take_at(&socket, &bench.key, &ClientMeta::new(), "again")
+            .await
+            .err()
+            .expect("refused");
+        assert!(format!("{e:#}").contains("(ww dfu flash)"), "{e:#}");
+        exclusive.release().await.unwrap();
+        assert_eq!(other.dev.bus(0).send(1).call().await.unwrap(), 1);
+        bench.stop().await;
+    }
 }

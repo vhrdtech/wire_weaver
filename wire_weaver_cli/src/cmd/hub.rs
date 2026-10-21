@@ -1,11 +1,11 @@
 //! `ww hub`: the per-user hub that holds devices and serves every program (SRV-13, TOOL-17). `serve` runs it in the
 //! foreground, `status`, `stop`, `keep` and `who` look at and steer a running one, `take` has it hold a device
-//! (CLT-39). `lend` comes with SRV-32.
+//! (CLT-39), `lend` hands a device to a program that isn't a WireWeaver one and takes it back (SRV-32).
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail};
-use clap::Subcommand;
+use clap::{Subcommand, ValueHint};
 use clap_complete::ArgValueCandidates;
 use console::{measure_text_width, style};
 use wire_weaver_client::holders::{self, DeviceRef, Holder};
@@ -42,6 +42,19 @@ pub(crate) enum HubCommand {
         #[arg(add = ArgValueCandidates::new(complete::device_keys))]
         device: Option<String>,
     },
+    /// Lend a device to a program that isn't a WireWeaver one (probe-rs, dfu-util, a serial terminal): the hub
+    /// closes it (programs reaching it through the hub see their connection end and wait), runs the command, and
+    /// opens it again after. Ctrl+C goes to the command. Exits with the command's exit code
+    ///
+    /// Without a running hub the command just runs. Example: ww hub lend 0B135A01 -- probe-rs reset --chip STM32H725
+    Lend {
+        /// Device key as the hub lists it (usb:VID:PID:SERIAL), or the serial number of a WireWeaver USB device
+        #[arg(add = ArgValueCandidates::new(complete::device_keys))]
+        device: String,
+        /// The command and its arguments, after `--`
+        #[arg(last = true, required = true, num_args = 1.., value_hint = ValueHint::CommandWithArguments)]
+        command: Vec<String>,
+    },
     /// Keep the hub (and what it holds open) up without programs for a while, for a bench: `30m`, `2h`, `1d`, plain
     /// seconds, `forever` until stopped, `off` back to the idle timeout
     Keep {
@@ -75,8 +88,76 @@ pub(crate) async fn hub(cmd: HubCommand) -> Result<()> {
         HubCommand::Stop => stop().await?,
         HubCommand::Who { device } => who(device.as_deref()).await?,
         HubCommand::Keep { duration } => keep(&duration).await?,
+        HubCommand::Lend { device, command } => lend(&device, &command).await?,
     }
     Ok(())
+}
+
+/// Longest purpose a lend shows others: the command line, cut.
+const LEND_PURPOSE_CHARS: usize = 80;
+
+async fn lend(device: &str, command: &[String]) -> Result<()> {
+    let key = device_key(device).await?;
+    let shown = command.join(" ");
+    let purpose: String = shown.chars().take(LEND_PURPOSE_CHARS).collect();
+    let lent = wire_weaver_client::hub::Lend::take(&key, &purpose).await?;
+    match &lent {
+        Some(_) => eprintln!(
+            "{} {key} lent to `{shown}`, the hub opens it again after",
+            style("ww hub").bold()
+        ),
+        None => eprintln!(
+            "{} no hub runs: `{shown}` runs as it is",
+            style("ww hub").bold()
+        ),
+    }
+    let status = run_passing_ctrl_c(command).await;
+    if let Some(lent) = lent {
+        match lent.release().await {
+            Ok(()) => eprintln!("{} {key} returned to the hub", style("ww hub").bold()),
+            // the hub returns it by itself once this program is gone
+            Err(e) => eprintln!("{} returning {key}: {e:#}", style("note").yellow()),
+        }
+    }
+    let code = exit_code(status?);
+    if code != 0 {
+        std::process::exit(code);
+    }
+    Ok(())
+}
+
+/// Runs `command` with this terminal and waits for it. Ctrl+C reaches it from the terminal (its process group, its
+/// console); this program only keeps running meanwhile, to give the device back after.
+async fn run_passing_ctrl_c(command: &[String]) -> Result<std::process::ExitStatus> {
+    let (program, args) = command.split_first().context("no command to run")?;
+    let mut child = std::process::Command::new(program)
+        .args(args)
+        .spawn()
+        .with_context(|| format!("starting {program}"))?;
+    let wait = tokio::task::spawn_blocking(move || child.wait());
+    tokio::pin!(wait);
+    loop {
+        tokio::select! {
+            status = &mut wait => return status?.with_context(|| format!("waiting for {program}")),
+            // the command got it too and decides what it means
+            _ = tokio::signal::ctrl_c() => {}
+        }
+    }
+}
+
+/// The command's exit code, 128 + the signal that ended it (Unix).
+fn exit_code(status: std::process::ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return 128 + signal;
+        }
+    }
+    1
 }
 
 /// A key as given, or the key of the one WireWeaver USB device with this serial number.

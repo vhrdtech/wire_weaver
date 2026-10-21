@@ -458,11 +458,54 @@ blinky_api@0.1.0 reboots into the updater
 |------------------------------|-----------|-----------------------------------------------------------------------------|
 | `reboot`                     |           | `ww_dfu::BootControl::reboot`, then exits without waiting for the device    |
 | `reboot --into <TARGET>`     | `updater` | `updater` (bootloader with a transport or recovery app) or `app` (normal reset, applies a staged update) |
+| `flash <FILE>`               |           | A whole update of a [chunky](https://github.com/romixlab/chunky_mcu_updater) device: delta, trial, confirm (below) |
+| `status`                     |           | `UpdateNode::node`: role, profile, product, layout, version, floor, seal, boot state, last update; `Stage` limits |
+| `confirm`                    |           | `BootControl::confirm`: keep the trial image (the firmware normally does this itself after its self-test) |
+| `revert`                     |           | `BootControl::revert`: give up the trial image (the old one runs after the next reset), or withdraw a staged one |
 
 A device without `ww_dfu::BootControl`, or with an incompatible version of `ww_dfu`, answers that it doesn't implement
 the trait. On an RP2350 whose updater is the boot ROM, [`ww bootsel flash --wait --follow`](#ww-bootsel) then
 writes the new image and waits for the app to come back; a single command that follows any device through its
-updater is not done yet (CLT-21).
+updater is not done yet (CLT-21). An A/B device whose app takes updates itself has no updater of its own: `reboot
+--into updater` there goes to the chip's boot ROM (the B135's STM32 ROM DFU), and `ww dfu reboot` says so.
+
+### `ww dfu flash`
+
+Updates a device whose app serves `ww_dfu` with chunky's `chunky_ww` (scenario `2C-APP-STEP`), with the host library
+`chunky_ww_host`: reads what the device holds (`Inventory::chunks`), plans a delta against it (chunks the device has
+are copied on the device, only the rest goes over the wire), sends the steps with as many in flight as the device
+takes and a progress bar, has the device verify and stage the image, reboots it into a trial, follows it by serial
+number and waits until the new firmware confirms itself, or the device reverts to the old image.
+
+```
+$ ww dfu flash target/thumbv7em-none-eabihf/release/b135_fw -s 0B135A01   # abridged
+note no --fw-version: sealed as 66052 (1.2.4), the running version + 1
+plan 61 steps: 124 chunks copied on the device, 3 sent, 1 kept, 2 blocks erased
+✔ staged in 1.9s: 7 KB over the wire for a 256 KB image
+back running 66052 (1.2.4), Trial
+✔ 66052 (1.2.4) runs and confirmed itself, 14.2s in all
+```
+
+The file is an ELF (detected by its magic bytes; its load segments must lie in the device's ACTIVE slot), an image
+already sealed for the device (as long as ACTIVE, with its descriptor), or a raw binary payload. An ELF or a binary
+is sealed for the device first: its product id and its seal scheme from `UpdateNode::node`, an image for another
+product or scheme is refused before anything is sent.
+
+| Option                 | Default                  | Description                                                                 |
+|------------------------|--------------------------|-----------------------------------------------------------------------------|
+| `--fw-version <V>`     | the running version + 1  | Release version, a number or `x.y.z` (packed `major << 16 \| minor << 8 \| patch`) |
+| `--product <ID>`       | the device's             | Product id; another one than the device's is refused                         |
+| `--counter <N>`        | the device's floor       | Anti-rollback counter                                                        |
+| `--key <FILE>`         |                          | Release key (`chunky keygen`) for a device that checks Ed25519 signatures    |
+| `--unsigned`           | for an `unsigned` device | Seal without a signature; a device that checks signatures refuses it         |
+| `--chip <NAME>`        | by the device's layout id | chunky chip preset, for a layout this `ww` doesn't know                     |
+| `--in-flight <N>`      | the device's             | Steps outstanding at most                                                    |
+| `--no-reboot`          |                          | Stop after staging; `ww dfu reboot --into app` starts the trial              |
+
+Each ERASE step waits for the slowest erase of one block of the part (an STM32H7 128 KB sector: up to 4 s, while a
+single-bank part doesn't answer), the reboot for the bootloader's swap. When the device finds DFU changed under the
+plan (`Error::Custom(1)`, chunky's `CUSTOM_NOT_BLANK`), the host reads it again and plans again; a lost reply is
+resumed from `Stage::progress`.
 
 ## `ww counters`
 

@@ -24,7 +24,9 @@ A plain full image is a plan made only of ERASE and WRITE, so a node that doesn'
 and simply never sees a COPY. The plan, manifest and descriptor are records of the chunky protocol, defined in octets by
 its [`SPEC.md`](https://github.com/romixlab/chunky_mcu_updater/blob/main/SPEC.md) (a draft) and implemented by
 [`chunky_format`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs); `ww_dfu` only
-carries them, as raw bytes. See [the other side: chunky](ww_dfu_internals.md#the-other-side-chunky).
+carries them, as raw bytes. See [the other side: chunky](ww_dfu_internals.md#the-other-side-chunky): chunky also has
+the real implementation of the A/B app (`chunky_ww` on the device, `chunky_ww_host` on the host), and
+[`ww dfu flash`](../cli_reference.md#ww-dfu-flash) updates such a device in one command.
 
 | Trait         | What it is for                                                                     | Implemented by                   |
 |---------------|------------------------------------------------------------------------------------|----------------------------------|

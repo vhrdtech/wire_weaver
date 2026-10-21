@@ -943,6 +943,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Generated clients open streams through it (`tests/streams_reliable`, API-31); the dynamic client and Python pass
   the stream function's arguments and return its result. Missing: counted and reliable streams on trait paths
   (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).
+- 🚧 **CLT-33 `ww dfu flash`: updates of a chunky device** — `ww dfu flash <ELF|sealed image|bin>`, `status`,
+  `confirm`, `revert` (`wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
+  (NET-2; a path dependency on `../chunky_mcu_updater`, as chunky depends on `../wire_weaver`): seals an ELF or a
+  binary for the device (product and seal scheme from `NodeInfo`, which carries `product_id` and `seal` for it,
+  STD-12), plans a delta, sends the steps pipelined up to `StageLimits::in_flight` (`PreparedCall::send` →
+  `PendingCall`: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
+  follows the device by serial number and waits for its confirm or revert. `reboot --into updater` on an A/B app
+  that takes updates itself says it goes to the boot ROM (`ww stm32dfu`, CLT-34). Tested end to end in
+  chunky_mcu_updater (`chunky_ww_host/tests/e2e.rs`: simulated USB HS, delta, full image, lost reply, re-plan,
+  revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.
+- 🐛 **CLT-36 A call on a link that went down waits for a reconnect** — after the device resets (its event loop
+  exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
+  timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for
+  now. Fix: fail calls with `Error::Disconnected` while no event loop runs (or start the timeout at the send).
 
 ## Transports and protocols (`TR`)
 

@@ -10,6 +10,8 @@
   locked. On a terminal a live table, into a pipe only those lines (no colour) and the table at the end.
 - `ww` reaches devices through the ww hub when it holds them or after repeated calls (CLT-39, `WW_HUB=off` to always open directly), starts the hub by itself, answers `ww --hub-version`, and `ww hub take DEVICE` (a key or a serial number) has the hub open a device and keep it.
 
+- `ww hub status | stop | who | keep` (TOOL-17): the running hub's version, process, who started it, uptime, programs, devices and idle timers (exit code 1 when none runs); stop it; who holds each device (the hub, a ww program from its lock file, on Linux any other program from `/proc`; works without a hub); keep it up for a bench (`30m`, `2h`, `forever`, `off`). Completion gives the `keep` durations and, for `who`, device keys, each with a help text; colour is off without a TTY or with `NO_COLOR`. `lend` waits for SRV-32.
+- `ww list` asks a running hub for the device list (the same columns plus `STATE`, so held devices show up); `--direct` enumerates USB anyway, as do `--all` and device selection flags. It no longer prints the client library's connection log lines.
 - `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
 
 ### 🐛 Fixes

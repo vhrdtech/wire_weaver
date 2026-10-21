@@ -37,6 +37,9 @@ pub const HUB_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SERVE_ENV: &str = wire_weaver_client::hub::SERVE_ENV;
 /// Idle exit in seconds, overrides [HubConfig::idle_exit]'s default.
 pub const IDLE_EXIT_ENV: &str = "WW_HUB_IDLE_EXIT";
+/// Who started the hub, e.g. `dg (pid 4711)`, shown by `ww hub status`. Starters set it; without it the hub uses the
+/// name of its parent process where it can find it.
+pub const STARTED_BY_ENV: &str = "WW_HUB_STARTED_BY";
 
 /// A client must send its preamble within this time, or it is dropped.
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -165,6 +168,8 @@ impl Bound {
             shutdown,
             events: tokio::sync::broadcast::channel(256).0,
             started_ms: unix_ms(),
+            started_by: started_by(),
+            idle_exit: config.idle_exit,
             socket: socket.clone(),
         });
         Ok(Some(Bound {
@@ -255,6 +260,8 @@ pub(crate) struct Hub {
     /// `Registry::events` of every connection that opened the stream
     pub(crate) events: tokio::sync::broadcast::Sender<ww_hub_api::EventOwned>,
     pub(crate) started_ms: u64,
+    pub(crate) started_by: String,
+    pub(crate) idle_exit: Duration,
     pub(crate) socket: PathBuf,
 }
 
@@ -277,7 +284,46 @@ pub(crate) struct Client {
     pub(crate) since_ms: u64,
 }
 
+/// [STARTED_BY_ENV], else the parent process's name (Linux), else empty.
+fn started_by() -> String {
+    if let Ok(by) = std::env::var(STARTED_BY_ENV) {
+        return by;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let ppid = std::os::unix::process::parent_id();
+        if let Ok(comm) = std::fs::read_to_string(format!("/proc/{ppid}/comm")) {
+            return format!("{} (pid {ppid})", comm.trim());
+        }
+    }
+    String::new()
+}
+
 impl Hub {
+    /// Seconds until the hub exits if nothing connects (`None`: it won't while connected or kept), and seconds left of
+    /// `keep` (`None`: not kept).
+    pub(crate) fn timers(&self) -> (u32, Option<u32>, Option<u32>, u32) {
+        let state = self.state.lock().unwrap();
+        let now = Instant::now();
+        let keep_left = state
+            .keep_until
+            .filter(|k| *k > now)
+            .map(|k| secs_ceil(k - now));
+        let exits_in = if state.connections > 0 || keep_left.is_some() {
+            None
+        } else {
+            Some(secs_ceil(
+                self.idle_exit.saturating_sub(now - state.last_active),
+            ))
+        };
+        (
+            self.idle_exit.as_secs().min(u32::MAX as u64) as u32,
+            exits_in,
+            keep_left,
+            state.connections as u32,
+        )
+    }
+
     fn idle_for(&self) -> Duration {
         let state = self.state.lock().unwrap();
         let now = Instant::now();
@@ -372,6 +418,10 @@ impl Hub {
     pub(crate) fn request_shutdown(&self) {
         self.shutdown.send_replace(true);
     }
+}
+
+fn secs_ceil(d: Duration) -> u32 {
+    (d.as_millis().div_ceil(1000)).min(u32::MAX as u128) as u32
 }
 
 async fn answer(tx: &mut SendHalf, status: Status) -> io::Result<()> {

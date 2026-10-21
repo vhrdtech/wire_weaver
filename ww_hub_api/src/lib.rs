@@ -17,6 +17,9 @@ pub trait Hub {
     /// Hand the devices over to a newer hub listening on `socket`, then exit (SRV-30). Frozen.
     fn handover(socket: &'i str) -> Result<(), HandoverError>;
 
+    /// Who started the hub and when it would exit: the numbers behind `ww hub status`.
+    fn status() -> HubStatus<'i>;
+
     /// Exit now: clients see their tunnels close, devices are released.
     fn shutdown();
 
@@ -59,6 +62,22 @@ pub struct HubInfo<'i> {
     pub socket: &'i str,
 }
 
+/// See [Hub::status].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct HubStatus<'i> {
+    /// Program (and pid) that started the hub, as the starter said (`WW_HUB_STARTED_BY`) or the parent process's name;
+    /// empty if unknown.
+    pub started_by: &'i str,
+    /// Idle exit, seconds without connections.
+    pub idle_exit_s: u32,
+    /// Seconds until the hub exits if nothing connects, `None` while a program is connected or the hub is kept.
+    pub exits_in_s: Option<u32>,
+    /// Seconds left of `Hub::keep`, `None` if not kept.
+    pub keep_left_s: Option<u32>,
+    /// Open connections of any kind (programs on the hub API and on devices).
+    pub connections: u32,
+}
+
 /// Why [Hub::handover] was refused.
 #[derive_shrink_wrap(
     borrowed,
@@ -85,6 +104,15 @@ pub struct DeviceEntry<'i> {
     pub state: DeviceState<'i>,
     /// Connections to it through the hub.
     pub tunnels: u32,
+    /// Where it is connected, e.g. `usb 3-1.2 c0de:cafe`; `None` if unknown (a device known from its lock file only).
+    #[default = None]
+    pub location: Option<&'i str>,
+    /// User assigned label, `None` if not set.
+    #[default = None]
+    pub label: Option<&'i str>,
+    /// Truncated API hash without docs, `None` if not reported.
+    #[default = None]
+    pub api_hash: Option<&'i str>,
 }
 
 /// See [DeviceEntry::state].

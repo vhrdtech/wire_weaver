@@ -208,6 +208,7 @@ layer checks on connect that both ends speak the same protocol.
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
 - TR-15 | Frame counter and setup token | Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need. | transport/ww_link.md#setup-token
 - SRV-28 | The ww hub | One small process per user that knows the devices, who holds them and which programs are connected, with its own API. | transport/hub.md#the-hub-process-srv-28
+- TOOL-17 | `ww hub` | See and steer the hub from the shell: its status and who started it, who holds each of your devices (the hub, another ww program, or any program on Linux), keep it up for a bench, stop it; `ww list` shows what it holds. | cli_reference.md#ww-hub
 - TR-16 | Local sockets | A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. | transport/hub.md
 - TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md

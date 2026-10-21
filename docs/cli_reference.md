@@ -589,6 +589,45 @@ UTC multiples of the period, so two devices' breaths are apart by the difference
 
 The device selection flags (`--product`, `--api`, ...) narrow which devices `DEVICE...` is matched against.
 
+## `ww hub`
+
+Looks at and steers the per-user [ww hub](transport/hub.md#the-ww-hub-command-tool-17) (TOOL-17): the process that
+holds devices and serves every program, and the question "who has my device?" for any device, hub or not.
+
+```
+$ ww hub status
+ww hub 0.5.0 running
+built with wire_weaver 0.5.0
+pid        4711
+exe        /home/me/.cargo/bin/ww
+socket     /run/user/1000/ww/hub.sock
+started by dg (pid 4690), up 12m 31s
+clients    2 programs, 2 connections
+devices    3 known, 1 open through the hub
+idle exit  after 5m 00s without connections, counted from the last program leaving
+
+KEY                             PRODUCT         STATE        CONNECTIONS
+usb:c0de:cafe:18AC50C211FFB7C1  b200_usb_io     open (hub)   1
+usb:c0de:cafe:204B319B5431      donguru         free         0
+usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
+```
+
+| Command                 | Description                                                                                          |
+|-------------------------|------------------------------------------------------------------------------------------------------|
+| `serve [--idle-exit S]` | Run the hub in the foreground (its log on stderr) until idle or stopped, for watching or debugging; exits at once if a hub runs already |
+| `status`                | Version, process, who started it, uptime, programs, devices, idle timers; exit code 1 when no hub runs |
+| `stop`                  | Stop the hub and wait until it is gone; says so when none runs                                       |
+| `who [DEVICE]`          | Every device and who holds it: the hub, a ww program using it directly (from its lock file), or on Linux any other program (from `/proc`); `DEVICE` is a key, serial, label or product. With a hub running, the programs connected to it follow |
+| `keep [DURATION]`       | Keep the hub up without programs, for a bench: `30m`, `2h`, `1d`, plain seconds, `forever` (the default) or `off` for the idle timeout again; needs a running hub |
+
+`ww list` asks a running hub instead of USB: the same columns plus `STATE` (`free`, `open (hub)`, `held by <program>
+(pid ..)`), so a device somebody holds shows up too. `--direct` enumerates USB anyway; device selection flags and
+`--all` always do. `ww hub lend DEVICE -- CMD` (the hub lets a non-ww tool use a device for one command) comes with
+SRV-32.
+
+Colour is off when the output isn't a terminal or `NO_COLOR` is set. Shell completion gives the subcommands, the
+`keep` durations and, for `who`, the keys of the plugged-in devices, each with its product and label as help text.
+
 ## `ww info`
 
 Firmware, board, ids, user label and last reset of any device, through the [device

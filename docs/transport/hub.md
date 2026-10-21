@@ -190,6 +190,21 @@ The hub doesn't open devices yet (SRV-29): it answers a device tunnel with `Unkn
 `Unimplemented`. Until then `Auto` and `Prefer` fall back to a direct connection with a note and `Required` fails.
 Only USB devices are routed, RTT and the other transports connect directly. `connect_blocking()` routes when it runs
 on a multi-thread tokio runtime (Python's is one); on a current-thread runtime it connects directly.
+### The `ww hub` command (TOOL-17)
+
+`ww hub status | stop | who | keep | serve` ([reference](../cli_reference.md#ww-hub)) is a client of the API above,
+except `who`, which also works without a hub. Behind `status` is `Hub::status()`: who started the hub (the
+`WW_HUB_STARTED_BY` the starter set, else the parent process's name on Linux), the idle exit, the seconds left until it
+exits or of a `keep`, and the open connections; `Registry::devices()` carries the location, label and API hash too
+(the columns of `ww list`), which is what lets `ww list` answer from the hub.
+
+`who` reads the three sources of [Who holds a device](#who-holds-a-device-clt-38): the lock files (the hub's own and
+every direct-mode program's, `holders::list()`), then for a device without one the `/proc` scan of a program that
+isn't ww (Linux; "another program" is all other platforms can say). It never opens a device, so it never disturbs the
+holder. A hub that runs is not needed and not started for it.
+
+`keep` calls `Hub::keep(seconds)`; `forever` is the largest value, `off` is `0`. Starting a hub by hand is
+`ww hub serve`; programs start it by themselves ([Starting the hub](#starting-the-hub)), and `ww hub lend` waits for SRV-32.
 
 ## Who holds a device (CLT-38)
 
@@ -284,7 +299,7 @@ directly, for RTT probes attached as a plain USB device underneath.
 
 `holders::holder_of(key)` answers for one device, `holders::list()` for every device currently held — both
 report only devices someone actually holds right now (the OS lock state, never stale content on its own). This is
-the API the future hub's `Registry::devices()` and `ww hub who` build on; direct-mode programs can use it too, for
+the API the hub's `Registry::devices()` and [`ww hub who`](#the-ww-hub-command-tool-17) build on; direct-mode programs can use it too, for
 example to warn before trying to claim a device that's already busy.
 
 ## Who connects: client meta (CLT-41)

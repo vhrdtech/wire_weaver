@@ -1264,8 +1264,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `examples/blinky_py` is a hand-written pyo3 wrapper around the Rust client, and `wire_weaver_py` is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the `TODO` in
   `docs/api/folder_structure.md`).
-- 📋 **TOOL-17 `ww hub`** · `v0.5.x` — `serve`, `status`, `stop`, `who` (holders of every device), `keep`, `lend`;
-  `ww list` through the hub; completions with live device keys.
+- 🚧 **TOOL-17 `ww hub`** · `v0.5.x` — `ww hub serve | status | stop | who | keep` (`docs/cli_reference.md#ww-hub`,
+  `docs/transport/hub.md`), `Hub::status()` and the location, label and API hash in `Registry::devices()`; `who`
+  names the hub, direct ww programs (lock files) and, on Linux, other programs (`/proc`) per device, with or without
+  a hub; `ww list` asks a running hub through the registry (with a `STATE` column, `--direct` to enumerate USB
+  anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
+  TTY or with `NO_COLOR`. Open: `lend DEVICE -- CMD` (needs SRV-32), `ww hub take` is there (CLT-39) but the hub only
+  opens devices with SRV-29; `ww list` asks a running hub and doesn't start one; the skill tree entry
+  (P2618#21oct-2209).
 - 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
   wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,
   `wire_weaver.hub()` gives the hub API through the dynamic client.

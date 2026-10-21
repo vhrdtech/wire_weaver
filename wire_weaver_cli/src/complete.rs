@@ -93,6 +93,41 @@ pub(crate) fn serials_and_labels() -> Vec<CompletionCandidate> {
     })
 }
 
+/// Device keys of `ww hub who`, as the hub names them (`usb:<vid>:<pid>:<serial>`, `rtt:..` from lock files), with
+/// product and label as help.
+pub(crate) fn device_keys() -> Vec<CompletionCandidate> {
+    use wire_weaver_client::holders::{self, DeviceRef};
+    let mut out: BTreeMap<String, String> = BTreeMap::new();
+    for d in connected_devices() {
+        let Some(u) = &d.usb else { continue };
+        let serial = d.serials.first().map(String::as_str).unwrap_or("");
+        let key = holders::key_for(DeviceRef::Usb {
+            vid: u.vid,
+            pid: u.pid,
+            serial,
+            iface: None,
+        });
+        let help = if d.user_label.is_empty() {
+            d.product.clone()
+        } else {
+            format!("{} ({})", d.product, d.user_label)
+        };
+        out.insert(key, help);
+    }
+    for (key, holder) in holders::list() {
+        let base = key
+            .rsplit_once(':')
+            .filter(|(_, i)| i.parse::<u8>().is_ok());
+        let known = out.contains_key(&key) || base.is_some_and(|(b, _)| out.contains_key(b));
+        if !known {
+            out.insert(key, format!("held by {}", holder.program));
+        }
+    }
+    out.into_iter()
+        .map(|(k, h)| CompletionCandidate::new(k).help(Some(h.into())))
+        .collect()
+}
+
 pub(crate) fn labels() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.user_label.clone()])
 }

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 mod client;
+pub mod client_meta;
 mod compat;
 mod config;
 mod device_info;
@@ -44,6 +45,7 @@ pub use client::promise::{Promise, PromiseState};
 pub use client::sink::CreditConfig;
 pub use client::sink::Sink;
 pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
+pub use client_meta::{ClientKind, ClientMeta};
 pub use config::ClientConfig;
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
 pub use event_loop::commander::Commander;

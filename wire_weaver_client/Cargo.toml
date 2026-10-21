@@ -76,6 +76,12 @@ ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "test-util"] }
 wire_weaver_core = { workspace = true }

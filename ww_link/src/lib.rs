@@ -314,6 +314,64 @@ pub struct LinkSetup<'i> {
     /// the device refuses.
     #[default = 0]
     pub token: u64,
+    /// Who connects (CLT-41): program, user, host, pid. `None` from a host built before it existed, or one that
+    /// chose not to say. The device may log it (`ww_device`'s `DeviceLink::peer_meta`), a hub shows it.
+    #[default = None]
+    pub client_meta: Option<ClientMeta<'i>>,
+}
+
+/// What kind of program a client is, for lists of who holds or uses a device.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, Eq, PartialEq),
+    ww_repr = u8,
+    future_version = Newer
+)]
+pub enum ClientKind {
+    /// A command line tool (the default).
+    Cli,
+    /// A program with a window.
+    Gui,
+    /// A Python notebook or script through `wire_weaver_py`.
+    Notebook,
+    /// A long-running background program.
+    Service,
+    /// A ww hub forwarding for other clients.
+    Hub,
+    /// A test run.
+    Test,
+    /// A kind this version has no name for.
+    Unknown,
+}
+
+/// Who a client is, sent in [LinkSetup::client_meta] and written to holder lock files. Free text is for people to
+/// read (lists, logs), nothing decides on it.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, Clone)
+)]
+pub struct ClientMeta<'i> {
+    /// Program name, e.g. the executable's file name.
+    pub program: &'i str,
+    /// Version of the program, free text, empty if unknown.
+    pub app_version: &'i str,
+    /// A name the user gave this client, empty if none.
+    pub label: &'i str,
+    pub kind: ClientKind,
+    /// Operating system process id, 0 if unknown.
+    pub pid: u32,
+    /// Login name of the user running the program, empty if unknown.
+    pub user: &'i str,
+    /// Host name of the PC running the program, empty if unknown.
+    pub host: &'i str,
+    /// What the program is doing with the device, e.g. "DFU update", for people.
+    pub purpose: Option<&'i str>,
+    /// Random number picked per client object, shared by all its connections: tells two clients of the same
+    /// program and pid apart, and one client's several devices together. 0 if unknown.
+    pub instance_id: u64,
 }
 
 /// Decoded link message, see [Kind] for details on each.
@@ -465,8 +523,22 @@ mod tests {
     extern crate std;
     use super::*;
 
+    fn test_meta() -> ClientMeta<'static> {
+        ClientMeta {
+            program: "ww",
+            app_version: "0.5.1",
+            label: "bench",
+            kind: ClientKind::Notebook,
+            pid: 4711,
+            user: "roman",
+            host: "pc1",
+            purpose: Some("dfu"),
+            instance_id: 0x0102_0304_0506_0708,
+        }
+    }
+
     fn round_trip(msg: Message<'_>) {
-        let mut scratch = [0u8; 128];
+        let mut scratch = [0u8; 256];
         let (kind, payload) = msg.encode(&mut scratch).unwrap();
         let payload = payload.to_vec();
         let decoded = Message::decode(kind, &payload).unwrap();
@@ -496,6 +568,13 @@ mod tests {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
             host_max_message_len: 4096,
             token: 7,
+            client_meta: None,
+        }));
+        round_trip(Message::LinkSetup(LinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
+            host_max_message_len: 4096,
+            token: 7,
+            client_meta: Some(test_meta()),
         }));
         round_trip(Message::LinkReady { token: 7 });
         round_trip(Message::Ping);
@@ -544,6 +623,41 @@ mod tests {
             panic!("an older LinkSetup must still decode");
         };
         assert_eq!((read.host_max_message_len, read.token), (4096, 0));
+    }
+
+    #[test]
+    fn client_meta_bytes_and_older_peers() {
+        // an older device reads the longer LinkSetup, a newer host reads the older one without client_meta
+        #[derive_shrink_wrap(borrowed, derive(Debug))]
+        struct NoMetaLinkSetup<'i> {
+            host_user_version: FullVersion<'i>,
+            host_max_message_len: u32,
+            #[default = 0]
+            token: u64,
+        }
+        let setup = LinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
+            host_max_message_len: 4096,
+            token: 7,
+            client_meta: Some(test_meta()),
+        };
+        let mut buf = [0u8; 256];
+        let with = setup.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let old = NoMetaLinkSetup::from_ww_bytes(&with).expect("an older device must read it");
+        assert_eq!((old.host_max_message_len, old.token), (4096, 7));
+
+        let without = NoMetaLinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
+            host_max_message_len: 4096,
+            token: 7,
+        };
+        let mut buf = [0u8; 64];
+        let bytes = without.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let Ok(Message::LinkSetup(read)) = Message::decode(Kind::LinkSetup as u8, &bytes) else {
+            panic!("a LinkSetup without client_meta must still decode");
+        };
+        assert!(read.client_meta.is_none());
+        assert_eq!(read.token, 7);
     }
 
     #[test]

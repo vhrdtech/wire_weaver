@@ -4,11 +4,11 @@
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
+use futures_lite::future::poll_once;
 use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
 use tokio::sync::Notify;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 use wire_weaver::ww_version::{ApiHash, ApiHashPair, CompactVersion, GlobalTypeId};
 use wire_weaver_client::DeviceApiInfo;
 use wire_weaver_client::in_process::TokioClock;
@@ -140,8 +140,9 @@ impl DeviceLinkInfo {
             },
             self.model,
         );
-        // nothing to gain from waiting on a local socket: the client flushes when it has nothing else to send
-        config.accumulation_time = Duration::ZERO;
+        // the device's own: a client batches as it would talk to the device directly, and the hub sends each batch
+        // on as the client flushed it
+        config.accumulation_time = self.api.accumulation_time;
         config
     }
 
@@ -177,16 +178,36 @@ pub(crate) async fn serve(
             }
         };
         tokio::select! {
-            r = reader.read_message() => match r {
-                Ok((kind, payload)) => match link.handle_message(clock.now(), kind, payload) {
-                    Some(Received::Data(bytes)) => {
-                        let _ = device.tx.send(ToDevice::Request { id, bytes: bytes.to_vec() });
+            r = reader.wait_message() => match r {
+                Ok(()) => {
+                    let (kind, payload) = reader.message().expect("a message was just received");
+                    let received = match link.handle_message(clock.now(), kind, payload) {
+                        Some(Received::Data(bytes)) => Some(Err(bytes.to_vec())),
+                        Some(Received::Loopback { repeat, seq, data }) => {
+                            Some(Ok((repeat, seq, data.to_vec())))
+                        }
+                        None => None,
+                    };
+                    reader.consume();
+                    let sent = match received {
+                        Some(Err(request)) => Some(device.device.request(id, request).await),
+                        Some(Ok((repeat, seq, data))) => {
+                            Some(device.device.loopback(id, repeat, seq, data).await)
+                        }
+                        None => None,
+                    };
+                    // the end of what the client wrote at once: it flushed, the device gets it now as well
+                    let sent = match sent {
+                        Some(Ok(())) if poll_once(reader.wait_message()).await.is_none() => {
+                            Some(device.device.flush().await)
+                        }
+                        sent => sent,
+                    };
+                    if let Some(Err(())) = sent {
+                        // the device's event loop is gone; its task closes the queue
+                        debug!("ww hub: tunnel {id}: device gone");
                     }
-                    Some(Received::Loopback { repeat, seq, data }) => {
-                        let _ = device.tx.send(ToDevice::Loopback { id, repeat, seq, data: data.to_vec() });
-                    }
-                    None => {}
-                },
+                }
                 Err(e) => {
                     debug!("ww hub: tunnel {id} ({peer:?}) closed: {e}");
                     break;
@@ -229,6 +250,12 @@ pub(crate) async fn serve(
         }
     }
     let _ = writer.shutdown().await;
+    let dropped = queue.dropped();
+    if dropped > 0 {
+        info!(
+            "ww hub: tunnel {id} ({peer:?}) dropped {dropped} stream events, the client was behind"
+        );
+    }
     let _ = device.tx.send(ToDevice::Leave { id });
 }
 

@@ -105,6 +105,8 @@ pub struct DeviceApiInfo {
     /// User-defined API carried by API model.
     pub user_api_version: FullVersionOwned,
     pub user_api_hash: ApiHashPairOwned,
+    /// How long the device collects messages into one frame, and asks the host to.
+    pub accumulation_time: std::time::Duration,
 }
 
 impl DeviceApiInfo {
@@ -118,6 +120,7 @@ impl DeviceApiInfo {
                 no_docs: ApiHashOwned { hash: vec![] },
                 with_docs: ApiHashOwned { hash: vec![] },
             },
+            accumulation_time: std::time::Duration::ZERO,
         }
     }
 }

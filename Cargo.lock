@@ -2357,6 +2357,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_device",
  "ww_hub",
  "ww_hub_api",
  "ww_local_socket",

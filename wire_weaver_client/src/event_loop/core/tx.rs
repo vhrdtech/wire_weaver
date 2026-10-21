@@ -85,6 +85,14 @@ enum Flow {
 /// Request bytes and where to report the response, see [TxCore::held_until_up].
 type HeldMessage = (Vec<u8>, Waiter, Option<Box<StreamOpenHook>>);
 
+/// A [Command::LoopbackTest] waiting for the link to come up.
+struct HeldLoopback {
+    duration: Duration,
+    packet_size: Option<usize>,
+    params: LoopbackParams,
+    progress_tx: tokio::sync::mpsc::UnboundedSender<TestProgress>,
+}
+
 /// Who waits for the answer to a request.
 enum Waiter {
     /// Nobody: sent with seq 0
@@ -175,6 +183,9 @@ pub(crate) struct TxCore {
 
     /// Running [Command::LoopbackTest], only while the link is up
     loopback: Option<LoopbackTest>,
+    /// [Command::LoopbackTest] that came during link setup, started once the link is up (rx reports the connection
+    /// to the user before LinkReady reaches tx)
+    loopback_held: Option<HeldLoopback>,
 }
 
 fn link_setup<'a>(
@@ -221,6 +232,7 @@ impl TxCore {
             held_until_up: VecDeque::new(),
             waiting_for_seq: VecDeque::new(),
             loopback: None,
+            loopback_held: None,
         }
     }
 
@@ -410,8 +422,14 @@ impl TxCore {
             } => {
                 self.on_send_message(now, bytes, Waiter::Forward(tag, timeout), None);
             }
-            Command::ForwardSink { tx } => {
-                self.output.push_back(TxOutput::ToRx(ToRx::ForwardSink(tx)));
+            Command::ForwardSink { sink } => {
+                self.output
+                    .push_back(TxOutput::ToRx(ToRx::ForwardSink(sink)));
+            }
+            Command::ForwardFlush => {
+                if self.phase == Phase::Up && self.unflushed_since.is_some() {
+                    self.flush(now);
+                }
             }
             Command::ForwardLoopback { repeat, seq, data } => {
                 if self.phase == Phase::Up && self.loopback.is_none() {
@@ -655,6 +673,15 @@ impl TxCore {
                 self.phase = Phase::Up;
                 self.next_ping_at = Some(now + PING_INTERVAL);
                 self.events.link_ready(&self.device_info);
+                if let Some(t) = self.loopback_held.take() {
+                    self.start_loopback_test(
+                        now,
+                        t.duration,
+                        t.packet_size,
+                        t.params,
+                        t.progress_tx,
+                    );
+                }
                 while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
                     self.on_send_message(now, bytes, done_tx, hook);
                 }
@@ -785,6 +812,20 @@ impl TxCore {
         params: LoopbackParams,
         progress_tx: tokio::sync::mpsc::UnboundedSender<TestProgress>,
     ) {
+        if matches!(
+            self.phase,
+            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup
+        ) && self.loopback_held.is_none()
+        {
+            trace!("holding the loopback test until the link is up");
+            self.loopback_held = Some(HeldLoopback {
+                duration,
+                packet_size,
+                params,
+                progress_tx,
+            });
+            return;
+        }
         if self.phase != Phase::Up {
             _ = progress_tx.send(TestProgress::FatalError("not connected".into()));
             return;
@@ -918,6 +959,11 @@ impl TxCore {
         self.phase = Phase::Exited;
         if let Some(test) = self.loopback.take() {
             test.abort("link is down");
+        }
+        if let Some(t) = self.loopback_held.take() {
+            _ = t
+                .progress_tx
+                .send(TestProgress::FatalError("link setup failed".into()));
         }
         self.unflushed_since = None;
         self.next_ping_at = None;

@@ -15,6 +15,7 @@ tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process"] }
 ww_client_server.workspace = true
+ww_device.workspace = true
 ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true

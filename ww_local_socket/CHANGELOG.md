@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `Status::Lent` (5): the preamble's answer for a device the hub lent to a program outside it (SRV-32), and `DISCONNECT_LENT`, the `DisconnectReason::Other` code its tunnels are closed with then.
 - `files::OPENS_DIR` (the open counter of each device) and `files::HUB_LOG` (stderr of a hub a client started), CLT-39.
 
 - New crate (TR-16): WireWeaver over local sockets. `runtime_dir()` (the per-user `ww` directory, created 0700 and

@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Device-wide exclusive access and lending through the ww hub (SRV-32): a claim on a device's root takes it whole for one program (other programs' calls and writes refused naming it, clock steering paused), which `ww dfu` does by itself; `ww hub lend DEVICE -- CMD` has the hub close a device for probe-rs, dfu-util or a terminal and opens it again after. See `ww_hub`, `ww_hub_api`, `wire_weaver_client`, `wire_weaver_cli` changelogs.
 - Hub routing in `connect()` (CLT-39, `wire_weaver_client` feature `hub`): direct by default, through the ww hub when it already holds the device or after repeated short connections (3 within 60 s, shell-launched calls weighted), `HubMode` `Auto` / `Prefer` / `Required` / `Direct` (`WW_HUB`); the hub is started by the client when needed (start lock, newest hub executable, readiness by polling its socket). Lock files show the holder's client metadata. `ww hub take`.
 
 - `ww hub status | stop | who | keep` (TOOL-17): look at and steer the per-user hub, see who holds each device with or without a hub, `ww list` through a running hub; completions with live device keys. Details in `wire_weaver_cli/CHANGELOG.md`.

@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- Device-wide exclusive and lending (SRV-32): `Claims::lend` served, the device closed with its tunnels told why (`Disconnect(Other(DISCONNECT_LENT))`) and only then answered, new tunnels refused with `Status::Lent`, `take` and others' claims refused naming the lend, the device opened again on return when the hub held it (kept if it was taken). Claims with a ttl now expire as the hub runs, not only when someone asks. A root claim (or a lend) pauses clock steering of the device (`steering_paused`, used by SRV-31's steering).
 - `main_if_hub()` answers `--hub-version` (prints `HUB_VERSION`, exits) and registers the executable with `wire_weaver_client::hub::register_self_hosting`, so a client can start the hub from the app itself (CLT-39). `SERVE_ENV` is `wire_weaver_client::hub::SERVE_ENV`; `client::HubClient` is `wire_weaver_client::hub::HubClient` re-exported.
 
 - `Hub::status` served (TOOL-17): who started the hub (`WW_HUB_STARTED_BY`, else the parent process's name on Linux), idle exit, seconds until it exits or of a `keep`, open connections. `Registry::devices` fills location, label and API hash.

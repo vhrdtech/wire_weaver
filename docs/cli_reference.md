@@ -463,6 +463,11 @@ blinky_api@0.1.0 reboots into the updater
 | `confirm`                    |           | `BootControl::confirm`: keep the trial image (the firmware normally does this itself after its self-test) |
 | `revert`                     |           | `BootControl::revert`: give up the trial image (the old one runs after the next reset), or withdraw a staged one |
 
+When a [ww hub](transport/hub.md) serves the device to other programs too, `reboot`, `flash`, `confirm` and `revert`
+take it whole while they run ([exclusive access](transport/hub.md#the-whole-device-exclusive-access-and-lending-srv-32)):
+other programs' calls and writes are refused naming `ww dfu`, and the hub doesn't steer the device's clock. `flash`
+keeps it across the device's reset into the trial.
+
 A device without `ww_dfu::BootControl`, or with an incompatible version of `ww_dfu`, answers that it doesn't implement
 the trait. On an RP2350 whose updater is the boot ROM, [`ww bootsel flash --wait --follow`](#ww-bootsel) then
 writes the new image and waits for the app to come back; a single command that follows any device through its
@@ -619,11 +624,18 @@ usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
 | `stop`                  | Stop the hub and wait until it is gone; says so when none runs                                       |
 | `who [DEVICE]`          | Every device and who holds it: the hub, a ww program using it directly (from its lock file), or on Linux any other program (from `/proc`); `DEVICE` is a key, serial, label or product. With a hub running, the programs connected to it follow |
 | `keep [DURATION]`       | Keep the hub up without programs, for a bench: `30m`, `2h`, `1d`, plain seconds, `forever` (the default) or `off` for the idle timeout again; needs a running hub |
+| `lend DEVICE -- CMD`    | Lend the device to a program that isn't a WireWeaver one (probe-rs, dfu-util): the hub closes it, runs `CMD`, opens it again after; Ctrl+C reaches `CMD`, its exit code is `ww`'s. Without a hub `CMD` just runs ([more](transport/hub.md#the-whole-device-exclusive-access-and-lending-srv-32)) |
 
 `ww list` asks a running hub instead of USB: the same columns plus `STATE` (`free`, `open (hub)`, `held by <program>
 (pid ..)`), so a device somebody holds shows up too. `--direct` enumerates USB anyway; device selection flags and
-`--all` always do. `ww hub lend DEVICE -- CMD` (the hub lets a non-ww tool use a device for one command) comes with
-SRV-32.
+`--all` always do.
+
+```
+$ ww hub lend 0B135A01 -- probe-rs reset --chip STM32H725
+ww hub usb:c0de:cafe:0B135A01 lent to `probe-rs reset --chip STM32H725`, the hub opens it again after
+...
+ww hub usb:c0de:cafe:0B135A01 returned to the hub
+```
 
 Colour is off when the output isn't a terminal or `NO_COLOR` is set. Shell completion gives the subcommands, the
 `keep` durations and, for `who`, the keys of the plugged-in devices, each with its product and label as help text.

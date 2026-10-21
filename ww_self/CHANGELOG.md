@@ -131,6 +131,7 @@
 
 ### 🚀 Features
 
+- `ww_self::Meta` (SRV-34): typed attributes beyond the wire contract, on `ApiItem::meta` and `ApiLevel::meta` (both `#[default = None]`): `claim: Option<ClaimMode>` (`Exclusive`, `Shared`, `Observe`), `shares: Vec<Shares { index, pins, peripherals }>`, `labels: Vec<String>`; `ApiItemOwned::claim_mode(&bundle)` (the `ww_impl!`'s own claim, else its trait's), `ApiItemOwned::label(index)`, `ClaimMode::name`. Their `None` flags are written, so every signature and API hash changes once and the snapshots are saved again; struct literals of `ApiItemOwned` and `ApiLevelOwned` need `meta: None`.
 - `ApiLevel::compact_id` (`#[default = None]`, API-20): the trait's id in the `ww_global` registry. Trailing and `None` for user traits, so introspection bytes don't change; signatures leave it out, assigning an id changes no signature. Snapshots record it.
 * Dynamic `Series` writer (CLT-29): `ValueOwned::ser_shrink_wrap_dyn` writes a `Series` (top level or inside
   another value) from a `ValueOwned::Vec` of its items with `CodecPolicy::SMALLEST`, and `ValueOwned::ser_series_dyn`

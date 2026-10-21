@@ -118,6 +118,7 @@ pub const MAX_IO_LEVELS: usize = 8;
 /// [I2cReadKind::RepeatedStart] (register address out, data in, one transaction). Several calls in one round trip
 /// are a multi-call of the client, not a method here.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait I2c {
     /// What this adapter supports: modes, frequencies, IO levels, buffer sizes, 10-bit addresses, pull-ups.
     fn i2c_capabilities() -> I2cCapabilities<'i>;

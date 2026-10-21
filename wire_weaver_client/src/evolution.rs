@@ -21,8 +21,8 @@ use wire_weaver::shrink_wrap::{ElementSize, SerializeShrinkWrapOwned};
 use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
-    ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ErrorVariantOwned,
-    FieldsOwned, TypeLocationOwned, TypeOwned,
+    ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ClaimMode,
+    ErrorVariantOwned, FieldsOwned, MetaOwned, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
@@ -235,6 +235,11 @@ impl<'a> Checker<'a> {
                 .push(format!("trait {name}: ww_global id {} assigned", new_id.0)),
             _ => {}
         }
+        self.compare_meta(
+            &format!("trait {name}"),
+            old.meta.as_ref(),
+            new.meta.as_ref(),
+        );
         let new_items: HashMap<u32, &ApiItemOwned> =
             new.items.iter().map(|item| (item.id.0, item)).collect();
         for old_item in &old.items {
@@ -280,6 +285,7 @@ impl<'a> Checker<'a> {
             self.bounds_raised(&path, bounds.narrower);
             self.compare_error_lists(&path, old_item, new_item);
             self.compare_optional(&path, old_item, new_item);
+            self.compare_meta(&path, old_item.meta.as_ref(), new_item.meta.as_ref());
         }
         for new_item in &new.items {
             // moved ones are already reported
@@ -339,6 +345,30 @@ impl<'a> Checker<'a> {
             }
         };
         self.compatible.push(format!("{path}: {change}"));
+    }
+
+    /// `#[claim]`, `#[shares]` and `#[label]` (SRV-34) are not on the wire and a server doesn't use them: a change is
+    /// compatible, reported for what the hub, `ww` and GUIs see.
+    fn compare_meta(&mut self, path: &str, old: Option<&MetaOwned>, new: Option<&MetaOwned>) {
+        let none = MetaOwned::default();
+        let (old, new) = (old.unwrap_or(&none), new.unwrap_or(&none));
+        let claim = |mode: Option<ClaimMode>| match mode {
+            Some(mode) => format!("#[claim({})]", mode.name()),
+            None => "not claimable".to_string(),
+        };
+        if old.claim != new.claim {
+            self.compatible.push(format!(
+                "{path}: {} became {}",
+                claim(old.claim),
+                claim(new.claim)
+            ));
+        }
+        if old.shares != new.shares {
+            self.compatible.push(format!("{path}: #[shares] changed"));
+        }
+        if old.labels != new.labels {
+            self.compatible.push(format!("{path}: #[label] changed"));
+        }
     }
 
     /// `#[optional]` / `#[optional(group)]` (API-16, API-54) is not on the wire, but a server leaves items out by name
@@ -1202,6 +1232,45 @@ mod tests {
         assert_breaking(
             &self::report(&api("#[optional(a)]", ""), &api("#[optional(b)]", "")),
             "Api::diag: #[optional(a)] became #[optional(b)]",
+        );
+    }
+
+    /// `#[claim]`, `#[shares]` and `#[label]` (SRV-34) changing is compatible and reported.
+    #[test]
+    fn meta_changes_are_compatible() {
+        let api = |port: &str, trait_attr: &str| {
+            format!(
+                r#"
+                #[ww_api_root]
+                pub trait Api {{
+                    {port}
+                    ww_impl!(port: Port);
+                }}
+
+                #[ww_trait]
+                {trait_attr}
+                pub trait Port {{
+                    fn write();
+                }}
+                "#
+            )
+        };
+        let report = report(
+            &api("", ""),
+            &api(
+                "#[claim(shared)] #[shares(pins = \"PA9\")] #[label(\"Debug\")]",
+                "#[claim]",
+            ),
+        );
+        assert_eq!(report.change, Change::Compatible, "{report:?}");
+        assert_eq!(
+            report.compatible,
+            [
+                "Api::port: not claimable became #[claim(shared)]",
+                "Api::port: #[shares] changed",
+                "Api::port: #[label] changed",
+                "trait Port: not claimable became #[claim(exclusive)]",
+            ]
         );
     }
 

@@ -25,6 +25,7 @@ pub use ww_interned::InternedOwned;
 
 /// Raw access to a board's digital points, see the [crate](crate) documentation.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait PinDiag {
     /// Every point a test may touch; a point's index in this list is its id in the calls below.
     const POINTS: RefVec<'i, Point<'i>>;

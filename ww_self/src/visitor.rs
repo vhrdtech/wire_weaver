@@ -409,6 +409,7 @@ mod tests {
             ident: ident.into(),
             docs: docs("item"),
             optional: None,
+            meta: None,
         };
         ApiBundleOwned {
             magic: MAGIC,
@@ -418,6 +419,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 trait_name: "Root".into(),
                 compact_id: None,
+                meta: None,
                 items: vec![
                     item(
                         0,
@@ -464,6 +466,7 @@ mod tests {
                         crate_idx: UNib32(0),
                         trait_name: "Sub".into(),
                         compact_id: None,
+                        meta: None,
                         items: vec![],
                     },
                     crate_idx: UNib32(0),

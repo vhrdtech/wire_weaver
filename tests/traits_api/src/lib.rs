@@ -5,10 +5,16 @@ trait Traits {
     ww_impl!(g1: Subgroup);
     ww_impl!(gpio[]: Gpio);
     ww_impl!(periph[]: Peripheral);
+    /// A bus clients can claim together through the hub (SRV-34), with its pins and a label; `gpio` is claimable
+    /// by its trait.
+    #[claim(shared)]
+    #[shares(pins = "PB6-PB7", peripherals = "I2C1")]
+    #[label("Sensor I2C, J4")]
     ww_impl!(i2c: I2c);
 
     /// Optional item of the root level itself.
     #[optional]
+    #[label("Reset button")]
     fn reset();
 
     // TODO: print proper error when implementing same trait twice?
@@ -22,6 +28,7 @@ trait Subgroup {
 }
 
 #[ww_trait]
+#[claim]
 trait Gpio {
     fn set_high();
 }

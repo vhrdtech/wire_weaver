@@ -901,7 +901,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`ww_timebase::Steerer`, STD-49 follow-up); the device follows one and notes the others (embedded_bedrock
   `bedrock_sync`). `ww sync` shows the hub's steering with a hub, steers directly without one, STEERED BY column.
   `docs/transport/hub.md#clock-sync-in-the-hub-srv-31`, `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E
-  in `tests/hub` (`clock_sync`), `tests/io_timebase`. Pausing under a device-wide claim comes with SRV-32. Hardware
+  in `tests/hub` (`clock_sync`), `tests/io_timebase`. Pausing under a device-wide claim comes with SRV-32; programs holding a device directly steer with `ww_clock_sync`
+  (opt-in) until CLT-46 does it in every connection. Hardware
   check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on one
   board.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
@@ -1169,6 +1170,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-45 Lock file names one per device key** — `holders` maps every character outside `[A-Za-z0-9._-]` to
   `_`, so two keys can share a lock file (`...:a:b` and `...:a_b`): a USB device with a crafted serial can make
   another one look held. Needs an injective file name.
+
+- 📋 **CLT-46 auto-clock-sync-direct Clock steering in every direct connection** · `v0.5.x` — a program that holds a
+  device directly steers its clock without code of its own, as the hub does for the devices it holds (SRV-31): on by
+  default, `ClientConfig` switch to turn it off, off when the connection goes through a hub (the hub steers).
+  `ww_clock_sync`'s code moves into `wire_weaver_client` behind a feature (`ww_clock_sync` stays as a re-export, so
+  nothing is lost), `Clock` with `host_sync` found in the device's introspection data, the rate cache and steerer as
+  in SRV-31, and the steering task never keeps a connection alive (a weak `Commander`, or a task the event loop
+  owns). Remaining part of P2401#21oct-2039, task P2401#22oct-0111.
 
 ## Transports and protocols (`TR`)
 

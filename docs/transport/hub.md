@@ -605,6 +605,9 @@ the rate in ppb (and whether it still is the cached one), the shortest round tri
 the PC's UTC measured with `shared_now` (good to half the check's round trip), the device's error bound and slew
 left, samples, steer points answered, restarts and the last error.
 
+A program that holds a device directly (no hub) steers it only if it runs `ww_clock_sync::ClockSync` itself, as
+`ww sync` does; steering in every direct connection by default is planned (CLT-46).
+
 Planned with SRV-32 (device-wide claims for DFU and settings writes): steering pauses (`Paused`) while one program
 has the whole device to itself, so the device coasts in holdover meanwhile.
 

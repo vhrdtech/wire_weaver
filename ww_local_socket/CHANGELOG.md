@@ -5,6 +5,7 @@
 ### 🚀 Features
 
 - Preamble version 2 (SRV-30): a trailer after the key, `| trailer_len: u16 LE | entries |` of `| tag | len | value |`, that a reader skips where it doesn't know an entry; later fields only come as new entries. `TAG_LINK_VERSION` and `TAG_API_MODEL_VERSION` carry the client's `ww_link` and `ww_client_server` versions (`Version`, `Version::is_compatible` by Cargo's SemVer rule); `Preamble::with_versions`, `Preamble::link_version` / `api_model_version` (None for version 1), `Preamble::v1()` for a hub that reads only version 1. `Preamble::read` takes versions 1 and 2, `PREAMBLE_VERSION` is 2, `PreambleError::TrailerTooLong`.
+- `Status::Lent` (5): the preamble's answer for a device the hub lent to a program outside it (SRV-32), and `DISCONNECT_LENT`, the `DisconnectReason::Other` code its tunnels are closed with then.
 - `files::OPENS_DIR` (the open counter of each device) and `files::HUB_LOG` (stderr of a hub a client started), CLT-39.
 
 - New crate (TR-16): WireWeaver over local sockets. `runtime_dir()` (the per-user `ww` directory, created 0700 and

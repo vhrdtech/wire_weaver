@@ -778,8 +778,19 @@ impl Hub {
         purpose: String,
         ttl_s: Option<u32>,
     ) -> Result<u32, Box<ww_hub_api::ClaimErrorOwned>> {
-        // a lent device isn't opened for its API: the lend's own claim decides
-        let lent = self.state.lock().unwrap().claims.lent(&key).is_some();
+        // a lent device isn't opened for its API: the lend is in the way of everyone else, its own holder may claim
+        // its root again
+        let lent = {
+            let state = self.state.lock().unwrap();
+            let owner = owner_of(&state, id);
+            match state.claims.lent(&key) {
+                Some(c) if c.owner != owner => {
+                    return Err(ww_hub_api::ClaimErrorOwned::InUse { claim: c.entry() }.into());
+                }
+                Some(_) => true,
+                None => false,
+            }
+        };
         let bundle = match lent {
             true => None,
             false => {

@@ -893,9 +893,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `Clock` with host sync
   (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
   `ww sync` shows the hub's steering instead of fighting it.
-- 📋 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
-  writes) is a claim on its root path (SRV-34) that also pauses clock steering; `ww hub lend DEVICE -- CMD` hands a
-  device to a non-ww tool and takes it back.
+- 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
+  writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
+  holder, and `Hub::steering_paused` for the hub's clock steering (SRV-31 skips the device while it holds);
+  `wire_weaver_client::hub::Exclusive` takes it when a hub holds the device (`None` otherwise: the program holds it
+  directly), and `ww dfu reboot | flash | confirm | revert` do, `flash` across the device's reset. Lending:
+  `Claims::lend` (a root claim marked lent) closes the device (tunnels get `Disconnect(Other(DISCONNECT_LENT))`),
+  refuses tunnels with `Status::Lent` and others' claims naming it until released, then opens it again if the hub
+  held it; `Lent` / `Returned` events; a crashed borrower or a ttl returns it. `ww hub lend DEVICE -- CMD` (Ctrl+C
+  reaches the command, its exit code is ww's), `hub::Lend`. `docs/transport/hub.md`; tests `ww_hub` (`claims`),
+  `tests/hub` (`exclusive*`, `lend*`). Open: a hardware check (probe-rs and `ww dfu flash` on a board while another
+  program uses it through the hub), clients waiting while lent and the `Lent` reason in their reconnect event
+  (CLT-40), the steering loop asking `steering_paused` (SRV-31); no `ww settings` command writes to a device yet
+  (`dump` reads a file), one that does takes `Exclusive` the same way.
 - 📋 **SRV-33 Hub federation between PCs** · `v0.5.x` — remote devices through another PC's hub, as `HOST/<key>`,
   with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
   SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser
@@ -1351,7 +1361,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   names the hub, direct ww programs (lock files) and, on Linux, other programs (`/proc`) per device, with or without
   a hub; `ww list` asks a running hub through the registry (with a `STATE` column, `--direct` to enumerate USB
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
-  TTY or with `NO_COLOR`. Open: `lend DEVICE -- CMD` (needs SRV-32), `ww list` asks a running hub and doesn't start one; the skill tree entry
+  TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
 - 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
   wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,

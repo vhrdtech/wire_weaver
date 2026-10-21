@@ -213,7 +213,8 @@ isn't ww (Linux; "another program" is all other platforms can say). It never ope
 holder. A hub that runs is not needed and not started for it.
 
 `keep` calls `Hub::keep(seconds)`; `forever` is the largest value, `off` is `0`. Starting a hub by hand is
-`ww hub serve`; programs start it by themselves ([Starting the hub](#starting-the-hub)), and `ww hub lend` waits for SRV-32.
+`ww hub serve`; programs start it by themselves ([Starting the hub](#starting-the-hub)). `lend` is in
+[The whole device](#the-whole-device-exclusive-access-and-lending-srv-32).
 ## Device tunnels (SRV-29)
 
 A program reaches a device through the hub with `ClientConfig::hub_device(key)`, the device's key as in
@@ -478,6 +479,54 @@ pins and functions, so a UART and a pin test can't both drive PA9). The two laye
 - Neither takes the other: a hub claim doesn't make device-level Claim / Plan calls, the program holding it makes
   them as usual (and a device claim doesn't show up in the hub's `claims`). A program connected directly (no hub)
   holds the whole device, so only the device layer applies.
+
+## The whole device: exclusive access and lending (SRV-32)
+
+A firmware update or a settings write needs the whole device to itself: another program's call in the middle of it
+could do harm, and the hub's own clock steering would disturb the device while it reboots into a trial. That is a
+claim on the device's root path (an empty path, always claimable, exclusively): every other program's calls and
+writes anywhere on the device are refused with `Common(InUse)` naming the holder, their reads, streams and observing go
+on, and the hub doesn't steer the device's clock while it is held (SRV-31). It is an ordinary claim otherwise: owned
+by the client instance, gone with its last connection or its ttl, listed by `claims(key)`.
+
+```rust
+let meta = ClientMeta::new();
+let board = Board::config(|c| c.client_meta(meta.clone())).connect().await?;
+// `Some` when a hub of this user holds the device: this program reaches it through the hub
+let exclusive = wire_weaver_client::hub::Exclusive::take(&key, &meta, "flashing B135 #4").await?;
+// ... the update; a reconnect after a reset made with `meta` again keeps it
+if let Some(e) = exclusive {
+    e.release().await?;
+}
+```
+
+`hub::Exclusive::take(key, meta, purpose)` takes it only when a hub runs and holds the device; otherwise the program
+holds the device directly, which is exclusive by itself, and gets `None`. `meta` has to be the `ClientMeta` the
+device connection was made with: the claim belongs to its instance id, so that connection's calls go through. Another
+program's exclusive in the way is an error naming it (`usb:..: in use: dg pid 4711 (flashing), lent`). `ww dfu
+reboot | flash | confirm | revert` take it this way ([`ww dfu`](../cli_reference.md#ww-dfu)); `flash` keeps it across
+the device's reset into the trial, since the claim is by device key and the program's hub connection stays up.
+
+### Lending to a program that isn't WireWeaver
+
+probe-rs, dfu-util or a serial terminal can't go through the hub: they open the device themselves, and fail while
+the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one command:
+
+1. `Claims::lend(key, purpose, ttl_s)` takes a root claim marked lent (refused like any claim when another program
+   holds one on the device), then the hub closes the device: every tunnel to it gets `Disconnect` with
+   `DisconnectReason::Other(DISCONNECT_LENT)` (`ww_local_socket`), the hub's event loop to the device exits and lets
+   the USB interface or probe go. `lend` answers only then, so `CMD` can open the device right away.
+2. While it is lent, the hub doesn't open the device: a new tunnel to it gets the preamble answer `Status::Lent`,
+   `take` and claims of others are refused naming the lend. `registry().events()` says `Lent { key, id }`.
+3. `ww hub lend` runs `CMD` with the terminal. Ctrl+C reaches `CMD` (the terminal sends it to the whole foreground
+   process group, a console to every process on it); `ww` only keeps running to give the device back after, and
+   exits with `CMD`'s exit code (128 + the signal on Unix when a signal ended it).
+4. Releasing the claim returns the device (`Returned { key }`): the hub opens it again if it held it before (kept
+   too if it was `take`n), so the programs that were connected find it open when they reconnect. A borrower that
+   crashes returns it the same way, with its last connection; a ttl ends a lend too, checked as the hub goes.
+
+`hub::Lend::take(key, purpose)` is the same from a program; without a running hub it is `None` and the command just
+runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).
 
 ## Who holds a device (CLT-38)
 

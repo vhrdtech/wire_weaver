@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+- `ww hub lend DEVICE -- CMD` (SRV-32): the hub closes the device, `CMD` runs with the terminal (Ctrl+C reaches it), the device is given back after; `ww` exits with `CMD`'s code. Without a hub `CMD` just runs.
+- `ww dfu reboot | flash | confirm | revert` take the device whole while a ww hub serves it to other programs too (SRV-32): their calls and writes are refused naming `ww dfu`, and `flash` keeps it across the reset into the trial. All of a `ww` run's connections share one `ClientMeta`.
 - `ww sync` shows how far each device is and when it got there (TOOL-16): per device the state (`acquiring` until
   it is within its lock tolerance, then `locked`), the residual against the host's UTC with ± half the check's
   round trip, the device's error bound, rate, the offset still to slew and the round trip; a line when a device

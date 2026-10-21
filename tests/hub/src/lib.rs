@@ -998,6 +998,22 @@ mod tests {
             format!("{refused:#}").contains("lent"),
             "says why: {refused:#}"
         );
+        let other = HubClient::config(|c| c.hub_api_at(bench.socket()))
+            .connect()
+            .await
+            .unwrap();
+        for path in [vec![], bus0()] {
+            match other
+                .claims()
+                .claim(bench.key.clone(), path, String::new(), None)
+                .call()
+                .await
+                .map_err(device_error)
+            {
+                Err(ClaimErrorOwned::InUse { claim }) => assert!(claim.lent),
+                r => panic!("expected InUse naming the lend, got {r:?}"),
+            }
+        }
         let mut direct = Client::config(|c| c.in_process_path(bench.device.path()))
             .connect()
             .await

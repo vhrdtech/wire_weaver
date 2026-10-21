@@ -3,11 +3,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, app_version: Some(1),
-      version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
       last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
       stage: true, stage_bulk: true } }
-        42 B  01 80 00 10 73 69 6d 2d 64 66 …
+        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 → stage.limits()
          4 B  02 03 00 02
 ← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
@@ -60,11 +60,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, app_version: Some(2),
-      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
       last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
       stage: true, stage_bulk: true } }
-        42 B  01 80 00 10 73 69 6d 2d 64 66 …
+        46 B  01 80 00 10 73 69 6d 2d 64 66 …
    ── the new image fails its own checks: gives up the trial instead of confirming
 → boot.revert()
          4 B  02 01 20 02
@@ -82,11 +82,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, app_version: Some(1),
-      version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Reverted,
+← { role: App, profile: AB(Remap), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Reverted,
       last_result: { outcome: Reverted, version: 2 }, offers: { boot_control: true, inventory: true,
       stage: true, stage_bulk: true } }
-        42 B  01 80 00 10 73 69 6d 2d 64 66 …
+        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 ```
 
 <details markdown="1">
@@ -95,9 +95,9 @@
 ```text
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
-          e0 02 14 00 00 00 00 00 00 f0 01 57
+←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
+          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
 →    5 B  04 02 03 00 02
 ←   15 B  08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
 →   51 B  08 31 03 04 00 00 57 57 44 50 01 92 10 00 00 02
@@ -149,9 +149,9 @@
    ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91
-          c1 ef 0d 30 00 00 00 00 00 f0 01 57
+←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
+          73 03 0c 91 c1 ef 0d 30 00 00 00 00 00 f0 01 57
    ── the new image fails its own checks: gives up the trial instead of confirming
 →    5 B  04 02 01 20 02
 ←    4 B  03 02 80 80
@@ -162,9 +162,9 @@
    ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   44 B  08 2a 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-          00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1
-          e0 02 14 10 20 02 00 00 00 f0 01 57
+←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
+          d9 5e ff d1 e0 02 14 10 20 02 00 00 00 f0 01 57
 ```
 
 </details>

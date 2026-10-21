@@ -239,6 +239,10 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PendingCall<T, E> {
             Ok(Err(e)) => return Err(E::from_client(e, resource)),
             Err(_) => return Err(E::from_client(Error::RxDispatcherNotRunning, resource)),
         };
-        check_error_list(E::decode_reply(&response), self.error_list.as_ref(), resource)
+        check_error_list(
+            E::decode_reply(&response),
+            self.error_list.as_ref(),
+            resource,
+        )
     }
 }

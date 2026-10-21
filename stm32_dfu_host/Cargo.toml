@@ -1,0 +1,29 @@
+[package]
+name = "stm32_dfu_host"
+version = "0.1.0"
+authors.workspace = true
+description = "Host for the STM32 system bootloader's USB DFU (DfuSe) in Rust on nusb: list, read the memory layout, erase, write with read-back verify, jump to flash"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords = ["stm32", "dfu", "dfuse", "bootloader", "usb"]
+# Meant to move to its own repo like picoboot_host (CLT-34); not published before that.
+publish = false
+
+[features]
+default = ["usb"]
+# Real devices through nusb
+usb = ["dep:nusb"]
+# Simulated ROM DFU device for tests
+sim = []
+# ELF images: Image::from_elf
+elf = ["dep:object"]
+
+[dependencies]
+nusb = { workspace = true, optional = true }
+object = { version = "0.40", default-features = false, features = ["read_core", "elf"], optional = true }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "time"] }

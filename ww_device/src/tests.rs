@@ -103,6 +103,7 @@ fn link_setup(host_version: FullVersion<'_>) -> Message<'_> {
         host_user_version: host_version,
         host_max_message_len: 1000,
         token: TOKEN,
+        client_meta: None,
     })
 }
 
@@ -201,6 +202,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         host_user_version: host(),
         host_max_message_len: 1000,
         token: 0,
+        client_meta: None,
     });
     feed(&mut link, now, &old_setup, &mut scratch);
     assert_eq!(
@@ -216,6 +218,7 @@ fn hosts_without_a_token_or_with_a_stale_one() {
         host_user_version: host(),
         host_max_message_len: 1000,
         token: TOKEN + 1,
+        client_meta: None,
     });
     feed(&mut link, now, &stale, &mut scratch);
     assert!(drain(&mut link, now).is_empty());
@@ -1091,4 +1094,43 @@ mod async_server {
         );
         assert!(embassy_futures::poll_once(server.wait_until(None)).is_pending());
     }
+}
+
+#[test]
+fn peer_meta_from_link_setup() {
+    let now = Instant::from_millis(0);
+    let mut link = DeviceLink::new(config(), 512);
+    link.on_transport_up(now);
+    let mut scratch = [0u8; 512];
+    assert!(link.peer_meta().is_none());
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    drain(&mut link, now);
+    let long_name = "a-program-with-a-very-long-name-that-gets-cut";
+    let setup = Message::LinkSetup(LinkSetup {
+        host_user_version: FullVersion::new("test_api", Version::new(0, 3, 0)),
+        host_max_message_len: 1000,
+        token: TOKEN,
+        client_meta: Some(ww_link::ClientMeta {
+            program: long_name,
+            app_version: "1.2.3",
+            label: "",
+            kind: ww_link::ClientKind::Gui,
+            pid: 99,
+            user: "roman",
+            host: "pc1",
+            purpose: None,
+            instance_id: 5,
+        }),
+    });
+    feed(&mut link, now, &setup, &mut scratch);
+    assert!(link.is_up());
+    let meta = link.peer_meta().expect("host sent its meta");
+    assert_eq!(
+        meta.program.as_str(),
+        &long_name[..crate::link::PeerMeta::STR_LEN]
+    );
+    assert_eq!(meta.user.as_str(), "roman");
+    assert_eq!(meta.host.as_str(), "pc1");
+    assert_eq!(meta.kind, Some(ww_link::ClientKind::Gui));
+    assert_eq!((meta.pid, meta.instance_id), (99, 5));
 }

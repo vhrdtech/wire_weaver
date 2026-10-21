@@ -106,6 +106,8 @@ pub(crate) struct TxCore {
     /// From a disconnect command, notified by the wrapper once the transport is closed, see [Self::take_disconnected_tx]
     disconnected_tx: Option<tokio::sync::oneshot::Sender<()>>,
     client_version: Option<FullVersionOwned>,
+    /// [Command::Connect::client_meta]
+    client_meta: Option<Box<ww_link::ClientMetaOwned>>,
     /// Link setup token of the current connection, see [super::new_setup_token]
     token: u64,
     /// Requested by a device, how long to accumulate messages into one frame before sending it out
@@ -143,6 +145,19 @@ pub(crate) struct TxCore {
     loopback: Option<LoopbackTest>,
 }
 
+fn link_setup<'a>(
+    client_version: ww_version::FullVersion<'a>,
+    token: u64,
+    meta: Option<&'a ww_link::ClientMetaOwned>,
+) -> Message<'a> {
+    Message::LinkSetup(LinkSetup {
+        host_user_version: client_version,
+        host_max_message_len: DEFAULT_MAX_MESSAGE_SIZE as u32,
+        token,
+        client_meta: meta.map(crate::client_meta::as_wire),
+    })
+}
+
 impl TxCore {
     /// `link_setup_timeout` is the transport's default, see [Transport::link_setup_timeout].
     pub fn new(link_setup_timeout: Duration) -> Self {
@@ -157,6 +172,7 @@ impl TxCore {
             exited_tx: None,
             disconnected_tx: None,
             client_version: None,
+            client_meta: None,
             token: 0,
             frame_accumulation_time: Duration::from_millis(1),
             device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
@@ -277,6 +293,7 @@ impl TxCore {
                 max_seq,
                 link_setup_timeout_ms,
                 tap,
+                client_meta,
                 connected_tx,
                 failed_tx,
             } => {
@@ -300,6 +317,7 @@ impl TxCore {
                     self.link_setup_timeout = Duration::from_millis(ms.get().into());
                 }
                 self.client_version = Some(*client_version.clone());
+                self.client_meta = client_meta;
                 self.token = super::new_setup_token();
                 self.phase = Phase::Connecting;
                 let recorder = tap.unwrap_or_else(|| default_recorder().clone());
@@ -563,11 +581,10 @@ impl TxCore {
                     .client_version
                     .clone()
                     .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)));
-                self.send(&Message::LinkSetup(LinkSetup {
-                    host_user_version: client_version.as_ref(),
-                    host_max_message_len: DEFAULT_MAX_MESSAGE_SIZE as u32,
-                    token: self.token,
-                }))?;
+                // the meta is for people to read: it never takes the link down because a device can't receive it
+                let meta = self.meta_to_send(&client_version);
+                let msg = link_setup(client_version.as_ref(), self.token, meta.as_ref());
+                self.send(&msg)?;
                 self.flush(now);
             }
             ToTx::LinkReady => {
@@ -771,6 +788,26 @@ impl TxCore {
     }
 
     /// Encode a link message and queue it for the wrapper's framer.
+    /// [Command::Connect::client_meta] as far as the device can receive it: whole, shortened, or not at all.
+    fn meta_to_send(
+        &mut self,
+        client_version: &FullVersionOwned,
+    ) -> Option<ww_link::ClientMetaOwned> {
+        let full = self.client_meta.as_deref()?;
+        let max = self.device_max_message_len;
+        for meta in [full.clone(), crate::client_meta::shortened(full)] {
+            let msg = link_setup(client_version.as_ref(), self.token, Some(&meta));
+            if msg
+                .encode(&mut self.scratch)
+                .is_ok_and(|(_, p)| p.len() <= max)
+            {
+                return Some(meta);
+            }
+        }
+        debug!("device can't receive client meta, leaving it out");
+        None
+    }
+
     fn send(&mut self, msg: &Message<'_>) -> Result<(), Error> {
         trace!("tx: {msg:?}");
         let (kind, payload) = msg

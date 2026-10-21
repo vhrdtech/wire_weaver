@@ -251,6 +251,9 @@ async fn device(
     }
 }
 
+/// The last client meta a test device saw (only [client_meta_reaches_the_device] sends one).
+static PEER_META: Mutex<Option<ww_device::PeerMeta>> = Mutex::new(None);
+
 pub(crate) async fn serve(
     tx: impl ww_device::MessageTx,
     rx: impl ww_device::MessageRx,
@@ -277,12 +280,25 @@ pub(crate) async fn serve(
         // user loop: anything else could be selected on here
         let ready = server.wait().await;
         if let Some(event) = server.handle(ready, &mut backend).await {
+            if event == LinkEvent::Up
+                && let Some(meta) = server.link().peer_meta()
+            {
+                *PEER_META.lock().unwrap() = Some(meta.clone());
+            }
             _ = events_tx.send(event);
         }
     }
 }
 
 pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32)) -> ConnectionInfo {
+    connect_with_meta(cmd_tx, version, None).await
+}
+
+async fn connect_with_meta(
+    cmd_tx: &mpsc::Sender<Command>,
+    version: (u32, u32),
+    client_meta: Option<Box<ww_link::ClientMetaOwned>>,
+) -> ConnectionInfo {
     let (connected_tx, connected_rx) = oneshot::channel();
     cmd_tx
         .send(Command::Connect {
@@ -290,6 +306,7 @@ pub(crate) async fn connect(cmd_tx: &mpsc::Sender<Command>, version: (u32, u32))
             max_seq: crate::DEFAULT_MAX_SEQ,
             link_setup_timeout_ms: None,
             tap: None,
+            client_meta,
             client_version: Box::new(FullVersionOwned::new(
                 "test_api".into(),
                 VersionOwned::new(version.0, version.1, 0),
@@ -503,6 +520,28 @@ fn start_stream() -> (
         StreamPipe(Some((up, down))),
     ));
     (cmd_tx, events_rx, dev, host)
+}
+
+#[tokio::test]
+async fn client_meta_reaches_the_device() {
+    let (cmd_tx, mut events_rx, _dev, _host) = start();
+    let meta = crate::ClientMeta::new()
+        .program("e2e-prog")
+        .user("anna")
+        .host("pc7")
+        .kind(crate::ClientKind::Test)
+        .pid(4242);
+    let sent = Box::new(meta.resolve());
+    connect_with_meta(&cmd_tx, (0, 3), Some(sent.clone()))
+        .await
+        .result
+        .unwrap();
+    assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+    let seen = PEER_META.lock().unwrap().clone().expect("device got meta");
+    assert_eq!(seen.program.as_str(), "e2e-prog");
+    assert_eq!((seen.user.as_str(), seen.host.as_str()), ("anna", "pc7"));
+    assert_eq!(seen.kind, Some(crate::ClientKind::Test));
+    assert_eq!((seen.pid, seen.instance_id), (4242, sent.instance_id));
 }
 
 #[tokio::test]
@@ -798,6 +837,7 @@ async fn previous_session_leftovers_are_dropped() {
         &[Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test_api", Version::new(0, 3, 0)),
             host_max_message_len: 4096,
+            client_meta: None,
             token: old_token,
         })],
         usize::MAX,

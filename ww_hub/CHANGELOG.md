@@ -11,7 +11,7 @@
   (`hub.lock`), the local socket in the runtime dir with the `WWHB` preamble picking the hub API or a device, the
   `ww_hub_api` server per connection (info, keep, shutdown, registry of devices, holders and clients, events), exit
   after `idle_exit` without connections; `main_if_hub()`, `client::HubClient`.
-- Device tunnels (SRV-29): a connection whose preamble names a device (`usb:<vid>:<pid>:<serial>`, or `inproc:<path>`
+- Device tunnels (SRV-29): a connection whose preamble names a device (`usb:<vid>:<pid>:<serial>`, `rtt:<probe serial>:<chip>`, or `inproc:<path>`
   for a device served in the hub's process) gets a link endpoint that answers like the device (its `DeviceInfo`,
   `LinkSetup` checked by `ww_device::DeviceLink`). The hub opens the device on demand with one `wire_weaver_client`
   event loop for all its tunnels (lock file `mode = hub`), forwards requests with seqs of its own and puts each

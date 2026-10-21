@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- A `LoopbackTest` sent while link setup still runs waits for the link instead of failing with "not connected".
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
 
 ### 🚀 Features
@@ -12,6 +13,8 @@
 - Holder lock files (CLT-38) carry the client's metadata (CLT-41): `kind`, `user`, `host`, `label`, `purpose`, `instance_id` lines, and `program` from the meta; `Holder` has these fields (empty when an older program wrote the file), shows them in busy errors, and `holders::claim_with(key, mode, meta)` writes them. Busy errors end with how to share the device through the hub.
 
 - Forwarding for the ww hub (SRV-29): `Command::Forward { bytes, tag, timeout }` sends a request serialized elsewhere as it is (seq placeholder filled in, no `GlobalFull` retry), `Command::ForwardSink { tx }` takes every answer to it raw as `Forwarded::Reply { tag, event, last }` (stream data under the request's seq included, the last answer frees the seq; `Forwarded::Failed` on a timeout, a refused or lost request), events with seq 0 as `Forwarded::Event` and loopback echoes as `Forwarded::Loopback`, instead of to the client's own streams and observers; `Command::ForwardLoopback` sends a link `Loopback` message as it is. `Forwarded` is in `internal`.
+- Forwarding for the ww hub (SRV-29): `Command::Forward { bytes, tag, timeout }` sends a request serialized elsewhere as it is (seq placeholder filled in, no `GlobalFull` retry), `Command::ForwardSink { sink }` hands every answer to it raw to a `ForwardSink` (a trait called on the event loop's receive task; `UnboundedSender<Forwarded>` implements it) as `Forwarded::Reply { tag, event, last }` (stream data under the request's seq included, the last answer frees the seq; `Forwarded::Failed` on a timeout, a refused or lost request), events with seq 0 as `Forwarded::Event` and loopback echoes as `Forwarded::Loopback`, instead of to the client's own streams and observers; `Command::ForwardLoopback` sends a link `Loopback` message as it is, `Command::ForwardFlush` sends what was forwarded so far now (the hub mirrors its clients' flushes). `Forwarded`, `ForwardSink` are in `internal`.
+- `DeviceApiInfo::accumulation_time`: the device's accumulation window from its `DeviceInfo` (new pub field).
 - `ClientConfig::hub_device(key)` / `hub_device_at(path, key)`: a device through the ww hub's tunnel (SRV-29). `ClientConfig::holder_mode(Mode)`: how the lock files (CLT-38) record this client's USB and RTT devices, `Mode::Hub` for the hub's own connections.
 - `ClientConfig::hub_api()` / `hub_api_at(path)`: a client of the ww hub's own API (SRV-28) instead of a device.
 - Local socket transport (TR-16), feature `local_socket`: `ClientConfig::ipc_path(path)` connects to a device served by another process on the same PC, over a Unix socket or a Windows named pipe (`ww_local_socket`), user-only on both ends. `local_socket::device::device_medium()` is the matching `ww_device::Server` medium. Selecting IPC without the feature is now an error instead of being skipped.

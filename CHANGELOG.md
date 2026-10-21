@@ -17,6 +17,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 - `ww hub status | stop | who | keep` (TOOL-17): look at and steer the per-user hub, see who holds each device with or without a hub, `ww list` through a running hub; completions with live device keys. Details in `wire_weaver_cli/CHANGELOG.md`.
 - The ww hub process and its API (SRV-28, crates `ww_hub`, `ww_hub_api`, `ww hub serve`): one per user, the devices plugged in and who holds them, the connected programs, events; device tunnels come next (SRV-29).
+- Device tunnels in the ww hub (SRV-29): several programs use one device at once through the hub (`ClientConfig::hub_device(key)`), each with its own link and seqs; streams opened once and fanned out, observed properties merged, introspection cached, slow clients' stream data dropped and counted, devices opened on demand and closed after a linger. About 14 µs more per round trip than direct.
 - Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
 - Device holders registry (CLT-38, `wire_weaver_client::holders`): every program opening a USB interface or RTT
   probe claims an OS file lock on `<runtime dir>/ww/holders/<key>.lock` first, so a busy error can name who

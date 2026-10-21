@@ -206,6 +206,75 @@ holder. A hub that runs is not needed and not started for it.
 
 `keep` calls `Hub::keep(seconds)`; `forever` is the largest value, `off` is `0`. Starting a hub by hand is
 `ww hub serve`; programs start it by themselves ([Starting the hub](#starting-the-hub)), and `ww hub lend` waits for SRV-32.
+## Device tunnels (SRV-29)
+
+A program reaches a device through the hub with `ClientConfig::hub_device(key)`, the device's key as in
+[Device keys](#device-keys):
+
+```rust
+let device = Blinky::config(|c| c.hub_device("usb:c0de:cafe:204B319B5431"))
+    .connect()
+    .await?;
+```
+
+Everything after the preamble is the same as talking to the device directly: link setup, version check,
+introspection, calls, streams, properties, pings. Several programs can use one device at the same time this way; a
+program that opens the device directly instead gets a [busy error](#busy-errors-name-the-holder)
+naming the hub (mode `hub`).
+`hub_device_at(socket, key)` names another hub socket (tests, a hub in another runtime dir).
+
+### What the hub does
+
+The hub runs one `wire_weaver_client` event loop per open device and gives each client its own link endpoint (a
+`ww_device::DeviceLink`, as on a device). It never links a user API: it reads only a request's seq, path and kind.
+
+- **Link setup.** The endpoint answers with the device's own `DeviceInfo` (its user API version and hash, API model
+  version, accumulation window) and checks the client's `LinkSetup` against them, as the device would. A client is
+  told it may send 4 bytes less than the device takes, room for a longer seq. The client's meta (CLT-41) shows in
+  the hub's registry.
+- **Seq remap.** Every request goes to the device with a seq of the hub's event loop; each answer gets the client's
+  seq back and goes to that client only. Answers of plain calls are routed on the event loop's receive task straight
+  into the client's queue.
+- **Streams.** A stream path is opened on the device by its first client; later clients get the device's answer to
+  that open, and its data goes to every client that opened it. The last close closes it on the device. A client
+  that leaves closes its streams. Acknowledgements, resend requests and credit of a shared stream (counted or
+  reliable streams) go to the device from the first client only.
+- **Observed properties.** Each client's observe settings are kept per trait level and merged: the latest setting of
+  a property wins, the budget is the largest asked for. The device gets the merged set, and updates go to every
+  client of the level.
+- **Introspection** is fetched from the device once and answered from the hub's copy afterwards.
+- **Queues.** What goes to a client waits in its queue: stream data and property updates beyond 1 MiB are dropped
+  and counted (a client that doesn't read must not hold up the device or the other clients), answers and stream
+  sidebands are never dropped.
+- **Open and close.** A device is opened when the first client asks for it and closed 30 s after the last one left
+  (`WW_HUB_LINGER` in seconds, `HubConfig::linger`); `registry().take(key)` keeps it open without clients. The hub
+  writes the device's lock file in mode `hub` (CLT-38), and the registry lists it as `Open` with its tunnels. A
+  client killed mid-stream is a closed socket: its streams and observe settings are dropped as if it closed them.
+- **Older and newer clients.** A request whose envelope the hub can't decode (a newer API model) goes to the device
+  as it is, with only its seq changed; so does a client without meta.
+
+### Limits
+
+- Stream sinks and the sideband of a shared stream are the first client's.
+- Streams opened on a trait path are not counted per client: each open and close goes to the device, and events of
+  a path the hub didn't see opened go to every client.
+- Loopback test messages are echoed to the client that sent the last ones (`ww usb-loopback` through the hub: one at
+  a time).
+- Device keys: `usb:`, `rtt:` (with the `rtt` feature, `ww` has it) and `inproc:<path>` (a device served in the
+  hub's own process: simulators, tests).
+
+### What it costs
+
+Every message crosses a local socket twice more (client → hub, hub → client), with a task wake each way. On an idle
+PC that is about 14 µs per round trip (in-process device: 20 → 34 µs); on a busy one each wake can also wait for a
+CPU, so the cost grows with load. `tests/hub/examples/hub_loopback.rs` runs `ww usb-loopback`'s test directly and
+through an in-process hub in alternating rounds and compares the medians:
+
+```sh
+cargo run --release -p hub --example hub_loopback -- usb:c0de:cafe:<serial> [seconds] [packet size|max] [rounds]
+```
+
+BENCH_TABLE
 
 ## Who holds a device (CLT-38)
 

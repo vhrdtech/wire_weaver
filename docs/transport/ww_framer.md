@@ -220,7 +220,7 @@ lookup table computed at compile time. `FULL` (default `false`) controls whether
 ```rust
 use ww_framer::crc::{CrcChecksum, Crc16Usb, Crc32IsoHdlc};
 
-// 2-byte CRC-16/USB on split messages only — the usual choice for USB / CAN
+// 2-byte CRC-16/USB on split messages only — e.g. for CAN, which may lose a frame between pieces
 type LinkTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc16Usb>, NopTail>;
 
 // 4-byte CRC-32 on every message — for media without its own frame CRC

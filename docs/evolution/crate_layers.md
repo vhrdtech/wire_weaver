@@ -99,10 +99,15 @@ keeps working with a host or firmware built against `wire_weaver 0.6`, as long a
 
 The exception is code that defines what goes on the wire:
 
-* `ww_framer` (frame layout, heads, checksums) and `ww_link` (message kinds, `DeviceInfo`, `LinkSetup`) - changing
-  these breaks every device from every host. The link version is sent in `DeviceInfo::dev_link_version` but it is not
-  checked yet, so a break there is not even detected cleanly. Only add new message kinds that old peers ignore;
-  never change existing ones.
+* `ww_framer` (frame layout, heads, checksums, frame prefixes) and `ww_link` (message kinds, `DeviceInfo`,
+  `LinkSetup`, each medium's `Framing`) - changing these breaks every device from every host. The host checks the
+  device's `DeviceInfo::dev_link_version` against its own `LINK_VERSION` and the setup token
+  ([link setup](../transport/ww_link.md#setup-token)), and fails with `Error::IncompatibleLinkVersion` instead of a
+  setup timeout. Only add new message kinds that old peers ignore; never change existing ones. The last such break
+  was TR-15 (0.5): the setup token in `GetDeviceInfo` / `DeviceInfo` / `LinkSetup` / `LinkReady`, USB packets
+  without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
+  host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
+  well, so every firmware and host is rebuilt together.
 * Server and client codegen in `wire_weaver_core` - how resources are indexed, how arguments and return values are
   wrapped. Changing it changes the wire for every user API without any user version changing, so it must stay
   byte-identical for the same API definition.

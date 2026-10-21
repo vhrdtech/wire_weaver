@@ -313,7 +313,7 @@ setup on, until Ctrl+C or `--duration S`. `--layer` says how deep to look:
 
 ```
 $ ww monitor --layer api
-   0.000000 L0 session Host Usb '3-1.2', U2 { checksum: Crc16IbmSdlc { full: false }, tail: None, stream: false }, frames up to 64 B
+   0.000000 L0 session Host Usb '3-1.2', U2 { checksum: None, tail: None, stream: false, prefix: None }, frames up to 64 B
    0.000055 L0 connected
    0.000280 L0 link ready
    0.065600 L0 → Request Call add  a: 5, b: 100 #3
@@ -323,7 +323,8 @@ $ ww monitor --layer api
 The time is seconds since the first record, `L0` the link, `→` sent by the host and `←` received. `--bytes` adds the
 bytes of every frame and message in hex. A frame line lists its pieces (`Full Data0 12 B`, `Start Data0 6/12 B`: 6 of
 a 12 byte message's bytes), a message line the frames it is in (`in #3@58+6, #4@1+6`: 6 bytes at offset 58 of frame 3,
-6 at offset 1 of frame 4). Without a ww server, this is the command's own connection to the device: the link setup,
+6 at offset 1 of frame 4). With a frame counter (UDP, USB with the `seq-prefix` diagnostic) a frame line shows its
+prefix and what it says, `[15 in order]`, `[17 2 frames lost before]` or `[14 dropped: duplicate]`. Without a ww server, this is the command's own connection to the device: the link setup,
 the reads it makes to connect, its pings.
 
 ### `--monitor` and `--capture` on any command
@@ -369,14 +370,14 @@ print, until Ctrl+C or `--duration S`; `--file FILE` gives those of a whole capt
 $ ww stats --file link.wwtape
 window 0.071 s, 5 blocks, 0 blocks lost, 0 records lost
 link 0 tx:
-  frames 7 (98.4/s), 138 bytes, fill 30.8%, 1.86 messages/frame
-  overhead: heads 26 B, checksums and tails 2 B, unused 310 B
+  frames 7 (98.4/s), 136 bytes, fill 30.4%, 1.86 messages/frame
+  overhead: prefixes 0 B, heads 26 B, checksums and tails 0 B, unused 312 B
   messages 13, 1 split over 2 frames
   message to frame: mean 926.0 µs, max 2.44 ms
   link messages: Data0 9, Disconnect 1, GetDeviceInfo 1, LinkSetup 1, Nop 1
 link 0 rx:
-  frames 10 (140.6/s), 420 bytes, fill 65.6%, 1.20 messages/frame
-  overhead: heads 25 B, checksums and tails 2 B, unused 220 B
+  frames 10 (140.6/s), 418 bytes, fill 65.3%, 1.20 messages/frame
+  overhead: prefixes 0 B, heads 25 B, checksums and tails 0 B, unused 222 B
   messages 12, 1 split over 5 frames
   link messages: Data0 9, DeviceInfo 1, LinkReady 1, Nop 1
 link 0 api:
@@ -385,7 +386,9 @@ link 0 api:
 ```
 
 Fill is the frame bytes used of what the frames could carry; trouble (dropped pieces, checksum failures, partial
-messages dropped, frame gaps, framer mismatches) gets its own line when there is any.
+messages dropped, frame gaps, framer mismatches) gets its own line when there is any. A link with a frame counter
+(UDP, USB with the `seq-prefix` diagnostic) also gets a `frame prefix:` line: frames the medium lost, and those dropped
+as duplicate, late, of the previous session, too short or resynced, and the new sessions it saw.
 
 ## `ww capture`
 

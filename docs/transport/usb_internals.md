@@ -79,10 +79,23 @@ so `.user_label_eq(..)` and `.implements_api(..)` filters work without opening d
 
 ## Framing
 
-Messages are packed into packets with `ww_framer` using the USB configuration from `ww_link`:
-`U2Head` (1–2 byte heads), a CRC-16 per split message, no tail. Packet boundaries are significant: the framer
-relies on USB delivering each transfer as sent, and a short packet marks the end of a frame. The CRC is not there
-for the wire (USB already checks packets) but to reject stale or reordered packets after a reconnect.
+Messages are packed into packets with `ww_framer` using `ww_link::UsbFraming`: `U2Head` (1–2 byte heads), no
+checksum, no tail, no frame prefix. Packet boundaries are significant: the framer relies on USB delivering each
+transfer as sent, and a short packet marks the end of a frame. USB already checks every packet with its own CRC,
+retries a corrupted one and keeps them in order; a bulk endpoint doesn't lose packets within a session either (a full
+host just NAKs). What can still be stale is on the device side after a reconnect: a packet already armed in the IN
+endpoint for the previous host, and the rest of a split message half sent to it. The [setup token](ww_link.md#setup-token)
+removes those: the host drops everything before the `DeviceInfo` carrying its token, and the device starts its reply in
+a fresh frame. A split message that lost a piece anyway is still dropped by the framer from the remaining lengths in
+its heads.
+
+### Frame counter (diagnostic)
+
+Built with the `seq-prefix` feature of `wire_weaver_usb_embassy`, a device puts a one-byte `SeqPrefix` (frame counter
+mod 16, session epoch mod 4) at the start of every packet (`ww_link::UsbSeqFraming`) and says so in its interface
+protocol: `0x38` instead of `0x37`. The host picks the same framing from it when it opens the interface, so the two
+can't disagree. Lost, duplicated or reordered packets then show up in `ww stats` and `ww monitor` (a working USB stack
+has none); it costs one byte per packet. `in_process::usb_device_framed::<UsbSeqFraming>` simulates such a device.
 
 Small requests are accumulated for the window the device asks for in `DeviceInfo` (typically a few hundred µs)
 and flushed as one packet; control messages (link setup, ping, disconnect) are flushed immediately.

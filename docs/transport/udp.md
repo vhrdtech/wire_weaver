@@ -77,8 +77,12 @@ Nothing is retransmitted:
 
 - a lost request (or its reply) times out, as a request to a busy device would;
 - a lost stream event is gone;
-- a message split across datagrams is dropped if any piece of it is lost or reordered, the framer detects it from the
-  remaining length and the CRC, and continues with the next one;
+- every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
+  from the previous session is dropped, a gap is counted as lost (`ww stats`, `ww monitor`);
+- a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,
+  the remaining length and the CRC, and continues with the next one;
+- every message carries a CRC-32: a datagram corrupted on the way (the UDP checksum is a 16-bit sum, and optional over
+  IPv4) is dropped instead of decoded into wrong values;
 - link setup survives losses, `GetDeviceInfo` is retried;
 - if the device goes away silently, the peer timeout ends the session.
 
@@ -87,9 +91,16 @@ device can run TCP.
 
 ## Wire format
 
-Each datagram is one [ww_framer](ww_framer.md) frame, with `ww_link`'s UDP configuration: `UdpHead` (`U2Head`),
-`UdpChecksum` (CRC-16 on split messages only) and `UdpTail` (none). Same as over USB, small messages accumulated by the
-event loop share a datagram and big ones are split across several.
+Each datagram is one [ww_framer](ww_framer.md) frame, with `ww_link::UdpFraming`: a one-byte
+[frame prefix](ww_framer.md#frame-prefix) (`UdpPrefix`, `SeqPrefix`: frame counter mod 16 and session epoch mod 4),
+then the messages with `UdpHead` (`U2Head`) heads and `UdpChecksum`, a CRC-32/ISO-HDLC (the CRC-32 of zip and
+Ethernet, computed by `ww_block`) after every message, covering the prefix, the head and the message, and `UdpTail`
+(none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
+several. Byte examples are on [framer wire format](ww_framer_wire.md#with-a-crc-32-on-every-message-udp).
+
+The device starts a new session of its framer on every `GetDeviceInfo` (the epoch goes up), and the host drops
+everything before the `DeviceInfo` with its [setup token](ww_link.md#setup-token). A datagram only starts link setup
+(and takes the device over from another host) when its CRC is good.
 
 The host sends datagrams of at most `ww_link::UDP_MAX_DATAGRAM_LEN` (1452 B: Ethernet MTU minus IPv6 and UDP headers,
 so that nothing is fragmented over IPv4 or IPv6), the device must be able to receive datagrams of this size. The

@@ -47,21 +47,32 @@ control traffic is rare.
 ### Framer configuration
 
 `ww_link` messages are independent of how they are framed — the protocol logic only deals with
-`(kind, payload)` pairs, and each transport picks the [ww_framer](ww_framer.md) head
-/ checksum / tail that suits its medium. For convenience a default configuration is provided:
+`(kind, payload)` pairs, and each medium picks the [ww_framer](ww_framer.md) head / checksum / tail /
+[frame prefix](ww_framer.md#frame-prefix) that suits it. `ww_link` names them per medium, as a `Framing` (one type
+with all four) and as separate aliases:
+
+| Medium | `Framing` | Prefix | Checksum | Why |
+| --- | --- | --- | --- | --- |
+| USB | `UsbFraming` | none | none | USB checks every packet, retries, keeps them in order; frames of a previous session are told apart by the [setup token](#setup-token) |
+| USB, diagnostic | `UsbSeqFraming` | `SeqPrefix` | none | counts lost, duplicated or reordered packets (a working USB stack has none); the device turns it on, the host follows its interface protocol |
+| UDP | `UdpFraming` | `SeqPrefix` | CRC-32 on every message, prefix and head folded in | datagrams get lost, duplicated and reordered, nothing is retried; the UDP checksum is a 16-bit sum, optional over IPv4, and Ethernet's CRC only covers each hop; ShrinkWrap is dense, so a flipped bit often still parses |
+| RTT | (`RttHead` / `RttChecksum` / `RttTail`) | none | none | RAM rings read by the probe, nothing corrupted or lost; a byte stream, so only `Full` messages |
+| WebSocket | (no framer) | | | TCP below keeps order and retries, TLS (when used) authenticates every record |
 
 ```rust
-use ww_link::{UsbHead, UsbChecksum, UsbTail};  // U2Head, CRC-16/IBM-SDLC on split messages, no tail
-type UsbTx<'a> = ww_framer::Tx<'a, UsbHead, UsbChecksum, UsbTail>;
-type UsbRx<'a> = ww_framer::FramedRx<'a, UsbHead, UsbChecksum, UsbTail>;
+use ww_link::{FramingRx, FramingTx, UdpFraming, UsbFraming};
+type UsbTx<'a> = FramingTx<'a, UsbFraming>; // ww_framer::Tx<'a, UsbHead, UsbChecksum, UsbTail, UsbPrefix>
+type UdpRx<'a> = FramingRx<'a, UdpFraming>; // ww_framer::FramedRx<'a, UdpHead, UdpChecksum, UdpTail, UdpPrefix>
 ```
 
-This is what USB uses (`TxOwned`/`FramedRxOwned` variants with the `std` feature of `ww_framer`). A medium with its own integrity check might drop the checksum,
-a stream medium would add a tail for synchronization, and so on — the link messages stay the same. [RTT](rtt.md)
-uses `RttHead` / `RttChecksum` / `RttTail`: the same head, no checksum and no tail, as its ring buffers cannot corrupt bytes.
-[UDP](udp.md) uses `UdpHead` / `UdpChecksum` / `UdpTail`, the same as USB, one frame per datagram.
-Frame size is whatever the medium dictates and is passed in when creating the framer (e.g., USB max packet
-size). Both ends of a link must of course agree on the configuration.
+`FramingTxOwned` / `FramingRxOwned` are the `std` variants (`TxOwned` / `FramedRxOwned` of `ww_framer`). On the
+device, a `PacketSink` / `PacketSource` of `ww_device` names its medium's `Framing`, and `FramedTx` / `FramedRx` frame
+in it. The CRC-32 of UDP is `ww_link::LinkCrc32`, computed by `ww_block::crc32_update`: one implementation for links
+and [block devices](../std_library/ww_block.md), with the table a firmware picks once through `ww_block`'s
+`crc-table-*` features (bitwise without one, hosts get `crc-table-slice16`). Frame size is whatever the medium
+dictates and is passed in when creating the framer (e.g., USB max packet size). Both ends of a link must agree on the
+framing: USB tells it in the interface protocol (`USB_INTERFACE_PROTOCOL`, 0x37, or `USB_INTERFACE_PROTOCOL_SEQ`,
+0x38, for `UsbSeqFraming`), every other medium has one.
 
 ### Messages
 
@@ -240,8 +251,9 @@ device just means the tx task is parked in a write, so the command channel fills
 - **One protocol implementation, any wrapper.** The async USB wrapper is ~200 lines of plumbing. A blocking
   transport is two `std::thread`s: tx does `blocking_recv` on commands plus a timer, rx does a read with timeout.
   No `select!` at all.
-- **Framing is the wrapper's choice.** Cores speak `(kind, payload)`; USB uses `U2Head` + CRC-16, another medium
-  can pick differently or skip framing if it already delivers whole messages.
+- **Framing is the wrapper's choice.** Cores speak `(kind, payload)`; USB uses `U2Head` without a checksum, UDP adds
+  a frame counter and a CRC-32, another medium can pick differently or skip framing if it already delivers whole
+  messages.
 - **Same shape as the device side.** The device uses the same sans-IO core + message transport + thin wrapper
   layering, see below.
 

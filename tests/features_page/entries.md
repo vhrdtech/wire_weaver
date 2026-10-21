@@ -199,6 +199,7 @@ layer checks on connect that both ends speak the same protocol.
 
 - TR-1 | Framer | Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames. | transport/ww_framer.md
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
+- TR-15 | Frame counter and setup token | Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need. | transport/ww_link.md#setup-token
 - TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md
 

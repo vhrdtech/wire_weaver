@@ -965,6 +965,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   seq feeding the TOOL-9 explain code. E2E tests over simulated USB (`tap/e2e_tests.rs`, `wire_weaver_cli`
   `cmd/tap/tests.rs`): shared packets, split replies, a lost packet, stats, captures replayed identically. Open:
   the tap of a ww server's clients (`ClientMap` records are defined, nothing writes them yet).
+- ✅ **TR-15 Frame prefix and link setup token** · `v0.5` — stale frames after a reconnect are removed at the
+  cause and each medium gets the checks it needs (`docs/transport/ww_link.md#setup-token`,
+  `docs/transport/ww_framer.md#frame-prefix`): the host puts a random 64-bit token into link setup, the device
+  echoes it and starts its reply in a fresh framer session, the host drops everything before it
+  (`previous_session_leftovers_are_dropped`). `ww_framer::prefix` (`FramePrefix`, `NopPrefix`, `SeqPrefix`: 4-bit
+  frame counter, 2-bit epoch; lost, duplicate, late and stale frames reported and counted), checksums over prefix
+  and head, fuzz target `framer-lossy`. `ww_link::Framing` per medium: USB without a checksum and without a prefix
+  (`SeqPrefix` as a diagnostic, `wire_weaver_usb_embassy` feature `seq-prefix`, told by the interface protocol),
+  UDP with `SeqPrefix` and a CRC-32 (`ww_block`'s) on every message. `ww stats` / `ww monitor` show the prefix.
+  Wire change of the link (`docs/evolution/crate_layers.md`).
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — server and client, using CANopen (`docs/transport/overview.md`).

@@ -231,6 +231,207 @@ mod tests {
         }
     }
 
+    /// The same API served with `no_alloc = false` (API-21): handlers take and return owned types. Tests run against
+    /// it, with [no_std_sync_server] as the reference it must match byte for byte (`tests_common::Twin`).
+    mod alloc_server {
+        use super::*;
+        use methods_api::{I2cAddress, ListedErrorOwned, MethodError, UserDefinedOwned};
+        use tests_common::TestProcessEvents;
+        use wire_weaver::prelude::*;
+
+        type Cx<'c, O> = Context<'c, O, Medium>;
+
+        pub struct AllocServer {
+            pub data: Arc<RwLock<SharedTestData>>,
+        }
+
+        impl AllocServer {
+            fn no_args(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.data.write().unwrap().no_args_called = true;
+                Ready(())
+            }
+
+            fn one_plain_arg(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> RpcResult<()> {
+                self.data.write().unwrap().one_plain_arg = value;
+                Ready(())
+            }
+
+            fn plain_return(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                Ready(0xAA)
+            }
+
+            fn user_arg(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                u: UserDefinedOwned,
+            ) -> RpcResult<()> {
+                assert_eq!(u.a, 123);
+                assert_eq!(u.b, vec![1, 2, 3]);
+                Ready(())
+            }
+
+            fn user_defined_return(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+            ) -> RpcResult<UserDefinedOwned> {
+                Ready(UserDefinedOwned {
+                    a: 37,
+                    b: vec![1, 2, 3],
+                })
+            }
+
+            fn deferred(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                self.data.write().unwrap().deferred = cx.reply_to();
+                Deferred
+            }
+
+            fn deferred_unit(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.data.write().unwrap().deferred_unit = cx.reply_to();
+                Deferred
+            }
+
+            fn plug_vbus_cycle(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                self.data.write().unwrap().plug_vbus_cycle = cx.reply_to();
+                Deferred
+            }
+
+            fn answer_deferred(
+                &mut self,
+                cx: &mut Cx<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> RpcResult<()> {
+                let mut data = self.data.write().unwrap();
+                if let Some(reply_to) = data.deferred.take() {
+                    assert_eq!(reply_to.medium, cx.medium());
+                    Self::deferred_send_return_blocking(cx, reply_to.seq, value).unwrap();
+                }
+                if let Some(reply_to) = data.deferred_unit.take() {
+                    Self::deferred_unit_send_return_blocking(cx, reply_to.seq).unwrap();
+                }
+                if let Some(reply_to) = data.plug_vbus_cycle.take() {
+                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to.seq, value + 1)
+                        .unwrap();
+                }
+                Ready(())
+            }
+
+            fn request_seq(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u32> {
+                Ready(cx.seq())
+            }
+
+            fn request_medium(&mut self, cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                Ready(cx.medium() as u8)
+            }
+
+            fn absent(&mut self, _cx: &mut Cx<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                Unimplemented.into()
+            }
+
+            fn sub_byte(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                a: U7,
+                b: I10,
+                addr: I2cAddress,
+            ) -> RpcResult<U10> {
+                let addr = match addr {
+                    I2cAddress::Seven(a) => a.value() as u16,
+                    I2cAddress::Ten(a) => a.value(),
+                };
+                let sum = a.value() as i32 + b.value() as i32 + addr as i32;
+                Ready(U10::new(sum.clamp(0, U10::max().value() as i32) as u16).unwrap())
+            }
+
+            fn fallible(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                value: u8,
+            ) -> RpcResult<Result<u8, MethodError>> {
+                Ready(if value.is_multiple_of(2) {
+                    Ok(value / 2)
+                } else {
+                    Err(MethodError::Odd)
+                })
+            }
+
+            fn fallible_absent(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Result<(), MethodError>> {
+                Unimplemented.into()
+            }
+
+            fn listed_errors(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                pick: u8,
+            ) -> RpcResult<Result<(), ListedErrorOwned>> {
+                Ready(pick_error(pick))
+            }
+
+            fn all_common(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                pick: u8,
+            ) -> RpcResult<Result<(), ListedErrorOwned>> {
+                Ready(pick_error(pick))
+            }
+
+            fn valid_indices_root_unit(&mut self) -> ValidIndices<'_> {
+                ValidIndices::range_u32(0..no_std_sync_server::UNITS)
+            }
+
+            fn unit_double(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: u8,
+            ) -> RpcResult<u8> {
+                let _ = index_chain;
+                Ready(value.wrapping_mul(2))
+            }
+        }
+
+        fn pick_error(pick: u8) -> Result<(), ListedErrorOwned> {
+            match pick {
+                0 => Ok(()),
+                1 => Err(ListedErrorOwned::Common(CommonErrorOwned::Busy)),
+                2 => Err(ListedErrorOwned::Nack),
+                3 => Err(ListedErrorOwned::Common(CommonErrorOwned::Timeout)),
+                _ => Err(ListedErrorOwned::Overrun),
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                methods_api :: Methods for super::AllocServer,
+                server = true, no_alloc = false, use_async = false,
+                method_model = "deferred=deferred, deferred_unit=deferred, plug_vbus_cycle=deferred, _=immediate",
+                property_model = "_=get_set",
+                medium = "super::Medium",
+                multi_req = true,
+            );
+        }
+
+        impl TestProcessEvents for AllocServer {
+            type Medium = Medium;
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: Medium,
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
     mod std_client {
         use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
@@ -262,12 +463,22 @@ mod tests {
     fn start(path: &str) -> (TestDevice, Arc<RwLock<SharedTestData>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
-        let server = no_std_sync_server::NoStdSyncServer { data: data.clone() };
+        // the alloc server answers, the no_alloc one with its own state must give the same bytes (API-21)
+        let server = tests_common::Twin {
+            a: alloc_server::AllocServer { data: data.clone() },
+            b: no_std_sync_server::NoStdSyncServer {
+                data: Default::default(),
+            },
+        };
+        assert_eq!(
+            format!("{:?}", alloc_server::api_impl::api_hash()),
+            format!("{:?}", no_std_sync_server::api_impl::api_hash())
+        );
         let device = tests_common::start_device_on(
             path,
             server,
             methods_api::METHODS_FULL_GID,
-            no_std_sync_server::api_impl::api_hash(),
+            alloc_server::api_impl::api_hash(),
             Medium::Can,
         );
         (device, data)

@@ -142,10 +142,12 @@ pub fn gen_server(
         Ok(omissions) => omissions,
         Err(e) => return quote! { compile_error!(#e); },
     };
-    let additional_use = maybe_quote(
-        config.no_alloc,
-        quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::{RefVec, RefVecIter}; },
-    );
+    // owned argument structs of a `no_alloc = false` server are read with `des_shrink_wrap_owned` (API-21)
+    let additional_use = if config.no_alloc {
+        quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::RefVecIter; }
+    } else {
+        quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned; }
+    };
     let maybe_async = maybe_quote(config.use_async, quote! { async });
     let handlers = Handlers {
         model: &config.handler_model,
@@ -258,7 +260,7 @@ pub fn gen_server(
         config.observe_batch,
         config.observe_outbox,
     );
-    let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty);
+    let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, config.no_alloc);
     let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
         quote! {
             RequestKind::Observe { cfg } => {
@@ -316,7 +318,7 @@ pub fn gen_server(
         #[allow(unused_imports)]
         use wire_weaver::shrink_wrap::{
             DeserializeShrinkWrap, SerializeShrinkWrap, BufReader, BufWriter,
-            Error as ShrinkWrapError, nib32::UNib32, ElementSize,
+            Error as ShrinkWrapError, nib32::UNib32, ElementSize, RefVec,
             buf_writer::BufWriterState,
             tail_bytes::TailBytes,
         };
@@ -1491,6 +1493,56 @@ impl ApiServerCGContext<'_> {
         }
     }
 
+    /// Type of a value a handler takes or gives: borrowed in a `no_alloc` server, owned (`Vec`, `String`,
+    /// `..Owned`) otherwise (API-21).
+    fn value_ty(&self, api_bundle: &ApiBundleOwned, ty: &TypeOwned, pos: TyPos) -> TokenStream {
+        ty_def(api_bundle, ty, !self.no_alloc, pos).unwrap()
+    }
+
+    /// `des_shrink_wrap` of a [value_ty](Self::value_ty) (in `TyPos::Expr`), `des_shrink_wrap_owned` with alloc.
+    fn des_value(&self, ty: &TokenStream) -> TokenStream {
+        if self.no_alloc {
+            quote! { #ty::des_shrink_wrap }
+        } else {
+            quote! { #ty::des_shrink_wrap_owned }
+        }
+    }
+
+    /// Writes a handler's value into `wr` as the root of what follows (`ser_shrink_wrap`); an owned one through
+    /// `BufWriter::ser_owned`, the same bytes. An expression giving `Result<(), ShrinkWrapError>`.
+    fn ser_root_value(&self, value: TokenStream) -> TokenStream {
+        ser_root_value(self.no_alloc, value)
+    }
+
+    /// Writes a handler's value into `wr` as an element (`BufWriter::write`, `write_owned` with alloc). An
+    /// expression giving `Result<(), ShrinkWrapError>`.
+    fn write_value(&self, value: TokenStream) -> TokenStream {
+        if self.no_alloc {
+            quote! { wr.write(&#value) }
+        } else {
+            quote! { wr.write_owned(&#value) }
+        }
+    }
+
+    /// The answer to a read or call with a handler's value: as an element of a multi request, else as the root.
+    fn ser_handler_value(&self, value: TokenStream, es: TokenStream) -> TokenStream {
+        let root = self.ser_root_value(value.clone());
+        if self.multi_req {
+            let element = self.write_value(value);
+            quote! {
+                if in_multi {
+                    #element.map_err(|_| Error::response_ser_failed(#es))?;
+                } else {
+                    #root.map_err(|_| Error::response_ser_failed(#es))?;
+                }
+            }
+        } else {
+            quote! {
+                #root.map_err(|_| Error::response_ser_failed(#es))?;
+            }
+        }
+    }
+
     fn prepare_event_kind_builder(&self) -> TokenStream {
         let es = fixed_err_seq("REPLY_START");
         if self.multi_req {
@@ -1520,7 +1572,8 @@ fn handle_method(
     return_type: &Option<TypeOwned>,
 ) -> TokenStream {
     let maybe_enforce_ty = if let Some(ty) = return_type {
-        let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap();
+        // a `no_alloc = false` server's handlers return owned types (`Vec`, `String`, `..Owned`, API-21)
+        let enforce_ty = cx.value_ty(api_bundle, ty, TyPos::Annotation);
         quote! {
             let output: #enforce_ty = output;
         }
@@ -1571,11 +1624,7 @@ fn handle_method(
         item_err_seq("", "KIND_NOT_TAKEN"),
         item_err_seq("method", "HANDLER"),
     );
-    let ser_output = ser_value(
-        cx.multi_req,
-        quote! { output },
-        item_err_seq("method", "OUTPUT"),
-    );
+    let ser_output = cx.ser_handler_value(quote! { output }, item_err_seq("method", "OUTPUT"));
     let ev_kind_builder = cx.prepare_event_kind_builder();
     quote! {
         match &request.kind {
@@ -1621,16 +1670,18 @@ fn handle_property(
     }
     let maybe_index_chain_arg = index_chain.fun_argument_call();
     let maybe_index_chain_indices = index_chain.array_indices();
-    let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
+    let enforce_ty = cx.value_ty(api_bundle, ty, TyPos::Expr);
+    let des_value = cx.des_value(&enforce_ty);
     let es = item_err_seq("property", "USER_ERROR");
     let ser_user_err = user_error_ty
         .as_ref()
-        .map(|ty| ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap())
+        .map(|ty| cx.value_ty(api_bundle, ty, TyPos::Annotation))
         .map(|enforce_user_err_ty| {
+            let write_user_err = cx.write_value(quote! { user_err });
             quote! {
                 let user_err: #enforce_user_err_ty = user_err;
                 let err_builder = ErrorBuilder::new(#es, wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-                wr.write(&user_err).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                #write_user_err.map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
                 err_builder.finish_with_kind(ErrorKindDiscriminants::UserBytes, wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         })
@@ -1665,7 +1716,7 @@ fn handle_property(
                     let ev_kind_builder = cx.prepare_event_kind_builder();
                     quote! {
                         let mut rd = BufReader::new(data.as_slice());
-                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
+                        let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         match #set_call {
                             SetResult::Set => {
                                 #ev_kind_builder
@@ -1702,7 +1753,7 @@ fn handle_property(
                     quote! {
                         #ev_kind_builder
                         let mut rd = BufReader::new(data.as_slice());
-                        let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
+                        let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
                         if self.#prefixed_ident #maybe_index_chain_indices != value {
                             self.#prefixed_ident #maybe_index_chain_indices = value;
                             #mark_changed
@@ -1727,11 +1778,8 @@ fn handle_property(
         ),
         || {
             let es = item_err_seq("property", "HANDLER");
-            let ser_value = ser_value(
-                cx.multi_req,
-                quote! { value },
-                item_err_seq("property", "VALUE"),
-            );
+            let ser_value =
+                cx.ser_handler_value(quote! { value }, item_err_seq("property", "VALUE"));
             let ev_kind_builder = cx.prepare_event_kind_builder();
             let get_and_ser_property = match property_model_pick {
                 PropertyModelKind::GetSet => {
@@ -2013,9 +2061,10 @@ fn handle_stream_fn(
         quote! { args, .. }
     };
     let enforce_ty = match stream.return_ty {
-        Some(ty) => ty_def(api_bundle, ty, false, TyPos::Annotation).unwrap(),
+        Some(ty) => cx.value_ty(api_bundle, ty, TyPos::Annotation),
         None => quote! { () },
     };
+    let ser_output = cx.ser_root_value(quote! { output });
     let es_ser = item_err_seq("stream", "OPENED");
     let es_store = item_err_seq("stream", "STORE");
     let closed_opened = quote! {
@@ -2081,7 +2130,7 @@ fn handle_stream_fn(
                     #open_state
                     #ev_kind_builder
                     opened.ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
-                    output.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
+                    #ser_output.map_err(|_| Error::response_ser_failed(#es_ser))?;
                     Ok(WrAction::WrittenOk(event_kind_builder))
                 }
                 // a stream function answers right away: the session starts with its result
@@ -2287,10 +2336,11 @@ fn handle_stream(
         };
         let other_des = || {
             let es = item_err_seq("sink", "DATA");
-            let enforce_ty = ty_def(api_bundle, ty, false, TyPos::Expr).unwrap();
+            let enforce_ty = cx.value_ty(api_bundle, ty, TyPos::Expr);
+            let des_value = cx.des_value(&enforce_ty);
             let ts = quote! {
                 let mut rd = BufReader::new(data);
-                let value = #enforce_ty::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+                let value = #des_value(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
             };
             (ts, quote! { value })
         };
@@ -2571,10 +2621,20 @@ fn max_len_consts_recursive(
 }
 
 /// A deferred method's return helper: its error sites are the same for every method (SRV-22).
-fn ser_method_output(return_type: &Option<TypeOwned>, seq_path: TokenStream) -> TokenStream {
+fn ser_method_output(
+    return_type: &Option<TypeOwned>,
+    seq_path: TokenStream,
+    no_alloc: bool,
+) -> TokenStream {
     if let Some(_ty) = return_type {
         let es = fixed_err_seq("DEFERRED_OUTPUT_SER");
-        let ser_output = quote! { output.ser_shrink_wrap(&mut wr).map_err(|_| Error::response_ser_failed(#es))?; };
+        let ser = ser_root_value(no_alloc, quote! { output });
+        let ser_output = quote! {
+            {
+                let wr = &mut wr;
+                #ser.map_err(|_| Error::response_ser_failed(#es))?;
+            }
+        };
 
         let es0 = fixed_err_seq("DEFERRED_OUTPUT_FINISH");
         let es1 = fixed_err_seq("DEFERRED_EVENT_SER");
@@ -2614,11 +2674,16 @@ fn des_args(
     if args.is_empty() {
         (quote! {}, quote! {})
     } else {
+        let des = if no_alloc {
+            quote! { des_shrink_wrap }
+        } else {
+            quote! { des_shrink_wrap_owned }
+        };
         let args_des = quote! {
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
-            let args = #mod_ident::#args_struct_ident::des_shrink_wrap(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+            let args = #mod_ident::#args_struct_ident::#des(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
         };
         let idents = args
             .iter()
@@ -2636,11 +2701,6 @@ fn deferred_method_return_ser_methods(
     method_model: &MethodModel,
 ) -> TokenStream {
     let mut ts = TokenStream::new();
-    let byte_return_ty = if no_alloc {
-        quote! { &'i [u8] }
-    } else {
-        quote! { Vec<u8> }
-    };
     for item in &api_level.items {
         // nested levels use the handler's name: prefix chain + method, also for `method_model` patterns
         let prefixed = match ident_prefix {
@@ -2668,7 +2728,7 @@ fn deferred_method_return_ser_methods(
             format!("{prefixed}_ser_return_event").as_str(),
             Span::call_site(),
         );
-        let ser_output_or_unit = ser_method_output(return_ty, quote! { seq });
+        let ser_output_or_unit = ser_method_output(return_ty, quote! { seq }, no_alloc);
         let maybe_output = match return_ty {
             Some(ty) => {
                 let ty = ty_def(api_bundle, ty, !no_alloc, TyPos::Annotation).unwrap();
@@ -2676,9 +2736,15 @@ fn deferred_method_return_ser_methods(
             }
             None => quote! {},
         };
+        let ser = ser_root_value(no_alloc, quote! { output });
         let ser_output = maybe_quote(
             return_ty.is_some(),
-            quote! { output.ser_shrink_wrap(&mut wr)?; },
+            quote! {
+                {
+                    let wr = &mut wr;
+                    #ser?;
+                }
+            },
         );
         let ser_event = quote! {
             |scratch: &mut [u8]| -> Result<usize, ShrinkWrapError> {
@@ -2700,7 +2766,7 @@ fn deferred_method_return_ser_methods(
             Span::call_site(),
         );
         ts.extend(quote! {
-            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<#byte_return_ty, Error<'static>> {
+            pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<&'i [u8], Error<'static>> {
                 #ser_output_or_unit
             }
 
@@ -2718,6 +2784,16 @@ fn deferred_method_return_ser_methods(
     ts
 }
 
+/// See [ApiServerCGContext::ser_root_value].
+fn ser_root_value(no_alloc: bool, value: TokenStream) -> TokenStream {
+    if no_alloc {
+        quote! { #value.ser_shrink_wrap(wr) }
+    } else {
+        quote! { wr.ser_owned(&#value) }
+    }
+}
+
+/// A value of the framework (valid indices, a sink's status), borrowed in every server.
 fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStream {
     if multi_req {
         quote! {

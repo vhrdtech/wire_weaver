@@ -468,7 +468,7 @@ impl Scaffold<'_> {
             write!(args_def, "_{}: {ty}, ", arg.ident)?;
         }
         let return_ty = match return_ty {
-            Some(ty) => self.ty(ty, false)?,
+            Some(ty) => self.ty(ty, !self.no_alloc)?,
             None => "()".into(),
         };
         self.docs(item)?;
@@ -502,9 +502,9 @@ impl Scaffold<'_> {
         if matches!(access, PropertyAccess::Const) {
             return self.const_item(item, name, index_len, ty);
         }
-        let value_ty = self.ty(ty, false)?;
+        let value_ty = self.ty(ty, !self.no_alloc)?;
         let err_ty = match write_err_ty {
-            Some(ty) => self.ty(ty, false)?,
+            Some(ty) => self.ty(ty, !self.no_alloc)?,
             None => "()".into(),
         };
         let is_writable = matches!(
@@ -643,7 +643,7 @@ impl Scaffold<'_> {
                 TypeOwned::MaxLen { .. } if ty.is_byte_slice(self.api_bundle)? => {
                     "_data: &wire_weaver::shrink_wrap::tail_bytes::TailBytes<'_>".into()
                 }
-                _ => format!("_value: {}", self.ty(ty, false)?),
+                _ => format!("_value: {}", self.ty(ty, !self.no_alloc)?),
             };
             self.docs(item)?;
             writeln!(
@@ -673,7 +673,7 @@ impl Scaffold<'_> {
             write!(args_def, "_{}: {ty}, ", arg.ident)?;
         }
         let (return_ty, body) = match stream.return_ty {
-            Some(ty) => (self.ty(ty, false)?, "Unimplemented.into()"),
+            Some(ty) => (self.ty(ty, !self.no_alloc)?, "Unimplemented.into()"),
             // nothing to decide: accept the open
             None => ("()".into(), "RpcResult::Ready(())"),
         };
@@ -899,6 +899,39 @@ mod tests {
         // without a model everything follows use_async
         let code = gen_server_scaffold(&bundle, &config(&[])).unwrap();
         assert!(code.contains("async fn get_motor_current(") && !code.contains("handler_model"));
+    }
+
+    /// `no_alloc = false` (API-21): handlers take and give owned types, as the generated server calls them.
+    #[test]
+    fn alloc() {
+        let alloc = ServerScaffoldConfig {
+            no_alloc: false,
+            ..config(&[])
+        };
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/properties_api");
+        let bundle = crate::load(&crate_path, Some("Properties".into()), false).unwrap();
+        let code = gen_server_scaffold(&bundle, &alloc).unwrap();
+        for expected in [
+            "_value: properties_api :: CustomOwned)",
+            "GetResult<properties_api :: CustomOwned, ()>",
+            "no_alloc = false",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/methods_api");
+        let bundle = crate::load(&crate_path, Some("Methods".into()), false).unwrap();
+        let code = gen_server_scaffold(&bundle, &alloc).unwrap();
+        for expected in [
+            "_u: methods_api :: UserDefinedOwned",
+            "RpcResult<methods_api :: UserDefinedOwned>",
+            "methods_api :: ListedErrorOwned",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        assert!(
+            !code.contains("UserDefined <") && !code.contains("ListedError <"),
+            "{code}"
+        );
     }
 
     /// `observe_cells` (API-50): a static ring per level, its reader in `ObserveBatches::new`, the argument in

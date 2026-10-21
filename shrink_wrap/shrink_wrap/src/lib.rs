@@ -15,6 +15,8 @@ use core::fmt::{Display, Formatter};
 pub mod buf_writer;
 pub use buf_writer::BufWriter;
 #[cfg(feature = "std")]
+pub use buf_writer::OwnedSer;
+#[cfg(feature = "std")]
 pub mod buf_writer_owned;
 #[cfg(feature = "std")]
 pub use buf_writer_owned::BufWriterOwned;

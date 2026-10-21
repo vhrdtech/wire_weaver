@@ -15,7 +15,7 @@ use crate::codegen::util::{
 use crate::property_model::{PropertyModel, PropertyModelKind};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 use std::collections::BTreeSet;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned,
@@ -1424,6 +1424,7 @@ impl Observe {
         api_bundle: &ApiBundleOwned,
         handlers: Handlers<'_>,
         medium_ty: &TokenStream,
+        no_alloc: bool,
     ) -> TokenStream {
         if !self.is_enabled() {
             return quote! {};
@@ -1447,7 +1448,7 @@ impl Observe {
             });
             quote! { #(#fns)* }
         });
-        let poll = self.poll_properties(api_bundle, handlers, medium_ty);
+        let poll = self.poll_properties(api_bundle, handlers, medium_ty, no_alloc);
         quote! {
             #observe_request
             #(#mark_changed)*
@@ -1596,6 +1597,7 @@ impl Observe {
         api_bundle: &ApiBundleOwned,
         handlers: Handlers<'_>,
         medium_ty: &TokenStream,
+        no_alloc: bool,
     ) -> TokenStream {
         let use_async = handlers.use_async;
         let maybe_async = maybe_quote(use_async, quote! { async });
@@ -1637,8 +1639,11 @@ impl Observe {
             |p: &Prop| matches!(p.model, PropertyModelKind::GetSet) && handlers.is_async(&p.dotted);
         let cache_ident =
             |i: usize, k: usize| Ident::new(&format!("value_{i}_{k}"), Span::call_site());
-        let max_len_of = |p: &Prop, ty: &TokenStream| {
-            if p.batched {
+        let max_len_of = |p: &Prop, ty: &TokenStream, owned: bool| {
+            if owned {
+                // no bound for a value that can grow
+                quote! { ww_stream::observe::max_write_len::<wire_weaver::shrink_wrap::OwnedSer<'static, #ty>>() }
+            } else if p.batched {
                 quote! { ww_stream::observe::max_batched_one_len::<#ty>() }
             } else {
                 quote! { ww_stream::observe::max_write_len::<#ty>() }
@@ -1656,9 +1661,17 @@ impl Observe {
             let mut unbounded_i = vec![];
             let mut chosen_i = vec![];
             for (k, p) in level.props.iter().enumerate() {
-                let ty = ty_def(api_bundle, &p.ty, false, TyPos::Annotation).unwrap();
+                // the handlers of a `no_alloc = false` server give owned values (API-21): written through `OwnedSer`
+                // when they aren't the borrowed type (a batched property's type never borrows)
+                let owned = !no_alloc && p.ty.is_lifetime(api_bundle).unwrap();
+                let ty = ty_def(api_bundle, &p.ty, !no_alloc, TyPos::Annotation).unwrap();
+                let value = if owned {
+                    quote! { &wire_weaver::shrink_wrap::OwnedSer(value) }
+                } else {
+                    quote! { value }
+                };
                 let index = p.index;
-                let max_len = max_len_of(p, &ty);
+                let max_len = max_len_of(p, &ty, owned);
                 let get = Ident::new(&format!("get_{}", p.prefixed), Span::call_site());
                 let get_call = handlers.call(&p.dotted, quote! { self.#get(&mut cx) });
                 let v = cache_ident(i, k);
@@ -1691,13 +1704,13 @@ impl Observe {
                 let measured = if p.batched {
                     quote! { ww_stream::observe::measure(&ww_client_server::observe::BatchedOne(value), &mut *buf) }
                 } else {
-                    quote! { ww_stream::observe::measure(value, &mut *buf) }
+                    quote! { ww_stream::observe::measure(#value, &mut *buf) }
                 };
                 // slot `k`'s value into the update
                 let put = if p.batched {
                     quote! { wr.write(#index, &ww_client_server::observe::BatchedOne(value)).is_ok() }
                 } else {
-                    quote! { wr.write(#index, value).is_ok() }
+                    quote! { wr.write(#index, #value).is_ok() }
                 };
                 let (size_one, write_one) = match p.model {
                     PropertyModelKind::GetSet if is_async(p) => (
@@ -2094,13 +2107,18 @@ fn update_struct(
     name: &str,
     no_alloc: bool,
 ) -> TokenStream {
-    let name = Ident::new(name, Span::call_site());
     // a `Batched<'i, T>` slot borrows its series
     let is_lifetime = level
         .props
         .iter()
         .any(|p| p.batched || p.ty.is_lifetime(api_bundle).unwrap());
     let needs_lifetime = no_alloc && is_lifetime;
+    // with owned fields (a `no_alloc = false` server, API-21), the name shrink_wrap wants for an owned type
+    let name = if !no_alloc && is_lifetime {
+        format_ident!("{name}Owned")
+    } else {
+        Ident::new(name, Span::call_site())
+    };
     let maybe_lifetime = maybe_quote(needs_lifetime, quote! { <'i> });
     let disambiguate = maybe_quote(
         !needs_lifetime,

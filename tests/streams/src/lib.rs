@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
     use streams_api::Point;
@@ -16,23 +17,20 @@ mod tests {
         plain_sink: Vec<u8>,
         user_sink: Vec<Point>,
         bytes_sink: Vec<Vec<u8>>,
-        /// Reply to a sideband command with the same command
-        ack_sideband: bool,
+        /// Reply to a sideband command with the same command, shared by both servers of the `Twin`
+        ack_sideband: Arc<AtomicBool>,
     }
 
-    mod no_std_sync_server {
-        use super::*;
-        use tests_common::TestProcessEvents;
-
-        pub struct NoStdSyncServer {
-            pub data: Arc<Mutex<SharedTestData>>,
-        }
-
-        impl NoStdSyncServer {
+    /// Same handlers for both servers, they only differ in `no_alloc` (API-21): no handler takes or gives a type
+    /// that borrows
+    macro_rules! handlers {
+        () => {
             fn record(&mut self, name: &str, sideband: StreamSideband) -> Option<StreamSideband> {
                 let mut data = self.data.lock().unwrap();
                 data.sideband.push((name.to_string(), sideband));
-                data.ack_sideband.then_some(sideband)
+                data.ack_sideband
+                    .load(Ordering::Relaxed)
+                    .then_some(sideband)
             }
 
             fn sideband_plain_stream(
@@ -235,6 +233,19 @@ mod tests {
             ) {
                 self.data.lock().unwrap().bytes_sink.push(data.0.to_vec());
             }
+        };
+    }
+
+    mod no_std_sync_server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+
+        pub struct NoStdSyncServer {
+            pub data: Arc<Mutex<SharedTestData>>,
+        }
+
+        impl NoStdSyncServer {
+            handlers!();
         }
 
         pub mod api_impl {
@@ -248,6 +259,44 @@ mod tests {
         }
 
         impl TestProcessEvents for NoStdSyncServer {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    /// The same API served with `no_alloc = false` (API-21). Tests run against it, with [no_std_sync_server] as the
+    /// reference it must match byte for byte (`tests_common::Twin`).
+    mod alloc_server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+
+        pub struct AllocServer {
+            pub data: Arc<Mutex<SharedTestData>>,
+        }
+
+        impl AllocServer {
+            handlers!();
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                streams_api :: Streams for super::AllocServer,
+                server = true, no_alloc = false, use_async = false,
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+            );
+        }
+
+        impl TestProcessEvents for AllocServer {
             type Medium = ();
 
             fn process_request_bytes<'a>(
@@ -294,12 +343,21 @@ mod tests {
     fn start(path: &str) -> (TestDevice, Arc<Mutex<SharedTestData>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(Mutex::new(SharedTestData::default()));
-        let server = no_std_sync_server::NoStdSyncServer { data: data.clone() };
+        // the alloc server answers, the no_alloc one with its own state must give the same bytes (API-21)
+        let server = tests_common::Twin {
+            a: alloc_server::AllocServer { data: data.clone() },
+            b: no_std_sync_server::NoStdSyncServer {
+                data: Arc::new(Mutex::new(SharedTestData {
+                    ack_sideband: data.lock().unwrap().ack_sideband.clone(),
+                    ..Default::default()
+                })),
+            },
+        };
         let device = tests_common::start_device(
             path,
             server,
             streams_api::STREAMS_FULL_GID,
-            no_std_sync_server::api_impl::api_hash(),
+            alloc_server::api_impl::api_hash(),
         );
         (device, data)
     }
@@ -426,7 +484,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sideband_reply_from_device() {
         let (device, data) = start("streams/sideband_reply");
-        data.lock().unwrap().ack_sideband = true;
+        data.lock()
+            .unwrap()
+            .ack_sideband
+            .store(true, Ordering::Relaxed);
         let client = connect(&device).await;
         let mut stream = client.plain_stream().call().await.unwrap();
         assert_eq!(
@@ -522,10 +583,21 @@ mod tests {
         let (device, _data) = start("streams/odd_sized");
         let client = connect(&device).await;
         let mut stream = client.odd_stream().call().await.unwrap();
-        let mut scratch = [0u8; 64];
+        let (mut scratch, mut alloc_scratch) = ([0u8; 64], [0u8; 64]);
         for (n, name, flag) in [(1, "a", true), (2, "", false), (3, "three", true)] {
             let odd = streams_api::Odd { n, name, flag };
-            device.send(stream_data_ser().odd_stream(&odd, &mut scratch).unwrap());
+            let event = stream_data_ser().odd_stream(&odd, &mut scratch).unwrap();
+            // an alloc server sends the owned item with the same bytes (API-21)
+            let owned = streams_api::OddOwned {
+                n,
+                name: name.into(),
+                flag,
+            };
+            let alloc_event = alloc_server::api_impl::stream_data_ser()
+                .odd_stream(&owned, &mut alloc_scratch)
+                .unwrap();
+            assert_eq!(alloc_event, event);
+            device.send(alloc_event);
         }
         for (n, name, flag) in [(1, "a", true), (2, "", false), (3, "three", true)] {
             let odd = stream.recv().await.unwrap();
@@ -600,7 +672,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sideband_reply_releases_seq() {
         let (device, data) = start("streams/sideband_reply_seq");
-        data.lock().unwrap().ack_sideband = true;
+        data.lock()
+            .unwrap()
+            .ack_sideband
+            .store(true, Ordering::Relaxed);
         let client = connect_one_seq(&device).await;
         let mut stream = client.plain_stream().call().await.unwrap();
         assert_eq!(
@@ -622,7 +697,10 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sink_sideband_from_device() {
         let (device, data) = start("streams/sink_sideband");
-        data.lock().unwrap().ack_sideband = true;
+        data.lock()
+            .unwrap()
+            .ack_sideband
+            .store(true, Ordering::Relaxed);
         let mut client = connect(&device).await;
         let mut sink = client.user_sink().await.unwrap();
         let recv = async |sink: &mut wire_weaver_client::Sink<Point>| {

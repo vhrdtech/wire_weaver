@@ -20,8 +20,68 @@ mod tests {
         ch_level: [u8; CHANNELS as usize],
     }
 
-    /// Same handlers for both servers, they only differ in `multi_req`
+    /// Same handlers for all servers, they only differ in `multi_req` and `no_alloc`: `alloc` for the
+    /// `no_alloc = false` ones, which take and give `custom` owned (API-21)
     macro_rules! handlers {
+        () => {
+            common_handlers!();
+
+            fn get_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Custom<'_>, ()> {
+                Value(Custom {
+                    z: 123,
+                    inner: RefVec::Slice {
+                        slice: &[Inner { u: 63, v: "abc" }, Inner { u: 127, v: "def" }],
+                    },
+                })
+            }
+
+            fn set_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                custom: Custom<'_>,
+            ) -> SetResult<()> {
+                let custom = custom.make_owned();
+                self.data.write().unwrap().custom = custom;
+                Set
+            }
+        };
+        (alloc) => {
+            common_handlers!();
+
+            fn get_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<CustomOwned, ()> {
+                Value(CustomOwned {
+                    z: 123,
+                    inner: vec![
+                        InnerOwned {
+                            u: 63,
+                            v: "abc".into(),
+                        },
+                        InnerOwned {
+                            u: 127,
+                            v: "def".into(),
+                        },
+                    ],
+                })
+            }
+
+            fn set_custom(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                custom: CustomOwned,
+            ) -> SetResult<()> {
+                self.data.write().unwrap().custom = custom;
+                Set
+            }
+        };
+    }
+
+    macro_rules! common_handlers {
         () => {
             fn set_x(
                 &mut self,
@@ -45,28 +105,6 @@ mod tests {
                 api_impl::stream_data_ser()
                     .y_send_blocking(&self.y, _cx)
                     .unwrap();
-            }
-
-            fn get_custom(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> GetResult<Custom<'_>, ()> {
-                Value(Custom {
-                    z: 123,
-                    inner: RefVec::Slice {
-                        slice: &[Inner { u: 63, v: "abc" }, Inner { u: 127, v: "def" }],
-                    },
-                })
-            }
-
-            fn set_custom(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                custom: Custom<'_>,
-            ) -> SetResult<()> {
-                let custom = custom.make_owned();
-                self.data.write().unwrap().custom = custom;
-                Set
             }
 
             fn set_absent(
@@ -215,6 +253,83 @@ mod tests {
         }
     }
 
+    mod alloc_multi_req_server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+        use wire_weaver::{SetResult, Unimplemented};
+
+        pub struct Server {
+            pub data: Arc<RwLock<SharedTestData>>,
+            pub y: u8,
+        }
+
+        impl Server {
+            handlers!(alloc);
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                properties_api :: Properties for super::Server,
+                server = true, no_alloc = false, use_async = false,
+                method_model = "_=immediate",
+                property_model = "x=get_set, y=value_on_changed",
+                multi_req = true
+            );
+        }
+
+        impl TestProcessEvents for Server {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    mod alloc_single_req_server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+        use wire_weaver::{SetResult, Unimplemented};
+
+        pub struct Server {
+            pub data: Arc<RwLock<SharedTestData>>,
+            pub y: u8,
+        }
+
+        impl Server {
+            handlers!(alloc);
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                properties_api :: Properties for super::Server,
+                server = true, no_alloc = false, use_async = false,
+                method_model = "_=immediate",
+                property_model = "x=get_set, y=value_on_changed",
+            );
+        }
+
+        impl TestProcessEvents for Server {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
     mod std_client {
         use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
@@ -246,15 +361,22 @@ mod tests {
     fn start_multi_req(path: &str) -> (TestDevice, Arc<RwLock<SharedTestData>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
-        let server = multi_req_server::Server {
-            data: data.clone(),
-            y: 0xBB,
+        // the alloc server answers, the no_alloc one with its own state must give the same bytes (API-21)
+        let server = tests_common::Twin {
+            a: alloc_multi_req_server::Server {
+                data: data.clone(),
+                y: 0xBB,
+            },
+            b: multi_req_server::Server {
+                data: Default::default(),
+                y: 0xBB,
+            },
         };
         let device = tests_common::start_device(
             path,
             server,
             properties_api::PROPERTIES_FULL_GID,
-            multi_req_server::api_impl::api_hash(),
+            alloc_multi_req_server::api_impl::api_hash(),
         );
         (device, data)
     }
@@ -262,15 +384,22 @@ mod tests {
     fn start_single_req(path: &str) -> (TestDevice, Arc<RwLock<SharedTestData>>) {
         let _ = tracing_subscriber::fmt::try_init();
         let data = Arc::new(RwLock::new(SharedTestData::default()));
-        let server = single_req_server::Server {
-            data: data.clone(),
-            y: 0xBB,
+        // the alloc server answers, the no_alloc one with its own state must give the same bytes (API-21)
+        let server = tests_common::Twin {
+            a: alloc_single_req_server::Server {
+                data: data.clone(),
+                y: 0xBB,
+            },
+            b: single_req_server::Server {
+                data: Default::default(),
+                y: 0xBB,
+            },
         };
         let device = tests_common::start_device(
             path,
             server,
             properties_api::PROPERTIES_FULL_GID,
-            single_req_server::api_impl::api_hash(),
+            alloc_single_req_server::api_impl::api_hash(),
         );
         (device, data)
     }

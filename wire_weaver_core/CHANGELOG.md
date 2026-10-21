@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `no_alloc = false` servers compile and work (API-21): their handlers take and give owned types (`Vec`, `String`, `..Owned`; a method's return, a property's value and write error, a sink's item, a stream function's result, stream items, deferred returns), the arguments structs are read with `des_shrink_wrap_owned`, owned values are written into the reply buffer with shrink_wrap's `BufWriter::ser_owned` / `write_owned` (the same bytes a `no_alloc` server sends, checked by running the `methods`, `properties` and `streams` test suites against both), and observed properties with an owned type go through `OwnedSer`; the `<Trait>Update` of such a level is `<Trait>UpdateOwned`. Before, they failed to compile (args structs without `des_shrink_wrap`, a missing `RefVec` import, a deferred `<method>_ser_return_event` typed `Vec<u8>`, borrowed return types). `ww api scaffold --alloc` prints the owned handler signatures. See `docs/transport/hub.md#servers-on-std-no_alloc-false`.
+
 ### 🚀 Features
 
 - Compressed counted streams (API-55): generated server code opens, resumes, closes and reads a (not batched) counted stream through `ww_stream::codec::CountedState` and answers the codec it took in `StreamOpened`, so `stream_<name>()` may return a `ww_stream::codec::Compressed` as well as a `Counted`; the scaffold names it.

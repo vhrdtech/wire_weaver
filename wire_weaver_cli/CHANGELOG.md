@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-- `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
+- `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`). The hub runs on a thread and runtime of its own (one thread, see `ww_hub::run_blocking`).
 
 ### 🐛 Fixes
 

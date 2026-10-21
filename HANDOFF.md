@@ -25,7 +25,7 @@ Gotchas: interprocess 2.4 needs tokio >= 1.54 (workspace pinned). macOS can't ch
 ## Next (part B, after SRV-29 lands)
 
 - `ww_hub_api` `Claims` group: `claim(device, path, purpose, ttl) -> Result<ClaimId, ClaimError { InUse { by: ClientMeta, since, purpose }, NotClaimable, Overlap }>`, `release`, `claims(device)`.
-- Hub enforcement: other instances' calls and writes at/under a claimed path -> `Common(InUse)` (with label), not forwarded; reads/streams/observe open (taken for `observe`); `shared` semantics; overlap by path ancestry and `shares`; claims owned by instance id (CLT-41), dropped on last connection close or ttl.
+- Hub enforcement: other instances' calls and writes at/under a claimed path -> `Common(InUse)` (with label), not forwarded; reads/streams/observe open (taken for `observe`); `shared` semantics; overlap by path ancestry and `shares`; claims owned by (principal, instance id), not the self-reported ClientMeta instance id alone (parent, from the SRV-33 federation design: else a remote peer could join a local client's instance); today the principal is the local OS user (peer uid from the socket), keep a `principal` field so SRV-37 rights can fill it later; dropped on last connection close or ttl.
 - Docs section in `docs/transport/hub.md` (hub vs device claims), tests (two clients, CAN bus path, InUse with metadata, stream keeps flowing, claimer killed -> claim gone).
 
 ## Gotchas

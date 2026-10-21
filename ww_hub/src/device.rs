@@ -76,28 +76,30 @@ impl WwClient for Raw {
 /// (`holders::key_for`), or `inproc:<path>`, a device served in the hub's own process (`wire_weaver_client::in_process`: tests, simulators
 /// hosted with the hub).
 fn config_for(key: &str) -> Option<ClientConfig> {
-    let config = if let Some(path) = key.strip_prefix("inproc:") {
-        ClientConfig::new().in_process_path(path.to_string())
-    } else if let Some(rest) = key.strip_prefix("usb:") {
-        let mut parts = rest.splitn(4, ':');
-        let vid = u16::from_str_radix(parts.next()?, 16).ok()?;
-        let pid = u16::from_str_radix(parts.next()?, 16).ok()?;
-        let serial = parts.next()?;
-        let config = ClientConfig::new().usb_vid_pid(vid, pid);
-        if serial.is_empty() {
-            config
-        } else {
-            config.serial_eq(serial.to_string())
+    let (scheme, rest) = key.split_once(':')?;
+    let config = match scheme {
+        "inproc" => ClientConfig::new().in_process_path(rest.to_string()),
+        "usb" => {
+            let mut parts = rest.splitn(4, ':');
+            let vid = u16::from_str_radix(parts.next()?, 16).ok()?;
+            let pid = u16::from_str_radix(parts.next()?, 16).ok()?;
+            let serial = parts.next()?;
+            let config = ClientConfig::new().usb_vid_pid(vid, pid);
+            if serial.is_empty() {
+                config
+            } else {
+                config.serial_eq(serial.to_string())
+            }
         }
-    } else if let Some(rest) = key.strip_prefix("rtt:") {
-        // `rtt:<probe serial>:<chip>`; filters after `rtt` pick the probe. Needs `wire_weaver_client`'s `rtt`
-        // feature, which `ww` has: without it the open fails with a message that says so.
-        let (probe, chip) = rest.split_once(':')?;
-        ClientConfig::new()
-            .rtt(chip.to_string(), None)
-            .serial_eq(probe.to_string())
-    } else {
-        return None;
+        "rtt" => {
+            // `rtt:<probe serial>:<chip>`; filters after `rtt` pick the probe. Needs `wire_weaver_client`'s `rtt`
+            // feature, which `ww` has: without it the open fails with a message that says so.
+            let (probe, chip) = rest.split_once(':')?;
+            ClientConfig::new()
+                .rtt(chip.to_string(), None)
+                .serial_eq(probe.to_string())
+        }
+        _ => return None,
     };
     // what the hub forwards was checked by its clients, and it never calls the device's API itself
     Some(

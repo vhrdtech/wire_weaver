@@ -4,27 +4,24 @@ Design: `~/git/tpm/prj/P2401-wireweaver/design/framer_frame_seq.md` (round 2, de
 
 ## Done
 
-- Piece 1 (commit "feat(framer): frame prefix ..."): `ww_framer::prefix` (`FramePrefix`, `NopPrefix`, `SeqPrefix`, `SeqRx`, `FrameReport`, `PrefixStats`), 4th generic param `P = NopPrefix` on `Tx`/`FramedRx`/owned/`Pieces`; `Tx::new_session()`; `FramedRx::stage`/`commit_staged` return `FrameReport`. Checksums now cover frame prefix + head of the piece carrying them (fuzz found a flipped user-kind bit delivered under the wrong kind). `CrcAlgorithm` is a fn now. Fuzz target `framer-lossy` (12M runs / 15 min clean). Docs ww_framer.md, ww_framer_wire.md.
-- Piece 2 (commit "feat(link): random setup token ..."): token in GetDeviceInfo/LinkSetup, echoed in DeviceInfo/LinkReady; host drops all before its DeviceInfo; device `Transmit::NewSession` + `MessageTx::new_session()`; `Error::IncompatibleLinkVersion`. E2E `previous_session_leftovers_are_dropped`. Docs ww_link.md "Setup token".
+- Piece 1 (6a4a24ef): `ww_framer::prefix`, checksums over prefix + head, fuzz target `framer-lossy`.
+- Piece 2 (a042a15d): setup token, device framer reset, `Error::IncompatibleLinkVersion`.
+- Fix (c115560a): host rx task drained ToRx before a transport error (keep_streams race, found by sink_e2e).
+- Piece 3 (f00db6c3): `ww_link::Framing` (UsbFraming, UsbSeqFraming, UdpFraming), LinkCrc32 = ww_block CRC-32, PacketSink/Source::Framing, USB interface protocol 0x37/0x38 picks the host framing, `wire_weaver_usb_embassy` feature `seq-prefix`, tap prefix + CRC-32, `ww stats` PrefixCounts, `ww monitor` prefix, transcripts.
 
-## Next (piece 3, then 4)
+## Next: piece 4
 
-- ww_link: `UsbChecksum = NopChecksum`, `UsbPrefix = NopPrefix` (+ option `SeqPrefix`), `UdpChecksum = CrcChecksum<BlockCrc32, true>` via `ww_block::crc32_update` (Roman: ww_block's CRC-32 is the one implementation; ww_link std -> ww_block crc-table-slice16), `UdpPrefix = SeqPrefix`.
-- ww_device FramedTx/FramedRx are hardcoded to USB config types: make the framing a type param (a `Framing` trait in ww_link with Head/Checksum/Tail/Prefix). UDP device side + `starts_link_setup` must skip the prefix. Device rx resync on takeover (reset already resyncs).
-- Host: usb/event_loop.rs, udp.rs, in_process.rs use the configs; counters (`prefix_stats`) into `ww stats`; tap: `ww_tap::Framer::U2` needs a prefix field + CRC-32 checksum variant; reassembly.rs walker with prefix; `ww monitor` shows prefix per frame.
-- dfu_scenarios transcripts change again (USB without CRC): `just dfu-transcripts`.
-- Piece 4: usb_internals.md, udp.md, evolution note; FEATURES TR-15 (claimed) + tests/features_page/entries.md + `just features-page`; flash/stack numbers on thumbv8m for the device side; just test + just lint.
+- Docs: docs/transport/usb_internals.md, udp.md, ww_link.md (Framing, per medium table), ww_framer.md mention, evolution note (wire break of USB/UDP link: which devices/hosts).
+- FEATURES.md TR-15 (claimed) done + tests/features_page/entries.md + `just features-page`.
+- Ask before `just build-docs` (user may run serve-docs).
+- Then just test + just lint, `git rm HANDOFF.md`, tpm work ready.
 
-## Piece 3 call sites (rg UsbChecksum|UdpChecksum|TxFramer|RxFramer|FRAMED_CRC16)
+## Numbers (for the report)
 
-- ww_device/src/transport.rs: `TxFramer`/`RxFramer` aliases = USB config, used by `FramedTx`/`FramedRx` (also UDP!), blocking.rs, udp.rs (`UdpBuffers`, `starts_link_setup` reads `UdpHead` at datagram start: skip prefix), tests.rs.
-- wire_weaver_client: usb/event_loop.rs, udp.rs, in_process.rs (UsbTxFramer), event_loop/device_e2e_tests.rs + stream_e2e_tests.rs (USB aliases), tap: `crate::tap::FRAMED_CRC16` passed to `host_session` (usb, udp, in_process) -> becomes per-medium framer descriptions; tap/reassembly.rs `walker()` maps `ww_tap::FramerChecksum` (only None / Crc16IbmSdlc today) and passes `&[]` prefix to `verify_split` (TODO piece 3: real prefix via `pieces_with_prefix`).
-- ww_tap/src/lib.rs: `Framer::U2 { checksum, tail, stream }` needs a prefix field (enum `FramerPrefix { None, Seq }`) and `FramerChecksum::Crc32IsoHdlc { full }`; it's a ww_trait type in ww_tap's API bundle: check `just save-snapshots` / ww_tap snapshot rules if any.
-- tests/dfu_scenarios/src/record.rs, examples_mcu/mcu_qemu/src/bin/framer_rx.rs (QEMU instruction benchmark of FramedRx with USB config: good place for before/after numbers).
-- Embedded numbers: thumbv8m (e.g. `thumbv8m.main-none-eabihf`) flash/stack of a ww_device USB build and UDP build before (master 1c93a961) vs after; examples_mcu/rp2 has `ww_udp_ncm` (RP2350 = thumbv8m).
+- QEMU M3 framer_rx (opt 3, 60 msgs over 64-B frames): master USB (CRC-16) 75,202 insns / 59 frames; now USB 54,867 / 58; USB seq 61,882 / 59; UDP 233,108 bitwise CRC-32, 96,218 crc-table-256, 98,618 slice16 / 63 frames.
+- RP2350 thumbv8m opt z, text/bss: usb_blinky master 58164/12288, after pieces 1-2 59692/12336, now 58908/12336. udp_ncm master 104364/44312, pieces 1-2 106160/44392, now 107236/44472.
+- Stack (-Z emit-stack-sizes): ww_server task poll 1296 -> 1288 B (USB), 1304 -> 1304 (UDP); FramedRx wait 152 -> 160 (USB), 128 -> 144 (UDP). Pre-existing: rp2 udp_ncm main task frame 32,600 B (not ours).
 
-## Decisions / gotchas
+## Gotchas
 
-- No version bump (memory rule; workspace 0.5.0 already > crates.io 0.4.0). Older 0.5.0-dev peers are detected by the missing token (reads 0), not by version.
-- SeqRx: epoch +1/+2 = new session, -1 = stale; resync only on two consecutive duplicate-looking frames that follow each other, and that frame is dropped. Order guaranteed unless a frame was corrupted (corrupted prefix can shift the reference before CRC rejects the frame).
-- Device resets tx framer on every GetDeviceInfo (also retries); host keeps one token per connect.
+- base worktree /tmp/fp-base (detached) used for before numbers; remove with `git worktree remove /tmp/fp-base` at the end.

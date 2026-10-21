@@ -212,6 +212,7 @@ dependencies = [
  "libfuzzer-sys",
  "shrink_wrap",
  "ww_framer",
+ "ww_link",
  "ww_self",
  "ww_stream",
  "ww_tape",
@@ -796,6 +797,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "wire_weaver",
+ "ww_error",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
@@ -827,6 +837,18 @@ dependencies = [
  "serde",
  "serde_json",
  "shrink_wrap",
+]
+
+[[package]]
+name = "ww_link"
+version = "0.5.0"
+dependencies = [
+ "shrink_wrap",
+ "wire_weaver",
+ "ww_block",
+ "ww_framer",
+ "ww_global",
+ "ww_version",
 ]
 
 [[package]]

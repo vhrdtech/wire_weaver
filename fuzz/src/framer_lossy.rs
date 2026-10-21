@@ -1,6 +1,6 @@
 #![no_main]
 
-//! `ww_framer` with `SeqPrefix` and a CRC-32 on every message (the UDP configuration of `ww_link`) over a channel
+//! `ww_framer` with `ww_link::UdpFraming` (`SeqPrefix`, a CRC-32 on every message: what UDP uses) over a channel
 //! that loses, duplicates, delays (reorders) and corrupts frames, and starts new sessions on the sender. Whatever
 //! the channel does, the receiver must not panic and every message it delivers must be a sent one (the CRC); unless
 //! a frame was corrupted, each comes at most once and in the order they were sent (the prefix: a corrupted prefix
@@ -13,9 +13,7 @@
 
 use arbitrary::Unstructured;
 use libfuzzer_sys::fuzz_target;
-use ww_framer::crc::{Crc32IsoHdlc, CrcChecksum};
-use ww_framer::prefix::SeqPrefix;
-use ww_framer::{FramedRx, Tx, framed::U2Head, traits::NopTail};
+use ww_link::{FramingRx, FramingTx, UdpFraming};
 
 const MAX_FRAMES: usize = 256;
 const MAX_SMALL_MSG: usize = 32;
@@ -27,7 +25,6 @@ const MAX_FRAME: usize = 256;
 const RX_BUF: usize = MAX_LARGE_MSG + MAX_FRAME;
 const MAX_DELAY: usize = 4;
 const MIN_SESSION_FRAMES: usize = 2 * MAX_DELAY;
-type Checksum = CrcChecksum<Crc32IsoHdlc, true>;
 
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
@@ -36,7 +33,7 @@ fuzz_target!(|data: &[u8]| {
 
     // ---------- Tx side ----------
     let mut tx_buf = vec![0u8; frame_size];
-    let mut tx = Tx::<U2Head, Checksum, NopTail, SeqPrefix>::new(&mut tx_buf);
+    let mut tx = FramingTx::<UdpFraming>::new(&mut tx_buf);
     let mut sent: Vec<(u8, Vec<u8>)> = Vec::new();
     let mut frames: Vec<Vec<u8>> = Vec::new();
     let mut new_sessions = false;
@@ -144,7 +141,7 @@ fuzz_target!(|data: &[u8]| {
 
     // ---------- Rx side ----------
     let mut rx_buf = vec![0u8; RX_BUF];
-    let mut rx = FramedRx::<U2Head, Checksum, NopTail, SeqPrefix>::new(&mut rx_buf);
+    let mut rx = FramingRx::<UdpFraming>::new(&mut rx_buf);
     // messages must come out as a subsequence of the sent ones
     let mut next = 0usize;
     let mut received = 0usize;

@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }
 ww_framer = { path = "../ww_framer", features = ["large", "very_large"] }
+ww_link = { path = "../ww_link", features = ["std"] }
 ww_self = { path = "../ww_self" }
 ww_stream = { path = "../ww_stream", features = ["std"] }
 ww_tape = { path = "../ww_tape" }

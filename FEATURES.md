@@ -1330,7 +1330,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `written` stream, and the counted `read_runs` stream. Who may claim is the firmware's choice per link
   (`Common(Refused)`). Tier T1 of P2628 (logring's PC `LinkMedium`, S2 prepare on the PC). API crate, snapshot,
   docs page `docs/std_library/ww_block.md` and the round trip `tests/block_sd` done, the scaffold compiles; the
-  first server is the logring's.
+  first server is the logring's. `crc32`/`crc32_update` are table-driven, table size (none, `crc-table-256`,
+  `crc-table-slice16`) picked by cargo feature.
 - 🚧 **STD-40 `ww_sd`** · `v0.5.x` — raw SD card access over WireWeaver: `SdCard` with `capabilities`, `state`, the
   `detect` stream, raw `registers` (CID, CSD, OCR, RCA, SCR, SD Status), `reinit` with a per-step `InitReport`, and
   `command`: one raw command with an optional data phase, answering response bytes, `CardStatus` bits, the

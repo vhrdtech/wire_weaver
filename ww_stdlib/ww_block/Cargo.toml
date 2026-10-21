@@ -11,8 +11,12 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 default = ["std"]
 std = ["wire_weaver/std", "ww_error/std"]
 defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
+# crc32/crc32_update table size, smallest (bitwise) to fastest; enabling both picks crc-table-slice16.
+crc-table-256 = []
+crc-table-slice16 = []
 
 [dependencies]
+crc.workspace = true
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_error = { workspace = true, default-features = false }

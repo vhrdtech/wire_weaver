@@ -8,6 +8,9 @@ test:
     # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer
     cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow
+    # ww_block's crc32/crc32_update, table size other than the default (STD-39)
+    cargo nextest run -p ww_block --features crc-table-256
+    cargo nextest run -p ww_block --features crc-table-slice16
     # the conformance matrix's Python consumer (TEST-23), the Rust ones run above
     just test-conformance-py
     # the docs site's Markdown extensions (the `bits` fence)

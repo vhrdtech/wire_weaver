@@ -73,6 +73,26 @@ the bus). `crc(lba, count)` is the CRC-32 of a range computed on the device, so 
 reading it back over a slow link. The CRC is CRC-32/ISO-HDLC, the one of zip and Ethernet; `ww_block::crc32` and
 `crc32_update` compute it on either side, and an STM32 CRC unit gives the same with reflected input and output.
 
+### CRC-32 table size
+
+`crc32` and `crc32_update` are table-driven on top of the [crc](https://docs.rs/crc) crate (already used by
+`ww_framer`), with the table size picked by cargo feature; all three give bit-identical CRC-32/ISO-HDLC results,
+checked against a fixed reference table in `ww_block`'s own tests at every length and split:
+
+| Feature | Table | Flash (the table itself) | Notes |
+|---|---|---|---|
+| *(none, default)* | bitwise, no table | 0 B | smallest, slowest: what a device with little flash to spare uses |
+| `crc-table-256` | 256 entries | 1 024 B | measured on an RP2350 (rePort 027): bitwise `crc32_update` runs about 2.9 ms per 8 KiB; enabling this table raised the device's end-to-end `crc` throughput from 1.36 MB/s to 2.6-3.0 MB/s |
+| `crc-table-slice16` | 16 lanes of 256 entries | 16 384 B | fastest, not yet measured on real hardware: cycles need `DWT CYCCNT` on silicon, per this repo's own measuring rule |
+
+Enabling both features picks `crc-table-slice16` (the faster one) instead of a build error, so
+`cargo clippy --all-features` / `cargo doc --all-features` (this repo's lint step) still build. A firmware picks
+one in its own `Cargo.toml`, e.g.:
+
+```toml
+ww_block = { version = "0.1", features = ["crc-table-256"] }
+```
+
 ## Writes need a lease
 
 A write can destroy what the card's own user (a recorder logging to it) keeps there, so writes are only done under a

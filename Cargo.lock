@@ -5715,6 +5715,7 @@ dependencies = [
 name = "ww_block"
 version = "0.1.0"
 dependencies = [
+ "crc",
  "defmt 1.1.1",
  "wire_weaver",
  "ww_error",

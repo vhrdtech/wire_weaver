@@ -72,8 +72,8 @@ impl WwClient for Raw {
     }
 }
 
-/// How the hub reaches the device behind a key: `usb:<vid>:<pid>:<serial>[:<iface>]` (`holders::key_for`), or
-/// `inproc:<path>`, a device served in the hub's own process (`wire_weaver_client::in_process`: tests, simulators
+/// How the hub reaches the device behind a key: `usb:<vid>:<pid>:<serial>[:<iface>]`, `rtt:<probe serial>:<chip>`
+/// (`holders::key_for`), or `inproc:<path>`, a device served in the hub's own process (`wire_weaver_client::in_process`: tests, simulators
 /// hosted with the hub).
 fn config_for(key: &str) -> Option<ClientConfig> {
     let config = if let Some(path) = key.strip_prefix("inproc:") {
@@ -89,6 +89,13 @@ fn config_for(key: &str) -> Option<ClientConfig> {
         } else {
             config.serial_eq(serial.to_string())
         }
+    } else if let Some(rest) = key.strip_prefix("rtt:") {
+        // `rtt:<probe serial>:<chip>`; filters after `rtt` pick the probe. Needs `wire_weaver_client`'s `rtt`
+        // feature, which `ww` has: without it the open fails with a message that says so.
+        let (probe, chip) = rest.split_once(':')?;
+        ClientConfig::new()
+            .rtt(chip.to_string(), None)
+            .serial_eq(probe.to_string())
     } else {
         return None;
     };

@@ -42,6 +42,7 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### 🚀 Features
 
+- `I2c` is `#[claim(exclusive)]` (SRV-34): a client can claim a controller through the hub. Wire compatible, only the introspection data changes.
 - Slave mode (STD-35): an `#[optional(slave)]` group in `I2c` (`omit = ["i2c.slave"]` without it).
   `slave_events(I2cSlaveConfig)` is a counted stream function: opening it makes the device a slave at
   `I2cSlaveConfig::addr`, and it reports every transaction as `I2cSlaveEvent::Transfer(I2cSlaveTransfer)` (bytes,

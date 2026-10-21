@@ -55,6 +55,7 @@ pub const MAX_IO_LEVELS: usize = 8;
 
 /// A serial port: configure, receive on `rx`, send on the `tx` credit sink.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait Uart {
     /// Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends when the line is idle for more than
     /// [UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;

@@ -30,6 +30,7 @@
 
 ### 🚀 Features
 
+- `ww api tree` shows `#[claim(..)]` (also when it comes from the trait), `#[shares(..)]` and `#[label(..)]` in front of an item (SRV-34).
 - `ww sync [DEVICE...]` (TOOL-16): keeps several devices' clocks on the host's UTC with `ww_clock_sync` (each read a
   few times a second, fitted, steered once a second) and shows a live table per device: state, followed source,
   rate, round trip and the residual offset measured with `Clock::shared_now`. Devices by serial or label parts, or

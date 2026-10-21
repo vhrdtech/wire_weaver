@@ -169,6 +169,10 @@ pub struct ApiLevel<'i> {
     /// `PathKind::GlobalCompact` requests with it (API-20). `None` in bundles made before ids existed.
     #[default = None]
     pub compact_id: Option<UNib32>,
+    /// Attributes of the trait definition beyond the wire contract (`#[claim(..)]`, SRV-34), applying to every
+    /// `ww_impl!` of the trait. `None`: none.
+    #[default = None]
+    pub meta: Option<Meta<'i>>,
 }
 
 #[derive_shrink_wrap(
@@ -187,6 +191,10 @@ pub struct ApiItem<'i> {
     /// out (`ww_codegen!(.., omit = [..])`), then a call answers `Unimplemented`.
     #[default = None]
     pub optional: Option<Optional<'i>>,
+    /// Attributes beyond the wire contract (`#[claim(..)]`, `#[shares(..)]`, `#[label(..)]`, SRV-34): what a person
+    /// or the hub needs to know about the item. `None`: none.
+    #[default = None]
+    pub meta: Option<Meta<'i>>,
 }
 
 /// One entry of a method's error list (`#[errors(Common(InUse, Refused), Nack)]`, API-32): a variant of the
@@ -202,6 +210,64 @@ pub struct ErrorVariant<'i> {
     /// Variants of the enum in the variant's only field (`Common(InUse, Refused)`), `None` for all of them
     /// (`Common`).
     pub nested: Option<RefVec<'i, &'i str>>,
+}
+
+/// Typed attributes of an [ApiItem] or an [ApiLevel] that don't change the wire contract (SRV-34): checked by the
+/// codegen like `#[optional]` and `#[errors]`, carried in introspection, read by the hub, `ww` and GUIs. See
+/// `docs/api/metadata.md`. New attributes are new fields here.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq, Default)
+)]
+pub struct Meta<'i> {
+    /// `#[claim(mode)]` on a `ww_impl!` or a trait definition: a client can claim the resource through the hub, and
+    /// what the claim takes from other clients. On a trait definition it applies to every `ww_impl!` of the trait,
+    /// one on the `ww_impl!` wins. A device's root is always claimable ([ClaimMode::Exclusive]).
+    pub claim: Option<ClaimMode>,
+    /// `#[shares(..)]` on a `ww_impl!`: pins and peripherals the resource uses that others may use too, so the hub
+    /// refuses a claim that overlaps one held on another resource (a UART and the GPIO bank of its pins).
+    pub shares: RefVec<'i, Shares<'i>>,
+    /// `#[label(..)]`: what a person calls the item ("CAN1, DB-9 on the front"), shown by `ww`, in `InUse` errors
+    /// and GUIs. One label, or one per element of a resource array, by index.
+    pub labels: RefVec<'i, &'i str>,
+}
+
+/// What a claim on a resource takes from other clients (SRV-34), `#[claim(exclusive | shared | observe)]`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = nib,
+    no_future_version
+)]
+pub enum ClaimMode {
+    /// One client at a time: other clients' calls and property writes at or under the resource are refused, their
+    /// reads, gets, streams and observing stay open. `#[claim]` alone.
+    Exclusive,
+    /// Several clients may hold a claim together (tools that cooperate on a bus); calls and writes of clients
+    /// without one are refused, and an exclusive claim waits until the last shared one is released.
+    Shared,
+    /// Exclusive, and reads, gets, streams and observing are taken too: for a resource where reading has an effect
+    /// (a FIFO that a read empties, a capture another client would restart).
+    Observe,
+}
+
+/// Pins and peripherals a resource uses (SRV-34), `#[shares(pins = "PA9, PA10", peripherals = "USART1")]`: two
+/// resources naming the same pin or peripheral conflict, so the hub doesn't let two clients claim them at once.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct Shares<'i> {
+    /// Element of a resource array this applies to (`index = 2`), `None`: the resource, every element of an array.
+    pub index: Option<UNib32>,
+    /// Pin names as the board knows them (`PA9`), ranges like `PA0-PA15` already expanded.
+    pub pins: RefVec<'i, &'i str>,
+    /// Peripherals or any other named thing the resource needs (`USART1`, `DMA1`, `5V rail`).
+    pub peripherals: RefVec<'i, &'i str>,
 }
 
 /// Marks an [ApiItem] as optional (`#[optional]`, `#[optional(group)]`), see `docs/api/optional_items.md`.

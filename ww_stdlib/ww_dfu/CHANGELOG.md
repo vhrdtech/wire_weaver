@@ -24,6 +24,7 @@
 
 ### 🚀 Features
 
+- `BootControl`, `Stage` and `StageBulk` are `#[claim(exclusive)]` (SRV-34): an updater can claim them through the hub (a whole update claims the device's root). Wire compatible, only the introspection data changes.
 - Every fallible method of `BootControl`, `Inventory`, `Stage` and `StageBulk` now lists its `Error` variants with
   `#[errors(..)]` (API-32), checked against `Error` and shown in rustdoc, introspection and the client's docs.
   `Error` doesn't use `#[common] Common(CommonError)` (ww_error): only `Unsupported` and `Busy` would map onto it

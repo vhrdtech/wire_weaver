@@ -12,6 +12,7 @@ pub const MAX_IO_LEVELS: usize = 8;
 /// A bank of related IO pins.
 /// Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).
 #[ww_trait]
+#[claim(exclusive)]
 pub trait Bank {
     /// Array of individual pins.
     /// Suggested indexing scheme:

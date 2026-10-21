@@ -148,6 +148,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. | api/ecc_flash.md
 - SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | api/bus_slave.md
 - SRV-27 | Streaming LZ4 | `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes. |
+- SRV-34 | Claims, pins and labels | Mark a bus or port `#[claim(..)]`, the pins it `#[shares]` and a `#[label]` a person recognises: in introspection for the hub, `ww` and GUIs, so one program can have a resource to itself while others keep reading. | api/metadata.md
 
 ## Nomicon
 

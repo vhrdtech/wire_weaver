@@ -70,6 +70,7 @@ pub const MAX_IO_LEVELS: usize = 8;
 /// Several operations under one CS assertion (write a command, then read a response) are one `Spi::transaction`,
 /// not several calls to `Spi::transfer`: releasing CS between them would end the frame.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait Spi {
     /// Full duplex: writes `data`, returns as many bytes as were read. CS is asserted for the call and released
     /// after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).

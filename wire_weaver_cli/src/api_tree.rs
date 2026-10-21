@@ -131,7 +131,9 @@ impl<'a> Visit<'a> for TreePrinter<'a> {
         self.prefix.push_str(if is_last { "   " } else { "│  " });
         self.visit_docs(&item.docs);
         self.error_list_docs(item);
-        if let ApiItemKindOwned::Trait { trait_idx, omitted } = &item.kind
+        if let ApiItemKindOwned::Trait {
+            trait_idx, omitted, ..
+        } = &item.kind
             && let Some(location) = self.bundle.traits.get(trait_idx.0 as usize)
         {
             let parent_omitted = std::mem::replace(&mut self.omitted, ids(omitted));
@@ -209,6 +211,37 @@ impl TreePrinter<'_> {
                 None => "#[optional] ".to_string(),
             };
             _ = write!(self.out, "{}", style(attr).dim());
+        }
+        if let Some(mode) = item.claim_mode(self.bundle) {
+            _ = write!(
+                self.out,
+                "{}",
+                style(format!("#[claim({})] ", mode.name())).dim()
+            );
+        }
+        if let Some(meta) = &item.meta {
+            for shares in &meta.shares {
+                let mut args = vec![];
+                if let Some(index) = shares.index {
+                    args.push(format!("index = {}", index.0));
+                }
+                if !shares.pins.is_empty() {
+                    args.push(format!("pins = \"{}\"", shares.pins.join(", ")));
+                }
+                if !shares.peripherals.is_empty() {
+                    args.push(format!(
+                        "peripherals = \"{}\"",
+                        shares.peripherals.join(", ")
+                    ));
+                }
+                let attr = format!("#[shares({})] ", args.join(", "));
+                _ = write!(self.out, "{}", style(attr).dim());
+            }
+            if !meta.labels.is_empty() {
+                let labels: Vec<_> = meta.labels.iter().map(|l| format!("{l:?}")).collect();
+                let attr = format!("#[label({})] ", labels.join(", "));
+                _ = write!(self.out, "{}", style(attr).dim());
+            }
         }
         if let Some(errors) = item.kind.error_list() {
             let attr = format!("#[errors({})] ", fmt_error_list(errors));
@@ -634,13 +667,15 @@ mod tests {
 trait Traits traits_api@0.1.0
 ├─ 0 impl g1: traits_api::Subgroup
 │  └─ 0 fn m1()
-├─ 1 impl gpio[]: traits_api::Gpio
+├─ 1 #[claim(exclusive)] impl gpio[]: traits_api::Gpio
 │  └─ 0 fn set_high()
 ├─ 2 impl periph[]: traits_api::Peripheral
 │  └─ 0 impl channel[]: traits_api::Channel
 │     ├─ 0 rw property gain: f32
 │     └─ 1 fn run()
-├─ 3 impl i2c: traits_api::I2c
+├─ 3 #[claim(shared)] #[shares(pins = \"PB6, PB7\", peripherals = \"I2C1\")] #[label(\"Sensor I2C, J4\")] impl i2c: traits_api::I2c
+│  /// A bus clients can claim together through the hub (SRV-34), with its pins and a label; `gpio` is claimable
+│  /// by its trait.
 │  ├─ 0 fn i2c_write(data: u8) -> u8
 │  ├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8
 │  │  /// Clocks SCL until SDA is released.
@@ -649,7 +684,7 @@ trait Traits traits_api@0.1.0
 │  │  /// Fallible: an omitted method with an error type gives `CallError::Unimplemented` on the client.
 │  ├─ 3 #[optional(pullups)] rw property i2c_pullups: bool
 │  └─ 4 #[optional] stream i2c_monitor: u8
-└─ 4 #[optional] fn reset()
+└─ 4 #[optional] #[label(\"Reset button\")] fn reset()
    /// Optional item of the root level itself.
 ";
         assert_eq!(tree, expected);
@@ -675,7 +710,7 @@ trait Traits traits_api@0.1.0
             "├─ 1 #[optional] fn i2c_wiggle_clock(count: u8) -> u8\n",
             "├─ 2 #[optional(pullups)] fn i2c_set_pullups(enabled: bool) -> Result<(), u8> (left out by this device)\n",
             "├─ 3 #[optional(pullups)] rw property i2c_pullups: bool (left out by this device)\n",
-            "└─ 4 #[optional] fn reset() (left out by this device)\n",
+            "└─ 4 #[optional] #[label(\"Reset button\")] fn reset() (left out by this device)\n",
         ] {
             assert!(tree.contains(line), "{line}{tree}");
         }
@@ -692,7 +727,7 @@ trait Traits traits_api@0.1.0
         for line in [
             "├─ 1 #[optional] impl diag: traits_api::Diag (left out by this device)\n",
             "│  ├─ 0 fn read(point: u16) -> u8\n",
-            "├─ 2 #[optional(probes)] impl probe[]: traits_api::Gpio\n",
+            "├─ 2 #[optional(probes)] #[claim(exclusive)] impl probe[]: traits_api::Gpio\n",
         ] {
             assert!(tree.contains(line), "{line}{tree}");
         }

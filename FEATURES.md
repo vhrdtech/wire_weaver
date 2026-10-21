@@ -507,6 +507,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).
+- 📋 **API-56 care-marker Care marker on switching writes** — a typed attribute (the `ww_self::Meta` of SRV-34) on
+    a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
+    introspection: GUIs ask to confirm, `ww call` / `ww set` want `--yes`, the hub can log who did it. Wire
+    compatible, nothing on the device.
+- 📋 **API-57 device-metadata Device-level metadata** — typed attributes on the API root or in a stdlib trait for what
+    a device is: product, board revision, connectors (with the resources behind each, so a label like "J4" points at
+    pins and buses), supported clock sync (`ww_timebase` host sync and its sources); in introspection next to
+    SRV-34's per-item `Meta`, shown by `ww info`, the hub's registry and GUIs. Design first: which part is fixed in
+    the API (connectors, sync support) and which is per unit at run time (`ww_board_info`, serial, revision).
 - 💡 **API-33 Narrow error types per method** — generated per-method error enums with the crate enum's
   discriminants, as server handler return types only (`narrow_errors = true`), for a compile-time contract on the
   device. Explored and not recommended for clients: friction in every driver crate.
@@ -802,6 +811,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reset never tears a G0 flash word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is
   built, and `examples_mcu/ecc_flash_h7` makes real ECC errors by programming a scratch flash word twice to check
   both modes (not run on a board yet).
+- 🚧 **SRV-34 per-resource-claims Per-resource claims through the hub** — typed metadata attributes, carried in
+    introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
+    `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),
+    `#[shares(pins = "PA9, PA10", peripherals = "USART1", index = N)]` (pin ranges `PA0-PA15`) so overlapping
+    resources conflict, `#[label("CAN1, DB-9 on the front")]` (one per array element) on any item. Done: the
+    attributes and model, `ApiItemOwned::claim_mode` / `label`, `ww api tree`, rustdoc notes, `ww api check` reports
+    changes as compatible; stdlib IO traits claimable (`ww_can_bus`, `ww_uart`, `ww_i2c`, `ww_spi`,
+    `ww_gpio::Bank`, `ww_dfu`, `ww_pin_diag`), snapshots saved. `docs/api/metadata.md`, tests `tests/traits`
+    (`meta_in_introspection`), `wire_weaver_core` (`meta_*`). Missing (after SRV-29 device multiplexing): the hub
+    API `Claims` group (`claim(device, path, purpose, ttl) -> Result<ClaimId, ClaimError { InUse { by, since,
+    purpose }, NotClaimable, Overlap }>`, `release`, `claims(device)`), calls and writes of other client instances
+    at or under a claimed path answered `Common(InUse)` naming the claimer and the label, without reaching the
+    device, reads, streams and observe left open (taken too for `observe`), claims dropped with the claimer's last
+    connection or at the ttl, overlap by path and by `#[shares]`; how hub claims and device-side claims combine
+    (`docs/transport/hub.md`). Later attributes: API-56, API-57.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

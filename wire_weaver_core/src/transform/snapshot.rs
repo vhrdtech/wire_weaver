@@ -55,6 +55,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                     ident: item_trait.ident.to_string(),
                     docs: vec![],
                     optional: None,
+                    meta: None,
                 });
             }
             _ => convert_snapshot_item(item, &entry, &mut scratch)?,
@@ -70,6 +71,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
             crate_idx: UNib32(0),
             trait_name: scratch.ext_crates[0].crate_id.clone(),
             compact_id: None,
+            meta: None,
             items,
         },
         types: scratch.types,

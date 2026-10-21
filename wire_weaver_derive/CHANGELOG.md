@@ -15,6 +15,7 @@
 
 ### 🚀 Features
 
+- The rustdoc trait of `#[ww_trait]` notes `#[claim]`, `#[shares]` and `#[label]` of an item or trait (SRV-34).
 - `ww_codegen!(.., handler_model = "device.settings.*=async, _=sync")` (SRV-21): which handlers of an async server are plain `fn`s, see `docs/api/handlers.md`.
 - `ww_codegen!(.., observe_cells = "root_foc, ..")` (API-50, observe cells): levels with `+batched` properties
   sampled in place through a ring of atomics, see wire_weaver_core.

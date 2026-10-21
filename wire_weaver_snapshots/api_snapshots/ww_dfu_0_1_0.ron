@@ -103,12 +103,12 @@
     "- [StageLimits::max_piece], at most [MAX_PIECE_LEN], is what this node takes, chosen to fit its buffer. A longer",
     "  piece is [Error::PieceTooBig].",
 ], crate_idx: 0, trait_name: "ww_dfu", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UpdateNode", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "BootControl", docs: [], optional: None),
-    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Inventory", docs: [], optional: None),
-    (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "Stage", docs: [], optional: None),
-    (id: 4, kind: Trait(trait_idx: 4, omitted: None), multiplicity: Flat, since: None, ident: "StageBulk", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UpdateNode", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "BootControl", docs: [], optional: None, meta: None),
+    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "Inventory", docs: [], optional: None, meta: None),
+    (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "Stage", docs: [], optional: None, meta: None),
+    (id: 4, kind: Trait(trait_idx: 4, omitted: None), multiplicity: Flat, since: None, ident: "StageBulk", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Which firmware is answering.",
     ], ident: "Role", generics: [], variants: [
@@ -540,8 +540,8 @@
     ], crate_idx: 0, trait_name: "UpdateNode", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "node", docs: [
             "Identity, versions and state of this node, and which of the other update traits it implements.",
-        ], optional: None),
-    ], compact_id: Some(17)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(17), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Boot state and the switch between images.",
         "",
@@ -551,14 +551,14 @@
     ], crate_idx: 0, trait_name: "BootControl", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 4)), errors: None), multiplicity: Flat, since: None, ident: "boot_state", docs: [
             "Where the device stands between two updates.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: None), multiplicity: Flat, since: None, ident: "confirm", docs: [
             "The running image works: keep it.",
             "",
             "Only meaningful in [BootState::Trial]; in any other state it does nothing and returns `Ok`. An image that",
             "never confirms is reverted at the next reset, so the app should confirm only after it has checked what",
             "matters to it (its peripherals, its link to the host, its config).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Unsupported", nested: None),
             (ident: "WrongState", nested: None),
@@ -567,7 +567,7 @@
             "",
             "[Error::Unsupported] on profiles without a previous image ([Profile::InPlace]), [Error::WrongState] outside",
             "[BootState::Trial] and [BootState::Staged].",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "into", ty: OutOfLine(type_idx: 10)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
@@ -584,8 +584,8 @@
             "staged image (A/B) or applies the stored plan (in place).",
             "",
             "[Error::Unsupported] into [BootTarget::Updater] on an A/B node (there is no separate updater to reboot into).",
-        ], optional: None),
-    ], compact_id: Some(16)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(16), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
     InLine(level: (docs: [
         "What the node holds now, chunk by chunk: the manifest the host plans against.",
         "",
@@ -601,7 +601,7 @@
             "Chunk size, chunk count and erase layout of a slot, as this node sees them.",
             "",
             "[Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "slot", ty: OutOfLine(type_idx: 11)),
         ], return_ty: Some(Result(ok_ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
@@ -614,7 +614,7 @@
             "and report progress on `Stage`\'s `event` stream, if it has one.",
             "",
             "[Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "slot", ty: OutOfLine(type_idx: 11)),
             (ident: "first", ty: NumericAny(Base(U16))),
@@ -631,8 +631,8 @@
             "",
             "[Error::Unsupported] on [Slot::Inactive] when this node has no previous image to report on,",
             "[Error::OutOfRange] when `first` is past the end of the slot.",
-        ], optional: None),
-    ], compact_id: Some(18)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(18), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Receive a plan step by step, apply it ([Target::Live]) or store it ([Target::Stored]), and finish it.",
         "",
@@ -642,7 +642,7 @@
     ], crate_idx: 0, trait_name: "Stage", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 14)), errors: None), multiplicity: Flat, since: None, ident: "limits", docs: [
             "What this node accepts: piece size, how many calls may be in flight, targets, the plan area.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "target", ty: OutOfLine(type_idx: 15)),
             (ident: "header", ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8))))),
@@ -668,7 +668,7 @@
             "[Error::WrongGeometry]: another flash layout; [Error::BelowFloor]: image version below the floor;",
             "[Error::PlanTooBig]: [Target::Stored] doesn\'t fit the plan area; [Error::WrongState]: the boot state",
             "doesn\'t allow staging ([BootState::may_stage]).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "index", ty: NumericAny(Base(U32))),
             (ident: "block", ty: NumericAny(Base(U16))),
@@ -687,7 +687,7 @@
             "[Error::OutOfOrder]: `index` is ahead of what the node expects; [Error::StepMismatch]: a resend under an",
             "index the node already has, but a different step; [Error::PlanTooBig]: [Target::Stored] overflows the plan",
             "area; [Error::Flash]/[Error::Ecc]: the flash itself faulted.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "index", ty: NumericAny(Base(U32))),
             (ident: "dst", ty: NumericAny(Base(U16))),
@@ -709,7 +709,7 @@
             "[Error::SourceMismatch] (the host planned against a manifest that is no longer true; it should read the",
             "manifest again or send the chunk as a WRITE). In place, the planner never copies from a chunk an earlier step",
             "has overwritten. See `erase` for the other step errors.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "index", ty: NumericAny(Base(U32))),
             (ident: "dst", ty: NumericAny(Base(U16))),
@@ -734,14 +734,14 @@
             "the last byte of the chunk is in; a mismatch is [Error::HashMismatch] and the host sends the whole chunk again",
             "from offset 0. Every piece repeats `dst` and `hash`, so a piece is never applied to the wrong step.",
             "[Error::PieceTooBig]: `data` is longer than [StageLimits::max_piece]. See `erase` for the other step errors.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "NoSession", nested: None),
         ])), multiplicity: Flat, since: None, ident: "progress", docs: [
             "Where the current session stands: the next step the node expects, and how far into it.",
             "",
             "[Error::NoSession] when nothing is in progress.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 6, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "NoSession", nested: None),
             (ident: "Incomplete", nested: None),
@@ -766,16 +766,16 @@
             "[Error::VerifyFailed]: the finished image doesn\'t match its descriptor; [Error::BadHeader]: the stored",
             "header doesn\'t parse ([Target::Stored]); [Error::OutOfRange]/[Error::SourceMismatch]/[Error::HashMismatch]:",
             "the stored plan\'s own re-check fails ([Target::Stored]).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 7, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "abort", docs: [
             "Drop the current session. What was written stays where it was (an inactive slot or a plan area is just",
             "scratch); in place, the device stays in the updater until a session finishes.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 8, kind: Stream(ty: OutOfLine(type_idx: 18), is_up: true), multiplicity: Flat, since: None, ident: "event", docs: [
             "Progress of long operations (hashing, copying, verifying, applying a stored plan) and the outcome of a session,",
             "for the host\'s progress bar and log. Nothing here is needed for correctness: the method replies are.",
-        ], optional: None),
-    ], compact_id: Some(19)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(19), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
     InLine(level: (docs: [
         "Receive a whole plan in one go, for links where a round trip per step would cost more than the delta saves.",
         "",
@@ -809,7 +809,7 @@
             "byte to start sending (0 for a new session).",
             "",
             "Same checks as `Stage::begin`, plus [Error::BadHeader] when `total_len` doesn\'t match the header.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: FlowSink(ty: OutOfLine(type_idx: 19), flow: Credit), multiplicity: Flat, since: None, ident: "plan", docs: [
             "Plan bytes from the host. A segment may be any size up to [StageLimits::max_piece]; each says where its bytes",
             "go.",
@@ -821,14 +821,14 @@
             "A lost segment is detected and sent again by the sink\'s flow control (go-back-N), segments arrive in order. A segment whose offset does not",
             "continue what the node has (e.g., the host resumed from the wrong place) answers [BulkStatus::Gap] on",
             "`plan_ack`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 21), is_up: true), multiplicity: Flat, since: None, ident: "plan_ack", docs: [
             "Acknowledgements from the node: how far it is and whether something went wrong. How much more it can take is",
             "the `plan` sink\'s credit.",
             "",
             "Sent once at the end (all bytes in, or an error), on an offset gap, and every `ack_every` bytes if asked.",
-        ], optional: None),
-    ], compact_id: Some(20)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(20), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_dfu", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

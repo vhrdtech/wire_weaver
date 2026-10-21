@@ -5,9 +5,9 @@
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
     "stream. See `docs/std_library/ww_gpio.md` for the full writeup with client and server examples.",
 ], crate_idx: 0, trait_name: "ww_gpio", items: [
-    (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Bank", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Pin", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Bank", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Pin", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Digital output level - High and Low.",
     ], ident: "Level", generics: [], variants: [
@@ -228,21 +228,21 @@
             "0. Set the output level.",
             "",
             "If the pin is currently configured as input, this level should only be written to control register, without changing pin mode.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "toggle", docs: [
             "1. Toggle the output level.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "output_level", docs: [
             "2. Get output level.",
             "",
             "If the pin is currently configured as input, this level should be read from an output register, not input one.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 0)), errors: None), multiplicity: Flat, since: None, ident: "input_level", docs: [
             "3. Get the input level.",
             "",
             "Note that when a pin is configured as output, input buffer might be disabled, resulting in incorrect input level reported.",
             "If this is the case, current output level must be returned.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 4), delivery: Counted, args: [
             (ident: "enabled", ty: OutOfLine(type_idx: 1)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
@@ -254,7 +254,7 @@
             "in `enabled`, closing it disables them. A counted stream, unit: event; each event may carry the device time",
             "it happened at, and the host learns exactly how many events the device dropped.",
             "`Unsupported` if a requested source (edge or custom) isn\'t available on this pin.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
             (ident: "mode", ty: OutOfLine(type_idx: 5)),
             (ident: "initial", ty: Option(some_ty: OutOfLine(type_idx: 0))),
@@ -271,10 +271,10 @@
             "Optionally set the initial level before changing pin mode.",
             "`Unsupported` if the pin can\'t be switched to the requested mode, `DifferentModes` if the bank\'s pins share one",
             "mode and this one differs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 9, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Get current mode.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 10, kind: Property(ty: OutOfLine(type_idx: 6), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -282,7 +282,7 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "pull", docs: [
             "Pull resistors selection.",
             "`Unsupported` if the pin doesn\'t support the requested pull (`set` only).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 11, kind: Property(ty: OutOfLine(type_idx: 7), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -290,11 +290,11 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "speed", docs: [
             "Drive strength selection.",
             "`Unsupported` if the pin doesn\'t support the requested drive strength (`set` only).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 12, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this pin can do: modes, pulls, speeds, whether it sends events, and its name.",
-        ], optional: None),
-    ], compact_id: Some(33)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(33), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "A bank of related IO pins.",
         "Every pin of a bank uses the same IO level, adjustable on hardware with level translators ([BankConfig]).",
@@ -304,10 +304,10 @@
             "Suggested indexing scheme:",
             "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
             "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 9, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 12)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 3))), errors: Some([
@@ -319,11 +319,11 @@
             "Configures what the pins of the bank share and returns what was actually set: the IO level in effect.",
             "`Unsupported` for an IO level the bank\'s hardware can\'t drive, `Refused` when a safety rule of the device",
             "doesn\'t allow it.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 10, kind: Method(args: [], return_ty: Some(String), errors: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "User-friendly bank name, e.g. `\"PA\"`.",
-        ], optional: None),
-    ], compact_id: Some(32)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(32), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_gpio", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

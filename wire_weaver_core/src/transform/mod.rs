@@ -1,6 +1,7 @@
 mod api;
 mod crate_walker;
 mod errors;
+mod meta;
 pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
 mod snapshot;
 mod ty;

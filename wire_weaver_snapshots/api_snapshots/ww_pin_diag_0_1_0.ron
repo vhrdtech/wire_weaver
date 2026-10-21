@@ -19,8 +19,8 @@
     "weakest drive the point has: a short-to-GND test drives high weakly and reads back, so a short loses and an",
     "external pull-down doesn\'t.",
 ], crate_idx: 0, trait_name: "ww_pin_diag", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PinDiag", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "PinDiag", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Interned", signature: [
         152,
         192,
@@ -147,7 +147,7 @@
     ], crate_idx: 0, trait_name: "PinDiag", items: [
         (id: 0, kind: Property(ty: Vec(OutOfLine(type_idx: 2)), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "POINTS", docs: [
             "Every point a test may touch; a point\'s index in this list is its id in the calls below.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "point", ty: NumericAny(Base(U16))),
             (ident: "state", ty: OutOfLine(type_idx: 6)),
@@ -162,7 +162,7 @@
             "Sets a point to an input with a pull, or to an output at a level. Takes the point from its normal function",
             "until [PinDiag::release_all]. Refused when the point can\'t do that at all, a function holds it, or the",
             "board\'s rules forbid it in the current state of the other points.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "point", ty: NumericAny(Base(U16))),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 8))), errors: Some([
@@ -171,11 +171,11 @@
         ])), multiplicity: Flat, since: None, ident: "read", docs: [
             "Level on the point\'s pad, also while it drives: a point driving high that reads low is shorted to something",
             "stronger.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "release_all", docs: [
             "Every point set since the last release goes back to the firmware\'s safe state and to its function.",
-        ], optional: None),
-    ], compact_id: Some(136)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(136), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_pin_diag", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

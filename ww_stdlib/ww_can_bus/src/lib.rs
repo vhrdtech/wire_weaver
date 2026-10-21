@@ -77,6 +77,7 @@ pub const MAX_TRIGGERS: usize = 64;
 /// One CAN controller with its transceiver: configure it, receive on `rx`, send on the `tx` credit sink, watch its
 /// [Status].
 #[ww_trait]
+#[claim(exclusive)]
 pub trait Can {
     /// What this controller supports: clock, bit timing limits, CAN FD, modes, options, memory, filters,
     /// timestamps, transceiver and terminator.
@@ -239,6 +240,7 @@ pub trait Can {
 /// clocked, powered down or re-laid out alone. The group is enabled (clocked) or disabled as a whole; each
 /// controller is `interface[i]`, configured on its own once the group is enabled.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait CanGroup {
     /// The controllers of the group.
     ww_impl!(interface[]: Can);
@@ -276,6 +278,7 @@ pub trait CanGroup {
 /// cycles started by a reference message. A device puts it next to its controllers, `ww_impl!(can_tt[]:
 /// ww_can_bus::CanTimeTriggered)`, element `i` being controller `i` (valid only where the hardware has TTCAN).
 #[ww_trait]
+#[claim(exclusive)]
 pub trait CanTimeTriggered {
     /// Configures time-triggered operation (`None` switches it off, back to event-driven CAN) and answers what was
     /// set. The controller must be in [Mode::Config] or [Mode::Off] (`WrongState`).
@@ -1364,6 +1367,7 @@ pub const MAX_XL_DATA_LEN: usize = 2048;
 /// controller `i`. Classic and FD frames of the same controller stay on `Can::rx` / `Can::tx`.
 #[cfg(feature = "xl")]
 #[ww_trait]
+#[claim(exclusive)]
 pub trait CanXl {
     /// Configures the XL data phase (`None`: no XL frames) and answers what was set. Needs CAN FD configured on the
     /// controller (`WrongState`); a timing or transceiver mode switching it can't do is `Unsupported`.

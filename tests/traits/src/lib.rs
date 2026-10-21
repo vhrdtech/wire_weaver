@@ -555,4 +555,41 @@ mod tests {
             "i2c.i2c_pullups",
         );
     }
+
+    /// `#[claim]`, `#[shares]` and `#[label]` (SRV-34) reach the host in the device's introspection data: a claim on a
+    /// `ww_impl!` (`i2c`) and on a trait definition (`Gpio`, so every `gpio[]`), not on the others.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn meta_in_introspection() {
+        use wire_weaver_client::ww_self::ClaimMode;
+        use wire_weaver_client::{ClientConfig, DynClient};
+        let data = Arc::new(RwLock::new(SharedTestData::default()));
+        let device = tests_common::start_device(
+            "traits/meta",
+            no_std_sync_server::NoStdSyncServer { data },
+            traits_api::TRAITS_FULL_GID,
+            no_std_sync_server::api_impl::api_hash(),
+        );
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let bundle = &client.device_introspect().unwrap().api_bundle;
+        let claims: Vec<_> = bundle
+            .root
+            .items
+            .iter()
+            .filter_map(|i| Some((i.ident.as_str(), i.claim_mode(bundle)?)))
+            .collect();
+        assert_eq!(
+            claims,
+            [("gpio", ClaimMode::Exclusive), ("i2c", ClaimMode::Shared)]
+        );
+        let item = |name: &str| bundle.root.items.iter().find(|i| i.ident == name).unwrap();
+        let i2c = item("i2c");
+        assert_eq!(i2c.label(None), Some("Sensor I2C, J4"));
+        let shares = &i2c.meta.as_ref().unwrap().shares[0];
+        assert_eq!(shares.pins, ["PB6", "PB7"]);
+        assert_eq!(shares.peripherals, ["I2C1"]);
+        assert_eq!(item("reset").label(None), Some("Reset button"));
+    }
 }

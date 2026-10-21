@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `Uart` is `#[claim(exclusive)]` (SRV-34): a client can claim a port through the hub. Wire compatible, only the introspection data changes.
 - `UartConfig` and `MonitorConfig` derive `PartialEq`, so a device can keep a default config in a `ww_settings` group (STD-32), whose fields are compared with their default.
 
 ### ⚠️ Breaking

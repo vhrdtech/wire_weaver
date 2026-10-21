@@ -39,6 +39,7 @@
 
 ### 🚀 Features
 
+- `Can`, `CanGroup`, `CanTimeTriggered` and `CanXl` are `#[claim(exclusive)]` (SRV-34): a client can claim a controller or group through the hub. Wire compatible, only the introspection data changes.
 - `BitTiming::bit_rate()`, `sample_point()`, `quanta()`; `CanId::standard()`, `extended()`, `raw()`;
   `Frame::len()`, `is_fd()`.
 - Docs page `docs/std_library/ww_can_bus.md`, mock-server tests `tests/io_can` (full and minimal node) and

@@ -1,8 +1,8 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
-    ArgumentOwned, Batching, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned, FlowControl,
-    GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, Multiplicity, Repr,
-    TypeLocationOwned, TypeOwned,
+    ArgumentOwned, Batching, ClaimMode, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned,
+    FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length,
+    Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
@@ -52,6 +52,40 @@ impl ApiItemOwned {
 
     pub fn is_array(&self) -> bool {
         matches!(self.multiplicity, Multiplicity::Array { .. })
+    }
+
+    /// How a client can claim this `ww_impl!` through the hub (SRV-34): `#[claim(..)]` on it, else on its trait's
+    /// definition; `None` for an item that can't be claimed. A trait left out of `bundle` (skipped, not restored
+    /// from a snapshot) counts only by the `ww_impl!`.
+    pub fn claim_mode(&self, bundle: &ApiBundleOwned) -> Option<ClaimMode> {
+        let ApiItemKindOwned::Trait { trait_idx, .. } = &self.kind else {
+            return None;
+        };
+        if let Some(mode) = self.meta.as_ref().and_then(|m| m.claim) {
+            return Some(mode);
+        }
+        match bundle.traits.get(trait_idx.0 as usize) {
+            Some(ApiLevelLocationOwned::InLine { level, .. }) => level.meta.as_ref()?.claim,
+            _ => None,
+        }
+    }
+
+    /// `#[label(..)]` of the item, of element `index` for a resource array (`None`: the first one, as for a flat
+    /// item); `None` without one.
+    pub fn label(&self, index: Option<u32>) -> Option<&str> {
+        let labels = &self.meta.as_ref()?.labels;
+        labels.get(index.unwrap_or(0) as usize).map(String::as_str)
+    }
+}
+
+impl ClaimMode {
+    /// As written in `#[claim(..)]`: `exclusive`, `shared` or `observe`.
+    pub fn name(&self) -> &'static str {
+        match self {
+            ClaimMode::Exclusive => "exclusive",
+            ClaimMode::Shared => "shared",
+            ClaimMode::Observe => "observe",
+        }
     }
 }
 

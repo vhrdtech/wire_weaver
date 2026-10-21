@@ -37,8 +37,8 @@
     "silence of more than [UartConfig::idle_chars] character times, so the next chunk\'s first byte comes at least that",
     "much after the previous chunk\'s last one.",
 ], crate_idx: 0, trait_name: "ww_uart", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -327,14 +327,14 @@
             "Received bytes, chunked as they arrive (see [RxChunk]); a chunk ends when the line is idle for more than",
             "[UartConfig::idle_chars] character times, when it is full, or on a line error. A counted stream, unit: byte;",
             "the head\'s time is when the chunk\'s first byte arrived (always set), [RxChunk::end] when its last one did.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: FlowSink(ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "tx", docs: [
             "Bytes to send. Credit-based (API-28): the host never sends more than the device\'s TX buffer",
             "([Capabilities::tx_buffer]) holds.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Supported baud rates, modes, IO levels and other features.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 11)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 13))), errors: Some([
@@ -351,7 +351,7 @@
             "[Capabilities::min_baud_rate]..=[Capabilities::max_baud_rate], or a mode, parity, bit count, back-feed detector",
             "or IO level this device doesn\'t have is `Unsupported`; `Refused` when e.g. the line already sits at a higher",
             "voltage than `io_level`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "pin", ty: OutOfLine(type_idx: 14)),
             (ident: "is_high", ty: Bool),
@@ -365,7 +365,7 @@
             "Manually control pins, only in [Mode::Test].",
             "",
             "`WrongState` in any other mode.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "duration", ty: Instance(type_idx: 1, args: [
                 Type(OutOfLine(type_idx: 0)),
@@ -380,10 +380,10 @@
         ])), multiplicity: Flat, since: None, ident: "send_break", docs: [
             "Holds TX low for `duration` (a break), after the bytes already queued.",
             "`WrongState` in [Mode::HighZ] or [Mode::Test], `Refused` when longer than this device allows.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 6, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "tx_pending", docs: [
             "Bytes queued for sending and not sent yet.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 7, kind: StreamFn(ty: OutOfLine(type_idx: 17), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 15)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 13))), errors: Some([
@@ -401,8 +401,8 @@
             "",
             "Optional: a port without monitoring hardware leaves it out (`omit = [\"uart.monitor\"]`), and a host sees that",
             "in the device\'s introspection. `Unsupported` for a baud rate, mode or parity this monitor can\'t decode.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(36)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(36), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

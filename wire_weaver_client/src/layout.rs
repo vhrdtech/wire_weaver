@@ -491,6 +491,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 trait_name: "Api".into(),
                 compact_id: None,
+                meta: None,
                 items: vec![],
             },
             types,

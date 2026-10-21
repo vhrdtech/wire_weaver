@@ -2,6 +2,9 @@
 
 ### ⚠️ Breaking
 
+- `NodeInfo` carries `product_id` (the running image's, from its descriptor) and `seal` (`Seal::Unsigned` or
+  `Seal::Ed25519`, how the node checks an image's seal), so a host seals a new image for the device from the one
+  `UpdateNode::node` call (STD-12, for `ww dfu flash`, CLT-33).
 - The `FirmwareUpdate` stub is replaced by the update API (STD-12): traits `UpdateNode`, `BootControl`, `Inventory`,
   `Stage` and `StageBulk`, each node implementing the ones it needs; three update modes (A/B applied live, in place
   from a stored plan, in place applied live by an updater) and two ways a plan travels (step by step, or in one go

@@ -101,10 +101,12 @@ fn config_for(key: &str) -> Option<ClientConfig> {
         }
         _ => return None,
     };
-    // what the hub forwards was checked by its clients, and it never calls the device's API itself
+    // what the hub forwards was checked by its clients, and it never calls the device's API itself; it opens its
+    // devices itself, never through a hub (CLT-39 would route it to itself)
     Some(
         config
             .traits_only()
+            .hub(wire_weaver_client::hub::HubMode::Direct)
             .holder_mode(wire_weaver_client::holders::Mode::Hub)
             .client_meta(ClientMeta::new().kind(ClientKind::Hub).program("ww hub")),
     )

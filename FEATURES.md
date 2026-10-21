@@ -1084,9 +1084,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   polling the socket with the preamble for 2 s), lock files with the holder's client metadata, busy errors that say
   how to get a hub, `ww hub take` (`hub::take`). See `docs/transport/hub.md#reaching-devices-through-the-hub-clt-39`.
   Tested on Linux (`tests/hub_routing`: two programs starting a hub at once get one, stale socket, no executable;
-  unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a run through a hub that serves
-  devices, which comes with SRV-29 (until then the hub answers `UnknownDevice`, so `Auto` and `Prefer` go direct and
-  `Required` fails); a check on macOS and Windows (compiles for both).
+  unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a routed USB connection through the
+  SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
+  can't fake); a check on macOS and Windows (compiles for both).
 - 📋 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
   observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed.
 - 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
@@ -1301,8 +1301,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   names the hub, direct ww programs (lock files) and, on Linux, other programs (`/proc`) per device, with or without
   a hub; `ww list` asks a running hub through the registry (with a `STATE` column, `--direct` to enumerate USB
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
-  TTY or with `NO_COLOR`. Open: `lend DEVICE -- CMD` (needs SRV-32), `ww hub take` is there (CLT-39) but the hub only
-  opens devices with SRV-29; `ww list` asks a running hub and doesn't start one; the skill tree entry
+  TTY or with `NO_COLOR`. Open: `lend DEVICE -- CMD` (needs SRV-32), `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
 - 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
   wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,

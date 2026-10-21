@@ -113,11 +113,7 @@ impl ProbeRtt {
             probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
             chip: &h.target,
         });
-        let claim = match crate::holders::claim_with(
-            &key,
-            h.holder_mode,
-            h.meta.as_deref(),
-        ) {
+        let claim = match crate::holders::claim_with(&key, h.holder_mode, h.meta.as_deref()) {
             Ok(claim) => Some(claim),
             Err(crate::holders::ClaimError::HeldBy(holder)) => {
                 bail!(

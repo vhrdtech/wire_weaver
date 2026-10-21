@@ -66,11 +66,7 @@ pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
         serial: di.serial_number().unwrap_or_default(),
         iface: Some(ww.number),
     });
-    let claim = match crate::holders::claim_with(
-        &key,
-        target.mode,
-        target.meta.as_deref(),
-    ) {
+    let claim = match crate::holders::claim_with(&key, target.mode, target.meta.as_deref()) {
         Ok(claim) => Some(claim),
         Err(crate::holders::ClaimError::HeldBy(holder)) => {
             bail!(

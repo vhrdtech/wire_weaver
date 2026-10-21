@@ -185,13 +185,14 @@ None found: the error says how to get one (`cargo install wire_weaver_cli`, `WW_
 open the device now and keep it, so every program reaches the device through the hub from its first call
 (`wire_weaver_client::hub::take(key)`; `hub::key_of(&DeviceInfo)` gives a device's key).
 
-### What is there today
+### Limits of the routing
 
-The hub doesn't open devices yet (SRV-29): it answers a device tunnel with `UnknownDevice` and `take` with
-`Unimplemented`. Until then `Auto` and `Prefer` fall back to a direct connection with a note and `Required` fails.
-Only USB devices are routed, RTT and the other transports connect directly. `connect_blocking()` routes when it runs
-on a multi-thread tokio runtime (Python's is one); on a current-thread runtime it connects directly.
-### The `ww hub` command (TOOL-17)
+A routed connection is a [device tunnel](#device-tunnels-srv-29), with that section's limits. Only USB devices are
+routed so far; RTT and the other transports connect directly (a program reaches an RTT device through the hub with
+`ClientConfig::hub_device("rtt:..")`). `connect_blocking()` routes when it runs on a multi-thread tokio runtime
+(Python's is one); on a current-thread runtime it connects directly.
+
+## The `ww hub` command (TOOL-17)
 
 `ww hub status | stop | who | keep | serve` ([reference](../cli_reference.md#ww-hub)) is a client of the API above,
 except `who`, which also works without a hub. Behind `status` is `Hub::status()`: who started the hub (the

@@ -82,6 +82,8 @@ impl Node {
             profile: f.profile,
             product: wire_weaver::prelude::MaxLen::new("sim-dfu").unwrap(),
             geometry_id: plan::GEOMETRY_ID,
+            product_id: 1,
+            seal: ww_dfu::Seal::Unsigned,
             app_version: if bootable {
                 plan::image_version(f.active())
             } else {

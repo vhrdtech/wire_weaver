@@ -423,6 +423,11 @@ pub struct NodeInfo<'i> {
     /// Flash geometry id as the protocol spec defines it (chip line, slot layout, chunk size). A plan is made for one
     /// geometry and is refused on any other.
     pub geometry_id: u32,
+    /// Product id of the image in the app slot, from its descriptor; `0` when there is no valid image. A node refuses
+    /// a plan whose image is for another product, so a host seals for this one.
+    pub product_id: u32,
+    /// How this node checks the seal of an image: what a host seals a new image with.
+    pub seal: Seal,
     /// Version of the image in the app slot, `None` when there is no valid image (an updater after a cut in mode 3).
     pub app_version: Option<u32>,
     /// Lowest version this device will still accept (anti-rollback). Only ever goes up.
@@ -436,6 +441,23 @@ pub struct NodeInfo<'i> {
     pub last_result: LastResult,
     /// Which update traits this node implements.
     pub offers: Offers,
+}
+
+/// How a node checks the seal of an image's descriptor (the chunky protocol spec's seal schemes).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    self_describing,
+    ww_repr = nib
+)]
+pub enum Seal {
+    /// An integrity hash, no signature: the node accepts any image that is intact (an explicit opt-out for small
+    /// flash or a device whose flash anyone can write anyway).
+    Unsigned,
+    /// An Ed25519 signature by the release key the node trusts.
+    Ed25519,
 }
 
 /// Which firmware is answering.

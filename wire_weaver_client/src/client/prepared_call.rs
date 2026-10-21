@@ -121,6 +121,28 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
         Ok(E::decode_reply(&response))
     }
 
+    /// Send the call request now and return its reply to await later (CLT-33).
+    ///
+    /// Requests sent one after another leave in that order, whatever order their replies are awaited in, so a host
+    /// can keep several calls in flight and still have them reach the device in order (pipelined `ww_dfu::Stage`
+    /// steps). The timeout runs from the send.
+    pub async fn send(self) -> Result<PendingCall<T, E>, E> {
+        let (resource, error_list) = (self.resource, self.error_list);
+        let sent = async {
+            self.postpone_err?;
+            self.transport_cmd_tx
+                .send_call_request(self.path_kind, self.args, self.timeout_override)
+                .await
+        };
+        let done_rx = sent.await.map_err(|e| E::from_client(e, resource))?;
+        Ok(PendingCall {
+            done_rx,
+            resource,
+            error_list,
+            _phantom: PhantomData,
+        })
+    }
+
     /// Send a call request with seq = 0 and immediately return without response (the remote end won't send it either).
     ///
     /// Note that this method might have to await for command queue slot.
@@ -197,4 +219,26 @@ pub(crate) fn check_error_list<T, E: OutcomeError>(
         error_list::check(e, list, resource);
     }
     result
+}
+
+/// A call whose request is sent, its reply not awaited yet: see [PreparedCall::send].
+#[must_use = "the reply is lost unless awaited with reply()"]
+pub struct PendingCall<T, E = Error> {
+    done_rx: crate::event_loop::rx_dispatcher::ResponseReceiver,
+    resource: &'static str,
+    error_list: Option<ErrorList<E>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PendingCall<T, E> {
+    /// Await the reply (or the timeout given when the call was prepared).
+    pub async fn reply(self) -> Result<T, E> {
+        let resource = self.resource;
+        let response = match self.done_rx.await {
+            Ok(Ok(response)) => response,
+            Ok(Err(e)) => return Err(E::from_client(e, resource)),
+            Err(_) => return Err(E::from_client(Error::RxDispatcherNotRunning, resource)),
+        };
+        check_error_list(E::decode_reply(&response), self.error_list.as_ref(), resource)
+    }
 }

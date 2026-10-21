@@ -13,7 +13,8 @@ use ww_tap::{Framer, FramerChecksum, FramerTail};
 /// The framer a session names, as code.
 pub(crate) trait Walker: Send {
     fn pieces(&self, frame: &[u8]) -> Vec<Result<Piece<u8>, PieceError>>;
-    fn verify_split(&self, message: &[u8], trailer: &[u8]) -> bool;
+    /// `prefix` and `end_head` are the End's frame prefix and head, covered by the checksum.
+    fn verify_split(&self, prefix: &[u8], end_head: &[u8], message: &[u8], trailer: &[u8]) -> bool;
 }
 
 struct U2<C, T>(PhantomData<fn() -> (C, T)>);
@@ -23,8 +24,8 @@ impl<C: Checksum, T: Tail> Walker for U2<C, T> {
         pieces::<U2Head, C, T>(frame).collect()
     }
 
-    fn verify_split(&self, message: &[u8], trailer: &[u8]) -> bool {
-        verify_split::<C>(message, trailer)
+    fn verify_split(&self, prefix: &[u8], end_head: &[u8], message: &[u8], trailer: &[u8]) -> bool {
+        verify_split::<C>(prefix, end_head, message, trailer)
     }
 }
 
@@ -242,10 +243,12 @@ impl Reassembler {
                             out.pieces.push(info(&p, PieceOutcome::Dropped("bad tail")));
                             break 'pieces;
                         }
-                        if self
-                            .walker
-                            .verify_split(&partial.bytes, &frame[p.trailer.clone()])
-                        {
+                        if self.walker.verify_split(
+                            &[],
+                            &frame[p.head.clone()],
+                            &partial.bytes,
+                            &frame[p.trailer.clone()],
+                        ) {
                             out.completed.push(Reassembled {
                                 kind: partial.kind,
                                 bytes: partial.bytes,
@@ -373,6 +376,7 @@ fn describe(e: &PieceError) -> String {
             format!("piece runs past the frame: {needed} bytes needed, {left} left")
         }
         PieceErrorKind::BadSplit => "split piece without room for its End".into(),
+        PieceErrorKind::TooShort => "frame shorter than its prefix".into(),
     }
 }
 

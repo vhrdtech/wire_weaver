@@ -11,6 +11,7 @@ pub mod framed_rx;
 #[cfg(feature = "std")]
 pub mod owned;
 pub mod pieces;
+pub mod prefix;
 mod tests;
 pub mod traits;
 pub mod tx;

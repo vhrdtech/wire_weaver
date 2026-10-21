@@ -9,9 +9,11 @@ license.workspace = true
 
 [features]
 std = ["shrink_wrap/std"]
+defmt = ["dep:defmt"]
 large = []
 very_large = []
 
 [dependencies]
-crc = "3.4"
+crc.workspace = true
+defmt = { workspace = true, optional = true }
 shrink_wrap.workspace = true

@@ -9,17 +9,18 @@ use alloc::vec::Vec;
 use core::ops::Range;
 
 use crate::framed_rx::{FramedRx, FramedRxState};
+use crate::prefix::{FrameCtx, FramePrefix, FrameReport, NopPrefix, PrefixStats};
 use crate::traits::{Checksum, Head, Tail};
 use crate::tx::{Tx, TxState};
 
 /// Owned [Tx], see its docs for the intended use.
-pub struct TxOwned<H, C, T> {
+pub struct TxOwned<H, C, T, P = NopPrefix> {
     buf: Vec<u8>,
     state: TxState,
-    _phantom: core::marker::PhantomData<(H, C, T)>,
+    _phantom: core::marker::PhantomData<(H, C, T, P)>,
 }
 
-impl<H: Head, C: Checksum, T: Tail> TxOwned<H, C, T>
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> TxOwned<H, C, T, P>
 where
     H::UserKind: Copy,
 {
@@ -27,7 +28,7 @@ where
     /// (maximum frame or DMA size).
     pub fn new(frame_size: usize) -> Self {
         let mut buf = vec![0u8; frame_size];
-        let state = Tx::<H, C, T>::new(&mut buf).into_parts();
+        let state = Tx::<H, C, T, P>::new(&mut buf).into_parts();
         TxOwned {
             buf,
             state,
@@ -35,8 +36,8 @@ where
         }
     }
 
-    fn with<R>(&mut self, f: impl FnOnce(&mut Tx<'_, H, C, T>) -> R) -> R {
-        let mut tx = Tx::<H, C, T>::from_parts(&mut self.buf, self.state);
+    fn with<R>(&mut self, f: impl FnOnce(&mut Tx<'_, H, C, T, P>) -> R) -> R {
+        let mut tx = Tx::<H, C, T, P>::from_parts(&mut self.buf, self.state);
         let r = f(&mut tx);
         self.state = tx.into_parts();
         r
@@ -68,6 +69,16 @@ where
         self.with(|tx| tx.reset())
     }
 
+    /// See [Tx::new_session].
+    pub fn new_session(&mut self) {
+        self.with(|tx| tx.new_session())
+    }
+
+    /// See [Tx::frame_ctx].
+    pub fn frame_ctx(&mut self) -> FrameCtx {
+        self.with(|tx| tx.frame_ctx())
+    }
+
     /// See [Tx::is_empty].
     pub fn is_empty(&self) -> bool {
         self.state.is_empty()
@@ -85,13 +96,13 @@ where
 }
 
 /// Owned [FramedRx], see its docs for the intended use.
-pub struct FramedRxOwned<H: Head, C, T> {
+pub struct FramedRxOwned<H: Head, C, T, P: FramePrefix = NopPrefix> {
     buf: Vec<u8>,
-    state: FramedRxState<H::UserKind>,
-    _phantom: core::marker::PhantomData<(C, T)>,
+    state: FramedRxState<H::UserKind, P::Rx>,
+    _phantom: core::marker::PhantomData<(C, T, P)>,
 }
 
-impl<H: Head, C: Checksum, T: Tail> FramedRxOwned<H, C, T>
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FramedRxOwned<H, C, T, P>
 where
     H::UserKind: Copy + PartialEq,
 {
@@ -99,7 +110,7 @@ where
     /// Must hold at least one maximum re-assembled message + one maximum frame.
     pub fn new(assembly_size: usize) -> Self {
         let mut buf = vec![0u8; assembly_size];
-        let state = FramedRx::<H, C, T>::new(&mut buf).into_parts();
+        let state = FramedRx::<H, C, T, P>::new(&mut buf).into_parts();
         FramedRxOwned {
             buf,
             state,
@@ -107,8 +118,8 @@ where
         }
     }
 
-    fn with<R>(&mut self, f: impl FnOnce(&mut FramedRx<'_, H, C, T>) -> R) -> R {
-        let mut rx = FramedRx::<H, C, T>::from_parts(&mut self.buf, self.state);
+    fn with<R>(&mut self, f: impl FnOnce(&mut FramedRx<'_, H, C, T, P>) -> R) -> R {
+        let mut rx = FramedRx::<H, C, T, P>::from_parts(&mut self.buf, self.state);
         let r = f(&mut rx);
         self.state = rx.into_parts();
         r
@@ -124,8 +135,18 @@ where
         self.buf.len() - self.state.staged_end()
     }
 
+    /// See [FramedRx::resync].
+    pub fn resync(&mut self) {
+        self.with(|rx| rx.resync())
+    }
+
+    /// See [FramedRx::prefix_stats].
+    pub fn prefix_stats(&mut self) -> PrefixStats {
+        self.with(|rx| rx.prefix_stats())
+    }
+
     /// See [FramedRx::stage].
-    pub fn stage(&mut self, frame: &[u8]) -> Result<(), ()> {
+    pub fn stage(&mut self, frame: &[u8]) -> Result<FrameReport, ()> {
         self.with(|rx| rx.stage(frame))
     }
 

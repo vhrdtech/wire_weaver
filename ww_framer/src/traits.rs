@@ -1,5 +1,7 @@
 use shrink_wrap::{BufReader, BufWriter};
 
+use crate::prefix::MAX_PREFIX_LEN;
+
 pub trait Head {
     type UserKind;
     /// Longest serialized head in bytes (byte aligned), used to size buffers for stream media,
@@ -27,6 +29,11 @@ pub trait Head {
 
 /// Checksum written after message bytes (byte aligned).
 ///
+/// A checksum covers `header` and the whole `message`. `header` is the [frame prefix](crate::prefix) of the frame
+/// the checksum is written in (empty without one), followed by the head of the piece the checksum belongs to (the
+/// Full, or the End of a split message), so that a frame whose prefix or head was corrupted (a user kind, a
+/// length) fails it too, not only one whose payload was.
+///
 /// Must be of fixed length: [Checksum::read] must consume exactly [Checksum::LEN_BYTES_FULL] or
 /// [Checksum::LEN_BYTES_SPLIT] bytes, so that a receiver can tell upfront whether a whole message
 /// is present in a frame.
@@ -38,8 +45,49 @@ pub trait Checksum {
     /// Theoretically can be 0 for USB as well, as it's not supposed to loose packets.
     const LEN_BYTES_SPLIT: usize;
 
-    fn write(message: &[u8], is_split: bool, wr: &mut BufWriter<'_>) -> Result<(), WrError>;
-    fn read(message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError>;
+    fn write(
+        header: &[u8],
+        message: &[u8],
+        is_split: bool,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<(), WrError>;
+    fn read(
+        header: &[u8],
+        message: &[u8],
+        is_split: bool,
+        rd: &mut BufReader<'_>,
+    ) -> Result<(), RdError>;
+}
+
+/// Longest head a [Checksum] covers: [Head::MAX_HEAD_SIZE] must not be above it.
+pub const MAX_COVERED_HEAD: usize = 8;
+
+/// The bytes before a message a [Checksum] covers: frame prefix and head, copied out of the frame.
+pub(crate) struct Header {
+    bytes: [u8; MAX_PREFIX_LEN + MAX_COVERED_HEAD],
+    len: usize,
+}
+
+impl Header {
+    /// `prefix` followed by `head`, or nothing when `covered` is false (no checksum).
+    #[inline(always)]
+    pub(crate) fn new(covered: bool, prefix: &[u8], head: &[u8]) -> Self {
+        let mut bytes = [0u8; MAX_PREFIX_LEN + MAX_COVERED_HEAD];
+        if !covered {
+            return Header { bytes, len: 0 };
+        }
+        bytes[..prefix.len()].copy_from_slice(prefix);
+        bytes[prefix.len()..prefix.len() + head.len()].copy_from_slice(head);
+        Header {
+            bytes,
+            len: prefix.len() + head.len(),
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) fn get(&self) -> &[u8] {
+        &self.bytes[..self.len]
+    }
 }
 
 /// Tail written after checksum (byte aligned), e.g. a frame delimiter for stream media.
@@ -106,11 +154,21 @@ impl Checksum for NopChecksum {
     const LEN_BYTES_FULL: usize = 0;
     const LEN_BYTES_SPLIT: usize = 0;
 
-    fn write(_message: &[u8], _is_split: bool, _wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+    fn write(
+        _header: &[u8],
+        _message: &[u8],
+        _is_split: bool,
+        _wr: &mut BufWriter<'_>,
+    ) -> Result<(), WrError> {
         Ok(())
     }
 
-    fn read(_message: &[u8], _is_split: bool, _rd: &mut BufReader<'_>) -> Result<(), RdError> {
+    fn read(
+        _header: &[u8],
+        _message: &[u8],
+        _is_split: bool,
+        _rd: &mut BufReader<'_>,
+    ) -> Result<(), RdError> {
         Ok(())
     }
 }

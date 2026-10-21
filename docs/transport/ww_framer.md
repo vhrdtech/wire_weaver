@@ -51,14 +51,18 @@ Optionally a **checksum** over the message and a **tail** may follow the payload
 no-ops (`NopChecksum`, `NopTail`), because frame-based media like USB and CAN already check frame integrity.
 See [Checksum and tail](#checksum-and-tail) for the ready-made CRCs and an example with both enabled.
 
-The three pieces are generic parameters:
+Once per frame, before the first head, a **prefix** may be written: a frame counter and a session epoch for media
+that lose, duplicate or reorder frames (UDP). It is a fourth generic parameter, `NopPrefix` (nothing) by default,
+see [Frame prefix](#frame-prefix).
+
+The pieces are generic parameters:
 
 ```rust
 use ww_framer::{Tx, FramedRx};
 use ww_framer::framed::U2Head;
 use ww_framer::traits::{NopChecksum, NopTail};
 
-type LinkTx<'a> = Tx<'a, U2Head, NopChecksum, NopTail>;
+type LinkTx<'a> = Tx<'a, U2Head, NopChecksum, NopTail>; // prefix: NopPrefix
 type LinkRx<'a> = FramedRx<'a, U2Head, NopChecksum, NopTail>;
 ```
 
@@ -197,16 +201,21 @@ verified once, when the `End` arrives.
 Both must be **fixed length**: `read` has to consume exactly `LEN_BYTES_*` bytes. The receiver uses these constants
 to decide upfront whether a whole message is present in a frame, and `Tx` uses them to decide whether an `End` fits.
 
-The checksum length is configured separately for `Full` and split messages. On USB or CAN a `Full` message is
-already protected by the frame CRC, while a split one spans several frames and a lost frame in between would not
-be detected by the medium alone — so a typical setup is _no_ checksum for `Full` and a small one for split messages.
+The checksum length is configured separately for `Full` and split messages. A medium that checks every frame and
+keeps them in order within a session (USB) needs none at all; one that loses frames but checks them (CAN) can take a
+small one on split messages only, as a lost frame in between would not be detected by the medium alone; one whose
+frames may arrive corrupted (UDP: its 16-bit checksum is weak and optional over IPv4) takes a CRC on every message.
 Byte-level examples with a checksum and a tail are on [framer wire format](ww_framer_wire.md#with-a-checksum-and-a-tail).
+
+A checksum covers more than the payload: `Checksum::write` / `read` get a `header` too, the frame's prefix followed by
+the head of the piece the checksum belongs to (the `Full`, or the `End` of a split message), so that a flipped bit in
+a user kind, a length or the prefix fails it as well.
 
 ### Ready-made CRCs: `ww_framer::crc`
 
-Instead of hand-rolling a checksum, use `CrcChecksum<A, FULL>` built on the [crc](https://docs.rs/crc) crate.
-`A` selects both the **width** (u8 / u16 / u32 / u64, written little endian) and the **algorithm**; the lookup table
-is computed at compile time. `FULL` (default `false`) controls whether `Full` messages are checksummed too:
+Instead of hand-rolling a checksum, use `CrcChecksum<A, FULL>`. `A` selects both the **width** (u8 / u16 / u32 /
+u64, written little endian) and the **algorithm**; the provided ones use the [crc](https://docs.rs/crc) crate with a
+lookup table computed at compile time. `FULL` (default `false`) controls whether `Full` messages are checksummed too:
 
 ```rust
 use ww_framer::crc::{CrcChecksum, Crc16Usb, Crc32IsoHdlc};
@@ -225,15 +234,21 @@ type StreamTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc32IsoHdlc, true>, EndMarker>;
 | `Crc16IbmSdlc` | 2 bytes | CRC-16/X-25 (HDLC, PPP), poly `0x1021`     |
 | `Crc32IsoHdlc` | 4 bytes | CRC-32 (zlib, Ethernet), poly `0x04C11DB7` |
 
-Any other algorithm from the `crc` catalog is a three-line impl:
+`CrcAlgorithm::checksum(header, message)` is a plain function, so any other algorithm from the `crc` catalog is a
+few lines, and the CRC can also come from elsewhere: a hardware CRC unit, or code shared with the rest of the firmware
+(`ww_link`'s UDP configuration takes its CRC-32 from `ww_block::crc32_update`, whose table size the firmware picks
+once for both):
 
 ```rust
-use ww_framer::crc::CrcAlgorithm;
+use ww_framer::crc::{CrcAlgorithm, crc_of};
 
 struct Crc8Autosar;
 impl CrcAlgorithm for Crc8Autosar {
     type Width = u8;
-    const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
+    fn checksum(header: &[u8], message: &[u8]) -> u8 {
+        const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
+        crc_of(&CRC, header, message)
+    }
 }
 type LinkChecksum = CrcChecksum<Crc8Autosar>;
 ```
@@ -253,15 +268,15 @@ impl Checksum for Crc8 {
     const LEN_BYTES_FULL: usize = 0;   // frame CRC is enough for Full messages
     const LEN_BYTES_SPLIT: usize = 1;
 
-    fn write(message: &[u8], is_split: bool, wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+    fn write(header: &[u8], message: &[u8], is_split: bool, wr: &mut BufWriter<'_>) -> Result<(), WrError> {
         if is_split {
-            wr.write_u8(crc8(message))?;
+            wr.write_u8(crc8(header, message))?;
         }
         Ok(())
     }
 
-    fn read(message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError> {
-        if is_split && rd.read_u8()? != crc8(message) {
+    fn read(header: &[u8], message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError> {
+        if is_split && rd.read_u8()? != crc8(header, message) {
             return Err(RdError::ChecksumMismatch);
         }
         Ok(())
@@ -288,26 +303,82 @@ type LinkRx<'a> = FramedRx<'a, U2Head, Crc8, EndMarker>;
 ```
 
 `message` passed to `Checksum::write` / `read` is always the **complete** message, even for `End`, so the CRC does
-not need to be incremental.
+not need to be incremental; `crc8(header, message)` is the CRC-8 of `header` followed by `message`.
+
+## Frame prefix
+
+A frame prefix is written by `Tx` once at the start of every frame and read by `FramedRx` once, before the first
+head; heads, checksums and tails stay as they are (a checksum covers the prefix, see above). `Tx` keeps a `u32` frame
+counter (from 0, up by one per non-empty `flush()`) and a session epoch (up by one per `new_session()`) and hands
+them to the prefix, which decides what to write. The trait is `ww_framer::prefix::FramePrefix`:
+
+| Prefix | Bytes | What it carries | For |
+| --- | --- | --- | --- |
+| `NopPrefix` (default) | 0 | nothing | USB, RTT, byte streams |
+| `SeqPrefix` | 1 | `00ee_ssss`: frame counter mod 16, epoch mod 4, 2 spare bits (sent as 0, ignored) | UDP, and USB as an optional diagnostic |
+
+```rust
+use ww_framer::prefix::{FrameReport, SeqPrefix};
+
+type UdpTx<'a> = Tx<'a, U2Head, CrcChecksum<Crc32IsoHdlc, true>, NopTail, SeqPrefix>;
+type UdpRx<'a> = FramedRx<'a, U2Head, CrcChecksum<Crc32IsoHdlc, true>, NopTail, SeqPrefix>;
+
+match rx.stage(frame)? {
+    FrameReport::Gap { lost } => warn!("{lost} frames lost"),
+    report if report.is_dropped() => return Ok(()), // duplicate, late, stale, too short: not staged
+    _ => {}
+}
+```
+
+`stage` (and `commit_staged`) check the prefix and say what they found in a `FrameReport`. `SeqPrefix`'s receiver
+rebuilds the full counter from its low bits, as the nearest value to the expected one:
+
+| Report | Meaning | The frame |
+| --- | --- | --- |
+| `Synced` | first frame after `new`, `reset` or `resync`: taken as the reference | decoded |
+| `InOrder` | the expected frame | decoded |
+| `Gap { lost }` | up to 7 frames missing before it | decoded; a split message in progress is dropped |
+| `NewEpoch` | the sender started a new session (epoch one or two on) | decoded; a split message in progress is dropped |
+| `Duplicate` | received before (a bitmap of the last 16 frames) | dropped |
+| `Late` | from before the expected one, not received before: reordered | dropped (already counted lost) |
+| `StaleEpoch` | from the sender's previous session | dropped |
+| `Resynced` | the second of two frames in a row that look received and follow each other: 8 or more frames were lost | dropped, taken as the new reference |
+| `TooShort` | shorter than the prefix | dropped |
+
+So with a prefix, messages never come out twice or out of order, and a split message never gets a piece from
+another session. `prefix_stats()` counts each case (`PrefixStats`), `resync()` takes the next frame as it is (a new
+peer), and `Tx::new_session()` drops a half-written message and starts the next frame in a new epoch, so that the
+receiver drops whatever of the old session is still on the way. Process every frame (reassemble until `message()`
+is `None`) before staging the next one, as with split messages. The bytes are on
+[framer wire format](ww_framer_wire.md#frame-prefix).
+
+Limits of 4 + 2 bits: losing 8 or more frames in a row costs two more (the receiver needs two frames to see it), or
+up to 8 more when the frames before were lost too; a frame delayed across two session changes is taken as new; a
+corrupted prefix can move the receiver to a wrong position before the CRC rejects its frame, after which order is
+not guaranteed for a few frames (integrity still is: every message passes its CRC).
 
 ## API summary
 
-### `Tx<H, C, T>`
+### `Tx<H, C, T, P = NopPrefix>`
 
 | Method                                      | Description                                                                                                                                                                                                                                |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `new(buf)`                                  | Wrap an assembly buffer. Its length **is** the maximum frame size (e.g. the DMA / endpoint size).                                                                                                                                          |
 | `write(user_kind, msg) -> Result<bool, ()>` | Append a message. `Ok(true)` — fully written. `Ok(false)` — frame is full, `flush()` and call again with the **same** message. `Err(())` — the message can never be sent (too large for the head encoding, or head alone fills the frame). |
 | `write_full(user_kind, msg) -> Result<bool, ()>` | Same, but never splits: `Ok(false)` if the message does not fit into what is left of the frame, `Err(())` if it does not fit into an empty one. For stream media, where frame boundaries are not preserved. |
-| `flush() -> usize`                          | Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written.                                                                                                                                               |
+| `flush() -> usize`                          | Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written. A non-empty frame moves the frame counter on.                                                                                               |
+| `new_session()`                             | `reset()`, the epoch goes up by one and frames are counted from 0, see [Frame prefix](#frame-prefix). |
+| `frame_ctx() -> FrameCtx`                   | Counter and epoch of the frame being assembled. |
 | `buf() -> &[u8]`                            | The assembly buffer. Frame bytes are `&buf()[..len]` right after `flush()`.                                                                                                                                                                |
 
-### `FramedRx<H, C, T>`
+### `FramedRx<H, C, T, P = NopPrefix>`
 
 | Method                                   | Description                                                                                                             |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `new(buf)`                               | Wrap a receive buffer. Must hold at least one maximum re-assembled message **plus** one maximum frame.                  |
-| `stage(frame) -> Result<(), ()>`         | Copy a received frame in. `Err(())` if `free()` is too small.                                                           |
+| `stage(frame) -> Result<FrameReport, ()>` | Copy a received frame in, checking its prefix (`FrameReport::Unchecked` without one; a dropped frame is not staged). `Err(())` if `free()` is too small. |
+| `staging_buf()` / `commit_staged(len)`   | Receive a frame straight into the free part of the buffer, then stage it (same report). |
+| `resync()` / `prefix_stats()`            | Take the next frame's prefix as it is; counters of what the prefixes showed. |
 | `free() -> usize`                        | Bytes available for staging.                                                                                            |
 | `reassemble()`                           | Process staged bytes until a message is ready or the frame is exhausted. Also discards the previously returned message. |
 | `message() -> Option<(UserKind, &[u8])>` | The ready message, if any. Valid until the next `reassemble()`.                                                         |
@@ -330,7 +401,7 @@ Both also have `reset()` (drop whatever is half-written or half-assembled, e.g. 
 
 ### Traits
 
-Everything above is generic over three traits in `ww_framer::traits`, so a different medium can plug in its own
+Everything above is generic over these traits (in `ww_framer::traits` and `ww_framer::prefix`), so a different medium can plug in its own
 encoding without touching the packing/splitting logic:
 
 | Trait      | Purpose                                                                                                  | Provided implementations          |
@@ -338,6 +409,7 @@ encoding without touching the packing/splitting logic:
 | `Head`     | Serialize / parse `(MessageKind, user_kind, len)`; declares `MAX_HEAD_SIZE`                              | `framed::U2Head`                  |
 | `Checksum` | Optional fixed-length checksum after each message, separately configurable for `Full` and split messages | `NopChecksum`, `crc::CrcChecksum` |
 | `Tail`     | Optional fixed-length bytes after each message (e.g. an end marker for stream media)                     | `NopTail`, `ByteTail`             |
+| `prefix::FramePrefix` | Optional fixed-length bytes at the start of every frame, with its own receiver state | `NopPrefix`, `SeqPrefix` |
 
 See [Checksum and tail](#checksum-and-tail) for an example implementation of the last two.
 
@@ -346,6 +418,7 @@ See [Checksum and tail](#checksum-and-tail) for an example implementation of the
 | Feature      | Effect                                                                 |
 | ------------ | ---------------------------------------------------------------------- |
 | `std`        | `TxOwned` / `FramedRxOwned`, backed by a `Vec`                         |
+| `defmt`      | `defmt::Format` for the prefix types (`FrameReport`, `PrefixStats`)    |
 | `large`      | Enables the 3-byte head form: messages up to 128 KiB                   |
 | `very_large` | Enables the 4-byte head form: messages up to 16 MiB (requires `large`) |
 
@@ -355,6 +428,8 @@ user kind), which is what most microcontroller links need.
 ## Testing and Fuzzing
 
 The framer carries every message over USB, RTT and UDP (WebSocket has framing of its own), so it has to be right.
-Unit tests cover the head forms, splitting and the receiver failure modes listed on the
-[wire format page](ww_framer_wire.md#receiver-robustness), and a fuzz target round-trips random messages over random
-frame sizes: `cargo fuzz run framer-tx-rx` from `fuzz/`.
+Unit tests cover the head forms, splitting, the prefix cases and the receiver failure modes listed on the
+[wire format page](ww_framer_wire.md#receiver-robustness). Two fuzz targets (from `fuzz/`): `framer-tx-rx` round-trips
+random messages over random frame sizes (`just fuzz-framer`), `framer-lossy` runs `SeqPrefix` with a CRC-32 on every
+message over a channel that loses, duplicates, delays and corrupts frames, with new sessions on the sender: the
+receiver must deliver only sent messages, and in order unless a frame was corrupted (`just fuzz-framer-lossy`).

@@ -222,6 +222,11 @@ deps-ext:
 fuzz-framer:
     cargo +nightly fuzz run framer-tx-rx -- -max_len=32768
 
+# Fuzz the framer with a frame prefix over a lossy channel (UDP configuration)
+[working-directory('fuzz')]
+fuzz-framer-lossy:
+    cargo +nightly fuzz run framer-lossy -- -max_len=32768
+
 # Fuzz shrink_wrap TailSize types (SW-22)
 [working-directory('fuzz')]
 fuzz-shrink-wrap:

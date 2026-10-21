@@ -10,7 +10,8 @@ use core::ops::Range;
 
 use shrink_wrap::BufReader;
 
-use crate::traits::{Checksum, Head, MessageKind, RdError, Tail};
+use crate::prefix::{FramePrefix, NopPrefix};
+use crate::traits::{Checksum, Head, Header, MessageKind, RdError, Tail};
 
 /// A head read at the start of `bytes`.
 pub(crate) struct ReadHead<U> {
@@ -112,31 +113,56 @@ pub enum PieceErrorKind {
     /// A Start or Continue with no payload byte, or with at least the whole remaining length: a writer never makes
     /// those, it would have written a Full or an End.
     BadSplit,
+    /// The frame is shorter than its [prefix](crate::prefix).
+    TooShort,
 }
 
 /// Iterator over the pieces of one frame, see the [module docs](self). Ends after the last piece or after the first
 /// error.
-pub struct Pieces<'f, H, C, T> {
+pub struct Pieces<'f, H, C, T, P = NopPrefix> {
     frame: &'f [u8],
     pos: usize,
     done: bool,
-    _phantom: PhantomData<(H, C, T)>,
+    _phantom: PhantomData<(H, C, T, P)>,
 }
 
-/// The pieces of `frame`, see [Pieces].
+/// The pieces of `frame` without a prefix, see [Pieces].
 pub fn pieces<H: Head, C: Checksum, T: Tail>(frame: &[u8]) -> Pieces<'_, H, C, T> {
+    pieces_with_prefix::<H, C, T, NopPrefix>(frame)
+}
+
+/// The pieces of `frame`, which starts with a [prefix](crate::prefix) `P`, see [Pieces]. The prefix is not checked
+/// against anything (that needs the frames before), only skipped and used for the checksums; [Pieces::prefix] has
+/// its bytes.
+pub fn pieces_with_prefix<H: Head, C: Checksum, T: Tail, P: FramePrefix>(
+    frame: &[u8],
+) -> Pieces<'_, H, C, T, P> {
     Pieces {
         frame,
-        pos: 0,
+        pos: P::LEN,
         done: false,
         _phantom: PhantomData,
     }
 }
 
-impl<H: Head, C: Checksum, T: Tail> Iterator for Pieces<'_, H, C, T> {
+impl<H, C, T, P: FramePrefix> Pieces<'_, H, C, T, P> {
+    /// The frame's prefix bytes, empty if it is too short for one.
+    pub fn prefix(&self) -> &[u8] {
+        self.frame.get(..P::LEN).unwrap_or(&[])
+    }
+}
+
+impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> Iterator for Pieces<'_, H, C, T, P> {
     type Item = Result<Piece<H::UserKind>, PieceError>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if !self.done && self.frame.len() < P::LEN {
+            self.done = true;
+            return Some(Err(PieceError {
+                at: 0,
+                kind: PieceErrorKind::TooShort,
+            }));
+        }
         if self.done || self.pos >= self.frame.len() {
             return None;
         }
@@ -170,7 +196,12 @@ impl<H: Head, C: Checksum, T: Tail> Iterator for Pieces<'_, H, C, T> {
                 let message = &self.frame[payload_start..payload_end];
                 let mut rd = BufReader::new(&self.frame[payload_end..trailer_end]);
                 let checksum_ok = if kind == MessageKind::Full {
-                    Some(C::read(message, false, &mut rd).is_ok())
+                    let header = Header::new(
+                        C::LEN_BYTES_FULL > 0,
+                        &self.frame[..P::LEN],
+                        &self.frame[at..payload_start],
+                    );
+                    Some(C::read(header.get(), message, false, &mut rd).is_ok())
                 } else {
                     // skip the checksum bytes, the tail comes after them
                     let mut skip = C::LEN_BYTES_SPLIT;
@@ -214,10 +245,21 @@ impl<H: Head, C: Checksum, T: Tail> Iterator for Pieces<'_, H, C, T> {
     }
 }
 
-/// Check a reassembled split message against the trailer of its End piece ([Piece::trailer]).
-pub fn verify_split<C: Checksum>(message: &[u8], trailer: &[u8]) -> bool {
+/// Check a reassembled split message against the trailer of its End piece ([Piece::trailer]); `prefix` is the
+/// prefix of the End's frame ([Pieces::prefix], empty without one) and `end_head` the End's head bytes
+/// ([Piece::head]), both covered by the checksum.
+pub fn verify_split<C: Checksum>(
+    prefix: &[u8],
+    end_head: &[u8],
+    message: &[u8],
+    trailer: &[u8],
+) -> bool {
+    if end_head.len() > crate::traits::MAX_COVERED_HEAD || prefix.len() > crate::prefix::MAX_PREFIX_LEN {
+        return false;
+    }
+    let header = Header::new(C::LEN_BYTES_SPLIT > 0, prefix, end_head);
     let mut rd = BufReader::new(trailer);
-    C::read(message, true, &mut rd).is_ok()
+    C::read(header.get(), message, true, &mut rd).is_ok()
 }
 
 #[cfg(test)]
@@ -308,8 +350,8 @@ mod tests {
         let end = walk::<XorChecksum, ByteTail<0xEE>>(&[END_1, 3, 1 ^ 2 ^ 3, 0xEE]);
         let p = end[0].as_ref().unwrap();
         assert_eq!((p.checksum_ok, p.tail_ok), (None, true));
-        assert!(verify_split::<XorChecksum>(&[1, 2, 3], &[1 ^ 2 ^ 3, 0xEE]));
-        assert!(!verify_split::<XorChecksum>(&[1, 2, 4], &[1 ^ 2 ^ 3, 0xEE]));
+        assert!(verify_split::<XorChecksum>(&[], &[END_1], &[1, 2, 3], &[1 ^ 2 ^ 3, 0xEE]));
+        assert!(!verify_split::<XorChecksum>(&[], &[END_1], &[1, 2, 4], &[1 ^ 2 ^ 3, 0xEE]));
     }
 
     /// Pieces reassembled by hand give the same messages as [FramedRx], over frames a [Tx] wrote from messages of
@@ -374,7 +416,7 @@ mod tests {
                         MessageKind::End => {
                             let (uk, mut m) = assembling.take().unwrap();
                             m.extend(bytes);
-                            assert!(verify_split::<C>(&m, &f[p.trailer.clone()]));
+                            assert!(verify_split::<C>(&[], &f[p.head.clone()], &m, &f[p.trailer.clone()]));
                             by_pieces.push((uk, m));
                         }
                     }

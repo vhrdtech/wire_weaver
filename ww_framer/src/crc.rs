@@ -12,10 +12,17 @@
 //! struct Crc8Autosar;
 //! impl CrcAlgorithm for Crc8Autosar {
 //!     type Width = u8;
-//!     const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
+//!     fn checksum(header: &[u8], message: &[u8]) -> u8 {
+//!         const CRC: crc::Crc<u8> = crc::Crc::<u8>::new(&crc::CRC_8_AUTOSAR);
+//!         ww_framer::crc::crc_of(&CRC, header, message)
+//!     }
 //! }
 //! type Link8Checksum = CrcChecksum<Crc8Autosar>;
 //! ```
+//!
+//! [CrcAlgorithm::checksum] is a plain function, so the CRC can come from elsewhere: a hardware CRC unit, or one
+//! implementation shared with other code (`ww_link`'s UDP CRC-32 is `ww_block::crc32_update`, whose table size
+//! a firmware picks once for both).
 //!
 //! By default only split messages are checksummed, as frame based media (USB, CAN, etc.) already
 //! protects each frame and a checksum over the whole message only helps to detect lost or
@@ -36,7 +43,8 @@ use crate::traits::{Checksum, RdError, WrError};
 pub trait CrcWidth: crc::Width + Copy + PartialEq {
     const LEN_BYTES: usize;
 
-    fn checksum(crc: &crc::Crc<Self>, data: &[u8]) -> Self;
+    /// CRC of `a` followed by `b`.
+    fn checksum2(crc: &crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self;
     fn write(self, wr: &mut BufWriter<'_>) -> Result<(), WrError>;
     fn read(rd: &mut BufReader<'_>) -> Result<Self, RdError>;
 }
@@ -47,8 +55,14 @@ macro_rules! impl_crc_width {
             const LEN_BYTES: usize = size_of::<$ty>();
 
             #[inline]
-            fn checksum(crc: &crc::Crc<Self>, data: &[u8]) -> Self {
-                crc.checksum(data)
+            fn checksum2(crc: &crc::Crc<Self>, a: &[u8], b: &[u8]) -> Self {
+                if a.is_empty() {
+                    return crc.checksum(b);
+                }
+                let mut digest = crc.digest();
+                digest.update(a);
+                digest.update(b);
+                digest.finalize()
             }
 
             #[inline]
@@ -71,11 +85,19 @@ impl_crc_width!(u32, write_u32, read_u32);
 impl_crc_width!(u64, write_u64, read_u64);
 
 /// Selects CRC width and algorithm for [CrcChecksum].
-///
-/// `CRC` is a const, so that the lookup table (256 entries of `Width`) is computed at compile time.
 pub trait CrcAlgorithm {
     type Width: CrcWidth;
-    const CRC: crc::Crc<Self::Width>;
+
+    /// CRC of `header` followed by `message` (`header` is the frame prefix and the piece's head, see
+    /// [Checksum](crate::traits::Checksum)).
+    fn checksum(header: &[u8], message: &[u8]) -> Self::Width;
+}
+
+/// CRC of `header` followed by `message` with a [crc](https://docs.rs/crc) crate algorithm, for
+/// [CrcAlgorithm::checksum]. Keep `crc` in a `const`, so that its lookup table is computed at compile time.
+#[inline]
+pub fn crc_of<W: CrcWidth>(crc: &crc::Crc<W>, header: &[u8], message: &[u8]) -> W {
+    W::checksum2(crc, header, message)
 }
 
 macro_rules! algorithm {
@@ -85,7 +107,13 @@ macro_rules! algorithm {
 
         impl CrcAlgorithm for $name {
             type Width = $ty;
-            const CRC: crc::Crc<$ty> = crc::Crc::<$ty>::new(&crc::$alg);
+
+            #[inline]
+            fn checksum(header: &[u8], message: &[u8]) -> $ty {
+                // lookup table (256 entries of the width) computed at compile time
+                const CRC: crc::Crc<$ty> = crc::Crc::<$ty>::new(&crc::$alg);
+                crc_of(&CRC, header, message)
+            }
         }
     };
 }
@@ -103,7 +131,8 @@ algorithm!(
     Crc16IbmSdlc, u16, CRC_16_IBM_SDLC
 );
 algorithm!(
-    /// CRC-32/ISO-HDLC, the common "CRC-32" (zlib, Ethernet, PNG), 4 bytes.
+    /// CRC-32/ISO-HDLC, the common "CRC-32" (zlib, Ethernet, PNG), 4 bytes, with a 1 KiB table. `ww_link`'s UDP
+    /// configuration uses the same algorithm through `ww_block::crc32_update` instead, see the [module docs](self).
     Crc32IsoHdlc, u32, CRC_32_ISO_HDLC
 );
 
@@ -123,16 +152,26 @@ impl<A: CrcAlgorithm, const FULL: bool> Checksum for CrcChecksum<A, FULL> {
     const LEN_BYTES_FULL: usize = if FULL { A::Width::LEN_BYTES } else { 0 };
     const LEN_BYTES_SPLIT: usize = A::Width::LEN_BYTES;
 
-    fn write(message: &[u8], is_split: bool, wr: &mut BufWriter<'_>) -> Result<(), WrError> {
+    fn write(
+        header: &[u8],
+        message: &[u8],
+        is_split: bool,
+        wr: &mut BufWriter<'_>,
+    ) -> Result<(), WrError> {
         if is_split || FULL {
-            A::Width::checksum(&A::CRC, message).write(wr)?;
+            A::checksum(header, message).write(wr)?;
         }
         Ok(())
     }
 
-    fn read(message: &[u8], is_split: bool, rd: &mut BufReader<'_>) -> Result<(), RdError> {
+    fn read(
+        header: &[u8],
+        message: &[u8],
+        is_split: bool,
+        rd: &mut BufReader<'_>,
+    ) -> Result<(), RdError> {
         if is_split || FULL {
-            let expected = A::Width::checksum(&A::CRC, message);
+            let expected = A::checksum(header, message);
             if A::Width::read(rd)? != expected {
                 return Err(RdError::ChecksumMismatch);
             }
@@ -159,19 +198,19 @@ mod tests {
         let mut buf = [0u8; 8];
 
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc8Smbus>::write(CHECK, true, &mut wr).unwrap();
+        CrcChecksum::<Crc8Smbus>::write(&[], CHECK, true, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &[0xF4]);
 
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc16Usb>::write(CHECK, true, &mut wr).unwrap();
+        CrcChecksum::<Crc16Usb>::write(&[], CHECK, true, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &0xB4C8u16.to_le_bytes());
 
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc16IbmSdlc>::write(CHECK, true, &mut wr).unwrap();
+        CrcChecksum::<Crc16IbmSdlc>::write(&[], CHECK, true, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &0x906Eu16.to_le_bytes());
 
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc32IsoHdlc>::write(CHECK, true, &mut wr).unwrap();
+        CrcChecksum::<Crc32IsoHdlc>::write(&[], CHECK, true, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &0xCBF4_3926u32.to_le_bytes());
     }
 
@@ -184,35 +223,35 @@ mod tests {
 
         let mut buf = [0u8; 8];
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc16Usb>::write(CHECK, false, &mut wr).unwrap();
+        CrcChecksum::<Crc16Usb>::write(&[], CHECK, false, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &[]);
 
         let mut wr = BufWriter::new(&mut buf);
-        CrcChecksum::<Crc16Usb, true>::write(CHECK, false, &mut wr).unwrap();
+        CrcChecksum::<Crc16Usb, true>::write(&[], CHECK, false, &mut wr).unwrap();
         assert_eq!(wr.finish().unwrap(), &0xB4C8u16.to_le_bytes());
     }
 
     #[test]
     fn read_detects_mismatch() {
         let mut rd = BufReader::new(&[0xC8, 0xB4]);
-        assert_eq!(CrcChecksum::<Crc16Usb>::read(CHECK, true, &mut rd), Ok(()));
+        assert_eq!(CrcChecksum::<Crc16Usb>::read(&[], CHECK, true, &mut rd), Ok(()));
 
         let mut rd = BufReader::new(&[0xC8, 0xB5]);
         assert_eq!(
-            CrcChecksum::<Crc16Usb>::read(CHECK, true, &mut rd),
+            CrcChecksum::<Crc16Usb>::read(&[], CHECK, true, &mut rd),
             Err(RdError::ChecksumMismatch)
         );
 
         // not enough bytes
         let mut rd = BufReader::new(&[0xC8]);
         assert_eq!(
-            CrcChecksum::<Crc16Usb>::read(CHECK, true, &mut rd),
+            CrcChecksum::<Crc16Usb>::read(&[], CHECK, true, &mut rd),
             Err(RdError::NeedMoreData)
         );
 
         // Full is not checked by default, nothing is consumed
         let mut rd = BufReader::new(&[0xC8, 0xB5]);
-        assert_eq!(CrcChecksum::<Crc16Usb>::read(CHECK, false, &mut rd), Ok(()));
+        assert_eq!(CrcChecksum::<Crc16Usb>::read(&[], CHECK, false, &mut rd), Ok(()));
         assert_eq!(rd.bytes_left(), 2);
     }
 
@@ -222,7 +261,8 @@ mod tests {
         let mut buf = [0u8; 8];
         let mut tx = LinkTx::new(&mut buf);
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-        let crc = crc::Crc::<u16>::new(&crc::CRC_16_USB).checksum(&msg);
+        // over the End's head and the whole message
+        let crc = crc::Crc::<u16>::new(&crc::CRC_16_USB).checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
         assert_eq!(tx.write(0, &msg), Ok(false));
         let len = tx.flush();

@@ -5,7 +5,8 @@ level: nomicon
 # Framer wire format
 
 The exact bytes [ww_framer](ww_framer.md) puts into a frame: the head layout, how small messages share a frame,
-how a big one is split, what the receiver does with lost frames, and where the checksum and tail go. For
+how a big one is split, what the receiver does with lost frames, where the checksum and tail go, and the frame
+prefix. For
 debugging bytes on the wire, writing a framer in another language, or changing this one.
 
 The examples use the types from the [framer page](ww_framer.md#model): `LinkTx` / `LinkRx` with `U2Head` and no
@@ -220,20 +221,23 @@ Frame B is 7 bytes — shorter than the maximum — see [sending a partial frame
 - `user_kind` changes mid-message → dropped.
 - A `Start` or `Continue` that does _not_ extend to the frame end, an `End` that does not fit into the frame
   together with checksum and tail, or a message larger than the receive buffer → skipped.
-- Checksum mismatch → **only that message** is dropped, the rest of the frame is decoded normally. Frames are
-  already protected by the medium, so a bad checksum on a split message means a frame of it was lost or reordered,
-  not that the bytes at hand are corrupt.
+- Checksum mismatch → **only that message** is dropped, the rest of the frame is decoded normally: a bad checksum
+  on a split message means a frame of it was lost or reordered, or the bytes at hand were corrupted; the heads that
+  follow still say where the next message starts (a corrupted one is a bad head or fails its own checksum).
 - Bad tail → the frame cannot be trusted, the message is dropped and the rest of the frame is skipped.
 - Head or payload of a `Full` message cut between two `stage` calls (stream media, byte-by-byte UART) → kept and
   completed by the next `stage`.
 
-After any of these the framer is back in a clean state and the next valid message is decoded normally.
+After any of these the framer is back in a clean state and the next valid message is decoded normally. With a
+[frame prefix](#frame-prefix), duplicated, late and stale frames are dropped before any of this, and a gap in the
+counter drops a split message in progress right away.
 
 ## With a checksum and a tail
 
-The examples below use the `Crc8` checksum (on split messages only) and the `0x7E` `EndMarker` tail from the
-[hand-rolled example](ww_framer.md#hand-rolled-example). After the payload of a `Full` or `End` message come the
-checksum, then the tail; `Start` and `Continue` carry neither.
+The examples below use the `Crc8` checksum (CRC-8/SMBUS, on split messages only) and the `0x7E` `EndMarker` tail
+from the [hand-rolled example](ww_framer.md#hand-rolled-example). After the payload of a `Full` or `End` message
+come the checksum, then the tail; `Start` and `Continue` carry neither. A checksum covers the frame prefix (none
+here), the head of its `Full` or `End` and the whole message.
 
 ### Small messages
 
@@ -264,9 +268,9 @@ identical to the no-checksum case; only the `End` frame grows by two bytes:
 
  frame 3 (End, remaining = 2)
  ┌────┬────┬────┬────┬────┐
- │ C2 │ 13 │ 14 │ 99 │ 7E │
+ │ C2 │ 13 │ 14 │ A8 │ 7E │
  └────┴────┴────┴────┴────┘
-  head [18..20]  crc8 tail       0x99 = CRC-8 over all 20 bytes
+  head [18..20]  crc8 tail       0xA8 = CRC-8 over the head C2 and all 20 bytes
 ```
 
 ### `End` that would not fit stays `Continue`
@@ -289,9 +293,77 @@ leaving one for the `End`:
 
  frame 2 (End, remaining = 1)
  ┌────┬────┬────┬────┐
- │ C1 │ 0C │ FF │ 7E │
+ │ C1 │ 0C │ 61 │ 7E │
  └────┴────┴────┴────┘
-  head [11] crc8 tail       0xFF = CRC-8 over all 12 bytes
+  head [11] crc8 tail       0x61 = CRC-8 over the head C1 and all 12 bytes
 ```
 
 Frame 1 is sent short instead of being filled with a byte that would force `End` to span two frames.
+
+## Frame prefix
+
+With a [prefix](ww_framer.md#frame-prefix), every frame starts with it and the first head comes right after.
+`SeqPrefix` is one byte:
+
+```
+ bit:   7   6   5   4   3   2   1   0
+      ┌───┬───┬───┬───┬───┬───┬───┬───┐
+      │ 0   0 │ e   e │ s   s   s   s │
+      └───┴───┴───┴───┴───┴───┴───┴───┘
+        spare   epoch   frame counter
+                mod 4   mod 16
+```
+
+The spare bits are sent as 0 and ignored on read. The counter starts at 0 and goes up by one per frame sent, the
+epoch goes up by one per session (`Tx::new_session`, on link setup), and the counter starts at 0 again.
+
+The three small messages from [above](#multiple-small-messages-in-one-frame) in the first frame of a session: the
+same bytes after one more at the front.
+
+```
+ 00 │ 04 01 02 03 04 │ 15 11 12 13 14 15 │ 22 21 22
+ ▲
+ └─ epoch 0, frame 0
+```
+
+The 20-byte message over 8-byte frames: the prefix takes a byte of every frame, so each piece carries one byte less
+than [without it](#large-message-spanning-multiple-frames), and the message takes the same four frames.
+
+```
+ frame 0     00 │ 48 14 │ 01 02 03 04 05           Start, total = 20
+ frame 1     01 │ 88 0F │ 06 07 08 09 0A           Continue, remaining = 15
+ frame 2     02 │ 88 0A │ 0B 0C 0D 0E 0F           Continue, remaining = 10
+ frame 3     03 │ C5    │ 10 11 12 13 14           End, remaining = 5
+```
+
+Losing frame 1 is now seen at frame 2 from the counter (`Gap { lost: 1 }`), before any head is read.
+
+### With a CRC-32 on every message (UDP)
+
+`ww_link`'s UDP configuration: `SeqPrefix` and `CrcChecksum<CRC-32/ISO-HDLC, FULL = true>`. A 3-byte message and a
+12-byte one over 12-byte frames:
+
+```
+ frame 0
+ ┌────┬────┬──────────┬─────────────┬────┬────┬────┐
+ │ 00 │ 03 │ 01 02 03 │ FC 01 6A 7E │ 48 │ 0C │ 01 │
+ └────┴────┴──────────┴─────────────┴────┴────┴────┘
+  pfx  Full  payload   CRC-32 (LE)    Start     [0]
+       len 3           over 00 03 01 02 03   total = 12
+
+ frame 1
+ ┌────┬────┬────┬────────────────────────────┐
+ │ 01 │ 88 │ 0B │ 02 03 04 05 06 07 08 09 0A │
+ └────┴────┴────┴────────────────────────────┘
+  pfx  Continue, remaining = 11
+
+ frame 2
+ ┌────┬────┬───────┬─────────────┐
+ │ 02 │ C2 │ 0B 0C │ A7 BC E4 A4 │
+ └────┴────┴───────┴─────────────┘
+  pfx  End  [10..12] CRC-32 over 02 C2 and all 12 bytes
+```
+
+The CRC of the `Full` covers the frame's prefix `00`, its head `03` and its payload; the one of the `End` covers the
+prefix of the `End`'s frame `02`, the `End` head `C2` and the whole message. A flipped bit in a prefix, a user kind or
+a length fails it, as one in the payload does.

@@ -4,9 +4,12 @@ use core::ops::Range;
 use shrink_wrap::BufReader;
 
 use crate::pieces::{Extent, ReadHead, read_head};
-use crate::traits::{Checksum, Head, MessageKind, RdError, Tail};
+use crate::prefix::{FramePrefix, FrameReport, MAX_PREFIX_LEN, NopPrefix, PrefixStats};
+use crate::traits::{Checksum, Head, Header, MAX_COVERED_HEAD, MessageKind, RdError, Tail};
 
-pub struct FramedRx<'i, H: Head, C, T> {
+/// Reassembles messages from frames, see the crate docs. `P` is the [frame prefix](crate::prefix) every frame
+/// starts with, none by default: it is checked when a frame is staged, see [Self::stage].
+pub struct FramedRx<'i, H: Head, C, T, P: FramePrefix = NopPrefix> {
     /// Holds up two one maximum Message size + one maximum input packet size (e.g., USB packet)
     ///
     /// For example if assembly_buf is 1024B, and maximum re-assembled message is 512, it could be
@@ -26,8 +29,19 @@ pub struct FramedRx<'i, H: Head, C, T> {
 
     state: State<H::UserKind>,
 
+    prefix: PrefixState<P::Rx>,
+
     _phantom_c: PhantomData<C>,
     _phantom_t: PhantomData<T>,
+}
+
+/// What a [FramePrefix] needs between frames: its own state, the counters of frames too short for it, and the
+/// prefix of the frame being processed (for the checksum).
+#[derive(Copy, Clone, Default)]
+pub struct PrefixState<R> {
+    rx: R,
+    too_short: u32,
+    bytes: [u8; MAX_PREFIX_LEN],
 }
 
 /// Everything [FramedRx] holds apart from the assembly buffer itself, see [FramedRx::into_parts].
@@ -35,23 +49,17 @@ pub struct FramedRx<'i, H: Head, C, T> {
 /// Allows to temporarily give the buffer back to its owner and re-create [FramedRx] later with
 /// [FramedRx::from_parts], e.g. to implement an owned variant without duplicating the logic.
 #[derive(Copy, Clone)]
-pub struct FramedRxState<U> {
+pub struct FramedRxState<U, R = ()> {
     staging_pos: usize,
     staging_end: usize,
     state: State<U>,
+    prefix: PrefixState<R>,
 }
 
-impl<U: Copy> FramedRxState<U> {
+impl<U: Copy, R> FramedRxState<U, R> {
     /// Same as [FramedRx::message_range], without re-creating [FramedRx].
     pub fn message_range(&self) -> Option<(U, Range<usize>)> {
-        match self.state {
-            State::Ready {
-                user_kind,
-                start,
-                len,
-            } => Some((user_kind, start..start + len)),
-            _ => None,
-        }
+        self.state.ready_range()
     }
 
     /// Index one past the last staged byte, `assembly_buf.len() - staged_end()` bytes are free.
@@ -80,13 +88,28 @@ enum State<U> {
     },
 }
 
-impl<'i, H: Head, C: Checksum, T: Tail> FramedRx<'i, H, C, T>
+impl<U: Copy> State<U> {
+    fn ready_range(&self) -> Option<(U, Range<usize>)> {
+        match *self {
+            State::Ready {
+                user_kind,
+                start,
+                len,
+            } => Some((user_kind, start..start + len)),
+            _ => None,
+        }
+    }
+}
+
+impl<'i, H: Head, C: Checksum, T: Tail, P: FramePrefix> FramedRx<'i, H, C, T, P>
 where
     H::UserKind: Copy + PartialEq,
 {
     /// Create new framer from the provided assembly buffer.
     /// Buffer must hold at least one maximum re-assembled message + one maximum frame.
     pub fn new(assembly_buf: &'i mut [u8]) -> Self {
+        const { assert!(P::LEN <= MAX_PREFIX_LEN) };
+        const { assert!(H::MAX_HEAD_SIZE <= MAX_COVERED_HEAD) };
         // to catch obviously way too small buffers, can't know user message size here
         debug_assert!(assembly_buf.len() >= H::MIN_FRAME_SIZE);
         FramedRx {
@@ -94,38 +117,81 @@ where
             staging_pos: 0,
             staging_end: 0,
             state: State::Gap,
+            prefix: PrefixState::default(),
             _phantom_c: PhantomData,
             _phantom_t: PhantomData,
         }
     }
 
     /// Re-create framer from the same assembly buffer and state previously obtained from [Self::into_parts].
-    pub fn from_parts(assembly_buf: &'i mut [u8], parts: FramedRxState<H::UserKind>) -> Self {
+    pub fn from_parts(
+        assembly_buf: &'i mut [u8],
+        parts: FramedRxState<H::UserKind, P::Rx>,
+    ) -> Self {
         FramedRx {
             assembly_buf,
             staging_pos: parts.staging_pos,
             staging_end: parts.staging_end,
             state: parts.state,
+            prefix: parts.prefix,
             _phantom_c: PhantomData,
             _phantom_t: PhantomData,
         }
     }
 
     /// Release the assembly buffer, keeping all the state needed to continue later with [Self::from_parts].
-    pub fn into_parts(self) -> FramedRxState<H::UserKind> {
+    pub fn into_parts(self) -> FramedRxState<H::UserKind, P::Rx> {
         FramedRxState {
             staging_pos: self.staging_pos,
             staging_end: self.staging_end,
             state: self.state,
+            prefix: self.prefix,
         }
     }
 
     /// Drop everything staged and any partially assembled or ready message,
-    /// e.g., after the medium was disconnected.
+    /// e.g., after the medium was disconnected. The next frame's prefix is taken as the new reference
+    /// ([Self::resync]), the prefix counters are kept.
     pub fn reset(&mut self) {
         self.staging_pos = 0;
         self.staging_end = 0;
         self.state = State::Gap;
+        P::resync(&mut self.prefix.rx);
+    }
+
+    /// Take the next frame's prefix as the reference, whatever its counter and epoch, e.g. when a new peer may be
+    /// sending. No-op without a prefix.
+    pub fn resync(&mut self) {
+        P::resync(&mut self.prefix.rx);
+    }
+
+    /// What was found in frame prefixes so far, all zeros without a prefix.
+    pub fn prefix_stats(&self) -> PrefixStats {
+        let mut stats = P::stats(&self.prefix.rx);
+        stats.too_short = stats.too_short.wrapping_add(self.prefix.too_short);
+        stats
+    }
+
+    /// Check the prefix of a frame about to be staged (`frame` starts with it). On success the prefix is kept for
+    /// the checksums of this frame's messages and a message being assembled is dropped if the frame can't continue
+    /// it.
+    #[inline(always)]
+    fn check_prefix(&mut self, frame: &[u8]) -> FrameReport {
+        if P::LEN == 0 {
+            return P::read(&mut self.prefix.rx, &[]);
+        }
+        if frame.len() < P::LEN {
+            self.prefix.too_short = self.prefix.too_short.wrapping_add(1);
+            return FrameReport::TooShort;
+        }
+        let report = P::read(&mut self.prefix.rx, &frame[..P::LEN]);
+        if !report.is_dropped() {
+            self.prefix.bytes[..P::LEN].copy_from_slice(&frame[..P::LEN]);
+            if report.breaks_message() && matches!(self.state, State::Assembling { .. }) {
+                self.state = State::Gap;
+            }
+        }
+        report
     }
 
     /// Returns the number of bytes that can be staged
@@ -139,14 +205,23 @@ where
     /// Note that frame sizes are significant and must be preserved, not all frames are of maximum length.
     /// This is trivial in, e.g., USB, CAN.
     ///
+    /// The frame's [prefix](crate::prefix) is checked here: the report says what was found, a frame it marks as
+    /// [dropped](FrameReport::is_dropped) is not staged. With a prefix, process every frame (reassemble until
+    /// [Self::message] is None) before staging the next one.
+    ///
     /// Returns Err(()) if there is not enough space.
-    pub fn stage(&mut self, frame: &[u8]) -> Result<(), ()> {
-        if frame.len() > self.free() {
+    pub fn stage(&mut self, frame: &[u8]) -> Result<FrameReport, ()> {
+        if frame.len().saturating_sub(P::LEN) > self.free() {
             return Err(());
         }
-        self.assembly_buf[self.staging_end..self.staging_end + frame.len()].copy_from_slice(frame);
-        self.staging_end += frame.len();
-        Ok(())
+        let report = self.check_prefix(frame);
+        if report.is_dropped() {
+            return Ok(report);
+        }
+        let body = &frame[P::LEN..];
+        self.assembly_buf[self.staging_end..self.staging_end + body.len()].copy_from_slice(body);
+        self.staging_end += body.len();
+        Ok(report)
     }
 
     /// Free part of the assembly buffer, to receive a frame into directly instead of copying it
@@ -157,15 +232,33 @@ where
         &mut self.assembly_buf[self.staging_end..]
     }
 
-    /// Stage `len` bytes previously written into [Self::staging_buf].
+    /// Stage `len` bytes previously written into [Self::staging_buf], checking the prefix as [Self::stage] does.
     ///
     /// Returns Err(()) if `len` is more than was available.
-    pub fn commit_staged(&mut self, len: usize) -> Result<(), ()> {
+    pub fn commit_staged(&mut self, len: usize) -> Result<FrameReport, ()> {
         if len > self.free() {
             return Err(());
         }
-        self.staging_end += len;
-        Ok(())
+        let start = self.staging_end;
+        // copied out, check_prefix needs self
+        let mut frame_prefix = [0u8; MAX_PREFIX_LEN];
+        let n = P::LEN.min(len);
+        frame_prefix[..n].copy_from_slice(&self.assembly_buf[start..start + n]);
+        let report = self.check_prefix(&frame_prefix[..n]);
+        if report.is_dropped() {
+            return Ok(report);
+        }
+        if P::LEN > 0 && self.staging_pos != start {
+            // bytes of an earlier frame are still waiting: close up behind them
+            self.assembly_buf
+                .copy_within(start + P::LEN..start + len, start);
+            self.staging_end += len - P::LEN;
+        } else {
+            // everything before was processed, skip the prefix in place
+            self.staging_pos += P::LEN;
+            self.staging_end += len;
+        }
+        Ok(report)
     }
 
     /// Process staged bytes until a message is ready, staged frame is exhausted or more data is
@@ -216,12 +309,7 @@ where
 
     /// Same as [Self::message], but returns the location of a ready message inside the assembly buffer.
     pub fn message_range(&self) -> Option<(H::UserKind, Range<usize>)> {
-        FramedRxState {
-            staging_pos: self.staging_pos,
-            staging_end: self.staging_end,
-            state: self.state,
-        }
-        .message_range()
+        self.state.ready_range()
     }
 
     /// Reset staging area to right after assembled bytes, when frame is fully processed.
@@ -289,7 +377,13 @@ where
                 let mut rd =
                     BufReader::new(&self.assembly_buf[payload_start + len..self.staging_end]);
                 // checksum and tail are fixed length and already checked to be present
-                match C::read(message, false, &mut rd).and_then(|_| T::read(&mut rd)) {
+                let header = Header::new(
+                    C::LEN_BYTES_FULL > 0,
+                    &self.prefix.bytes[..P::LEN],
+                    &self.assembly_buf[self.staging_pos..payload_start],
+                );
+                match C::read(header.get(), message, false, &mut rd).and_then(|_| T::read(&mut rd))
+                {
                     Ok(_) => {}
                     Err(RdError::ChecksumMismatch) => {
                         // frames are protected by the medium, so this is not corruption, but
@@ -387,13 +481,19 @@ where
                     self.state = State::Gap;
                     return Step::SkipFrame;
                 }
+                // copied out before the payload is moved over it
+                let header = Header::new(
+                    C::LEN_BYTES_SPLIT > 0,
+                    &self.prefix.bytes[..P::LEN],
+                    &self.assembly_buf[self.staging_pos..payload_start],
+                );
                 self.assembly_buf
                     .copy_within(payload_start..payload_start + remaining, assembled);
                 let after_payload = payload_start + remaining;
                 let message = &self.assembly_buf[..total];
                 let mut rd = BufReader::new(&self.assembly_buf[after_payload..self.staging_end]);
                 // checksum and tail are fixed length and already checked to be present
-                match C::read(message, true, &mut rd).and_then(|_| T::read(&mut rd)) {
+                match C::read(header.get(), message, true, &mut rd).and_then(|_| T::read(&mut rd)) {
                     Ok(_) => {}
                     Err(RdError::ChecksumMismatch) => {
                         // frames are protected by the medium, so this is not corruption, but a

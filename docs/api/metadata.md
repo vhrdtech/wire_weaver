@@ -43,9 +43,8 @@ Nothing changes on the device: a server is generated the same way. Adding, chang
 attributes is wire compatible (only the introspection data and so the API hash change, as for a doc comment);
 `ww api check` reports them as compatible changes.
 
-!!! note "Status"
-    The attributes and their place in the API model are done. Claiming through the hub (its `Claims` API group)
-    comes with the hub's device multiplexing, see SRV-34 in the [feature tracker](../features.md).
+Claiming through the hub, its `claims` API group, is described in
+[Claims on resources](../transport/hub.md#claims-on-resources-srv-34).
 
 ## `#[claim(..)]`: resources one program can have to itself
 
@@ -60,7 +59,7 @@ What a claim takes depends on the mode the API gives the resource:
 | Attribute | Claims | Others' calls and writes | Others' reads, streams, observing |
 |---|---|---|---|
 | `#[claim]`, `#[claim(exclusive)]` | one client at a time | refused | open |
-| `#[claim(shared)]` | several clients together (tools that cooperate on a bus); an exclusive claim of an overlapping resource waits for the last one | refused for clients without a claim | open |
+| `#[claim(shared)]` | several clients together (tools that cooperate on a bus); an exclusive claim of it or an overlapping resource is refused until the last one lets go | refused for clients without a claim | open |
 | `#[claim(observe)]` | one client at a time | refused | refused too: for a resource where reading has an effect (a FIFO that a read empties, a capture another client would restart) |
 
 - On a trait definition (after `#[ww_trait]`, it is read from the source like the rest of the trait), every

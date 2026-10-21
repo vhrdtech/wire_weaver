@@ -16,10 +16,10 @@ wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process"] }
 ww_client_server.workspace = true
 ww_clock_sync.workspace = true
+ww_date_time = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
-ww_date_time = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std", "time"] }
 ww_timebase = { workspace = true, features = ["std"] }

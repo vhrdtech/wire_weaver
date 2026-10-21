@@ -907,6 +907,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   definition (`ww_si::Quantity<U>`, `Timed<T>`) `check_instances` compares identity and signature only, so a docs-only
   change reads as incompatible. Compare the two generic definitions field by field with the arguments substituted.
   Found by STD-38 (`wire_weaver_client` `compat::tests::other_revision` now use the marker `units::Volt`).
+- ✅ **CLT-34 stm32-rom-dfu: STM32 system bootloader (ROM DFU) as an updater** — `stm32_dfu_host` (`ww_stm32_dfu`), a
+  pure-Rust DfuSe host on nusb in a crate of its own (library first, to move to its own repo like `picoboot_host`):
+  lists `0483:DF11`, parses the alt setting's memory layout string (`@Internal Flash /0x08000000/08*128Kg`), erases
+  only the sectors an image touches, writes in flash words (32 B, padded with `0xFF`), reads back and compares,
+  leaves DFU by jumping to an address (the start of flash by default). ELF (`PT_LOAD` by physical address) and binary
+  at an address. `dfu-core` / `dfu-nusb` evaluated first and not used: they own the download loop, have no upload
+  (no read-back verify), no sans-IO boundary for a simulated device and no say over the seconds a 128 KB erase takes.
+  `follow::stm32_dfu_update()` / `stm32_dfu_update_with()` (`wire_weaver_client`, feature `stm32_dfu`, the `_with`
+  one needs neither it nor `usb`) wait for the bootloader under the app's serial number, flash, jump and wait for the
+  app, tested end to end on `SimStm32Dfu` (`tests/follow_reboot`); `ww stm32dfu list/info/flash` with a progress bar,
+  `--wait`, `--follow`. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
+  start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. Missing: a run against a real H72x (the serial
+  string the ROM reports: `ww_stm32_dfu::rom_serial` follows ST's USB library, UID0+UID2 then the top of UID1, and is
+  unverified; the transfer size; the real erase times), option bytes / OTP alt settings are listed but not written.
 - 📋 **CLT-16 Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
 - 📋 **CLT-17 Reliable requests over unreliable media** · `v0.5.x` — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.

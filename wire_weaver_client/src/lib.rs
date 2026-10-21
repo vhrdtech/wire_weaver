@@ -84,6 +84,8 @@ pub use ww_numeric;
 #[cfg(feature = "picoboot")]
 pub use ww_picoboot;
 pub use ww_self;
+#[cfg(feature = "stm32_dfu")]
+pub use ww_stm32_dfu;
 pub use ww_tap;
 pub use ww_tape;
 pub use ww_version;

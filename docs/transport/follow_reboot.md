@@ -97,6 +97,56 @@ ww dfu reboot -s E661640843522C2F                 # app -> BOOTSEL
 ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
 ```
 
+## STM32 system bootloader (ROM DFU)
+
+The same sequence for an STM32 whose updater is the ROM bootloader (CLT-34): the app replies to `reboot(Updater)`,
+sets whatever the chip needs to enter the system memory bootloader (on the H72x a backup-register magic checked first
+thing after reset, since the bootloader can't be entered with the peripherals dirty), and resets. The bootloader
+enumerates as `0483:df11` ("STM32  BOOTLOADER") on PA11/PA12 (USB FS, HSI48 with CRS, no crystal needed; AN2606 §59) and
+speaks DFU with the DfuSe extension (AN3156). It doesn't work under RDP level 1.
+
+- **Report the serial number the bootloader reports**, so the host can follow the unit. The ROM forms it from the
+  chip's unique id; `follow::stm32_serial([uid0, uid1, uid2])` makes the string ST's USB library uses (UID0 + UID2 as
+  8 hex digits, the top 16 bits of UID1 as 4) and has not been compared with a real H72x yet: `ww stm32dfu list` shows
+  the real one.
+- **Implement `reboot(Updater)`** as above.
+
+```rust
+use wire_weaver_client::follow;
+use wire_weaver_client::ww_stm32_dfu::Image;
+
+let image = Image::from_elf(&std::fs::read("bootloader.elf")?)?; // or Image::from_bin(0x0800_0000, bytes)?
+app.boot().reboot(BootTarget::Updater).call().await?;
+drop(app);
+// waits for 0483:df11 with the serial, erases the sectors the image touches, writes, verifies, jumps to the start
+// of flash, waits for the firmware to come back
+let back = follow::stm32_dfu_update(&serial, &image, None, &mut ()).await?;
+```
+
+`stm32_dfu_update()` and the `ww_stm32_dfu` re-export need the `stm32_dfu` Cargo feature of `wire_weaver_client`;
+`stm32_dfu_update_with()` takes the bus and the DFU opener as arguments and needs neither. `ww_stm32_dfu` is the DfuSe
+host on its own (`stm32_dfu_host`, no WireWeaver dependency): `usb::open(Some(serial))` gives a `Dfuse` with
+`flash()` (erase, write, read back, progress callback), `erase_sector`, `read`, `write`, `leave`, and the parsed
+`layout()`; the sector sizes come from the device's own layout string, so one tool fits all STM32 families.
+
+```sh
+ww stm32dfu list                                  # bootloaders in DFU mode with their serial numbers
+ww stm32dfu info -s 3A0B                          # the alt settings and their memory layout
+ww stm32dfu flash bootloader.elf -s 3A0B          # erase, write, verify, jump to the start of flash
+ww stm32dfu flash app.bin --addr 0x08060000 --leave-addr 0x08000000 -s 3A0B
+ww stm32dfu flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
+                                                  # after the app was asked to reboot(Updater)
+```
+
+`--no-leave` stays in DFU, `--no-verify` skips the read-back. On Linux the bootloader needs a udev rule for access
+without root.
+
+`ww_stm32_dfu::sim::SimStm32Dfu` simulates the bootloader at the level of the control requests (DFU state machine
+with busy polling and error states, DfuSe set address and erase, NOR flash that rejects programming without an erase
+and unaligned writes); `tests/follow_reboot` runs the whole sequence on it: v1 → `reboot(Updater)` → `0483:df11` under
+the same serial → v2 written → jump → v2 runs. What only hardware shows: the exact serial string, the transfer size
+and erase times of the H72x, the behaviour under the backup-register entry.
+
 ## Tests without hardware
 
 `ww_picoboot::sim::SimRp2350` (feature `sim`) is a boot ROM at the level of PICOBOOT's USB transfers: command

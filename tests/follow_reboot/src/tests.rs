@@ -226,3 +226,51 @@ impl follow::Bus for OneBootsel {
         }])
     }
 }
+
+/// CLT-34, the whole sequence on a simulated STM32: app v1 → reboot(Updater) → system bootloader under the same
+/// serial → erase, write and verify v2 over DfuSe → jump to flash → app v2 under the same serial.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn update_through_stm32_rom_dfu() {
+    use crate::stm32::{FLASH, Stm32Report};
+    use ww_stm32_dfu::{Image, Stage};
+    let uid = [0x0100_0000, 0xABCD_0000, 0x0000_0002];
+    let mut dev = Stm32Report::start(uid, &app_image(1, 20_000));
+    assert_eq!(dev.booted().await, Mode::App(1));
+    assert_eq!(dev.serial, follow::stm32_serial(uid));
+
+    let mut bus = dev.bus();
+    let serial = {
+        use wire_weaver_client::follow::Bus;
+        bus.list().await.unwrap()[0].serials[0].clone()
+    };
+    let app = connect(&serial).await;
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
+    drop(app);
+
+    // a bootloader at the start of flash, as the B135 has it: the image is the new 30 kB app
+    let image = Image::from_bin(FLASH, app_image(2, 30_000)).unwrap();
+    let mut stages = vec![];
+    let opener = bus.clone();
+    let back = follow::stm32_dfu_update_with(
+        &Follow::new(&serial),
+        &mut bus,
+        async |info| opener.open(info),
+        &image,
+        None,
+        &mut |stage: Stage, done, total| {
+            if done == total {
+                stages.push(stage);
+            }
+        },
+        Timeouts::default(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(stages, [Stage::Erase, Stage::Write, Stage::Verify]);
+    assert_eq!(back.serials, std::slice::from_ref(&serial));
+    assert_eq!(dev.sim.left(), Some(FLASH));
+    assert_eq!(dev.booted().await, Mode::Bootsel);
+    assert_eq!(dev.booted().await, Mode::App(2));
+    let app = connect(&serial).await;
+    assert_eq!(app.node().node().call().await.unwrap().app_version, Some(2));
+}

@@ -23,6 +23,7 @@ use crate::DeviceInfo;
 
 use ww_picoboot::proto::{RP2040_BOOTSEL_PID, RP2350_BOOTSEL_PID, RPI_VID};
 use ww_picoboot::{Image, PicobootIo, Progress};
+use ww_stm32_dfu::proto::{ROM_DFU_PID, ST_VID};
 
 /// Where devices are looked for.
 pub trait Bus {
@@ -48,6 +49,8 @@ pub enum Found {
     WireWeaver(DeviceInfo),
     /// A Raspberry Pi RP2040 / RP2350 boot ROM in BOOTSEL mode, ready for PICOBOOT.
     RpBootsel(DeviceInfo),
+    /// An STM32 system bootloader in DFU mode (`0483:df11`), ready for DfuSe.
+    Stm32Dfu(DeviceInfo),
     /// Something else.
     Other(DeviceInfo),
 }
@@ -56,6 +59,8 @@ impl Found {
     pub fn classify(info: DeviceInfo) -> Found {
         if is_rp_bootsel(&info) {
             Found::RpBootsel(info)
+        } else if is_stm32_dfu(&info) {
+            Found::Stm32Dfu(info)
         } else if info.api.is_some() {
             Found::WireWeaver(info)
         } else {
@@ -65,13 +70,13 @@ impl Found {
 
     pub fn info(&self) -> &DeviceInfo {
         match self {
-            Found::WireWeaver(i) | Found::RpBootsel(i) | Found::Other(i) => i,
+            Found::WireWeaver(i) | Found::RpBootsel(i) | Found::Stm32Dfu(i) | Found::Other(i) => i,
         }
     }
 
     pub fn into_info(self) -> DeviceInfo {
         match self {
-            Found::WireWeaver(i) | Found::RpBootsel(i) | Found::Other(i) => i,
+            Found::WireWeaver(i) | Found::RpBootsel(i) | Found::Stm32Dfu(i) | Found::Other(i) => i,
         }
     }
 }
@@ -81,6 +86,20 @@ pub fn is_rp_bootsel(info: &DeviceInfo) -> bool {
     info.usb.as_ref().is_some_and(|u| {
         u.vid == RPI_VID && (u.pid == RP2040_BOOTSEL_PID || u.pid == RP2350_BOOTSEL_PID)
     })
+}
+
+/// Whether `info` is an STM32 system bootloader in DFU mode.
+pub fn is_stm32_dfu(info: &DeviceInfo) -> bool {
+    info.usb
+        .as_ref()
+        .is_some_and(|u| u.vid == ST_VID && u.pid == ROM_DFU_PID)
+}
+
+/// The serial number the STM32 system bootloader reports for a chip with unique id words `uid`, see
+/// [ww_stm32_dfu::rom_serial] (not yet checked on an H72x). A firmware that reports the same serial number can be
+/// followed into the bootloader and back.
+pub fn stm32_serial(uid: [u32; 3]) -> String {
+    ww_stm32_dfu::rom_serial(uid)
 }
 
 /// The serial number the RP2350 boot ROM reports in BOOTSEL mode for `chip_id`: 16 upper case hex digits. A firmware
@@ -105,6 +124,11 @@ pub enum FollowError {
     Picoboot {
         serial: String,
         source: ww_picoboot::Error,
+    },
+    #[error("{serial} in the STM32 DFU bootloader: {source}")]
+    Stm32Dfu {
+        serial: String,
+        source: ww_stm32_dfu::Error,
     },
 }
 
@@ -200,6 +224,19 @@ impl Follow {
         .map(Found::into_info)
     }
 
+    /// Wait for the STM32 system bootloader in DFU mode.
+    pub async fn back_in_stm32_dfu(
+        &self,
+        bus: &mut impl Bus,
+        timeout: Duration,
+    ) -> Result<DeviceInfo, FollowError> {
+        self.back(bus, timeout, "no STM32 DFU device", |f| {
+            matches!(f, Found::Stm32Dfu(_))
+        })
+        .await
+        .map(Found::into_info)
+    }
+
     /// Wait for a WireWeaver device, whatever API it has.
     pub async fn back_in_wire_weaver(
         &self,
@@ -223,10 +260,10 @@ impl Follow {
     }
 }
 
-/// How long each step of [rp2_update_with] may take.
+/// How long each step of [rp2_update_with] and [stm32_dfu_update_with] may take.
 #[derive(Clone, Debug)]
 pub struct Timeouts {
-    /// From the reboot request until the boot ROM enumerates.
+    /// From the reboot request until the boot ROM enumerates (BOOTSEL, STM32 DFU).
     pub to_bootsel: Duration,
     /// From the reboot out of BOOTSEL until the firmware enumerates.
     pub to_app: Duration,
@@ -296,5 +333,60 @@ pub async fn rp2_update_with<I: PicobootIo>(
         .await
         .map_err(picoboot_err)?;
     drop(picoboot);
+    follow.back_in_wire_weaver(bus, timeouts.to_app).await
+}
+
+/// [stm32_dfu_update_with] on real USB devices: write `image`, then jump to `leave_addr` (the start of the first
+/// memory region, flash, when `None`).
+#[cfg(feature = "stm32_dfu")]
+pub async fn stm32_dfu_update(
+    serial: &str,
+    image: &ww_stm32_dfu::Image,
+    leave_addr: Option<u32>,
+    progress: &mut impl ww_stm32_dfu::Progress,
+) -> Result<DeviceInfo, FollowError> {
+    stm32_dfu_update_with(
+        &Follow::new(serial),
+        &mut UsbBus,
+        async |info: &DeviceInfo| {
+            let serial = info.serials.first().cloned().unwrap_or_default();
+            ww_stm32_dfu::usb::NusbIo::open_by_serial(&serial, 0).await
+        },
+        image,
+        leave_addr,
+        progress,
+        Timeouts::default(),
+    )
+    .await
+}
+
+/// The second half of an update in the STM32 system bootloader (ROM DFU, AN2606), after the firmware was asked to
+/// reboot into it: wait for the bootloader with the same serial number, `open` its DFU interface, erase and write
+/// `image` and verify it, leave DFU by jumping to `leave_addr` (the start of the first memory region when `None`),
+/// wait for the firmware to come back. Returns the device as it came back, connect to it by its serial number.
+#[allow(clippy::too_many_arguments)]
+pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
+    follow: &Follow,
+    bus: &mut impl Bus,
+    open: impl AsyncFnOnce(&DeviceInfo) -> Result<I, ww_stm32_dfu::Error>,
+    image: &ww_stm32_dfu::Image,
+    leave_addr: Option<u32>,
+    progress: &mut impl ww_stm32_dfu::Progress,
+    timeouts: Timeouts,
+) -> Result<DeviceInfo, FollowError> {
+    let dfu_err = |source| FollowError::Stm32Dfu {
+        serial: follow.serial.clone(),
+        source,
+    };
+    let rom = follow.back_in_stm32_dfu(bus, timeouts.to_bootsel).await?;
+    tracing::debug!("{} is in the STM32 DFU bootloader: {rom}", follow.serial);
+    let io = open(&rom).await.map_err(dfu_err)?;
+    let mut dfu = ww_stm32_dfu::Dfuse::new(io).map_err(dfu_err)?;
+    dfu.flash(image, &ww_stm32_dfu::FlashOptions::default(), progress)
+        .await
+        .map_err(dfu_err)?;
+    let leave_addr = leave_addr.unwrap_or_else(|| dfu.layout().regions[0].start);
+    dfu.leave(leave_addr).await.map_err(dfu_err)?;
+    drop(dfu);
     follow.back_in_wire_weaver(bus, timeouts.to_app).await
 }

@@ -33,7 +33,7 @@ const MAX_MESSAGE: usize = 1024;
 const USB_PACKET: usize = 64;
 /// How long the device is off the bus while it resets and re-enumerates: on real USB at least the host's 100 ms
 /// connect debounce plus the reset and enumeration.
-const REENUMERATE: Duration = Duration::from_millis(200);
+pub const REENUMERATE: Duration = Duration::from_millis(200);
 
 /// A firmware image of the simulated app: a header with magic, version, length and checksum, then the body. The
 /// simulated boot ROM boots it only when all of it is intact.
@@ -52,13 +52,18 @@ pub fn app_image(version: u32, len: usize) -> Vec<u8> {
 
 /// The version of the app in flash, `None` when there is no intact image.
 fn bootable(sim: &SimRp2350) -> Option<u32> {
-    let header = sim.flash(FLASH_BASE, 16);
+    bootable_with(|addr, len| sim.flash(addr, len), FLASH_BASE)
+}
+
+/// [bootable] for any memory: `read(addr, len)` reads it, the image is at `base`.
+fn bootable_with(read: impl Fn(u32, usize) -> Vec<u8>, base: u32) -> Option<u32> {
+    let header = read(base, 16);
     let word = |at: usize| u32::from_le_bytes(header[at..at + 4].try_into().unwrap());
     if &header[..4] != b"WWFW" {
         return None;
     }
     let len = word(8) as usize;
-    let body = sim.flash(FLASH_BASE + 16, len.checked_sub(16)?);
+    let body = read(base + 16, len.checked_sub(16)?);
     let sum = body.iter().fold(0u32, |s, b| s.wrapping_add(*b as u32));
     (sum == word(12)).then_some(word(4))
 }
@@ -244,6 +249,15 @@ impl App {
     }
 }
 
+impl App {
+    pub fn new(version: u32) -> Self {
+        App {
+            version,
+            reboot: None,
+        }
+    }
+}
+
 mod api_impl {
     wire_weaver::ww_codegen!(
         dfu_lean_app_api :: DfuLeanApp for super::App,
@@ -275,7 +289,7 @@ impl WireWeaverAsyncApiBackend for Backend {
 }
 
 /// Run the app until it is asked to reboot, `None` when stopped.
-async fn run_app(
+pub async fn run_app(
     app: App,
     serial: &str,
     stop: &mut mpsc::UnboundedReceiver<()>,
@@ -374,6 +388,8 @@ impl Bus for SimBus {
         })
     }
 }
+
+pub mod stm32;
 
 #[cfg(test)]
 mod tests;

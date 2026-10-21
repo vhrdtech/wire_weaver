@@ -2047,6 +2047,7 @@ dependencies = [
  "dfu_lean_app_api",
  "picoboot_host",
  "semver",
+ "stm32_dfu_host",
  "tokio",
  "tracing-subscriber",
  "wire_weaver",
@@ -4589,6 +4590,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "stm32_dfu_host"
+version = "0.1.0"
+dependencies = [
+ "nusb",
+ "object 0.40.0",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
 name = "streams"
 version = "0.1.0"
 dependencies = [
@@ -5795,6 +5806,7 @@ dependencies = [
  "probe-rs",
  "ron",
  "semver",
+ "stm32_dfu_host",
  "strum",
  "strum_macros",
  "thiserror 2.0.20",

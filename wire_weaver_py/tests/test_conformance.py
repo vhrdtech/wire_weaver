@@ -28,7 +28,10 @@ def expected(case):
 
 
 def plain(value):
-    """A decoded value in the corpus form: bytes and tuples as lists."""
+    """A decoded value in the corpus form: bytes and tuples as lists, a `ww.Quantity` as the struct it is on the wire
+    (prefix and the stored number)."""
+    if isinstance(value, ww.Quantity):
+        return {"prefix": value.prefix, "value": {value.storage: value.value}}
     if isinstance(value, (bytes, bytearray, tuple, list)):
         return [plain(v) for v in value]
     if isinstance(value, dict):

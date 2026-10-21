@@ -19,3 +19,5 @@ wire_weaver_core.workspace = true
 ww_link = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["expr"] }
+ww_si = { workspace = true, features = ["std"] }
+ww_timebase = { workspace = true, features = ["std"] }

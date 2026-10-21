@@ -17,8 +17,9 @@ use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use console::style;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use wire_weaver_client::follow::{Follow, UsbBus};
+use wire_weaver_client::hub::Exclusive;
 use wire_weaver_client::ww_client_server::ErrorKindOwned;
-use wire_weaver_client::{CallError, ClientConfig, DynClient, Error};
+use wire_weaver_client::{CallError, ClientConfig, ClientMeta, DynClient, Error};
 use ww_dfu::{BootState, BootTarget, NodeInfoOwned, Outcome, Profile, Seal};
 
 use crate::device::Selection;
@@ -144,10 +145,76 @@ fn preset_name(id: u32) -> Option<&'static str> {
     PRESETS.iter().find(|(_, g)| g.id() == id).map(|(n, _)| *n)
 }
 
-pub(crate) async fn dfu(cmd: DfuCommand, device: DynClient, selection: &Selection) -> Result<()> {
+/// `meta` is what `device` was connected with: a command that changes the device takes it whole while a ww hub serves
+/// it to other programs too (SRV-32), and the claim is this client instance's.
+pub(crate) async fn dfu(
+    cmd: DfuCommand,
+    device: DynClient,
+    selection: &Selection,
+    meta: &ClientMeta,
+) -> Result<()> {
+    let purpose = match &cmd {
+        DfuCommand::Status => None,
+        DfuCommand::Reboot { .. } => Some("ww dfu reboot".to_string()),
+        DfuCommand::Flash(args) => Some(format!("ww dfu flash {}", args.file.display())),
+        DfuCommand::Confirm => Some("ww dfu confirm".to_string()),
+        DfuCommand::Revert => Some("ww dfu revert".to_string()),
+    };
+    let exclusive = match purpose {
+        Some(purpose) => take_exclusive(selection, meta, &purpose).await?,
+        None => None,
+    };
+    let r = run(cmd, device, selection, meta).await;
+    if let Some(exclusive) = exclusive
+        && let Err(e) = exclusive.release().await
+    {
+        // the hub drops it by itself once this program exits
+        eprintln!("{} {e:#}", style("note").yellow());
+    }
+    r
+}
+
+/// The whole device for this command when a ww hub of this user serves it (the hub refuses other programs' calls
+/// and writes meanwhile and doesn't steer its clock). `None` when no hub holds it: this program then holds it directly.
+async fn take_exclusive(
+    selection: &Selection,
+    meta: &ClientMeta,
+    purpose: &str,
+) -> Result<Option<Exclusive>> {
+    if !wire_weaver_client::hub::hub_running() {
+        return Ok(None);
+    }
+    let config = selection.client_config();
+    let devices = wire_weaver_client::list_usb_devices()
+        .await
+        .unwrap_or_default();
+    let mut keys = devices
+        .iter()
+        .filter(|d| config.matches(d))
+        .filter_map(wire_weaver_client::hub::key_of);
+    let (Some(key), None) = (keys.next(), keys.next()) else {
+        // several match (connect took one) or none on USB: nothing to tell the hub
+        return Ok(None);
+    };
+    let exclusive = Exclusive::take(&key, meta, purpose).await?;
+    if exclusive.is_some() {
+        eprintln!(
+            "{} {key} to this command alone while it runs (other programs on the ww hub wait)",
+            style("exclusive").bold()
+        );
+    }
+    Ok(exclusive)
+}
+
+async fn run(
+    cmd: DfuCommand,
+    device: DynClient,
+    selection: &Selection,
+    meta: &ClientMeta,
+) -> Result<()> {
     match cmd {
         DfuCommand::Reboot { into } => reboot(into, &device).await,
-        DfuCommand::Flash(args) => flash(args, device, selection).await,
+        DfuCommand::Flash(args) => flash(args, device, selection, meta).await,
         DfuCommand::Status => status(&device).await,
         DfuCommand::Confirm => {
             let dfu = Dfu::new(&device);
@@ -283,7 +350,12 @@ fn state_style(state: BootState) -> console::StyledObject<String> {
 /// ELF magic (`\x7fELF`), detected by content.
 const ELF_MAGIC: &[u8] = &[0x7f, b'E', b'L', b'F'];
 
-async fn flash(args: FlashArgs, device: DynClient, selection: &Selection) -> Result<()> {
+async fn flash(
+    args: FlashArgs,
+    device: DynClient,
+    selection: &Selection,
+    meta: &ClientMeta,
+) -> Result<()> {
     let bytes =
         std::fs::read(&args.file).with_context(|| format!("reading {}", args.file.display()))?;
     let geometry: Option<FlashGeometry> = args.chip.as_deref().map(|name| {
@@ -372,7 +444,7 @@ async fn flash(args: FlashArgs, device: DynClient, selection: &Selection) -> Res
         println!("staged: `ww dfu reboot --into app` starts the trial");
         return Ok(());
     }
-    let mut reconnect = UsbReconnect::new(selection).await;
+    let mut reconnect = UsbReconnect::new(selection, meta).await;
     drop(device);
     let back = reboot_into_trial(node, &mut reconnect, &mut |e| ui.on(e)).await;
     let (node, device) = back.inspect_err(|_| ui.done())?;
@@ -507,7 +579,7 @@ impl Ui {
 }
 
 /// Finds the device again after it reset: gone from the bus and back under its serial number, then connected with
-/// the same selection.
+/// the same selection, as the same client instance (its exclusive claim in a hub holds across the reset).
 struct UsbReconnect {
     config: ClientConfig,
     follow: Option<Follow>,
@@ -516,7 +588,7 @@ struct UsbReconnect {
 impl UsbReconnect {
     /// Before the reset: the full serial number of the device, given with --serial or of the one WireWeaver device
     /// the selection matches.
-    async fn new(selection: &Selection) -> Self {
+    async fn new(selection: &Selection, meta: &ClientMeta) -> Self {
         let given = selection
             .settings
             .iter()
@@ -536,7 +608,10 @@ impl UsbReconnect {
             _ => None,
         };
         Self {
-            config: selection.client_config().traits_only(),
+            config: selection
+                .client_config()
+                .traits_only()
+                .client_meta(meta.clone()),
             follow,
         }
     }

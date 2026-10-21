@@ -5,7 +5,7 @@ use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result, anyhow};
 use clap::{CommandFactory, FromArgMatches};
-use wire_weaver_client::DynClient;
+use wire_weaver_client::{ClientMeta, DynClient};
 
 mod api_tree;
 mod cli;
@@ -87,6 +87,9 @@ async fn run() -> Result<()> {
     };
     // a tapped run ends cleanly on SIGINT / SIGTERM: the capture file is finished and renamed, not left `.partial`
     let stop = (tap.is_some() || flag_tap.is_some()).then(util::StopSignal::install);
+    // who this program is to the device and a hub: one client instance for all its connections, so a claim it takes
+    // in the hub (`ww dfu`, SRV-32) lets its own calls through
+    let meta = ClientMeta::new();
     let device = match &selection {
         Some(selection) if cli.need_device() => {
             let config = if cli.traits_only() {
@@ -94,6 +97,7 @@ async fn run() -> Result<()> {
             } else {
                 selection.client_config()
             };
+            let config = config.client_meta(meta.clone());
             let config = match recorder {
                 Some(recorder) => config.tap(recorder),
                 None => config,
@@ -136,7 +140,7 @@ async fn run() -> Result<()> {
     // a flagged command that is stopped (`observe` runs until it is) ends as if it was done: the tap is finished below
     let command_result = util::guard(
         flag_tap.is_some().then(|| stop.clone()).flatten(),
-        run_command(cli.command, &selection, &mut device, tap, stop),
+        run_command(cli.command, &selection, &mut device, &meta, tap, stop),
     )
     .await
     .unwrap_or(Ok(Ran {
@@ -181,6 +185,7 @@ async fn run_command(
     command: Commands,
     selection: &Option<Selection>,
     device: &mut Option<DynClient>,
+    meta: &ClientMeta,
     tap: Option<LiveTap>,
     stop: Option<util::StopSignal>,
 ) -> Result<Ran> {
@@ -229,7 +234,13 @@ async fn run_command(
         }
         Commands::Dfu(dfu_cmd) => {
             let resets_device = dfu_cmd.resets_device();
-            cmd::dfu::dfu(dfu_cmd, device.take().unwrap(), selection.as_ref().unwrap()).await?;
+            cmd::dfu::dfu(
+                dfu_cmd,
+                device.take().unwrap(),
+                selection.as_ref().unwrap(),
+                meta,
+            )
+            .await?;
             if resets_device {
                 // the device is gone or about to, nothing to disconnect from
                 return Ok(Ran {

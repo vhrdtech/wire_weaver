@@ -918,9 +918,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   one needs neither it nor `usb`) wait for the bootloader under the app's serial number, flash, jump and wait for the
   app, tested end to end on `SimStm32Dfu` (`tests/follow_reboot`); `ww stm32dfu list/info/flash` with a progress bar,
   `--wait`, `--follow`. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
-  start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. Missing: a run against a real H72x (the serial
-  string the ROM reports: `ww_stm32_dfu::rom_serial` follows ST's USB library, UID0+UID2 then the top of UID1, and is
-  unverified; the transfer size; the real erase times), option bytes / OTP alt settings are listed but not written.
+  start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. On a real H725 (B135 rev B, 21 Oct 2026): the
+  ROM serial is `rom_serial` (UID 000F0009 34315102 34363338, serial 344533413431), the version byte at 0x1FF1E7FE
+  is 0x93 (V9.3, AN2606 Table 134: only V9.1/V9.2 lock PWR_CR3, `flash` says "unplug and replug" for them), "get
+  commands" answers 0x00 first (the command's code, no version), 220 KB erased, written and verified in 7.7 s.
+  "Leave" jumps to the firmware with the ROM's clocks and USB still on: the firmware must reset first (B135 does).
+  Missing: option bytes / OTP alt settings are listed but not written.
 - 📋 **CLT-16 Verify the hash of a cached API bundle** · `v0.5.x` (`wire_weaver_client/src/local_registry.rs`).
 - 📋 **CLT-17 Reliable requests over unreliable media** · `v0.5.x` — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.

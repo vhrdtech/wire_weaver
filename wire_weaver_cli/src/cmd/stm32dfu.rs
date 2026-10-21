@@ -153,12 +153,17 @@ async fn info(serial: Option<&str>) -> Result<()> {
     println!("serial {}", device.serial_number().unwrap_or("?"));
     match Dfuse::new(NusbIo::open(&device, 0).await?) {
         Ok(mut dfu) => {
-            match dfu.bootloader_version().await {
-                Ok(v) => println!("bootloader version {}", version_name(v)),
-                Err(e) => println!("bootloader version: {e}"),
-            }
-            if let Some(id) = dfu.rom_id().await {
-                println!("bootloader id {id:#04x} (byte at {ROM_ID_ADDR:#010x})");
+            match dfu.rom_id().await {
+                Some(v) => println!(
+                    "bootloader version {} (byte at {ROM_ID_ADDR:#010x}){}",
+                    version_name(v),
+                    if locks_pwr_cr3(v) {
+                        ", locks PWR_CR3 on STM32H72x/73x (a power cycle after it)"
+                    } else {
+                        ""
+                    }
+                ),
+                None => println!("bootloader version: not readable"),
             }
         }
         Err(e) => println!("{e}"),
@@ -310,6 +315,13 @@ fn progress_bar(msg: &'static str) -> Result<ProgressBar> {
     Ok(bar)
 }
 
+/// Whether a ROM with version byte `id` locks PWR_CR3 with its own supply configuration until power-off: V9.1 and
+/// V9.2 on STM32H72x/73x (AN2606 Table 134, fixed in V9.3). The id doesn't say the family; other families with
+/// these versions get the note too, which says it is about H72x/73x.
+fn locks_pwr_cr3(id: u8) -> bool {
+    matches!(id, 0x91 | 0x92)
+}
+
 /// `0x93` as `V9.3`.
 fn version_name(v: u8) -> String {
     format!("{v:#04x} (V{}.{})", v >> 4, v & 0xF)
@@ -365,8 +377,8 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
         .leave_addr
         .unwrap_or_else(|| dfu.layout().regions[0].start);
 
-    // best effort, before anything is erased
-    let version = dfu.bootloader_version().await.ok();
+    // best effort, before anything is erased: the ROM's version byte (AN2606 Table 3, 0x93 is V9.3)
+    let rom_id = dfu.rom_id().await;
     let started = Instant::now();
     let bar = ProgressBar::new(0);
     bar.set_style(
@@ -413,17 +425,23 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
     dfu.leave(leave_addr).await?;
     drop(dfu);
     eprintln!("{} jumped to {leave_addr:#010x}", style("✔").green());
-    if let Some(v) = version.filter(|v| v >> 4 == 9) {
+    let locks_supply = rom_id.is_some_and(locks_pwr_cr3);
+    if let Some(id) = rom_id.filter(|_| locks_supply) {
         eprintln!(
-            "{} bootloader {} locks PWR_CR3: power-cycle the board before the firmware can set up PWR",
+            "{} bootloader {}: on an STM32H72x/73x it locks PWR_CR3 until power-off (AN2606 Table 134), the firmware cannot set up its supply: unplug and replug the board",
             style("note").yellow().bold(),
-            version_name(v)
+            version_name(id)
         );
     }
     if let Some(follow) = follow.filter(|_| args.follow) {
-        let spinner = spinner(format!("waiting for {} to come back", follow.serial));
+        let (msg, secs) = if locks_supply {
+            ("unplug and replug the board: waiting for", 120)
+        } else {
+            ("waiting for", 10)
+        };
+        let spinner = spinner(format!("{msg} {} to come back", follow.serial));
         let back = follow
-            .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(10))
+            .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(secs))
             .await;
         spinner.finish_and_clear();
         eprintln!("{} {}", style("back").bold(), back.map_err(|e| anyhow!(e))?);

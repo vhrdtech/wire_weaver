@@ -119,7 +119,7 @@ impl SimStm32Dfu {
         s.gone = false;
     }
 
-    /// The bootloader version the device reports (`0x93` by default).
+    /// The bootloader version byte in system memory at [ROM_ID_ADDR] (`0x93` by default).
     pub fn set_version(&self, version: u8) {
         self.state.lock().unwrap().version = version;
     }
@@ -291,10 +291,10 @@ impl DfuIo for SimStm32Dfu {
                     return Err(IoError::Stall);
                 }
                 if value == 0 {
-                    // get commands: the version, then the commands
+                    // get commands: the commands, get commands itself first (AN3156; a B135 rev B's V9.3 ROM
+                    // answers 0x00 first, the version is only in system memory)
                     s.state = State::UploadIdle;
                     return Ok(vec![
-                        s.version,
                         CMD_GET_COMMANDS,
                         CMD_SET_ADDRESS,
                         CMD_ERASE,

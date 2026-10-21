@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `Dfuse::bootloader_version` reads the version byte in system memory (`proto::ROM_ID_ADDR`, AN2606 Table 3) instead of the first byte of "get commands", which a real V9.3 ROM (H725) answers with `0x00`, the code of the command; `supported_commands()` gives that list. The simulator answers like the ROM (CLT-34).
+
 ### 🚀 Features
 
 - First version (CLT-34): DfuSe host for the STM32 system bootloader on nusb. `usb::list`/`find`/`open`, `Dfuse` (`flash` with erase of the touched sectors, flash-word padding and read-back verify, `erase_sector`, `read`, `write`, `leave`), `MemoryLayout::parse` of the alt setting string, `Image` from an ELF (`PT_LOAD` by physical address) or a binary, `rom_serial(uid)`, and `sim::SimStm32Dfu` for tests (feature `sim`).

@@ -140,6 +140,8 @@ async fn bootloader_version_and_id() {
     let mut dfu = Dfuse::new(sim.clone()).unwrap();
     assert_eq!(dfu.bootloader_version().await.unwrap(), 0x93);
     assert_eq!(dfu.rom_id().await, Some(0x93));
+    // like a B135 rev B's V9.3 ROM: the commands, get commands first, no version among them
+    assert_eq!(dfu.supported_commands().await.unwrap()[0], 0x00);
     sim.set_version(0xA0);
     assert_eq!(dfu.bootloader_version().await.unwrap(), 0xA0);
     // still usable afterwards

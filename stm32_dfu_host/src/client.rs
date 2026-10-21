@@ -262,17 +262,30 @@ impl<I: DfuIo> Dfuse<I> {
         Ok(())
     }
 
-    /// The bootloader version: the first byte of the answer to DfuSe "get commands" (`0x93` is V9.3).
-    pub async fn bootloader_version(&mut self) -> Result<u8, Error> {
+    /// The commands the bootloader takes (DfuSe "get commands", AN3156): get commands itself (`0x00`) first.
+    pub async fn supported_commands(&mut self) -> Result<Vec<u8>, Error> {
         self.to_idle().await?;
         let b = self
             .io
             .control_in(DFU_UPLOAD, 0, self.transfer_size)
             .await?;
         self.to_idle().await?;
-        b.first()
+        if b.is_empty() {
+            return Err(Error::Protocol("get commands returned no data".into()));
+        }
+        Ok(b)
+    }
+
+    /// The bootloader version (`0x93` is V9.3): the byte at [ROM_ID_ADDR] in system memory (AN2606 Table 3). The
+    /// answer to "get commands" does not carry it (a V9.3 ROM answers `0x00` first, the code of the command).
+    pub async fn bootloader_version(&mut self) -> Result<u8, Error> {
+        let b = self.read(ROM_ID_ADDR, 2, &mut |_| {}).await;
+        if b.is_err() {
+            _ = self.to_idle().await;
+        }
+        b?.first()
             .copied()
-            .ok_or_else(|| Error::Protocol("get commands returned no data".into()))
+            .ok_or_else(|| Error::Protocol("no version byte".into()))
     }
 
     /// The bootloader id byte in system memory ([ROM_ID_ADDR], AN2606), `None` when this ROM doesn't let it be read.

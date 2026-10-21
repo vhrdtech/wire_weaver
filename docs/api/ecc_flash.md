@@ -118,3 +118,11 @@ PROBE_RS_PROBE=1366:0105 cargo run --release --bin reset_cut  # what a reset lea
 ```
 
 It erases and writes flash at `0x0807_0000..0x0807_2000` and `0x0807_4000..0x0807_4800`, and replaces the firmware.
+
+On an STM32H725IG (B135), `examples_mcu/ecc_flash_h7` (`just hw-ecc-flash-h7`) makes real uncorrectable ECC
+errors: programming only clears bits, so a 32-byte flash word programmed twice holds the AND of both data and of
+both ECCs, which mostly don't match. It programs even words of the last sector once and odd words twice, then
+checks that zeros mode reads the failed words as zeros and counts them, that strict mode fails with `Error::Ecc`
+at the same words, and that the words read right after an erase. It also reports the words the flash corrected,
+and whether a second program of all zeros reads clean. It ends with `ECC-STRICT H7 PASSED`; it erases
+`0x080E_0000..0x0810_0000` and replaces the firmware.

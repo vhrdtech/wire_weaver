@@ -179,6 +179,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
+- CLT-33 | Updating a chunky device | `ww dfu flash app.elf`: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. | cli_reference.md#ww-dfu-flash
 
 ## Nomicon
 

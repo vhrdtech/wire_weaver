@@ -17,6 +17,14 @@ test:
     uv run --group dev pytest -q docs_ext
     # ww_lz4's blocks decoded by C liblz4
     just test-lz4-c
+    # ww_ecc_flash's read modes on a simulated flash (mcu/ workspace)
+    just test-ecc-flash
+
+# ww_ecc_flash's zeros and strict reads on a simulated flash, with each family's word size
+[working-directory('mcu')]
+test-ecc-flash:
+    cargo test -q -p ww_ecc_flash --features stm32h7
+    cargo test -q -p ww_ecc_flash --features stm32g0
 
 # ww_lz4's blocks of a few streams decoded by C liblz4 (python-lz4 with the earlier bytes as dictionary)
 test-lz4-c:

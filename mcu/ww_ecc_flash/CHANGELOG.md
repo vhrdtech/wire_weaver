@@ -4,6 +4,12 @@
 
 ### 🚀 Features
 
+- Strict mode (SRV-19) for bootloaders and image checks: `EccSafeFlash::new_strict` gives an `EccStrictFlash<F>`
+  (`EccSafeFlash<F, Strict>`) whose read fails with the new `Error::Ecc { offset }` at the first flash word that
+  fails its ECC check, instead of reading it as zeros; `Error::is_ecc()`. The mode is a type parameter
+  (`EccSafeFlash<F, M: Mode = Zeros>`), `EccSafeFlash::new` keeps the zeros mode. `ecc_errors()` counts the
+  failed words of both modes. Host tests on a simulated flash (`just test-ecc-flash`). A `match` over `Error` needs
+  an arm for `Error::Ecc`.
 - Feature `defmt`: `Error` implements `defmt::Format`, so a store's errors (`ww_settings`) can be logged with defmt.
 - First version (SRV-19): `EccSafeFlash<F>` wraps any `NorFlash` (embassy-stm32's `Flash`) for stores: a flash word
   with an uncorrectable ECC error (power cut while programming or erasing) reads as zeros instead of raising an NMI

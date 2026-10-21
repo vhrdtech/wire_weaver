@@ -144,7 +144,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
 - SRV-25 | Event-driven observe | The device sleeps until an observed property is due, and wakes at once when one changes. | api/observing.md#the-server-loop
-- SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros instead of crashing. | api/ecc_flash.md
+- SRV-19 | ECC-safe STM32 flash | Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. | api/ecc_flash.md
 - SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | api/bus_slave.md
 - SRV-27 | Streaming LZ4 | `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes. |
 

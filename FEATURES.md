@@ -784,9 +784,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
   `nmi-handler`) or a bus error (STM32H7, `DBECCERR`, ignored under FAULTMASK + `BFHFNMIGN`), so sequential-storage
-  skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. On hardware: a G0B1 (B153A)
-  store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
-  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
+  skips it. Never `MultiwriteNorFlash`. Blocking and async. `docs/api/ecc_flash.md`. Strict mode for bootloaders
+  and image checks: `EccSafeFlash::new_strict` → `EccStrictFlash`, whose read fails with `Error::Ecc { offset }`
+  (`is_ecc()`) instead of zeros; chunky's feature `ww-ecc-flash` implements `chunky::ecc::EccError` for it (chunky
+  ECC-2), for the B135 bootloader and app. Both modes host-tested on a simulated flash (`just test-ecc-flash`).
+  On hardware: a G0B1 (B153A) store survives 3000 resets in the middle of its programs and erases (TEST-21), but a
+  reset never tears a G0 flash word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is
+  built, and `examples_mcu/ecc_flash_h7` makes real ECC errors by programming a scratch flash word twice to check
+  both modes (not run on a board yet).
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

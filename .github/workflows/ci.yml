@@ -220,6 +220,10 @@ jobs:
         working-directory: mcu
       - run: cargo check -p ww_ecc_flash --features stm32h7 --target thumbv7em-none-eabihf
         working-directory: mcu
+      - run: cargo test -p ww_ecc_flash --features stm32h7
+        working-directory: mcu
+      - run: cargo test -p ww_ecc_flash --features stm32g0
+        working-directory: mcu
 
   examples-mcu:
     name: check ${{ matrix.board }} ${{ matrix.args }}

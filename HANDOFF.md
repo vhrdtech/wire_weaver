@@ -14,6 +14,12 @@ Branch `s/21oct2026-hub-tunnels`, built on session ww-hub's `s/21oct2026-ww-hub`
 
 - Max-size messages (1024 B): donguru 204B319B5431 within ±2 % on all figures.
 - 16 B messages, single runs: round trips −12 … −24 % (+40-75 µs per round trip), host→device msgs −15 … −20 %, device→host −0 … −5 %. In-process: +12 µs per round trip. Cause found: task hops (each a cross-thread wake); removed the device-task hop on both paths (tunnel → event loop directly, replies routed on the rx task). Medians of the after-change run: see `$CLAUDE_JOB_DIR/tmp/bench1.txt` of the old job if still there, else rerun at low load (`uptime`).
+- After the hop cuts, medians of 3 alternating rounds, 3 s per stage, load 5-13 (`hub_loopback`), direct → hub:
+  - donguru (FS) 16 B: round trips 3027 → 3429/s (+13 %, noise), host→device msgs −12 %, device→host 0 %; max size: all within ±2 %.
+  - B135 344533413431 (HS, 13.7 MB/s host→device direct) 16 B: round trips 9009 → 6640 (−26 %), others ±4 %; max size: round trips 1419 → 1096 (−23 %), host→device bytes 13.7 → 8.6 MB/s (−37 %), device→host −2 %. **Over the criterion: profile this one first.**
+  - b200 18AC50BA11FFB7C1 16 B: round trips −12 %, host→device −15 %, device→host +1 %; max size within noise (host→device +15 %, noise).
+  - in-process 16 B: round trips 50973 → 31412 (−38 %, +12 µs each), device→host msgs 1.19 M → 0.39 M/s (per-message cost of the hub path: allocs, queue mutex, event classify).
+  - Ideas for the profile: host→device throughput on HS is limited by the forward path per message (tunnel task: decode with DeviceLink, `Vec` per request, tokio Mutex lock + `cmd.send` per message, ForwardFlush per batch → maybe more, smaller USB transfers than direct: check flush count per second direct vs hub). Batch: send a whole client batch as one lock + one command set; check that `ForwardFlush` isn't splitting USB frames that direct mode fills.
 - Criterion (design): ≤ 10 % fewer round trips/s on USB FS, ≤ 5 % throughput. Max-size meets it; 16 B still to be confirmed at low load. If still over: next hop to cut is the tunnel task on the reply path (write to the socket from the router), or measure per-hop with `tokio-console`/perf.
 
 ## Next

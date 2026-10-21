@@ -528,6 +528,22 @@ mod tests {
         assert_eq!(r, U10::new(298).unwrap());
     }
 
+    /// CLT-36: a call while no event loop runs (after the link went, before a reconnect) fails at once with
+    /// `Disconnected` instead of waiting for a reconnect; the same commander calls again after one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn call_while_disconnected_fails_at_once() {
+        let (device, data) = start("methods/disconnected");
+        let client = connect(&device).await;
+        client.cmd.disconnect().keep_streams().await.unwrap();
+        let t = std::time::Instant::now();
+        let e = client.plain_return().call().await.unwrap_err();
+        assert!(format!("{e:?}").contains("Disconnected"), "{e:?}");
+        assert!(t.elapsed() < Duration::from_millis(500), "{:?}", t.elapsed());
+        client.cmd.reconnect().await.unwrap();
+        client.no_args().call().await.unwrap();
+        assert!(data.read().unwrap().no_args_called);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn calls() {
         let (device, data) = start("methods/calls");

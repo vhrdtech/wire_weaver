@@ -1098,10 +1098,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dfu-util), Linux scans `/proc/*/fd` for the device node and names the process, elsewhere it just says "another
   program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
   stale content never reported as held.
-- 🐛 **CLT-36 A call on a link that went down waits for a reconnect** — after the device resets (its event loop
-  exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
-  timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for
-  now. Fix: fail calls with `Error::Disconnected` while no event loop runs (or start the timeout at the send).
+- ✅ **CLT-36 A call on a link that went down fails at once** — after the device resets or the link goes (its event
+  loop exits), a call fails with `Error::Disconnected` until `Commander::reconnect` connects again, instead of waiting
+  in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
+  command that comes in (`prepared_connection.rs`'s `keep`). Tested in `tests/methods`
+  (`call_while_disconnected_fails_at_once`).
 - 🚧 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of `ww` calls doesn't re-open it every time. `HubMode` `Auto`, `Prefer`,

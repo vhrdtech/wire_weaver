@@ -9,7 +9,7 @@ use crate::{
     event_loop::command::{Command, EventLoopResidual},
 };
 use anyhow::{Error, Result};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, warn};
 
@@ -199,84 +199,143 @@ pub(crate) async fn connect_to(
     Attempt::failed(not_found(config, unmatched))
 }
 
-/// What [Commander::reconnect] needs: the configuration the Commander was connected with, and the event loop's
-/// command channel once that exited.
+/// What [Commander::reconnect] needs: the configuration the Commander was connected with, and the keeper of the
+/// event loop's command channel ([keep]).
 pub(crate) struct Reconnect {
     config: ValidatedConfig,
-    state: Mutex<LoopState>,
+    ctl: mpsc::UnboundedSender<Ctl>,
 }
 
-enum LoopState {
-    /// An event loop runs (or exited and its residual is in the receiver)
+/// From [Reconnect] to its [keep] task.
+enum Ctl {
+    /// Hand the command channel over for a connection attempt, if no event loop runs on it
+    Take(oneshot::Sender<Result<mpsc::Receiver<Command>, crate::Error>>),
+    /// The attempt started an event loop on the channel, its residual comes through this receiver
     Running(oneshot::Receiver<EventLoopResidual>),
-    /// No loop: the command channel waits for the next one
-    Stopped(mpsc::Receiver<Command>),
-    /// A reconnect is under way
-    Busy,
+    /// The attempt failed before an event loop took the channel: here it is back
+    Back(mpsc::Receiver<Command>),
     /// The attempt failed after it took the command channel: nothing to connect on any more
     Lost,
 }
 
+/// Where the command channel is, as [keep] sees it.
+enum Keeping {
+    /// An event loop runs on it, its residual (with the channel) comes when it exits
+    Running(oneshot::Receiver<EventLoopResidual>),
+    /// No loop: commands are answered right away (CLT-36)
+    Stopped(mpsc::Receiver<Command>),
+    /// A reconnect has it
+    Taken,
+    Lost,
+}
+
 impl Reconnect {
+    /// Starts [keep] for the event loop whose residual comes through `residual`.
     fn new(config: ValidatedConfig, residual: oneshot::Receiver<EventLoopResidual>) -> Arc<Self> {
-        Arc::new(Reconnect {
-            config,
-            state: Mutex::new(LoopState::Running(residual)),
-        })
+        let (ctl, ctl_rx) = mpsc::unbounded_channel();
+        tokio::spawn(keep(ctl_rx, residual));
+        Arc::new(Reconnect { config, ctl })
     }
 
     /// Connects again with the configuration of the first connection, on the command channel of the event loop that
-    /// exited (after `disconnect()`).
+    /// exited (after `disconnect()`, or a link that went down).
     pub(crate) async fn run(
         &self,
         cmd_tx: &mpsc::Sender<Command>,
     ) -> Result<DeviceApiInfo, crate::Error> {
-        let state = std::mem::replace(
-            &mut *self.state.lock().unwrap_or_else(|e| e.into_inner()),
-            LoopState::Busy,
-        );
-        let mut cmd_rx = match state {
-            LoopState::Stopped(cmd_rx) => Some(cmd_rx),
-            LoopState::Running(mut residual) => {
-                // the residual is sent before `disconnect()` returns, so it is there if the loop is gone
-                let exited = residual.try_recv().map_err(|_| ());
-                match exited {
-                    Ok(residual) => Some(residual.cmd_rx),
-                    Err(()) => {
-                        *self.state.lock().unwrap_or_else(|e| e.into_inner()) =
-                            LoopState::Running(residual);
-                        return Err(crate::Error::User(
-                            "still connected (or the event loop is gone), disconnect().keep_streams() first".into(),
-                        ));
-                    }
-                }
-            }
-            LoopState::Busy => {
-                return Err(crate::Error::User(
-                    "a reconnect is already under way".into(),
-                ));
-            }
-            LoopState::Lost => {
-                *self.state.lock().unwrap_or_else(|e| e.into_inner()) = LoopState::Lost;
-                return Err(crate::Error::User(
-                    "the event loop is gone, connect with a new client".into(),
-                ));
-            }
-        };
+        let lost = || crate::Error::User("the event loop is gone, connect with a new client".into());
+        let (reply_tx, reply_rx) = oneshot::channel();
+        self.ctl.send(Ctl::Take(reply_tx)).map_err(|_| lost())?;
+        let cmd_rx = reply_rx.await.map_err(|_| lost())??;
+        let mut cmd_rx = Some(cmd_rx);
         let Attempt { result, started } = connect_to(&self.config, cmd_tx, &mut cmd_rx).await;
         let (next, answer) = match result {
-            Ok((info, residual)) => (LoopState::Running(residual), Ok(info)),
+            Ok((info, residual)) => (Ctl::Running(residual), Ok(info)),
             Err(e) => {
                 let next = match (cmd_rx, started) {
-                    (Some(cmd_rx), _) => LoopState::Stopped(cmd_rx),
-                    (None, Some(residual)) => LoopState::Running(residual),
-                    (None, None) => LoopState::Lost,
+                    (Some(cmd_rx), _) => Ctl::Back(cmd_rx),
+                    (None, Some(residual)) => Ctl::Running(residual),
+                    (None, None) => Ctl::Lost,
                 };
                 (next, Err(crate::Error::Other(format!("{e:#}"))))
             }
         };
-        *self.state.lock().unwrap_or_else(|e| e.into_inner()) = next;
+        _ = self.ctl.send(next);
         answer
+    }
+}
+
+/// Keeps the command channel of a Commander between event loops: while none runs, every command is answered at once
+/// ([Command::fail_detached]: calls fail with [Error::Disconnected](crate::Error::Disconnected), CLT-36) instead of
+/// waiting in the channel for a reconnect that may never come; a reconnect takes the channel and gives it back.
+/// Ends when the Commander and its clones are gone.
+async fn keep(mut ctl: mpsc::UnboundedReceiver<Ctl>, residual: oneshot::Receiver<EventLoopResidual>) {
+    let mut keeping = Keeping::Running(residual);
+    loop {
+        keeping = match keeping {
+            Keeping::Running(mut residual) => tokio::select! {
+                // first: a loop that exited before a reconnect asks for the channel has given it back by then
+                biased;
+                r = &mut residual => match r {
+                    Ok(residual) => Keeping::Stopped(residual.cmd_rx),
+                    // the loop is gone without its channel
+                    Err(_) => Keeping::Lost,
+                },
+                c = ctl.recv() => match c {
+                    Some(Ctl::Take(reply)) => {
+                        _ = reply.send(Err(crate::Error::User(
+                            "still connected (or the event loop is gone), disconnect().keep_streams() first".into(),
+                        )));
+                        Keeping::Running(residual)
+                    }
+                    Some(_) => Keeping::Running(residual),
+                    None => return,
+                },
+            },
+            Keeping::Stopped(mut cmd_rx) => tokio::select! {
+                biased;
+                c = ctl.recv() => match c {
+                    Some(Ctl::Take(reply)) => match reply.send(Ok(cmd_rx)) {
+                        Ok(()) => Keeping::Taken,
+                        Err(Ok(cmd_rx)) => Keeping::Stopped(cmd_rx),
+                        Err(Err(_)) => unreachable!("sent Ok"),
+                    },
+                    Some(_) => Keeping::Stopped(cmd_rx),
+                    None => return,
+                },
+                cmd = cmd_rx.recv() => match cmd {
+                    Some(cmd) => {
+                        debug!("not connected, failing a command");
+                        cmd.fail_detached();
+                        Keeping::Stopped(cmd_rx)
+                    }
+                    // every Commander is gone
+                    None => return,
+                },
+            },
+            Keeping::Taken => match ctl.recv().await {
+                Some(Ctl::Take(reply)) => {
+                    _ = reply.send(Err(crate::Error::User(
+                        "a reconnect is already under way".into(),
+                    )));
+                    Keeping::Taken
+                }
+                Some(Ctl::Running(residual)) => Keeping::Running(residual),
+                Some(Ctl::Back(cmd_rx)) => Keeping::Stopped(cmd_rx),
+                Some(Ctl::Lost) => Keeping::Lost,
+                None => return,
+            },
+            Keeping::Lost => match ctl.recv().await {
+                Some(Ctl::Take(reply)) => {
+                    _ = reply.send(Err(crate::Error::User(
+                        "the event loop is gone, connect with a new client".into(),
+                    )));
+                    Keeping::Lost
+                }
+                Some(_) => Keeping::Lost,
+                None => return,
+            },
+        };
     }
 }
 

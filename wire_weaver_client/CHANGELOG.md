@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- A call (or any command) while no event loop runs, after the link went down or `disconnect().keep_streams()` and before `Commander::reconnect()`, fails at once with `Error::Disconnected` instead of waiting in the command channel until someone reconnects (CLT-36): a keeper task holds the channel between event loops and answers what comes in; `reconnect()` takes the channel from it and gives it back.
 - A `LoopbackTest` sent while link setup still runs waits for the link instead of failing with "not connected".
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
 

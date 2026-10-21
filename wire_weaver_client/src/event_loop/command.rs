@@ -137,6 +137,49 @@ pub enum Command {
     },
 }
 
+impl Command {
+    /// Answers a command that came while no event loop runs (between a link that went down and a reconnect, CLT-36):
+    /// whatever waits for it gets [Error::Disconnected](crate::Error::Disconnected) at once instead of waiting for
+    /// a loop that may never come. A disconnect is done already.
+    pub(crate) fn fail_detached(self) {
+        let error = crate::Error::Disconnected;
+        match self {
+            Command::Connect { connected_tx, .. } => {
+                if let Some(tx) = connected_tx {
+                    _ = tx.send(ConnectionInfo::err(anyhow::anyhow!(error)));
+                }
+            }
+            Command::SendMessage { done_tx, .. } => {
+                if let Some((done_tx, _)) = done_tx {
+                    _ = done_tx.send(Err(error));
+                }
+            }
+            Command::OpenStream { done_tx, .. } => _ = done_tx.send(Err(error)),
+            Command::DisconnectAndExit {
+                disconnected_tx, ..
+            }
+            | Command::DisconnectKeepStreams {
+                disconnected_tx, ..
+            } => {
+                if let Some(tx) = disconnected_tx {
+                    _ = tx.send(());
+                }
+            }
+            Command::LoopbackTest { progress_tx, .. } => {
+                _ = progress_tx.send(TestProgress::FatalError("not connected".into()));
+            }
+            // dropped: a registration's sender closes, so its waiter sees the event loop gone
+            Command::OnStreamEvent { .. }
+            | Command::ObserveRoute { .. }
+            | Command::Forward { .. }
+            | Command::ForwardSink { .. }
+            | Command::ForwardLoopback { .. }
+            | Command::ForwardFlush
+            | Command::RegisterTracer { .. } => {}
+        }
+    }
+}
+
 /// Takes what the event loop forwards ([Command::ForwardSink]). Called on the event loop's receive task as each
 /// message comes in, so it must not block: route the message, or hand it to a channel (`UnboundedSender<Forwarded>`
 /// is one). Dropped when the event loop ends.

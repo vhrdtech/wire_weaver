@@ -180,6 +180,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
+- CLT-36 | Calls fail fast while disconnected | A call made while the link is down fails at once with `Disconnected` instead of waiting for a reconnect. | transport/hub.md#reconnect-after-a-hub-restart-clt-40
 - CLT-37 | Low call latency | A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond. | transport/ww_link.md
 - CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
 - CLT-39 | Hub routing in connect | A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; `WW_HUB` says when. | transport/hub.md#reaching-devices-through-the-hub-clt-39

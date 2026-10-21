@@ -40,6 +40,13 @@ pub(crate) async fn entries() -> Vec<DeviceEntryOwned> {
                 api: d.api.as_ref().map(|a| format!("{}@{}", a.gid, a.version)),
                 state: DeviceStateOwned::Present,
                 tunnels: 0,
+                location: Some(d.location.clone()),
+                label: Some(d.user_label.clone()).filter(|l| !l.is_empty()),
+                api_hash: d
+                    .api
+                    .as_ref()
+                    .filter(|a| !a.signature.hash.is_empty())
+                    .map(|a| a.signature.to_string()),
             },
         );
     }
@@ -65,6 +72,9 @@ pub(crate) async fn entries() -> Vec<DeviceEntryOwned> {
                         api: None,
                         state,
                         tunnels: 0,
+                        location: None,
+                        label: None,
+                        api_hash: None,
                     },
                 );
             }

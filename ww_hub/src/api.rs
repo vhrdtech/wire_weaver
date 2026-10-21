@@ -10,7 +10,9 @@ use wire_weaver::prelude::*;
 use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
-use ww_hub_api::{ClientEntryOwned, DeviceEntryOwned, HandoverError, HubInfoOwned, TakeErrorOwned};
+use ww_hub_api::{
+    ClientEntryOwned, DeviceEntryOwned, HandoverError, HubInfoOwned, HubStatusOwned, TakeErrorOwned,
+};
 
 use crate::{HUB_VERSION, Hub};
 
@@ -89,6 +91,20 @@ mod server {
                     .unwrap_or_default(),
                 started_ms: self.hub.started_ms,
                 socket: self.hub.socket.display().to_string(),
+            })
+        }
+
+        async fn status(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<HubStatusOwned> {
+            let (idle_exit_s, exits_in_s, keep_left_s, connections) = self.hub.timers();
+            RpcResult::Ready(HubStatusOwned {
+                started_by: self.hub.started_by.clone(),
+                idle_exit_s,
+                exits_in_s,
+                keep_left_s,
+                connections,
             })
         }
 

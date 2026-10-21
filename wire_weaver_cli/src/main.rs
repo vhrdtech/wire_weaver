@@ -1,5 +1,6 @@
 use crate::cli::{Cli, Commands};
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::hub::HubCommand;
 use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result, anyhow};
@@ -30,7 +31,9 @@ async fn run() -> Result<()> {
     let matches = Cli::command().get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     // keep connection progress logs out of the printed tree
-    let max_level = match cli.command {
+    let max_level: tracing::level_filters::LevelFilter = match cli.command {
+        // the hub closes the connection on us by design
+        Commands::Hub(HubCommand::Stop) => tracing::level_filters::LevelFilter::OFF,
         Commands::Introspect(_)
         | Commands::Explain(_)
         | Commands::Observe(_)
@@ -39,8 +42,13 @@ async fn run() -> Result<()> {
         | Commands::Stats(_)
         | Commands::Capture(_)
         | Commands::Pins(_)
-        | Commands::Sync(_) => tracing::Level::WARN,
-        _ => tracing::Level::INFO,
+        | Commands::Sync(_)
+        // the hub's own log is what `serve` is for; the others just talk to it (`list` may, too)
+        | Commands::List(_)
+        | Commands::Hub(HubCommand::Status | HubCommand::Who { .. } | HubCommand::Keep { .. }) => {
+            tracing::Level::WARN.into()
+        }
+        _ => tracing::Level::INFO.into(),
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
     cli.check_tap()?;

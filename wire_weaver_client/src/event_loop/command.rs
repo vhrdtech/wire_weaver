@@ -88,9 +88,7 @@ pub enum Command {
     },
     /// Where [Command::Forward] answers, events nobody asked for (seq 0: stream data, property updates) and loopback
     /// echoes go, raw, instead of to this client's own streams and observers.
-    ForwardSink {
-        tx: mpsc::UnboundedSender<Forwarded>,
-    },
+    ForwardSink { sink: Box<dyn ForwardSink> },
     /// Send a link `Loopback` message as it is (a client's `ww usb-loopback` through the hub); the echoes go to the
     /// [Command::ForwardSink]. Ignored while a [Command::LoopbackTest] of this client runs.
     ForwardLoopback {
@@ -98,6 +96,9 @@ pub enum Command {
         seq: u32,
         data: Vec<u8>,
     },
+    /// Send what was forwarded so far now, instead of at the end of the device's accumulation window: the clients
+    /// whose requests these are flushed (the hub mirrors its clients' flushes).
+    ForwardFlush,
 
     /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
     /// and streams will stop. Use when shutting down the whole application.
@@ -134,6 +135,19 @@ pub enum Command {
         params: Box<LoopbackParams>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
+}
+
+/// Takes what the event loop forwards ([Command::ForwardSink]). Called on the event loop's receive task as each
+/// message comes in, so it must not block: route the message, or hand it to a channel (`UnboundedSender<Forwarded>`
+/// is one). Dropped when the event loop ends.
+pub trait ForwardSink: Send {
+    fn forward(&mut self, forwarded: Forwarded);
+}
+
+impl ForwardSink for mpsc::UnboundedSender<Forwarded> {
+    fn forward(&mut self, forwarded: Forwarded) {
+        _ = self.send(forwarded);
+    }
 }
 
 /// What the event loop hands to a [Command::ForwardSink].

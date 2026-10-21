@@ -2,7 +2,7 @@ use crate::client::observe::{LevelRoute, ObserveRouteHook};
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
 use crate::client::sink::SinkLink;
-use crate::event_loop::command::{Forwarded, StreamOpenHook};
+use crate::event_loop::command::{ForwardSink, Forwarded, StreamOpenHook};
 use crate::event_loop::core::FullRetry;
 use crate::event_loop::event_queue::{EventReceiver, EventSender};
 use crate::{Error, RawStreamEvent, SeqTy};
@@ -121,7 +121,7 @@ pub(crate) struct RxDispatcher {
     /// [LATE_REPLY_WINDOW] end, by seq.
     forwards: HashMap<SeqTy, (u64, Instant, Instant)>,
     /// `Command::ForwardSink`: answers to forwarded requests and events with seq 0 go here, raw
-    pub(crate) forward_sink: Option<tokio::sync::mpsc::UnboundedSender<Forwarded>>,
+    pub(crate) forward_sink: Option<Box<dyn ForwardSink>>,
     /// Seq numbers whose requests completed, were cancelled or timed out and passed [LATE_REPLY_WINDOW] since the
     /// last [Self::take_freed].
     /// The tx side allocates seq numbers and needs to know when they can be reused.
@@ -207,19 +207,19 @@ impl RxDispatcher {
 
     /// Tell the forward sink that the request with `tag` won't be answered.
     pub fn forward_failed(&mut self, tag: u64, error: Error) {
-        if let Some(sink) = &self.forward_sink {
-            _ = sink.send(Forwarded::Failed { tag, error });
+        if let Some(sink) = &mut self.forward_sink {
+            sink.forward(Forwarded::Failed { tag, error });
         }
     }
 
     /// An event for the forward sink: an answer to a forwarded request, or anything with seq 0. Whether it was.
     fn forward(&mut self, msg_bytes: &[u8], event: &ww_client_server::Event<'_>) -> bool {
-        let Some(sink) = &self.forward_sink else {
+        let Some(sink) = &mut self.forward_sink else {
             return false;
         };
         let seq = event.seq.0;
         if seq == 0 {
-            _ = sink.send(Forwarded::Event(msg_bytes.to_vec()));
+            sink.forward(Forwarded::Event(msg_bytes.to_vec()));
             return true;
         }
         let Some((tag, _, _)) = self.forwards.get(&seq) else {
@@ -232,7 +232,7 @@ impl RxDispatcher {
                 | EventKind::StreamItem { .. }
                 | EventKind::PropertyUpdate { .. })
         );
-        _ = sink.send(Forwarded::Reply {
+        sink.forward(Forwarded::Reply {
             tag: *tag,
             event: msg_bytes.to_vec(),
             last,

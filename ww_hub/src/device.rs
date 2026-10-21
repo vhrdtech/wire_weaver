@@ -1,20 +1,22 @@
 //! A device the hub holds (SRV-29): one `wire_weaver_client` event loop to it, shared by every client's tunnel.
 //!
-//! The device's task owns everything about it, so nothing here is locked: requests come in from the tunnels, the hub
-//! gives them seqs of its own on the device (`Command::Forward`, the tag says whose they are) and puts the client's
-//! seq back on the answers. Streams are opened on the device by the first client and closed by the last, their data
+//! Requests go from a client's tunnel straight to the event loop (`Command::Forward`, with a seq of the device's and a
+//! tag that says whose they are), answers come back through the device's task, which puts the client's seq back on
+//! them. Both hold the device's state while they decide and send, so the device gets commands in the order they were
+//! decided. Streams are opened on the device by the first client and closed by the last, their data
 //! goes to the clients that opened them; observed properties are merged from every client's settings; introspection
 //! is fetched once and answered from the cache after.
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver::shrink_wrap::UNib32;
-use wire_weaver_client::internal::{Command, Forwarded};
+use wire_weaver_client::internal::{Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRequestOwned,
 };
@@ -36,6 +38,7 @@ const FORWARD_TIMEOUT: Duration = Duration::from_secs(600);
 pub(crate) struct DeviceHandle {
     pub(crate) tx: mpsc::UnboundedSender<ToDevice>,
     pub(crate) info: Arc<DeviceLinkInfo>,
+    pub(crate) device: Arc<Device>,
 }
 
 pub(crate) enum ToDevice {
@@ -45,16 +48,6 @@ pub(crate) enum ToDevice {
     },
     Leave {
         id: u32,
-    },
-    Request {
-        id: u32,
-        bytes: Vec<u8>,
-    },
-    Loopback {
-        id: u32,
-        repeat: u32,
-        seq: u32,
-        data: Vec<u8>,
     },
     /// `Registry::take`: keep it open without clients
     Keep,
@@ -160,8 +153,15 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
         }
     };
     let (sink_tx, sink) = mpsc::unbounded_channel();
+    let routes = Arc::new(Routes::default());
+    let router = Router {
+        routes: routes.clone(),
+        task: sink_tx,
+    };
     if cmd
-        .send(Command::ForwardSink { tx: sink_tx })
+        .send(Command::ForwardSink {
+            sink: Box::new(router),
+        })
         .await
         .is_err()
     {
@@ -173,23 +173,84 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
     );
     let info = Arc::new(DeviceLinkInfo::new(cmd.device_api_info().clone()));
     let (tx, rx) = mpsc::unbounded_channel();
+    let device = Arc::new(Device {
+        state: tokio::sync::Mutex::new(State {
+            tunnels: BTreeMap::new(),
+            next_tag: 1,
+            pending: HashMap::new(),
+            streams: HashMap::new(),
+            observed: HashMap::new(),
+            introspect: Introspect::None,
+            loopback_owner: None,
+            keep: false,
+            stamp: 0,
+            routes,
+            out: vec![],
+        }),
+        cmd,
+    });
     let task = Task {
         key: key.to_string(),
         hub: hub.clone(),
-        cmd,
-        tunnels: BTreeMap::new(),
-        next_tag: 1,
-        pending: HashMap::new(),
-        streams: HashMap::new(),
-        observed: HashMap::new(),
-        introspect: Introspect::None,
-        loopback_owner: None,
-        keep: false,
-        stamp: 0,
+        device: device.clone(),
     };
     hub.device_opened(key);
     tokio::spawn(task.run(rx, sink, slot, tx.clone()));
-    Ok(DeviceHandle { tx, info })
+    Ok(DeviceHandle { tx, info, device })
+}
+
+/// Tags of plain requests carry whose they are: this bit, the tunnel (31 bits) and the client's seq. Their answers go
+/// from the event loop's receive task straight into the client's queue ([Router]), no task in between.
+const DIRECT: u64 = 1 << 63;
+
+fn direct_tag(tunnel: u32, seq: u32) -> u64 {
+    DIRECT | (u64::from(tunnel & 0x7FFF_FFFF) << 32) | u64::from(seq)
+}
+
+/// What [Router] needs to put answers into the clients' queues on its own: a copy of the device's tunnels.
+#[derive(Default)]
+struct Routes {
+    tunnels: std::sync::Mutex<BTreeMap<u32, Arc<TunnelQueue>>>,
+    /// The client whose loopback messages went out last, 0 for none
+    loopback_owner: std::sync::atomic::AtomicU32,
+}
+
+impl Routes {
+    fn queue(&self, tunnel: u32) -> Option<Arc<TunnelQueue>> {
+        self.tunnels.lock().unwrap().get(&tunnel).cloned()
+    }
+}
+
+/// The device's event loop forwards here, on its receive task: answers to plain requests and loopback echoes go
+/// into the client's queue right away, the rest (answers the hub looks at, stream data, property updates) to the
+/// device's task. Dropped with the event loop, which ends the task's channel: the device is gone.
+struct Router {
+    routes: Arc<Routes>,
+    task: mpsc::UnboundedSender<Forwarded>,
+}
+
+impl ForwardSink for Router {
+    fn forward(&mut self, forwarded: Forwarded) {
+        match forwarded {
+            Forwarded::Reply { tag, event, .. } if tag & DIRECT != 0 => {
+                let (tunnel, seq) = (((tag >> 32) as u32) & 0x7FFF_FFFF, tag as u32);
+                if let Some(queue) = self.routes.queue(tunnel)
+                    && let Some((_, rest)) = envelope::split_seq(&event)
+                {
+                    queue.push(Kind::Data0, envelope::with_seq(seq, rest));
+                }
+            }
+            // the client times out on its own
+            Forwarded::Failed { tag, .. } if tag & DIRECT != 0 => {}
+            Forwarded::Loopback(payload) => {
+                let owner = self.routes.loopback_owner.load(Ordering::Relaxed);
+                if let Some(queue) = self.routes.queue(owner) {
+                    queue.push(Kind::Loopback, payload);
+                }
+            }
+            other => _ = self.task.send(other),
+        }
+    }
 }
 
 /// Whose request a forwarded one is, and what the hub does with its answer besides passing it on.
@@ -299,10 +360,7 @@ enum Introspect {
     Cached(Vec<Vec<u8>>),
 }
 
-struct Task {
-    key: String,
-    hub: Arc<Hub>,
-    cmd: Commander,
+struct State {
     tunnels: BTreeMap<u32, Arc<TunnelQueue>>,
     next_tag: u64,
     pending: HashMap<u64, Pending>,
@@ -315,11 +373,65 @@ struct Task {
     keep: bool,
     /// Orders observe settings
     stamp: u64,
+    /// The tunnels again, for [Router]
+    routes: Arc<Routes>,
+    /// Commands for the event loop, decided with the state held and sent before it is let go: the device gets them
+    /// in the order they were decided
+    out: Vec<Command>,
+}
+
+/// An open device: its state, shared by its tunnels (requests) and its task (answers, joins and leaves).
+pub(crate) struct Device {
+    state: tokio::sync::Mutex<State>,
+    cmd: Commander,
+}
+
+impl Device {
+    /// A client's request: forwarded with a seq of the device's, or answered by the hub. Straight from the client's
+    /// tunnel to the event loop, no task in between.
+    pub(crate) async fn request(&self, id: u32, bytes: Vec<u8>) -> Result<(), ()> {
+        let mut state = self.state.lock().await;
+        state.request(id, bytes)?;
+        self.send_out(&mut state).await
+    }
+
+    pub(crate) async fn loopback(
+        &self,
+        id: u32,
+        repeat: u32,
+        seq: u32,
+        data: Vec<u8>,
+    ) -> Result<(), ()> {
+        let mut state = self.state.lock().await;
+        state.loopback_owner = Some(id);
+        state.routes.loopback_owner.store(id, Ordering::Relaxed);
+        state.send(Command::ForwardLoopback { repeat, seq, data })?;
+        self.send_out(&mut state).await
+    }
+
+    /// The client flushed: so does the hub.
+    pub(crate) async fn flush(&self) -> Result<(), ()> {
+        self.cmd.send(Command::ForwardFlush).await.map_err(|_| ())
+    }
+
+    async fn send_out(&self, state: &mut State) -> Result<(), ()> {
+        for cmd in state.out.drain(..) {
+            self.cmd.send(cmd).await.map_err(|_| ())?;
+        }
+        Ok(())
+    }
+}
+
+/// The task of an open device: answers and events from the event loop, tunnels joining and leaving, linger.
+struct Task {
+    key: String,
+    hub: Arc<Hub>,
+    device: Arc<Device>,
 }
 
 impl Task {
     async fn run(
-        mut self,
+        self,
         mut rx: mpsc::UnboundedReceiver<ToDevice>,
         mut sink: mpsc::UnboundedReceiver<Forwarded>,
         slot: Slot,
@@ -329,9 +441,10 @@ impl Task {
         let mut idle_since = Some(Instant::now());
         // the slot no longer names this task
         let mut released = false;
+        let mut keep = false;
         loop {
             let linger = self.hub.linger();
-            let linger_at = idle_since.filter(|_| !self.keep).map(|t| t + linger);
+            let linger_at = idle_since.filter(|_| !keep).map(|t| t + linger);
             let timer = async {
                 match linger_at {
                     Some(at) => tokio::time::sleep_until(at).await,
@@ -341,16 +454,28 @@ impl Task {
             tokio::select! {
                 msg = rx.recv() => {
                     let Some(msg) = msg else { break };
-                    if self.on_message(msg).await.is_err() {
+                    let mut state = self.device.state.lock().await;
+                    let r = state.on_message(msg);
+                    if self.device.send_out(&mut state).await.is_err() || r.is_err() {
                         break;
                     }
-                    idle_since = match self.tunnels.is_empty() {
+                    let tunnels = state.tunnels.len();
+                    keep = state.keep;
+                    drop(state);
+                    self.hub.tunnels_changed(&self.key, tunnels);
+                    idle_since = match tunnels == 0 {
                         true => idle_since.or(Some(Instant::now())),
                         false => None,
                     };
                 }
                 fwd = sink.recv() => match fwd {
-                    Some(fwd) => self.on_forwarded(fwd).await,
+                    Some(fwd) => {
+                        let mut state = self.device.state.lock().await;
+                        state.on_forwarded(fwd);
+                        if self.device.send_out(&mut state).await.is_err() {
+                            break;
+                        }
+                    }
                     None => {
                         info!("ww hub: {} is gone", self.key);
                         break;
@@ -368,6 +493,7 @@ impl Task {
                     drop(guard);
                     debug!("ww hub: closing {} after {linger:?} without clients", self.key);
                     let _ = self
+                        .device
                         .cmd
                         .send(Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser).0)
                         .await;
@@ -386,58 +512,45 @@ impl Task {
                 queue.close();
             }
         }
-        for queue in self.tunnels.values() {
+        for queue in self.device.state.lock().await.tunnels.values() {
             queue.close();
         }
         self.hub.device_closed(&self.key);
     }
+}
 
-    async fn on_message(&mut self, msg: ToDevice) -> Result<(), ()> {
+impl State {
+    fn on_message(&mut self, msg: ToDevice) -> Result<(), ()> {
         match msg {
             ToDevice::Join { id, queue } => {
-                self.tunnels.insert(id, queue);
-                self.hub.tunnels_changed(&self.key, self.tunnels.len());
+                self.tunnels.insert(id, queue.clone());
+                self.routes.tunnels.lock().unwrap().insert(id, queue);
             }
-            ToDevice::Leave { id } => {
-                self.leave(id).await?;
-                self.hub.tunnels_changed(&self.key, self.tunnels.len());
-            }
-            ToDevice::Request { id, bytes } => self.request(id, bytes).await?,
-            ToDevice::Loopback {
-                id,
-                repeat,
-                seq,
-                data,
-            } => {
-                self.loopback_owner = Some(id);
-                self.send(Command::ForwardLoopback { repeat, seq, data })
-                    .await?;
-            }
+            ToDevice::Leave { id } => self.leave(id)?,
             ToDevice::Keep => self.keep = true,
             ToDevice::Close => {
-                let _ = self
-                    .send(
-                        Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser)
-                            .0,
-                    )
-                    .await;
+                let _ = self.send(
+                    Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser).0,
+                );
                 return Err(());
             }
         }
         Ok(())
     }
 
-    async fn send(&self, cmd: Command) -> Result<(), ()> {
-        self.cmd.send(cmd).await.map_err(|_| ())
+    /// Queues a command for the event loop, sent by whoever holds the state.
+    fn send(&mut self, cmd: Command) -> Result<(), ()> {
+        self.out.push(cmd);
+        Ok(())
     }
 
     /// A client's request: forwarded with a seq of the device's, or answered by the hub.
-    async fn request(&mut self, id: u32, bytes: Vec<u8>) -> Result<(), ()> {
+    fn request(&mut self, id: u32, bytes: Vec<u8>) -> Result<(), ()> {
         let Some((seq, rest)) = envelope::split_seq(&bytes) else {
             return Ok(());
         };
         match envelope::classify(&bytes) {
-            Op::StreamOpen(path) => self.stream_open(id, seq, bytes, path).await,
+            Op::StreamOpen(path) => self.stream_open(id, seq, bytes, path),
             Op::StreamClose(path) => {
                 let forward = match self.streams.get_mut(&path) {
                     // not opened through the hub's accounting (e.g. by a trait path): as it is
@@ -453,7 +566,7 @@ impl Task {
                     }
                 };
                 if forward {
-                    self.forward(id, seq, rest, Purpose::Plain).await
+                    self.forward(id, seq, rest, Purpose::Plain)
                 } else {
                     self.answer_written(id, seq);
                     Ok(())
@@ -465,7 +578,7 @@ impl Task {
                     self.answer_written(id, seq);
                     Ok(())
                 }
-                _ => self.forward(id, seq, rest, Purpose::Plain).await,
+                _ => self.forward(id, seq, rest, Purpose::Plain),
             },
             Op::Observe(path, cfg) => {
                 self.stamp += 1;
@@ -480,9 +593,8 @@ impl Task {
                     Some(req) => {
                         let rest = envelope::split_seq(&req).map(|(_, r)| r.to_vec());
                         self.forward(id, seq, &rest.unwrap_or_default(), Purpose::Plain)
-                            .await
                     }
-                    None => self.forward(id, seq, rest, Purpose::Plain).await,
+                    None => self.forward(id, seq, rest, Purpose::Plain),
                 }
             }
             Op::Introspect => match &mut self.introspect {
@@ -505,20 +617,14 @@ impl Task {
                         requester: (id, seq),
                         waiting: vec![],
                     };
-                    self.forward(id, seq, rest, Purpose::Introspect).await
+                    self.forward(id, seq, rest, Purpose::Introspect)
                 }
             },
-            Op::Other => self.forward(id, seq, rest, Purpose::Plain).await,
+            Op::Other => self.forward(id, seq, rest, Purpose::Plain),
         }
     }
 
-    async fn stream_open(
-        &mut self,
-        id: u32,
-        seq: u32,
-        bytes: Vec<u8>,
-        path: Vec<u32>,
-    ) -> Result<(), ()> {
+    fn stream_open(&mut self, id: u32, seq: u32, bytes: Vec<u8>, path: Vec<u32>) -> Result<(), ()> {
         let stream = self.streams.entry(path.clone()).or_default();
         let alone = stream.subs.iter().all(|t| *t == id);
         if alone || (stream.opened.is_none() && !stream.opening) {
@@ -528,14 +634,12 @@ impl Task {
             }
             stream.opening = true;
             let rest = envelope::split_seq(&bytes).map(|(_, r)| r.to_vec());
-            return self
-                .forward(
-                    id,
-                    seq,
-                    &rest.unwrap_or_default(),
-                    Purpose::StreamOpen(path),
-                )
-                .await;
+            return self.forward(
+                id,
+                seq,
+                &rest.unwrap_or_default(),
+                Purpose::StreamOpen(path),
+            );
         }
         if stream.opening {
             stream.waiting.push((id, bytes));
@@ -561,14 +665,11 @@ impl Task {
     }
 
     /// Sends `rest` (a request after its seq) to the device; its answers come back with a tag that says whose.
-    async fn forward(
-        &mut self,
-        id: u32,
-        seq: u32,
-        rest: &[u8],
-        purpose: Purpose,
-    ) -> Result<(), ()> {
+    fn forward(&mut self, id: u32, seq: u32, rest: &[u8], purpose: Purpose) -> Result<(), ()> {
         let tag = (seq != 0).then(|| {
+            if let Purpose::Plain = purpose {
+                return direct_tag(id, seq);
+            }
             let tag = self.next_tag;
             self.next_tag += 1;
             self.pending.insert(
@@ -586,13 +687,14 @@ impl Task {
             tag,
             timeout: FORWARD_TIMEOUT,
         })
-        .await
     }
 
-    async fn leave(&mut self, id: u32) -> Result<(), ()> {
+    fn leave(&mut self, id: u32) -> Result<(), ()> {
         self.tunnels.remove(&id);
+        self.routes.tunnels.lock().unwrap().remove(&id);
         if self.loopback_owner == Some(id) {
             self.loopback_owner = None;
+            self.routes.loopback_owner.store(0, Ordering::Relaxed);
         }
         let mut close = vec![];
         self.streams.retain(|path, stream| {
@@ -616,8 +718,7 @@ impl Task {
                     bytes: req,
                     tag: None,
                     timeout: FORWARD_TIMEOUT,
-                })
-                .await?;
+                })?;
             }
         }
         let mut changed = vec![];
@@ -633,8 +734,7 @@ impl Task {
                     bytes: req,
                     tag: None,
                     timeout: FORWARD_TIMEOUT,
-                })
-                .await?;
+                })?;
             }
         }
         if let Introspect::Fetching {
@@ -644,16 +744,16 @@ impl Task {
             waiting.retain(|(t, _)| *t != id);
             if requester.0 == id {
                 // the next one waiting asks again
-                self.introspected(None).await;
+                self.introspected(None);
             }
         }
         Ok(())
     }
 
-    async fn on_forwarded(&mut self, fwd: Forwarded) {
+    fn on_forwarded(&mut self, fwd: Forwarded) {
         match fwd {
-            Forwarded::Reply { tag, event, last } => self.reply(tag, event, last).await,
-            Forwarded::Event(event) => self.fan_out(event).await,
+            Forwarded::Reply { tag, event, last } => self.reply(tag, event, last),
+            Forwarded::Event(event) => self.fan_out(event),
             Forwarded::Loopback(payload) => {
                 if let Some(queue) = self.loopback_owner.and_then(|t| self.tunnels.get(&t)) {
                     queue.push(Kind::Loopback, payload);
@@ -670,14 +770,14 @@ impl Task {
                 // the client times out on its own; what waited on it is tried again
                 match pending.purpose {
                     Purpose::Plain => {}
-                    Purpose::StreamOpen(path) => self.opened(pending.tunnel, path, None).await,
-                    Purpose::Introspect => self.introspected(None).await,
+                    Purpose::StreamOpen(path) => self.opened(pending.tunnel, path, None),
+                    Purpose::Introspect => self.introspected(None),
                 }
             }
         }
     }
 
-    async fn reply(&mut self, tag: u64, event: Vec<u8>, last: bool) {
+    fn reply(&mut self, tag: u64, event: Vec<u8>, last: bool) {
         let Some(pending) = self.pending.get(&tag) else {
             return;
         };
@@ -702,14 +802,14 @@ impl Task {
             Purpose::Plain => {}
             Purpose::StreamOpen(path) => {
                 let opened = envelope::is_ok(&event).then(|| rest.to_vec());
-                self.opened(tunnel, path, opened).await;
+                self.opened(tunnel, path, opened);
             }
-            Purpose::Introspect => self.introspected(Some(())).await,
+            Purpose::Introspect => self.introspected(Some(())),
         }
     }
 
     /// The device answered a stream open of `tunnel` (`None`: with an error, or not at all).
-    async fn opened(&mut self, tunnel: u32, path: Vec<u32>, opened: Option<Vec<u8>>) {
+    fn opened(&mut self, tunnel: u32, path: Vec<u32>, opened: Option<Vec<u8>>) {
         let Some(stream) = self.streams.get_mut(&path) else {
             return;
         };
@@ -729,14 +829,14 @@ impl Task {
         }
         // answered from the cache, or the next one opens it
         for (t, bytes) in waiting {
-            if self.request(t, bytes).await.is_err() {
+            if self.request(t, bytes).is_err() {
                 return;
             }
         }
     }
 
     /// The introspection fetch ended: cached for everyone after, or tried again for the next one waiting.
-    async fn introspected(&mut self, done: Option<()>) {
+    fn introspected(&mut self, done: Option<()>) {
         let Introspect::Fetching {
             events,
             request,
@@ -766,14 +866,14 @@ impl Task {
                         requester: (t, seq),
                         waiting: waiting.collect(),
                     };
-                    let _ = self.forward(t, seq, &request, Purpose::Introspect).await;
+                    let _ = self.forward(t, seq, &request, Purpose::Introspect);
                 }
             }
         }
     }
 
     /// An event nobody asked for (seq 0): to the clients of its stream or observed level, to all when none is known.
-    async fn fan_out(&mut self, event: Vec<u8>) {
+    fn fan_out(&mut self, event: Vec<u8>) {
         let class = envelope::classify_event(&event);
         // introspection data asked for with seq 0, at the root path
         if let Introspect::Fetching {
@@ -789,7 +889,7 @@ impl Task {
                 queue.push(Kind::Data0, event);
             }
             if matches!(class, Unsolicited::Sideband { .. }) {
-                self.introspected(Some(())).await;
+                self.introspected(Some(()));
             }
             return;
         }

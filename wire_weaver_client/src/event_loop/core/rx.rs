@@ -345,6 +345,9 @@ impl RxCore {
                     api_model_version: compact_to_full(&info.api_model_version),
                     user_api_version: info.user_api_version.make_owned(),
                     user_api_hash: info.hash.make_owned(),
+                    accumulation_time: Duration::from_micros(
+                        info.packet_accumulation_time_us.into(),
+                    ),
                 };
                 info!(
                     "connected device: {device_api_info:?}, acc_window = {}us",
@@ -386,14 +389,14 @@ impl RxCore {
             }
             Message::Loopback { repeat, seq, data } => {
                 if self.phase == Phase::Up
-                    && let Some(sink) = &self.dispatcher.forward_sink
+                    && let Some(sink) = &mut self.dispatcher.forward_sink
                 {
                     // an echo for a client of the hub, its own layout: | repeat: u32 LE | seq: u32 LE | data |
                     let mut payload = Vec::with_capacity(8 + data.len());
                     payload.extend_from_slice(&repeat.to_le_bytes());
                     payload.extend_from_slice(&seq.to_le_bytes());
                     payload.extend_from_slice(data);
-                    _ = sink.send(crate::event_loop::command::Forwarded::Loopback(payload));
+                    sink.forward(crate::event_loop::command::Forwarded::Loopback(payload));
                 } else if self.phase == Phase::Up {
                     // tx ignores it when no test is running
                     self.output.push_back(RxOutput::ToTx(ToTx::Loopback {

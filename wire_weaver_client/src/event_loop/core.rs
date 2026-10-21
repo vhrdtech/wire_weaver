@@ -111,7 +111,7 @@ pub(crate) enum ToRx {
         timeout: Duration,
     },
     /// [Command::ForwardSink]
-    ForwardSink(mpsc::UnboundedSender<crate::event_loop::command::Forwarded>),
+    ForwardSink(Box<dyn crate::event_loop::command::ForwardSink>),
     /// A forwarded request was not sent, tell the sink.
     ForwardFailed { tag: u64, error: crate::Error },
     /// Route a trait level's `PropertyUpdate` events to its observers
@@ -863,7 +863,12 @@ mod tests {
         let mut p = Pair::new();
         connect(&mut p, now);
         let (sink_tx, mut sink) = mpsc::unbounded_channel();
-        p.cmd(now, Command::ForwardSink { tx: sink_tx });
+        p.cmd(
+            now,
+            Command::ForwardSink {
+                sink: Box::new(sink_tx),
+            },
+        );
         p.cmd(
             now,
             Command::Forward {
@@ -1134,6 +1139,38 @@ mod tests {
         assert_eq!(kinds(&sent), [Kind::Data0]);
         assert_eq!(sent[0].payload, [1, 0xAA]);
         assert_eq!(p.tx.in_flight(), 1);
+    }
+
+    /// A loopback test asked for while link setup is still going on (`connect()` returned before LinkReady reached
+    /// tx) starts once the link is up, instead of failing with "not connected".
+    #[test]
+    fn loopback_test_during_link_setup_starts_when_up() {
+        use crate::event_loop::command::TestProgress;
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect_until_link_setup(&mut p, now);
+        let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
+        p.cmd(
+            now,
+            Command::LoopbackTest {
+                test_duration: Duration::from_millis(100),
+                packet_size: Some(20),
+                params: Default::default(),
+                progress_tx,
+            },
+        );
+        assert!(progress_rx.try_recv().is_err(), "held, not failed");
+        p.feed_from_device(
+            now,
+            &Message::LinkReady {
+                token: p.tx.token(),
+            },
+        );
+        assert!(matches!(
+            progress_rx.try_recv(),
+            Ok(TestProgress::TestStarted("loopback"))
+        ));
+        assert_eq!(kinds(&p.take_sent()), [Kind::Loopback]);
     }
 
     #[test]

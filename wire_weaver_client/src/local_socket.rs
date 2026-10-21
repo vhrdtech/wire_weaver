@@ -159,6 +159,7 @@ pub(crate) struct Tunnel {
     /// The socket, for messages and the tap
     pub(crate) shown: String,
     /// What the hub (or the serving process) says its version is
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     pub(crate) hub_version: String,
 }
 
@@ -327,7 +328,7 @@ pub mod device {
     use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
     use interprocess::local_socket::traits::tokio::Stream as _;
     use tokio::io::AsyncWriteExt;
-    use tokio::sync::mpsc;
+    use tokio::sync::{mpsc, oneshot};
     use tracing::{debug, warn};
     use ww_local_socket::{
         Answer, Listener, MessageReader, MessageWriter, Preamble, PreambleError, Status, Target,
@@ -350,7 +351,7 @@ pub mod device {
                 new_writer: writer_rx,
             },
             DeviceRx {
-                listener: Some((listener, version.to_string())),
+                listener: Some(Accepting::Idle(listener, version.to_string())),
                 max: max_message_len,
                 reader: None,
                 writer_tx,
@@ -450,8 +451,8 @@ pub mod device {
     }
 
     pub struct DeviceRx {
-        /// Accepts the next client, with the version for the preamble answer; `None` for a single connection
-        listener: Option<(Listener, String)>,
+        /// Accepts the next client; `None` for a single connection
+        listener: Option<Accepting>,
         max: usize,
         reader: Option<MessageReader<RecvHalf>>,
         writer_tx: mpsc::UnboundedSender<MessageWriter<SendHalf>>,
@@ -459,47 +460,80 @@ pub mod device {
         ended: Option<tokio::sync::watch::Sender<bool>>,
     }
 
-    impl DeviceRx {
-        /// Accepts one client: reads its preamble, answers, hands the write half to [DeviceTx].
-        async fn accept_one(&mut self) -> std::io::Result<bool> {
-            let Some((listener, version)) = &self.listener else {
-                return Ok(false);
-            };
-            let (stream, peer) = listener.accept().await?;
-            let (mut rx, mut tx) = stream.split();
-            let preamble = tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await;
-            let status = match preamble {
-                Err(_) => {
-                    debug!("local socket: client {peer:?} sent no preamble");
-                    return Ok(false);
+    /// A client whose preamble was answered `Ok`.
+    type Accepted = (RecvHalf, SendHalf);
+
+    /// Accepting happens in a task of its own, so that [DeviceRx::wait_connected] stays cancel-safe: the server waits
+    /// on it next to timers, and a connection dropped in the middle of its preamble would be reset. The task accepts
+    /// only when asked, so the next client waits in the backlog until the current one leaves.
+    enum Accepting {
+        /// The task starts on the first wait (it needs the runtime), with the version for the preamble answer
+        Idle(Listener, String),
+        Running {
+            want: mpsc::UnboundedSender<oneshot::Sender<Accepted>>,
+            /// Asked for, not answered yet
+            pending: Option<oneshot::Receiver<Accepted>>,
+        },
+    }
+
+    /// Accepts a client each time it is asked.
+    async fn acceptor(
+        listener: Listener,
+        version: String,
+        mut want: mpsc::UnboundedReceiver<oneshot::Sender<Accepted>>,
+    ) {
+        while let Some(reply) = want.recv().await {
+            loop {
+                match accept_one(&listener, &version).await {
+                    Ok(Some(accepted)) => {
+                        // a device that went meanwhile drops it
+                        let _ = reply.send(accepted);
+                        break;
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        warn!("local socket: accept failed: {e}");
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
                 }
-                Ok(Err(PreambleError::UnsupportedVersion(v))) => {
-                    debug!("local socket: preamble version {v} from {peer:?}");
-                    Status::PreambleVersion
-                }
-                Ok(Err(e)) => {
-                    debug!("local socket: bad preamble from {peer:?}: {e}");
-                    return Ok(false);
-                }
-                // the one device served here: any key names it, there is no other
-                Ok(Ok(Preamble {
-                    target: Target::Device(_),
-                    ..
-                })) => Status::Ok,
-                Ok(Ok(Preamble {
-                    target: Target::Hub,
-                    ..
-                })) => Status::UnknownDevice,
-            };
-            tx.write_all(&Answer::new(status, version).encode()).await?;
-            if status != Status::Ok {
-                return Ok(false);
             }
-            debug!("local socket: client {peer:?} connected");
-            self.reader = Some(MessageReader::new(rx, self.max));
-            let _ = self.writer_tx.send(MessageWriter::new(tx));
-            Ok(true)
         }
+    }
+
+    /// Accepts one client: reads its preamble and answers; `None` for one that isn't served.
+    async fn accept_one(listener: &Listener, version: &str) -> std::io::Result<Option<Accepted>> {
+        let (stream, peer) = listener.accept().await?;
+        let (mut rx, mut tx) = stream.split();
+        let preamble = tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await;
+        let status = match preamble {
+            Err(_) => {
+                debug!("local socket: client {peer:?} sent no preamble");
+                return Ok(None);
+            }
+            Ok(Err(PreambleError::UnsupportedVersion(v))) => {
+                debug!("local socket: preamble version {v} from {peer:?}");
+                Status::PreambleVersion
+            }
+            Ok(Err(e)) => {
+                debug!("local socket: bad preamble from {peer:?}: {e}");
+                return Ok(None);
+            }
+            // the one device served here: any key names it, there is no other
+            Ok(Ok(Preamble {
+                target: Target::Device(_),
+                ..
+            })) => Status::Ok,
+            Ok(Ok(Preamble {
+                target: Target::Hub,
+                ..
+            })) => Status::UnknownDevice,
+        };
+        tx.write_all(&Answer::new(status, version).encode()).await?;
+        if status != Status::Ok {
+            return Ok(None);
+        }
+        debug!("local socket: client {peer:?} connected");
+        Ok(Some((rx, tx)))
     }
 
     impl ww_device::MessageRx for DeviceRx {
@@ -532,19 +566,43 @@ pub mod device {
             if self.reader.is_some() {
                 return;
             }
-            if self.listener.is_none() {
+            let Some(accepting) = self.listener.as_mut() else {
                 // a single connection that ended: nothing comes after it
                 return std::future::pending().await;
+            };
+            if let Accepting::Idle(..) = accepting {
+                let (want, want_rx) = mpsc::unbounded_channel();
+                let Accepting::Idle(listener, version) = std::mem::replace(
+                    accepting,
+                    Accepting::Running {
+                        want,
+                        pending: None,
+                    },
+                ) else {
+                    unreachable!("checked above");
+                };
+                tokio::spawn(acceptor(listener, version, want_rx));
             }
-            loop {
-                match self.accept_one().await {
-                    Ok(true) => return,
-                    Ok(false) => {}
-                    Err(e) => {
-                        warn!("local socket: accept failed: {e}");
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    }
+            let Accepting::Running { want, pending } = accepting else {
+                unreachable!("started above");
+            };
+            if pending.is_none() {
+                let (reply, answered) = oneshot::channel();
+                if want.send(reply).is_err() {
+                    // the acceptor is gone (panicked): no more clients
+                    return std::future::pending().await;
                 }
+                *pending = Some(answered);
+            }
+            // cancel-safe: the receiver stays in `pending` until the answer is taken
+            let answered = pending.as_mut().expect("set above").await;
+            *pending = None;
+            match answered {
+                Ok((rx, tx)) => {
+                    self.reader = Some(MessageReader::new(rx, self.max));
+                    let _ = self.writer_tx.send(MessageWriter::new(tx));
+                }
+                Err(_) => std::future::pending().await,
             }
         }
 

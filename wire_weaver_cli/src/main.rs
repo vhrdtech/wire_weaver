@@ -15,6 +15,8 @@ mod util;
 mod value_fmt;
 
 fn main() -> Result<()> {
+    // started by a client as the user's hub (WW_HUB_SERVE set): serves until idle and exits, otherwise does nothing
+    ww_hub::main_if_hub();
     // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing
     complete::complete(Cli::command);
     tokio::runtime::Builder::new_multi_thread()
@@ -239,6 +241,7 @@ async fn run_command(
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?
         }
         Commands::Settings(settings_cmd) => cmd::settings::settings(settings_cmd)?,
+        Commands::Hub(hub_cmd) => cmd::hub::hub(hub_cmd).await?,
         Commands::Bootsel(bootsel_cmd) => {
             cmd::bootsel::bootsel(bootsel_cmd, selection.as_ref().unwrap()).await?
         }

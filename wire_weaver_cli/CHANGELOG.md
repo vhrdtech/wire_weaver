@@ -8,6 +8,7 @@
   converges (locked and its residual within `--within-us`, default 2000) or falls out, and `all N within X after
   N s` with the LED phase spread; the LED phase spread under the table. Steers ten times a second until a device is
   locked. On a terminal a live table, into a pipe only those lines (no colour) and the table at the end.
+- `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
 
 ### 🐛 Fixes
 

@@ -5818,6 +5818,7 @@ dependencies = [
  "ww_clock_sync",
  "ww_counters",
  "ww_dfu",
+ "ww_hub",
  "ww_indication",
  "ww_numeric",
  "ww_pin_probe",

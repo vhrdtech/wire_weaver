@@ -16,5 +16,6 @@ serde_json.workspace = true
 shrink_wrap_c.workspace = true
 wire_weaver.workspace = true
 wire_weaver_core.workspace = true
+ww_link = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_self = { workspace = true, features = ["expr"] }

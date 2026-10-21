@@ -503,11 +503,38 @@ pub fn table() -> Vec<Typed> {
                 on: true,
             },
         ),
+        // ww_link's own message, not in the API model
+        case_debug("link_setup.without_meta", || link_setup(None)),
+        case_debug("link_setup.with_meta", || {
+            link_setup(Some(ww_link::ClientMetaOwned {
+                program: "ww".into(),
+                app_version: "0.5.1".into(),
+                label: "bench".into(),
+                kind: ww_link::ClientKind::Notebook,
+                pid: 4711,
+                user: "roman".into(),
+                host: "pc1".into(),
+                purpose: Some("dfu".into()),
+                instance_id: 0x0102_0304_0506_0708,
+            }))
+        }),
         case_debug("tail_bytes", || WithTailOwned {
             kind: 3,
             rest: TailBytesOwned(vec![1, 2, 3]),
         }),
     ]
+}
+
+fn link_setup(client_meta: Option<ww_link::ClientMetaOwned>) -> ww_link::LinkSetupOwned {
+    ww_link::LinkSetupOwned {
+        host_user_version: wire_weaver::ww_version::FullVersionOwned::new(
+            "test".into(),
+            wire_weaver::ww_version::VersionOwned::new(0, 1, 0),
+        ),
+        host_max_message_len: 4096,
+        token: 7,
+        client_meta,
+    }
 }
 
 /// The Rust derive as a consumer of the corpus.

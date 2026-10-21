@@ -185,7 +185,10 @@ fn connect(
     timeout: Option<f64>,
     api: Option<PyRef<'_, Node>>,
 ) -> PyResult<Device> {
-    let mut config = ClientConfig::new();
+    // notebooks and scripts say so in the client meta (CLT-41), everything else is detected
+    let mut config = ClientConfig::new().client_meta(
+        wire_weaver_client::ClientMeta::new().kind(wire_weaver_client::ClientKind::Notebook),
+    );
     if let Some(target) = rtt {
         config = config.rtt(target, rtt_speed_hz);
         if let Some(elf) = rtt_elf {

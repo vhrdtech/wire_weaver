@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 105 of 105 | 0 |
-| dynamic | 98 of 105 | 7 |
-| explain | 98 of 105 | 7 |
-| python | 98 of 105 | 7 |
-| c | 34 of 105 | 71 |
+| derive | 107 of 107 | 0 |
+| dynamic | 98 of 107 | 9 |
+| explain | 98 of 107 | 9 |
+| python | 98 of 107 | 9 |
+| c | 34 of 107 | 73 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -122,6 +122,8 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `series.u16` | `series_u16` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `series.struct` | `series_sample` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `head_tail.struct` | `HtRecord` | both | ✅ | gap SW-46 | gap SW-46 | gap SW-46 | reader only (API-26) |
+| `link_setup.without_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
+| `link_setup.with_meta` | `LinkSetup` | both | ✅ | gap - | gap - | gap - | gap - |
 | `tail_bytes` | `WithTail` | both | ✅ | gap INT-9 | gap INT-9 | gap INT-9 | gap API-26 |
 
 ## Gaps
@@ -129,6 +131,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **c**: no generated C for this type yet: C from the ww_self model (API-26). 61 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `tail_bytes`.
 - **c**: reader only: the generated C has no writer yet (API-26). 8 cases: `fixed.numbers`, `fixed.bits`, `fixed.nested`, `fixed.option.none`, `fixed.option.some`, `fixed.enum.unit`, `fixed.enum.fields`, `head_tail.struct`.
 - **c**: the C runtime has no 128-bit numbers (SW-66). 2 cases: `int.u128.max`, `int.i128.min`.
+- **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **dynamic**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **dynamic**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **dynamic**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
@@ -136,6 +139,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **dynamic**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **dynamic**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
 - **dynamic**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 1 case: `evolution.new_reads_old`.
+- **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **explain**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **explain**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **explain**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
@@ -143,6 +147,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **explain**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **explain**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
 - **explain**: the API model has no #[default] values, an old field reads as its type's default (INT-10). 1 case: `evolution.new_reads_old`.
+- **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **python**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **python**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
 - **python**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
@@ -150,3 +155,4 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **python**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **python**: null is None and Some(None) alike in the Python value form (TOOL-13). 1 case: `option.option.some_none`.
 - **python**: the API model has no #[default] values (INT-10). 1 case: `evolution.new_reads_old`.
+- **python**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.

@@ -730,6 +730,22 @@
       "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
     },
     {
+      "name": "link_setup.without_meta",
+      "type": "LinkSetup",
+      "value": {"host_user_version": "test 0.1.0", "host_max_message_len": 4096, "token": 7, "client_meta": null},
+      "bytes": "74657374010000100000070000000000000004",
+      "gaps": {"dynamic": "ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's LinkSetup is a link message, not a type of an API in the model", "python": "ww_link's LinkSetup is a link message, not a type of an API in the model", "c": "ww_link's LinkSetup is a link message, not a type of an API in the model"},
+      "note": "ww_link LinkSetup (CLT-41) as an older host sends it, before client_meta existed: the field is absent from the bytes"
+    },
+    {
+      "name": "link_setup.with_meta",
+      "type": "LinkSetup",
+      "value": {"host_user_version": "test 0.1.0", "host_max_message_len": 4096, "token": 7, "client_meta": {"program": "ww"}},
+      "bytes": "746573740100001000000700000000000000807777302e352e3162656e63680267120000726f6d616e7063318064667508070605040302010335155201d4",
+      "gaps": {"dynamic": "ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's LinkSetup is a link message, not a type of an API in the model", "python": "ww_link's LinkSetup is a link message, not a type of an API in the model", "c": "ww_link's LinkSetup is a link message, not a type of an API in the model"},
+      "note": "ww_link LinkSetup (CLT-41) with the appended client_meta"
+    },
+    {
       "name": "tail_bytes",
       "type": "WithTail",
       "value": {"kind": 3, "rest": [1, 2, 3]},

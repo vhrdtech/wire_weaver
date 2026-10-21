@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
+
 ### 🐛 Fixes
 
 - `ww stm32dfu flash --wait` retries opening the bootloader for 3 s, as `--follow` does: right after it enumerates, udev may not have set its permissions yet ("opening device: permission denied", seen once in three updates of a B135 rev B) (CLT-34).

@@ -140,6 +140,8 @@ pub(crate) enum ConfigPiece {
     /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Can be used for testing purposes or to create virtual devices.
     IpcPath { path: String },
+    /// The ww hub's own API (SRV-13), on the hub socket at `path` (`None`: the user's runtime dir).
+    HubApi { path: Option<String> },
     /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
@@ -367,6 +369,20 @@ impl ClientConfig {
     pub fn ipc_path(self, path: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::IpcPath { path });
+        f
+    }
+
+    /// The ww hub's own API (`ww_hub_api`) on the user's hub socket, instead of a device.
+    pub fn hub_api(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubApi { path: None });
+        f
+    }
+
+    /// The ww hub's own API on the hub socket at `path` (a hub run in another runtime dir, tests).
+    pub fn hub_api_at(self, path: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubApi { path: Some(path) });
         f
     }
 
@@ -719,6 +735,7 @@ impl ValidatedConfig {
         self.is_opted_in(
             &[
                 ConfigPieceDiscriminants::IpcPath,
+                ConfigPieceDiscriminants::HubApi,
                 ConfigPieceDiscriminants::UsbOverIpc,
                 ConfigPieceDiscriminants::Ipc,
             ],

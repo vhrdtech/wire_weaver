@@ -5846,7 +5846,6 @@ dependencies = [
  "picoboot_host",
  "probe-rs",
  "ron",
- "rustix",
  "semver",
  "stm32_dfu_host",
  "strum",
@@ -6139,9 +6138,15 @@ dependencies = [
 name = "ww_hub"
 version = "0.5.0"
 dependencies = [
+ "futures-lite",
  "interprocess",
+ "nusb",
  "tokio",
  "tracing",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_device",
  "ww_hub_api",
  "ww_local_socket",
 ]

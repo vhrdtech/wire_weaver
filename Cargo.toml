@@ -73,7 +73,6 @@ proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
 ron = "0.12"
-rustix = { version = "1.1", default-features = false, features = ["process"] }
 semver = "1.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
@@ -104,7 +103,7 @@ ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
 ww_hub = { version = "0.5.0", path = "./ww_hub" }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
-ww_local_socket = { version = "0.5.0", path = "./ww_local_socket" }
+ww_local_socket = { version = "0.5.0", path = "./ww_local_socket", default-features = false }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
 ww_picoboot = { package = "picoboot_host", git = "https://github.com/vhrdtech/picoboot_host", tag = "v0.1.0", default-features = false }
 ww_pin_probe = { version = "0.5.0", path = "./ww_pin_probe" }

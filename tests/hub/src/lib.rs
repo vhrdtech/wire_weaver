@@ -19,6 +19,8 @@ mod tests {
     struct Seen {
         log: Vec<String>,
         introspects: usize,
+        /// `bus[i].speed`
+        speed: [u32; 2],
     }
 
     mod server {
@@ -93,19 +95,20 @@ mod tests {
             fn set_bus_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
-                _value: u32,
+                index_chain: [UNib32; 1],
+                value: u32,
             ) -> SetResult<hub_api::BusError<'_>> {
-                Unimplemented.into()
+                self.seen.lock().unwrap().speed[index_chain[0].0 as usize] = value;
+                SetResult::Set
             }
 
             /// Bit rate.
             fn get_bus_speed(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _index_chain: [UNib32; 1],
+                index_chain: [UNib32; 1],
             ) -> GetResult<u32, hub_api::BusError<'_>> {
-                Unimplemented.into()
+                GetResult::Value(self.seen.lock().unwrap().speed[index_chain[0].0 as usize])
             }
 
             /// Received frames.
@@ -511,6 +514,302 @@ mod tests {
         let mut b = bench.client().await;
         assert_eq!(b.add(2, 2).call().await.unwrap(), 4);
         drop(hub);
+        bench.stop().await;
+    }
+
+    // ---- claims (SRV-34) ----
+
+    use hub_api::BusErrorOwned;
+    use wire_weaver_client::{CallError, ClientMeta};
+    use ww_hub::client::HubClient;
+    use ww_hub_api::{ClaimErrorOwned, ClaimKind, EventOwned};
+
+    /// `bus[0]`: resource 3 of the root, index 0
+    fn bus0() -> Vec<UNib32> {
+        vec![UNib32(3), UNib32(0)]
+    }
+
+    /// One program: its hub API client and its device client, one client instance (a shared [ClientMeta]).
+    struct Program {
+        hub: HubClient,
+        dev: Client,
+    }
+
+    impl Bench {
+        async fn program(&self, name: &str) -> Program {
+            let meta = ClientMeta::new().program(name);
+            let socket = self.socket();
+            let hub = HubClient::config(|c| c.hub_api_at(socket.clone()).client_meta(meta.clone()))
+                .connect()
+                .await
+                .unwrap();
+            let dev = self.client_with(|c| c.client_meta(meta.clone())).await;
+            Program { hub, dev }
+        }
+
+        async fn claim(
+            &self,
+            p: &Program,
+            path: Vec<UNib32>,
+            ttl_s: Option<u32>,
+        ) -> Result<u32, ClaimErrorOwned> {
+            p.hub
+                .claims()
+                .claim(self.key.clone(), path, "flashing".into(), ttl_s)
+                .call()
+                .await
+                .map_err(device_error)
+        }
+    }
+
+    /// How the hub names a holder: program and pid.
+    fn by(program: &str) -> String {
+        format!("{program} pid {}", std::process::id())
+    }
+
+    /// The device's (here: the hub's) error, panics on any other.
+    fn device_error<E: std::fmt::Debug>(e: CallError<E>) -> E {
+        match e {
+            CallError::Device(e) => e,
+            other => panic!("expected an error of the API, got {other:?}"),
+        }
+    }
+
+    /// What B's call or write at A's claim gets.
+    fn refused<T: std::fmt::Debug>(r: Result<T, CallError<BusErrorOwned>>) -> BusErrorOwned {
+        device_error(r.expect_err("refused"))
+    }
+
+    /// `Common(InUse)` naming `program` of this test process.
+    fn in_use(program: &str) -> BusErrorOwned {
+        BusErrorOwned::Common(CommonErrorOwned::InUse {
+            by: MaxLen::new(by(program)).unwrap(),
+        })
+    }
+
+    /// A holds `bus[0]`: B's calls and writes there get `Common(InUse)` naming A, from the hub; its reads, streams
+    /// and calls elsewhere go on; A's own calls go through.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn claimed_bus_refuses_others_calls_and_writes() {
+        let bench = start("claim", Duration::from_secs(30));
+        let a = bench.program("alice").await;
+        let b = bench.program("bob").await;
+        let mut rx = b.dev.bus(0).rx().call().await.unwrap();
+
+        let id = bench.claim(&a, bus0(), None).await.unwrap();
+        let claims = a
+            .hub
+            .claims()
+            .claims(bench.key.clone())
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(claims.len(), 1);
+        let entry = &claims[0];
+        assert_eq!(
+            (entry.id, &entry.path, entry.kind, entry.label.as_str()),
+            (id, &bus0(), ClaimKind::Exclusive, "CAN1, front")
+        );
+        assert_eq!(
+            (entry.purpose.as_str(), entry.holder.program.as_str()),
+            ("flashing", "alice")
+        );
+
+        assert_eq!(refused(b.dev.bus(0).send(7).call().await), in_use("alice"));
+        assert_eq!(
+            refused(b.dev.bus(0).write_speed(250_000).write().await),
+            in_use("alice")
+        );
+        assert_eq!(
+            bench.seen.lock().unwrap().speed,
+            [0, 0],
+            "never reached the device"
+        );
+
+        // reads, streams and the other bus stay open
+        a.dev.bus(0).write_speed(500_000).write().await.unwrap();
+        assert_eq!(b.dev.bus(0).read_speed().read().await.unwrap(), 500_000);
+        let mut scratch = [0u8; 64];
+        bench
+            .device
+            .send(stream_data_ser().bus(0).rx(&9, &mut scratch).unwrap());
+        assert_eq!(rx.recv().await.unwrap(), 9);
+        assert_eq!(b.dev.bus(1).send(8).call().await.unwrap(), 8);
+        assert_eq!(a.dev.bus(0).send(7).call().await.unwrap(), 7);
+
+        // released: B goes through
+        assert_eq!(
+            b.hub
+                .claims()
+                .release(id)
+                .call()
+                .await
+                .map_err(device_error),
+            Err(ww_hub_api::ReleaseError::NotHolder)
+        );
+        a.hub.claims().release(id).call().await.unwrap();
+        assert_eq!(b.dev.bus(0).send(7).call().await.unwrap(), 7);
+        bench.stop().await;
+    }
+
+    /// What can't be claimed, and overlapping claims of two programs: the same resource, one above it (the root),
+    /// one sharing its pins (`port` on PA11); one program nests its own.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn claim_errors_and_overlap() {
+        let bench = start("claim-errors", Duration::from_secs(30));
+        let a = bench.program("alice").await;
+        let b = bench.program("bob").await;
+        assert_eq!(
+            bench.claim(&a, vec![UNib32(0)], None).await,
+            Err(ClaimErrorOwned::NotClaimable),
+            "add"
+        );
+        assert_eq!(
+            bench.claim(&a, vec![UNib32(9)], None).await,
+            Err(ClaimErrorOwned::BadPath)
+        );
+        let unknown = a
+            .hub
+            .claims()
+            .claim("inproc:nope".into(), vec![], String::new(), None)
+            .call()
+            .await
+            .map_err(device_error);
+        assert_eq!(unknown, Err(ClaimErrorOwned::UnknownDevice));
+
+        let id = bench.claim(&a, bus0(), None).await.unwrap();
+        // nested and overlapping claims of one program
+        bench.claim(&a, vec![UNib32(4)], None).await.unwrap();
+        let root = bench.claim(&a, vec![], None).await.unwrap();
+        a.hub.claims().release(root).call().await.unwrap();
+
+        match bench.claim(&b, bus0(), None).await {
+            Err(ClaimErrorOwned::InUse { claim }) => assert_eq!(claim.id, id),
+            other => panic!("expected InUse, got {other:?}"),
+        }
+        for path in [vec![], vec![UNib32(4)]] {
+            match bench.claim(&b, path.clone(), None).await {
+                Err(ClaimErrorOwned::Overlap { claim }) => {
+                    assert_eq!(claim.holder.program, "alice", "{path:?}")
+                }
+                other => panic!("{path:?}: expected Overlap, got {other:?}"),
+            }
+        }
+        // the other bus shares nothing with bus[0]
+        bench
+            .claim(&b, vec![UNib32(3), UNib32(1)], None)
+            .await
+            .unwrap();
+        bench.stop().await;
+    }
+
+    /// A port claimed for observing: B's calls are refused with an error event naming A (`ping` has no error type of
+    /// its own to put `Common(InUse)` in), A's go through.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn observe_claim_refuses_untyped_calls() {
+        let bench = start("claim-observe", Duration::from_secs(30));
+        let a = bench.program("alice").await;
+        let b = bench.program("bob").await;
+        let id = bench.claim(&a, vec![UNib32(4)], None).await.unwrap();
+        let claims = b
+            .hub
+            .claims()
+            .claims(bench.key.clone())
+            .call()
+            .await
+            .unwrap();
+        assert_eq!((claims[0].id, claims[0].kind), (id, ClaimKind::Observe));
+        match b.dev.port().ping().call().await {
+            Err(wire_weaver_client::Error::RemoteError(e)) => {
+                assert!(
+                    matches!(&e.kind, ww_client_server::ErrorKindOwned::UserStr(s) if *s == format!("in use by {}", by("alice"))),
+                    "{e:?}"
+                )
+            }
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+        assert_eq!(a.dev.port().ping().call().await.unwrap(), 1);
+        bench.stop().await;
+    }
+
+    /// A claim goes with its program: killed (no release, no disconnect) or past its ttl.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn claim_released_when_holder_killed_or_ttl() {
+        let bench = start("claim-gone", Duration::from_secs(30));
+        let b = bench.program("bob").await;
+        let mut events = b.hub.registry().events().call().await.unwrap();
+
+        // a runs on a runtime of its own, dropped with everything on it, as a killed process would be
+        let (socket, key) = (bench.socket(), bench.key.clone());
+        let (claimed_tx, claimed_rx) = std::sync::mpsc::channel();
+        let (kill_tx, kill_rx) = std::sync::mpsc::channel::<()>();
+        let a = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                let meta = ClientMeta::new().program("alice");
+                let hub =
+                    HubClient::config(|c| c.hub_api_at(socket.clone()).client_meta(meta.clone()))
+                        .connect()
+                        .await
+                        .unwrap();
+                let dev = Client::config(|c| {
+                    c.hub_device_at(socket.clone(), key.clone())
+                        .client_meta(meta.clone())
+                })
+                .connect()
+                .await
+                .unwrap();
+                let id = hub
+                    .claims()
+                    .claim(key.clone(), bus0(), "flashing".into(), None)
+                    .call()
+                    .await
+                    .unwrap();
+                claimed_tx.send(id).unwrap();
+                std::mem::forget(hub);
+                std::mem::forget(dev);
+            });
+            kill_rx.recv().unwrap();
+            rt.shutdown_background();
+        });
+        let id = claimed_rx.recv().unwrap();
+        assert_eq!(refused(b.dev.bus(0).send(1).call().await), in_use("alice"));
+        kill_tx.send(()).unwrap();
+        a.join().unwrap();
+        loop {
+            let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+                .await
+                .expect("an event")
+                .unwrap();
+            match event {
+                EventOwned::Released { id: gone, .. } => {
+                    assert_eq!(gone, id);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        assert_eq!(b.dev.bus(0).send(1).call().await.unwrap(), 1);
+
+        // a ttl: gone after it, without anyone asking
+        let c = bench.program("carol").await;
+        bench.claim(&c, bus0(), Some(1)).await.unwrap();
+        assert_eq!(refused(b.dev.bus(0).send(2).call().await), in_use("carol"));
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        assert_eq!(b.dev.bus(0).send(2).call().await.unwrap(), 2);
+        assert!(
+            b.hub
+                .claims()
+                .claims(bench.key.clone())
+                .call()
+                .await
+                .unwrap()
+                .is_empty()
+        );
         bench.stop().await;
     }
 }

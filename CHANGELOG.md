@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
 - `ww dfu flash` (CLT-33): a whole update of a chunky device in one command, with `chunky_ww_host` from
   chunky_mcu_updater: an ELF or binary sealed for the device, a delta plan, pipelined steps with a progress bar,
   reboot into the trial, follow by serial number, the device's confirm or revert. `ww dfu status`, `confirm`,

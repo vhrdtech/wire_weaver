@@ -102,6 +102,8 @@ pub(crate) mod link_setup_timeout {
     pub const UDP: Duration = Duration::from_secs(1);
     pub const WEB_SOCKET: Duration = Duration::from_secs(1);
     pub const IN_PROCESS: Duration = Duration::from_millis(250);
+    /// Another process on the same PC, possibly the hub opening the device first
+    pub const LOCAL_SOCKET: Duration = Duration::from_secs(1);
     pub const RTT: Duration = Duration::from_secs(10);
 }
 

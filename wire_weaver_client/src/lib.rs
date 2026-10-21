@@ -60,6 +60,8 @@ mod rtt;
 
 #[cfg(feature = "in_process")]
 pub mod in_process;
+#[cfg(feature = "local_socket")]
+pub mod local_socket;
 
 #[cfg(feature = "ws")]
 mod ws;

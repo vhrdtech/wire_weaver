@@ -6383,21 +6383,65 @@ or <code>target/</code> of the cargo project in the current directory. See <a hr
 <h2 id="ww-sync"><code>ww sync</code><a class="headerlink" href="#ww-sync" title="Permanent link">&para;</a></h2>
 <p>Keeps several devices' clocks on the host's UTC at once (TOOL-16), with the <code>ww_clock_sync</code> crate: each device's
 <code>ww_timebase::Clock::now()</code> is read a few times a second, fitted against the host's monotonic clock (offset and
-rate, from the readings with the shortest round trips) and steered once a second with <code>Clock::steer</code>, see
-<a href="../std_library/ww_timebase/#host-sync-std-49">host sync</a>. Works with any device serving <code>Clock</code> with the <code>host_sync</code>
-group anywhere in its API; a device locked to a sync line only takes note (source <code>line</code>). Devices with a shared
-clock align their animations to UTC, so their LEDs breathe in phase
-(<a href="../std_library/ww_indication/#animations-in-phase-std-50"><code>ww_indication</code></a>). What it looks like (the values are for
-illustration, not a measurement):</p>
+rate, from the readings with the shortest round trips) and steered with <code>Clock::steer</code>, ten times a second while the
+device is acquiring and once a second once it says locked, see
+<a href="../std_library/ww_timebase/#host-sync-std-49">host sync</a> and its <a href="../std_library/ww_timebase/#states">states</a>. Works
+with any device serving <code>Clock</code> with the <code>host_sync</code> group anywhere in its API; a device locked to a sync line only
+takes note (source <code>line</code>). Devices with a shared clock align their animations to UTC, so their LEDs breathe in
+phase (<a href="../std_library/ww_indication/#animations-in-phase-std-50"><code>ww_indication</code></a>). What it looks like (the values are
+for illustration, not a measurement):</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$ ww sync --mode normal
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>DEVICE           STATE   SOURCE  RATE            RTT     RESIDUAL  SAMPLES  NOTE
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>Donguru A1B2C3   locked  host    -9871.204 ppm   412 µs  -37 µs    80
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>rePort bench-2   locked  host    +12.880 ppm     95 µs   +6 µs     80
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>✓ all 3 within 2.00 ms after 6.3 s, LED phase 704 µs apart (±700 µs)
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>DEVICE                STATE   SOURCE  RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>B135 USB-FDCAN 3445   locked  host    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>rePort bench-2        locked  host    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>Donguru A1B2C3        locked  host    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>LED phase: 704 µs apart across 3 devices (±700 µs), 0.023 % of a 3 s breath
 </span></code></pre></div>
-<p>The table is redrawn every second on a terminal (every 5 s into a pipe) until Ctrl+C or <code>--duration</code>; then the
-devices go on in holdover on their last steer point. <code>RATE</code> is how much faster shared time runs than the device's
-clock (an HSI running 1 % fast is about -9900 ppm), <code>RTT</code> the shortest round trip of the fit, <code>RESIDUAL</code> the device's
-shared time minus the host's UTC at the middle of a <code>shared_now()</code> round trip (good to half that round trip).</p>
+<p>On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
+when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
+Until Ctrl+C or <code>--duration</code>; then the devices go on in holdover on their last steer point.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STATE</code></td>
+<td>the device's own <code>sync_status</code>: <code>acquiring</code> until it is within its lock tolerance, then <code>locked</code></td>
+</tr>
+<tr>
+<td><code>RESIDUAL</code></td>
+<td>the device's shared time minus the host's UTC at the middle of a <code>shared_now()</code> round trip, ± half that round trip: what the sync achieves, and the device's LED lead on UTC</td>
+</tr>
+<tr>
+<td><code>ERROR</code></td>
+<td>the device's own error bound: the host's error estimate in the last point, plus slew left and holdover</td>
+</tr>
+<tr>
+<td><code>RATE</code></td>
+<td>how much faster shared time runs than the device's clock (an HSI running 1 % fast is about -9900 ppm)</td>
+</tr>
+<tr>
+<td><code>SLEW</code></td>
+<td>offset the device still slews in (5 % of its clock while acquiring, 1 % once locked)</td>
+</tr>
+<tr>
+<td><code>RTT</code></td>
+<td>the shortest round trip of the fit</td>
+</tr>
+</tbody>
+</table>
+<p>A device has converged once it says <code>locked</code> and its residual is within <code>--within-us</code>; all have converged once every
+device that serves a clock has. A check whose half round trip is beyond <code>--within-us</code> (a USB hiccup) can't tell
+either way and changes nothing. The LED phase is the spread of the residuals: every device starts its LED cycles on
+UTC multiples of the period, so two devices' breaths are apart by the difference of their residuals.</p>
 <table>
 <thead>
 <tr>
@@ -6425,12 +6469,17 @@ shared time minus the host's UTC at the middle of a <code>shared_now()</code> ro
 <tr>
 <td><code>--poll-ms MS</code></td>
 <td><code>200</code></td>
-<td>Time between two readings of each device's clock</td>
+<td>Time between two readings of each device's clock once locked (100 ms before)</td>
 </tr>
 <tr>
 <td><code>--steer-ms MS</code></td>
 <td><code>1000</code></td>
-<td>Time between two steer points</td>
+<td>Time between two steer points once locked (100 ms before)</td>
+</tr>
+<tr>
+<td><code>--within-us US</code></td>
+<td><code>2000</code></td>
+<td>Residual within which a locked device counts as converged</td>
 </tr>
 </tbody>
 </table>

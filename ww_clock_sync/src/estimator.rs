@@ -63,10 +63,16 @@ pub struct EstimatorConfig {
     pub min_samples: usize,
     /// Shortest span of device time the samples must cover before the rate is trusted.
     pub min_span: Duration,
+    /// With a rate known from before ([Estimator::set_prior], the rate cache): the samples must cover this span of
+    /// device time before their own rate replaces it. Until then the fit takes the known rate and fits only the
+    /// offset, from the first sample on: a young fit's rate is off by the jitter over its span (100 µs over 1 s is
+    /// 100 ppm), a cached one by what the clock drifted since.
+    pub prior_span: Duration,
 }
 
 impl Default for EstimatorConfig {
-    /// 30 s window, up to 512 samples, the best half fitted, from 4 samples over 1 s on.
+    /// 30 s window, up to 512 samples, the best half fitted, from 4 samples over 1 s on; a known rate is kept for
+    /// the first 20 s (10 s of USB full-speed jitter pin the samples' own rate to tens of ppm only).
     fn default() -> Self {
         EstimatorConfig {
             window: Duration::from_secs(30),
@@ -74,6 +80,7 @@ impl Default for EstimatorConfig {
             keep_fraction: 0.5,
             min_samples: 4,
             min_span: Duration::from_secs(1),
+            prior_span: Duration::from_secs(20),
         }
     }
 }
@@ -94,6 +101,8 @@ pub enum Added {
 pub struct Estimator {
     config: EstimatorConfig,
     samples: VecDeque<Sample>,
+    /// Slope known from before, see [Estimator::set_prior]
+    prior: Option<f64>,
 }
 
 impl Estimator {
@@ -101,7 +110,15 @@ impl Estimator {
         Estimator {
             config,
             samples: VecDeque::new(),
+            prior: None,
         }
+    }
+
+    /// A slope known from before (host ns per device ns, [Fit::slope] of an earlier fit of the same device, e.g. from
+    /// the [RateCache](crate::RateCache)): fits use it from the first sample on, until the samples cover
+    /// [EstimatorConfig::prior_span]. `None` forgets it.
+    pub fn set_prior(&mut self, slope: Option<f64>) {
+        self.prior = slope.filter(|s| s.is_finite() && *s > 0.0);
     }
 
     /// Adds a sample, in host time order.
@@ -147,12 +164,22 @@ impl Estimator {
         self.samples.is_empty()
     }
 
+    /// Device time between the window's oldest and newest sample, in ns.
+    pub fn span(&self) -> u64 {
+        let (min, max) = self.samples.iter().fold((u64::MAX, 0), |(lo, hi), s| {
+            (lo.min(s.device), hi.max(s.device))
+        });
+        max.saturating_sub(min)
+    }
+
     /// Shortest round trip in the window.
     pub fn min_rtt(&self) -> Option<u64> {
         self.samples.iter().map(Sample::rtt).min()
     }
 
-    /// The line through the window's best samples, once there are enough of them over a long enough span.
+    /// The line through the window's best samples, once there are enough of them over a long enough span; with a
+    /// [prior](Self::set_prior) slope, the line of that slope through them from the first sample on, until they
+    /// cover [EstimatorConfig::prior_span].
     pub fn fit(&self) -> Option<Fit> {
         let mut best: Vec<&Sample> = self.samples.iter().collect();
         best.sort_by_key(|s| (s.rtt(), s.sent));
@@ -160,12 +187,18 @@ impl Estimator {
             .max(self.config.min_samples)
             .min(best.len());
         best.truncate(keep);
-        if best.len() < self.config.min_samples.max(2) {
-            return None;
-        }
         let (min, max) = best.iter().fold((u64::MAX, 0), |(lo, hi), s| {
             (lo.min(s.device), hi.max(s.device))
         });
+        if let Some(slope) = self.prior
+            && !best.is_empty()
+            && max - min < self.config.prior_span.as_nanos() as u64
+        {
+            return Some(fixed_slope(&best, max, slope));
+        }
+        if best.len() < self.config.min_samples.max(2) {
+            return None;
+        }
         if max - min < self.config.min_span.as_nanos() as u64 {
             return None;
         }
@@ -203,7 +236,28 @@ impl Estimator {
             min_rtt: best.iter().map(|s| s.rtt()).min().unwrap_or(0),
             used: best.len(),
             residual_rms: residual,
+            prior: false,
         })
+    }
+}
+
+/// The line of a known `slope` through `best`, at device time `x0`: only the offset is fitted.
+fn fixed_slope(best: &[&Sample], x0: u64, slope: f64) -> Fit {
+    let y0 = best.iter().map(|s| s.host_mid()).max().unwrap_or(0);
+    let n = best.len() as f64;
+    let offsets = best
+        .iter()
+        .map(|s| s.host_mid() as f64 - y0 as f64 - slope * (s.device as f64 - x0 as f64));
+    let mean = offsets.clone().sum::<f64>() / n;
+    let residual = (offsets.map(|o| (o - mean) * (o - mean)).sum::<f64>() / n).sqrt();
+    Fit {
+        local: x0,
+        shared: y0 as f64 + mean,
+        slope,
+        min_rtt: best.iter().map(|s| s.rtt()).min().unwrap_or(0),
+        used: best.len(),
+        residual_rms: residual,
+        prior: true,
     }
 }
 
@@ -222,6 +276,8 @@ pub struct Fit {
     pub used: usize,
     /// RMS distance of those samples from the line, in nanoseconds: the jitter left after the filter.
     pub residual_rms: f64,
+    /// The slope is the [prior](Estimator::set_prior) one, not the samples' own yet.
+    pub prior: bool,
 }
 
 impl Fit {
@@ -306,7 +362,24 @@ mod tests {
     /// Polls `clock` every `poll` ns for `duration` ns of host time like a USB FS link: each way waits for the
     /// next 1 ms frame (0..1 ms) plus up to `extra` ns, and one sample in ten is slow (a busy host, 2..5 ms).
     fn run(clock: SimClock, duration: u64, poll: u64, extra: u64, seed: u64) -> (Estimator, u64) {
-        let mut e = Estimator::new(EstimatorConfig::default());
+        run_with(
+            Estimator::new(EstimatorConfig::default()),
+            clock,
+            duration,
+            poll,
+            extra,
+            seed,
+        )
+    }
+
+    fn run_with(
+        mut e: Estimator,
+        clock: SimClock,
+        duration: u64,
+        poll: u64,
+        extra: u64,
+        seed: u64,
+    ) -> (Estimator, u64) {
         let mut j = Jitter(seed);
         let mut t = 0;
         while t < duration {
@@ -404,6 +477,40 @@ mod tests {
         assert!(e.fit().is_none(), "8 samples over 0.7 s");
         let (e, _) = run(clock, 1_400_000_000, 100_000_000, 0, 3);
         assert!(e.fit().is_some());
+    }
+
+    #[test]
+    fn a_known_rate_fits_from_the_first_sample() {
+        let clock = SimClock {
+            start: 3e9,
+            rate: 1.01,
+            wander: 0.0,
+        };
+        // the cache's rate, 2 ppm off what the clock does today
+        let slope = 1.0 / 1.01 + 2e-6;
+        let mut e = Estimator::new(EstimatorConfig::default());
+        e.set_prior(Some(slope));
+        let (e, end) = run_with(e, clock, 1, 100_000_000, 0, 5);
+        let fit = e.fit().expect("one sample is enough");
+        assert!(fit.prior);
+        let local = clock.at(end);
+        // within the sample's round trip (up to ~2.1 ms on FS)
+        let err = fit.shared_at(local) - clock.host_at(local);
+        assert!(err.abs() < 2_100_000.0, "{err} ns");
+        // 5 s later: the offset from the best of 50 samples, the rate still the cache's
+        let mut e2 = Estimator::new(EstimatorConfig::default());
+        e2.set_prior(Some(slope));
+        let (e2, end) = run_with(e2, clock, 5_000_000_000, 100_000_000, 0, 5);
+        let fit = e2.fit().unwrap();
+        assert!(fit.prior && fit.slope == slope);
+        let local = clock.at(end);
+        let err = fit.shared_at(local) - clock.host_at(local);
+        assert!(err.abs() < 600_000.0, "{err} ns");
+        // past the prior span the samples' own rate takes over
+        let mut e3 = Estimator::new(EstimatorConfig::default());
+        e3.set_prior(Some(slope));
+        let (e3, _) = run_with(e3, clock, 25_000_000_000, 200_000_000, 0, 5);
+        assert!(!e3.fit().unwrap().prior);
     }
 
     #[test]

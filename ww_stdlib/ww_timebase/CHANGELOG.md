@@ -2,12 +2,22 @@
 
 ### ⚠️ Breaking
 
+- `SteerPoint<'i>` and `SyncStatus<'i>` carry a lifetime and are no longer `Copy` (SRV-31): they hold a
+  `Steerer<'i>` now. Hosts use `SteerPointOwned` / `SyncStatusOwned` (the generated client takes and returns those),
+  devices return `SyncStatus { steerer: None, noted: None, .. }` until they track steerers. Wire-compatible: the new
+  fields are appended and defaulted.
+
 - `ClockError<'i>`: its only variant so far is the `#[common] Common(CommonError<'i>)` (STD-16): `Unsupported`,
   `InvalidArgument`, `InUse`, `Busy`, `WrongState`, `NoPower`, `Refused`, `Timeout` come from `ww_error::CommonError`.
   It is no longer `self_describing` (newer variants read as `Unknown(n)`), carries a lifetime (`ClockErrorOwned` on
   hosts), has `Display` from its doc lines, and every method lists its variants with `#[errors(..)]`. Devices return
   `CommonError::Unsupported.into()` (or `?` a helper returning `CommonError`).
 ### 🚀 Features
+
+- Steer points say who steers (SRV-31): `SteerPoint::steerer: Option<Steerer>` (`#[default = None]`), with
+  `Steerer { id, host, program, pid }` (id: the steering program's client instance id). A device follows one steerer
+  at a time and only notes another's points until the followed one has been quiet for its holdover time;
+  `SyncStatus::steerer` says whom it follows, `SyncStatus::noted` the latest other one (both `#[default = None]`).
 
 - `SyncStatus::slew_us: Option<i32>` (`#[default = None]`, wire-compatible): the offset a device still slews in, µs.
   `SyncState::Acquiring` now also means "following a source, not within the device's lock tolerance yet" and

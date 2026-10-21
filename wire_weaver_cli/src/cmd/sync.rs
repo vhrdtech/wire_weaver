@@ -9,7 +9,7 @@ use clap_complete::ArgValueCandidates;
 use console::{Term, measure_text_width, style};
 use std::time::{Duration, Instant};
 use wire_weaver_client::{Commander, DeviceInfo, DynClient};
-use ww_clock_sync::{ClockSync, Options, Status};
+use ww_clock_sync::{ClockSync, Options, RateCache, Status};
 use ww_si::Prefix;
 use ww_timebase::{SyncSource, SyncState};
 
@@ -123,6 +123,14 @@ pub(crate) async fn sync(
             .connect()
             .await
             .with_context(|| format!("connecting to {name}"))?;
+        // the rate this PC measured last time, shared with the hub (SRV-31)
+        let options = Options {
+            rate_cache: device
+                .serials
+                .first()
+                .and_then(|serial| RateCache::for_device(serial).ok()),
+            ..options.clone()
+        };
         let (sync, note) = match ClockSync::start(client.cmd(), options).await {
             Ok(sync) => (Some(sync), None),
             Err(e) => (None, Some(format!("not synced: {e}"))),
@@ -268,7 +276,7 @@ fn rows(devices: &[Synced]) -> Vec<Row> {
 }
 
 fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
-    let state = match s.device.map(|d| d.state) {
+    let state = match s.device.as_ref().map(|d| d.state) {
         Some(SyncState::Locked) => style("locked").green().to_string(),
         Some(SyncState::Holdover) => style("holdover").yellow().to_string(),
         Some(SyncState::Conflict) => style("conflict").red().to_string(),
@@ -304,11 +312,13 @@ fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
         .unwrap_or_default();
     let error = s
         .device
+        .as_ref()
         .and_then(|d| d.error)
         .map(|e| us(e.to_f64_in(Prefix::Micro) as i64))
         .unwrap_or_default();
     let slew = s
         .device
+        .as_ref()
         .and_then(|d| d.slew_us)
         .map(|v| signed_us(v as i64))
         .unwrap_or_default();
@@ -427,7 +437,7 @@ impl Convergence {
         let mut events = Vec::new();
         for (index, (since, status)) in self.since.iter_mut().zip(statuses).enumerate() {
             let Some(s) = status else { continue };
-            let state = s.device.map(|d| d.state);
+            let state = s.device.as_ref().map(|d| d.state);
             let half_rtt = s.check_rtt.map(|r| r as i64 / 2);
             if state == Some(SyncState::Locked) && half_rtt.is_some_and(|h| h > self.within_ns) {
                 continue;
@@ -558,7 +568,7 @@ mod tests {
     use super::*;
     use ww_clock_sync::Fit;
     use ww_si::Second;
-    use ww_timebase::SyncStatus;
+    use ww_timebase::SyncStatusOwned;
 
     fn device(serial: &str, label: &str) -> DeviceInfo {
         DeviceInfo {
@@ -603,6 +613,7 @@ mod tests {
             min_rtt: 412_000,
             used: 40,
             residual_rms: 50_000.0,
+            prior: false,
         };
         let status = Status {
             fit: Some(fit),
@@ -620,13 +631,15 @@ mod tests {
         assert!(lines[1].contains("412 µs"), "{table}");
         assert!(lines[1].contains("-37 µs"), "{table}");
         assert!(lines[1].contains("host"), "{table}");
-        let device = SyncStatus {
+        let device = SyncStatusOwned {
             state: SyncState::Acquiring,
             offset: None,
             last_lock: None,
             source: Some(SyncSource::Host),
             error: Some(Second::micro(1_250u32)),
             slew_us: Some(-48_000),
+            steerer: None,
+            noted: None,
         };
         let status = Status {
             device: Some(device),
@@ -642,13 +655,15 @@ mod tests {
 
     fn status(state: SyncState, residual_us: i64) -> Option<Status> {
         Some(Status {
-            device: Some(SyncStatus {
+            device: Some(SyncStatusOwned {
                 state,
                 offset: None,
                 last_lock: None,
                 source: Some(SyncSource::Host),
                 error: None,
                 slew_us: Some(0),
+                steerer: None,
+                noted: None,
             }),
             residual: Some(residual_us * 1000),
             check_rtt: Some(200_000),

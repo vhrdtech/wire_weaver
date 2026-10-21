@@ -10,9 +10,30 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{Prefix, Second};
     use ww_timebase::{
-        ClockError, ClockErrorOwned, ClockInfo, DateTime, SteerPoint, SyncConfig, SyncFormat,
-        SyncSource, SyncState, SyncStatus, TimeMapPoint,
+        ClockError, ClockErrorOwned, ClockInfo, DateTime, SteerPoint, SteerPointOwned, Steerer,
+        SteererOwned, SyncConfig, SyncFormat, SyncSource, SyncState, SyncStatus, TimeMapPoint,
     };
+
+    /// The mock follows one steerer while its points come this often (bedrock boards: 3 s).
+    const STEERER_HOLD: Duration = Duration::from_millis(300);
+
+    fn owned(s: &Steerer<'_>) -> SteererOwned {
+        SteererOwned {
+            id: s.id,
+            host: s.host.to_string(),
+            program: s.program.to_string(),
+            pid: s.pid,
+        }
+    }
+
+    fn borrowed(s: &SteererOwned) -> Steerer<'_> {
+        Steerer {
+            id: s.id,
+            host: &s.host,
+            program: &s.program,
+            pid: s.pid,
+        }
+    }
 
     /// Where the mock's clock starts, far from the host's, so a mixed-up offset shows.
     const LOCAL_START: u32 = 1_000_000_000;
@@ -32,10 +53,10 @@ mod tests {
     /// Device behaviour and what it received, shared with the test.
     struct Model {
         sync_config: SyncConfig,
-        sync_status: SyncStatus,
+        sync_status: SyncStatus<'static>,
         times_of_day: Vec<DateTime>,
         /// The last `steer` point followed.
-        steer: Option<SteerPoint>,
+        steer: Option<SteerPoint<'static>>,
         /// `steer` points taken, followed or only noted.
         steers: u32,
         /// The `time_map` stream is open.
@@ -53,6 +74,8 @@ mod tests {
                     source: None,
                     error: None,
                     slew_us: None,
+                    steerer: None,
+                    noted: None,
                 },
                 times_of_day: Vec::new(),
                 steer: None,
@@ -75,6 +98,10 @@ mod tests {
             pub formats: [SyncFormat; 1],
             /// The list of `set_sources`, `None`: the fixed ranking.
             pub sources: Option<Vec<SyncSource>>,
+            /// The steerer followed (its id, 0 for points without one) and when its last point came.
+            pub followed: Option<(u64, Option<SteererOwned>, Instant)>,
+            /// The last other steerer whose points were only noted.
+            pub noted: Option<SteererOwned>,
         }
 
         impl Server {
@@ -160,6 +187,8 @@ mod tests {
                             source: None,
                             error: None,
                             slew_us: None,
+                            steerer: None,
+                            noted: None,
                         };
                         self.send_point(
                             cx,
@@ -180,6 +209,8 @@ mod tests {
                             source: None,
                             error: None,
                             slew_us: None,
+                            steerer: None,
+                            noted: None,
                         };
                         self.send_point(
                             cx,
@@ -200,6 +231,8 @@ mod tests {
                             source: None,
                             error: None,
                             slew_us: None,
+                            steerer: None,
+                            noted: None,
                         };
                         self.send_point(
                             cx,
@@ -224,6 +257,8 @@ mod tests {
                             }),
                             error: None,
                             slew_us: None,
+                            steerer: None,
+                            noted: None,
                         };
                         self.send_point(
                             cx,
@@ -252,8 +287,17 @@ mod tests {
             fn clock_sync_status(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-            ) -> RpcResult<SyncStatus> {
-                Ready(self.m.lock().unwrap().sync_status)
+            ) -> RpcResult<SyncStatus<'_>> {
+                let status = self.m.lock().unwrap().sync_status.clone();
+                Ready(SyncStatus {
+                    steerer: self
+                        .followed
+                        .as_ref()
+                        .and_then(|(_, s, _)| s.as_ref())
+                        .map(borrowed),
+                    noted: self.noted.as_ref().map(borrowed),
+                    ..status
+                })
             }
 
             fn clock_set_time_of_day(
@@ -303,7 +347,22 @@ mod tests {
                     // only noted
                     return Ready(Ok(line_locked.then_some(line)));
                 }
-                m.steer = Some(point);
+                // one steerer at a time: another one's points are noted while the followed one's keep coming
+                let id = point.steerer.as_ref().map_or(0, |s| s.id);
+                let now = Instant::now();
+                if let Some((followed, _, at)) = &self.followed
+                    && *followed != id
+                    && now - *at < STEERER_HOLD
+                {
+                    self.noted = point.steerer.as_ref().map(owned);
+                    return Ready(Ok(Some(SyncSource::Host)));
+                }
+                self.followed = Some((id, point.steerer.as_ref().map(owned), now));
+                let point = SteerPoint {
+                    steerer: None,
+                    ..point
+                };
+                m.steer = Some(point.clone());
                 m.sync_status = SyncStatus {
                     state: SyncState::Locked,
                     offset: None,
@@ -311,6 +370,8 @@ mod tests {
                     source: Some(SyncSource::Host),
                     error: Some(micros(point.error_us)),
                     slew_us: Some(0),
+                    steerer: None,
+                    noted: None,
                 };
                 drop(m);
                 self.send_point(
@@ -370,7 +431,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Option<u64>> {
-                let Some(p) = self.m.lock().unwrap().steer else {
+                let Some(p) = self.m.lock().unwrap().steer.clone() else {
                     return Ready(None);
                 };
                 let dl = as_micros(&self.elapsed()).wrapping_sub(as_micros(&p.local)) as f64;
@@ -439,6 +500,8 @@ mod tests {
             epoch: Instant::now(),
             formats: [SyncFormat::IrigB],
             sources: None,
+            followed: None,
+            noted: None,
         };
         let device = tests_common::start_device(
             path,
@@ -572,16 +635,10 @@ mod tests {
         client.clock().set_time_of_day(t).call().await.unwrap();
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn host_sync_steers_the_device_onto_utc() {
-        use ww_clock_sync::{ClockSync, EstimatorConfig, Options, Pace};
-        let (device, m) = start("timebase/host");
-        let client = connect(&device).await;
-        let mut time_map = client.clock().time_map().call().await.unwrap();
-        assert_eq!(client.clock().shared_now().call().await.unwrap(), None);
-
-        // fast, for the test: in-process round trips are tens of µs
-        let options = Options {
+    /// Fast, for the tests: in-process round trips are tens of µs.
+    fn fast_options() -> ww_clock_sync::Options {
+        use ww_clock_sync::{EstimatorConfig, Options, Pace};
+        Options {
             poll: Duration::from_millis(2),
             steer_every: Duration::from_millis(20),
             check_every: Some(Duration::from_millis(20)),
@@ -594,7 +651,102 @@ mod tests {
                 min_span: Duration::from_millis(40),
                 ..EstimatorConfig::default()
             },
+            ..Options::default()
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn one_steerer_at_a_time() {
+        use ww_clock_sync::ClockSync;
+        let (device, _m) = start("timebase/two_steerers");
+        let client = connect(&device).await;
+        let named = |id: u64, program: &str| ww_clock_sync::Options {
+            steerer: Some(SteererOwned {
+                id,
+                host: "bench".into(),
+                program: program.into(),
+                pid: id as u32,
+            }),
+            ..fast_options()
         };
+        let first = ClockSync::start(&client.cmd, named(1, "ww hub"))
+            .await
+            .unwrap();
+        let mut watch = first.watch();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            watch.wait_for(|s| s.followed == Some(true)),
+        )
+        .await
+        .expect("the first steerer is followed")
+        .unwrap();
+        // a second one: only noted, and it can tell
+        // (one connection: the in-process device takes one, and the device tells steerers apart by their id)
+        let second = ClockSync::start(&client.cmd, named(2, "app"))
+            .await
+            .unwrap();
+        let mut watch2 = second.watch();
+        let s = tokio::time::timeout(
+            Duration::from_secs(2),
+            watch2.wait_for(|s| s.followed == Some(false)),
+        )
+        .await
+        .expect("the second steerer sees it isn't followed")
+        .unwrap()
+        .clone();
+        let device_status = s.device.unwrap();
+        assert_eq!(device_status.steerer.unwrap().program, "ww hub");
+        assert_eq!(device_status.noted.unwrap().program, "app");
+        // the first one stops: the second takes over once the device stopped hearing from the first
+        first.stop();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            watch2.wait_for(|s| s.followed == Some(true)),
+        )
+        .await
+        .expect("the second steerer takes over")
+        .unwrap();
+        second.stop();
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_cached_rate_steers_from_the_first_reading() {
+        use ww_clock_sync::{ClockSync, RateCache};
+        let (device, m) = start("timebase/rate_cache");
+        let client = connect(&device).await;
+        let dir = std::env::temp_dir().join(format!("ww_io_timebase_{}", std::process::id()));
+        let cache = RateCache::in_dir(&dir, "mock-0001");
+        // the mock runs 1 % fast
+        cache.store(1.0 / 1.01).unwrap();
+        let options = ww_clock_sync::Options {
+            rate_cache: Some(cache.clone()),
+            ..fast_options()
+        };
+        let sync = ClockSync::start(&client.cmd, options).await.unwrap();
+        let mut watch = sync.watch();
+        let s = tokio::time::timeout(Duration::from_secs(1), watch.wait_for(|s| s.steers > 0))
+            .await
+            .unwrap()
+            .unwrap()
+            .clone();
+        assert!(s.rate_from_cache);
+        // the first steer point went out after the first reading, not after `min_span` of them
+        assert_eq!(s.samples, 1);
+        assert!(s.fit.unwrap().prior);
+        assert!(m.lock().unwrap().steer.is_some());
+        sync.stop();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn host_sync_steers_the_device_onto_utc() {
+        use ww_clock_sync::ClockSync;
+        let (device, m) = start("timebase/host");
+        let client = connect(&device).await;
+        let mut time_map = client.clock().time_map().call().await.unwrap();
+        assert_eq!(client.clock().shared_now().call().await.unwrap(), None);
+
+        let options = fast_options();
         let sync = ClockSync::start(&client.cmd, options).await.unwrap();
         let mut watch = sync.watch();
         let status = tokio::time::timeout(
@@ -638,13 +790,14 @@ mod tests {
             .call()
             .await
             .unwrap();
-        let point = SteerPoint {
+        let point = SteerPointOwned {
             local: micros(LOCAL_START),
             shared_us: 1_700_000_000_000_000,
             rate_ppb: 0,
             error_us: 100,
+            steerer: None,
         };
-        let source = client.clock().steer(point).call().await.unwrap();
+        let source = client.clock().steer(point.clone()).call().await.unwrap();
         assert_eq!(
             source,
             Some(SyncSource::Line {
@@ -655,7 +808,7 @@ mod tests {
         assert!(m.lock().unwrap().steer.is_none());
         assert_eq!(client.clock().shared_now().call().await.unwrap(), None);
         // a point in a storage the device doesn't read
-        let bad = SteerPoint {
+        let bad = SteerPointOwned {
             local: Second::micro(5u64),
             ..point
         };
@@ -673,11 +826,12 @@ mod tests {
         let (device, m) = start("timebase/sources");
         let client = connect(&device).await;
         assert_eq!(client.clock().sources().call().await.unwrap(), None);
-        let point = SteerPoint {
+        let point = SteerPointOwned {
             local: micros(LOCAL_START),
             shared_us: 1_700_000_000_000_000,
             rate_ppb: 0,
             error_us: 100,
+            steerer: None,
         };
         let irig = SyncSource::Line {
             format: SyncFormat::IrigB,
@@ -693,7 +847,10 @@ mod tests {
             client.clock().sources().call().await.unwrap(),
             Some(MaxLen::new_unchecked(vec![irig]))
         );
-        assert_eq!(client.clock().steer(point).call().await.unwrap(), None);
+        assert_eq!(
+            client.clock().steer(point.clone()).call().await.unwrap(),
+            None
+        );
         assert!(m.lock().unwrap().steer.is_none());
 
         // the host before the line: followed even while the line is locked
@@ -712,7 +869,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            client.clock().steer(point).call().await.unwrap(),
+            client.clock().steer(point.clone()).call().await.unwrap(),
             Some(SyncSource::Host)
         );
 
@@ -727,7 +884,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            client.clock().steer(point).call().await.unwrap(),
+            client.clock().steer(point.clone()).call().await.unwrap(),
             Some(irig)
         );
 

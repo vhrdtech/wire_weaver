@@ -1,11 +1,11 @@
 //! [ClockSync]: one device kept on UTC, in a task of its own.
 
-use crate::{DeviceTime, Estimator, EstimatorConfig, Fit, HostClock, Sample};
+use crate::{DeviceTime, Estimator, EstimatorConfig, Fit, HostClock, RateCache, Sample};
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 use wire_weaver_client::Commander;
-use ww_timebase::{SyncSource, SyncState, SyncStatus};
+use ww_timebase::{SteererOwned, SyncSource, SyncState, SyncStatusOwned};
 
 /// Client of `ww_timebase::Clock` wherever the device implements it (a global trait path, API-20).
 pub struct ClockClient {
@@ -31,7 +31,7 @@ mod clock_client {
 
 /// How [ClockSync] polls and steers: at [Options::acquire] while the device is getting there, at the normal pace
 /// once it says it is `Locked`.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Options {
     /// Time between two `now()` readings, once locked.
     pub poll: Duration,
@@ -46,6 +46,14 @@ pub struct Options {
     pub acquire: Pace,
     /// The fit's window and filter.
     pub estimator: EstimatorConfig,
+    /// Who the steer points say they are from (SRV-31); `None`: this program, from
+    /// [ClientMeta](wire_weaver_client::ClientMeta)'s defaults with an id of its own ([steerer]).
+    pub steerer: Option<SteererOwned>,
+    /// Where the device's rate is kept between connections: read at the start (the first steer point goes out after
+    /// the first reading), written every [Options::save_rate_every] once the fit has its own rate. `None`: none.
+    pub rate_cache: Option<RateCache>,
+    /// See [Options::rate_cache].
+    pub save_rate_every: Duration,
 }
 
 /// Poll, steer and check intervals of one phase, see [Options].
@@ -70,7 +78,23 @@ impl Default for Options {
                 check_every: Some(Duration::from_secs(1)),
             },
             estimator: EstimatorConfig::default(),
+            steerer: None,
+            rate_cache: None,
+            save_rate_every: Duration::from_secs(60),
         }
+    }
+}
+
+/// This program as a steerer: program, host and pid as [ClientMeta](wire_weaver_client::ClientMeta) finds them, and
+/// the id of `meta` (one per client object), or of a new one.
+pub fn steerer(meta: Option<&wire_weaver_client::ClientMeta>) -> SteererOwned {
+    let meta = meta.cloned().unwrap_or_default();
+    let resolved = meta.resolve();
+    SteererOwned {
+        id: meta.instance_id(),
+        host: resolved.host,
+        program: resolved.program,
+        pid: resolved.pid,
     }
 }
 
@@ -105,7 +129,15 @@ pub struct Status {
     /// The device answered a steer point: `source` is its answer, not just unknown yet.
     pub answered: bool,
     /// The device's own status at the last check.
-    pub device: Option<SyncStatus>,
+    pub device: Option<SyncStatusOwned>,
+    /// Whether the device follows this sync's points, by its last check (SRV-31): `Some(false)` when it follows
+    /// another steerer (`device.steerer` says who) and only notes ours; `None` until checked, or from a device that
+    /// doesn't say whom it follows.
+    pub followed: Option<bool>,
+    /// The fit started from the [RateCache]'s rate.
+    pub rate_from_cache: bool,
+    /// Steering is paused ([ClockSync::set_paused]).
+    pub paused: bool,
     /// Polling and steering at [Options::acquire]: the device didn't say `Locked` at the last check.
     pub acquiring: bool,
     /// At the last check: the device's shared time minus the host's UTC at the middle of the round trip, in ns.
@@ -127,6 +159,7 @@ pub struct Status {
 /// last point.
 pub struct ClockSync {
     status: watch::Receiver<Status>,
+    paused: watch::Sender<bool>,
     task: JoinHandle<()>,
 }
 
@@ -142,9 +175,23 @@ impl ClockSync {
         let device_time = DeviceTime::new(&first).map_err(|e| {
             wire_weaver_client::Error::Other(format!("device time not usable: {e}"))
         })?;
+        let mut options = options;
+        let steerer = options.steerer.take().unwrap_or_else(|| steerer(None));
         let (tx, status) = watch::channel(Status::default());
-        let task = tokio::spawn(run(client, device_time, options, tx));
-        Ok(ClockSync { status, task })
+        let (paused, paused_rx) = watch::channel(false);
+        let task = tokio::spawn(run(client, device_time, options, steerer, paused_rx, tx));
+        Ok(ClockSync {
+            status,
+            paused,
+            task,
+        })
+    }
+
+    /// Pauses steering, or goes on: while paused the device's clock is still read (the fit stays current), but no
+    /// steer point is sent, so the device coasts in holdover (the hub pauses while a program has the whole device to
+    /// itself, SRV-32).
+    pub fn set_paused(&self, paused: bool) {
+        self.paused.send_replace(paused);
     }
 
     /// The latest status.
@@ -171,16 +218,23 @@ async fn run(
     mut client: ClockClient,
     mut device_time: DeviceTime,
     options: Options,
+    steerer: SteererOwned,
+    paused: watch::Receiver<bool>,
     tx: watch::Sender<Status>,
 ) {
     let host = HostClock::new();
     let mut estimator = Estimator::new(options.estimator);
     let mut status = Status::default();
+    if let Some(rate) = options.rate_cache.as_ref().and_then(RateCache::load) {
+        estimator.set_prior(Some(rate.slope));
+        status.rate_from_cache = true;
+    }
+    let mut next_save = options.save_rate_every.as_nanos() as u64;
     let mut next_steer = 0;
     let mut next_check = 0;
     let mut next_poll = tokio::time::Instant::now();
     loop {
-        let pace = options.pace(status.device.map(|d| d.state));
+        let pace = options.pace(status.device.as_ref().map(|d| d.state));
         status.acquiring = pace != options.pace(Some(SyncState::Locked));
         tokio::time::sleep_until(next_poll).await;
         // a slow answer delays the next reading rather than bunching them up
@@ -207,11 +261,34 @@ async fn run(
         }
         status.samples = estimator.len();
         status.fit = estimator.fit();
+        status.paused = *paused.borrow();
         if let Some(fit) = status.fit
+            && !status.paused
             && received >= next_steer
         {
             next_steer = received + pace.steer_every.as_nanos() as u64;
-            steer(&mut client, &device_time, &fit, &host, &mut status).await;
+            steer(
+                &mut client,
+                &device_time,
+                &fit,
+                &steerer,
+                &host,
+                &mut status,
+            )
+            .await;
+        }
+        if let (Some(cache), Some(fit)) = (&options.rate_cache, status.fit)
+            && !fit.prior
+            && estimator.span() >= options.estimator.prior_span.as_nanos() as u64
+            && received >= next_save
+        {
+            next_save = received + options.save_rate_every.as_nanos() as u64;
+            if let Err(e) = cache.store(fit.slope) {
+                status.error = Some(format!(
+                    "saving the rate to {}: {e}",
+                    cache.path().display()
+                ));
+            }
         }
         if let Some(every) = pace.check_every
             && status.steers > 0
@@ -219,6 +296,11 @@ async fn run(
         {
             next_check = received + every.as_nanos() as u64;
             check(&mut client, &host, &mut status).await;
+            status.followed = status
+                .device
+                .as_ref()
+                .and_then(|d| d.steerer.as_ref())
+                .map(|s| s.id == steerer.id);
         }
         if tx.send(status.clone()).is_err() {
             return;
@@ -230,13 +312,17 @@ async fn steer(
     client: &mut ClockClient,
     device_time: &DeviceTime,
     fit: &Fit,
+    steerer: &SteererOwned,
     host: &HostClock,
     status: &mut Status,
 ) {
     // the point at the device's present, by the fit
     let local = fit.local_at(host.monotonic_ns() as f64).max(0.0) as u64;
     let point = match device_time.steer_point(fit, local, host.utc_offset()) {
-        Ok(point) => point,
+        Ok(point) => ww_timebase::SteerPointOwned {
+            steerer: Some(steerer.clone()),
+            ..point
+        },
         Err(e) => {
             status.error = Some(format!("steer point: {e}"));
             return;

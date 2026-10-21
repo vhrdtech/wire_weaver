@@ -54,7 +54,7 @@ pub trait Clock {
 
     /// Current sync state, with the source followed, its estimated error and the offset and local time of the
     /// last lock, when known.
-    fn sync_status() -> SyncStatus;
+    fn sync_status() -> SyncStatus<'i>;
 
     /// Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while
     /// sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.
@@ -78,7 +78,7 @@ pub trait Clock {
     /// moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).
     #[optional(host_sync)]
     #[errors(Common(InvalidArgument))]
-    fn steer(point: SteerPoint) -> Result<Option<SyncSource>, ClockError<'i>>;
+    fn steer(point: SteerPoint<'i>) -> Result<Option<SyncSource>, ClockError<'i>>;
 
     /// The device's shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a
     /// host compares with its own clock to see how well the device follows (the residual offset).
@@ -160,8 +160,8 @@ pub enum SyncSource {
 }
 
 /// Current sync state of a device's clock, see `Clock::sync_status`.
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
-pub struct SyncStatus {
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug))]
+pub struct SyncStatus<'i> {
     /// Current state of the sync state machine.
     pub state: SyncState,
     /// Local minus shared time at the last lock, when known.
@@ -182,6 +182,15 @@ pub struct SyncStatus {
     /// number: a device without signed numbers in `ww_numeric` sends it too.
     #[default = None]
     pub slew_us: Option<i32>,
+    /// The host whose steer points the shared clock follows (source `Host`) or last followed (`Holdover`), as its
+    /// points named it; `None` for points that name nobody (hosts built before this field), while no host steers,
+    /// and from devices that don't tell (SRV-31).
+    #[default = None]
+    pub steerer: Option<Steerer<'i>>,
+    /// Another host that sent steer points while `steerer` was followed: only noted, not followed (the latest one
+    /// within the last few seconds). `None` without one, and from devices that don't tell.
+    #[default = None]
+    pub noted: Option<Steerer<'i>>,
 }
 
 /// State of a device's shared clock, see `SyncStatus::state` and `TimeMapPoint::state`.
@@ -232,12 +241,8 @@ pub struct TimeMapPoint {
 /// `shared_us` is a plain `u64`, not a [Second]: shared time is UTC and needs all 64 bits, and a `Second` in a
 /// `U64` would make a device without 64-bit numbers (`ww_numeric`'s `u64` feature, 8 more bytes in every
 /// `NumericValue`) enable them for this one field.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    derive(Copy, Clone, Debug, PartialEq)
-)]
-pub struct SteerPoint {
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
+pub struct SteerPoint<'i> {
     /// Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).
     pub local: Second,
     /// Shared time at `local`: µs since the Unix epoch, UTC.
@@ -248,6 +253,26 @@ pub struct SteerPoint {
     /// The host's estimate of how far `shared_us` may be off, in µs: half the shortest round trip and the
     /// scatter of its samples. Not counting how far the host's own wall clock is from UTC.
     pub error_us: u32,
+    /// Who sends the point (SRV-31). A device follows one steerer at a time: the one it follows keeps it while its
+    /// points come, another one's points are only noted (`SyncStatus::noted`) and taken once the followed one has
+    /// been quiet for the device's holdover time (bedrock boards: 3 s). Points without one (`None`, hosts built
+    /// before this field) count as one steerer of their own.
+    #[default = None]
+    pub steerer: Option<Steerer<'i>>,
+}
+
+/// Who steers a device's clock (SRV-31): a program on a host, see `SteerPoint::steerer` and `SyncStatus::steerer`.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct Steerer<'i> {
+    /// What the device tells steerers apart by: random per steering program (the instance id of its WireWeaver
+    /// client, `ww_link::ClientMeta::instance_id`), never 0.
+    pub id: u64,
+    /// The host's name.
+    pub host: &'i str,
+    /// The program's name: `ww hub` for the hub, `ww` for `ww sync`, an app's own name.
+    pub program: &'i str,
+    /// The program's process id on `host`.
+    pub pid: u32,
 }
 
 /// Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong

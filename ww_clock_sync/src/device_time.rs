@@ -1,9 +1,9 @@
-//! Device timestamps in nanoseconds and back, and the [SteerPoint] for a fit.
+//! Device timestamps in nanoseconds and back, and the [SteerPointOwned] for a fit.
 
 use crate::Fit;
 use ww_si::ww_numeric::{NumericBaseType, NumericValue};
 use ww_si::{Prefix, Second, Unwrapper};
-use ww_timebase::SteerPoint;
+use ww_timebase::SteerPointOwned;
 
 /// Why a device timestamp can't be used.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -30,7 +30,7 @@ impl core::fmt::Display for DeviceTimeError {
 impl core::error::Error for DeviceTimeError {}
 
 /// A device's time in nanoseconds and back, in the prefix and storage its `Clock::now()` answers with: unwraps a
-/// `U32` of µs as it wraps, and writes [SteerPoint]s the device can read (a device without 64-bit numbers gets
+/// `U32` of µs as it wraps, and writes [SteerPointOwned]s the device can read (a device without 64-bit numbers gets
 /// 32-bit ones, wrapping as its `now()` does).
 #[derive(Clone, Debug)]
 pub struct DeviceTime {
@@ -82,17 +82,18 @@ impl DeviceTime {
         fit: &Fit,
         local: u64,
         utc_offset: i128,
-    ) -> Result<SteerPoint, DeviceTimeError> {
+    ) -> Result<SteerPointOwned, DeviceTimeError> {
         let units = self.units(local as i128)?;
         let exact = scale(units, i8::from(self.prefix) + 9).ok_or(DeviceTimeError::NotATime)?;
         let shared = fit.shared_at(exact as u64).round() as i128 + utc_offset;
         let shared_us =
             u64::try_from(shared.div_euclid(1000)).map_err(|_| DeviceTimeError::NotATime)?;
-        Ok(SteerPoint {
+        Ok(SteerPointOwned {
             local: self.units_to_device(units)?,
             shared_us,
             rate_ppb: fit.rate_ppb(),
             error_us: fit.error_us(),
+            steerer: None,
         })
     }
 
@@ -144,6 +145,7 @@ mod tests {
             min_rtt: 0,
             used: 4,
             residual_rms: 0.0,
+            prior: false,
         };
         // UTC is the monotonic clock + 1.7e18 ns
         let utc = 1_700_000_000_000_000_000;
@@ -176,6 +178,7 @@ mod tests {
             min_rtt: 0,
             used: 4,
             residual_rms: 0.0,
+            prior: false,
         };
         let p = dt.steer_point(&fit, 7_000, 0).unwrap();
         assert_eq!(p.local, Second::micro(7u64));

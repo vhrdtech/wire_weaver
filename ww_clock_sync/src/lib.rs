@@ -19,9 +19,11 @@
 mod device_time;
 mod estimator;
 mod host_clock;
+mod rate_cache;
 mod sync;
 
 pub use device_time::{DeviceTime, DeviceTimeError};
 pub use estimator::{Added, Estimator, EstimatorConfig, Fit, Sample};
 pub use host_clock::HostClock;
-pub use sync::{ClockClient, ClockSync, Options, Pace, Status};
+pub use rate_cache::{CachedRate, RateCache, STATE_DIR_ENV, state_dir};
+pub use sync::{ClockClient, ClockSync, Options, Pace, Status, steerer};

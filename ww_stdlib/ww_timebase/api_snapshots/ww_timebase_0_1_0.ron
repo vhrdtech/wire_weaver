@@ -15,8 +15,8 @@
     "one, before running free; `set_sources` replaces that ranking with an explicit list. Switching from one source to another slews the shared clock instead of stepping it, and shows in",
     "`time_map` as a change of `source`.",
 ], crate_idx: 0, trait_name: "ww_timebase", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -159,6 +159,23 @@
         ]), discriminant: 0, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Who steers a device\'s clock (SRV-31): a program on a host, see `SteerPoint::steerer` and `SyncStatus::steerer`.",
+    ], ident: "Steerer", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "What the device tells steerers apart by: random per steering program (the instance id of its WireWeaver",
+            "client, `ww_link::ClientMeta::instance_id`), never 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("host"), default: None, since: None, ty: String, docs: [
+            "The host\'s name.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("program"), default: None, since: None, ty: String, docs: [
+            "The program\'s name: `ww hub` for the hub, `ww` for `ww sync`, an app\'s own name.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("pid"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The program\'s process id on `host`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
     ], ident: "SyncStatus", generics: [], fields: Named([
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
@@ -189,6 +206,15 @@
             "(positive: it runs fast until it caught up). 0 once it has; `None` from devices that don\'t tell (built",
             "before this field, or not slewing in software). A plain `i32`, as `SteerPoint::shared_us` is a plain",
             "number: a device without signed numbers in `ww_numeric` sends it too.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+            "The host whose steer points the shared clock follows (source `Host`) or last followed (`Holdover`), as its",
+            "points named it; `None` for points that name nobody (hosts built before this field), while no host steers,",
+            "and from devices that don\'t tell (SRV-31).",
+        ], slot: None, series_opaque: false),
+        (ident: Some("noted"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+            "Another host that sent steer points while `steerer` was followed: only noted, not followed (the latest one",
+            "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
@@ -226,6 +252,12 @@
             "The host\'s estimate of how far `shared_us` may be off, in µs: half the shortest round trip and the",
             "scatter of its samples. Not counting how far the host\'s own wall clock is from UTC.",
         ], slot: None, series_opaque: false),
+        (ident: Some("steerer"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+            "Who sends the point (SRV-31). A device follows one steerer at a time: the one it follows keeps it while its",
+            "points come, another one\'s points are only noted (`SyncStatus::noted`) and taken once the followed one has",
+            "been quiet for the device\'s holdover time (bedrock boards: 3 s). Points without one (`None`, hosts built",
+            "before this field) count as one steerer of their own.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
@@ -242,16 +274,16 @@
         ])), errors: None), multiplicity: Flat, since: None, ident: "now", docs: [
             "Device time now, full width: the value every truncated timestamp elsewhere in this device\'s API wraps",
             "around.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 3)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it",
             "supports.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
             "Local time mapped to the shared sync time, sent about once a second while synced and on every",
             "[SyncState] or [SyncSource] change, so a host can line up this device\'s timeline with others and see the",
             "unsynced spans and the seams where the device switched sources.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 7)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
@@ -268,16 +300,16 @@
             "configuration it rejects, `InUse` if sync mode cannot be switched while already locked to something else.",
             "",
             "Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
-        ], optional: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+        ], optional: None, meta: None),
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
             "Current sync state, with the source followed, its estimated error and the offset and local time of the",
             "last lock, when known.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 11)),
+            (ident: "t", ty: OutOfLine(type_idx: 12)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -285,9 +317,9 @@
         ])), multiplicity: Flat, since: None, ident: "set_time_of_day", docs: [
             "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 7, kind: Method(args: [
-            (ident: "point", ty: OutOfLine(type_idx: 12)),
+            (ident: "point", ty: OutOfLine(type_idx: 13)),
         ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 5)), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -308,11 +340,11 @@
             "steered by different hosts agree to NTP precision, and devices on one sync line to the line\'s. A host fits",
             "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
             "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
-        ], optional: Some((group: Some("host_sync")))),
+        ], optional: Some((group: Some("host_sync"))), meta: None),
         (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: NumericAny(Base(U64)))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
             "The device\'s shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a",
             "host compares with its own clock to see how well the device follows (the residual offset).",
-        ], optional: Some((group: Some("host_sync")))),
+        ], optional: Some((group: Some("host_sync"))), meta: None),
         (id: 9, kind: Method(args: [
             (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
@@ -328,11 +360,11 @@
             "then free. `Unsupported` for a line format the device doesn\'t have (see `info().sync_formats`),",
             "`InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as",
             "any switch does.",
-        ], optional: Some((group: Some("host_sync")))),
+        ], optional: Some((group: Some("host_sync"))), meta: None),
         (id: 10, kind: Method(args: [], return_ty: Some(Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))))), errors: None), multiplicity: Flat, since: None, ident: "sources", docs: [
             "The source list last accepted by `set_sources`; `None` for the fixed ranking.",
-        ], optional: Some((group: Some("host_sync")))),
-    ], compact_id: Some(24)), crate_idx: 0),
+        ], optional: Some((group: Some("host_sync"))), meta: None),
+    ], compact_id: Some(24), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

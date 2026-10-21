@@ -2992,6 +2992,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#host-sync-std-49" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host sync (STD-49)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Host sync (STD-49)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-timescale-ranked-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        One timescale, ranked sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing the sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-pcs-two-boards-one-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Two PCs, two boards, one line
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#steering-from-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Steering from the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#composing-into-a-device-api" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5185,6 +5246,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#host-sync-std-49" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Host sync (STD-49)
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Host sync (STD-49)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-timescale-ranked-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        One timescale, ranked sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-the-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing the sources
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-pcs-two-boards-one-line" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Two PCs, two boards, one line
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#steering-from-the-host" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Steering from the host
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#composing-into-a-device-api" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5350,7 +5472,7 @@
 
 <h1 id="ww_timebase">ww_timebase<a class="headerlink" href="#ww_timebase" title="Permanent link">&para;</a></h1>
 <p>Part of the <a href="../io_family/">IO trait family</a>. <code>ww_timebase</code> is a global WireWeaver trait for a device's clock: reading device time, and synchronising it with
-other devices over a sync line (IRIG-B, PPS, ...). It is <code>no_std</code> by default and depends only on <code>wire_weaver</code>,
+other devices over a sync line (IRIG-B, PPS, ...) or steered by its host onto UTC. It is <code>no_std</code> by default and depends only on <code>wire_weaver</code>,
 <code>ww_si</code> (for the <a href="../ww_si/">Second</a> timestamp type) and <code>ww_date_time</code> (for <code>set_time_of_day</code>).</p>
 <p>Add it to a device API crate with:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[dependencies]</span>
@@ -5378,7 +5500,19 @@ truncated timestamp and correlate device time with its own.</p>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sync_status</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SyncStatus</span><span class="p">;</span>
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
 </span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_time_of_day</span><span class="p">(</span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">DateTime</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">ClockError</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="p">}</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="cp">#[optional(host_sync)]</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">steer</span><span class="p">(</span><span class="n">point</span><span class="p">:</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">SyncSource</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">ClockError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">    </span><span class="cp">#[optional(host_sync)]</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">shared_now</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u64</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="w">    </span><span class="cp">#[optional(host_sync)]</span>
+</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">set_sources</span><span class="p">(</span><span class="n">sources</span><span class="p">:</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;</span><span class="n">SyncSource</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="o">&gt;&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">ClockError</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
+</span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="w">    </span><span class="cp">#[optional(host_sync)]</span>
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">sources</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="n">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;</span><span class="n">SyncSource</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li><code>now()</code> - device time now, full width.</li>
@@ -5391,6 +5525,12 @@ truncated timestamp and correlate device time with its own.</p>
 <li><code>sync_status()</code> - current sync state, with the offset and local time of the last lock, when known.</li>
 <li><code>set_time_of_day</code> - time of day a sync master sends on the sync line, set from its host; has no effect on a
   slave or while sync is off.</li>
+<li><code>steer(point)</code> - a host's fit of this device's clock, followed when the device has no better source and its
+  source list allows the host; returns the source it follows (<code>None</code>: nothing). See <a href="#host-sync-std-49">host sync</a>;
+  optional (group <code>host_sync</code>, left out with <code>omit = ["clock.host_sync"]</code>).</li>
+<li><code>shared_now()</code> - the device's shared time now in UTC µs, <code>None</code> while it runs free; optional (group <code>host_sync</code>).</li>
+<li><code>set_sources(list)</code> / <code>sources()</code> - an explicit ordered list of the sources the device may follow, <code>None</code> for the
+  fixed ranking, see <a href="#choosing-the-sources">choosing the sources</a>; optional (group <code>host_sync</code>).</li>
 </ul>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
@@ -5399,15 +5539,121 @@ truncated timestamp and correlate device time with its own.</p>
 <li><code>SyncConfig</code> - <code>Off</code>, <code>Master { format: SyncFormat }</code>, <code>Slave { format: SyncFormat }</code>; <code>unib32</code> discriminant,
   evolvable.</li>
 <li><code>SyncFormat</code> - <code>IrigB</code>, <code>Pps</code>; <code>unib32</code> discriminant, evolvable.</li>
+<li><code>SyncSource</code> - <code>Host</code>, <code>Line { format }</code>: what the shared clock follows; <code>unib32</code> discriminant, evolvable.</li>
 <li><code>SyncStatus</code> - <code>state: SyncState</code>, <code>offset: Option&lt;Second&gt;</code> (local minus shared time at the last lock),
-  <code>last_lock: Option&lt;Second&gt;</code>.</li>
-<li><code>SyncState</code> - <code>Free</code>, <code>Acquiring</code>, <code>Locked</code>, <code>Holdover</code>; <code>unib32</code> discriminant, evolvable.</li>
-<li><code>TimeMapPoint</code> - one <code>time_map</code> item: <code>local: Second</code>, <code>shared: Second</code>, <code>state: SyncState</code>.</li>
+  <code>last_lock: Option&lt;Second&gt;</code>, <code>source: Option&lt;SyncSource&gt;</code>, <code>error: Option&lt;Second&gt;</code> (estimated bound against UTC);
+  the last two <code>#[default = None]</code>, read as <code>None</code> from devices built before them.</li>
+<li><code>SyncState</code> - <code>Free</code>, <code>Acquiring</code>, <code>Locked</code>, <code>Holdover</code>, <code>Conflict</code> (two masters on the line); <code>unib32</code>
+  discriminant, evolvable.</li>
+<li><code>TimeMapPoint</code> - one <code>time_map</code> item: <code>local: Second</code>, <code>shared: Second</code> (UTC, in the prefix and storage of
+  <code>local</code>), <code>state: SyncState</code>, <code>source: Option&lt;SyncSource&gt;</code> (<code>#[default = None]</code>).</li>
+<li><code>SteerPoint</code> - <code>local: Second</code>, <code>shared_us: u64</code> (UTC), <code>rate_ppb: i32</code>, <code>error_us: u32</code>: device time <code>local</code> is
+  shared time <code>shared_us</code>, and shared time runs <code>rate_ppb</code> parts per billion faster than local time from there on.</li>
 <li><code>ClockError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>); unsized (<code>unib32</code>
   discriminant), evolvable.</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code>, so owned (<code>*Owned</code>)
 variants are available by enabling the crate's <code>std</code> feature.</p>
+<h2 id="host-sync-std-49">Host sync (STD-49)<a class="headerlink" href="#host-sync-std-49" title="Permanent link">&para;</a></h2>
+<h3 id="one-timescale-ranked-sources">One timescale, ranked sources<a class="headerlink" href="#one-timescale-ranked-sources" title="Permanent link">&para;</a></h3>
+<p>Shared time is UTC, whatever it comes from, and every source of it is an estimate with an error bound. A device
+follows its best source and only measures the others:</p>
+<ol>
+<li>a <strong>sync line</strong> it is locked to as a slave (IRIG-B, PPS): µs between the boards on the line;</li>
+<li>its <strong>host</strong>, steering it over the API (<code>steer</code>): tens of µs to the host over USB, but the host's UTC is only as
+   good as its NTP (ms);</li>
+<li><strong>holdover</strong> on the last source, with its last offset and rate;</li>
+<li><strong>free</strong>: no shared time yet.</li>
+</ol>
+<p>A line has exactly one master, set explicitly with <code>configure_sync</code>; the master's own shared clock follows its host
+(or a GPS later), and it drives the line from it. Slaves follow the line, and fall back to their host when the line
+is lost. A master that sees another master's signal on its line reports <code>SyncState::Conflict</code>. Switching from one
+source to another slews the shared clock instead of stepping it, and the switch shows in <code>time_map</code> as a change of
+<code>TimeMapPoint::source</code>, so a host sees the seam. So boards on one line agree to µs whatever PCs they hang on, and
+boards only on different PCs agree to those PCs' NTP (ms, plenty for LEDs, see
+<a href="../ww_indication/#animations-in-phase-std-50"><code>ww_indication</code></a>).</p>
+<p><code>configure_sync</code> stays the line's role (<code>Off</code>, <code>Master</code>, <code>Slave</code> in <code>IrigB</code> or <code>Pps</code>); host steering needs no
+configuration. <code>sync_status()</code> says which source the device follows (<code>source</code>) and its estimated error (<code>error</code>).</p>
+<h3 id="choosing-the-sources">Choosing the sources<a class="headerlink" href="#choosing-the-sources" title="Permanent link">&para;</a></h3>
+<p>The ranking above is the default. <code>set_sources</code> replaces it with an explicit list, best first, of the sources the
+device may follow:</p>
+<table>
+<thead>
+<tr>
+<th>List</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>None</code> (default, also after a reset)</td>
+<td>any locked line, then the host, then holdover, then free</td>
+</tr>
+<tr>
+<td><code>[Line { format: IrigB }, Host]</code></td>
+<td>the IRIG-B line when locked, else the host</td>
+</tr>
+<tr>
+<td><code>[Line { format: Pps }, Line { format: IrigB }, Host]</code></td>
+<td>PPS first, IRIG-B next, the host last</td>
+</tr>
+<tr>
+<td><code>[Line { format: IrigB }]</code></td>
+<td>never let a PC steer me: only the line, else holdover and free</td>
+</tr>
+<tr>
+<td><code>[Host, Line { format: Pps }]</code></td>
+<td>the host even while the line is locked, the line as a fallback</td>
+</tr>
+</tbody>
+</table>
+<p>A source the list leaves out is never followed: a <code>steer</code> from a host that isn't allowed answers with the source the
+device follows instead, or <code>None</code>, and the device only notes the point, as a line-locked one does. Holdover and free
+always come after the list. A new list that leaves out the source being followed puts the clock into holdover on it
+until an allowed source steers it, slewed as any switch. <code>sources()</code> reads the list back; <code>sync_status()</code> reports
+the effective source and its error as before.</p>
+<h3 id="two-pcs-two-boards-one-line">Two PCs, two boards, one line<a class="headerlink" href="#two-pcs-two-boards-one-line" title="Permanent link">&para;</a></h3>
+<p>Two PCs, each with one board, the boards joined by an IRIG-B line, and every clock (both PCs' NTP, both boards'
+oscillators) equally bad. Exactly one board is configured <code>Master { format: IrigB }</code>: its shared clock follows its
+own PC (<code>steer</code>), and it drives the line from it. The other is <code>Slave { format: IrigB }</code> and ignores its PC's steering
+while the line is locked (the fixed ranking does this; <code>set_sources([Line { format: IrigB }])</code> makes it explicit,
+also when the line drops). Both boards then agree to µs, on the master PC's timescale, whatever the two PCs think. The
+second PC keeps reading its board's <code>now()</code> and <code>time_map</code>, which gives it its own offset from the master PC, and so
+from the boards (a host never steers a device that follows something better, it only correlates).</p>
+<p>The master is chosen explicitly, with <code>configure_sync</code>. IRIG-B and PPS are one-way: a slave can't tell its master
+anything, so boards can't hold an election over the line. Two masters on one line are detected and reported
+(<code>SyncState::Conflict</code>), not resolved. An automatic choice, PTP-BMCA style (the best source wins, the lowest serial
+breaks a tie), needs a two-way link between the boards (CAN, Ethernet, USB through one host); it is an idea for later
+(STD-51), not built.</p>
+<h3 id="steering-from-the-host">Steering from the host<a class="headerlink" href="#steering-from-the-host" title="Permanent link">&para;</a></h3>
+<p>It works like Klipper's clock sync. The host reads the device's <code>now()</code> a few times a second and timestamps every
+request and answer with its own monotonic clock. It keeps the readings with the shortest round trips (their midpoint
+is closest to when the device read its clock) and fits a line through them over a sliding window: an offset and a
+rate. About once a second it sends the fit as a <code>SteerPoint</code> (the device's <code>local</code> time, the UTC <code>shared_us</code> of it in
+µs, <code>rate_ppb</code>, and its own error estimate <code>error_us</code>), adding the wall clock's offset from the monotonic clock as it
+sends, so a step of the wall clock moves the points without disturbing the fit. The device runs
+<code>shared(t) = shared_us + (t - local) * (1 + rate_ppb * 1e-9)</code> on its own and answers with the source it follows:
+<code>Host</code> when it took the point, a <code>Line</code> when it is locked to something better and only noted it (then the host
+correlates the device through <code>time_map</code> instead of steering it).</p>
+<ul>
+<li><code>SteerPoint::local</code> is in the prefix and storage of the device's <code>now()</code>: a device without 64-bit numbers (a
+  Cortex-M0+ answering <code>U32</code> µs) gets 32 bits, wrapping as its <code>now()</code> does, and the host unwraps its readings
+  (<a href="../ww_si/"><code>ww_si::Unwrapper</code></a>). <code>shared_us</code> is a plain <code>u64</code>, since UTC needs all 64 bits and a <code>Second</code> in a
+  <code>U64</code> would make such a device enable 64-bit numbers for one field.</li>
+<li>The host side is the <code>ww_clock_sync</code> crate, for any process holding a device connection (the <code>ww</code> CLI, a device's
+  own CLI or GUI): <code>ClockSync::start(&amp;cmd, Options::default())</code> polls, fits and steers in a tokio task, and its
+  <code>Status</code> has the fit, the followed source and the residual offset it measures with <code>shared_now()</code>. There is no
+  central daemon: every process steers its devices onto the same UTC. <code>Estimator</code>, <code>DeviceTime</code> and <code>HostClock</code>
+  are the parts; the first two take time as numbers, so tests drive them with a simulated device clock (an HSI 1 %
+  fast, a crystal drifting with temperature, USB full-speed jitter of up to 2 ms a round trip).</li>
+<li><code>ww sync</code> (<a href="../../cli_reference/#ww-sync">CLI</a>) keeps several devices steered and shows how well they follow.</li>
+<li>On the device, embedded_bedrock's <code>bedrock_sync</code> crate keeps the shared clock (with an optional backend that
+  steers the oscillator itself where a chip has a fractional PLL).</li>
+</ul>
+<p>What to expect: in the simulation of a full-speed link with up to 2 ms of jitter per round trip, the offset is good
+to a few hundred µs and the rate to tens of ppm after 10 s, a few ppm after half a minute. Real USB bulk transfers
+are served anywhere in a frame with spare bandwidth, not only at frame starts, so real links do better; <code>ww sync</code>
+shows the measured residual.</p>
 <h2 id="composing-into-a-device-api">Composing into a device API<a class="headerlink" href="#composing-into-a-device-api" title="Permanent link">&para;</a></h2>
 <p>A device exposes its clock once at the root (or nested, if grouped with other traits):</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="cp">#[ww_api_root]</span>

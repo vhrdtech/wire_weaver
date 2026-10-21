@@ -3378,6 +3378,23 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_indication
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="././" class="md-nav__link md-nav__link--active">
         
   
@@ -3393,6 +3410,48 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#animations-in-phase-std-50" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animations in phase (STD-50)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Evolution
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -5036,6 +5095,11 @@
                       
                     
                     
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
                   
                   <div class="md-sidebar__inner">
                     
@@ -5047,6 +5111,36 @@
   
     
   
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#animations-in-phase-std-50" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Animations in phase (STD-50)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#evolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Evolution
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -5205,6 +5299,15 @@ what its hardware or flash budget supports:</p>
 <li><code>NAMES</code> — indicator names in the device's own order, a <a href="../../api/properties/#const-items"><code>const</code> item</a> served
   without a handler. Left out by a device with no room to keep them.</li>
 </ul>
+<h2 id="animations-in-phase-std-50">Animations in phase (STD-50)<a class="headerlink" href="#animations-in-phase-std-50" title="Permanent link">&para;</a></h2>
+<p>A device with a shared clock (<a href="../ww_timebase/#host-sync-std-49"><code>ww_timebase::Clock</code></a>, steered by a host or locked
+to a sync line) aligns every periodic animation to period boundaries of shared time, which is UTC: a breath or blink
+of period <code>P</code> shows <code>t mod P</code> at shared time <code>t</code>, the way WSPR transmissions start on even minutes. Devices showing
+the same animation are in phase without an epoch passed around, even when they hang on different PCs (to the
+precision of those PCs' NTP, plenty for LEDs). A device whose clock runs free starts an animation when its mode
+changes, as before. This is a rule for devices, not an API item: nothing to call, and a device without a shared
+clock implements nothing more. Firmware on embedded_bedrock gets it from <code>bedrock_led</code> with <code>bedrock_sync</code>.</p>
+<h2 id="evolution">Evolution<a class="headerlink" href="#evolution" title="Permanent link">&para;</a></h2>
 <p><code>Mode</code> and <code>Brightness</code> are <code>Unsized</code> (the default): a later version may add a variant (an in-between brightness
 level, a new mode) without breaking a host built against an older <code>ww_indication</code>, which reads it as <code>Unknown(u32)</code>
 (SW-47).</p>

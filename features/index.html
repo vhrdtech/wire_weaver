@@ -6511,6 +6511,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
+<li>📋 <strong>EVO-10 Checker knows the <code>Unknown(u32)</code> catch-all</strong> — the evolution checker (<code>ww api save</code> / <code>check</code>,
+  <code>wire_weaver_client::compat::check_enum</code>) reports a variant appended to an <code>Unsized</code> enum as breaking ("variant
+  Host is unknown to the old version"), although since SW-47 an older reader gets it as <code>Unknown(n)</code>, as
+  <code>docs/evolution/rules.md</code> says. The <code>ww_self</code> model doesn't record whether an enum has the catch-all
+  (<code>no_future_version</code> or not): needs a defaulted field on <code>ItemEnum</code> set by codegen, the checker and the
+  dynamic decoder reading it, and snapshots saved again. Found with <code>ww_timebase::SyncState::Conflict</code> (STD-49).</li>
 </ul>
 <h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6547,6 +6553,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   that connects print (to stderr) or save that command's own connection, with the same <code>Monitor</code>, <code>LiveFeed</code> and
   <code>TapeWriter</code>; the tap decoder orders a block's records by time so a reply is paired with its request
   (<code>docs/cli_reference.md#ww-monitor</code>).</li>
+<li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
+  by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
+  rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the
+  <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; Ctrl+C leaves the devices in holdover.
+  <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  tpm P2618#21oct-1707.</li>
 <li>🧪 <strong>TOOL-15 <code>ww pins test</code> / <code>ww pins list</code></strong> · <code>v0.5.x</code> — pin tests on any device serving <code>ww_pin_diag::PinDiag</code>
   (STD-47) at any path, found by introspection (<code>docs/cli_reference.md#ww-pins</code>): pulls, shorts to GND, to the
   supply and between points, only what each point's caps allow, refusals shown, <code>release_all</code> at the end also on
@@ -6609,6 +6621,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>STD-17 <code>ww_timebase</code></strong> — <code>Clock</code>: device time as <code>ww_si::Second</code> (full width via <code>now()</code>, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), <code>sync_status</code>, a <code>time_map</code> stream mapping device time to
   shared time, <code>set_time_of_day</code> for a master. <code>tests/io_timebase</code>, <code>docs/std_library/ww_timebase.md</code>.</li>
+<li>🧪 <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
+  clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
+  <code>Clock</code> gets the optional <code>host_sync</code> group (<code>steer(SteerPoint) -&gt; SyncSource</code>: offset in UTC µs, rate in ppb and
+  the host's error estimate; a line-locked device only notes the point; <code>shared_now()</code>; <code>set_sources</code> / <code>sources</code>: an
+  explicit ordered list of allowed sources, <code>None</code> keeps the fixed ranking), <code>SyncSource</code> (<code>Host</code>,
+  <code>Line</code>), <code>SyncStatus::source</code> / <code>error</code>, <code>TimeMapPoint::source</code> (the seam of a switch, slewed, not stepped),
+  <code>SyncState::Conflict</code> (two masters on a line). <code>configure_sync</code> stays the line's role, the IRIG-B / PPS model is
+  unchanged. Host side: crate <code>ww_clock_sync</code> (<code>Estimator</code>: min-RTT samples of <code>now()</code>, least squares over a 30 s
+  window against the monotonic clock; <code>DeviceTime</code>; <code>HostClock</code>; <code>ClockSync</code> for any process holding a connection),
+  deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
+  <code>tests/io_timebase</code>; <code>docs/std_library/ww_timebase.md#host-sync-std-49</code>. Device side: embedded_bedrock
+  <code>bedrock_sync</code>. Hardware check open: Donguru and rePort steered by <code>ww sync</code> on omarchy-m1, <code>sync_status</code>
+  <code>Locked</code>, the residual offset measured with <code>shared_now</code>.</li>
 <li>✅ <strong>STD-18 <code>ww_adc</code></strong> — <code>Adc</code>, <code>AdcStream</code> (sideband <code>Open</code> / <code>Close</code>), <code>AdcCapture</code>. Fill-in done:
   full rustdoc, <code>tests/io_adc</code> mock server (one test per trait), <code>docs/std_library/ww_adc.md</code>, API snapshot
   (STD-13).</li>
@@ -6689,6 +6714,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     <code>AlertBrightness</code>, <code>animation_enable</code>, <code>test_mode</code> / <code>TestMode</code> and <code>HAS_NOT_CONTROLLABLE</code>. Docs
     <code>docs/std_library/ww_indication.md</code>, tests <code>tests/indication</code> (mock servers with only <code>mode</code>, and with every
     optional item).</li>
+<li>🧪 <strong>STD-50 <code>ww_indication</code> animations in phase</strong> — a device with a shared clock (STD-49 or a sync line) aligns
+  its periodic animations to period boundaries of shared time (UTC, WSPR-style: <code>t mod P</code>), so devices showing the
+  same animation are in phase with no epoch passed around, across PCs to NTP precision. A rule in the trait's docs,
+  no API item (an explicit epoch was dropped: every server would have had to implement or omit it).
+  <code>docs/std_library/ww_indication.md#animations-in-phase-std-50</code>; device side embedded_bedrock <code>bedrock_led</code> with
+  <code>bedrock_sync</code>. Hardware check open: Donguru and rePort breathing in phase.</li>
 <li>✅ <strong>STD-29 <code>ww_can_bus</code> on the stdlib idioms</strong> — from simple bridges to bus debuggers. <code>Can</code> is one controller:
   six required items (<code>capabilities()</code>, <code>configure(CanConfig)</code> answering what was set, <code>config()</code>, the observable
   <code>status</code>, the counted <code>rx</code> stream, the <code>tx</code> credit sink) and <code>#[optional]</code> <code>set_mode</code> (incl. <code>Config</code> and
@@ -6818,6 +6849,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>STD-46 More I2C slave addressing</strong> — a second address or an address mask (one emulator answering for several
   chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
   so this is per-device capability.</li>
+<li>💡 <strong>STD-51 Automatic sync master election</strong> — boards that share a two-way link (CAN, Ethernet, USB through one
+  host) choose the master of their sync line themselves, PTP-BMCA style: the best source wins (a GPS or a
+  host-steered board with a good error bound), the lowest serial breaks a tie. Not over IRIG-B or PPS: they are
+  one-way, so today the master is set explicitly with <code>configure_sync</code> (STD-49,
+  <code>docs/std_library/ww_timebase.md#two-pcs-two-boards-one-line</code>).</li>
 <li>🚧 <strong>STD-47 <code>ww_pin_diag</code> pin tests</strong> · <code>v0.5.x</code> — <code>PinDiag { const POINTS; set(point, PointState); read(point);
   release_all() }</code>: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
   bring-up, verification and production tests; the firmware keeps its board's rules and answers <code>NotCapable</code>,

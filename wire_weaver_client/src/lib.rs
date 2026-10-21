@@ -1,5 +1,9 @@
 use std::time::Duration;
 
+// generated clients (the hub's, in `hub`) name this crate by its name
+#[cfg(feature = "hub")]
+extern crate self as wire_weaver_client;
+
 mod client;
 pub mod client_meta;
 mod compat;
@@ -13,6 +17,7 @@ pub mod evolution;
 pub mod expr;
 pub mod follow;
 pub mod holders;
+pub mod hub;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;
 mod layout;

@@ -36,6 +36,10 @@ local_socket = [
     "dep:ww_device",
     "tokio/io-util",
 ] # device served by another process (or the ww hub): Unix socket, named pipe on Windows
+hub = [
+    "local_socket",
+    "dep:ww_hub_api",
+] # connect() through the ww hub when it holds the device or it pays off (CLT-39), starts the hub if needed
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
@@ -66,6 +70,7 @@ ww_client_server = { workspace = true, features = ["std"] }
 ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
+ww_hub_api = { workspace = true, features = ["std"], optional = true }
 ww_link = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true # the runtime dir for holders' lock files, sockets with `local_socket`
 ww_lz4 = { workspace = true, features = ["std"] }

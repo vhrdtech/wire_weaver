@@ -8,6 +8,7 @@ use ww_self::ApiBundleOwned;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
 use crate::client_meta::ClientMetaSetting;
+use crate::hub::{HubMode, OpenCounter};
 use crate::{ClientMeta, DeviceInfo, SeqTy};
 
 /// Configuration of device enumeration, selection and connection.
@@ -40,6 +41,8 @@ pub struct ClientConfig {
     link_setup_timeout: Option<Duration>,
     tap: Option<ww_tap::Recorder>,
     client_meta: ClientMetaSetting,
+    hub_mode: Option<HubMode>,
+    hub_opens: Option<OpenCounter>,
 }
 
 #[derive(Clone)]
@@ -62,6 +65,12 @@ pub(crate) struct ValidatedConfig {
     pub(crate) tap: Option<ww_tap::Recorder>,
     /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
     pub(crate) client_meta: Option<Box<ww_link::ClientMetaOwned>>,
+    /// [ClientConfig::hub], else [crate::hub::MODE_ENV], else auto
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    pub(crate) hub_mode: HubMode,
+    /// [ClientConfig::hub_opens], else [crate::hub::OPENS_ENV], else 3 in 60 s
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    pub(crate) hub_opens: OpenCounter,
 }
 
 #[derive(Clone, Debug)]
@@ -272,6 +281,8 @@ impl ClientConfig {
                 ClientMetaSetting::On(meta) => Some(Box::new(meta.resolve())),
                 ClientMetaSetting::Off => None,
             },
+            hub_mode: s.hub_mode.unwrap_or_else(HubMode::from_env),
+            hub_opens: s.hub_opens.unwrap_or_else(OpenCounter::from_env),
         })
     }
 
@@ -370,6 +381,23 @@ impl ClientConfig {
         let mut f = self;
         f.pieces.push(ConfigPiece::IpcPath { path });
         f
+    }
+
+    /// When `connect()` goes through the ww hub (CLT-39), see [HubMode]. Not set: the `WW_HUB` environment
+    /// variable, else [HubMode::Auto]. Routing needs the `hub` feature; without it, every mode but `Required`
+    /// connects directly and `Required` fails.
+    pub fn hub(self, mode: HubMode) -> Self {
+        let mut c = self;
+        c.hub_mode = Some(mode);
+        c
+    }
+
+    /// How many opens within how long move a device into the hub in [HubMode::Auto], see [OpenCounter]. Not set:
+    /// the `WW_HUB_OPENS` environment variable (`N/T`), else 3 within 60 s.
+    pub fn hub_opens(self, counter: OpenCounter) -> Self {
+        let mut c = self;
+        c.hub_opens = Some(counter);
+        c
     }
 
     /// The ww hub's own API (`ww_hub_api`) on the user's hub socket, instead of a device.

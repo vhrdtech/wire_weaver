@@ -40,7 +40,14 @@ struct WwInterface {
     seq_prefix: bool,
 }
 
-pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
+/// A USB device selected by `connect()`, with what the client says about itself for the lock file.
+pub(crate) struct UsbTarget {
+    pub(crate) info: DeviceInfo,
+    pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
+}
+
+pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
+    let di = &target.info;
     trace!("connecting to USB device: {di:?}");
     let device = di.open().wait().map_err(with_hint)?;
     let active_configuration = device
@@ -57,10 +64,17 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         serial: di.serial_number().unwrap_or_default(),
         iface: Some(ww.number),
     });
-    let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+    let claim = match crate::holders::claim_with(
+        &key,
+        crate::holders::Mode::Direct,
+        target.meta.as_deref(),
+    ) {
         Ok(claim) => Some(claim),
         Err(crate::holders::ClaimError::HeldBy(holder)) => {
-            bail!("device is already open by another WireWeaver program or connection; {holder}");
+            bail!(
+                "device is already open by another WireWeaver program or connection; {holder}{}",
+                crate::hub::busy_hint(&holder)
+            );
         }
         Err(crate::holders::ClaimError::Io(e)) => {
             warn!("could not record holding {key} ({e:#}), continuing without it");
@@ -169,7 +183,15 @@ pub(crate) async fn try_connect(
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
     let devices = nusb::list_devices().await.context("listing USB devices")?;
-    start_event_loop(c, devices, cmd_rx)
+    let (nusb_info, info) = match select_matching(c, devices)? {
+        Ok(matched) => matched,
+        Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
+    };
+    #[cfg(feature = "hub")]
+    let route = crate::hub::route(c, &hub_key(&nusb_info)).await?;
+    #[cfg(not(feature = "hub"))]
+    let route = no_hub(c)?;
+    start_event_loop(c, nusb_info, info, route, cmd_rx)
 }
 
 pub(crate) fn try_connect_blocking(
@@ -178,26 +200,88 @@ pub(crate) fn try_connect_blocking(
 ) -> Result<Selected, anyhow::Error> {
     // TODO: figure out if nusb::list_devices() hangs in other scenarios, apart from enumeration problems on Linux, add timeout
     let devices = nusb::list_devices().wait().context("listing USB devices")?;
-    start_event_loop(c, devices, cmd_rx)
-}
-
-fn start_event_loop(
-    c: &ValidatedConfig,
-    devices: impl Iterator<Item = nusb::DeviceInfo>,
-    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
-) -> Result<Selected, anyhow::Error> {
     let (nusb_info, info) = match select_matching(c, devices)? {
         Ok(matched) => matched,
         Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
     };
+    #[cfg(feature = "hub")]
+    let route = {
+        // the tunnel's socket belongs to the runtime the event loop runs on, which a multi-thread one drives
+        // while this thread waits; a current-thread runtime only runs inside its own block_on
+        let handle = tokio::runtime::Handle::current();
+        if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread {
+            handle.block_on(crate::hub::route(c, &hub_key(&nusb_info)))?
+        } else if c.hub_mode == crate::hub::HubMode::Required {
+            bail!("connect_blocking() reaches the ww hub on a multi-thread tokio runtime only");
+        } else {
+            crate::hub::Route::Direct {
+                note: Some("connect_blocking() on a current-thread runtime: directly".into()),
+            }
+        }
+    };
+    #[cfg(not(feature = "hub"))]
+    let route = no_hub(c)?;
+    start_event_loop(c, nusb_info, info, route, cmd_rx)
+}
+
+/// The device's key in the hub's registry: `usb:<vid>:<pid>:<serial>`, without the interface number.
+#[cfg(feature = "hub")]
+fn hub_key(di: &DeviceInfo) -> String {
+    crate::holders::key_for(crate::holders::DeviceRef::Usb {
+        vid: di.vendor_id(),
+        pid: di.product_id(),
+        serial: di.serial_number().unwrap_or_default(),
+        iface: None,
+    })
+}
+
+/// Without the `hub` feature every connection is direct; one that requires the hub fails.
+#[cfg(not(feature = "hub"))]
+fn no_hub(c: &ValidatedConfig) -> anyhow::Result<()> {
+    if c.hub_mode == crate::hub::HubMode::Required {
+        bail!(
+            "the ww hub is required (WW_HUB=required or HubMode::Required), but wire_weaver_client is built \
+             without the `hub` feature"
+        );
+    }
+    Ok(())
+}
+
+#[cfg(feature = "hub")]
+type Route = crate::hub::Route;
+#[cfg(not(feature = "hub"))]
+type Route = ();
+
+fn start_event_loop(
+    c: &ValidatedConfig,
+    nusb_info: DeviceInfo,
+    info: crate::DeviceInfo,
+    route: Route,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected, anyhow::Error> {
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
+    #[cfg(feature = "hub")]
+    if let crate::hub::Route::Hub(tunnel) = route {
+        tokio::spawn(crate::local_socket::worker(cmd_rx));
+        let mut info = info;
+        info.location = format!("{} through the ww hub", info.location);
+        return Ok(Selected::Device {
+            handle: tunnel,
+            info: Box::new(info),
+        });
+    }
+    #[cfg(not(feature = "hub"))]
+    let () = route;
     tokio::spawn(async move {
         super::event_loop::usb_worker(cmd_rx).await;
     });
     Ok(Selected::Device {
-        handle: Box::new(nusb_info),
+        handle: Box::new(UsbTarget {
+            info: nusb_info,
+            meta: c.client_meta.clone(),
+        }),
         info: Box::new(info),
     })
 }

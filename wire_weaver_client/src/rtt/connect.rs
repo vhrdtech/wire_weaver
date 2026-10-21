@@ -40,6 +40,7 @@ pub(crate) fn try_connect(
             target,
             speed_hz,
             control_block,
+            meta: c.client_meta.clone(),
         }),
         info: Box::new(info),
     })

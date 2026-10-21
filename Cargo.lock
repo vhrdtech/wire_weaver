@@ -5862,6 +5862,7 @@ dependencies = [
  "ww_device",
  "ww_framer",
  "ww_global",
+ "ww_hub_api",
  "ww_link",
  "ww_local_socket",
  "ww_lz4",

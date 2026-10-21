@@ -14,7 +14,7 @@ nusb.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
 tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["local_socket", "in_process"] }
+wire_weaver_client = { workspace = true, features = ["hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }
 ww_device.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }

@@ -2,7 +2,8 @@
 //! a local socket. Design: tpm P2401 `design/ww-hub.md`; docs: `docs/transport/hub.md`.
 //!
 //! This crate is the hub as a library, so any program can host it: `ww hub serve`, or an app that calls
-//! [main_if_hub] first in `main` so the client library can start the hub from the app's own executable.
+//! [main_if_hub] first in `main` so the client library can start the hub from the app's own executable (CLT-39,
+//! `wire_weaver_client::hub`).
 //!
 //! Built so far (SRV-28): one hub per user (an OS lock on `hub.lock`, released on a crash), the socket in the runtime
 //! dir, the `Preamble` of each connection picking the hub's API or a device, the API
@@ -32,8 +33,8 @@ use ww_local_socket::{Answer, Peer, Preamble, PreambleError, Status, Target};
 
 /// `ww_hub` version: a newer hub replaces an older one (SRV-30).
 pub const HUB_VERSION: &str = env!("CARGO_PKG_VERSION");
-/// Set by a client that starts the hub from an app's own executable (see [main_if_hub]).
-pub const SERVE_ENV: &str = "WW_HUB_SERVE";
+/// Set by a client that starts the hub (see [main_if_hub]).
+pub const SERVE_ENV: &str = wire_weaver_client::hub::SERVE_ENV;
 /// Idle exit in seconds, overrides [HubConfig::idle_exit]'s default.
 pub const IDLE_EXIT_ENV: &str = "WW_HUB_IDLE_EXIT";
 
@@ -91,10 +92,19 @@ impl Shutdown {
 }
 
 /// If this process was started as the hub ([SERVE_ENV] set), serves until the hub exits and ends the process;
-/// returns otherwise. Put it first in `main` of an app that should be able to host the hub itself, so a user who
-/// has only that app installed still gets one.
+/// started with `--hub-version` (a client choosing the newest hub executable asks so), prints [HUB_VERSION] and
+/// exits; returns otherwise, after telling `wire_weaver_client` that this executable can serve as the hub. Put it
+/// first in `main` of an app that should be able to host the hub itself, so a user who has only that app installed
+/// still gets one (CLT-39).
 pub fn main_if_hub() {
+    if std::env::args_os().nth(1).as_deref()
+        == Some(std::ffi::OsStr::new(wire_weaver_client::hub::VERSION_ARG))
+    {
+        println!("{HUB_VERSION}");
+        std::process::exit(0);
+    }
     if std::env::var_os(SERVE_ENV).is_none() {
+        wire_weaver_client::hub::register_self_hosting(HUB_VERSION);
         return;
     }
     let code = match run_blocking() {

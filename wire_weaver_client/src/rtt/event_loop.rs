@@ -43,6 +43,8 @@ pub(crate) struct RttHandle {
     pub(crate) target: String,
     pub(crate) speed_hz: Option<u32>,
     pub(crate) control_block: Option<RttControlBlock>,
+    /// Written into the holder's lock file (CLT-38, CLT-41)
+    pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
 }
 
 pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
@@ -109,11 +111,16 @@ impl ProbeRtt {
             probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
             chip: &h.target,
         });
-        let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+        let claim = match crate::holders::claim_with(
+            &key,
+            crate::holders::Mode::Direct,
+            h.meta.as_deref(),
+        ) {
             Ok(claim) => Some(claim),
             Err(crate::holders::ClaimError::HeldBy(holder)) => {
                 bail!(
-                    "probe is already open by another WireWeaver program or connection; {holder}"
+                    "probe is already open by another WireWeaver program or connection; {holder}{}",
+                    crate::hub::busy_hint(&holder)
                 );
             }
             Err(crate::holders::ClaimError::Io(e)) => {

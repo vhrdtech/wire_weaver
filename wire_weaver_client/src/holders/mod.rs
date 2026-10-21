@@ -25,6 +25,8 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::client_meta::ClientMetaOwned;
+
 /// Identifies the device a lock file is about, see [`key_for`].
 pub enum DeviceRef<'a> {
     /// `usb:<vid>:<pid>:<serial>[:<iface>]`
@@ -99,15 +101,31 @@ pub struct Holder {
     pub since: SystemTime,
     /// `wire_weaver_client`'s own version, so an old lock file from a pre-CLT-38 build never confuses a reader.
     pub ww_version: String,
+    /// What the holder said about itself (CLT-41): `Cli`, `Gui`, `Notebook`, `Service`, `Hub`, `Test`, `Unknown`;
+    /// empty when it sent nothing (or wrote the file before CLT-39).
+    pub kind: String,
+    /// Login name, empty if unknown.
+    pub user: String,
+    /// Host name, empty if unknown.
+    pub host: String,
+    /// A name the user gave the holder, empty if none.
+    pub label: String,
+    /// What the holder does with the device, e.g. "DFU update", empty if not said.
+    pub purpose: String,
+    /// Shared by every connection of one client object, 0 if unknown.
+    pub instance_id: u64,
 }
 
 impl Holder {
-    fn current(mode: Mode) -> Holder {
+    fn current(mode: Mode, meta: Option<&ClientMetaOwned>) -> Holder {
         let exe = std::env::current_exe().unwrap_or_default();
-        let program = exe
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "<unknown>".to_string());
+        let program = match meta {
+            Some(m) if !m.program.is_empty() => m.program.clone(),
+            _ => exe
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "<unknown>".to_string()),
+        };
         Holder {
             pid: std::process::id(),
             program,
@@ -115,6 +133,12 @@ impl Holder {
             mode,
             since: SystemTime::now(),
             ww_version: env!("CARGO_PKG_VERSION").to_string(),
+            kind: meta.map(|m| format!("{:?}", m.kind)).unwrap_or_default(),
+            user: meta.map(|m| m.user.clone()).unwrap_or_default(),
+            host: meta.map(|m| m.host.clone()).unwrap_or_default(),
+            label: meta.map(|m| m.label.clone()).unwrap_or_default(),
+            purpose: meta.and_then(|m| m.purpose.clone()).unwrap_or_default(),
+            instance_id: meta.map(|m| m.instance_id).unwrap_or(0),
         }
     }
 
@@ -128,6 +152,12 @@ impl Holder {
             mode: Mode::Direct,
             since: UNIX_EPOCH,
             ww_version: String::new(),
+            kind: String::new(),
+            user: String::new(),
+            host: String::new(),
+            label: String::new(),
+            purpose: String::new(),
+            instance_id: 0,
         }
     }
 
@@ -144,7 +174,13 @@ impl Holder {
              exe = {exe}\n\
              mode = {mode}\n\
              since = {since}\n\
-             ww_version = {ww_version}\n",
+             ww_version = {ww_version}\n\
+             kind = {kind}\n\
+             user = {user}\n\
+             host = {host}\n\
+             label = {label}\n\
+             purpose = {purpose}\n\
+             instance_id = {instance_id}\n",
             key = key,
             pid = holder.pid,
             program = holder.program,
@@ -152,6 +188,12 @@ impl Holder {
             mode = holder.mode,
             since = since,
             ww_version = holder.ww_version,
+            kind = holder.kind,
+            user = one_line(&holder.user),
+            host = one_line(&holder.host),
+            label = one_line(&holder.label),
+            purpose = one_line(&holder.purpose),
+            instance_id = holder.instance_id,
         )
     }
 
@@ -164,6 +206,7 @@ impl Holder {
         let mut mode = None;
         let mut since = None;
         let mut ww_version = None;
+        let mut extra = Holder::unknown();
         for line in content.lines() {
             let Some((k, v)) = line.split_once('=') else {
                 continue;
@@ -177,6 +220,13 @@ impl Holder {
                 "mode" => mode = Mode::parse(v),
                 "since" => since = v.parse::<u64>().ok(),
                 "ww_version" => ww_version = Some(v.to_string()),
+                // added with CLT-39, absent in older files
+                "kind" => extra.kind = v.to_string(),
+                "user" => extra.user = v.to_string(),
+                "host" => extra.host = v.to_string(),
+                "label" => extra.label = v.to_string(),
+                "purpose" => extra.purpose = v.to_string(),
+                "instance_id" => extra.instance_id = v.parse().unwrap_or(0),
                 _ => {}
             }
         }
@@ -187,6 +237,7 @@ impl Holder {
             mode: mode?,
             since: UNIX_EPOCH + std::time::Duration::from_secs(since?),
             ww_version: ww_version?,
+            ..extra
         };
         Some((key?, holder))
     }
@@ -198,14 +249,30 @@ impl Holder {
 
 impl fmt::Display for Holder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "held by {}", self.program)?;
+        if !self.label.is_empty() {
+            write!(f, " \"{}\"", self.label)?;
+        }
+        write!(f, ", pid {}", self.pid)?;
+        if !self.kind.is_empty() && self.kind != "Unknown" {
+            write!(f, ", {}", self.kind)?;
+        }
+        if !self.user.is_empty() {
+            write!(f, ", {}", self.user)?;
+            if !self.host.is_empty() {
+                write!(f, "@{}", self.host)?;
+            }
+        }
         write!(
             f,
-            "held by {}, pid {}, {}, since {}",
-            self.program,
-            self.pid,
+            ", {}, since {}",
             self.mode,
             format_time_of_day_utc(self.since)
-        )
+        )?;
+        if !self.purpose.is_empty() {
+            write!(f, " ({})", self.purpose)?;
+        }
+        Ok(())
     }
 }
 
@@ -245,6 +312,15 @@ impl Claim {
 /// Takes the exclusive lock for `key`, writing this process's identity into its lock file, before claiming the
 /// USB interface or RTT probe behind it. On [`ClaimError::HeldBy`], the caller never touches the device.
 pub fn claim(key: &str, mode: Mode) -> Result<Claim, ClaimError> {
+    claim_with(key, mode, None)
+}
+
+/// [`claim`], with what the client said about itself (CLT-41) in the lock file: kind, user, host, label, purpose.
+pub fn claim_with(
+    key: &str,
+    mode: Mode,
+    meta: Option<&ClientMetaOwned>,
+) -> Result<Claim, ClaimError> {
     let path = lock_path(key)?;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -254,7 +330,7 @@ pub fn claim(key: &str, mode: Mode) -> Result<Claim, ClaimError> {
         .open(&path)?;
     match file.try_lock() {
         Ok(()) => {
-            let holder = Holder::current(mode);
+            let holder = Holder::current(mode, meta);
             file.set_len(0)?;
             file.seek(SeekFrom::Start(0))?;
             file.write_all(Holder::serialize(key, &holder).as_bytes())?;
@@ -331,6 +407,11 @@ fn read_holder(file: &mut File) -> io::Result<Holder> {
     Ok(Holder::parse(&content).unwrap_or_else(Holder::unknown))
 }
 
+/// Free text from a device or the user on one line, so it can't add a `key = value` line of its own.
+fn one_line(s: &str) -> String {
+    s.replace(['\n', '\r'], " ")
+}
+
 fn lock_path(key: &str) -> io::Result<PathBuf> {
     Ok(holders_dir()?.join(format!("{}.lock", sanitize_file_name(key))))
 }
@@ -338,7 +419,7 @@ fn lock_path(key: &str) -> io::Result<PathBuf> {
 /// Replaces everything but ASCII letters, digits, `.`, `-` and `_` with `_`: device keys carry `:` (not valid in a
 /// Windows file name) and USB string descriptors are untrusted input (a device could claim any serial number,
 /// including one designed to look like a path), so nothing from a key reaches the filesystem unescaped.
-fn sanitize_file_name(key: &str) -> String {
+pub(crate) fn sanitize_file_name(key: &str) -> String {
     key.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
@@ -439,13 +520,33 @@ mod tests {
 
     #[test]
     fn holder_round_trips_through_content() {
-        let holder = Holder::current(Mode::Direct);
+        let meta = crate::ClientMeta::new()
+            .kind(crate::ClientKind::Gui)
+            .label("bench\n2")
+            .purpose("calibration")
+            .resolve();
+        let holder = Holder::current(Mode::Direct, Some(&meta));
         let content = Holder::serialize("usb:1:2:s", &holder);
         let (key, parsed) = Holder::parse_with_key(&content).unwrap();
         assert_eq!(key, "usb:1:2:s");
         assert_eq!(parsed.pid, holder.pid);
         assert_eq!(parsed.program, holder.program);
         assert_eq!(parsed.mode, holder.mode);
+        assert_eq!(parsed.kind, "Gui");
+        assert_eq!(
+            parsed.label, "bench 2",
+            "a line break can't start a line of its own"
+        );
+        assert_eq!(parsed.purpose, "calibration");
+        assert_eq!(parsed.instance_id, meta.instance_id);
+        assert!(parsed.to_string().contains("Gui"), "{parsed}");
+    }
+
+    #[test]
+    fn reads_a_file_written_before_client_meta() {
+        let content = "key = usb:1:2:s\npid = 7\nprogram = dg\nexe = /bin/dg\nmode = direct\nsince = 1\nww_version = 0.5.0\n";
+        let (_, h) = Holder::parse_with_key(content).unwrap();
+        assert_eq!((h.pid, h.kind.as_str()), (7, ""));
     }
 
     #[test]

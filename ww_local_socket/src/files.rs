@@ -9,3 +9,7 @@ pub const HUB_LOCK: &str = "hub.lock";
 pub const HOLDERS_DIR: &str = "holders";
 /// Held by whoever starts a hub, so two programs starting one at once end up with one.
 pub const HUB_START_LOCK: &str = "hub.start.lock";
+/// The open counter of each device (CLT-39): when it was opened lately, one file per device key.
+pub const OPENS_DIR: &str = "opens";
+/// Where a hub started by a client writes its output (stderr), replaced at each start.
+pub const HUB_LOG: &str = "hub.log";

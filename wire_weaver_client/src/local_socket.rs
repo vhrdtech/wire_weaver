@@ -1,6 +1,6 @@
 //! Local socket transport (TR-16): a device served by another process on the same PC, over a Unix domain socket
 //! (Linux, macOS) or a named pipe (Windows), see [ww_local_socket]. Reached with
-//! [ClientConfig::ipc_path](crate::ClientConfig::ipc_path) today, through the ww hub (SRV-13) later.
+//! [ClientConfig::ipc_path](crate::ClientConfig::ipc_path), or through the ww hub (SRV-13, see [crate::hub]).
 //!
 //! The connection starts with the hub [Preamble] naming the device, then carries one
 //! [ww_link] message per `| len: u32 LE | kind | payload |`; a reliable stream, so [ww_framer] is not used. Link
@@ -63,15 +63,18 @@ pub(crate) fn try_connect(
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
-    tokio::spawn(async move {
-        debug!("local socket worker started");
-        crate::event_loop::core::worker(cmd_rx, LocalSocketTransport).await;
-        debug!("local socket worker exited");
-    });
+    tokio::spawn(worker(cmd_rx));
     Ok(Selected::Device {
         info: Box::new(device_info(&to.path.display().to_string())),
         handle: Box::new(to),
     })
+}
+
+/// The event loop on a local socket, until its commander is gone.
+pub(crate) async fn worker(cmd_rx: mpsc::Receiver<Command>) {
+    debug!("local socket worker started");
+    crate::event_loop::core::worker(cmd_rx, LocalSocketTransport).await;
+    debug!("local socket worker exited");
 }
 
 fn device_info(path: &str) -> crate::DeviceInfo {
@@ -101,38 +104,84 @@ impl Transport for LocalSocketTransport {
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
     ) -> Result<Opened<LocalTx, LocalRx>, String> {
-        let to = handle
-            .downcast::<LocalTarget>()
-            .map_err(|_| "expected a local socket target".to_string())?;
-        let shown = to.path.display().to_string();
-        let (stream, _peer) = ww_local_socket::connect(&to.path)
-            .await
-            .map_err(|e| format!("{shown}: {e}"))?;
-        let (mut rx, mut tx) = stream.split();
-        tx.write_all(&Preamble::new(to.target.clone()).encode())
-            .await
-            .map_err(|e| format!("{shown}: {e}"))?;
-        let answer = tokio::time::timeout(ANSWER_TIMEOUT, Answer::read(&mut rx))
-            .await
-            .map_err(|_| format!("{shown}: no answer to the preamble"))?
-            .map_err(|e| format!("{shown}: {e}"))?;
-        if answer.status != Status::Ok {
-            return Err(format!(
-                "{shown}: {} (served by version {})",
-                answer.status, answer.hub_version
-            ));
-        }
+        let tunnel = match handle.downcast::<LocalTarget>() {
+            Ok(to) => match open(&to.path, to.target.clone()).await {
+                Ok(tunnel) => tunnel,
+                Err(e) => return Err(e.to_string()),
+            },
+            // opened already, e.g. through the hub when connect() picked the route (CLT-39)
+            Err(handle) => *handle
+                .downcast::<Tunnel>()
+                .map_err(|_| "expected a local socket target".to_string())?,
+        };
         let mut tap = tap;
         ww_tap::Tap::session(
             &mut tap,
-            &crate::tap::host_session(ww_tap::Medium::LocalSocket, ww_tap::Framer::None, 0, &shown),
+            &crate::tap::host_session(
+                ww_tap::Medium::LocalSocket,
+                ww_tap::Framer::None,
+                0,
+                &tunnel.shown,
+            ),
         );
         Ok(Opened {
-            tx: LocalTx(MessageWriter::new(tx)),
+            tx: LocalTx(MessageWriter::new(tunnel.tx)),
             // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-            rx: LocalRx(MessageReader::new(rx, crate::DEFAULT_MAX_MESSAGE_SIZE)),
+            rx: LocalRx(MessageReader::new(
+                tunnel.rx,
+                crate::DEFAULT_MAX_MESSAGE_SIZE,
+            )),
         })
     }
+}
+
+/// A connection whose preamble was answered `Ok`: ready to carry the link.
+pub(crate) struct Tunnel {
+    rx: RecvHalf,
+    tx: SendHalf,
+    /// The socket, for messages and the tap
+    pub(crate) shown: String,
+}
+
+/// Why [open] failed.
+#[derive(Debug)]
+pub(crate) enum OpenError {
+    /// Nothing answers there, or the connection broke
+    Io(String),
+    /// The other side answered, with a status but `Ok`
+    Refused { shown: String, answer: Answer },
+}
+
+impl std::fmt::Display for OpenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpenError::Io(e) => f.write_str(e),
+            OpenError::Refused { shown, answer } => write!(
+                f,
+                "{shown}: {} (served by version {})",
+                answer.status, answer.hub_version
+            ),
+        }
+    }
+}
+
+/// Connects to the socket at `path` and asks for `target` with the preamble.
+pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
+    let shown = path.display().to_string();
+    let io = |e: &dyn std::fmt::Display| OpenError::Io(format!("{shown}: {e}"));
+    let (stream, _peer) = ww_local_socket::connect(path).await.map_err(|e| io(&e))?;
+    let (mut rx, mut tx) = stream.split();
+    tx.write_all(&Preamble::new(target).encode())
+        .await
+        .map_err(|e| io(&e))?;
+    let answer = tokio::time::timeout(ANSWER_TIMEOUT, Answer::read(&mut rx))
+        .await
+        .map_err(|_| io(&"no answer to the preamble"))?
+        .map_err(|e| io(&e))?;
+    if answer.status != Status::Ok {
+        return Err(OpenError::Refused { shown, answer });
+    }
+    Ok(Tunnel { rx, tx, shown })
 }
 
 pub(crate) struct LocalTx(MessageWriter<SendHalf>);

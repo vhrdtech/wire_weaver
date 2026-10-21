@@ -199,6 +199,37 @@ routed so far; RTT and the other transports connect directly (a program reaches 
 `ClientConfig::hub_device("rtt:..")`). `connect_blocking()` routes when it runs on a multi-thread tokio runtime
 (Python's is one); on a current-thread runtime it connects directly.
 
+## Python and notebooks (TOOL-18)
+
+The wheel (`wire_weaver_py`) carries `wire_weaver_client` with its `hub` feature and `ww_hub`, so Python follows the
+same routing as a Rust program, with no separate `ww` install needed:
+
+- `python -m wire_weaver.hub` serves the hub; `wire_weaver` registers `sys.executable`,
+  `["-m", "wire_weaver.hub"]` at import time ([register_self_hosting_with](#starting-the-hub)'s Python side), so
+  [`ensure_running`](#starting-the-hub) finds it the same way it finds a Rust program that called
+  `ww_hub::main_if_hub()`: among the candidates it starts the newest it can find (`ww` on `PATH` included, if
+  installed), asked `--hub-version` first. A bare `python -m wire_weaver.hub` without `WW_HUB_SERVE` set refuses
+  and says so, since it is meant to be started by the client library, not run by hand (`ww hub serve` is that for
+  a Rust-hosted hub).
+- `connect()` takes `hub_device` (a device key straight through the hub, skipping enumeration and the other
+  filters) in addition to the usual filters; `WW_HUB` / `WW_HUB_OPENS` route a plain `connect(vid_pid=..)` the same
+  way they do for a Rust client ([The modes](#the-modes), [Repeated opens](#repeated-opens)).
+- `wire_weaver.hub()` is a client of the hub's own API (`ww_hub_api`) through the dynamic client, starting the hub
+  if none runs: `hub().info`, `hub().registry.devices()`, `hub().registry.clients()`, and
+  `for e in hub().registry.events: ...` since a hub API stream is a `Stream` like any device's. It needs no API
+  crate on disk: the hub, like any device, answers an introspection request.
+
+Notebooks gain the most: `connect()`'s client meta kind defaults to `Notebook`, which allows a
+[polite handover](#reaching-devices-through-the-hub-clt-39) from a direct holder by default, and a kernel restart
+(a Python process exits and a new one takes its place) no longer drops the device, its steering or its
+introspection — the new process reconnects through the hub in the time of a local socket round trip, not a cold
+USB enumeration. Two notebooks, or a notebook and the `ww` CLI, share a board the same way.
+
+`connect_blocking()` (what every Python call uses, since `pyo3` releases the GIL around it rather than running on
+an async task) reaches a local socket or the hub the same way `connect()` does; `tests/hub_pytest_device` hosts the
+ww hub and an in-process test device in one binary (no real hardware), so `wire_weaver_py`'s pytest suite
+(`tests/test_hub.py`) covers the kernel-restart reconnect and two Python processes sharing one device without it.
+
 ## The `ww hub` command (TOOL-17)
 
 `ww hub status | stop | who | keep | serve` ([reference](../cli_reference.md#ww-hub)) is a client of the API above,

@@ -1328,6 +1328,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that connects print (to stderr) or save that command's own connection, with the same `Monitor`, `LiveFeed` and
   `TapeWriter`; the tap decoder orders a block's records by time so a reply is paired with its request
   (`docs/cli_reference.md#ww-monitor`).
+- ✅ **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel (`wire_weaver_py`) carries
+  `wire_weaver_client` with its `hub` feature and `ww_hub`; `python -m wire_weaver.hub` serves the hub, found by
+  `wire_weaver_client::hub::ensure_running` the same way as a Rust `ww_hub::main_if_hub()` program (`wire_weaver`
+  registers `sys.executable`, `["-m", "wire_weaver.hub"]`, at import). `connect()` takes `hub_device` (straight to
+  a device key through the hub) in addition to the usual filters, and follows `WW_HUB` / `WW_HUB_OPENS` the same
+  as a Rust client. `wire_weaver.hub()` connects to the hub's own API (`ww_hub_api`) through the dynamic client,
+  starting the hub if none runs (devices, clients, `for e in hub().registry.events: ...`). Fixed on the way:
+  `connect_blocking()` had no `InterfaceKind::Ipc` branch, so every blocking connect through a local socket or the
+  hub silently failed. Tested without hardware (`tests/hub_pytest_device` hosts the hub and an in-process device
+  in one binary): a kernel restart reconnects well under a second with the device still open and steered, two
+  Python processes share one device through the hub's tunnel (`wire_weaver_py/tests/test_hub.py`).
+  `docs/transport/hub.md#python-and-notebooks-tool-18`.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
@@ -1363,9 +1375,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
-- 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
-  wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,
-  `wire_weaver.hub()` gives the hub API through the dynamic client.
 - 📋 **TOOL-19 Escape device strings in `ww` output** — USB product and serial strings, `UserStr` errors,
   introspection docs and (with SRV-36) remote hub data are printed as they come, so a device can write terminal
   escape sequences into the user's terminal. One display helper that escapes control characters, outside `--json`.

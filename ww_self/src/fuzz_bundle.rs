@@ -141,6 +141,7 @@ impl Gen<'_> {
                 ident: format!("p{id}"),
                 docs: vec![],
                 optional: None,
+                meta: None,
             });
         }
         ApiBundleOwned {
@@ -151,6 +152,7 @@ impl Gen<'_> {
                 crate_idx: UNib32(0),
                 trait_name: "Fuzz".into(),
                 compact_id: None,
+                meta: None,
                 items,
             },
             types,

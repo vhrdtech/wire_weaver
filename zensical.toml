@@ -54,6 +54,7 @@ nav = [
                     "api/arrays.md",
                     { "Sync and async handlers" = "api/handlers.md" },
                     "api/optional_items.md",
+                    { "Metadata: claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",
                     "api/observing.md",
                     "api/batching.md",

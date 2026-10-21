@@ -1,6 +1,7 @@
 use super::{
     crate_walker::{CrateContext, Scratch},
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
+    meta::{MetaSite, get_meta},
     ty::{convert_named_def, convert_ty, convert_ty_path, convert_ty_path_segment},
     util::{
         collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr, get_optional_attr,
@@ -119,6 +120,14 @@ pub(crate) fn convert_api_items(
                     ident: trait_item_const.ident.to_string(),
                     docs,
                     optional: get_optional_attr(&trait_item_const.attrs, current_crate)?,
+                    meta: get_meta(
+                        &trait_item_const.attrs,
+                        MetaSite::Item {
+                            name: &trait_item_const.ident.to_string(),
+                            array: false,
+                        },
+                        current_crate,
+                    )?,
                 });
             }
             i => {
@@ -240,6 +249,14 @@ fn convert_api_item_fn(
         ident: item_fn.sig.ident.to_string(),
         docs: collect_docs(&item_fn.attrs),
         optional: get_optional_attr(&item_fn.attrs, current_crate)?,
+        meta: get_meta(
+            &item_fn.attrs,
+            MetaSite::Item {
+                name: &item_fn.sig.ident.to_string(),
+                array: false,
+            },
+            current_crate,
+        )?,
     })
 }
 
@@ -282,6 +299,7 @@ fn convert_api_item_stream(
         None => ApiItemKindOwned::Stream { ty, is_up },
     };
 
+    let array = matches!(multiplicity, Multiplicity::Array { .. });
     Ok(ApiItemOwned {
         id: UNib32(idx),
         kind,
@@ -290,6 +308,14 @@ fn convert_api_item_stream(
         ident: args.resource_name.to_string(),
         docs,
         optional: get_optional_attr(&item_macro.attrs, current_crate)?,
+        meta: get_meta(
+            &item_macro.attrs,
+            MetaSite::Item {
+                name: &args.resource_name.to_string(),
+                array,
+            },
+            current_crate,
+        )?,
     })
 }
 
@@ -389,6 +415,7 @@ fn convert_api_item_property(
     // the samples of a level share one clock (API-39): the `sample_times` of its updates
     let batched = args.batched.then_some(Batching::SharedClock);
 
+    let array = matches!(multiplicity, Multiplicity::Array { .. });
     Ok(ApiItemOwned {
         id: UNib32(idx),
         kind: ApiItemKindOwned::Property {
@@ -403,6 +430,14 @@ fn convert_api_item_property(
         ident: args.resource_name.to_string(),
         docs,
         optional: get_optional_attr(&item_macro.attrs, current_crate)?,
+        meta: get_meta(
+            &item_macro.attrs,
+            MetaSite::Item {
+                name: &args.resource_name.to_string(),
+                array,
+            },
+            current_crate,
+        )?,
     })
 }
 
@@ -444,6 +479,13 @@ fn convert_api_item_impl(
     )
     .context(current_crate.err_context())?;
     let optional = get_optional_attr(&item_macro.attrs, current_crate)?;
+    let meta = get_meta(
+        &item_macro.attrs,
+        MetaSite::Impl {
+            array: matches!(multiplicity, Multiplicity::Array { .. }),
+        },
+        current_crate,
+    )?;
     Ok(ApiItemOwned {
         id: UNib32(idx),
         kind,
@@ -452,6 +494,7 @@ fn convert_api_item_impl(
         ident: args.resource_name.to_string(),
         docs: collect_docs(&item_macro.attrs),
         optional,
+        meta,
     })
 }
 
@@ -494,6 +537,7 @@ pub(crate) fn convert_trait(
     }
     let items = convert_api_items(item_trait, current_crate, scratch)?;
     let compact_id = compact_trait_id(current_crate, &trait_name);
+    let meta = get_meta(&item_trait.attrs, MetaSite::Trait, current_crate)?;
     let trait_idx = scratch.root_bundle.traits.len() as u32;
     scratch
         .root_bundle
@@ -505,6 +549,7 @@ pub(crate) fn convert_trait(
                 trait_name,
                 items,
                 compact_id,
+                meta,
             },
             crate_idx,
         });
@@ -692,6 +737,7 @@ mod tests {
             optional: group.map(|g| OptionalOwned {
                 group: Some(g.into()),
             }),
+            meta: None,
         }
     }
 
@@ -705,6 +751,153 @@ mod tests {
             err.contains("group `format`") && err.contains("method `format`"),
             "{err}"
         );
+    }
+
+    /// Loads trait `Api` from a throwaway crate with `lib_rs` as its `lib.rs`.
+    fn load_src(name: &str, lib_rs: &str) -> Result<ww_self::ApiBundleOwned> {
+        let dir = std::env::temp_dir()
+            .join("ww_core_api_tests")
+            .join(format!("{name}-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname = \"test_api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("src/lib.rs"), lib_rs).unwrap();
+        let bundle = crate::load(&dir, Some("Api".into()), false);
+        std::fs::remove_dir_all(&dir).unwrap();
+        bundle
+    }
+
+    /// `#[claim]`, `#[shares]` and `#[label]` (SRV-34) land in the items' and traits' `meta`, `claim_mode` takes
+    /// the `ww_impl!`'s own claim before its trait's.
+    #[test]
+    fn meta_in_the_model() {
+        use ww_self::{ClaimMode, SharesOwned};
+        let bundle = load_src(
+            "meta",
+            r#"
+            #[ww_api_root]
+            pub trait Api {
+                #[claim(shared)]
+                #[shares(index = 0, pins = "PA11, PA12", peripherals = "FDCAN1")]
+                #[shares(index = 1, pins = "PB12-PB13")]
+                #[label("CAN1, DB-9 on the front", "CAN2")]
+                ww_impl!(bus[]: Bus);
+                #[label("Debug UART")]
+                ww_impl!(port: Port);
+                #[claim(observe)]
+                ww_impl!(capture: Port);
+                ww_impl!(plain: Plain);
+                #[label("Main power")]
+                property!(rw power: bool);
+            }
+            #[ww_trait]
+            pub trait Bus { fn send(); }
+            #[ww_trait]
+            #[claim]
+            pub trait Port { fn write(); }
+            #[ww_trait]
+            pub trait Plain { fn ping(); }
+            "#,
+        )
+        .unwrap();
+        let item = |name: &str| bundle.root.items.iter().find(|i| i.ident == name).unwrap();
+        let modes: Vec<_> = ["bus", "port", "capture", "plain", "power"]
+            .into_iter()
+            .map(|name| item(name).claim_mode(&bundle))
+            .collect();
+        assert_eq!(
+            modes,
+            [
+                Some(ClaimMode::Shared),
+                Some(ClaimMode::Exclusive),
+                Some(ClaimMode::Observe),
+                None,
+                None
+            ]
+        );
+        let bus = item("bus").meta.as_ref().unwrap();
+        let strings = |s: &[&str]| s.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            bus.shares,
+            [
+                SharesOwned {
+                    index: Some(UNib32(0)),
+                    pins: strings(&["PA11", "PA12"]),
+                    peripherals: strings(&["FDCAN1"]),
+                },
+                SharesOwned {
+                    index: Some(UNib32(1)),
+                    pins: strings(&["PB12", "PB13"]),
+                    peripherals: vec![],
+                },
+            ]
+        );
+        assert_eq!(item("bus").label(Some(1)), Some("CAN2"));
+        assert_eq!(item("bus").label(Some(2)), None);
+        assert_eq!(item("port").label(None), Some("Debug UART"));
+        assert_eq!(item("power").label(None), Some("Main power"));
+        assert!(item("plain").meta.is_none());
+    }
+
+    #[test]
+    fn meta_misplaced_or_malformed() {
+        let impls = "#[ww_trait] pub trait P { fn f(); }";
+        for (src, expected) in [
+            ("#[claim] fn send();", "#[claim] on `send`"),
+            ("#[claim] property!(rw speed: u32);", "#[claim] on `speed`"),
+            (
+                "#[shares(pins = \"PA1\")] stream!(rx: u8);",
+                "#[shares] on `rx`",
+            ),
+            ("#[claim] const SPEED: u32;", "#[claim] on `SPEED`"),
+            (
+                "#[claim(mine)] ww_impl!(p: P);",
+                "unknown claim mode `mine`",
+            ),
+            (
+                "#[claim] #[claim(shared)] ww_impl!(p: P);",
+                "more than one #[claim]",
+            ),
+            (
+                "#[shares(index = 0, pins = \"PA1\")] ww_impl!(p: P);",
+                "isn't a resource array",
+            ),
+            (
+                "#[shares(pin = \"PA1\")] ww_impl!(p: P);",
+                "unexpected or repeated `pin`",
+            ),
+            (
+                "#[shares(index = 1)] ww_impl!(p[]: P);",
+                "names no pins and no peripherals",
+            ),
+            (
+                "#[label(\"a\", \"b\")] fn f();",
+                "2 labels on an item that isn't a resource array",
+            ),
+            (
+                "#[label(\"a\")] #[label(\"b\")] fn f();",
+                "more than one #[label]",
+            ),
+            ("#[label(\" \")] fn f();", "an empty label"),
+        ] {
+            let src = format!("#[ww_api_root] pub trait Api {{ {src} }}\n{impls}");
+            let e = format!("{:?}", load_src("misplaced", &src).unwrap_err());
+            assert!(e.contains(expected), "{src}: {e}");
+        }
+        for (attr, expected) in [
+            (
+                "#[shares(pins = \"PA1\")]",
+                "#[shares] on a trait definition",
+            ),
+            ("#[label(\"x\")]", "#[label] on a trait definition"),
+        ] {
+            let src = format!("#[ww_api_root] {attr} pub trait Api {{ fn f(); }}");
+            let e = format!("{:?}", load_src("on_trait", &src).unwrap_err());
+            assert!(e.contains(expected), "{src}: {e}");
+        }
     }
 
     #[test]

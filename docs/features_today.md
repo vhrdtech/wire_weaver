@@ -155,6 +155,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - **[ECC-safe STM32 flash](api/ecc_flash.md)**: Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. <span class="ww-status">hardware check open</span>
 - **[I2C and SPI slave engine](api/bus_slave.md)**: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.
 - **Streaming LZ4**: `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes.
+- **[Claims, pins and labels](api/metadata.md)**: Mark a bus or port `#[claim(..)]`, the pins it `#[shares]` and a `#[label]` a person recognises: in introspection for the hub, `ww` and GUIs, so one program can have a resource to itself while others keep reading. <span class="ww-status">in progress</span>
 
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 

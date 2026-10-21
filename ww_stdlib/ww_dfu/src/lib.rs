@@ -141,6 +141,7 @@ pub trait UpdateNode {
 /// receives updates elsewhere) and by an updater (bootloader with a transport, recovery app), where it at least
 /// reboots back into the app.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait BootControl {
     /// Where the device stands between two updates.
     fn boot_state() -> BootState;
@@ -219,6 +220,7 @@ pub trait Inventory {
 /// expected is [Error::OutOfOrder] with the index the node expects, so the host can go back; a step with a lower
 /// index is accepted again and skipped (its reply was lost), as long as it is the same step.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait Stage {
     /// What this node accepts: piece size, how many calls may be in flight, targets, the plan area.
     fn limits() -> StageLimits;
@@ -362,6 +364,7 @@ pub trait Stage {
 /// Flow: `begin_bulk` → segments on `plan` (a credit sink) until `total_len` bytes are in, each placed by its offset
 /// → the node acknowledges on `plan_ack` at the end → the host calls `Stage::finish`.
 #[ww_trait]
+#[claim(exclusive)]
 pub trait StageBulk {
     /// Start (or resume) a bulk session for the plan with this header; the checks are those of `Stage::begin`.
     ///

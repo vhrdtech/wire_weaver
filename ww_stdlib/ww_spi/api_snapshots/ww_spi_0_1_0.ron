@@ -54,8 +54,8 @@
     "Every method returns [SpiError]: the framework\'s `CommonError` as [SpiError::Common], plus `BufferTooBig`. Each",
     "method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_spi", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Spi", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -418,7 +418,7 @@
             "after, as [CsMode::Auto]; with [CsMode::Manual] the bus must already be selected (`Spi::set_cs`).",
             "`WrongState` while not configured as [SpiRole::Master], `BufferTooBig` for `data` longer than [SPI_MAX] or",
             "this device\'s [SpiCapabilities::max_len].",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 4)))),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -434,7 +434,7 @@
             "[SpiOp::Transfer], concatenated in order. [SpiOp::Delay] waits between two ops without touching the lines.",
             "Errors as `Spi::transfer`; `BufferTooBig` also when the reads together exceed [SPI_MAX], `Unsupported` for an",
             "operation of a newer version.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -446,10 +446,10 @@
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "write", docs: [
             "Writes `data`, ignoring what comes back. Errors as `Spi::transfer`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this bus supports: frequency range, word sizes, master/slave, IO levels.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 12)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -465,7 +465,7 @@
             "`InUse` while `Spi::slave_frames` or `Spi::monitor` is open, `Unsupported` for a `word_bits`, a [CsMode] or an",
             "IO level the adapter doesn\'t have, `InvalidArgument` for a `freq` outside [SpiCapabilities], `Refused` when",
             "e.g. the bus already sits at a higher voltage than `io_level`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "active", ty: Bool),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -474,7 +474,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "set_cs", docs: [
             "Asserts or releases CS, with [CsMode::Manual]; `WrongState` with another [CsMode].",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 6, kind: StreamFn(ty: OutOfLine(type_idx: 14), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 13)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -491,10 +491,10 @@
             "",
             "Optional: an adapter without monitoring hardware leaves it out (`omit = [\"spi.monitor\"]`), and a host sees",
             "that in the device\'s introspection. `Unsupported` for a `word_bits` the monitor can\'t decode.",
-        ], optional: Some((group: None))),
+        ], optional: Some((group: None)), meta: None),
         (id: 7, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 15)), errors: None), multiplicity: Flat, since: None, ident: "slave_capabilities", docs: [
             "What slave mode supports: queue depth, register map, how fast.",
-        ], optional: Some((group: Some("slave")))),
+        ], optional: Some((group: Some("slave"))), meta: None),
         (id: 8, kind: StreamFn(ty: OutOfLine(type_idx: 20), delivery: Counted, args: [
             (ident: "config", ty: OutOfLine(type_idx: 19)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -515,7 +515,7 @@
             "`InUse` while the bus is a master or monitor, `Unsupported` for a source, `word_bits` or address width the",
             "device can\'t do ([SpiSlaveCapabilities]), `BufferTooBig` for a register map larger than",
             "[SpiSlaveCapabilities::map_len].",
-        ], optional: Some((group: Some("slave")))),
+        ], optional: Some((group: Some("slave"))), meta: None),
         (id: 9, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
@@ -525,7 +525,7 @@
             "Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps",
             "its contents between runs). Takes effect between two frames, never inside one. `BufferTooBig` past",
             "[SpiSlaveCapabilities::map_len].",
-        ], optional: Some((group: Some("slave")))),
+        ], optional: Some((group: Some("slave"))), meta: None),
         (id: 10, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "len", ty: NumericAny(Base(U16))),
@@ -535,7 +535,7 @@
             "Reads `len` bytes of the register map from `offset` as the master sees it: a `Spi::slave_map_write` still",
             "waiting for the frame to end shows once it is applied. `BufferTooBig` past [SpiSlaveCapabilities::map_len] or",
             "for `len` above [SPI_MAX].",
-        ], optional: Some((group: Some("slave")))),
+        ], optional: Some((group: Some("slave"))), meta: None),
         (id: 11, kind: FlowSink(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), flow: Credit), multiplicity: Flat, since: None, ident: "slave_answers", docs: [
             "Answers for [SpiSlaveAnswers::Queue], one item per frame, in order. A frame shorter than its answer leaves",
             "the rest unsent (dropped when CS goes inactive), a longer one gets the idle byte for the rest. An answer is",
@@ -545,11 +545,11 @@
             "refill its FIFO).",
             "Credit-based (API-28): the host never sends more than the device has room for",
             "([SpiSlaveCapabilities::queue_len] answers).",
-        ], optional: Some((group: Some("slave")))),
+        ], optional: Some((group: Some("slave"))), meta: None),
         (id: 12, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "slave_clear_answers", docs: [
             "Drops every queued answer and returns how many there were.",
-        ], optional: Some((group: Some("slave")))),
-    ], compact_id: Some(40)), crate_idx: 0),
+        ], optional: Some((group: Some("slave"))), meta: None),
+    ], compact_id: Some(40), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_spi", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

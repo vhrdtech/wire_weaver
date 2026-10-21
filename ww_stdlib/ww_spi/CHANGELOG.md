@@ -21,6 +21,7 @@
 
 ### 🚀 Features
 
+- `Spi` is `#[claim(exclusive)]` (SRV-34): a client can claim a controller through the hub. Wire compatible, only the introspection data changes.
 - Slave mode (STD-35): an `#[optional(slave)]` group in `Spi` (`omit = ["spi.slave"]` without it).
   `slave_frames(SpiSlaveConfig)` is a counted stream function: opening it makes the device a slave, and it reports
   every frame as a `SpiSlaveFrame` (MOSI, MISO, address, `underrun`, `overrun`). Answers come from the

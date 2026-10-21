@@ -102,7 +102,7 @@ fn doc_trait(
                 }
                 let lifetimes = generic_lifetimes(lifetimes);
                 let stream = stream_fn_note(&item_fn.attrs)?;
-                let notes = notes([stream, since]);
+                let notes = notes([stream, since, meta_note(&item_fn.attrs)]);
                 items.extend(quote! {
                     #(#docs)*
                     #(#[doc = #errors])*
@@ -163,6 +163,7 @@ fn doc_trait(
                             delivery,
                             batched,
                             since,
+                            meta_note(&item_macro.attrs),
                         ]);
                         items.extend(quote! {
                             #(#docs)*
@@ -205,7 +206,12 @@ fn doc_trait(
                             }
                             (PropertyAccess::WriteOnly, _) => "Write-only property.",
                         };
-                        let notes = notes([Some(access.to_string()), array, since]);
+                        let notes = notes([
+                            Some(access.to_string()),
+                            array,
+                            since,
+                            meta_note(&item_macro.attrs),
+                        ]);
                         let errors = errors_of(ident);
                         items.extend(quote! {
                             #(#docs)*
@@ -220,7 +226,7 @@ fn doc_trait(
                         let ident = &args.resource_name;
                         let ext_trait = &args.type_or_trait;
                         let (index, array) = index_arg(&args.multiplicity);
-                        let notes = notes([array, since]);
+                        let notes = notes([array, since, meta_note(&item_macro.attrs)]);
                         items.extend(quote! {
                             #(#docs)*
                             #notes
@@ -239,7 +245,11 @@ fn doc_trait(
                 let mut lifetimes = vec![];
                 collect_lifetimes(ty, &mut lifetimes);
                 let lifetimes = generic_lifetimes(lifetimes);
-                let notes = notes([Some("Constant property, never changes.".to_string()), since]);
+                let notes = notes([
+                    Some("Constant property, never changes.".to_string()),
+                    since,
+                    meta_note(&item_const.attrs),
+                ]);
                 items.extend(quote! {
                     #(#docs)*
                     #notes
@@ -252,6 +262,7 @@ fn doc_trait(
     }
 
     let docs = doc_attrs(&item_trait.attrs);
+    let meta = meta_note(&item_trait.attrs).map(|note| quote! { #[doc = ""] #[doc = #note] });
     let vis = &item_trait.vis;
     let ident = &item_trait.ident;
     let note = "WireWeaver API: describes the resources, it is not implemented directly, server and client code \
@@ -261,6 +272,7 @@ fn doc_trait(
         (!matches!(vis, Visibility::Public(_))).then(|| quote! { #[allow(dead_code)] });
     Ok(quote! {
         #(#docs)*
+        #meta
         #[doc = ""]
         #[doc = #note]
         #allow_dead_code
@@ -348,6 +360,25 @@ fn since_note(attrs: &[Attribute]) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Note of `#[claim]`, `#[shares]` and `#[label]` (SRV-34), as written: they are checked when the API is loaded.
+fn meta_note(attrs: &[Attribute]) -> Option<String> {
+    let written: Vec<_> = attrs
+        .iter()
+        .filter(|a| {
+            ["claim", "shares", "label"]
+                .iter()
+                .any(|n| a.path().is_ident(n))
+        })
+        .map(|a| format!("`#[{}]`", a.meta.to_token_stream()))
+        .collect();
+    (!written.is_empty()).then(|| {
+        format!(
+            "{}: metadata for the hub, `ww` and GUIs, see `docs/api/metadata.md`.",
+            written.join(" ")
+        )
+    })
 }
 
 /// Note of a stream function (`#[stream(T, kind)] fn ..`): opening it starts a stream of `T`.

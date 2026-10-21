@@ -281,6 +281,7 @@ impl<'a, 'r> Canonical<'a, 'r> {
                 crate_idx: UNib32(0),
                 trait_name: String::new(),
                 compact_id: None,
+                meta: None,
                 items: vec![],
             },
             types: self.out_types.into_iter().map(Option::unwrap).collect(),

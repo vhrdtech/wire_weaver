@@ -812,6 +812,7 @@ pub fn instantiate(bundle: &mut ApiBundleOwned) -> Result<()> {
             crate_idx: UNib32(0),
             trait_name: String::new(),
             compact_id: None,
+            meta: None,
             items: vec![],
         },
     );
@@ -1316,6 +1317,7 @@ mod tests {
                 crate_idx: UNib32(0),
                 trait_name: "Api".into(),
                 compact_id: None,
+                meta: None,
                 items: vec![crate::ApiItemOwned {
                     id: UNib32(0),
                     kind: ApiItemKindOwned::Property {
@@ -1330,6 +1332,7 @@ mod tests {
                     ident: "p".into(),
                     docs: vec![],
                     optional: None,
+                    meta: None,
                 }],
             },
             types,

@@ -213,6 +213,13 @@ so `ww api check` treats the marker by what it does to their Rust code:
 * Making an optional item required again, moving it to another group or out of its group: a break of the API crate.
   A server leaving it out no longer compiles (no handler), or silently keeps an item it meant to leave out.
 
+### Metadata attributes
+
+`#[claim(..)]`, `#[shares(..)]` and `#[label(..)]` (SRV-34, [Metadata](../api/metadata.md)) are not on the wire and a
+server doesn't use them: adding, changing or removing one is compatible, `ww api check` lists it. Only the
+introspection data (and so the API hash) changes. Removing a `#[claim]` does change what the hub lets a program do: a
+program that claims that resource is refused from then on, so say so in the changelog.
+
 ### API model
 
 API model (like `ww_client_server`) is part of the compatibility equation, it is not allowed to update the model

@@ -1,4 +1,5 @@
 use super::api::{compact_trait_id, convert_api_items};
+use super::meta::{MetaSite, get_meta};
 use super::util::{UseLeaf, collect_docs, use_tree_leaves};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
@@ -80,6 +81,7 @@ fn load_inner(
         docs: collect_docs(&item_trait.attrs),
         crate_idx: 0.into(),
         compact_id: compact_trait_id(&entry, &trait_name),
+        meta: get_meta(&item_trait.attrs, MetaSite::Trait, &entry)?,
         trait_name,
         items,
     };

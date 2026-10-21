@@ -262,6 +262,30 @@ impl<I: DfuIo> Dfuse<I> {
         Ok(())
     }
 
+    /// The bootloader version: the first byte of the answer to DfuSe "get commands" (`0x93` is V9.3).
+    pub async fn bootloader_version(&mut self) -> Result<u8, Error> {
+        self.to_idle().await?;
+        let b = self
+            .io
+            .control_in(DFU_UPLOAD, 0, self.transfer_size)
+            .await?;
+        self.to_idle().await?;
+        b.first()
+            .copied()
+            .ok_or_else(|| Error::Protocol("get commands returned no data".into()))
+    }
+
+    /// The bootloader id byte in system memory ([ROM_ID_ADDR], AN2606), `None` when this ROM doesn't let it be read.
+    pub async fn rom_id(&mut self) -> Option<u8> {
+        match self.read(ROM_ID_ADDR, 2, &mut |_| {}).await {
+            Ok(b) => b.first().copied(),
+            Err(_) => {
+                _ = self.to_idle().await;
+                None
+            }
+        }
+    }
+
     /// Leave DFU mode: the bootloader jumps to the application at `addr` (its vector table). The device disconnects
     /// while doing so; this returns once the request is accepted.
     pub async fn leave(&mut self, addr: u32) -> Result<(), Error> {

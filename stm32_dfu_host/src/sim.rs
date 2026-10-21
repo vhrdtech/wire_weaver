@@ -38,6 +38,7 @@ struct Sim {
     left: Option<u32>,
     gone: bool,
     corrupt: Option<u32>,
+    version: u8,
 }
 
 impl SimStm32Dfu {
@@ -71,6 +72,7 @@ impl SimStm32Dfu {
                 left: None,
                 gone: false,
                 corrupt: None,
+                version: 0x93,
             })),
         }
     }
@@ -117,6 +119,11 @@ impl SimStm32Dfu {
         s.gone = false;
     }
 
+    /// The bootloader version the device reports (`0x93` by default).
+    pub fn set_version(&self, version: u8) {
+        self.state.lock().unwrap().version = version;
+    }
+
     /// Flip the lowest bit of the byte at `addr` as soon as it is programmed, so a read-back differs.
     pub fn corrupt_on_write(&self, addr: u32) {
         self.state.lock().unwrap().corrupt = Some(addr);
@@ -140,7 +147,7 @@ impl Sim {
             .map(|a| u32::from_le_bytes(a.try_into().unwrap()));
         match (data[0], addr) {
             (CMD_SET_ADDRESS, Some(addr)) => {
-                if self.layout.region_at(addr).is_some() {
+                if self.layout.region_at(addr).is_some() || addr == ROM_ID_ADDR {
                     self.addr = addr;
                 } else {
                     self.fail(DfuStatus::Address);
@@ -280,13 +287,30 @@ impl DfuIo for SimStm32Dfu {
             }
             DFU_GETSTATE => Ok(vec![s.state.into()]),
             DFU_UPLOAD => {
-                if !matches!(s.state, State::DfuIdle | State::UploadIdle)
-                    || value < FIRST_DATA_BLOCK
-                {
+                if !matches!(s.state, State::DfuIdle | State::UploadIdle) {
+                    return Err(IoError::Stall);
+                }
+                if value == 0 {
+                    // get commands: the version, then the commands
+                    s.state = State::UploadIdle;
+                    return Ok(vec![
+                        s.version,
+                        CMD_GET_COMMANDS,
+                        CMD_SET_ADDRESS,
+                        CMD_ERASE,
+                        CMD_READ_UNPROTECT,
+                    ]);
+                }
+                if value < FIRST_DATA_BLOCK {
                     return Err(IoError::Stall);
                 }
                 let addr = s.addr + (value - FIRST_DATA_BLOCK) as u32 * s.transfer_size as u32;
                 let n = len.min(s.transfer_size);
+                if addr == ROM_ID_ADDR {
+                    // system memory, not in the layout string, but the ROM answers
+                    s.state = State::UploadIdle;
+                    return Ok([s.version, 0][..n.min(2)].to_vec());
+                }
                 if !s.layout.readable(addr, n) {
                     s.state = State::Error;
                     s.status = DfuStatus::Address;

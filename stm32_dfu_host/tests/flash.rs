@@ -135,6 +135,18 @@ async fn a_device_left_in_error_state_is_recovered_by_flash() {
 }
 
 #[tokio::test]
+async fn bootloader_version_and_id() {
+    let sim = SimStm32Dfu::h72x(UID);
+    let mut dfu = Dfuse::new(sim.clone()).unwrap();
+    assert_eq!(dfu.bootloader_version().await.unwrap(), 0x93);
+    assert_eq!(dfu.rom_id().await, Some(0x93));
+    sim.set_version(0xA0);
+    assert_eq!(dfu.bootloader_version().await.unwrap(), 0xA0);
+    // still usable afterwards
+    dfu.erase_sector(FLASH).await.unwrap();
+}
+
+#[tokio::test]
 async fn leave_jumps_to_the_address() {
     let sim = SimStm32Dfu::h72x(UID);
     let mut dfu = Dfuse::new(sim.clone()).unwrap();

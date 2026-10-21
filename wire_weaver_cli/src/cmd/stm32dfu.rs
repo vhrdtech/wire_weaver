@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use wire_weaver_client::follow::{Follow, UsbBus};
 use wire_weaver_client::ww_stm32_dfu::layout::MemoryLayout;
+use wire_weaver_client::ww_stm32_dfu::proto::ROM_ID_ADDR;
 use wire_weaver_client::ww_stm32_dfu::usb::{self, NusbIo};
 use wire_weaver_client::ww_stm32_dfu::{Dfuse, FlashOptions, Image, Stage};
 
@@ -111,6 +112,18 @@ async fn list() -> Result<()> {
 async fn info(serial: Option<&str>) -> Result<()> {
     let device = usb::find(serial).await?;
     println!("serial {}", device.serial_number().unwrap_or("?"));
+    match Dfuse::new(NusbIo::open(&device, 0).await?) {
+        Ok(mut dfu) => {
+            match dfu.bootloader_version().await {
+                Ok(v) => println!("bootloader version {}", version_name(v)),
+                Err(e) => println!("bootloader version: {e}"),
+            }
+            if let Some(id) = dfu.rom_id().await {
+                println!("bootloader id {id:#04x} (byte at {ROM_ID_ADDR:#010x})");
+            }
+        }
+        Err(e) => println!("{e}"),
+    }
     for (alt, name) in usb::alt_settings(&device).await? {
         println!("alt {alt}: {name}");
         match MemoryLayout::parse(&name) {
@@ -132,6 +145,11 @@ async fn info(serial: Option<&str>) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// `0x93` as `V9.3`.
+fn version_name(v: u8) -> String {
+    format!("{v:#04x} (V{}.{})", v >> 4, v & 0xF)
 }
 
 /// ELF magic (`\x7fELF`): detected by content, not extension.
@@ -184,6 +202,8 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
         .leave_addr
         .unwrap_or_else(|| dfu.layout().regions[0].start);
 
+    // best effort, before anything is erased
+    let version = dfu.bootloader_version().await.ok();
     let started = Instant::now();
     let bar = ProgressBar::new(0);
     bar.set_style(
@@ -230,6 +250,13 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
     dfu.leave(leave_addr).await?;
     drop(dfu);
     eprintln!("{} jumped to {leave_addr:#010x}", style("✔").green());
+    if let Some(v) = version.filter(|v| v >> 4 == 9) {
+        eprintln!(
+            "{} bootloader {} locks PWR_CR3: power-cycle the board before the firmware can set up PWR",
+            style("note").yellow().bold(),
+            version_name(v)
+        );
+    }
     if let Some(follow) = follow.filter(|_| args.follow) {
         let spinner = spinner(format!("waiting for {} to come back", follow.serial));
         let back = follow

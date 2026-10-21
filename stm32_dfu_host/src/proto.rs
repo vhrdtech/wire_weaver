@@ -24,6 +24,8 @@ pub const CMD_GET_COMMANDS: u8 = 0x00;
 pub const CMD_SET_ADDRESS: u8 = 0x21;
 pub const CMD_ERASE: u8 = 0x41;
 pub const CMD_READ_UNPROTECT: u8 = 0x92;
+/// Where the ROM keeps its bootloader id (`0x93` on the H72x, AN2606).
+pub const ROM_ID_ADDR: u32 = 0x1FF1_E7FE;
 /// `wValue` of the first data block: block `n` is at `address + (n - 2) * transfer_size`.
 pub const FIRST_DATA_BLOCK: u16 = 2;
 

@@ -63,14 +63,16 @@ impl MemoryLayout {
                 let rest = rest.trim();
                 let digits = rest.chars().take_while(|c| c.is_ascii_digit()).count();
                 let size: u32 = rest[..digits].parse().map_err(|_| bad("bad sector size"))?;
-                let mut tail = rest[digits..].chars();
-                let (unit, kind) = match (tail.next(), tail.next(), tail.next()) {
-                    (Some(u), Some(k), None) => (u, k),
-                    (Some(k), None, None) => ('B', k),
-                    _ => return Err(bad("expected <size><B|K|M><a-g>")),
+                // the unit letter is optional, a space (or nothing) between size and type means bytes
+                // (`@Option Bytes /0x5200201C/01*88 e`)
+                let tail = rest[digits..].trim_end();
+                let (unit, kind) = match tail.chars().collect::<Vec<_>>()[..] {
+                    [u, k] => (u, k),
+                    [k] => (' ', k),
+                    _ => return Err(bad("expected <size>[B|K|M]<a-g>")),
                 };
                 let mult = match unit.to_ascii_uppercase() {
-                    'B' => 1,
+                    'B' | ' ' => 1,
                     'K' => 1024,
                     'M' => 1024 * 1024,
                     _ => return Err(bad("unit is not B, K or M")),
@@ -175,6 +177,16 @@ mod tests {
         assert_eq!(l.regions[3].start, 0x1FFF_0000);
         assert!(l.readable(0x1FFF_0000, 16));
         assert!(!l.writable(0x1FFF_0000, 16));
+    }
+
+    #[test]
+    fn size_without_unit_is_bytes() {
+        let l = MemoryLayout::parse("@Option Bytes   /0x5200201C/01*88 e").unwrap();
+        let r = &l.regions[0];
+        assert_eq!((r.start, r.sector_size, r.sectors), (0x5200_201C, 88, 1));
+        assert!(r.readable && !r.erasable && r.writable);
+        let l = MemoryLayout::parse("@x/0x0/02*16e").unwrap();
+        assert_eq!(l.regions[0].sector_size, 16);
     }
 
     #[test]

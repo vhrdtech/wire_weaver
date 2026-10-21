@@ -960,6 +960,8 @@ impl TxCore {
 
     /// Best effort, errors are ignored as we are going down anyway.
     fn send_disconnect(&mut self, now: Instant, reason: DisconnectReason) {
+        // first: the other side may close the medium as soon as it reads the Disconnect, before rx hears Stop
+        self.output.push_back(TxOutput::ToRx(ToRx::Disconnecting));
         if matches!(
             self.phase,
             Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Up

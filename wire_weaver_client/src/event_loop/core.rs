@@ -133,9 +133,32 @@ pub(crate) enum ToRx {
     /// Tx exits on [Command::DisconnectKeepStreams]: counted and reliable streams stay open for a resume on the next
     /// connection ([crate::Commander::resume_streams]).
     KeepStreams,
+    /// Tx sends `Disconnect` (asked to, or the Commander is gone): the medium ending after it is the other side
+    /// answering it, not a lost link.
+    Disconnecting,
     /// Tx decided to exit (command, commander dropped, setup timeout, write error), rx should too.
     /// Error, if any, is reported to a pending `connected_tx` by rx.
     Stop(Option<String>),
+}
+
+impl ToRx {
+    /// Answers what waits on a message rx will never see (it exited): a request in flight fails with
+    /// [Error::Disconnected](crate::Error::Disconnected), as those rx knew of did when the link went.
+    fn fail_undelivered(self) {
+        match self {
+            ToRx::Expect { done_tx, .. } => _ = done_tx.send(Err(crate::Error::Disconnected)),
+            ToRx::TransportUp {
+                connected_tx: Some(tx),
+                ..
+            } => {
+                _ = tx.send(crate::device_info::ConnectionInfo::err(anyhow::anyhow!(
+                    crate::Error::Disconnected
+                )))
+            }
+            // a registration's sender closes, its waiter sees the event loop gone
+            _ => {}
+        }
+    }
 }
 
 /// A request that goes out with a `GlobalCompact` path, serialized again with the trait's `GlobalFull` path (seq
@@ -282,8 +305,9 @@ async fn tx_task<T: Transport>(
                     }
                 }
                 TxOutput::ToRx(msg) => {
-                    if to_rx.send(msg).is_err() {
+                    if let Err(undelivered) = to_rx.send(msg) {
                         // rx task exited; it would have sent PeerGone first, which is queued in from_rx
+                        undelivered.0.fail_undelivered();
                     }
                 }
                 TxOutput::Exit(result) => {
@@ -442,6 +466,11 @@ async fn rx_task<T: Transport>(
             }
             _ = timer => core.handle(now(), RxInput::Timer),
         }
+    }
+    // what tx sent since rx decided to exit is answered, not dropped: a call in flight fails with Disconnected
+    from_tx.close();
+    while let Ok(msg) = from_tx.try_recv() {
+        msg.fail_undelivered();
     }
     // rx half might have been handed over, but not picked up yet
     if msg_rx.is_none() {
@@ -1091,6 +1120,44 @@ mod tests {
         assert!(p.take_sent().is_empty());
         assert!(done_rx.try_recv().unwrap().is_err());
         assert!(p.tx.in_flight() == 0);
+    }
+
+    /// The other side closes the medium in answer to our `Disconnect` before rx hears tx's `Stop`: an end asked for,
+    /// not a lost link (no error, and streams aren't kept for a reconnect).
+    #[test]
+    fn medium_closed_after_our_disconnect_is_not_a_lost_link() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect(&mut p, now);
+        p.tx.handle(
+            now,
+            TxInput::Command(Command::DisconnectAndExit {
+                disconnected_tx: None,
+                reason: DisconnectReason::RequestByUser,
+            }),
+        );
+        while let Some(o) = p.tx.poll_output() {
+            if let TxOutput::ToRx(m) = o {
+                if matches!(m, ToRx::Stop(_)) {
+                    break;
+                }
+                p.rx.handle(now, RxInput::FromTx(m));
+            }
+        }
+        p.rx.handle(
+            now,
+            RxInput::TransportError("closed by the other side".into()),
+        );
+        let mut gone = None;
+        while let Some(o) = p.rx.poll_output() {
+            if let RxOutput::ToTx(ToTx::PeerGone(r)) = o {
+                gone = Some(r);
+            }
+        }
+        assert!(
+            matches!(gone, Some(Ok(EventLoopExitReason::DisconnectCommand))),
+            "{gone:?}"
+        );
     }
 
     #[test]

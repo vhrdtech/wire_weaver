@@ -74,6 +74,8 @@ pub(crate) struct RxCore {
     malformed_messages_left: u32,
     /// See [Command::Connect](crate::event_loop::command::Command::Connect)`::keep_streams_on_loss`
     keep_streams_on_loss: bool,
+    /// [ToRx::Disconnecting]: tx sent `Disconnect`
+    disconnecting: bool,
 }
 
 impl Default for RxCore {
@@ -97,6 +99,7 @@ impl RxCore {
             last_rx_at: None,
             malformed_messages_left: MAX_MALFORMED_MESSAGES,
             keep_streams_on_loss: false,
+            disconnecting: false,
         }
     }
 
@@ -106,6 +109,11 @@ impl RxCore {
                 kind,
                 message: payload,
             } => self.on_message(now, kind, payload),
+            RxInput::TransportError(e) if self.disconnecting => {
+                // the other side closed in answer to our Disconnect
+                debug!("medium closed after Disconnect: {e}");
+                Ok(Some(EventLoopExitReason::DisconnectCommand))
+            }
             RxInput::TransportError(e) => {
                 self.events.error(&e);
                 Err(anyhow!(Error::Transport(e)))
@@ -195,6 +203,7 @@ impl RxCore {
                 .dispatcher
                 .handle_cmd(now, DispatcherCommand::ObserveRoute { hook }),
             ToRx::KeepStreams => self.dispatcher.keep_streams = true,
+            ToRx::Disconnecting => self.disconnecting = true,
             ToRx::TransportUp {
                 client_version,
                 token,

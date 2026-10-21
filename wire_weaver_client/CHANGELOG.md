@@ -13,6 +13,9 @@
 
 ### 🐛 Fixes
 
+- `local_socket::device::device_medium` accepts clients in a task of its own: `wait_connected` was not cancel-safe, and a server waiting on it next to a timer dropped a client in the middle of its preamble (the client saw `Connection reset by peer` or `Broken pipe`). The next client still waits in the backlog until the current one leaves.
+- A request whose bookkeeping reached the receive task after it exited (the link going down while the request was sent) fails with `Error::Disconnected` instead of `RxDispatcherNotRunning`.
+- The other side closing the medium in answer to our `Disconnect` ends the event loop as asked (`DisconnectCommand`) instead of as a lost link: no `rx exiting with: Transport specific error` ERROR log at the end of a short `ww hub ...` call, and streams aren't kept for a reconnect after a plain `disconnect()`.
 - A call (or any command) while no event loop runs, after the link went down or `disconnect().keep_streams()` and before `Commander::reconnect()`, fails at once with `Error::Disconnected` instead of waiting in the command channel until someone reconnects (CLT-36): a keeper task holds the channel between event loops and answers what comes in; `reconnect()` takes the channel from it and gives it back.
 - A `LoopbackTest` sent while link setup still runs waits for the link instead of failing with "not connected".
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.

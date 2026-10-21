@@ -13,6 +13,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- The ww hub process and its API (SRV-28, crates `ww_hub`, `ww_hub_api`, `ww hub serve`): one per user, the devices plugged in and who holds them, the connected programs, events; device tunnels come next (SRV-29).
 - Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
 - Device holders registry (CLT-38, `wire_weaver_client::holders`): every program opening a USB interface or RTT
   probe claims an OS file lock on `<runtime dir>/ww/holders/<key>.lock` first, so a busy error can name who

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use ww_local_socket::{Answer, Preamble, Status, Target};
 
 use super::*;
@@ -124,4 +124,79 @@ async fn silent_or_bad_clients_are_dropped() {
     assert_eq!(answer.status, Status::PreambleVersion);
     shutdown.shutdown();
     hub.await.unwrap();
+}
+
+mod api {
+    use super::*;
+    use crate::client::HubClient;
+
+    async fn connect(dir: &Path) -> HubClient {
+        let path = dir.join(HUB_SOCKET).display().to_string();
+        HubClient::config(|c| c.hub_api_at(path.clone()))
+            .connect()
+            .await
+            .expect("connect to the hub API")
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn info_clients_keep_shutdown() {
+        let dir = runtime_dir("api");
+        let (hub, _shutdown) = start(&dir, 300).await;
+        let mut client = connect(&dir).await;
+
+        let info = client.info().call().await.unwrap();
+        assert_eq!(info.hub_version, HUB_VERSION);
+        assert_eq!(info.pid, std::process::id());
+        assert!(info.socket.ends_with(HUB_SOCKET), "{}", info.socket);
+
+        let clients = client.registry().clients().call().await.unwrap();
+        assert_eq!(clients.len(), 1, "{clients:?}");
+        assert_eq!(clients[0].pid, std::process::id());
+        assert!(
+            !clients[0].program.is_empty(),
+            "client metadata from link setup: {clients:?}"
+        );
+
+        // whatever is plugged into this PC: the call answers, every entry has a key
+        let devices = client.registry().devices().call().await.unwrap();
+        assert!(devices.iter().all(|d| !d.key.is_empty()), "{devices:?}");
+
+        // keep holds the hub up after the client leaves, past the idle timeout
+        client.keep(1).call().await.unwrap();
+        client.disconnect().asynch().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        assert!(!hub.is_finished(), "kept");
+
+        let client = connect(&dir).await;
+        client.shutdown().call().await.unwrap();
+        assert_eq!(hub.await.unwrap(), Exit::Shutdown);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn events_name_joining_clients() {
+        let dir = runtime_dir("events");
+        let (hub, shutdown) = start(&dir, 60_000).await;
+        let watcher = connect(&dir).await;
+        let mut events = watcher.registry().events().call().await.unwrap();
+        let other = connect(&dir).await;
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .expect("an event")
+            .unwrap();
+        assert!(
+            matches!(event, ww_hub_api::EventOwned::ClientJoined { .. }),
+            "{event:?}"
+        );
+        other.disconnect().asynch().await.unwrap();
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .expect("an event")
+            .unwrap();
+        assert!(
+            matches!(event, ww_hub_api::EventOwned::ClientLeft { .. }),
+            "{event:?}"
+        );
+        shutdown.shutdown();
+        hub.await.unwrap();
+    }
 }

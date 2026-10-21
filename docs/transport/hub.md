@@ -75,6 +75,43 @@ then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payl
 - Messages are held back until the event loop flushes, so the messages of one turn go out in one write. A message
   longer than the receiver's limit drops the connection.
 
+## The hub process (SRV-28)
+
+The hub is crate `ww_hub`, with its API in `ww_hub_api`. `ww hub serve` runs it in the foreground; a program can also
+host it: `ww_hub::main_if_hub()` first in `main` makes the executable serve as the hub when started with
+`WW_HUB_SERVE` set (sccache-style), so a client can start the hub from the app itself (CLT-39, planned).
+
+- One hub per user: it holds an OS lock on `hub.lock` in the runtime dir for its whole life (released by the OS on a
+  crash) and writes its pid, version and start time into it. A second one exits at once (`Exit::AlreadyRunning`).
+  A `hub.sock` without the lock held is left over from a hub that is gone and is replaced.
+- Every connection starts with the preamble: target `Hub` is the hub's own API, a device target is answered
+  `UnknownDevice` until the hub holds devices (SRV-29).
+- It exits after `idle_exit` (5 min, `WW_HUB_IDLE_EXIT` in seconds, `ww hub serve --idle-exit`) without connections;
+  `Hub::keep(seconds)` holds it up for a bench, `Hub::shutdown()` ends it.
+
+### Its API
+
+The hub serves `ww_hub_api` like any device serves its API (a generated `no_alloc = false` server per connection),
+so introspection and the dynamic client work on it. `ww_hub::client::HubClient` is the typed client:
+
+```rust
+let hub = HubClient::connect().await?; // ClientConfig::hub_api(): the user's hub socket
+let info = hub.info().call().await?; // version, pid, exe, start time, socket
+let devices = hub.registry().devices().call().await?;
+let clients = hub.registry().clients().call().await?;
+let mut events = hub.registry().events().call().await?;
+```
+
+- `info()` and `handover(socket)` are frozen: a client of any version can ask what hub runs (`handover`, SRV-30, is
+  not served yet).
+- `registry().devices()`: the WireWeaver USB devices plugged in (enumerated, not opened: the hub opens a device only
+  when a program asks for it) and every device a program holds, from the lock files above, as `HeldElsewhere` with
+  the holder. `take(key)` (SRV-29) is not served yet.
+- `registry().clients()`: the programs connected to the hub's API, with what their link setup said about them
+  (program, kind, user, host, instance id) and the pid the OS reports.
+- `registry().events()`: `Plugged`, `Unplugged`, `HolderChanged` (from hotplug events and a rescan every 2 s),
+  `ClientJoined`, `ClientLeft`. A client that falls behind misses events and reads the lists again.
+
 ## Who holds a device (CLT-38)
 
 Every program linking `wire_weaver_client` that opens a USB interface or an RTT probe writes a lock file first,

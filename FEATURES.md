@@ -811,7 +811,32 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
 - 💡 **SRV-12 std server on Tower** · `v0.5`.
-- 💡 **SRV-13 IPC over USB / multi-app devices / USB multiplexer** · `v0.5.x`.
+- 📋 **SRV-13 ww hub: one device, many programs** · `v0.5.x` — a per-user hub that starts itself on first use and
+  exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
+  devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
+  wire_weaver device with its own API (`ww_hub_api`). Today a second program gets "busy". Pieces: SRV-28 process and
+  API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
+  TR-16, CLT-38..40, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
+  captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
+- 📋 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
+  `keep`; `Registry`: `devices`, `clients`, `events`, `set_client_name`) and `ww_hub`: one instance per user
+  (`hub.lock`), readiness line to the starter, idle exit, detached on three OSes, hotplug watch without opening,
+  served with generated server code, `ww_hub::main_if_hub()` for apps that host the hub themselves.
+- 📋 **SRV-29 Hub device multiplexing** · `v0.5.x` — one client event loop per open device, a link endpoint per client
+  tunnel answering like the device, seq remap, stream and observe fan-out, introspection from cache, bounded
+  per-client queues (stream data dropped and counted, replies never), devices opened on demand and closed after a
+  linger. The hub reads only seq, path and kind, never a user API. Measured against direct USB.
+- 📋 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
+  versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
+  newer replaces older, so it converges); a refusal names both versions and the fix.
+- 📋 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `Clock` with host sync
+  (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
+  `ww sync` shows the hub's steering instead of fighting it.
+- 📋 **SRV-32 Hub exclusive locks and lending** · `v0.5.x` — `Locks::exclusive(device, reason, ttl)` for DFU and
+  settings writes (others get `Common(InUse)` naming the holder, steering pauses); `ww hub lend DEVICE -- CMD` hands
+  a device to a non-ww tool and takes it back.
+- 💡 **SRV-33 Hub federation between PCs** — remote devices through another PC's hub: ssh-forwarded socket first (no
+  new crypto), native WebSocket / UDP with pinned keys and per-device rights later. Security design before code.
 - 💡 **SRV-14 FPGA server** · `v0.5.x`.
 
 ## Client / host side (`CLT`)
@@ -985,6 +1010,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
   timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for
   now. Fix: fail calls with `Error::Disconnected` while no event loop runs (or start the timeout at the send).
+- 📋 **CLT-38 Who holds a device** · `v0.5.x` — every holder (direct programs, the hub) takes an OS file lock on
+  `<runtime dir>/ww/holders/<key>.lock` and writes pid, program and mode into it; a crash releases it. A busy error
+  names the holder ("held by dg, pid 4711, direct, since 14:02"); on Linux a non-ww holder is found in `/proc`.
+- 📋 **CLT-39 Hub routing in `connect`** · `v0.5.x` — `WW_HUB=auto|off|required`: through the hub if one runs or can
+  be started (start lock, readiness, newest hub executable found: `WW_HUB_EXE`, the app itself, `ww`), else direct;
+  user code doesn't change.
+- 📋 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
+  observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed.
 
 ## Transports and protocols (`TR`)
 
@@ -1030,6 +1063,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `LinkSetup` (`examples_mcu/nucleo_g0b1re` `ww_rtt` and an embedded_bedrock template firmware on Donguru, 16 Oct
   2026). Fixed: the check polls once with the calling task's waker (`ww_device` `server.rs` `poll_once_here`);
   checked on Donguru over RTT through a J-Link. USB was not affected (no timer in its read).
+- 📋 **TR-16 Local socket transport** · `v0.5.x` — client feature `local_socket` (`interprocess`: a Unix socket on
+  Linux and macOS, a named pipe on Windows), `kind | payload` messages as over WebSocket after a small preamble that
+  picks the hub or a device; user-only socket and pipe, peer checked. Also connects to a device served by another
+  process (`IpcPath`).
 - 💡 **TR-10 One-shot connect** — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
@@ -1176,6 +1213,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `examples/blinky_py` is a hand-written pyo3 wrapper around the Rust client, and `wire_weaver_py` is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the `TODO` in
   `docs/api/folder_structure.md`).
+- 📋 **TOOL-17 `ww hub`** · `v0.5.x` — `serve`, `status`, `stop`, `who` (holders of every device), `keep`, `lend`;
+  `ww list` through the hub; completions with live device keys.
+- 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
+  wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,
+  `wire_weaver.hub()` gives the hub API through the dynamic client.
 - 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case

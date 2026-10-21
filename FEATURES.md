@@ -816,7 +816,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
   wire_weaver device with its own API (`ww_hub_api`). Today a second program gets "busy". Pieces: SRV-28 process and
   API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
-  TR-16, CLT-38..40, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
+  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
   captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
 - 📋 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
   `keep`; `Registry`: `devices`, `clients`, `events`, `set_client_name`) and `ww_hub`: one instance per user
@@ -832,9 +832,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `Clock` with host sync
   (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
   `ww sync` shows the hub's steering instead of fighting it.
-- 📋 **SRV-32 Hub exclusive locks and lending** · `v0.5.x` — `Locks::exclusive(device, reason, ttl)` for DFU and
-  settings writes (others get `Common(InUse)` naming the holder, steering pauses); `ww hub lend DEVICE -- CMD` hands
-  a device to a non-ww tool and takes it back.
+- 📋 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
+  writes) is a claim on its root path (SRV-34) that also pauses clock steering; `ww hub lend DEVICE -- CMD` hands a
+  device to a non-ww tool and takes it back.
 - 💡 **SRV-33 Hub federation between PCs** — remote devices through another PC's hub: ssh-forwarded socket first (no
   new crypto), native WebSocket / UDP with pinned keys and per-device rights later. Security design before code.
 - 💡 **SRV-14 FPGA server** · `v0.5.x`.
@@ -1013,11 +1013,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-38 Who holds a device** · `v0.5.x` — every holder (direct programs, the hub) takes an OS file lock on
   `<runtime dir>/ww/holders/<key>.lock` and writes pid, program and mode into it; a crash releases it. A busy error
   names the holder ("held by dg, pid 4711, direct, since 14:02"); on Linux a non-ww holder is found in `/proc`.
-- 📋 **CLT-39 Hub routing in `connect`** · `v0.5.x` — `WW_HUB=auto|off|required`: through the hub if one runs or can
-  be started (start lock, readiness, newest hub executable found: `WW_HUB_EXE`, the app itself, `ww`), else direct;
-  user code doesn't change.
+- 📋 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
+  holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
+  move a device into the hub, so a loop of `ww` calls doesn't re-open it every time. `HubMode` `Auto`, `Prefer`,
+  `Required`, `Direct` (`WW_HUB`); hub found or started (start lock, readiness, newest hub executable: `WW_HUB_EXE`,
+  the app itself, `ww`); user code doesn't change.
 - 📋 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
   observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed.
+- 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
+  notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
+  through the hub after a short gap; one that doesn't is named in the other's error.
 
 ## Transports and protocols (`TR`)
 

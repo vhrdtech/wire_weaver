@@ -38,13 +38,16 @@ wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu"] }
 
 wire_weaver_core.workspace = true
+ww_clock_sync.workspace = true
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
+ww_indication = { workspace = true, features = ["std"] }
 ww_numeric.workspace = true
 ww_pin_probe.workspace = true
 ww_report.workspace = true
 ww_settings = { workspace = true, features = ["dump"] }
 ww_si = { workspace = true, features = ["std"] }
+ww_timebase = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tap_api.workspace = true

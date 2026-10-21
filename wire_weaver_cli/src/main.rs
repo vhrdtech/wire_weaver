@@ -36,7 +36,8 @@ async fn run() -> Result<()> {
         | Commands::Monitor(_)
         | Commands::Stats(_)
         | Commands::Capture(_)
-        | Commands::Pins(_) => tracing::Level::WARN,
+        | Commands::Pins(_)
+        | Commands::Sync(_) => tracing::Level::WARN,
         _ => tracing::Level::INFO,
     };
     tracing_subscriber::fmt().with_max_level(max_level).init();
@@ -45,12 +46,14 @@ async fn run() -> Result<()> {
         args.check()?;
     }
     let selection = match &cli.command {
-        Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) | Commands::Stm32dfu(_) => {
-            Some(Selection::resolve(
-                &matches,
-                matches!(cli.command, Commands::Config(ConfigCommand::Save)),
-            )?)
-        }
+        Commands::List(_)
+        | Commands::Sync(_)
+        | Commands::Config(_)
+        | Commands::Bootsel(_)
+        | Commands::Stm32dfu(_) => Some(Selection::resolve(
+            &matches,
+            matches!(cli.command, Commands::Config(ConfigCommand::Save)),
+        )?),
         _ if cli.need_device() => Some(Selection::resolve(&matches, false)?),
         _ => None,
     };
@@ -174,6 +177,10 @@ async fn run_command(
     let mut passed = true;
     match command {
         Commands::List(args) => cmd::list::list(args, selection.as_ref().unwrap()).await?,
+        Commands::Sync(args) => {
+            let stop = stop.unwrap_or_else(util::StopSignal::install);
+            cmd::sync::sync(args, selection.as_ref().unwrap(), stop).await?
+        }
         Commands::USBLoopback {
             duration_sec,
             packet_size,

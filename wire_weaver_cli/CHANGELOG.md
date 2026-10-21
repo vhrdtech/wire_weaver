@@ -16,6 +16,12 @@
 
 ### 🚀 Features
 
+- `ww sync [DEVICE...]` (TOOL-16): keeps several devices' clocks on the host's UTC with `ww_clock_sync` (each read a
+  few times a second, fitted, steered once a second) and shows a live table per device: state, followed source,
+  rate, round trip and the residual offset measured with `Clock::shared_now`. Devices by serial or label parts, or
+  every device the selection matches; `--mode` writes the `ww_indication` mode on all, `--duration`, `--poll-ms`,
+  `--steer-ms`. Shell completion offers serials and labels of connected devices.
+
 - `ww dfu flash` updates a chunky device in one command (delta, trial, confirm), `ww dfu status`, `confirm`,
   `revert` (CLT-33); `ww dfu reboot --into updater` on an A/B app says it goes to the boot ROM.
 - `ww stm32dfu read ADDR LEN [-o FILE]` (hexdump, or raw bytes into a file) and `ww stm32dfu erase ADDR | --sectors A..B` (CLT-34).

@@ -5782,14 +5782,17 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
+ "ww_clock_sync",
  "ww_counters",
  "ww_dfu",
+ "ww_indication",
  "ww_numeric",
  "ww_pin_probe",
  "ww_report",
  "ww_settings",
  "ww_si",
  "ww_stream",
+ "ww_timebase",
  "ww_user_info",
 ]
 

@@ -13,5 +13,6 @@ pub(crate) mod pins;
 pub(crate) mod settings;
 pub(crate) mod stm32dfu;
 pub(crate) mod stream;
+pub(crate) mod sync;
 pub(crate) mod tap;
 pub(crate) mod usb_loopback;

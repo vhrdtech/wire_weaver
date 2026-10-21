@@ -13,6 +13,7 @@ use crate::cmd::pins::PinsCommand;
 use crate::cmd::settings::SettingsCommand;
 use crate::cmd::stm32dfu::Stm32DfuCommand;
 use crate::cmd::stream::StreamArgs;
+use crate::cmd::sync::SyncArgs;
 use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
 use crate::complete;
 use crate::device::DeviceArgs;
@@ -123,6 +124,19 @@ pub(crate) enum Commands {
     ///   ww explain link.wwtape --layer api
     #[command(verbatim_doc_comment)]
     Capture(CaptureArgs),
+
+    /// Keep several devices' clocks on the host's UTC, Klipper-style, and show how well they follow (TOOL-16)
+    ///
+    /// Works with any device serving ww_timebase::Clock with host sync, anywhere in its API: each device's clock is
+    /// read a few times a second, fitted against the host's (offset and rate) and steered once a second. A device
+    /// locked to a sync line only takes note. Devices with a shared clock breathe and blink in phase (ww_indication).
+    /// Until Ctrl+C, then the devices go on in holdover. Examples:
+    ///
+    ///   ww sync                          every connected device the selection matches
+    ///   ww sync A1B2 bench-left          two devices by serial or label
+    ///   ww sync --mode normal            and set their indication mode
+    #[command(verbatim_doc_comment)]
+    Sync(SyncArgs),
 
     /// Firmware update steps (ww_dfu), on any device whatever its API version
     #[command(subcommand)]
@@ -275,6 +289,7 @@ impl Cli {
     pub fn need_device(&self) -> bool {
         match &self.command {
             Commands::List(_) => false,
+            Commands::Sync(_) => false,
             Commands::USBLoopback { .. } => true,
             Commands::Api(_) => false,
             Commands::Introspect(_) => true,

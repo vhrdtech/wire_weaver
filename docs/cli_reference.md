@@ -535,6 +535,39 @@ INFO  boots         3
 Without `--elf`, the ELF comes from `WW_ELF_PATH`, the ELF directory `~/.cache/ww/elf` (filled by `ww elf add` or `cnt elf add`)
 or `target/` of the cargo project in the current directory. See [ww_counters](std_library/ww_counters.md#on-the-host).
 
+## `ww sync`
+
+Keeps several devices' clocks on the host's UTC at once (TOOL-16), with the `ww_clock_sync` crate: each device's
+`ww_timebase::Clock::now()` is read a few times a second, fitted against the host's monotonic clock (offset and
+rate, from the readings with the shortest round trips) and steered once a second with `Clock::steer`, see
+[host sync](std_library/ww_timebase.md#host-sync-std-49). Works with any device serving `Clock` with the `host_sync`
+group anywhere in its API; a device locked to a sync line only takes note (source `line`). Devices with a shared
+clock align their animations to UTC, so their LEDs breathe in phase
+([`ww_indication`](std_library/ww_indication.md#animations-in-phase-std-50)). What it looks like (the values are for
+illustration, not a measurement):
+
+```
+$ ww sync --mode normal
+DEVICE           STATE   SOURCE  RATE            RTT     RESIDUAL  SAMPLES  NOTE
+Donguru A1B2C3   locked  host    -9871.204 ppm   412 µs  -37 µs    80
+rePort bench-2   locked  host    +12.880 ppm     95 µs   +6 µs     80
+```
+
+The table is redrawn every second on a terminal (every 5 s into a pipe) until Ctrl+C or `--duration`; then the
+devices go on in holdover on their last steer point. `RATE` is how much faster shared time runs than the device's
+clock (an HSI running 1 % fast is about -9900 ppm), `RTT` the shortest round trip of the fit, `RESIDUAL` the device's
+shared time minus the host's UTC at the middle of a `shared_now()` round trip (good to half that round trip).
+
+| Option / argument | Default | Description                                                                          |
+|-------------------|---------|--------------------------------------------------------------------------------------|
+| `DEVICE...`       | all     | Serial numbers or user labels, or parts of them, each matching exactly one device    |
+| `--mode MODE`     |         | Also write the indication mode: `all-off`, `only-essential`, `normal`               |
+| `--duration S`    | Ctrl+C  | Stop after this many seconds                                                         |
+| `--poll-ms MS`    | `200`   | Time between two readings of each device's clock                                     |
+| `--steer-ms MS`   | `1000`  | Time between two steer points                                                        |
+
+The device selection flags (`--product`, `--api`, ...) narrow which devices `DEVICE...` is matched against.
+
 ## `ww info`
 
 Firmware, board, ids, user label and last reset of any device, through the [device

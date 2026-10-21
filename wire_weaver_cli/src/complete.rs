@@ -84,6 +84,15 @@ pub(crate) fn serials() -> Vec<CompletionCandidate> {
     all
 }
 
+/// Serial numbers and user labels of WireWeaver devices (`ww sync DEVICE...`).
+pub(crate) fn serials_and_labels() -> Vec<CompletionCandidate> {
+    candidates(|d| {
+        let mut v = d.serials.clone();
+        v.push(d.user_label.clone());
+        v
+    })
+}
+
 pub(crate) fn labels() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.user_label.clone()])
 }

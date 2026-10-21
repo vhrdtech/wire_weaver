@@ -1148,6 +1148,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that connects print (to stderr) or save that command's own connection, with the same `Monitor`, `LiveFeed` and
   `TapeWriter`; the tap decoder orders a block's records by time so a reply is paired with its request
   (`docs/cli_reference.md#ww-monitor`).
+- 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
+  by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
+  rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
+  `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; Ctrl+C leaves the devices in holdover.
+  `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  tpm P2618#21oct-1707.
 - 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
   (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
   supply and between points, only what each point's caps allow, refusals shown, `release_all` at the end also on

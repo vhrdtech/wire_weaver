@@ -8,9 +8,11 @@
   converges (locked and its residual within `--within-us`, default 2000) or falls out, and `all N within X after
   N s` with the LED phase spread; the LED phase spread under the table. Steers ten times a second until a device is
   locked. On a terminal a live table, into a pipe only those lines (no colour) and the table at the end.
+- `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
 
 ### 🐛 Fixes
 
+- `ww api scaffold --alloc` prints handlers with owned types (`Vec`, `String`, `..Owned`) for return values, property values and errors, sink items and stream function results, as a `no_alloc = false` server calls them (API-21); it printed borrowed return types, which did not compile.
 - `ww stm32dfu flash --wait` retries opening the bootloader for 3 s, as `--follow` does: right after it enumerates, udev may not have set its permissions yet ("opening device: permission denied", seen once in three updates of a B135 rev B) (CLT-34).
 - `ww stm32dfu info` shows the ROM's version from its version byte (was `0x00 (V0.0)`, the first byte of "get commands"); `ww stm32dfu flash` notes "unplug and replug the board when you can" only for the ROMs that lock PWR_CR3 (V9.1, V9.2 on STM32H72x/73x, AN2606 Table 134; it said "power-cycle" for every V9.x, V9.3 too) and with `--follow` waits 120 s for the board then (CLT-34). Checked on a B135 rev B (H725, V9.3).
 - Live `--monitor` / `ww monitor` never named paths (`Request Observe [2]`) while the same traffic from a `--capture` file did: the device's API reached the capture's describe blocks only with the next data block, after the messages that needed it, and was written in its resolved form (which a decoder could not always read). It is handed over at once, as the device sent it, and live and file print the same text (TOOL-14).

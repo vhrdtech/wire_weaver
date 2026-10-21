@@ -7,7 +7,8 @@ use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_self::ApiBundleOwned;
 use ww_version::{ApiHashPairOwned, FullVersionOwned, VersionOwned};
 
-use crate::{DeviceInfo, SeqTy};
+use crate::client_meta::ClientMetaSetting;
+use crate::{ClientMeta, DeviceInfo, SeqTy};
 
 /// Configuration of device enumeration, selection and connection.
 /// Flexible filters allow for many different scenarios:
@@ -38,6 +39,7 @@ pub struct ClientConfig {
     no_stream_compression: bool,
     link_setup_timeout: Option<Duration>,
     tap: Option<ww_tap::Recorder>,
+    client_meta: ClientMetaSetting,
 }
 
 #[derive(Clone)]
@@ -58,6 +60,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) traits_only: bool,
     /// [ClientConfig::tap], None for [crate::tap::default_recorder]
     pub(crate) tap: Option<ww_tap::Recorder>,
+    /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
+    pub(crate) client_meta: Option<Box<ww_link::ClientMetaOwned>>,
 }
 
 #[derive(Clone, Debug)]
@@ -136,6 +140,8 @@ pub(crate) enum ConfigPiece {
     /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Can be used for testing purposes or to create virtual devices.
     IpcPath { path: String },
+    /// The ww hub's own API (SRV-13), on the hub socket at `path` (`None`: the user's runtime dir).
+    HubApi { path: Option<String> },
     /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
@@ -262,6 +268,10 @@ impl ClientConfig {
             introspect_client,
             traits_only: s.traits_only,
             tap: s.tap,
+            client_meta: match &s.client_meta {
+                ClientMetaSetting::On(meta) => Some(Box::new(meta.resolve())),
+                ClientMetaSetting::Off => None,
+            },
         })
     }
 
@@ -359,6 +369,20 @@ impl ClientConfig {
     pub fn ipc_path(self, path: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::IpcPath { path });
+        f
+    }
+
+    /// The ww hub's own API (`ww_hub_api`) on the user's hub socket, instead of a device.
+    pub fn hub_api(self) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubApi { path: None });
+        f
+    }
+
+    /// The ww hub's own API on the hub socket at `path` (a hub run in another runtime dir, tests).
+    pub fn hub_api_at(self, path: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubApi { path: Some(path) });
         f
     }
 
@@ -497,6 +521,22 @@ impl ClientConfig {
     pub fn introspect_client(self, ww_self_bytes: &[u8], api_hash: ApiHashPairOwned) -> Self {
         let mut c = self;
         c.introspect_client = Some((ww_self_bytes.to_vec(), api_hash));
+        c
+    }
+
+    /// Who this client is, sent to the device in link setup (CLT-41) so that its log, a hub or a lock file can say
+    /// who connected. Everything not set in `meta` is filled in by the library, see [ClientMeta].
+    /// Connections made from clones of this config share `meta`'s instance id.
+    pub fn client_meta(self, meta: ClientMeta) -> Self {
+        let mut c = self;
+        c.client_meta = ClientMetaSetting::On(meta);
+        c
+    }
+
+    /// Send no [ClientMeta] to the device.
+    pub fn no_client_meta(self) -> Self {
+        let mut c = self;
+        c.client_meta = ClientMetaSetting::Off;
         c
     }
 
@@ -695,6 +735,7 @@ impl ValidatedConfig {
         self.is_opted_in(
             &[
                 ConfigPieceDiscriminants::IpcPath,
+                ConfigPieceDiscriminants::HubApi,
                 ConfigPieceDiscriminants::UsbOverIpc,
                 ConfigPieceDiscriminants::Ipc,
             ],

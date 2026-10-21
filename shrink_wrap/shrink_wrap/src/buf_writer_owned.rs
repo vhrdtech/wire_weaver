@@ -567,6 +567,23 @@ impl BufWriterOwned {
         (self.byte_idx, self.bit_idx)
     }
 
+    /// A writer that goes on from a [BufWriter](crate::BufWriter) at `bit_idx` of its open byte, which has
+    /// `open_byte` in it (only the bits above `bit_idx` are taken), for [BufWriter::write_owned]
+    /// (crate::BufWriter::write_owned): alignment is relative to the byte, so the bytes are the same.
+    pub(crate) fn continue_at(open_byte: u8, bit_idx: u8) -> Self {
+        let mut wr = Self::new();
+        if bit_idx != 7 {
+            wr.buf.push(open_byte & (0xFF00u32 >> (7 - bit_idx)) as u8);
+            wr.bit_idx = bit_idx;
+        }
+        wr
+    }
+
+    /// The bytes (with the open byte, if any), the position and the lengths not encoded yet, oldest first.
+    pub(crate) fn into_parts(self) -> (Vec<u8>, usize, u8, Vec<u32>) {
+        (self.buf, self.byte_idx, self.bit_idx, self.rev)
+    }
+
     /// Where the writer is, to go back to with [rollback](Self::rollback).
     pub(crate) fn mark(&self) -> Mark {
         Mark {

@@ -1,6 +1,21 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
+
 ### 🚀 Features
+
+- `ClientConfig::hub_api()` / `hub_api_at(path)`: a client of the ww hub's own API (SRV-28) instead of a device.
+- Local socket transport (TR-16), feature `local_socket`: `ClientConfig::ipc_path(path)` connects to a device served by another process on the same PC, over a Unix socket or a Windows named pipe (`ww_local_socket`), user-only on both ends. `local_socket::device::device_medium()` is the matching `ww_device::Server` medium. Selecting IPC without the feature is now an error instead of being skipped.
+- `holders` module (CLT-38), always on: before claiming a USB interface or RTT probe, an exclusive
+  `std::fs::File::try_lock` is taken on `<runtime dir>/ww/holders/<key>.lock` (`key_for`, `claim`, `holder_of`,
+  `list`), content written in extensible `key = value` lines (pid, program, exe, `mode` direct/hub, since, ww
+  version). A crash releases the OS lock immediately, independent of the file's (possibly stale) content, which
+  `holder_of`/`list` never trust on its own. `usb::connect` and `rtt::event_loop` claim before opening the device
+  and name the holder in their busy errors; without a lock file, Linux falls back to scanning `/proc/*/fd` for the
+  device node (`holder_of_usb_device`).
+- `ClientConfig::client_meta(ClientMeta)` / `no_client_meta()` and the `client_meta` module (CLT-41): who this client is, sent to the device in `LinkSetup`. `ClientMeta` has builders for program, app version, label, kind (`ClientKind`), purpose, user, host and pid; whatever is not set is found by the library (executable name, pid, `$USER`, host name, kind `Cli` when the parent process is a shell, else `Unknown`; `/proc` on Linux, `libc` on macOS, `windows-sys` on Windows). One random instance id per `ClientMeta`, shared by every connection made from clones of the config. A device with a small receive buffer gets a shortened form or none; the connection never fails because of it. `Command::Connect` has the new field `client_meta`.
 
 - `PreparedCall::send()` → `PendingCall`, `reply()` later: requests leave in the order they are sent whatever order
   their replies are awaited in, for calls kept in flight (pipelined `ww_dfu::Stage` steps, CLT-33).

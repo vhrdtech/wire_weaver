@@ -114,6 +114,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Size analysis](types.md#worst-case-size-at-compile-time)**: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span>
 - **[API docs in rustdoc](api/traits.md#in-rustdoc)**: `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span>
 - **Code generation from `build.rs`**: `gen_server` / `gen_client` as an alternative to the macros.
+- **[Servers on std with owned types](transport/hub.md#servers-on-std-no_alloc-false)**: A server running on a PC returns `String`, `Vec` and owned types from its handlers, the same bytes on the wire as a firmware's.
 - **[Generated C](c.md)**: The C runtime is there; generated C for an API's types and server is next. <span class="ww-status">in progress</span>
 
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -188,6 +189,8 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Link setup timeout](cli.md)**: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.
 - **[Calls that work on any device](std_library/device_contract.md)**: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span>
 - **[Low call latency](transport/ww_link.md)**: A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond.
+- **[Who holds a device](transport/hub.md#who-holds-a-device-clt-38)**: A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away.
+- **[Who connects](transport/hub.md)**: Every client tells the device its program, user, host, pid and kind in link setup; a device can log it, a hub or a lock file shows it.
 - **[STM32 ROM DFU](transport/follow_reboot.md#stm32-system-bootloader-rom-dfu)**: Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it.
 - **[Following a reboot](transport/follow_reboot.md)**: Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). <span class="ww-status">in progress</span>
 - **[Updating a chunky device](cli_reference.md#ww-dfu-flash)**: `ww dfu flash app.elf`: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. <span class="ww-status">in progress</span>
@@ -214,10 +217,12 @@ layer checks on connect that both ends speak the same protocol.
 - **[Framer](transport/ww_framer.md)**: Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames.
 - **[Link layer](transport/ww_link.md)**: Link setup, device info and protocol version exchange.
 - **[Frame counter and setup token](transport/ww_link.md#setup-token)**: Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need.
+- **[The ww hub](transport/hub.md#the-hub-process-srv-28)**: One small process per user that knows the devices, who holds them and which programs are connected, with its own API. <span class="ww-status">hardware check open</span>
+- **[Local sockets](transport/hub.md)**: A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. <span class="ww-status">hardware check open</span>
 - **[Link tap](transport/tap.md)**: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.
 - **[USB throughput on small MCUs](transport/usb_internals.md)**: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr), [Server / device side](features.md#server-device-side-srv) in the feature tracker.</p>
 
 ## Introspection
 

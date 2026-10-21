@@ -41,7 +41,7 @@ mod tests;
 use fmt::error;
 
 pub use buffer::RxBuffer;
-pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, SendError};
+pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, PeerMeta, SendError};
 #[cfg(feature = "embassy-time")]
 pub use server::EmbassyClock;
 pub use server::{Clock, Ready, Server, Sink};

@@ -109,6 +109,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc
 - API-8 | Code generation from `build.rs` | `gen_server` / `gen_client` as an alternative to the macros. |
+- API-21 | Servers on std with owned types | A server running on a PC returns `String`, `Vec` and owned types from its handlers, the same bytes on the wire as a firmware's. | transport/hub.md#servers-on-std-no_alloc-false
 - API-26 | Generated C | The C runtime is there; generated C for an API's types and server is next. | c.md
 
 ## Nomicon
@@ -179,6 +180,8 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-37 | Low call latency | A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond. | transport/ww_link.md
+- CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
+- CLT-41 | Who connects | Every client tells the device its program, user, host, pid and kind in link setup; a device can log it, a hub or a lock file shows it. | transport/hub.md
 - CLT-34 | STM32 ROM DFU | Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it. | transport/follow_reboot.md#stm32-system-bootloader-rom-dfu
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
 - CLT-33 | Updating a chunky device | `ww dfu flash app.elf`: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. | cli_reference.md#ww-dfu-flash
@@ -203,6 +206,8 @@ layer checks on connect that both ends speak the same protocol.
 - TR-1 | Framer | Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames. | transport/ww_framer.md
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
 - TR-15 | Frame counter and setup token | Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need. | transport/ww_link.md#setup-token
+- SRV-28 | The ww hub | One small process per user that knows the devices, who holds them and which programs are connected, with its own API. | transport/hub.md#the-hub-process-srv-28
+- TR-16 | Local sockets | A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. | transport/hub.md
 - TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md
 

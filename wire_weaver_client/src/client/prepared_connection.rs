@@ -176,8 +176,7 @@ pub(crate) async fn connect_to(
             InterfaceKind::Rtt => try_select_rtt(config, cmd_rx),
             InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
             InterfaceKind::Udp => try_select_udp(config, cmd_rx),
-            // not a transport the client can connect over yet
-            InterfaceKind::Ipc => continue,
+            InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx),
         };
         match selected {
             Ok(Selected::Device { handle, info }) => {
@@ -296,6 +295,21 @@ fn try_select_rtt(
     }
 }
 
+fn try_select_local_socket(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "local_socket")]
+    return crate::local_socket::try_connect(config, cmd_rx);
+    #[cfg(not(feature = "local_socket"))]
+    {
+        _ = (config, cmd_rx);
+        Err(anyhow::anyhow!(
+            "a local socket (IPC) selected in the client config, but wire_weaver_client is built without the `local_socket` feature"
+        ))
+    }
+}
+
 fn try_select_ws(
     config: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
@@ -355,6 +369,7 @@ async fn try_connect(
             max_seq: config.max_seq,
             link_setup_timeout_ms: config.link_setup_timeout_ms,
             tap: config.tap.clone(),
+            client_meta: config.client_meta.clone(),
             connected_tx: Some(connected_tx),
             failed_tx: Some(residual_tx),
         })
@@ -378,6 +393,7 @@ fn try_connect_blocking(
             max_seq: config.max_seq,
             link_setup_timeout_ms: config.link_setup_timeout_ms,
             tap: config.tap.clone(),
+            client_meta: config.client_meta.clone(),
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

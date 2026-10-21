@@ -5,6 +5,7 @@ pub(crate) mod counters;
 pub(crate) mod dfu;
 pub(crate) mod elf;
 pub(crate) mod explain;
+pub(crate) mod hub;
 pub(crate) mod info;
 pub(crate) mod introspect;
 pub(crate) mod list;

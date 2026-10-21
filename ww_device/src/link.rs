@@ -160,6 +160,44 @@ impl Pending {
     }
 }
 
+/// Who the connected host says it is, from [ww_link::LinkSetup::client_meta]: free text cut to
+/// [PeerMeta::STR_LEN] bytes each, so it fits a few dozen bytes of RAM. For logging, nothing should decide on it.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct PeerMeta {
+    pub program: wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }>,
+    pub user: wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }>,
+    pub host: wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }>,
+    pub kind: Option<ww_link::ClientKind>,
+    pub pid: u32,
+    pub instance_id: u64,
+}
+
+impl PeerMeta {
+    /// Longest program, user and host kept; longer ones are cut at a character boundary.
+    pub const STR_LEN: usize = 24;
+
+    fn from_wire(meta: &ww_link::ClientMeta<'_>) -> Self {
+        PeerMeta {
+            program: cut(meta.program),
+            user: cut(meta.user),
+            host: cut(meta.host),
+            kind: Some(meta.kind),
+            pid: meta.pid,
+            instance_id: meta.instance_id,
+        }
+    }
+}
+
+fn cut(s: &str) -> wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }> {
+    let mut end = s.len().min(PeerMeta::STR_LEN);
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    // fits by construction
+    s[..end].try_into().unwrap_or_default()
+}
+
 pub struct DeviceLink<'a> {
     config: LinkConfig<'a>,
     /// Maximum message length this device can receive, reported to the host.
@@ -168,6 +206,8 @@ pub struct DeviceLink<'a> {
     remote_max_message_len: u32,
     /// Setup token of the host's current session ([ww_link::Message::GetDeviceInfo]), 0 before one.
     token: u64,
+    /// [DeviceLink::peer_meta]
+    peer_meta: Option<PeerMeta>,
     pending: Pending,
     event: Option<LinkEvent>,
 
@@ -187,12 +227,19 @@ impl<'a> DeviceLink<'a> {
             phase: Phase::Down,
             remote_max_message_len: 0,
             token: 0,
+            peer_meta: None,
             pending: Pending::default(),
             event: None,
             last_rx_at: None,
             unflushed_since: None,
             next_ping_at: None,
         }
+    }
+
+    /// Who the host of the current (or, after [LinkEvent::Down], the last) session said it is, `None` if it sent
+    /// nothing (a host built before [ww_link::ClientMeta]). Set before [LinkEvent::Up] is reported.
+    pub fn peer_meta(&self) -> Option<&PeerMeta> {
+        self.peer_meta.as_ref()
     }
 
     pub fn phase(&self) -> Phase {
@@ -312,6 +359,7 @@ impl<'a> DeviceLink<'a> {
                 if compatible {
                     info!("host connected: {:?}", setup.host_user_version);
                     self.remote_max_message_len = setup.host_max_message_len;
+                    self.peer_meta = setup.client_meta.as_ref().map(PeerMeta::from_wire);
                     self.pending.link_ready = true;
                     if self.phase != Phase::Up {
                         self.phase = Phase::Up;

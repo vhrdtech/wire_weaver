@@ -145,6 +145,10 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Dfu(DfuCommand),
 
+    /// The ww hub: one process per user that holds devices and serves every program (SRV-13)
+    #[command(subcommand)]
+    Hub(crate::cmd::hub::HubCommand),
+
     /// The device's cnt counters (ww_counters), decoded with the firmware's ELF found by its build id
     ///
     /// Works with any device implementing `ww_counters::Counters` anywhere in its API. Read once (default), watch
@@ -308,6 +312,7 @@ impl Cli {
             Commands::Pins(_) => true,
             Commands::Elf(_) => false,
             Commands::Settings(_) => false,
+            Commands::Hub(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }

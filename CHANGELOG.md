@@ -13,6 +13,13 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- The ww hub process and its API (SRV-28, crates `ww_hub`, `ww_hub_api`, `ww hub serve`): one per user, the devices plugged in and who holds them, the connected programs, events; device tunnels come next (SRV-29).
+- Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
+- Device holders registry (CLT-38, `wire_weaver_client::holders`): every program opening a USB interface or RTT
+  probe claims an OS file lock on `<runtime dir>/ww/holders/<key>.lock` first, so a busy error can name who
+  already holds the device (program, pid, since) instead of the usual generic USB/probe error, and on Linux a
+  non-WireWeaver holder is found by scanning `/proc`. The lock-file-per-device shape is what the planned per-user
+  hub (SRV-13) will use too, to know which devices it already holds.
 - `ww dfu flash` (CLT-33): a whole update of a chunky device in one command, with `chunky_ww_host` from
   chunky_mcu_updater: an ELF or binary sealed for the device, a delta plan, pipelined steps with a progress bar,
   reboot into the trial, follow by serial number, the device's confirm or revert. `ww dfu status`, `confirm`,
@@ -267,6 +274,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- `no_alloc = false` servers compile and work (API-21), the first piece of the ww hub (SRV-13): servers generated
+  for `std` take and give owned types (`String`, `Vec<T>`, `FooOwned`) and send the same bytes as a `no_alloc`
+  server, through shrink_wrap's new `BufWriter::ser_owned` / `write_owned` and `OwnedSer`; `ww api scaffold --alloc`
+  matches. Docs page `transport/hub.md`.
 - Host event loop: `disconnect().keep_streams()` no longer ends kept streams and sinks when the device closes the medium right after the `Disconnect` (rx took the transport error before tx's word to keep them). See `wire_weaver_client/CHANGELOG.md`.
 - Observe (API-39): `ObserveState::reset()` drops the samples taken before it, which went to the next host observing in `Samples` mode with their old times. See the `wire_weaver_core` changelog.
 - Reliable streams (API-47): a resend or a resume from inside a multi-unit event (a batch confirmed item by item)
@@ -291,6 +302,8 @@ Workspace version 0.5.0 since 30 Sep 2026, tagged 15 Oct 2026, not on crates.io 
 the per-crate changelogs for details and migration notes. Highlights since 0.4.0:
 
 ### Added
+
+- Who connects (CLT-41): clients tell the device their program, user, host, pid and kind in link setup (`ww_link::ClientMeta`, wire-compatible appended field), with defaults found by the library and `ClientConfig::client_meta` to override; devices read it with `DeviceLink::peer_meta()`. See the per-crate changelogs of `ww_link`, `ww_device`, `wire_weaver_client` and `wire_weaver_py`.
 
 - Observe requests (API-38): a host asks a trait level's properties to be sent on change, periodically or both,
   within a byte budget, and gets them as one `PropertyUpdate` event per level carrying any subset of them

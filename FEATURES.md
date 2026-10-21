@@ -705,6 +705,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`#[stream(T, codec = auto)]`), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a `Series` batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- 📋 **API-58 `#[read_only]` methods** · `v0.5.x` — a typed attribute in `ww_self::Meta` (next to SRV-34's `claim`)
+  for methods without effects, carried in introspection: the hub lets peers with only the `observe` right call them
+  (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
+  federation (SRV-33).
 - ✅ **SRV-1 `no_std`, no-alloc server**, IO-free generated code.
 - ✅ **SRV-2 Sans-IO `DeviceLink`**, async `Server` with `wait()`/`handle()` for a user-owned event loop, and
   `blocking::Server`.
@@ -821,7 +825,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
   wire_weaver device with its own API (`ww_hub_api`). Today a second program gets "busy". Pieces: SRV-28 process and
-  API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
+  API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation (SRV-36..40),
   SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21 (done). Later API groups: logs to several viewers, shared
   captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
 - 🧪 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
@@ -845,8 +849,27 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34) that also pauses clock steering; `ww hub lend DEVICE -- CMD` hands a
   device to a non-ww tool and takes it back.
-- 💡 **SRV-33 Hub federation between PCs** — remote devices through another PC's hub: ssh-forwarded socket first (no
-  new crypto), native WebSocket / UDP with pinned keys and per-device rights later. Security design before code.
+- 📋 **SRV-33 Hub federation between PCs** · `v0.5.x` — remote devices through another PC's hub, as `HOST/<key>`,
+  with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
+  SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser
+  on localhost (TOOL-6), SRV-40 native hub-to-hub with pinned keys (Noise IK). No UDP, no transitive federation.
+- 📋 **SRV-36 `ww hub attach` over ssh** · `v0.5.x` — `ww hub attach HOST` logs in once in the terminal (an ssh
+  ControlMaster), the local hub then opens one `ssh HOST ww hub stdio` channel per tunnel and lists the remote
+  devices as `HOST/<key>`; ssh authenticates, the remote hub serves the channel as its own user. Byte-spliced
+  tunnels (the remote hub multiplexes), host names and remote keys validated, `ww hub detach`.
+- 📋 **SRV-37 Hub principals and per-device rights** · `v0.5.x` — who is connected, from what the OS, ssh or a key
+  says (never the client's own metadata), and what it may do per device: `observe`, `control`, `dfu`, from glob
+  rules in `~/.config/ww/hub_peers.toml`; the hub answers refused requests with `Forbidden` itself, filters the
+  registry, keeps hub API methods local unless classified, and owns claims per principal.
+- 📋 **SRV-38 Restricted ssh keys for the hub** · `v0.5.x` — `authorized_keys` lines with
+  `restrict,command="ww hub stdio --peer NAME"` give a key only the rights of `[peer.NAME]`; `ww hub allow --ssh`
+  prints the line.
+- 📋 **SRV-39 The hub for a browser on localhost** · `v0.5.x` — an HTTP + WebSocket listener on loopback only that
+  serves the TOOL-6 web GUI: `Host` and `Origin` checked, a single-use launch token from `ww gui` in the URL
+  fragment exchanged for a per-tab session token, the peer's user checked on Linux and Windows.
+- 💡 **SRV-40 Native hub-to-hub with pinned keys** — for PCs without ssh: TCP with Noise IK (`snow`, pure Rust),
+  a static key per PC (`ww hub key`), peers allowlisted by key and source address with SRV-37 rules. Built when a
+  box without ssh needs it.
 - 💡 **SRV-14 FPGA server** · `v0.5.x`.
 
 ## Client / host side (`CLT`)
@@ -1066,6 +1089,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (the USB
   handle passed between the processes, link, requests in flight, streams and subscriptions), so the device never
   sees a reconnect and the holder goes on through the hub without a gap; elsewhere CLT-43's release and reopen.
+- 📋 **CLT-45 Lock file names one per device key** — `holders` maps every character outside `[A-Za-z0-9._-]` to
+  `_`, so two keys can share a lock file (`...:a:b` and `...:a_b`): a USB device with a crafted serial can make
+  another one look held. Needs an injective file name.
 
 ## Transports and protocols (`TR`)
 
@@ -1275,6 +1301,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TOOL-18 The hub from Python and notebooks** · `v0.5.x` — the wheel carries the hub (`python -m
   wire_weaver.hub`), `connect` goes through it, a kernel restart keeps the device open and steered,
   `wire_weaver.hub()` gives the hub API through the dynamic client.
+- 📋 **TOOL-19 Escape device strings in `ww` output** — USB product and serial strings, `UserStr` errors,
+  introspection docs and (with SRV-36) remote hub data are printed as they come, so a device can write terminal
+  escape sequences into the user's terminal. One display helper that escapes control characters, outside `--json`.
 - 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case

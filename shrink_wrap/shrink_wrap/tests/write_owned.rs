@@ -1,11 +1,11 @@
-//! `BufWriter::write_owned` and `ser_owned` (API-21): an owned value written into a fixed buffer gives the same
+//! `BufWriter::write_owned`, `ser_owned` and `OwnedSer` (API-21): an owned value written into a fixed buffer gives the same
 //! bytes as its borrowed counterpart written with `write` / `ser_shrink_wrap`, at every bit position and inside
 //! an enclosing `Unsized` value that encodes the lengths it pushes.
 
+use shrink_wrap::buf_writer::UnsizedBuilder;
 use shrink_wrap::prelude::*;
 use shrink_wrap::un::U3;
-use shrink_wrap::buf_writer::UnsizedBuilder;
-use shrink_wrap::{BufReader, BufWriter, Error};
+use shrink_wrap::{BufReader, BufWriter, Error, OwnedSer};
 
 #[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone))]
 struct Rec<'i> {
@@ -116,6 +116,11 @@ fn check<B: SerializeShrinkWrap, O: SerializeShrinkWrapOwned>(borrowed: &B, owne
                 bytes_of(&mut o, prefix, nested, |wr| wr.ser_owned(owned)),
                 bytes_of(&mut b, prefix, nested, |wr| borrowed.ser_shrink_wrap(wr)),
                 "ser, {prefix} bits before, nested: {nested}"
+            );
+            assert_eq!(
+                bytes_of(&mut o, prefix, nested, |wr| wr.write(&OwnedSer(owned))),
+                bytes_of(&mut b, prefix, nested, |wr| wr.write(borrowed)),
+                "OwnedSer, {prefix} bits before, nested: {nested}"
             );
         }
     }

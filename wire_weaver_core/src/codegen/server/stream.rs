@@ -10,6 +10,21 @@ use ww_self::{
     PropertyAccess, TypeOwned,
 };
 
+/// `value.to_ww_bytes(buf)`: the value on its own, as the host reads it from an event's tail; an owned one (a
+/// `no_alloc = false` server, API-21) through `BufWriter::ser_owned`, the same bytes.
+fn to_ww_bytes(no_alloc: bool, buf: TokenStream) -> TokenStream {
+    if no_alloc {
+        quote! { value.to_ww_bytes(#buf) }
+    } else {
+        quote! {
+            {
+                let mut wr = BufWriter::new(#buf);
+                wr.ser_owned(value).and_then(|_| wr.finish_and_take())
+            }
+        }
+    }
+}
+
 pub(crate) fn stream_ser_methods_recursive(
     bundle: &ApiBundleOwned,
     level: &ApiLevelOwned,
@@ -145,6 +160,7 @@ pub(crate) fn stream_ser_methods_recursive(
         } else {
             // `'i` of the fn: a `Series<'i, T<'i>>` needs one lifetime in both places (it is invariant over it)
             let ty_def = ty_def(bundle, ty, !no_alloc, TyPos::Def).unwrap();
+            let to_ww_bytes = to_ww_bytes(no_alloc, quote! { &mut scratch[head_len..] });
             // The host reads the value from the event's tail bytes, as `from_ww_bytes` would: so it is written on its
             // own with `to_ww_bytes`, byte aligned and with its own sizes, between the event's header and the event's
             // sizes (the path length). Written in place, a value ending mid-byte lost its last bits, and its sizes
@@ -169,7 +185,7 @@ pub(crate) fn stream_ser_methods_recursive(
                     if head_len > scratch.len() {
                         return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
                     }
-                    let value_len = value.to_ww_bytes(&mut scratch[head_len..])?.len();
+                    let value_len = #to_ww_bytes?.len();
                     let sizes = &header[head_len..];
                     let end = head_len + value_len + sizes.len();
                     if end > scratch.len() {
@@ -297,10 +313,10 @@ fn positioned_ser_methods(
     } else {
         // `'i` of the fn, as above
         let ty_def = ty_def(bundle, ty, !no_alloc, TyPos::Def).unwrap();
-        (
-            ty_def,
-            quote! { |buf: &mut [u8]| value.to_ww_bytes(buf).map(|bytes| bytes.len()) },
-        )
+        (ty_def, {
+            let to_ww_bytes = to_ww_bytes(no_alloc, quote! { buf });
+            quote! { |buf: &mut [u8]| #to_ww_bytes.map(|bytes| bytes.len()) }
+        })
     };
     let value_lifetime = maybe_quote(is_lifetime, quote! { 'i, });
     let event = Ident::new(&format!("{ident}_event"), Span::call_site());
@@ -422,9 +438,12 @@ fn positioned_ser_methods(
                     let _ = scratch;
                     let item: &[u8] = value;
                 },
-                _ => quote! {
-                    let item = value.to_ww_bytes(scratch).map_err(ww_stream::tx::PushItemError::Serialize)?;
-                },
+                _ => {
+                    let to_ww_bytes = to_ww_bytes(no_alloc, quote! { scratch });
+                    quote! {
+                        let item = #to_ww_bytes.map_err(ww_stream::tx::PushItemError::Serialize)?;
+                    }
+                }
             };
             ts.extend(quote! {
                 #[doc = #push_doc]

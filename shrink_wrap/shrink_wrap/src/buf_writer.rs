@@ -54,7 +54,10 @@ impl BufWriter<'_> {
     /// assert_eq!(owned, wr.finish().unwrap());
     /// assert_eq!(owned, &[0x80, b'a', b'b', 0x21]);
     /// ```
-    pub fn write_owned<T: crate::SerializeShrinkWrapOwned>(&mut self, val: &T) -> Result<(), Error> {
+    pub fn write_owned<T: crate::SerializeShrinkWrapOwned>(
+        &mut self,
+        val: &T,
+    ) -> Result<(), Error> {
         self.through_owned(|wr| wr.write(val))
     }
 
@@ -91,6 +94,29 @@ impl BufWriter<'_> {
             self.write_rev_len(len as usize)?;
         }
         Ok(())
+    }
+}
+
+/// An owned value seen as [SerializeShrinkWrap], for code that takes one (a list builder, a size measure, a
+/// generic writer): written through [BufWriter::ser_owned], the same bytes its borrowed counterpart gives. No
+/// [MAX_SIZE](SerializeShrinkWrap::MAX_SIZE), as for any value that can grow.
+///
+/// ```
+/// use shrink_wrap::{BufWriter, OwnedSer, SerializeShrinkWrap};
+/// let mut buf = [0u8; 16];
+/// let bytes = OwnedSer(&vec![String::from("ab")]).to_ww_bytes(&mut buf).unwrap();
+/// assert_eq!(bytes, &[b'a', b'b', 0x21]);
+/// ```
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, Copy)]
+pub struct OwnedSer<'a, T>(pub &'a T);
+
+#[cfg(feature = "std")]
+impl<T: crate::SerializeShrinkWrapOwned> SerializeShrinkWrap for OwnedSer<'_, T> {
+    const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
+
+    fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.ser_owned(self.0)
     }
 }
 

@@ -95,6 +95,101 @@ impl FakeClock {
     }
 }
 
+/// Two servers of one API, generated with different options, answering the same requests: `a` answers the host,
+/// `b` is the reference, given every request too, and has to answer with the same bytes and send the same events.
+/// `b`'s events go nowhere, each of its sends gets the result `a`'s send of the same event had (a full queue
+/// fails both). With `a` a `no_alloc = false` server and `b` a `no_alloc` one (API-21), a test suite written for one
+/// runs against the other and checks they are the same on the wire. Give each its own state (handlers of both run),
+/// sharing only what a test sets to steer the handlers.
+pub struct Twin<A, B> {
+    pub a: A,
+    pub b: B,
+}
+
+impl<A: TestProcessEvents, B: TestProcessEvents<Medium = A::Medium>> TestProcessEvents
+    for Twin<A, B>
+{
+    type Medium = A::Medium;
+
+    fn process_request_bytes<'a>(
+        &mut self,
+        bytes: &[u8],
+        scratch: &'a mut [u8],
+        out: &mut impl BlockingEventOut,
+        medium: Self::Medium,
+    ) -> Result<&'a [u8], ShrinkWrapError> {
+        let mut b_scratch = vec![0u8; scratch.len()];
+        let mut a_out = Recorder { sent: vec![], out };
+        let a_reply = self
+            .a
+            .process_request_bytes(bytes, scratch, &mut a_out, medium);
+        let mut b_out = Replay {
+            sent: a_out.sent.clone().into_iter(),
+            events: vec![],
+        };
+        let b_reply = self
+            .b
+            .process_request_bytes(bytes, &mut b_scratch, &mut b_out, medium)
+            .map(<[u8]>::to_vec);
+        assert_eq!(
+            a_reply.as_deref().map(<[u8]>::to_vec).map_err(|e| *e),
+            b_reply,
+            "replies to {bytes:02x?}"
+        );
+        let a_events: Vec<_> = a_out.sent.into_iter().map(|(event, _)| event).collect();
+        assert_eq!(a_events, b_out.events, "events of {bytes:02x?}");
+        a_reply
+    }
+}
+
+/// An event sent through [Recorder], and what sending it gave.
+type Sent = (Vec<u8>, Result<(), wire_weaver::SendError>);
+
+/// Keeps the events sent through it, passed on to `out`, and what sending them gave.
+struct Recorder<'o, O> {
+    sent: Vec<Sent>,
+    out: &'o mut O,
+}
+
+impl<O: BlockingEventOut> BlockingEventOut for Recorder<'_, O> {
+    fn send_with_blocking<F>(&mut self, ser: F) -> Result<(), wire_weaver::SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        let mut buf = vec![0u8; MAX_MESSAGE_LEN];
+        let len = ser(&mut buf).map_err(wire_weaver::SendError::Serialize)?;
+        let event = buf[..len].to_vec();
+        let r = self.out.send_with_blocking(|scratch| {
+            scratch
+                .get_mut(..len)
+                .ok_or(ShrinkWrapError::OutOfBoundsWriteRawSlice)?
+                .copy_from_slice(&event);
+            Ok(len)
+        });
+        self.sent.push((event, r));
+        r
+    }
+}
+
+/// Keeps the events sent through it, each send gives what the same send of the other server of a [Twin] gave.
+struct Replay {
+    sent: std::vec::IntoIter<Sent>,
+    events: Vec<Vec<u8>>,
+}
+
+impl BlockingEventOut for Replay {
+    fn send_with_blocking<F>(&mut self, ser: F) -> Result<(), wire_weaver::SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        let mut buf = vec![0u8; MAX_MESSAGE_LEN];
+        let len = ser(&mut buf).map_err(wire_weaver::SendError::Serialize)?;
+        self.events.push(buf[..len].to_vec());
+        // more events than the other server sent: the comparison of the events fails
+        self.sent.next().map_or(Ok(()), |(_, r)| r)
+    }
+}
+
 /// Decides whether a request is dropped (returns true) before the server sees it, see [TestDevice::filter_requests].
 pub type RequestFilter = Box<dyn FnMut(&[u8]) -> bool + Send>;
 

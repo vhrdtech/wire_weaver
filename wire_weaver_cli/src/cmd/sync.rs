@@ -1,4 +1,5 @@
-//! `ww sync`: several devices kept on the host's UTC at once (TOOL-16), with `ww_clock_sync`.
+//! `ww sync`: several devices kept on the host's UTC at once (TOOL-16), with `ww_clock_sync`. With a ww hub running
+//! the hub steers (SRV-31) and `ww sync` only shows what the hub does, never a second steerer.
 
 use crate::complete;
 use crate::device::Selection;
@@ -7,11 +8,15 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCandidates;
 use console::{Term, measure_text_width, style};
+use std::collections::BTreeMap;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use wire_weaver_client::{Commander, DeviceInfo, DynClient};
+use wire_weaver_client::hub::{HubClient, HubMode};
+use wire_weaver_client::{ClientConfig, Commander, DeviceInfo, DynClient};
 use ww_clock_sync::{ClockSync, Options, RateCache, Status};
+use ww_hub_api::{SyncEntryOwned, SyncPhaseOwned};
 use ww_si::Prefix;
-use ww_timebase::{SyncSource, SyncState};
+use ww_timebase::{SteererOwned, SyncSource, SyncState};
 
 #[derive(Args)]
 pub(crate) struct SyncArgs {
@@ -83,9 +88,107 @@ mod indication_client {
 struct Synced {
     name: String,
     client: DynClient,
+    /// Steered by this process
     sync: Option<ClockSync>,
+    /// Steered by the hub: the device's key there
+    key: Option<String>,
     /// Why it isn't synced, or what went wrong with `--mode`.
     note: Option<String>,
+}
+
+/// The hub's `ClockSync` entries by device key, kept current from its `stats` stream.
+type HubEntries = Arc<Mutex<BTreeMap<String, SyncEntryOwned>>>;
+
+/// What the table and the convergence look at, from this process's own sync or from the hub's.
+#[derive(Clone, Debug, Default)]
+struct View {
+    /// The device's state at the last check
+    state: Option<SyncState>,
+    /// There is a fit of its clock
+    fitted: bool,
+    source: Option<SyncSource>,
+    /// The device answered a steer point: `source` is its answer
+    answered: bool,
+    rate_ppb: Option<i32>,
+    /// Shortest round trip of the fit, ns
+    min_rtt: Option<u64>,
+    /// Residual at the last check, ns
+    residual: Option<i64>,
+    /// Round trip of the last check, ns
+    check_rtt: Option<u64>,
+    /// The device's error bound, µs
+    error_us: Option<i64>,
+    slew_us: Option<i32>,
+    samples: usize,
+    error: Option<String>,
+    /// Whom the device follows, and another steerer it only notes, as it says
+    steerer: Option<SteererOwned>,
+    noted: Option<SteererOwned>,
+}
+
+impl From<&Status> for View {
+    fn from(s: &Status) -> Self {
+        let device = s.device.as_ref();
+        View {
+            state: device.map(|d| d.state),
+            fitted: s.fit.is_some(),
+            source: s.source,
+            answered: s.answered,
+            rate_ppb: s.fit.map(|f| f.rate_ppb()),
+            min_rtt: s.fit.map(|f| f.min_rtt),
+            residual: s.residual,
+            check_rtt: s.check_rtt,
+            error_us: device
+                .and_then(|d| d.error)
+                .map(|e| e.to_f64_in(Prefix::Micro) as i64),
+            slew_us: device.and_then(|d| d.slew_us),
+            samples: s.samples,
+            error: s.error.clone(),
+            steerer: device.and_then(|d| d.steerer.clone()),
+            noted: device.and_then(|d| d.noted.clone()),
+        }
+    }
+}
+
+impl View {
+    /// The hub's entry of a device: a view while the hub steers it, else why not.
+    fn of_hub(e: &SyncEntryOwned) -> std::result::Result<View, String> {
+        match &e.phase {
+            SyncPhaseOwned::Steering => Ok(View {
+                state: e.state,
+                fitted: e.rate_ppb.is_some(),
+                source: e.source,
+                answered: e.steers > 0,
+                rate_ppb: e.rate_ppb,
+                min_rtt: e.min_rtt_ns,
+                residual: e.residual_ns,
+                check_rtt: e.check_rtt_ns,
+                error_us: e.error_us.map(i64::from),
+                slew_us: e.slew_us,
+                samples: e.samples as usize,
+                error: e.error.clone(),
+                steerer: e.steerer.clone(),
+                noted: e.noted.clone(),
+            }),
+            SyncPhaseOwned::Starting => Err("the hub looks at its API".into()),
+            SyncPhaseOwned::Off => Err("steering is off in the hub".into()),
+            SyncPhaseOwned::Paused => {
+                Err("the hub paused steering: a program has it to itself".into())
+            }
+            SyncPhaseOwned::Unsupported => Err("no ww_timebase::Clock with host sync".into()),
+            SyncPhaseOwned::Failed { why } => Err(format!("the hub can't steer it: {why}")),
+            SyncPhaseOwned::Unknown(n) => Err(format!("hub phase <unknown {n}>")),
+        }
+    }
+}
+
+/// Who steers, for the table: program and pid, with the host when it isn't this one.
+fn steerer_name(s: &SteererOwned) -> String {
+    let this_host = wire_weaver_client::ClientMeta::new().resolve().host;
+    match s.host == this_host {
+        true => format!("{} pid {}", s.program, s.pid),
+        false => format!("{} pid {} on {}", s.program, s.pid, s.host),
+    }
 }
 
 pub(crate) async fn sync(
@@ -108,6 +211,32 @@ pub(crate) async fn sync(
         steer_every: Duration::from_millis(args.steer_ms.max(1)),
         ..Options::default()
     };
+    // with a hub the hub steers, ww sync only looks (SRV-31); WW_HUB=off steers here
+    let hub = match HubMode::from_env() != HubMode::Direct && wire_weaver_client::hub::hub_running()
+    {
+        true => Some(
+            HubClient::connect()
+                .await
+                .context("connecting to the ww hub")?,
+        ),
+        false => None,
+    };
+    let entries = HubEntries::default();
+    if let Some(hub) = &hub {
+        eprintln!(
+            "The ww hub steers the devices, ww sync shows how (--poll-ms and --steer-ms are the hub's own); \
+             WW_HUB=off to steer from here"
+        );
+        let mut stats = hub.sync().stats().call().await.context(
+            "the running ww hub doesn't steer clocks (SRV-31): update it, or WW_HUB=off",
+        )?;
+        let entries = entries.clone();
+        tokio::spawn(async move {
+            while let Ok(e) = stats.recv().await {
+                entries.lock().unwrap().insert(e.key.clone(), e);
+            }
+        });
+    }
 
     let mut devices = Vec::new();
     for device in picked {
@@ -115,9 +244,29 @@ pub(crate) async fn sync(
         let Some(usb) = &device.usb else {
             continue;
         };
+        if hub.is_some() {
+            let Some(key) = wire_weaver_client::hub::key_of(device) else {
+                continue;
+            };
+            // a tunnel: the hub opens the device and steers it, and keeps it steered after ww sync exits
+            let client =
+                DynClient::from_config(ClientConfig::new().traits_only().hub_device(key.clone()))
+                    .connect()
+                    .await
+                    .with_context(|| format!("connecting to {name} through the ww hub"))?;
+            devices.push(Synced {
+                name,
+                client,
+                sync: None,
+                key: Some(key),
+                note: None,
+            });
+            continue;
+        }
         let config = config
             .clone()
             .traits_only()
+            .hub(HubMode::Direct)
             .usb_port_chain(usb.bus_id.clone(), usb.port_chain.clone());
         let client = DynClient::from_config(config)
             .connect()
@@ -139,6 +288,7 @@ pub(crate) async fn sync(
             name,
             client,
             sync,
+            key: None,
             note,
         });
     }
@@ -165,10 +315,8 @@ pub(crate) async fn sync(
     let run = async {
         loop {
             every.tick().await;
-            let statuses: Vec<_> = devices
-                .iter()
-                .map(|d| d.sync.as_ref().map(ClockSync::status))
-                .collect();
+            let views = views(&devices, &entries);
+            let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
             let events = convergence.update(started.elapsed().as_nanos() as u64, &statuses);
             if live && shown > 0 {
                 _ = term.clear_last_lines(shown);
@@ -178,7 +326,7 @@ pub(crate) async fn sync(
                 println!("{}", e.line(&names, args.within_us));
             }
             if live {
-                let table = render(&rows(&devices)) + &phase_line(&statuses);
+                let table = render(&rows(&devices, &views)) + &phase_line(&statuses);
                 print!("{table}");
                 shown = table.lines().count();
             }
@@ -193,17 +341,24 @@ pub(crate) async fn sync(
         None => _ = stop.guard(run).await,
     }
     if !live {
-        let statuses: Vec<_> = devices
-            .iter()
-            .map(|d| d.sync.as_ref().map(ClockSync::status))
-            .collect();
-        print!("{}{}", render(&rows(&devices)), phase_line(&statuses));
+        let views = views(&devices, &entries);
+        let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
+        print!(
+            "{}{}",
+            render(&rows(&devices, &views)),
+            phase_line(&statuses)
+        );
     }
     for device in devices {
         drop(device.sync);
         _ = device.client.disconnect().asynch().await;
     }
-    eprintln!("Stopped: the devices go on in holdover on their last steer point");
+    match hub {
+        Some(_) => {
+            eprintln!("Stopped: the ww hub keeps steering them for its sync linger (ww hub status)")
+        }
+        None => eprintln!("Stopped: the devices go on in holdover on their last steer point"),
+    }
     Ok(())
 }
 
@@ -251,39 +406,71 @@ fn name(d: &DeviceInfo) -> String {
     format!("{} {id}", d.product).trim().to_string()
 }
 
-/// One table row: device, state, source, residual, error, rate, slew left, round trip, samples, note.
-type Row = [String; 10];
+/// One table row: device, state, source, steerer, residual, error, rate, slew left, round trip, samples, note.
+type Row = [String; 11];
 
-const HEADER: [&str; 10] = [
-    "DEVICE", "STATE", "SOURCE", "RESIDUAL", "ERROR", "RATE", "SLEW", "RTT", "SAMPLES", "NOTE",
+const HEADER: [&str; 11] = [
+    "DEVICE",
+    "STATE",
+    "SOURCE",
+    "STEERED BY",
+    "RESIDUAL",
+    "ERROR",
+    "RATE",
+    "SLEW",
+    "RTT",
+    "SAMPLES",
+    "NOTE",
 ];
 
-fn rows(devices: &[Synced]) -> Vec<Row> {
+/// Each device's view, `None` while nothing steers it, with a note (why not, or what went wrong).
+fn views(devices: &[Synced], entries: &HubEntries) -> Vec<(Option<View>, Option<String>)> {
+    let entries = entries.lock().unwrap();
     devices
         .iter()
-        .map(|d| match &d.sync {
-            Some(sync) => row(&d.name, &sync.status(), d.note.as_deref()),
+        .map(|d| {
+            if let Some(sync) = &d.sync {
+                return (Some(View::from(&sync.status())), d.note.clone());
+            }
+            match d.key.as_ref().map(|k| entries.get(k)) {
+                Some(Some(e)) => match View::of_hub(e) {
+                    Ok(v) => (Some(v), d.note.clone()),
+                    Err(why) => (None, Some(why)),
+                },
+                Some(None) => (None, Some("waiting for the hub".into())),
+                None => (None, d.note.clone()),
+            }
+        })
+        .collect()
+}
+
+fn rows(devices: &[Synced], views: &[(Option<View>, Option<String>)]) -> Vec<Row> {
+    devices
+        .iter()
+        .zip(views)
+        .map(|(d, (view, note))| match view {
+            Some(v) => row(&d.name, v, note.as_deref()),
             None => {
                 let mut row = Row::default();
                 row[0] = d.name.clone();
                 row[1] = "-".into();
                 row[2] = "-".into();
-                row[9] = d.note.clone().unwrap_or_default();
+                row[10] = note.clone().unwrap_or_default();
                 row
             }
         })
         .collect()
 }
 
-fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
-    let state = match s.device.as_ref().map(|d| d.state) {
+fn row(name: &str, s: &View, note: Option<&str>) -> Row {
+    let state = match s.state {
         Some(SyncState::Locked) => style("locked").green().to_string(),
         Some(SyncState::Holdover) => style("holdover").yellow().to_string(),
         Some(SyncState::Conflict) => style("conflict").red().to_string(),
         Some(SyncState::Acquiring) => style("acquiring").yellow().to_string(),
         Some(SyncState::Free) => "free".into(),
         Some(SyncState::Unknown(n)) => format!("<unknown {n}>"),
-        None if s.fit.is_some() => "fitted".into(),
+        None if s.fitted => "fitted".into(),
         None => "fitting".into(),
     };
     let source = match s.source {
@@ -294,13 +481,14 @@ fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
         None if s.answered => "none".into(),
         None => "-".into(),
     };
+    let steerer = s.steerer.as_ref().map(steerer_name).unwrap_or_default();
     let rate = s
-        .fit
-        .map(|f| format!("{:+.3} ppm", f.rate_ppb() as f64 / 1000.0))
+        .rate_ppb
+        .map(|r| format!("{:+.3} ppm", r as f64 / 1000.0))
         .unwrap_or_default();
     let rtt = s
-        .fit
-        .map(|f| format!("{} µs", f.min_rtt / 1000))
+        .min_rtt
+        .map(|r| format!("{} µs", r / 1000))
         .unwrap_or_default();
     // good to half the check's round trip
     let residual = s
@@ -310,27 +498,24 @@ fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
             None => signed_us(r / 1000),
         })
         .unwrap_or_default();
-    let error = s
-        .device
-        .as_ref()
-        .and_then(|d| d.error)
-        .map(|e| us(e.to_f64_in(Prefix::Micro) as i64))
-        .unwrap_or_default();
-    let slew = s
-        .device
-        .as_ref()
-        .and_then(|d| d.slew_us)
-        .map(|v| signed_us(v as i64))
-        .unwrap_or_default();
-    let note = s
+    let error = s.error_us.map(us).unwrap_or_default();
+    let slew = s.slew_us.map(|v| signed_us(v as i64)).unwrap_or_default();
+    let mut note = s
         .error
         .clone()
         .or(note.map(str::to_string))
         .unwrap_or_default();
+    if let Some(other) = &s.noted {
+        if !note.is_empty() {
+            note += "; ";
+        }
+        note += &format!("also steered by {}, only noted", steerer_name(other));
+    }
     [
         name.to_string(),
         state,
         source,
+        steerer,
         residual,
         error,
         rate,
@@ -362,7 +547,7 @@ fn signed_us(v: i64) -> String {
 /// The estimated LED phase difference between the devices: the spread of their residuals (each LED cycle starts on
 /// a UTC multiple of its period, so a device's residual is its cycle's lead on UTC), good to half the longest
 /// check's round trip. Empty below two devices with a residual.
-fn phase_line(statuses: &[Option<Status>]) -> String {
+fn phase_line(statuses: &[Option<View>]) -> String {
     let Some((spread, uncertainty, n)) = spread(statuses) else {
         return String::new();
     };
@@ -376,7 +561,7 @@ fn phase_line(statuses: &[Option<Status>]) -> String {
 }
 
 /// Largest minus smallest residual, half the longest check round trip, and how many devices had one; ns.
-fn spread(statuses: &[Option<Status>]) -> Option<(i64, i64, usize)> {
+fn spread(statuses: &[Option<View>]) -> Option<(i64, i64, usize)> {
     let measured: Vec<_> = statuses
         .iter()
         .flatten()
@@ -433,11 +618,11 @@ impl Convergence {
         }
     }
 
-    fn update(&mut self, now: u64, statuses: &[Option<Status>]) -> Vec<Event> {
+    fn update(&mut self, now: u64, statuses: &[Option<View>]) -> Vec<Event> {
         let mut events = Vec::new();
         for (index, (since, status)) in self.since.iter_mut().zip(statuses).enumerate() {
             let Some(s) = status else { continue };
-            let state = s.device.as_ref().map(|d| d.state);
+            let state = s.state;
             let half_rtt = s.check_rtt.map(|r| r as i64 / 2);
             if state == Some(SyncState::Locked) && half_rtt.is_some_and(|h| h > self.within_ns) {
                 continue;
@@ -566,9 +751,6 @@ fn render(rows: &[Row]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ww_clock_sync::Fit;
-    use ww_si::Second;
-    use ww_timebase::SyncStatusOwned;
 
     fn device(serial: &str, label: &str) -> DeviceInfo {
         DeviceInfo {
@@ -606,24 +788,17 @@ mod tests {
     #[test]
     fn table_rows() {
         console::set_colors_enabled(false);
-        let fit = Fit {
-            local: 0,
-            shared: 0.0,
-            slope: 1.0 - 9_900e-6,
-            min_rtt: 412_000,
-            used: 40,
-            residual_rms: 50_000.0,
-            prior: false,
-        };
-        let status = Status {
-            fit: Some(fit),
+        let view = View {
+            fitted: true,
+            rate_ppb: Some(-9_900_000),
+            min_rtt: Some(412_000),
             samples: 80,
-            steers: 3,
             source: Some(SyncSource::Host),
+            answered: true,
             residual: Some(-37_400),
-            ..Status::default()
+            ..View::default()
         };
-        let table = render(&[row("Donguru A1B2", &status, None)]);
+        let table = render(&[row("Donguru A1B2", &view, None)]);
         let lines: Vec<_> = table.lines().collect();
         assert_eq!(lines[0].split_whitespace().next(), Some("DEVICE"));
         assert!(lines[1].contains("fitted"), "{table}");
@@ -631,43 +806,78 @@ mod tests {
         assert!(lines[1].contains("412 µs"), "{table}");
         assert!(lines[1].contains("-37 µs"), "{table}");
         assert!(lines[1].contains("host"), "{table}");
-        let device = SyncStatusOwned {
-            state: SyncState::Acquiring,
-            offset: None,
-            last_lock: None,
-            source: Some(SyncSource::Host),
-            error: Some(Second::micro(1_250u32)),
+        let view = View {
+            state: Some(SyncState::Acquiring),
+            error_us: Some(1_250),
             slew_us: Some(-48_000),
-            steerer: None,
-            noted: None,
-        };
-        let status = Status {
-            device: Some(device),
             check_rtt: Some(1_400_000),
-            ..status
+            steerer: Some(SteererOwned {
+                id: 1,
+                host: "lab-pc".into(),
+                program: "ww hub".into(),
+                pid: 4711,
+            }),
+            noted: Some(SteererOwned {
+                id: 2,
+                host: "lab-pc".into(),
+                program: "app".into(),
+                pid: 7,
+            }),
+            ..view
         };
-        let table = render(&[row("Donguru A1B2", &status, None)]);
+        let table = render(&[row("Donguru A1B2", &view, None)]);
         assert!(table.contains("acquiring"), "{table}");
         assert!(table.contains("-37 µs ±700 µs"), "{table}");
         assert!(table.contains("1.25 ms"), "{table}");
         assert!(table.contains("-48.00 ms"), "{table}");
+        assert!(table.contains("ww hub pid 4711 on lab-pc"), "{table}");
+        assert!(
+            table.contains("also steered by app pid 7 on lab-pc, only noted"),
+            "{table}"
+        );
     }
 
-    fn status(state: SyncState, residual_us: i64) -> Option<Status> {
-        Some(Status {
-            device: Some(SyncStatusOwned {
-                state,
-                offset: None,
-                last_lock: None,
-                source: Some(SyncSource::Host),
-                error: None,
-                slew_us: Some(0),
-                steerer: None,
-                noted: None,
-            }),
+    #[test]
+    fn hub_entries_as_views() {
+        let mut e = SyncEntryOwned {
+            key: "usb:c0de:cafe:A1".into(),
+            phase: SyncPhaseOwned::Steering,
+            state: Some(SyncState::Locked),
+            source: Some(SyncSource::Host),
+            steerer: None,
+            noted: None,
+            followed: Some(true),
+            rate_ppb: Some(-12_000),
+            rate_from_cache: true,
+            min_rtt_ns: Some(300_000),
+            residual_ns: Some(-50_000),
+            check_rtt_ns: Some(400_000),
+            error_us: Some(900),
+            slew_us: Some(3),
+            samples: 12,
+            steers: 4,
+            restarts: 0,
+            error: None,
+        };
+        let v = View::of_hub(&e).unwrap();
+        assert_eq!(v.state, Some(SyncState::Locked));
+        assert_eq!(
+            (v.rate_ppb, v.min_rtt, v.error_us),
+            (Some(-12_000), Some(300_000), Some(900))
+        );
+        assert!(v.answered && v.fitted);
+        e.phase = SyncPhaseOwned::Off;
+        assert_eq!(View::of_hub(&e).unwrap_err(), "steering is off in the hub");
+    }
+
+    fn status(state: SyncState, residual_us: i64) -> Option<View> {
+        Some(View {
+            state: Some(state),
+            source: Some(SyncSource::Host),
+            slew_us: Some(0),
             residual: Some(residual_us * 1000),
             check_rtt: Some(200_000),
-            ..Status::default()
+            ..View::default()
         })
     }
 

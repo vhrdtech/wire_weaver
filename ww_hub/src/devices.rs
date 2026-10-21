@@ -20,7 +20,10 @@ pub(crate) async fn entries(hub: &Hub) -> Vec<DeviceEntryOwned> {
     let usb = wire_weaver_client::list_usb_devices()
         .await
         .unwrap_or_default();
-    let held = holders::list();
+    // files and OS locks: off the hub's thread, its tunnels go on meanwhile
+    let held = tokio::task::spawn_blocking(holders::list)
+        .await
+        .unwrap_or_default();
     let mut entries = BTreeMap::new();
     for d in &usb {
         let Some(loc) = &d.usb else { continue };

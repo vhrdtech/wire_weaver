@@ -129,10 +129,18 @@ pub fn main_if_hub() {
     std::process::exit(code);
 }
 
-/// Serves on a new tokio runtime until the hub exits.
+/// Serves on a new tokio runtime until the hub exits. One thread: a message through a tunnel passes several tasks
+/// (the client's tunnel, the device's event loop), and on one thread each hand-over is a task switch, not a wake of
+/// another thread (tens of µs on an idle PC, measured with `tests/hub/examples/hub_loopback.rs`). Blocking work
+/// (lock files, RTT) runs on threads of its own.
 pub fn run_blocking() -> io::Result<Exit> {
-    let config = HubConfig::from_env()?;
-    tokio::runtime::Builder::new_multi_thread()
+    run_blocking_with(HubConfig::from_env()?)
+}
+
+/// [run_blocking] with this config. Not from a thread that runs a tokio runtime: from an async program, call it
+/// with `tokio::task::spawn_blocking`.
+pub fn run_blocking_with(config: HubConfig) -> io::Result<Exit> {
+    tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?
         .block_on(serve(config))

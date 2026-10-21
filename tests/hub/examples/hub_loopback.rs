@@ -180,15 +180,32 @@ async fn main() {
 
     let dir = std::env::temp_dir().join(format!("ww-hub-bench-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
-    let bound = ww_hub::Bound::bind(ww_hub::HubConfig {
+    let config = ww_hub::HubConfig {
         runtime_dir: dir.clone(),
         idle_exit: Duration::from_secs(600),
         linger: Duration::from_secs(1),
-    })
-    .unwrap()
-    .expect("a hub of its own");
-    let shutdown = bound.shutdown_handle();
-    let hub = tokio::spawn(bound.run());
+    };
+    // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)
+    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel();
+    let hub = std::thread::spawn(move || {
+        let rt = match std::env::var("HUB_RT").as_deref() {
+            Ok("multi") => tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build(),
+            _ => tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build(),
+        }
+        .unwrap();
+        rt.block_on(async move {
+            let bound = ww_hub::Bound::bind(config)
+                .unwrap()
+                .expect("a hub of its own");
+            shutdown_tx.send(bound.shutdown_handle()).unwrap();
+            bound.run().await
+        })
+    });
+    let shutdown = shutdown_rx.recv().unwrap();
     let socket = dir.join(ww_local_socket::files::HUB_SOCKET).display().to_string();
     let through_hub = ClientConfig::new().hub_device_at(socket, key.clone());
 
@@ -201,7 +218,7 @@ async fn main() {
     }
     let (d, h) = (median(ds), median(hs));
     shutdown.shutdown();
-    let _ = hub.await;
+    let _ = hub.join();
     let _ = std::fs::remove_dir_all(&dir);
 
     let pct = |a: f32, b: f32| (b / a - 1.0) * 100.0;

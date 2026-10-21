@@ -58,7 +58,8 @@ pub(crate) async fn hub(cmd: HubCommand) -> Result<()> {
             if let Some(s) = idle_exit {
                 config.idle_exit = Duration::from_secs(s);
             }
-            match ww_hub::serve(config).await? {
+            // on a thread and runtime of its own, see `run_blocking`
+            match tokio::task::spawn_blocking(move || ww_hub::run_blocking_with(config)).await?? {
                 ww_hub::Exit::AlreadyRunning => {
                     anyhow::bail!("a hub runs for this user already")
                 }

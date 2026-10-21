@@ -189,21 +189,16 @@ pub(crate) async fn serve(
                         None => None,
                     };
                     reader.consume();
-                    let sent = match received {
-                        Some(Err(request)) => Some(device.device.request(id, request).await),
-                        Some(Ok((repeat, seq, data))) => {
-                            Some(device.device.loopback(id, repeat, seq, data).await)
-                        }
-                        None => None,
-                    };
                     // the end of what the client wrote at once: it flushed, the device gets it now as well
-                    let sent = match sent {
-                        Some(Ok(())) if poll_once(reader.wait_message()).await.is_none() => {
-                            Some(device.device.flush().await)
+                    let last = received.is_some() && poll_once(reader.wait_message()).await.is_none();
+                    let sent = match received {
+                        Some(Err(request)) => device.device.request(id, request, last).await,
+                        Some(Ok((repeat, seq, data))) => {
+                            device.device.loopback(id, repeat, seq, data, last).await
                         }
-                        sent => sent,
+                        None => Ok(()),
                     };
-                    if let Some(Err(())) = sent {
+                    if sent.is_err() {
                         // the device's event loop is gone; its task closes the queue
                         debug!("ww hub: tunnel {id}: device gone");
                     }

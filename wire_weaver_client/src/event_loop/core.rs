@@ -730,6 +730,46 @@ mod tests {
         assert_eq!(p.flushes, flushes + 1);
     }
 
+    /// Forwarded requests (the hub) leave in the frames their sender flushed: not on an idle moment between them,
+    /// on `ForwardFlush`, or after 1 ms (or the device's longer window) when that doesn't come.
+    #[test]
+    fn forwarded_wait_for_forward_flush() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let _connected_rx = connect(&mut p, now);
+        let forward = |bytes| Command::Forward {
+            bytes,
+            tag: None,
+            timeout: Duration::from_secs(1),
+        };
+        p.cmd(now, forward(request(&[1])));
+        assert!(!p.tx.wants_idle_flush(), "a forwarded batch isn't over yet");
+        assert_eq!(p.tx.poll_timeout(), Some(now + Duration::from_millis(1)));
+        p.cmd(now, forward(request(&[2])));
+        let flushes = p.flushes;
+        p.cmd(now, Command::ForwardFlush);
+        p.settle(now);
+        assert_eq!(p.flushes, flushes + 1);
+        let sent = p.take_sent();
+        assert_eq!(kinds(&sent), [Kind::Data0, Kind::Data0]);
+        assert_eq!(sent[0].frame, sent[1].frame, "one frame for the batch");
+
+        // no ForwardFlush: out after the hold
+        p.cmd(now, forward(request(&[3])));
+        let now = now + Duration::from_millis(1);
+        p.timers(now);
+        assert_eq!(p.flushes, flushes + 2);
+        // a plain request after that is flushed when idle again
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: request(&[4]),
+                done_tx: None,
+            },
+        );
+        assert!(p.tx.wants_idle_flush());
+    }
+
     #[test]
     fn link_setup_then_data_ping_and_peer_timeout() {
         let now = Instant::now();

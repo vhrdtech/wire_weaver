@@ -767,6 +767,38 @@
       "value": {"kind": 3, "rest": [1, 2, 3]},
       "bytes": "03010203",
       "gaps": {"dynamic": "TailBytes has no form in the API model yet (INT-9)", "explain": "TailBytes has no form in the API model yet (INT-9)", "python": "TailBytes has no form in the API model yet (INT-9)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "stdlib.timebase.steer_point",
+      "type": "steer_point",
+      "value": {"local": {"prefix": "Micro", "value": {"U32": 1000000}}, "shared_us": 1700000000000000, "rate_ppb": -9900990, "error_us": 250, "steerer": null},
+      "bytes": "2340420f0000401e18240a060042ec68fffa00000000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "ww_timebase SteerPoint without a steerer, as hosts built before SRV-31 send it"
+    },
+    {
+      "name": "stdlib.timebase.steer_point.steerer",
+      "type": "steer_point",
+      "value": {"local": {"prefix": "Micro", "value": {"U32": 1000000}}, "shared_us": 1700000000000000, "rate_ppb": -9900990, "error_us": 250, "steerer": {"id": 72623859790382856, "host": "pc1", "program": "ww hub", "pid": 4711}},
+      "bytes": "2340420f0000401e18240a060042ec68fffa00000080080706050403020170633177772068756267120000636a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "SteerPoint with the appended steerer (SRV-31): who steers"
+    },
+    {
+      "name": "stdlib.timebase.sync_status",
+      "type": "sync_status",
+      "value": {"state": "Free", "offset": null, "last_lock": null, "source": null, "error": null, "slew_us": null, "steerer": null, "noted": null},
+      "bytes": "000001",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "ww_timebase SyncStatus of a free clock, nothing appended set"
+    },
+    {
+      "name": "stdlib.timebase.sync_status.steerers",
+      "type": "sync_status",
+      "value": {"state": "Locked", "offset": null, "last_lock": {"prefix": "Micro", "value": {"U32": 5}}, "source": "Host", "error": {"prefix": "Micro", "value": {"U32": 300}}, "slew_us": -12, "steerer": {"id": 72623859790382856, "host": "pc1", "program": "ww hub", "pid": 4711}, "noted": {"id": 2, "host": "lab", "program": "app", "pid": 7}},
+      "bytes": "20423005000000800082302c01000080f4ffffff80080706050403020170633177772068756267120000638002000000000000006c616261707007000000333a6a11",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "SyncStatus with the steerer followed and one only noted (SRV-31)"
     }
   ]
 }

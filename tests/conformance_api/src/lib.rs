@@ -93,6 +93,9 @@ trait Conformance {
     // Series
     property!(rw series_u16: Series<'i, u16>);
     property!(rw series_sample: Series<'i, Sample>);
+    // ww_stdlib types whose evolution is checked here
+    property!(rw steer_point: ww_timebase::SteerPoint<'i>);
+    property!(rw sync_status: ww_timebase::SyncStatus<'i>);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

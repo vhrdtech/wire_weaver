@@ -2,7 +2,7 @@ use crate::client::observe::{LevelRoute, ObserveRouteHook};
 use crate::client::positioned::Shared;
 use crate::client::prepared_stream_open::decode_opened;
 use crate::client::sink::SinkLink;
-use crate::event_loop::command::StreamOpenHook;
+use crate::event_loop::command::{Forwarded, StreamOpenHook};
 use crate::event_loop::core::FullRetry;
 use crate::event_loop::event_queue::{EventReceiver, EventSender};
 use crate::{Error, RawStreamEvent, SeqTy};
@@ -117,6 +117,11 @@ pub(crate) struct RxDispatcher {
     sinks: Vec<Weak<SinkLink>>,
     /// Observed trait levels, by path (CLT-28)
     observe_routes: HashMap<Vec<UNib32>, Arc<dyn LevelRoute>>,
+    /// Forwarded requests waiting for their (last) answer (`Command::Forward`): tag, timeout instant and
+    /// [LATE_REPLY_WINDOW] end, by seq.
+    forwards: HashMap<SeqTy, (u64, Instant, Instant)>,
+    /// `Command::ForwardSink`: answers to forwarded requests and events with seq 0 go here, raw
+    pub(crate) forward_sink: Option<tokio::sync::mpsc::UnboundedSender<Forwarded>>,
     /// Seq numbers whose requests completed, were cancelled or timed out and passed [LATE_REPLY_WINDOW] since the
     /// last [Self::take_freed].
     /// The tx side allocates seq numbers and needs to know when they can be reused.
@@ -188,6 +193,57 @@ impl RxDispatcher {
         }
     }
 
+    /// A forwarded request with this seq was sent, its answers go to the forward sink.
+    pub fn expect_forward(&mut self, now: Instant, seq: SeqTy, tag: u64, timeout: Duration) {
+        if !self.is_connected {
+            self.forward_failed(tag, Error::Disconnected);
+            self.freed.push(seq);
+            return;
+        }
+        let prune_at = now + timeout;
+        let release_at = prune_at.max(now + LATE_REPLY_WINDOW);
+        self.forwards.insert(seq, (tag, prune_at, release_at));
+    }
+
+    /// Tell the forward sink that the request with `tag` won't be answered.
+    pub fn forward_failed(&mut self, tag: u64, error: Error) {
+        if let Some(sink) = &self.forward_sink {
+            _ = sink.send(Forwarded::Failed { tag, error });
+        }
+    }
+
+    /// An event for the forward sink: an answer to a forwarded request, or anything with seq 0. Whether it was.
+    fn forward(&mut self, msg_bytes: &[u8], event: &ww_client_server::Event<'_>) -> bool {
+        let Some(sink) = &self.forward_sink else {
+            return false;
+        };
+        let seq = event.seq.0;
+        if seq == 0 {
+            _ = sink.send(Forwarded::Event(msg_bytes.to_vec()));
+            return true;
+        }
+        let Some((tag, _, _)) = self.forwards.get(&seq) else {
+            return false;
+        };
+        // stream data under the request's seq (introspection) comes before the answer
+        let last = !matches!(
+            event.result,
+            Ok(EventKind::StreamData { .. }
+                | EventKind::StreamItem { .. }
+                | EventKind::PropertyUpdate { .. })
+        );
+        _ = sink.send(Forwarded::Reply {
+            tag: *tag,
+            event: msg_bytes.to_vec(),
+            last,
+        });
+        if last {
+            self.forwards.remove(&seq);
+            self.freed.push(seq);
+        }
+        true
+    }
+
     /// Seq numbers that became reusable since the last call.
     pub fn take_freed(&mut self) -> Vec<SeqTy> {
         std::mem::take(&mut self.freed)
@@ -255,6 +311,22 @@ impl RxDispatcher {
                 }
             }
         }
+        let due: Vec<SeqTy> = self
+            .forwards
+            .iter()
+            .filter(|(_, (_, prune_at, _))| is_due(prune_at))
+            .map(|(seq, _)| *seq)
+            .collect();
+        for seq in due {
+            if let Some((tag, _, release_at)) = self.forwards.remove(&seq) {
+                self.forward_failed(tag, Error::Timeout);
+                if is_due(&release_at) {
+                    self.freed.push(seq);
+                } else {
+                    self.timed_out.insert(seq, release_at);
+                }
+            }
+        }
         self.timed_out.retain(|seq, release_at| {
             let keep = !is_due(release_at);
             if !keep {
@@ -269,6 +341,7 @@ impl RxDispatcher {
         self.response_map
             .values()
             .map(|(_, prune_at, _)| *prune_at)
+            .chain(self.forwards.values().map(|(_, prune_at, _)| *prune_at))
             .chain(self.timed_out.values().copied())
             .min()
     }
@@ -323,6 +396,9 @@ impl RxDispatcher {
             }
         };
         trace!("received event: {:?}", event);
+        if self.forward(msg_bytes, &event) {
+            return;
+        }
         match event.result {
             Ok(event_kind) => match event_kind {
                 EventKind::Value { data } => {
@@ -526,6 +602,11 @@ impl RxDispatcher {
         self.full_retries.clear();
         for (seq, (mut done_tx, _, _)) in self.response_map.drain() {
             _ = done_tx.send(Err(Error::Disconnected));
+            self.freed.push(seq);
+        }
+        let forwards: Vec<_> = self.forwards.drain().collect();
+        for (seq, (tag, _, _)) in forwards {
+            self.forward_failed(tag, Error::Disconnected);
             self.freed.push(seq);
         }
         self.freed

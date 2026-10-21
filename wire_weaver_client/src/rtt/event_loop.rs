@@ -45,6 +45,8 @@ pub(crate) struct RttHandle {
     pub(crate) control_block: Option<RttControlBlock>,
     /// Written into the holder's lock file (CLT-38, CLT-41)
     pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
+    /// [ClientConfig::holder_mode](crate::ClientConfig::holder_mode)
+    pub(crate) holder_mode: crate::holders::Mode,
 }
 
 pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
@@ -113,7 +115,7 @@ impl ProbeRtt {
         });
         let claim = match crate::holders::claim_with(
             &key,
-            crate::holders::Mode::Direct,
+            h.holder_mode,
             h.meta.as_deref(),
         ) {
             Ok(claim) => Some(claim),

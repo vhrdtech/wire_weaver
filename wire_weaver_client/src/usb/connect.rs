@@ -40,10 +40,12 @@ struct WwInterface {
     seq_prefix: bool,
 }
 
-/// A USB device selected by `connect()`, with what the client says about itself for the lock file.
+/// A USB device selected by `connect()`, with what the client says about itself and how it holds the device, for the lock
+/// file ([ClientConfig::holder_mode](crate::ClientConfig::holder_mode)).
 pub(crate) struct UsbTarget {
     pub(crate) info: DeviceInfo,
     pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
+    pub(crate) mode: crate::holders::Mode,
 }
 
 pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
@@ -66,7 +68,7 @@ pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
     });
     let claim = match crate::holders::claim_with(
         &key,
-        crate::holders::Mode::Direct,
+        target.mode,
         target.meta.as_deref(),
     ) {
         Ok(claim) => Some(claim),
@@ -281,6 +283,7 @@ fn start_event_loop(
         handle: Box::new(UsbTarget {
             info: nusb_info,
             meta: c.client_meta.clone(),
+            mode: c.holder_mode,
         }),
         info: Box::new(info),
     })

@@ -74,6 +74,31 @@ pub enum Command {
     /// Route `PropertyUpdate` events of a trait level to its observers (CLT-28), on this connection.
     ObserveRoute { hook: Box<ObserveRouteHook> },
 
+    /// Send a request serialized elsewhere as it is (the ww hub forwards its clients' requests, SRV-29): `bytes` is a
+    /// whole `ww_client_server::Request` whose seq is the [UVlq32Backfill](wire_weaver::shrink_wrap::UVlq32Backfill)
+    /// placeholder. With a `tag`, the request gets a seq and every event answering it goes to the
+    /// [Command::ForwardSink] as [Forwarded::Reply]; without one it goes out with seq 0, unanswered. Unlike
+    /// [Command::SendMessage], nothing is decoded or rewritten (no `GlobalFull` retry, API-20: the request's own
+    /// client does that).
+    Forward {
+        bytes: Vec<u8>,
+        tag: Option<u64>,
+        /// The seq is freed after this long without the last answer (and the [Forwarded::Failed] goes to the sink)
+        timeout: Duration,
+    },
+    /// Where [Command::Forward] answers, events nobody asked for (seq 0: stream data, property updates) and loopback
+    /// echoes go, raw, instead of to this client's own streams and observers.
+    ForwardSink {
+        tx: mpsc::UnboundedSender<Forwarded>,
+    },
+    /// Send a link `Loopback` message as it is (a client's `ww usb-loopback` through the hub); the echoes go to the
+    /// [Command::ForwardSink]. Ignored while a [Command::LoopbackTest] of this client runs.
+    ForwardLoopback {
+        repeat: u32,
+        seq: u32,
+        data: Vec<u8>,
+    },
+
     /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
     /// and streams will stop. Use when shutting down the whole application.
     DisconnectAndExit {
@@ -109,6 +134,26 @@ pub enum Command {
         params: Box<LoopbackParams>,
         progress_tx: mpsc::UnboundedSender<TestProgress>,
     },
+}
+
+/// What the event loop hands to a [Command::ForwardSink].
+#[derive(Debug)]
+pub enum Forwarded {
+    /// An event answering the [Command::Forward] with `tag`, with the seq the device used. `last`: the request is
+    /// answered (a value, `Written`, an error or a sideband), the events before it carried stream data under its seq
+    /// (introspection).
+    Reply {
+        tag: u64,
+        event: Vec<u8>,
+        last: bool,
+    },
+    /// An event with seq 0: stream data or sideband, a stream item, a property update.
+    Event(Vec<u8>),
+    /// Payload of a `Loopback` link message from the device.
+    Loopback(Vec<u8>),
+    /// The [Command::Forward] with `tag` got no (last) answer: not sent (too long for the device, malformed), timed
+    /// out or the link went down.
+    Failed { tag: u64, error: crate::Error },
 }
 
 /// Where the events of a counted or reliable stream go once it is open, see [Command::OpenStream].

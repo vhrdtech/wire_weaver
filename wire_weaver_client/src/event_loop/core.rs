@@ -103,6 +103,17 @@ pub(crate) enum ToRx {
         registered_tx: oneshot::Sender<()>,
         sink: Option<std::sync::Arc<crate::client::sink::SinkLink>>,
     },
+    /// A forwarded request with this seq was sent ([Command::Forward]): its answers go to the forward sink.
+    /// Delivered before the request frame leaves, as [ToRx::Expect].
+    ExpectForward {
+        seq: SeqTy,
+        tag: u64,
+        timeout: Duration,
+    },
+    /// [Command::ForwardSink]
+    ForwardSink(mpsc::UnboundedSender<crate::event_loop::command::Forwarded>),
+    /// A forwarded request was not sent, tell the sink.
+    ForwardFailed { tag: u64, error: crate::Error },
     /// Route a trait level's `PropertyUpdate` events to its observers
     ObserveRoute {
         hook: Box<crate::client::observe::ObserveRouteHook>,
@@ -840,6 +851,118 @@ mod tests {
         let bytes =
             wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&event, &mut buf).unwrap();
         p.feed_from_device(now, &Message::Data { channel: 0, bytes });
+    }
+
+    /// Forwarded requests (the hub, SRV-29) go out as they are with a seq of their own, every event answering one
+    /// goes to the sink raw with its tag (stream data under the seq too, the last one frees the seq), events with seq
+    /// 0 and loopback echoes as well.
+    #[test]
+    fn forward_raw_requests_and_events() {
+        use crate::event_loop::command::Forwarded;
+        let now = Instant::now();
+        let mut p = Pair::new();
+        connect(&mut p, now);
+        let (sink_tx, mut sink) = mpsc::unbounded_channel();
+        p.cmd(now, Command::ForwardSink { tx: sink_tx });
+        p.cmd(
+            now,
+            Command::Forward {
+                bytes: request(&[0xAA]),
+                tag: Some(7),
+                timeout: Duration::from_secs(1),
+            },
+        );
+        let sent = p.take_sent();
+        assert_eq!(sent[0].payload, [1, 0xAA]);
+        assert_eq!(p.tx.in_flight(), 1);
+
+        // introspection-like: stream data with the request's seq, then the answer
+        let data = ww_client_server::Event {
+            seq: wire_weaver::shrink_wrap::UVlq32(1),
+            result: Ok(ww_client_server::EventKind::StreamData {
+                path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] },
+                data: wire_weaver::shrink_wrap::tail_bytes::TailBytes(&[5]),
+            }),
+        };
+        let mut buf = [0u8; 32];
+        let bytes =
+            wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&data, &mut buf).unwrap();
+        let data_bytes = bytes.to_vec();
+        p.feed_from_device(now, &Message::Data { channel: 0, bytes });
+        match sink.try_recv().unwrap() {
+            Forwarded::Reply { tag, event, last } => {
+                assert_eq!((tag, last), (7, false));
+                assert_eq!(event, data_bytes);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(p.tx.in_flight(), 1, "not answered yet");
+        reply(&mut p, now, 1, &[9]);
+        assert!(matches!(
+            sink.try_recv().unwrap(),
+            Forwarded::Reply {
+                tag: 7,
+                last: true,
+                ..
+            }
+        ));
+        assert_eq!(p.tx.in_flight(), 0, "answered, seq freed");
+
+        // without a tag: seq 0, nothing expected
+        p.cmd(
+            now,
+            Command::Forward {
+                bytes: request(&[0xBB]),
+                tag: None,
+                timeout: Duration::from_secs(1),
+            },
+        );
+        assert_eq!(p.take_sent()[0].payload, [0, 0xBB]);
+
+        // seq 0 events go to the sink, not to the client's own streams
+        reply(&mut p, now, 0, &[1]);
+        assert!(matches!(sink.try_recv().unwrap(), Forwarded::Event(_)));
+
+        // a timed out forward is reported
+        p.cmd(
+            now,
+            Command::Forward {
+                bytes: request(&[0xCC]),
+                tag: Some(8),
+                timeout: Duration::from_secs(1),
+            },
+        );
+        p.timers(now + Duration::from_secs(1));
+        assert!(matches!(
+            sink.try_recv().unwrap(),
+            Forwarded::Failed {
+                tag: 8,
+                error: crate::Error::Timeout
+            }
+        ));
+
+        // loopback echoes
+        p.cmd(
+            now,
+            Command::ForwardLoopback {
+                repeat: 1,
+                seq: 3,
+                data: vec![1, 2],
+            },
+        );
+        assert_eq!(kinds(&p.take_sent()), [Kind::Data0, Kind::Loopback]);
+        p.feed_from_device(
+            now,
+            &Message::Loopback {
+                repeat: 0,
+                seq: 3,
+                data: &[1, 2],
+            },
+        );
+        match sink.try_recv().unwrap() {
+            Forwarded::Loopback(payload) => assert_eq!(payload, [0, 0, 0, 0, 3, 0, 0, 0, 1, 2]),
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

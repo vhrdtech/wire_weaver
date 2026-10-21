@@ -183,6 +183,11 @@ impl RxCore {
                     },
                 );
             }
+            ToRx::ExpectForward { seq, tag, timeout } => {
+                self.dispatcher.expect_forward(now, seq, tag, timeout)
+            }
+            ToRx::ForwardSink(tx) => self.dispatcher.forward_sink = Some(tx),
+            ToRx::ForwardFailed { tag, error } => self.dispatcher.forward_failed(tag, error),
             ToRx::ObserveRoute { hook } => self
                 .dispatcher
                 .handle_cmd(now, DispatcherCommand::ObserveRoute { hook }),
@@ -379,8 +384,17 @@ impl RxCore {
                 }
                 self.output.push_back(RxOutput::ToTx(ToTx::LinkReady));
             }
-            Message::Loopback { seq, data, .. } => {
-                if self.phase == Phase::Up {
+            Message::Loopback { repeat, seq, data } => {
+                if self.phase == Phase::Up
+                    && let Some(sink) = &self.dispatcher.forward_sink
+                {
+                    // an echo for a client of the hub, its own layout: | repeat: u32 LE | seq: u32 LE | data |
+                    let mut payload = Vec::with_capacity(8 + data.len());
+                    payload.extend_from_slice(&repeat.to_le_bytes());
+                    payload.extend_from_slice(&seq.to_le_bytes());
+                    payload.extend_from_slice(data);
+                    _ = sink.send(crate::event_loop::command::Forwarded::Loopback(payload));
+                } else if self.phase == Phase::Up {
                     // tx ignores it when no test is running
                     self.output.push_back(RxOutput::ToTx(ToTx::Loopback {
                         seq,

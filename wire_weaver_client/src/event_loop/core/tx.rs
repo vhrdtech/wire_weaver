@@ -83,11 +83,43 @@ enum Flow {
 }
 
 /// Request bytes and where to report the response, see [TxCore::held_until_up].
-type HeldMessage = (
-    Vec<u8>,
-    Option<(ResponseSender, Duration)>,
-    Option<Box<StreamOpenHook>>,
-);
+type HeldMessage = (Vec<u8>, Waiter, Option<Box<StreamOpenHook>>);
+
+/// Who waits for the answer to a request.
+enum Waiter {
+    /// Nobody: sent with seq 0
+    NoReply,
+    /// A client call, with its timeout
+    Response(ResponseSender, Duration),
+    /// [Command::Forward]: the forward sink, if it has a tag (seq 0 otherwise). The request goes out as it is.
+    Forward(Option<u64>, Duration),
+}
+
+impl From<Option<(ResponseSender, Duration)>> for Waiter {
+    fn from(done_tx: Option<(ResponseSender, Duration)>) -> Self {
+        match done_tx {
+            Some((done_tx, timeout)) => Waiter::Response(done_tx, timeout),
+            None => Waiter::NoReply,
+        }
+    }
+}
+
+impl Waiter {
+    fn expects_reply(&self) -> bool {
+        matches!(self, Waiter::Response(..) | Waiter::Forward(Some(_), _))
+    }
+
+    /// The request won't go out: tell whoever waits.
+    fn fail(self, error: Error, output: &mut VecDeque<TxOutput>) {
+        match self {
+            Waiter::Response(done_tx, _) => _ = done_tx.send(Err(error)),
+            Waiter::Forward(Some(tag), _) => {
+                output.push_back(TxOutput::ToRx(ToRx::ForwardFailed { tag, error }))
+            }
+            Waiter::NoReply | Waiter::Forward(None, _) => {}
+        }
+    }
+}
 
 pub(crate) struct TxCore {
     phase: Phase,
@@ -369,7 +401,31 @@ impl TxCore {
                 return Ok(Flow::Exit(EventLoopExitReason::DisconnectCommand));
             }
             Command::SendMessage { bytes, done_tx } => {
-                self.on_send_message(now, bytes, done_tx, None);
+                self.on_send_message(now, bytes, done_tx.into(), None);
+            }
+            Command::Forward {
+                bytes,
+                tag,
+                timeout,
+            } => {
+                self.on_send_message(now, bytes, Waiter::Forward(tag, timeout), None);
+            }
+            Command::ForwardSink { tx } => {
+                self.output.push_back(TxOutput::ToRx(ToRx::ForwardSink(tx)));
+            }
+            Command::ForwardLoopback { repeat, seq, data } => {
+                if self.phase == Phase::Up && self.loopback.is_none() {
+                    self.send(&Message::Loopback {
+                        repeat,
+                        seq,
+                        data: &data,
+                    })?;
+                    if self.unflushed_since.is_none() {
+                        self.unflushed_since = Some(now);
+                    }
+                } else {
+                    debug!("forwarded loopback while not up or a test runs, dropping");
+                }
             }
             Command::OpenStream {
                 bytes,
@@ -377,7 +433,7 @@ impl TxCore {
                 timeout,
                 hook,
             } => {
-                self.on_send_message(now, bytes, Some((done_tx, timeout)), Some(hook));
+                self.on_send_message(now, bytes, Waiter::Response(done_tx, timeout), Some(hook));
             }
             Command::OnStreamEvent {
                 path_kind,
@@ -410,7 +466,7 @@ impl TxCore {
         &mut self,
         now: Instant,
         mut bytes: Vec<u8>,
-        done_tx: Option<(ResponseSender, Duration)>,
+        done_tx: Waiter,
         hook: Option<Box<StreamOpenHook>>,
     ) {
         if matches!(
@@ -424,29 +480,28 @@ impl TxCore {
         }
         if self.phase != Phase::Up {
             warn!("ignoring SendMessage while disconnected");
-            if let Some((done_tx, _)) = done_tx {
-                _ = done_tx.send(Err(Error::Disconnected));
-            }
+            done_tx.fail(Error::Disconnected, &mut self.output);
             return;
         }
-        let (seq, done_tx) = match done_tx {
-            Some((done_tx, timeout)) => {
-                // after the ones already waiting, so requests go out in order
-                let seq = match self.waiting_for_seq.is_empty() {
-                    true => self.next_seq(),
-                    false => None,
-                };
-                let Some(seq) = seq else {
-                    trace!("all seq numbers in flight, the request waits for one");
-                    self.waiting_for_seq
-                        .push_back((bytes, Some((done_tx, timeout)), hook));
-                    return;
-                };
-                (seq, Some((done_tx, timeout)))
-            }
-            None => (0, None),
+        let seq = if done_tx.expects_reply() {
+            // after the ones already waiting, so requests go out in order
+            let seq = match self.waiting_for_seq.is_empty() {
+                true => self.next_seq(),
+                false => None,
+            };
+            let Some(seq) = seq else {
+                trace!("all seq numbers in flight, the request waits for one");
+                self.waiting_for_seq.push_back((bytes, done_tx, hook));
+                return;
+            };
+            seq
+        } else {
+            0
         };
-        let retry = self.global_compact(&mut bytes);
+        let retry = match done_tx {
+            Waiter::Forward(..) => None,
+            _ => self.global_compact(&mut bytes),
+        };
         // NOTE: this is the only use of Request in this crate, a bit unfortunate to mix it in here, but otherwise
         // every CommandSender have to get a unique seq number somehow and previous implementation that was doing that
         // was much uglier and had limitations (see the last use of it at git sha: 0113fa4)
@@ -474,20 +529,24 @@ impl TxCore {
         };
         if let Some(error) = error {
             self.in_flight.remove(&seq);
-            if let Some((done_tx, _)) = done_tx {
-                _ = done_tx.send(Err(error));
-            }
+            done_tx.fail(error, &mut self.output);
             return;
         }
-        if let Some((done_tx, timeout)) = done_tx {
-            // Expect goes out before the request bytes, so rx knows about the seq before the answer can arrive
-            self.output.push_back(TxOutput::ToRx(ToRx::Expect {
-                seq,
-                done_tx,
-                timeout,
-                hook,
-                retry,
-            }));
+        // Expect goes out before the request bytes, so rx knows about the seq before the answer can arrive
+        match done_tx {
+            Waiter::Response(done_tx, timeout) => {
+                self.output.push_back(TxOutput::ToRx(ToRx::Expect {
+                    seq,
+                    done_tx,
+                    timeout,
+                    hook,
+                    retry,
+                }))
+            }
+            Waiter::Forward(Some(tag), timeout) => self
+                .output
+                .push_back(TxOutput::ToRx(ToRx::ExpectForward { seq, tag, timeout })),
+            Waiter::NoReply | Waiter::Forward(None, _) => {}
         }
         self.output.push_back(TxOutput::Send {
             kind: ww_link::Kind::Data0 as u8,
@@ -602,7 +661,7 @@ impl TxCore {
             }
             ToTx::Send(bytes) => {
                 if self.phase == Phase::Up {
-                    self.on_send_message(now, bytes, None, None);
+                    self.on_send_message(now, bytes, Waiter::NoReply, None);
                 }
             }
             ToTx::Loopback { seq, len, intact } => {
@@ -620,7 +679,7 @@ impl TxCore {
                 hook,
             } => {
                 self.full_only.insert(retry.compact);
-                self.on_send_message(now, retry.bytes, Some((done_tx, timeout)), hook);
+                self.on_send_message(now, retry.bytes, Waiter::Response(done_tx, timeout), hook);
             }
             ToTx::Freed(seq) => {
                 self.in_flight.remove(&seq);
@@ -866,10 +925,9 @@ impl TxCore {
         self.link_setup_deadline = None;
         self.in_flight.clear();
         let waiting = self.waiting_for_seq.drain(..);
-        for (_, done_tx, _) in self.held_until_up.drain(..).chain(waiting) {
-            if let Some((done_tx, _)) = done_tx {
-                _ = done_tx.send(Err(Error::Disconnected));
-            }
+        let held: Vec<_> = self.held_until_up.drain(..).chain(waiting).collect();
+        for (_, done_tx, _) in held {
+            done_tx.fail(Error::Disconnected, &mut self.output);
         }
         if notify_rx {
             let err = result.as_ref().err().map(|e| format!("{e}"));

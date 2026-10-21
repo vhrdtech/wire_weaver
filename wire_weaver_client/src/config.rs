@@ -40,6 +40,7 @@ pub struct ClientConfig {
     link_setup_timeout: Option<Duration>,
     tap: Option<ww_tap::Recorder>,
     client_meta: ClientMetaSetting,
+    holder_mode: Option<crate::holders::Mode>,
 }
 
 #[derive(Clone)]
@@ -62,6 +63,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) tap: Option<ww_tap::Recorder>,
     /// [ClientConfig::client_meta], resolved; None for [ClientConfig::no_client_meta]
     pub(crate) client_meta: Option<Box<ww_link::ClientMetaOwned>>,
+    /// [ClientConfig::holder_mode]
+    pub(crate) holder_mode: crate::holders::Mode,
 }
 
 #[derive(Clone, Debug)]
@@ -142,6 +145,9 @@ pub(crate) enum ConfigPiece {
     IpcPath { path: String },
     /// The ww hub's own API (SRV-13), on the hub socket at `path` (`None`: the user's runtime dir).
     HubApi { path: Option<String> },
+    /// A device the ww hub holds (SRV-29), by its key, through the hub socket at `path` (`None`: the user's runtime
+    /// dir).
+    HubDevice { path: Option<String>, key: String },
     /// Connect to a device running in another process via a local socket (not built yet, P2401#14oct-1413).
     /// Find which one using USB filters.
     /// Used to split multiplex multiple clients to one USB device for example.
@@ -272,6 +278,7 @@ impl ClientConfig {
                 ClientMetaSetting::On(meta) => Some(Box::new(meta.resolve())),
                 ClientMetaSetting::Off => None,
             },
+            holder_mode: s.holder_mode.unwrap_or(crate::holders::Mode::Direct),
         })
     }
 
@@ -384,6 +391,36 @@ impl ClientConfig {
         let mut f = self;
         f.pieces.push(ConfigPiece::HubApi { path: Some(path) });
         f
+    }
+
+    /// A device through the user's ww hub (SRV-29), by its key (`usb:<vid>:<pid>:<serial>`, see
+    /// [holders::key_for](crate::holders::key_for)): the hub opens it if it doesn't hold it yet and serves this
+    /// client through a tunnel, next to its other clients.
+    pub fn hub_device(self, key: impl Into<String>) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubDevice {
+            path: None,
+            key: key.into(),
+        });
+        f
+    }
+
+    /// [Self::hub_device] through the hub socket at `path` (a hub run in another runtime dir, tests).
+    pub fn hub_device_at(self, path: String, key: impl Into<String>) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::HubDevice {
+            path: Some(path),
+            key: key.into(),
+        });
+        f
+    }
+
+    /// How this client's lock files (CLT-38) record its devices: [Mode::Direct](crate::holders::Mode::Direct) by
+    /// default, [Mode::Hub](crate::holders::Mode::Hub) for the ww hub's own connections.
+    pub fn holder_mode(self, mode: crate::holders::Mode) -> Self {
+        let mut c = self;
+        c.holder_mode = Some(mode);
+        c
     }
 
     /// Select IPC node by USB device it multiplexes
@@ -736,6 +773,7 @@ impl ValidatedConfig {
             &[
                 ConfigPieceDiscriminants::IpcPath,
                 ConfigPieceDiscriminants::HubApi,
+                ConfigPieceDiscriminants::HubDevice,
                 ConfigPieceDiscriminants::UsbOverIpc,
                 ConfigPieceDiscriminants::Ipc,
             ],

@@ -54,10 +54,11 @@ impl Transport for NusbTransport {
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
     ) -> Result<Opened<NusbTx, NusbRx>, String> {
-        let di = handle
-            .downcast::<nusb::DeviceInfo>()
-            .map_err(|_| "expected nusb::DeviceInfo handle".to_string())?;
-        let dev = super::connect::connect(&di).map_err(|e| format!("{e:#}"))?;
+        let handle = handle
+            .downcast::<super::connect::UsbHandle>()
+            .map_err(|_| "expected a USB device handle".to_string())?;
+        let di = &handle.info;
+        let dev = super::connect::connect(di, handle.mode).map_err(|e| format!("{e:#}"))?;
         trace!("max_packet_size: {}", dev.max_packet_size);
         let is_bulk = dev.transfer_type == TransferType::Bulk;
         let sink = Sink::new(&dev.interface, dev.ep_out, dev.max_packet_size, is_bulk)

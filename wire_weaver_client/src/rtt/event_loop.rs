@@ -43,6 +43,8 @@ pub(crate) struct RttHandle {
     pub(crate) target: String,
     pub(crate) speed_hz: Option<u32>,
     pub(crate) control_block: Option<RttControlBlock>,
+    /// [ClientConfig::holder_mode](crate::ClientConfig::holder_mode)
+    pub(crate) holder_mode: crate::holders::Mode,
 }
 
 pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
@@ -109,7 +111,7 @@ impl ProbeRtt {
             probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
             chip: &h.target,
         });
-        let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+        let claim = match crate::holders::claim(&key, h.holder_mode) {
             Ok(claim) => Some(claim),
             Err(crate::holders::ClaimError::HeldBy(holder)) => {
                 bail!(

@@ -40,6 +40,7 @@ pub(crate) fn try_connect(
             target,
             speed_hz,
             control_block,
+            holder_mode: c.holder_mode,
         }),
         info: Box::new(info),
     })

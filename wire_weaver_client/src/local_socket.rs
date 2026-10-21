@@ -54,6 +54,17 @@ pub(crate) fn try_connect(
                 target: Target::Hub,
             }),
         ),
+        ConfigPiece::HubDevice { path, key } => Some(
+            match path {
+                Some(path) => Ok(PathBuf::from(path)),
+                None => ww_local_socket::runtime_dir()
+                    .map(|d| d.join(ww_local_socket::files::HUB_SOCKET)),
+            }
+            .map(|path| LocalTarget {
+                path,
+                target: Target::Device(key.clone()),
+            }),
+        ),
         _ => None,
     });
     let Some(to) = to.transpose()? else {

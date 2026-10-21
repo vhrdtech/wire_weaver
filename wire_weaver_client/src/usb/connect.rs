@@ -40,7 +40,13 @@ struct WwInterface {
     seq_prefix: bool,
 }
 
-pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
+/// A USB device to open, and how its lock file records the holder ([ClientConfig::holder_mode](crate::ClientConfig::holder_mode)).
+pub(crate) struct UsbHandle {
+    pub(crate) info: DeviceInfo,
+    pub(crate) mode: crate::holders::Mode,
+}
+
+pub(crate) fn connect(di: &DeviceInfo, mode: crate::holders::Mode) -> anyhow::Result<ConnectOk> {
     trace!("connecting to USB device: {di:?}");
     let device = di.open().wait().map_err(with_hint)?;
     let active_configuration = device
@@ -57,7 +63,7 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         serial: di.serial_number().unwrap_or_default(),
         iface: Some(ww.number),
     });
-    let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+    let claim = match crate::holders::claim(&key, mode) {
         Ok(claim) => Some(claim),
         Err(crate::holders::ClaimError::HeldBy(holder)) => {
             bail!("device is already open by another WireWeaver program or connection; {holder}");
@@ -197,7 +203,10 @@ fn start_event_loop(
         super::event_loop::usb_worker(cmd_rx).await;
     });
     Ok(Selected::Device {
-        handle: Box::new(nusb_info),
+        handle: Box::new(UsbHandle {
+            info: nusb_info,
+            mode: c.holder_mode,
+        }),
         info: Box::new(info),
     })
 }

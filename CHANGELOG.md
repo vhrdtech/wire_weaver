@@ -273,6 +273,10 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- `no_alloc = false` servers compile and work (API-21), the first piece of the ww hub (SRV-13): servers generated
+  for `std` take and give owned types (`String`, `Vec<T>`, `FooOwned`) and send the same bytes as a `no_alloc`
+  server, through shrink_wrap's new `BufWriter::ser_owned` / `write_owned` and `OwnedSer`; `ww api scaffold --alloc`
+  matches. Docs page `transport/hub.md`.
 - Host event loop: `disconnect().keep_streams()` no longer ends kept streams and sinks when the device closes the medium right after the `Disconnect` (rx took the transport error before tx's word to keep them). See `wire_weaver_client/CHANGELOG.md`.
 - Observe (API-39): `ObserveState::reset()` drops the samples taken before it, which went to the next host observing in `Samples` mode with their old times. See the `wire_weaver_core` changelog.
 - Reliable streams (API-47): a resend or a resume from inside a multi-unit event (a batch confirmed item by item)

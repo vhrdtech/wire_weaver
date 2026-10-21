@@ -219,3 +219,79 @@ It costs about 90 bytes of RAM in the `DeviceLink`.
 ### Compatibility
 
 `client_meta` is appended to `LinkSetup` as `#[default = None] Option<ClientMeta>`, the same way the setup token was added. A device built before it reads the longer message and ignores the end; a host built before it sends a `LinkSetup` that ends before it and a new device reads `None`. Golden bytes of both forms are in the conformance corpus (`link_setup.without_meta`, `link_setup.with_meta`), and `ClientKind` has `future_version = Newer`, so a kind added later still decodes (as `Newer`). Adding a field to `LinkSetup` is wire-compatible, see [evolution rules](../evolution/rules.md).
+
+## Servers on std: `no_alloc = false`
+
+A server is generated for firmware by default: `no_alloc = true`, handlers take borrowed arguments and return
+borrowed values (`&str`, `RefVec<'i, T>`, `Foo<'i>`), written straight into the reply buffer. A server that runs on a
+PC (the hub, a simulator, a test bench) usually has its data in `String`s and `Vec`s instead. With
+`no_alloc = false` its handlers take and give owned types:
+
+| In the API             | `no_alloc = true` handler | `no_alloc = false` handler |
+|------------------------|---------------------------|----------------------------|
+| `String` / `&'i str`   | `&str`                    | `String`                   |
+| `Vec<T>` / `RefVec`    | `RefVec<'_, T>`           | `Vec<T>`                   |
+| `Foo<'i>` (a user type) | `Foo<'_>`                | `FooOwned`                 |
+| `u8`, `Point`, ..      | the same                  | the same                   |
+
+That holds for method arguments and return values, property values and their write errors, sink items, the result
+of a stream function, stream items (`<name>_send`, `_push`) and the value of a deferred method's
+`<method>_send_return`.
+
+```rust
+pub struct Server {
+    devices: Vec<DeviceEntryOwned>,
+}
+
+impl Server {
+    fn devices(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<Vec<DeviceEntryOwned>> {
+        Ready(self.devices.clone())
+    }
+
+    fn set_label(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+        label: String,
+    ) -> SetResult<()> {
+        // ..
+        Set
+    }
+}
+
+mod api_impl {
+    wire_weaver::ww_codegen!(
+        my_api :: Hub for super::Server,
+        server = true, no_alloc = false, use_async = true,
+    );
+}
+```
+
+`ww api scaffold my_api --alloc` prints every handler with these signatures (see the
+[CLI reference](../cli_reference.md)).
+
+### Same bytes on the wire
+
+A client can't tell the two kinds of server apart: an owned value is written into the reply buffer with the bytes
+its borrowed counterpart gives. The server builds its replies in a fixed buffer, as a `no_alloc` one does, and writes
+owned values with shrink_wrap's `BufWriter::ser_owned` / `write_owned`: the value goes through a `BufWriterOwned` that
+continues from the writer's position (the bit in the open byte included), then its bytes are copied back and the
+lengths it left for the enclosing value are handed on. `shrink_wrap::OwnedSer(&value)` is such a value as a
+`SerializeShrinkWrap`, for generic code that wants one.
+
+The `methods`, `properties` and `streams` test suites run against `no_alloc = false` servers, with a `no_alloc`
+server of the same API next to each (`tests_common::Twin`): it gets every request too, and its reply and its events
+have to be the same bytes.
+
+### What stays borrowed
+
+- `const` items: their values are Rust consts or `fn`s of the `<Root>Consts` trait, as in a `no_alloc` server.
+- Framework types: `ValidIndices<'_>` of a resource array, the `TailBytes` a `[u8]` sink hands to `write_<name>`.
+
+### What it costs
+
+- An owned value is serialized into a growable buffer first and copied after: one allocation and one copy per value
+  written. A `no_alloc` server writes in place.
+- Owned types have no size bound (`MAX_SIZE`), so a `no_alloc = false` server has no `<METHOD>_REQUEST_MAX_LEN` /
+  `<METHOD>_RESPONSE_MAX_LEN` consts, and an observed property with an owned type is read by `poll_properties` to be
+  measured, like any value without a bound. A level of such properties gets its update type as
+  `<Trait>UpdateOwned`.

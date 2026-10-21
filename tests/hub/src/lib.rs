@@ -1,0 +1,446 @@
+//! Device tunnels through the ww hub (SRV-29): several clients of one in-process device, each through its own tunnel,
+//! with the hub's event loop to the device in between.
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    use tests_common::TestDevice;
+    use wire_weaver::prelude::*;
+    use wire_weaver_client::internal::Command;
+    use wire_weaver_client::{ClientConfig, Commander, WwClient};
+    use ww_client_server::{PathKindOwned, RequestKindOwned, RequestOwned};
+    use ww_hub::{Bound, Exit, HubConfig, Shutdown};
+
+    /// What the device saw: stream opens and closes, introspection requests
+    #[derive(Default)]
+    struct Seen {
+        log: Vec<String>,
+        introspects: usize,
+    }
+
+    mod server {
+        use super::*;
+        use tests_common::TestProcessEvents;
+
+        pub struct Server {
+            pub seen: Arc<Mutex<Seen>>,
+        }
+
+        impl Server {
+            fn add(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                a: u32,
+                b: u32,
+            ) -> RpcResult<u32> {
+                Ready(a.wrapping_add(b))
+            }
+
+            fn ticks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.seen.lock().unwrap().log.push("open ticks".into());
+                Ready(())
+            }
+
+            fn close_ticks(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.seen.lock().unwrap().log.push("close ticks".into());
+            }
+
+            fn sideband_ticks(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                None
+            }
+
+            fn other(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                self.seen.lock().unwrap().log.push("open other".into());
+                Ready(())
+            }
+
+            fn close_other(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {
+                self.seen.lock().unwrap().log.push("close other".into());
+            }
+
+            fn sideband_other(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                None
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                hub_api :: HubTest for super::Server,
+                server = true, no_alloc = true, use_async = false,
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                introspect = "no_docs",
+            );
+        }
+
+        impl TestProcessEvents for Server {
+            type Medium = ();
+
+            fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl BlockingEventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+            }
+        }
+    }
+
+    pub struct Client {
+        pub cmd: Commander,
+    }
+
+    impl WwClient for Client {
+        fn default_config() -> ClientConfig {
+            ClientConfig::default()
+        }
+
+        fn from_cmd(cmd: Commander) -> Self {
+            Client { cmd }
+        }
+    }
+
+    mod api_client {
+        wire_weaver::ww_codegen!(hub_api :: HubTest for super::Client, client = "std_client");
+    }
+
+    use server::api_impl::stream_data_ser;
+
+    struct Bench {
+        device: TestDevice,
+        seen: Arc<Mutex<Seen>>,
+        dir: PathBuf,
+        key: String,
+        hub: tokio::task::JoinHandle<Exit>,
+        shutdown: Shutdown,
+    }
+
+    impl Bench {
+        fn socket(&self) -> String {
+            self.dir
+                .join(ww_local_socket::files::HUB_SOCKET)
+                .display()
+                .to_string()
+        }
+
+        async fn client(&self) -> Client {
+            self.client_with(|c| c).await
+        }
+
+        async fn client_with(&self, f: impl Fn(ClientConfig) -> ClientConfig) -> Client {
+            let (socket, key) = (self.socket(), self.key.clone());
+            Client::config(|c| f(c.hub_device_at(socket.clone(), key.clone())))
+                .connect()
+                .await
+                .expect("connect through the hub")
+        }
+
+        async fn stop(self) {
+            self.shutdown.shutdown();
+            assert_eq!(self.hub.await.unwrap(), Exit::Shutdown);
+            drop(self.device);
+        }
+    }
+
+    fn runtime_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ww-hub-e2e-{}-{name}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn start(name: &str, linger: Duration) -> Bench {
+        let _ = tracing_subscriber::fmt::try_init();
+        let seen = Arc::new(Mutex::new(Seen::default()));
+        let path = format!("hub/{name}");
+        let device = tests_common::start_device(
+            &path,
+            server::Server { seen: seen.clone() },
+            hub_api::HUB_TEST_FULL_GID,
+            server::api_impl::api_hash(),
+        );
+        let counted = seen.clone();
+        device.filter_requests(move |bytes| {
+            if RequestOwned::from_ww_bytes_owned(bytes)
+                .is_ok_and(|r| matches!(r.kind, RequestKindOwned::Introspect))
+            {
+                counted.lock().unwrap().introspects += 1;
+            }
+            false
+        });
+        let dir = runtime_dir(name);
+        let bound = Bound::bind(HubConfig {
+            runtime_dir: dir.clone(),
+            idle_exit: Duration::from_secs(60),
+            linger,
+        })
+        .unwrap()
+        .expect("no other hub in this dir");
+        let shutdown = bound.shutdown_handle();
+        Bench {
+            device,
+            seen,
+            dir,
+            key: format!("inproc:{path}"),
+            hub: tokio::spawn(bound.run()),
+            shutdown,
+        }
+    }
+
+    async fn eventually(what: &str, f: impl Fn() -> bool) {
+        for _ in 0..1000 {
+            if f() {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        panic!("{what}: not within 1 s");
+    }
+
+    fn log(seen: &Arc<Mutex<Seen>>) -> Vec<String> {
+        seen.lock().unwrap().log.clone()
+    }
+
+    /// 100 calls in flight, then their answers.
+    async fn calls(c: &mut Client, base: u32) {
+        let mut pending = vec![];
+        for i in 0..100 {
+            pending.push(c.add(base, i).send().await.unwrap());
+        }
+        for (i, p) in pending.into_iter().enumerate() {
+            assert_eq!(p.reply().await.unwrap(), base + i as u32);
+        }
+    }
+
+    /// Two clients call the device at the same time: both start their seqs at 1, the hub gives the device its own
+    /// and every answer reaches its caller.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn two_clients_calls_remapped() {
+        let bench = start("calls", Duration::from_secs(30));
+        let mut a = bench.client().await;
+        let mut b = bench.client().await;
+        tokio::join!(calls(&mut a, 1000), calls(&mut b, 2000));
+        bench.stop().await;
+    }
+
+    /// A stream opened by two clients is opened on the device once, its data goes to both, and it is closed on the
+    /// device when the last one closes it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn stream_shared_opened_once_closed_by_last() {
+        let bench = start("streams", Duration::from_secs(30));
+        let a = bench.client().await;
+        let b = bench.client().await;
+        let mut sa = a.ticks().call().await.unwrap();
+        let mut sb = b.ticks().call().await.unwrap();
+        assert_eq!(log(&bench.seen), ["open ticks"]);
+
+        let mut scratch = [0u8; 64];
+        for v in [1u32, 2, 3] {
+            bench
+                .device
+                .send(stream_data_ser().ticks(&v, &mut scratch).unwrap());
+        }
+        for v in [1u32, 2, 3] {
+            assert_eq!(sa.recv().await.unwrap(), v);
+            assert_eq!(sb.recv().await.unwrap(), v);
+        }
+        // only who opened it gets it: b's other stream isn't a's
+        let mut other = b.other().call().await.unwrap();
+        bench
+            .device
+            .send(stream_data_ser().other(&7, &mut scratch).unwrap());
+        assert_eq!(other.recv().await.unwrap(), 7);
+
+        sa.close().await.unwrap();
+        bench
+            .device
+            .send(stream_data_ser().ticks(&4, &mut scratch).unwrap());
+        assert_eq!(sb.recv().await.unwrap(), 4);
+        assert!(!log(&bench.seen).contains(&"close ticks".to_string()));
+        sb.close().await.unwrap();
+        let seen = bench.seen.clone();
+        eventually("closed on the device", || {
+            log(&seen).contains(&"close ticks".to_string())
+        })
+        .await;
+        bench.stop().await;
+    }
+
+    /// A client killed in the middle of a stream (its process gone, no `Disconnect`): the other one keeps
+    /// receiving, the device's stream stays open for it and is closed when it closes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn killed_client_mid_stream() {
+        let bench = start("killed", Duration::from_secs(30));
+        let a = bench.client().await;
+        let mut sa = a.ticks().call().await.unwrap();
+
+        // b runs on a runtime of its own, dropped with everything on it, as a killed process would be
+        let (socket, key) = (bench.socket(), bench.key.clone());
+        let (got_tx, got_rx) = std::sync::mpsc::channel();
+        let (kill_tx, kill_rx) = std::sync::mpsc::channel::<()>();
+        let b = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                let b = Client::config(|c| c.hub_device_at(socket.clone(), key.clone()))
+                    .connect()
+                    .await
+                    .unwrap();
+                let mut sb = b.ticks().call().await.unwrap();
+                got_tx.send(None).unwrap();
+                got_tx.send(Some(sb.recv().await.unwrap())).unwrap();
+                // never disconnects nor closes
+                std::mem::forget(sb);
+                std::mem::forget(b);
+            });
+            kill_rx.recv().unwrap();
+            rt.shutdown_background();
+        });
+        assert_eq!(got_rx.recv().unwrap(), None);
+        let mut scratch = [0u8; 64];
+        bench
+            .device
+            .send(stream_data_ser().ticks(&1, &mut scratch).unwrap());
+        assert_eq!(sa.recv().await.unwrap(), 1);
+        assert_eq!(got_rx.recv().unwrap(), Some(1));
+
+        kill_tx.send(()).unwrap();
+        b.join().unwrap();
+        for v in 2..20u32 {
+            bench
+                .device
+                .send(stream_data_ser().ticks(&v, &mut scratch).unwrap());
+            assert_eq!(sa.recv().await.unwrap(), v);
+        }
+        assert_eq!(log(&bench.seen), ["open ticks"], "still open for a");
+        sa.close().await.unwrap();
+        let seen = bench.seen.clone();
+        eventually("closed on the device", || {
+            log(&seen) == ["open ticks", "close ticks"]
+        })
+        .await;
+        bench.stop().await;
+    }
+
+    /// Introspection is fetched from the device once, later clients get it from the hub.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn introspection_from_the_cache() {
+        let bench = start("introspect", Duration::from_secs(30));
+        let a = bench.client().await;
+        let b = bench.client().await;
+        let first = a.cmd.introspect().download().await.unwrap().unwrap();
+        let second = b.cmd.introspect().download().await.unwrap().unwrap();
+        assert_eq!(
+            first.to_ww_bytes_owned().unwrap(),
+            second.to_ww_bytes_owned().unwrap()
+        );
+        assert_eq!(bench.seen.lock().unwrap().introspects, 1);
+        bench.stop().await;
+    }
+
+    /// The hub reads only seq, path and kind: a client without client meta (built before CLT-41) and a request of a
+    /// newer envelope, which the hub can't decode, go through as they are, the answer with the client's seq.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn other_client_versions_pass_through() {
+        let bench = start("versions", Duration::from_secs(30));
+        let mut old = bench.client_with(|c| c.no_client_meta()).await;
+        assert_eq!(old.add(2, 3).call().await.unwrap(), 5);
+
+        let new = bench.client().await;
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+        new.cmd
+            .send(Command::SendMessage {
+                bytes: unknown_kind_request(),
+                done_tx: Some((done_tx, Duration::from_secs(1))),
+            })
+            .await
+            .unwrap();
+        // the device can't read it either and says so, under the client's seq
+        match done_rx.await.unwrap() {
+            Err(wire_weaver_client::Error::RemoteError(_)) => {}
+            other => panic!("expected the device's error, got {other:?}"),
+        }
+        bench.stop().await;
+    }
+
+    /// A request whose kind is a discriminant no `ww_client_server` has yet.
+    fn unknown_kind_request() -> Vec<u8> {
+        let request = |kind| {
+            RequestOwned {
+                seq: wire_weaver::shrink_wrap::UVlq32Backfill(0),
+                path_kind: PathKindOwned::Absolute { path: vec![] },
+                kind,
+            }
+            .to_ww_bytes_owned()
+            .unwrap()
+        };
+        let (read, introspect) = (
+            request(RequestKindOwned::Read),
+            request(RequestKindOwned::Introspect),
+        );
+        assert_eq!(read.len(), introspect.len());
+        let mut bytes = read.clone();
+        let at = (0..read.len())
+            .find(|i| read[*i] != introspect[*i])
+            .unwrap();
+        // the kind is a nibble: set it to 15
+        let diff = read[at] ^ introspect[at];
+        bytes[at] |= if diff & 0xF0 != 0 { 0xF0 } else { 0x0F };
+        assert!(RequestOwned::from_ww_bytes_owned(&bytes).is_err());
+        bytes
+    }
+
+    /// A device is opened by the first tunnel and closed `linger` after the last one left; the next client opens
+    /// it again.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn device_closed_after_linger_and_reopened() {
+        let bench = start("linger", Duration::from_millis(200));
+        let hub = ww_hub::client::HubClient::config(|c| c.hub_api_at(bench.socket()))
+            .connect()
+            .await
+            .unwrap();
+        let open = || async {
+            hub.registry()
+                .devices()
+                .call()
+                .await
+                .unwrap()
+                .into_iter()
+                .find(|d| d.key == bench.key)
+                .map(|d| (d.state, d.tunnels))
+        };
+        assert_eq!(open().await, None);
+        let mut a = bench.client().await;
+        assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
+        assert_eq!(open().await, Some((ww_hub_api::DeviceStateOwned::Open, 1)));
+        a.cmd.disconnect().asynch().await.unwrap();
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            open().await.map(|(s, _)| s),
+            Some(ww_hub_api::DeviceStateOwned::Open),
+            "lingers"
+        );
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        assert_eq!(open().await, None, "closed after linger");
+        let mut b = bench.client().await;
+        assert_eq!(b.add(2, 2).call().await.unwrap(), 4);
+        drop(hub);
+        bench.stop().await;
+    }
+}

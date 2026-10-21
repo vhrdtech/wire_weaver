@@ -395,11 +395,13 @@ pub(crate) struct Device {
 
 impl Device {
     /// A client's request: forwarded with a seq of the device's, or answered by the hub. Straight from the client's
-    /// tunnel to the event loop, no task in between.
-    pub(crate) async fn request(&self, id: u32, bytes: Vec<u8>) -> Result<(), ()> {
+    /// tunnel to the event loop, no task in between. `last` of what the client wrote at once: the device gets the
+    /// batch now, with the flush right behind the request, so the event loop takes both in one go.
+    pub(crate) async fn request(&self, id: u32, bytes: Vec<u8>, last: bool) -> Result<(), ()> {
         let mut state = self.state.lock().await;
         state.request(id, bytes)?;
-        self.send_out(&mut state).await
+        self.send_out(&mut state, false).await?;
+        self.flush_if(last).await
     }
 
     pub(crate) async fn loopback(
@@ -408,22 +410,33 @@ impl Device {
         repeat: u32,
         seq: u32,
         data: Vec<u8>,
+        last: bool,
     ) -> Result<(), ()> {
         let mut state = self.state.lock().await;
         state.loopback_owner = Some(id);
         state.routes.loopback_owner.store(id, Ordering::Relaxed);
         state.send(Command::ForwardLoopback { repeat, seq, data })?;
-        self.send_out(&mut state).await
+        self.send_out(&mut state, false).await?;
+        self.flush_if(last).await
     }
 
     /// The client flushed: so does the hub.
-    pub(crate) async fn flush(&self) -> Result<(), ()> {
-        self.cmd.send(Command::ForwardFlush).await.map_err(|_| ())
+    async fn flush_if(&self, last: bool) -> Result<(), ()> {
+        match last {
+            true => self.cmd.send(Command::ForwardFlush).await.map_err(|_| ()),
+            false => Ok(()),
+        }
     }
 
-    async fn send_out(&self, state: &mut State) -> Result<(), ()> {
+    /// Hands what `state` queued to the event loop. Forwarded requests wait there for a flush: a client's for the
+    /// end of its batch (`last`), the hub's own (`flush`) go out at once.
+    async fn send_out(&self, state: &mut State, flush: bool) -> Result<(), ()> {
+        let sent = !state.out.is_empty();
         for cmd in state.out.drain(..) {
             self.cmd.send(cmd).await.map_err(|_| ())?;
+        }
+        if flush && sent {
+            self.cmd.send(Command::ForwardFlush).await.map_err(|_| ())?;
         }
         Ok(())
     }
@@ -463,7 +476,7 @@ impl Task {
                     let Some(msg) = msg else { break };
                     let mut state = self.device.state.lock().await;
                     let r = state.on_message(msg);
-                    if self.device.send_out(&mut state).await.is_err() || r.is_err() {
+                    if self.device.send_out(&mut state, true).await.is_err() || r.is_err() {
                         break;
                     }
                     let tunnels = state.tunnels.len();
@@ -479,7 +492,7 @@ impl Task {
                     Some(fwd) => {
                         let mut state = self.device.state.lock().await;
                         state.on_forwarded(fwd);
-                        if self.device.send_out(&mut state).await.is_err() {
+                        if self.device.send_out(&mut state, true).await.is_err() {
                             break;
                         }
                     }

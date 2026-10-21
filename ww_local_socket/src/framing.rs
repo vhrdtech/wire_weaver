@@ -2,17 +2,23 @@ use std::io;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-/// Reads `| len: u32 LE | kind: u8 | payload |` messages. Cancel-safe: a partly read message stays in `self`.
+/// Reads `| len: u32 LE | kind: u8 | payload |` messages. Each read takes whatever the peer wrote (a batch of
+/// messages is one read, not two per message), and the messages are taken from the buffer one by one. Cancel-safe:
+/// what was read stays in `self`.
 pub struct MessageReader<R> {
     r: R,
     buf: Vec<u8>,
-    /// Bytes of the current message (length included) read so far
-    have: usize,
+    /// Unread bytes are `buf[start..end]`, the current message starts at `start`
+    start: usize,
+    end: usize,
     /// Longest `kind + payload` accepted
     max: usize,
-    /// A whole message is in `buf`, until consumed
+    /// A whole message is at `start`, until consumed
     done: bool,
 }
+
+/// Bytes a read can take at least, so a batch of small messages comes in with one read.
+const READ_AHEAD: usize = 16 * 1024;
 
 impl<R: AsyncRead + Unpin> MessageReader<R> {
     /// `max_message_len` is the longest payload accepted (the kind byte comes on top); a longer one is an error and
@@ -20,8 +26,9 @@ impl<R: AsyncRead + Unpin> MessageReader<R> {
     pub fn new(r: R, max_message_len: usize) -> Self {
         MessageReader {
             r,
-            buf: vec![0u8; 4 + 1 + max_message_len],
-            have: 0,
+            buf: vec![0u8; (4 + 1 + max_message_len).max(READ_AHEAD)],
+            start: 0,
+            end: 0,
             max: max_message_len + 1,
             done: false,
         }
@@ -41,48 +48,61 @@ impl<R: AsyncRead + Unpin> MessageReader<R> {
         if self.done {
             return Ok(());
         }
-        while self.have < 4 {
-            self.fill(4).await?;
+        loop {
+            let have = self.end - self.start;
+            if have >= 4 {
+                let len = self.len();
+                if len == 0 || len > self.max {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("message of {len} bytes, at most {} accepted", self.max),
+                    ));
+                }
+                if have >= 4 + len {
+                    self.done = true;
+                    return Ok(());
+                }
+            }
+            self.fill().await?;
         }
-        let len = self.len();
-        if len == 0 || len > self.max {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("message of {len} bytes, at most {} accepted", self.max),
-            ));
-        }
-        while self.have < 4 + len {
-            self.fill(4 + len).await?;
-        }
-        self.done = true;
-        Ok(())
     }
 
     /// The message [wait_message](Self::wait_message) received, until [consume](Self::consume).
     pub fn message(&self) -> Option<(u8, &[u8])> {
+        let s = self.start;
         self.done
-            .then(|| (self.buf[4], &self.buf[5..4 + self.len()]))
+            .then(|| (self.buf[s + 4], &self.buf[s + 5..s + 4 + self.len()]))
     }
 
     /// Done with the current message, the next wait reads the next one.
     pub fn consume(&mut self) {
         if self.done {
-            self.have = 0;
+            self.start += 4 + self.len();
+            if self.start == self.end {
+                self.start = 0;
+                self.end = 0;
+            }
             self.done = false;
         }
     }
 
     fn len(&self) -> usize {
-        u32::from_le_bytes(self.buf[..4].try_into().unwrap()) as usize
+        u32::from_le_bytes(self.buf[self.start..self.start + 4].try_into().unwrap()) as usize
     }
 
-    async fn fill(&mut self, upto: usize) -> io::Result<()> {
+    async fn fill(&mut self) -> io::Result<()> {
+        // a message must fit from `start` on: move what is left of the last read to the front
+        if self.buf.len() - self.start < 4 + self.max {
+            self.buf.copy_within(self.start..self.end, 0);
+            self.end -= self.start;
+            self.start = 0;
+        }
         // one read per await: dropping the future loses nothing, the bytes are in buf already
-        let n = self.r.read(&mut self.buf[self.have..upto]).await?;
+        let n = self.r.read(&mut self.buf[self.end..]).await?;
         if n == 0 {
             return Err(io::ErrorKind::UnexpectedEof.into());
         }
-        self.have += n;
+        self.end += n;
         Ok(())
     }
 
@@ -181,6 +201,25 @@ mod tests {
         writer.await.unwrap();
         let e = r.read_message().await.unwrap_err();
         assert_eq!(e.kind(), io::ErrorKind::UnexpectedEof);
+    }
+
+    /// Many messages written at once come out one by one, also when one straddles the end of the read buffer.
+    #[tokio::test]
+    async fn batches_across_the_buffer_end() {
+        let (a, b) = tokio::io::duplex(100_000);
+        let mut w = MessageWriter::new(a);
+        let mut r = MessageReader::new(b, 5000);
+        let sizes: Vec<usize> = (0..200).map(|i| (i * 37) % 5000).collect();
+        for (i, len) in sizes.iter().enumerate() {
+            w.push(i as u8, &vec![i as u8; *len]);
+        }
+        let writer = tokio::spawn(async move { w.flush().await.unwrap() });
+        for (i, len) in sizes.iter().enumerate() {
+            let (kind, payload) = r.read_message().await.unwrap();
+            assert_eq!(kind, i as u8);
+            assert_eq!(payload, &vec![i as u8; *len][..]);
+        }
+        writer.await.unwrap();
     }
 
     #[tokio::test]

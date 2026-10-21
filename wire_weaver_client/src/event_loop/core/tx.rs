@@ -25,6 +25,9 @@ use ww_tap::{Layers, Recorder, RecorderLink};
 
 const PING_INTERVAL: Duration = Duration::from_millis(ww_link::PING_INTERVAL_MS);
 /// Largest seq number that is serialized into 1 byte.
+/// Forwarded messages wait this long at most for their [Command::ForwardFlush], when the device's window is shorter.
+const FORWARD_HOLD: Duration = Duration::from_millis(1);
+
 const SEQ_CYCLE_MAX: SeqTy = 127;
 
 pub(crate) enum TxInput {
@@ -163,6 +166,9 @@ pub(crate) struct TxCore {
     next_link_setup_retry_at: Option<Instant>,
     /// Set when data was sent but not yet flushed, waiting for more messages to fill the frame
     unflushed_since: Option<Instant>,
+    /// What waits to be flushed includes forwarded messages ([Command::Forward]): they go out on
+    /// [Command::ForwardFlush], when their sender's batch ended, not when the commands run out for a moment
+    forwarding: bool,
     next_ping_at: Option<Instant>,
 
     // Seq allocation
@@ -224,6 +230,7 @@ impl TxCore {
             link_setup_interval: Duration::ZERO,
             next_link_setup_retry_at: None,
             unflushed_since: None,
+            forwarding: false,
             next_ping_at: None,
             next_seq: 1,
             max_seq: crate::DEFAULT_MAX_SEQ,
@@ -277,8 +284,7 @@ impl TxCore {
         match self.phase {
             Phase::GetDeviceInfo => self.next_link_setup_retry_at,
             Phase::Up => [
-                self.unflushed_since
-                    .map(|t| t + self.frame_accumulation_time),
+                self.flush_due(),
                 self.next_ping_at,
                 self.loopback.as_ref().map(|t| t.poll_timeout()),
             ]
@@ -292,7 +298,17 @@ impl TxCore {
     /// The link is up and a frame is being accumulated: a wrapper whose timer can't wait as short as the window
     /// feeds [TxInput::Idle] once nothing else is waiting instead of sleeping until [TxCore::poll_timeout].
     pub fn wants_idle_flush(&self) -> bool {
-        self.phase == Phase::Up && self.unflushed_since.is_some()
+        self.phase == Phase::Up && self.unflushed_since.is_some() && !self.forwarding
+    }
+
+    /// When what accumulated goes out at the latest: after the window, and forwarded messages, which wait for
+    /// [Command::ForwardFlush], after [FORWARD_HOLD] at least.
+    fn flush_due(&self) -> Option<Instant> {
+        let window = match self.forwarding {
+            true => self.frame_accumulation_time.max(FORWARD_HOLD),
+            false => self.frame_accumulation_time,
+        };
+        self.unflushed_since.map(|t| t + window)
     }
 
     /// The accumulation window the device asked for.
@@ -421,6 +437,8 @@ impl TxCore {
                 timeout,
             } => {
                 self.on_send_message(now, bytes, Waiter::Forward(tag, timeout), None);
+                // not sent (too long, not up): nothing waits
+                self.forwarding |= self.unflushed_since.is_some();
             }
             Command::ForwardSink { sink } => {
                 self.output
@@ -441,6 +459,7 @@ impl TxCore {
                     if self.unflushed_since.is_none() {
                         self.unflushed_since = Some(now);
                     }
+                    self.forwarding = true;
                 } else {
                     debug!("forwarded loopback while not up or a test runs, dropping");
                 }
@@ -757,11 +776,7 @@ impl TxCore {
                     let status = test.on_timer(now);
                     self.drive_loopback_test(now, status)?;
                 }
-                let accumulated_due = is_due(
-                    self.unflushed_since
-                        .map(|t| t + self.frame_accumulation_time),
-                    now,
-                );
+                let accumulated_due = is_due(self.flush_due(), now);
                 if accumulated_due {
                     trace!(
                         "flushing accumulated messages after {}us",
@@ -924,6 +939,7 @@ impl TxCore {
     fn flush(&mut self, now: Instant) {
         self.output.push_back(TxOutput::Flush);
         self.unflushed_since = None;
+        self.forwarding = false;
         if self.phase == Phase::Up {
             self.next_ping_at = Some(now + PING_INTERVAL);
         }
@@ -966,6 +982,7 @@ impl TxCore {
                 .send(TestProgress::FatalError("link setup failed".into()));
         }
         self.unflushed_since = None;
+        self.forwarding = false;
         self.next_ping_at = None;
         self.next_link_setup_retry_at = None;
         self.link_setup_deadline = None;

@@ -1219,7 +1219,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🧪 **STD-49 `ww_timebase` host sync, one UTC timescale** — devices without a sync line follow the host's wall
   clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) > host > holdover > free.
   `Clock` gets the optional `host_sync` group (`steer(SteerPoint) -> SyncSource`: offset in UTC µs, rate in ppb and
-  the host's error estimate; a line-locked device only notes the point; `shared_now()`), `SyncSource` (`Host`,
+  the host's error estimate; a line-locked device only notes the point; `shared_now()`; `set_sources` / `sources`: an
+  explicit ordered list of allowed sources, `None` keeps the fixed ranking), `SyncSource` (`Host`,
   `Line`), `SyncStatus::source` / `error`, `TimeMapPoint::source` (the seam of a switch, slewed, not stepped),
   `SyncState::Conflict` (two masters on a line). `configure_sync` stays the line's role, the IRIG-B / PPS model is
   unchanged. Host side: crate `ww_clock_sync` (`Estimator`: min-RTT samples of `now()`, least squares over a 30 s
@@ -1443,6 +1444,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **STD-46 More I2C slave addressing** — a second address or an address mask (one emulator answering for several
   chips, a 24C16's block bits), general call, SMBus PEC and SMBALERT#/ARA. RP2350's controller has one address only,
   so this is per-device capability.
+- 💡 **STD-51 Automatic sync master election** — boards that share a two-way link (CAN, Ethernet, USB through one
+  host) choose the master of their sync line themselves, PTP-BMCA style: the best source wins (a GPS or a
+  host-steered board with a good error bound), the lowest serial breaks a tie. Not over IRIG-B or PPS: they are
+  one-way, so today the master is set explicitly with `configure_sync` (STD-49,
+  `docs/std_library/ww_timebase.md#two-pcs-two-boards-one-line`).
 - 🚧 **STD-47 `ww_pin_diag` pin tests** · `v0.5.x` — `PinDiag { const POINTS; set(point, PointState); read(point);
   release_all() }`: raw access to a board's digital points (MCU pins, shift register and expander outputs) for
   bring-up, verification and production tests; the firmware keeps its board's rules and answers `NotCapable`,

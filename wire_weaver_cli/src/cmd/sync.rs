@@ -254,6 +254,8 @@ fn row(name: &str, s: &Status, note: Option<&str>) -> Row {
         Some(SyncSource::Host) => "host".into(),
         Some(SyncSource::Line { format }) => format!("line {format:?}"),
         Some(SyncSource::Unknown(n)) => format!("<unknown {n}>"),
+        // its source list leaves the host out
+        None if s.answered => "none".into(),
         None => "-".into(),
     };
     let rate = s

@@ -43,10 +43,16 @@ pub trait Clock {
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError>;
 
     #[optional(host_sync)]
-    fn steer(point: SteerPoint) -> Result<SyncSource, ClockError>;
+    fn steer(point: SteerPoint) -> Result<Option<SyncSource>, ClockError>;
 
     #[optional(host_sync)]
     fn shared_now() -> Option<u64>;
+
+    #[optional(host_sync)]
+    fn set_sources(sources: Option<MaxLen<RefVec<SyncSource>, 8>>) -> Result<(), ClockError>;
+
+    #[optional(host_sync)]
+    fn sources() -> Option<MaxLen<RefVec<SyncSource>, 8>>;
 }
 ```
 
@@ -60,10 +66,12 @@ pub trait Clock {
 * `sync_status()` - current sync state, with the offset and local time of the last lock, when known.
 * `set_time_of_day` - time of day a sync master sends on the sync line, set from its host; has no effect on a
   slave or while sync is off.
-* `steer(point)` - a host's fit of this device's clock, followed when the device has no better source; returns the
-  source it follows. See [host sync](#host-sync-std-49); optional (group `host_sync`, left out with
-  `omit = ["clock.host_sync"]`).
+* `steer(point)` - a host's fit of this device's clock, followed when the device has no better source and its
+  source list allows the host; returns the source it follows (`None`: nothing). See [host sync](#host-sync-std-49);
+  optional (group `host_sync`, left out with `omit = ["clock.host_sync"]`).
 * `shared_now()` - the device's shared time now in UTC µs, `None` while it runs free; optional (group `host_sync`).
+* `set_sources(list)` / `sources()` - an explicit ordered list of the sources the device may follow, `None` for the
+  fixed ranking, see [choosing the sources](#choosing-the-sources); optional (group `host_sync`).
 
 ## Types
 
@@ -111,6 +119,41 @@ boards only on different PCs agree to those PCs' NTP (ms, plenty for LEDs, see
 
 `configure_sync` stays the line's role (`Off`, `Master`, `Slave` in `IrigB` or `Pps`); host steering needs no
 configuration. `sync_status()` says which source the device follows (`source`) and its estimated error (`error`).
+
+### Choosing the sources
+
+The ranking above is the default. `set_sources` replaces it with an explicit list, best first, of the sources the
+device may follow:
+
+| List                                         | Meaning                                                         |
+|----------------------------------------------|-----------------------------------------------------------------|
+| `None` (default, also after a reset)         | any locked line, then the host, then holdover, then free        |
+| `[Line { format: IrigB }, Host]`             | the IRIG-B line when locked, else the host                      |
+| `[Line { format: Pps }, Line { format: IrigB }, Host]` | PPS first, IRIG-B next, the host last                 |
+| `[Line { format: IrigB }]`                   | never let a PC steer me: only the line, else holdover and free  |
+| `[Host, Line { format: Pps }]`               | the host even while the line is locked, the line as a fallback  |
+
+A source the list leaves out is never followed: a `steer` from a host that isn't allowed answers with the source the
+device follows instead, or `None`, and the device only notes the point, as a line-locked one does. Holdover and free
+always come after the list. A new list that leaves out the source being followed puts the clock into holdover on it
+until an allowed source steers it, slewed as any switch. `sources()` reads the list back; `sync_status()` reports
+the effective source and its error as before.
+
+### Two PCs, two boards, one line
+
+Two PCs, each with one board, the boards joined by an IRIG-B line, and every clock (both PCs' NTP, both boards'
+oscillators) equally bad. Exactly one board is configured `Master { format: IrigB }`: its shared clock follows its
+own PC (`steer`), and it drives the line from it. The other is `Slave { format: IrigB }` and ignores its PC's steering
+while the line is locked (the fixed ranking does this; `set_sources([Line { format: IrigB }])` makes it explicit,
+also when the line drops). Both boards then agree to µs, on the master PC's timescale, whatever the two PCs think. The
+second PC keeps reading its board's `now()` and `time_map`, which gives it its own offset from the master PC, and so
+from the boards (a host never steers a device that follows something better, it only correlates).
+
+The master is chosen explicitly, with `configure_sync`. IRIG-B and PPS are one-way: a slave can't tell its master
+anything, so boards can't hold an election over the line. Two masters on one line are detected and reported
+(`SyncState::Conflict`), not resolved. An automatic choice, PTP-BMCA style (the best source wins, the lowest serial
+breaks a tie), needs a two-way link between the boards (CAN, Ethernet, USB through one host); it is an idea for later
+(STD-51), not built.
 
 ### Steering from the host
 

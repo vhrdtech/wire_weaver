@@ -10,9 +10,9 @@
     "the others lock to it and publish `time_map` points that map their local time to the shared one.",
     "",
     "Shared time is one timescale, UTC (STD-49), and each source of it is an estimate with an error bound. A device",
-    "follows its best source ([SyncSource]): a locked sync line (IRIG-B, PPS: µs) before a host steering it over the",
-    "API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last one, before",
-    "running free. Switching from one source to another slews the shared clock instead of stepping it, and shows in",
+    "follows its best source ([SyncSource]): by default a locked sync line (IRIG-B, PPS: µs) before a host steering",
+    "it over the API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last",
+    "one, before running free; `set_sources` replaces that ranking with an explicit list. Switching from one source to another slews the shared clock instead of stepping it, and shows in",
     "`time_map` as a change of `source`.",
 ], crate_idx: 0, trait_name: "ww_timebase", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
@@ -277,19 +277,20 @@
         ], optional: None),
         (id: 7, kind: Method(args: [
             (ident: "point", ty: OutOfLine(type_idx: 12)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Option(some_ty: OutOfLine(type_idx: 5)), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
             ])),
         ])), multiplicity: Flat, since: None, ident: "steer", docs: [
             "A host\'s fit of this device\'s clock (STD-49), sent about once a second. The device follows it when it has",
-            "nothing better: its shared clock becomes",
+            "nothing better and `Host` is allowed (see `set_sources`): its shared clock becomes",
             "`shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed",
             "there from where it was, not stepped), `sync_status` and `time_map` say `Locked` with source `Host`, and",
-            "`Holdover` when the points stop coming. A device locked to a sync line keeps following the line and only",
-            "notes the point: the host then correlates through `time_map` instead of steering. Returns the source the",
-            "device follows after taking the point. `InvalidArgument` for a point it can\'t use (`local` a float or in a",
-            "storage it doesn\'t read, a rate beyond what it can follow).",
+            "`Holdover` when the points stop coming. A device locked to a better source (a sync line), or one whose source",
+            "list leaves `Host` out, keeps what it follows and only notes the point: the host then correlates through",
+            "`time_map` instead of steering. Returns the source the device follows after taking the point, `None` when",
+            "it follows nothing (`Host` not allowed and no other source locked). `InvalidArgument` for a point it can\'t",
+            "use (`local` a float or in a storage it doesn\'t read, a rate beyond what it can follow).",
             "",
             "Shared time is UTC from the host\'s wall clock (NTP-disciplined), in µs since the Unix epoch, so devices",
             "steered by different hosts agree to NTP precision, and devices on one sync line to the line\'s. A host fits",
@@ -299,6 +300,25 @@
         (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: NumericAny(Base(U64)))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
             "The device\'s shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a",
             "host compares with its own clock to see how well the device follows (the residual offset).",
+        ], optional: Some((group: Some("host_sync")))),
+        (id: 9, kind: Method(args: [
+            (ident: "sources", ty: Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))))),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "Common", nested: Some([
+                "Unsupported",
+                "InvalidArgument",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "set_sources", docs: [
+            "The sources the shared clock may follow, best first: `[Line { format: IrigB }, Host]`,",
+            "`[Line { format: Pps }, Line { format: IrigB }, Host]`, or `[Line { format: IrigB }]` for \"never let a PC",
+            "steer me\". A source left out is never followed, only noted; holdover and free come after the list. `None`",
+            "(the default, also after a reset) is the fixed ranking: any locked sync line, then the host, then holdover,",
+            "then free. `Unsupported` for a line format the device doesn\'t have (see `info().sync_formats`),",
+            "`InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as",
+            "any switch does.",
+        ], optional: Some((group: Some("host_sync")))),
+        (id: 10, kind: Method(args: [], return_ty: Some(Option(some_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 5))))), errors: None), multiplicity: Flat, since: None, ident: "sources", docs: [
+            "The source list last accepted by `set_sources`; `None` for the fixed ranking.",
         ], optional: Some((group: Some("host_sync")))),
     ], compact_id: Some(24)), crate_idx: 0),
 ], ext_crates: [

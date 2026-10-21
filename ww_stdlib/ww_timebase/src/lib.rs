@@ -7,9 +7,9 @@
 //! the others lock to it and publish `time_map` points that map their local time to the shared one.
 //!
 //! Shared time is one timescale, UTC (STD-49), and each source of it is an estimate with an error bound. A device
-//! follows its best source ([SyncSource]): a locked sync line (IRIG-B, PPS: µs) before a host steering it over the
-//! API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last one, before
-//! running free. Switching from one source to another slews the shared clock instead of stepping it, and shows in
+//! follows its best source ([SyncSource]): by default a locked sync line (IRIG-B, PPS: µs) before a host steering
+//! it over the API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last
+//! one, before running free; `set_sources` replaces that ranking with an explicit list. Switching from one source to another slews the shared clock instead of stepping it, and shows in
 //! `time_map` as a change of `source`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -62,13 +62,14 @@ pub trait Clock {
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError<'i>>;
 
     /// A host's fit of this device's clock (STD-49), sent about once a second. The device follows it when it has
-    /// nothing better: its shared clock becomes
+    /// nothing better and `Host` is allowed (see `set_sources`): its shared clock becomes
     /// `shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed
     /// there from where it was, not stepped), `sync_status` and `time_map` say `Locked` with source `Host`, and
-    /// `Holdover` when the points stop coming. A device locked to a sync line keeps following the line and only
-    /// notes the point: the host then correlates through `time_map` instead of steering. Returns the source the
-    /// device follows after taking the point. `InvalidArgument` for a point it can't use (`local` a float or in a
-    /// storage it doesn't read, a rate beyond what it can follow).
+    /// `Holdover` when the points stop coming. A device locked to a better source (a sync line), or one whose source
+    /// list leaves `Host` out, keeps what it follows and only notes the point: the host then correlates through
+    /// `time_map` instead of steering. Returns the source the device follows after taking the point, `None` when
+    /// it follows nothing (`Host` not allowed and no other source locked). `InvalidArgument` for a point it can't
+    /// use (`local` a float or in a storage it doesn't read, a rate beyond what it can follow).
     ///
     /// Shared time is UTC from the host's wall clock (NTP-disciplined), in µs since the Unix epoch, so devices
     /// steered by different hosts agree to NTP precision, and devices on one sync line to the line's. A host fits
@@ -76,12 +77,29 @@ pub trait Clock {
     /// moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).
     #[optional(host_sync)]
     #[errors(Common(InvalidArgument))]
-    fn steer(point: SteerPoint) -> Result<SyncSource, ClockError<'i>>;
+    fn steer(point: SteerPoint) -> Result<Option<SyncSource>, ClockError<'i>>;
 
     /// The device's shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a
     /// host compares with its own clock to see how well the device follows (the residual offset).
     #[optional(host_sync)]
     fn shared_now() -> Option<u64>;
+
+    /// The sources the shared clock may follow, best first: `[Line { format: IrigB }, Host]`,
+    /// `[Line { format: Pps }, Line { format: IrigB }, Host]`, or `[Line { format: IrigB }]` for "never let a PC
+    /// steer me". A source left out is never followed, only noted; holdover and free come after the list. `None`
+    /// (the default, also after a reset) is the fixed ranking: any locked sync line, then the host, then holdover,
+    /// then free. `Unsupported` for a line format the device doesn't have (see `info().sync_formats`),
+    /// `InvalidArgument` for a source named twice. Switching to another source because of a new list slews, as
+    /// any switch does.
+    #[optional(host_sync)]
+    #[errors(Common(Unsupported, InvalidArgument))]
+    fn set_sources(
+        sources: Option<MaxLen<RefVec<'i, SyncSource>, 8>>,
+    ) -> Result<(), ClockError<'i>>;
+
+    /// The source list last accepted by `set_sources`; `None` for the fixed ranking.
+    #[optional(host_sync)]
+    fn sources() -> Option<MaxLen<RefVec<'i, SyncSource>, 8>>;
 }
 
 /// Static description of a device's clock, see `Clock::info`.

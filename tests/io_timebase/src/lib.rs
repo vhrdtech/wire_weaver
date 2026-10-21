@@ -72,6 +72,8 @@ mod tests {
             pub m: Arc<Mutex<Model>>,
             pub epoch: Instant,
             pub formats: [SyncFormat; 1],
+            /// The list of `set_sources`, `None`: the fixed ranking.
+            pub sources: Option<Vec<SyncSource>>,
         }
 
         impl Server {
@@ -269,7 +271,7 @@ mod tests {
                 &mut self,
                 cx: &mut Context<'_, impl BlockingEventOut>,
                 point: SteerPoint,
-            ) -> RpcResult<Result<SyncSource, ClockError<'_>>> {
+            ) -> RpcResult<Result<Option<SyncSource>, ClockError<'_>>> {
                 if point.local.prefix != Prefix::Micro
                     || !matches!(point.local.value, NumericValue::U32(_))
                 {
@@ -281,13 +283,20 @@ mod tests {
                 }
                 let mut m = self.m.lock().unwrap();
                 m.steers += 1;
+                let line = SyncSource::Line {
+                    format: SyncFormat::IrigB,
+                };
                 let line_locked = matches!(m.sync_config, SyncConfig::Slave { .. })
                     && m.sync_status.state == SyncState::Locked;
-                if line_locked {
-                    // a line beats the host: only noted
-                    return Ready(Ok(SyncSource::Line {
-                        format: SyncFormat::IrigB,
-                    }));
+                // best first: the list's order, or the fixed ranking (a line before the host)
+                let rank = |s: SyncSource| match &self.sources {
+                    Some(list) => list.iter().position(|l| *l == s),
+                    None => Some(if s == SyncSource::Host { 1 } else { 0 }),
+                };
+                let host = rank(SyncSource::Host);
+                if host.is_none() || (line_locked && rank(line) < host) {
+                    // only noted
+                    return Ready(Ok(line_locked.then_some(line)));
                 }
                 m.steer = Some(point);
                 m.sync_status = SyncStatus {
@@ -307,7 +316,48 @@ mod tests {
                         source: Some(SyncSource::Host),
                     },
                 );
-                Ready(Ok(SyncSource::Host))
+                Ready(Ok(Some(SyncSource::Host)))
+            }
+
+            fn clock_set_sources(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                sources: Option<MaxLen<RefVec<'_, SyncSource>, 8>>,
+            ) -> RpcResult<Result<(), ClockError<'_>>> {
+                let Some(sources) = sources else {
+                    self.sources = None;
+                    return Ready(Ok(()));
+                };
+                let mut list = Vec::new();
+                for s in sources.iter() {
+                    let s = s.unwrap();
+                    if let SyncSource::Line { format } = s
+                        && !self.formats.contains(&format)
+                    {
+                        return Ready(Err(CommonError::Unsupported.into()));
+                    }
+                    if list.contains(&s) {
+                        return Ready(Err(CommonError::InvalidArgument {
+                            arg: 0,
+                            reason: MaxLen::new_unchecked("a source named twice"),
+                        }
+                        .into()));
+                    }
+                    list.push(s);
+                }
+                self.sources = Some(list);
+                Ready(Ok(()))
+            }
+
+            fn clock_sources(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Option<MaxLen<RefVec<'_, SyncSource>, 8>>> {
+                Ready(self.sources.as_ref().map(|list| {
+                    MaxLen::new_unchecked(RefVec::Slice {
+                        slice: list.as_slice(),
+                    })
+                }))
             }
 
             fn clock_shared_now(
@@ -382,6 +432,7 @@ mod tests {
             m: m.clone(),
             epoch: Instant::now(),
             formats: [SyncFormat::IrigB],
+            sources: None,
         };
         let device = tests_common::start_device(
             path,
@@ -585,9 +636,9 @@ mod tests {
         let source = client.clock().steer(point).call().await.unwrap();
         assert_eq!(
             source,
-            SyncSource::Line {
+            Some(SyncSource::Line {
                 format: SyncFormat::IrigB
-            }
+            })
         );
         // noted, not followed
         assert!(m.lock().unwrap().steer.is_none());
@@ -600,6 +651,98 @@ mod tests {
         let result = client.clock().steer(bad).call().await;
         assert!(matches!(
             result.unwrap_err().device(),
+            Some(ClockErrorOwned::Common(
+                CommonErrorOwned::InvalidArgument { .. }
+            ))
+        ));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_source_list_decides() {
+        let (device, m) = start("timebase/sources");
+        let client = connect(&device).await;
+        assert_eq!(client.clock().sources().call().await.unwrap(), None);
+        let point = SteerPoint {
+            local: micros(LOCAL_START),
+            shared_us: 1_700_000_000_000_000,
+            rate_ppb: 0,
+            error_us: 100,
+        };
+        let irig = SyncSource::Line {
+            format: SyncFormat::IrigB,
+        };
+        // "never let a PC steer me": noted, nothing followed
+        client
+            .clock()
+            .set_sources(Some(MaxLen::new_unchecked(vec![irig])))
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(
+            client.clock().sources().call().await.unwrap(),
+            Some(MaxLen::new_unchecked(vec![irig]))
+        );
+        assert_eq!(client.clock().steer(point).call().await.unwrap(), None);
+        assert!(m.lock().unwrap().steer.is_none());
+
+        // the host before the line: followed even while the line is locked
+        client
+            .clock()
+            .configure_sync(SyncConfig::Slave {
+                format: SyncFormat::IrigB,
+            })
+            .call()
+            .await
+            .unwrap();
+        client
+            .clock()
+            .set_sources(Some(MaxLen::new_unchecked(vec![SyncSource::Host, irig])))
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(
+            client.clock().steer(point).call().await.unwrap(),
+            Some(SyncSource::Host)
+        );
+
+        // back to the fixed ranking: the locked line wins
+        client.clock().set_sources(None).call().await.unwrap();
+        client
+            .clock()
+            .configure_sync(SyncConfig::Slave {
+                format: SyncFormat::IrigB,
+            })
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(
+            client.clock().steer(point).call().await.unwrap(),
+            Some(irig)
+        );
+
+        // a line the device doesn't have, a source twice
+        let pps = SyncSource::Line {
+            format: SyncFormat::Pps,
+        };
+        let r = client
+            .clock()
+            .set_sources(Some(MaxLen::new_unchecked(vec![pps])))
+            .call()
+            .await;
+        assert_eq!(
+            r.unwrap_err().device(),
+            Some(&ClockErrorOwned::Common(CommonErrorOwned::Unsupported))
+        );
+        let r = client
+            .clock()
+            .set_sources(Some(MaxLen::new_unchecked(vec![
+                SyncSource::Host,
+                SyncSource::Host,
+            ])))
+            .call()
+            .await;
+        assert!(matches!(
+            r.unwrap_err().device(),
             Some(ClockErrorOwned::Common(
                 CommonErrorOwned::InvalidArgument { .. }
             ))

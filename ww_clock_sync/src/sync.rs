@@ -62,11 +62,14 @@ pub struct Status {
     pub fit: Option<Fit>,
     /// Samples in the window.
     pub samples: usize,
-    /// Steer points the device took.
+    /// Steer points the device answered, followed or only noted.
     pub steers: u64,
     /// The source the device answered it follows to the last steer point: `Host` when it takes them, a line when
-    /// it has something better and only notes them.
+    /// it has something better and only notes them, `None` when it follows nothing (its source list leaves `Host`
+    /// out and nothing else is locked).
     pub source: Option<SyncSource>,
+    /// The device answered a steer point: `source` is its answer, not just unknown yet.
+    pub answered: bool,
     /// The device's own status at the last check.
     pub device: Option<SyncStatus>,
     /// At the last check: the device's shared time minus the host's UTC at the middle of the round trip, in ns.
@@ -203,7 +206,8 @@ async fn steer(
     match client.steer(point).call().await {
         Ok(source) => {
             status.steers += 1;
-            status.source = Some(source);
+            status.source = source;
+            status.answered = true;
         }
         Err(e) => status.error = Some(format!("steer: {e}")),
     }

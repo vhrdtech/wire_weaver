@@ -298,6 +298,73 @@ Medians of 7 rounds of 2 s per stage on an idle PC (omarchy-m1, Apple M1 under A
 | in the hub's process            | 16 B  | 36771 → 16131 (−56 %) | 25620 → 25489 msg/s  | 698446 → 667606 msg/s  |
 
 Single runs swing by ±15 % on a PC that does other work: compare medians of several rounds.
+## Claims on resources (SRV-34)
+
+Several programs share a device through the hub; sometimes one of them needs a part of it to itself for a while (a
+test sequence that reconfigures a CAN bus, a firmware update). It *claims* that resource through the hub's
+`claims` group, and until it lets go, the hub answers other programs' calls and property writes there itself, with
+`Common(InUse)` naming the holder, without reaching the device. Which resources can be claimed, and in which mode,
+is in the device's API (`#[claim(..)]`, `#[shares(..)]`, `#[label(..)]`, see [Metadata](../api/metadata.md)); the
+root of a device always can, exclusively.
+
+```rust
+let meta = ClientMeta::new().purpose("flashing B135 #4");
+// one program: its hub client and its device client share one client instance
+let hub = HubClient::config(|c| c.hub_api().client_meta(meta.clone())).connect().await?;
+let board = Board::config(|c| c.hub_device(key.clone()).client_meta(meta.clone())).connect().await?;
+
+// `can[0]`: the path of resource ids from the root, array indices included, as in a request
+let id = hub.claims().claim(key.clone(), vec![UNib32(3), UNib32(0)], "bitrate sweep".into(), Some(600)).call().await?;
+board.can(0).set_bitrate(500_000).call().await?; // goes through: this instance holds the claim
+// ... another program's `can(0).send(..)` gets Err(Common(InUse { by: "sweep pid 4711" }))
+hub.claims().release(id).call().await?;
+```
+
+- `claim(key, path, purpose, ttl_s) -> Result<u32, ClaimError>`, `release(id)`, `claims(key)` (every claim on the
+  device: path, mode, the resource's label, purpose, holder, since, expiry). `registry().events()` says `Claimed` and
+  `Released`. The hub opens the device if it doesn't hold it yet and reads its API from the introspection data (once,
+  cached with it), since it never links the device's API crate.
+- `ClaimError`: `UnknownDevice`, `ApiUnknown` (no introspection: only the root can be claimed), `BadPath`,
+  `NotClaimable` (no `#[claim]` on it nor on its trait: a typo can't take a whole board), `InUse` (another program
+  holds this resource), `Overlap` (another program holds a resource above or below it, or one that `#[shares]` a pin
+  or peripheral with it). Each names the claim in the way.
+- Who holds it: the client instance (the instance id of its `ClientMeta`, CLT-41), as the principal it connected as
+  (today always the local user; remote principals come with SRV-33/SRV-37). Every connection of that instance, to
+  the hub's API and to devices, may use the resource, so a program gives its hub client and its device clients clones
+  of one `ClientMeta`. A client that sends no client meta (built before CLT-41) holds claims for that one connection.
+  One instance may nest and overlap its own claims.
+- A claim goes when it is released, when its instance's last connection to the hub closes (a crash or `kill -9`
+  frees it), or after its ttl.
+
+What is refused, for programs other than the holder, at or under the claimed path:
+
+| Mode | Calls, property and sink writes | Reads, streams, observing |
+|---|---|---|
+| `exclusive` | refused | open |
+| `shared` | refused for programs holding no claim on it; several programs claim it together | open |
+| `observe` | refused | refused |
+
+- The answer is typed where the item has an error type: a method returning `Result<_, E>` gets `Err(E::Common(InUse
+  { by }))`, a property write with an error type gets that error, built from the device's API with the dynamic
+  serializer, so the program's own client decodes it as a normal `CallError::Device`. Without one (`fn ping() ->
+  u8`), the error event says `in use by <program> pid <pid>` (`ErrorKind::UserStr`).
+- Requests addressed by trait (global paths) are placed with the device's API; multi-requests (`MultiCall`,
+  `MultiWrite`, ...) are refused when a claim is at, above or under their path. A request the hub can't read (an
+  envelope newer than the hub) is refused like a call anywhere on the device while other programs hold claims on it,
+  and passes as it is when nobody does.
+
+### Hub claims and device claims
+
+A device can have claims of its own, between functions inside the firmware (rePort's `b200_board`: Claim / Plan of
+pins and functions, so a UART and a pin test can't both drive PA9). The two layers don't know each other:
+
+- The hub layer is between programs: which client may command this subtree. It comes first: another program's claim
+  is answered by the hub, naming the program.
+- The device layer is between functions: what the firmware may do with its pins and peripherals right now. A request
+  that passed the hub reaches the device, whose own checks may answer `InUse` or `Refused`, naming the function.
+- Neither takes the other: a hub claim doesn't make device-level Claim / Plan calls, the program holding it makes
+  them as usual (and a device claim doesn't show up in the hub's `claims`). A program connected directly (no hub)
+  holds the whole device, so only the device layer applies.
 
 ## Who holds a device (CLT-38)
 

@@ -8,3 +8,6 @@
 - New API crate (SRV-28): the ww hub's API. `Hub` (`info`, `handover` frozen; `shutdown`, `keep`) and `Registry`
   (`devices`, `clients`, `take`, `events`) with `HubInfo`, `DeviceEntry`, `DeviceState`, `Holder`, `ClientEntry`,
   `Event`, `HandoverError`, `TakeError`.
+- `Claims` (SRV-34) at `Hub::claims`: `claim(key, path, purpose, ttl_s) -> Result<u32, ClaimError>`, `release(id)`,
+  `claims(key)`, with `ClaimEntry`, `ClaimKind`, `ClaimError` (`UnknownDevice`, `ApiUnknown`, `BadPath`,
+  `NotClaimable`, `InUse`, `Overlap`), `ReleaseError`; `Event::Claimed` and `Event::Released`.

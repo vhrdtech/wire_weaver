@@ -25,3 +25,9 @@
   `HubConfig::linger` (30 s, `WW_HUB_LINGER`) after its last client left. `Registry::take(key)` opens a device and
   keeps it; `Registry::devices` shows the hub's devices as `Open` with their tunnels, events `Opened` / `Closed`.
   The hub reads only seq, path and kind of what it forwards, never a user API.
+- Per-resource claims (SRV-34): the `claims` group of the API (`claim`, `release`, `claims`, `Claimed` / `Released`
+  events). What can be claimed comes from the device's introspection data (`#[claim]`, `#[shares]`, `#[label]`),
+  fetched by the hub itself; while a client instance holds a claim, the hub answers other clients' calls and writes
+  at or under its path with `Common(InUse { by })` in the item's error type (an error event without one), without
+  reaching the device; reads, streams and observe stay open unless the claim is `observe`. Claims belong to the
+  client instance (`ClientMeta` instance id) and go with its last connection or at their ttl.

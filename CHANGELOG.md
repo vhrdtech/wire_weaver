@@ -27,8 +27,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Typed API metadata (SRV-34, first part): `#[claim(exclusive | shared | observe)]`, `#[shares(pins = "..",
   peripherals = "..")]` and `#[label("..")]` on items and traits, checked when the API is loaded and carried in
   introspection as data (`ww_self::Meta`), shown by `ww api tree`. The stdlib IO traits are claimable
-  (`ww_can_bus`, `ww_uart`, `ww_i2c`, `ww_spi`, `ww_gpio::Bank`, `ww_dfu`, `ww_pin_diag`). The hub's `Claims`
-  group, which enforces claims, follows with its device multiplexing. `docs/api/metadata.md`.
+  (`ww_can_bus`, `ww_uart`, `ww_i2c`, `ww_spi`, `ww_gpio::Bank`, `ww_dfu`, `ww_pin_diag`). `docs/api/metadata.md`.
+- Per-resource claims through the hub (SRV-34): a program claims a bus, port or the whole device (`claims` group of
+  the hub's API), and the hub answers other programs' calls and writes there with `Common(InUse)` naming it, while
+  their reads and streams keep going; a claim goes with its program (crash included) or at its ttl.
+  `docs/transport/hub.md`.
 - `ww dfu flash` (CLT-33): a whole update of a chunky device in one command, with `chunky_ww_host` from
   chunky_mcu_updater: an ELF or binary sealed for the device, a delta plan, pipelined steps with a progress bar,
   reboot into the trial, follow by serial number, the device's confirm or revert. `ww dfu status`, `confirm`,

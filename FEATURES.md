@@ -799,6 +799,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
   `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ **SRV-34 per-resource-claims Per-resource claims through the hub** · `v0.5.x` — typed metadata attributes,
+    carried in introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
+    `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),
+    `#[shares(pins = "PA9, PA10", peripherals = "USART1", index = N)]` (pin ranges `PA0-PA15`) so overlapping
+    resources conflict, `#[label("CAN1, DB-9 on the front")]` (one per array element) on any item;
+    `ApiItemOwned::claim_mode` / `label`, `ww api tree`, rustdoc notes, `ww api check` reports changes as compatible;
+    stdlib IO traits claimable (`ww_can_bus`, `ww_uart`, `ww_i2c`, `ww_spi`, `ww_gpio::Bank`, `ww_dfu`,
+    `ww_pin_diag`). The hub's `claims` group (`claim(key, path, purpose, ttl_s) -> Result<u32, ClaimError {
+    UnknownDevice, ApiUnknown, BadPath, NotClaimable, InUse, Overlap }>`, `release`, `claims(key)`, `Claimed` /
+    `Released` events): calls and writes of other client instances at or under a claimed path are answered by the hub
+    with `Common(InUse { by })` in the item's own error type (an error event naming the holder without one), without
+    reaching the device; reads, streams and observe stay open (taken too for `observe`); a claim belongs to the
+    client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
+    `#[shares]`, nesting within one instance. `docs/api/metadata.md`, `docs/transport/hub.md` (with how hub and
+    device-side claims combine); tests `tests/traits` (`meta_in_introspection`), `wire_weaver_core` (`meta_*`),
+    `ww_hub` (`claims`), `tests/hub` (`claim*`). Later attributes: API-56, API-57.
 - 🧪 **SRV-19 ECC-safe STM32 flash for stores** — `mcu/ww_ecc_flash`: `EccSafeFlash` wraps any `NorFlash` (embassy-stm32's
   `Flash`) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, `FLASH_ECCR.ECCD`, through `on_nmi()` or feature
@@ -811,21 +827,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reset never tears a G0 flash word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is
   built, and `examples_mcu/ecc_flash_h7` makes real ECC errors by programming a scratch flash word twice to check
   both modes (not run on a board yet).
-- 🚧 **SRV-34 per-resource-claims Per-resource claims through the hub** — typed metadata attributes, carried in
-    introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
-    `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),
-    `#[shares(pins = "PA9, PA10", peripherals = "USART1", index = N)]` (pin ranges `PA0-PA15`) so overlapping
-    resources conflict, `#[label("CAN1, DB-9 on the front")]` (one per array element) on any item. Done: the
-    attributes and model, `ApiItemOwned::claim_mode` / `label`, `ww api tree`, rustdoc notes, `ww api check` reports
-    changes as compatible; stdlib IO traits claimable (`ww_can_bus`, `ww_uart`, `ww_i2c`, `ww_spi`,
-    `ww_gpio::Bank`, `ww_dfu`, `ww_pin_diag`), snapshots saved. `docs/api/metadata.md`, tests `tests/traits`
-    (`meta_in_introspection`), `wire_weaver_core` (`meta_*`). Missing (after SRV-29 device multiplexing): the hub
-    API `Claims` group (`claim(device, path, purpose, ttl) -> Result<ClaimId, ClaimError { InUse { by, since,
-    purpose }, NotClaimable, Overlap }>`, `release`, `claims(device)`), calls and writes of other client instances
-    at or under a claimed path answered `Common(InUse)` naming the claimer and the label, without reaching the
-    device, reads, streams and observe left open (taken too for `observe`), claims dropped with the claimer's last
-    connection or at the ttl, overlap by path and by `#[shares]`; how hub claims and device-side claims combine
-    (`docs/transport/hub.md`). Later attributes: API-56, API-57.
 - ⛔ **SRV-8 One crate per role for firmware and host** · `v0.5` — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into `wire_weaver` behind features or splitting by
   std/no_std:

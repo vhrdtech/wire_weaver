@@ -819,4 +819,259 @@ mod tests {
         );
         bench.stop().await;
     }
+
+    // ---- device-wide exclusive and lending (SRV-32) ----
+
+    /// Waits for the registry event `f` picks, skipping others.
+    async fn next_event<T>(
+        events: &mut wire_weaver_client::Stream<EventOwned>,
+        f: impl Fn(&EventOwned) -> Option<T>,
+    ) -> T {
+        loop {
+            let event = tokio::time::timeout(Duration::from_secs(3), events.recv())
+                .await
+                .expect("an event")
+                .unwrap();
+            if let Some(t) = f(&event) {
+                return t;
+            }
+        }
+    }
+
+    /// The device's state in the hub's registry, `None` when the hub doesn't hold it.
+    async fn hub_state(hub: &HubClient, key: &str) -> Option<ww_hub_api::DeviceStateOwned> {
+        hub.registry()
+            .devices()
+            .call()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|d| d.key == key)
+            .map(|d| d.state)
+    }
+
+    /// A claims the whole device (a firmware update): B's calls and writes anywhere on it get `Common(InUse)` naming
+    /// A, B's reads go on, A's calls go through; a root claim of B is refused while A holds it. Released: B goes on.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn exclusive_refuses_a_second_client() {
+        let bench = start("exclusive", Duration::from_secs(30));
+        let mut a = bench.program("alice").await;
+        let mut b = bench.program("bob").await;
+        let id = bench.claim(&a, vec![], None).await;
+
+        assert_eq!(refused(b.dev.bus(0).send(7).call().await), in_use("alice"));
+        assert_eq!(refused(b.dev.bus(1).send(7).call().await), in_use("alice"));
+        assert_eq!(
+            refused(b.dev.bus(1).write_speed(1).write().await),
+            in_use("alice")
+        );
+        // `add` has no error type: an error event names the holder
+        match b.dev.add(1, 2).call().await {
+            Err(wire_weaver_client::Error::RemoteError(e)) => assert!(
+                matches!(&e.kind, ww_client_server::ErrorKindOwned::UserStr(s) if *s == format!("in use by {}", by("alice"))),
+                "{e:?}"
+            ),
+            other => panic!("expected a refusal, got {other:?}"),
+        }
+        assert_eq!(b.dev.bus(1).read_speed().read().await.unwrap(), 0);
+        assert_eq!(a.dev.add(1, 2).call().await.unwrap(), 3);
+        assert_eq!(a.dev.bus(1).send(5).call().await.unwrap(), 5);
+        match bench.claim_refused(&b, vec![]).await {
+            ClaimErrorOwned::InUse { claim } => assert_eq!(claim.id, id),
+            other => panic!("expected InUse, got {other:?}"),
+        }
+
+        a.hub.claims().release(id).call().await.unwrap();
+        assert_eq!(b.dev.add(1, 2).call().await.unwrap(), 3);
+        bench.stop().await;
+    }
+
+    /// A root claim with a ttl goes by itself when it runs out, told by a `Released` event without anyone asking;
+    /// one of a program that is killed goes with it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn exclusive_ends_at_ttl_and_with_its_holder() {
+        let bench = start("exclusive-gone", Duration::from_secs(30));
+        let b = bench.program("bob").await;
+        let mut events = b.hub.registry().events().call().await.unwrap();
+        let a = bench.program("alice").await;
+        let id = bench.claim(&a, vec![], Some(1)).await;
+        assert_eq!(refused(b.dev.bus(0).send(1).call().await), in_use("alice"));
+        let gone = next_event(&mut events, |e| match e {
+            EventOwned::Released { id, .. } => Some(*id),
+            _ => None,
+        })
+        .await;
+        assert_eq!(gone, id);
+        assert_eq!(b.dev.bus(0).send(1).call().await.unwrap(), 1);
+
+        // killed: its runtime dropped with everything on it, no release, no disconnect
+        let (socket, key) = (bench.socket(), bench.key.clone());
+        let (claimed_tx, claimed_rx) = std::sync::mpsc::channel();
+        let (kill_tx, kill_rx) = std::sync::mpsc::channel::<()>();
+        let c = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                let meta = ClientMeta::new().program("carol");
+                let hub =
+                    HubClient::config(|c| c.hub_api_at(socket.clone()).client_meta(meta.clone()))
+                        .connect()
+                        .await
+                        .unwrap();
+                let id = hub
+                    .claims()
+                    .claim(key.clone(), vec![], "flashing".into(), None)
+                    .call()
+                    .await
+                    .unwrap();
+                claimed_tx.send(id).unwrap();
+                std::mem::forget(hub);
+            });
+            kill_rx.recv().unwrap();
+            rt.shutdown_background();
+        });
+        let id = claimed_rx.recv().unwrap();
+        assert_eq!(refused(b.dev.bus(0).send(2).call().await), in_use("carol"));
+        kill_tx.send(()).unwrap();
+        c.join().unwrap();
+        let gone = next_event(&mut events, |e| match e {
+            EventOwned::Released { id, .. } => Some(*id),
+            _ => None,
+        })
+        .await;
+        assert_eq!(gone, id);
+        assert_eq!(b.dev.bus(0).send(2).call().await.unwrap(), 2);
+        drop(a);
+        bench.stop().await;
+    }
+
+    /// `ww hub lend`'s round trip: the hub closes the device for another program (its tunnels end, new ones are
+    /// refused as `Lent`), which then has it to itself; returned, the hub opens it again and clients come back.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn lend_round_trip() {
+        let bench = start("lend", Duration::from_secs(30));
+        let mut a = bench.client().await;
+        assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
+        let lender = HubClient::config(|c| c.hub_api_at(bench.socket()))
+            .connect()
+            .await
+            .unwrap();
+        let mut events = lender.registry().events().call().await.unwrap();
+        assert_eq!(
+            hub_state(&lender, &bench.key).await,
+            Some(ww_hub_api::DeviceStateOwned::Open)
+        );
+
+        let id = lender
+            .claims()
+            .lend(bench.key.clone(), "probe-rs".into(), None)
+            .call()
+            .await
+            .unwrap();
+        // closed when lend answers (a's tunnel got `Disconnect(Other(DISCONNECT_LENT))`), not held by the hub
+        assert_eq!(hub_state(&lender, &bench.key).await, None);
+        let claims = lender
+            .claims()
+            .claims(bench.key.clone())
+            .call()
+            .await
+            .unwrap();
+        assert_eq!((claims[0].id, claims[0].lent), (id, true));
+        let lent = next_event(&mut events, |e| match e {
+            EventOwned::Lent { id, .. } => Some(*id),
+            _ => None,
+        })
+        .await;
+        assert_eq!(lent, id);
+
+        // a client through the hub is refused, saying why; the other program opens the device itself
+        let (socket, key) = (bench.socket(), bench.key.clone());
+        let refused = Client::config(|c| c.hub_device_at(socket.clone(), key.clone()))
+            .connect()
+            .await
+            .err()
+            .expect("refused while lent");
+        assert!(
+            format!("{refused:#}").contains("lent"),
+            "says why: {refused:#}"
+        );
+        let mut direct = Client::config(|c| c.in_process_path(bench.device.path()))
+            .connect()
+            .await
+            .expect("the device is free for the other program");
+        assert_eq!(direct.add(2, 2).call().await.unwrap(), 4);
+        direct.cmd.disconnect().asynch().await.unwrap();
+
+        lender.claims().release(id).call().await.unwrap();
+        next_event(&mut events, |e| {
+            matches!(e, EventOwned::Returned { .. }).then_some(())
+        })
+        .await;
+        // the hub held it before: open again
+        next_event(&mut events, |e| {
+            matches!(e, EventOwned::Opened { .. }).then_some(())
+        })
+        .await;
+        let mut b = bench.client().await;
+        assert_eq!(b.add(3, 3).call().await.unwrap(), 6);
+        bench.stop().await;
+    }
+
+    /// A borrower that dies returns the device: the lend is a claim of its client instance.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn lend_returned_when_borrower_killed() {
+        let bench = start("lend-killed", Duration::from_secs(30));
+        let mut a = bench.client().await;
+        assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
+        let watcher = HubClient::config(|c| c.hub_api_at(bench.socket()))
+            .connect()
+            .await
+            .unwrap();
+        let mut events = watcher.registry().events().call().await.unwrap();
+
+        let (socket, key) = (bench.socket(), bench.key.clone());
+        let (lent_tx, lent_rx) = std::sync::mpsc::channel();
+        let (kill_tx, kill_rx) = std::sync::mpsc::channel::<()>();
+        let borrower = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async {
+                let hub = HubClient::config(|c| c.hub_api_at(socket.clone()))
+                    .connect()
+                    .await
+                    .unwrap();
+                let id = hub
+                    .claims()
+                    .lend(key.clone(), "dfu-util".into(), None)
+                    .call()
+                    .await
+                    .unwrap();
+                lent_tx.send(id).unwrap();
+                std::mem::forget(hub);
+            });
+            kill_rx.recv().unwrap();
+            rt.shutdown_background();
+        });
+        lent_rx.recv().unwrap();
+        assert_eq!(hub_state(&watcher, &bench.key).await, None);
+        kill_tx.send(()).unwrap();
+        borrower.join().unwrap();
+        next_event(&mut events, |e| {
+            matches!(e, EventOwned::Returned { .. }).then_some(())
+        })
+        .await;
+        next_event(&mut events, |e| {
+            matches!(e, EventOwned::Opened { .. }).then_some(())
+        })
+        .await;
+        let mut b = bench.client().await;
+        assert_eq!(b.add(2, 3).call().await.unwrap(), 5);
+        bench.stop().await;
+    }
 }

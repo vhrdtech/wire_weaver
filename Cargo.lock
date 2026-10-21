@@ -6131,6 +6131,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_hub"
+version = "0.5.0"
+dependencies = [
+ "interprocess",
+ "tokio",
+ "tracing",
+ "ww_hub_api",
+ "ww_local_socket",
+]
+
+[[package]]
 name = "ww_hub_api"
 version = "0.1.0"
 dependencies = [

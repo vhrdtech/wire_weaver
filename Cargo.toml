@@ -20,6 +20,8 @@ members = [
     "ww_device",
     "ww_framer",
     "ww_global",
+    "ww_hub",
+    "ww_hub_api",
     "ww_link",
     "ww_local_socket",
     "ww_lz4",
@@ -99,6 +101,7 @@ ww_clock_sync = { version = "0.5.0", path = "./ww_clock_sync" }
 ww_defmt_logger = { version = "0.5.0", path = "./ww_defmt_logger" }
 ww_device = { version = "0.5.0", path = "./ww_device" }
 ww_framer = { version = "0.5.0", path = "./ww_framer", default-features = false }
+ww_hub = { version = "0.5.0", path = "./ww_hub" }
 ww_link = { version = "0.5.0", path = "./ww_link", default-features = false }
 ww_local_socket = { version = "0.5.0", path = "./ww_local_socket" }
 # Its own repo since CLT-21; a registry version once picoboot_host is on crates.io.
@@ -113,6 +116,7 @@ ww_stream = { version = "0.5.0", path = "./ww_stream", default-features = false 
 
 # framework-level base types, each crate has its own version
 ww_global = { version = "0.2.0", path = "./ww_global" }
+ww_hub_api = { version = "0.1.0", path = "./ww_hub_api", default-features = false }
 ww_lz4 = { version = "0.1.0", path = "./ww_lz4" }
 ww_self = { version = "0.3.0", path = "./ww_self" }
 ww_tap = { version = "0.1.0", path = "./ww_tap", default-features = false }

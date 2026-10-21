@@ -177,7 +177,9 @@ Rules the reference event loop follows (and a new transport should too):
   generated client API (see [ww_version](../std_library/ww_version.md)). A device may likewise reply with
   `Disconnect(IncompatibleVersion)` after `LinkSetup`.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
-  being flushed; control messages are flushed immediately.
+  being flushed; control messages are flushed immediately. A window shorter than the host's timer can wait (tokio
+  counts whole milliseconds) is not slept on: the host flushes as soon as nothing else is waiting to go out, so
+  requests sent together still share a frame and a lone request isn't held back a millisecond (CLT-37).
 - The host drops every message until the `DeviceInfo` carrying its token, see [Setup token](#setup-token).
 - `Data` received before `LinkReady` and `Disconnect` received while not connected are ignored — they are
   stragglers from a previous session.

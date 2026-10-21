@@ -51,6 +51,11 @@ pub(crate) use tx::{TxCore, TxInput, TxOutput};
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
 const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
 
+/// The finest a tokio timer waits: it rounds deadlines up to the next millisecond tick. A shorter accumulation
+/// window would become a whole millisecond (or two) per request, so the frame goes out as soon as nothing else is
+/// waiting instead (CLT-37).
+const TIMER_RESOLUTION: Duration = Duration::from_millis(1);
+
 /// Give the last (Disconnect) transfer a chance to actually go out before transport is dropped.
 const EXIT_LINGER: Duration = Duration::from_millis(3);
 
@@ -282,6 +287,14 @@ async fn tx_task<T: Transport>(
             break result;
         }
 
+        if core.wants_idle_flush() && core.accumulation_time() < TIMER_RESOLUTION {
+            // what other tasks are queueing right now still joins this frame
+            tokio::task::yield_now().await;
+            if cmd_rx.is_empty() && from_rx.is_empty() {
+                core.handle(now(), TxInput::Idle);
+                continue;
+            }
+        }
         let deadline = core.poll_timeout();
         let timer = async {
             match deadline {
@@ -665,6 +678,43 @@ mod tests {
         p.feed_from_device(now, &device_info(0));
         let e = connected_rx.try_recv().unwrap().result.unwrap_err();
         assert!(format!("{e:#}").contains("without setup token"), "{e:#}");
+    }
+
+    #[test]
+    fn idle_flushes_what_accumulated_once() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let _connected_rx = connect(&mut p, now);
+        assert!(!p.tx.wants_idle_flush(), "nothing accumulated yet");
+        for bytes in [request(&[1]), request(&[2])] {
+            p.cmd(
+                now,
+                Command::SendMessage {
+                    bytes,
+                    done_tx: None,
+                },
+            );
+        }
+        assert_eq!(kinds(&p.take_sent()), [Kind::Data0, Kind::Data0]);
+        assert!(p.tx.wants_idle_flush());
+        let flushes = p.flushes;
+        p.tx.handle(now, TxInput::Idle);
+        p.settle(now);
+        assert_eq!(
+            p.flushes,
+            flushes + 1,
+            "both requests in one frame, flushed at once"
+        );
+        assert!(!p.tx.wants_idle_flush());
+        assert_eq!(
+            p.tx.poll_timeout(),
+            Some(now + PING),
+            "no accumulation deadline left"
+        );
+        // idle again with nothing accumulated: no empty flush
+        p.tx.handle(now, TxInput::Idle);
+        p.settle(now);
+        assert_eq!(p.flushes, flushes + 1);
     }
 
     #[test]

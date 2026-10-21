@@ -975,6 +975,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that takes updates itself says it goes to the boot ROM (`ww stm32dfu`, CLT-34). Tested end to end in
   chunky_mcu_updater (`chunky_ww_host/tests/e2e.rs`: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.
+- ✅ **CLT-37 No millisecond per request from the accumulation window** · `v0.5.x` — the host slept out the device's
+  frame accumulation window (250 µs on USB HS) with `tokio::time::sleep_until`, which rounds up to whole
+  milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has
+  nothing else waiting (after one yield, so requests queued together still share a frame; `TxInput::Idle`,
+  `TxCore::wants_idle_flush`). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
+  1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.
 - 🐛 **CLT-36 A call on a link that went down waits for a reconnect** — after the device resets (its event loop
   exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
   timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for

@@ -38,6 +38,9 @@ pub(crate) enum TxInput {
     FromRx(ToTx),
     /// In response to [TxCore::poll_timeout] deadline.
     Timer,
+    /// Nothing else is waiting to go out: send the frame being accumulated now. For accumulation windows shorter
+    /// than the wrapper's timer can wait (tokio counts whole milliseconds), see [TxCore::wants_idle_flush].
+    Idle,
 }
 
 pub(crate) enum TxOutput {
@@ -188,6 +191,13 @@ impl TxCore {
             }
             TxInput::FromRx(msg) => self.on_from_rx(now, msg),
             TxInput::Timer => self.on_timer(now),
+            TxInput::Idle => {
+                if self.wants_idle_flush() {
+                    trace!("idle: flushing accumulated messages");
+                    self.flush(now);
+                }
+                Ok(Flow::Continue)
+            }
         };
         match r {
             Ok(Flow::Continue) => {}
@@ -217,6 +227,17 @@ impl TxCore {
             .min(),
             Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => None,
         }
+    }
+
+    /// The link is up and a frame is being accumulated: a wrapper whose timer can't wait as short as the window
+    /// feeds [TxInput::Idle] once nothing else is waiting instead of sleeping until [TxCore::poll_timeout].
+    pub fn wants_idle_flush(&self) -> bool {
+        self.phase == Phase::Up && self.unflushed_since.is_some()
+    }
+
+    /// The accumulation window the device asked for.
+    pub fn accumulation_time(&self) -> Duration {
+        self.frame_accumulation_time
     }
 
     /// Sender from a disconnect command, if that is why tx exited. Must only be notified after the transport

@@ -14,6 +14,10 @@
 - Global trait calls go out with the trait's `ww_global` id (`PathKind::GlobalCompact`, API-20) whenever the registry has one (every `ww_stdlib` trait), also when asked for with `GlobalFull`: 2 bytes and up instead of the crate name. A device built before the trait had an id answers `TraitNotFound`; the event loop then sends the same request again with `GlobalFull`, and sends that trait version's later requests that way for the rest of the connection. The internal, always empty `gid_map` is gone.
 - The tap decoder and `envelope` (TOOL-9, TOOL-14): `explain_request` / `explain_event` take the device API as an `Option` and explain requests through `GlobalFull` paths from the snapshots (`envelope::global_trait`), `explain_reply` (an `Observe`'s answer is `ObserveGranted`, not a property), `PropertyUpdate` data read by the level's `+observe` properties (`DynResource::observe_schema`), `Envelope::types` (the types of the payload values, to show units) and `Envelope::resource`. `Decoder::add_bundle` and describe blocks take a device's bundle as it was sent, snapshot-known traits are put back.
 
+### 🐛 Fixes
+
+- Every request waited ~1 ms on the host before it left (CLT-37): the device's accumulation window (250 µs on USB HS) was slept out with a tokio timer, which counts whole milliseconds. A window under 1 ms now ends as soon as the tx task has nothing else waiting. On a B135 over USB HS: a call 1.3 ms → 0.17 ms median.
+
 ### ⚠️ Breaking
 
 - Link setup token (TR-15): every connection sends a random non-zero token in `GetDeviceInfo` and `LinkSetup` and drops every message until the `DeviceInfo` carrying it (and a `LinkReady` with another one), so an answer still in the device's buffers from a previous session (a `DeviceInfo`, the rest of a split message) is never taken for the new session; tested end to end (`previous_session_leftovers_are_dropped`). A device without the token, or with an incompatible `dev_link_version`, fails the connection with the new `Error::IncompatibleLinkVersion { device, host }` instead of timing out.

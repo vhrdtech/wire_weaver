@@ -23,9 +23,9 @@ impl Exclusive {
     /// holds it, for `purpose` (shown to others). `None` when no hub runs or it doesn't hold the device: a program
     /// that reaches it then holds it directly, which is exclusive by itself.
     ///
-    /// `meta` is the [ClientMeta] the program's device connection was made with ([ClientConfig::client_meta]
-    /// (crate::ClientConfig::client_meta)): a claim belongs to its instance id, so that connection's calls go
-    /// through and everyone else's are refused.
+    /// `meta` is the [ClientMeta] the program's device connection was made with
+    /// ([ClientConfig::client_meta](crate::ClientConfig::client_meta)): a claim belongs to its instance id, so that
+    /// connection's calls go through and everyone else's are refused.
     pub async fn take(
         key: &str,
         meta: &ClientMeta,

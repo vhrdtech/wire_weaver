@@ -259,6 +259,7 @@ mod tests {
             runtime_dir: dir.clone(),
             idle_exit: Duration::from_secs(60),
             linger,
+            version: ww_hub::HUB_VERSION.into(),
         })
         .unwrap()
         .expect("no other hub in this dir");

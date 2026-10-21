@@ -18,5 +18,6 @@ wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }
 ww_client_server.workspace = true
 ww_hub.workspace = true
+ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
 ww_stream = { workspace = true, features = ["std"] }

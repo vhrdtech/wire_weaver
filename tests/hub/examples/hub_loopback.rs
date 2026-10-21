@@ -186,6 +186,7 @@ async fn main() {
         runtime_dir: dir.clone(),
         idle_exit: Duration::from_secs(600),
         linger: Duration::from_secs(1),
+        version: ww_hub::HUB_VERSION.into(),
     };
     // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)
     let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel();

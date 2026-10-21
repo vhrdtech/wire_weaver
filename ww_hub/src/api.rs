@@ -15,7 +15,7 @@ use ww_hub_api::{
     HubInfoOwned, HubStatusOwned, ReleaseError, TakeErrorOwned,
 };
 
-use crate::{HUB_VERSION, Hub};
+use crate::Hub;
 
 /// Longest message on a hub API connection, both ways: device and client lists of a busy bench fit.
 const MAX_MESSAGE_LEN: usize = 16 * 1024;
@@ -57,13 +57,20 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
             },
             _ = ended.wait() => break,
             event = events.recv() => match event {
-                Ok(event) if backend.events_open && server.is_up() => {
-                    let _ = server::api_impl::stream_data_ser()
-                        .registry()
-                        .events_send(&event, &mut server.sink())
-                        .await;
+                Ok(event) => {
+                    let handover = event == ww_hub_api::EventOwned::Handover;
+                    if backend.events_open && server.is_up() {
+                        let _ = server::api_impl::stream_data_ser()
+                            .registry()
+                            .events_send(&event, &mut server.sink())
+                            .await;
+                    }
+                    if handover {
+                        // the client reconnects to the next hub (CLT-40)
+                        server.disconnect(hub.closing_reason()).await;
+                        break;
+                    }
                 }
-                Ok(_) => {}
                 // a slow client misses events, it can read the lists again
                 Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} events"),
                 Err(RecvError::Closed) => break,
@@ -86,7 +93,7 @@ mod server {
     impl Server {
         async fn info(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<HubInfoOwned> {
             RpcResult::Ready(HubInfoOwned {
-                hub_version: HUB_VERSION.to_string(),
+                hub_version: self.hub.version.clone(),
                 // ww_hub is versioned with the framework crates (workspace version)
                 ww_version: env!("CARGO_PKG_VERSION").to_string(),
                 pid: std::process::id(),
@@ -112,13 +119,12 @@ mod server {
             })
         }
 
-        /// TODO(SRV-30): hand the devices over to a newer hub.
         async fn handover(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-            _socket: String,
+            socket: String,
         ) -> RpcResult<Result<(), HandoverError>> {
-            Unimplemented.into()
+            RpcResult::Ready(self.hub.handover(&socket).await)
         }
 
         async fn shutdown(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {

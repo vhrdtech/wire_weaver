@@ -2383,6 +2383,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_hub",
+ "ww_hub_api",
  "ww_local_socket",
  "ww_stream",
 ]
@@ -6201,6 +6202,7 @@ dependencies = [
  "futures-lite",
  "interprocess",
  "nusb",
+ "semver",
  "tokio",
  "tracing",
  "wire_weaver",

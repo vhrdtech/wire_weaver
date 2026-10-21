@@ -13,7 +13,7 @@ use wire_weaver::ww_version::{ApiHash, ApiHashPair, CompactVersion, GlobalTypeId
 use wire_weaver_client::DeviceApiInfo;
 use wire_weaver_client::in_process::TokioClock;
 use ww_device::link::{Received, Transmit};
-use ww_device::ww_link::{DisconnectReason, Kind};
+use ww_device::ww_link::Kind;
 use ww_device::{Clock, DeviceLink, LinkConfig, LinkEvent};
 use ww_local_socket::{MessageReader, MessageWriter, Peer};
 
@@ -219,7 +219,8 @@ pub(crate) async fn serve(
                 }
                 if closed {
                     device_gone = true;
-                    link.disconnect(DisconnectReason::RequestByUser);
+                    // the hub hands over (SRV-30): the client reconnects to the next one
+                    link.disconnect(hub.closing_reason());
                 }
             },
             _ = timer => link.handle_timeout(clock.now()),

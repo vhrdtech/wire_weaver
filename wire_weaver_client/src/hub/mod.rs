@@ -40,6 +40,9 @@ pub const OPENS_ENV: &str = "WW_HUB_OPENS";
 pub const EXE_ENV: &str = "WW_HUB_EXE";
 /// Set on a hub executable started by a client: serve as the hub (`ww_hub::main_if_hub`).
 pub const SERVE_ENV: &str = "WW_HUB_SERVE";
+/// Set with [SERVE_ENV] on a hub executable started to replace an older running hub (SRV-30): it takes over from it
+/// (`ww_hub::Bound::take_over`).
+pub const HANDOVER_ENV: &str = "WW_HUB_HANDOVER";
 /// A hub executable prints its hub version and exits when started with this argument.
 pub const VERSION_ARG: &str = "--hub-version";
 

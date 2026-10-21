@@ -158,6 +158,8 @@ pub(crate) struct Tunnel {
     tx: SendHalf,
     /// The socket, for messages and the tap
     pub(crate) shown: String,
+    /// What the hub (or the serving process) says its version is
+    pub(crate) hub_version: String,
 }
 
 /// Why [open] failed.
@@ -269,7 +271,12 @@ async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel
     if answer.status != Status::Ok {
         return Err(OpenError::Refused { shown, answer });
     }
-    Ok(Tunnel { rx, tx, shown })
+    Ok(Tunnel {
+        rx,
+        tx,
+        shown,
+        hub_version: answer.hub_version,
+    })
 }
 
 pub(crate) struct LocalTx(MessageWriter<SendHalf>);

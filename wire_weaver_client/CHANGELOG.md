@@ -19,6 +19,7 @@
 
 ### 🚀 Features
 
+- `hub::ensure_running(true)` replaces a running hub that is older than this program's own (registered by `ww_hub::main_if_hub()`, no process spawned to find out) under `hub.start.lock`: it starts itself with `hub::HANDOVER_ENV`, and the new hub takes over (SRV-30); a failure leaves the running hub in place. Only strictly newer replaces older, so it converges on the newest hub.
 - The local socket preamble carries this program's `ww_link` and `ww_client_server` versions (SRV-30), and is sent again in the first layout to a hub that answers it doesn't read the second. A hub that doesn't serve them fails `connect()` with `Error::HubRefused { status: 4, .. }` naming both versions and the fix (rebuild with the hub's WireWeaver, or update the hub, or `WW_HUB=off` while it is stopped); routing doesn't fall back to a direct open then, and a reconnect gives up.
 - Reconnect after a hub restart (CLT-40): a connection through the ww hub (routed by `connect()` or
   `ClientConfig::hub_device`) connects again by itself when its link goes: the hub exited, crashed, was killed,

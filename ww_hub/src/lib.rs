@@ -64,6 +64,8 @@ pub struct HubConfig {
     pub idle_exit: Duration,
     /// Close a device this long after its last tunnel left (30 s): the next short command finds it open.
     pub linger: Duration,
+    /// The version this hub answers with and compares in a handover (SRV-30): [HUB_VERSION]; tests set others.
+    pub version: String,
 }
 
 impl HubConfig {
@@ -82,6 +84,7 @@ impl HubConfig {
             runtime_dir: ww_local_socket::runtime_dir()?,
             idle_exit: seconds(IDLE_EXIT_ENV, 300)?,
             linger: seconds(LINGER_ENV, 30)?,
+            version: HUB_VERSION.to_string(),
         })
     }
 }
@@ -95,15 +98,17 @@ pub enum Exit {
     Shutdown,
     /// Another hub runs for this user already
     AlreadyRunning,
+    /// Handed over to a newer hub (SRV-30, `Hub::handover`)
+    Handover,
 }
 
 /// Asks a running [serve] to exit, from the same process.
 #[derive(Clone)]
-pub struct Shutdown(watch::Sender<bool>);
+pub struct Shutdown(watch::Sender<Option<Exit>>);
 
 impl Shutdown {
     pub fn shutdown(&self) {
-        self.0.send_replace(true);
+        self.0.send_replace(Some(Exit::Shutdown));
     }
 }
 
@@ -124,7 +129,7 @@ pub fn main_if_hub() {
         return;
     }
     let code = match run_blocking() {
-        Ok(Exit::Idle | Exit::Shutdown | Exit::AlreadyRunning) => 0,
+        Ok(Exit::Idle | Exit::Shutdown | Exit::AlreadyRunning | Exit::Handover) => 0,
         Err(e) => {
             eprintln!("ww hub: {e}");
             1
@@ -150,13 +155,69 @@ pub fn run_blocking_with(config: HubConfig) -> io::Result<Exit> {
         .block_on(serve(config))
 }
 
-/// Runs the hub until it is idle for [HubConfig::idle_exit], is shut down, or finds another hub running.
+/// Runs the hub until it is idle for [HubConfig::idle_exit], is shut down, or finds another hub running. Started with
+/// [HANDOVER_ENV] set, it takes over from the running hub first ([Bound::take_over]).
 pub async fn serve(config: HubConfig) -> io::Result<Exit> {
+    if std::env::var_os(HANDOVER_ENV).is_some() {
+        return match Bound::take_over(config).await? {
+            Ok(bound) => Ok(bound.run().await),
+            Err(e) => Err(io::Error::other(e)),
+        };
+    }
     match Bound::bind(config)? {
         Some(bound) => Ok(bound.run().await),
         None => Ok(Exit::AlreadyRunning),
     }
 }
+
+/// Set by a client that starts this hub to replace an older one (SRV-30): see [Bound::take_over].
+pub const HANDOVER_ENV: &str = wire_weaver_client::hub::HANDOVER_ENV;
+
+/// Why [Bound::take_over] didn't take over.
+#[derive(Debug)]
+pub enum TakeOverError {
+    /// No hub answers on the socket
+    NotRunning,
+    /// The running hub refused: it isn't older than this one
+    NotNewer {
+        running: String,
+    },
+    /// The running hub can't hand over (built before SRV-30), or the request failed
+    Refused(String),
+    /// It agreed, but didn't let go of `hub.lock` in time
+    LockNotReleased,
+    Io(io::Error),
+}
+
+impl std::fmt::Display for TakeOverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TakeOverError::NotRunning => write!(f, "no ww hub runs to take over from"),
+            TakeOverError::NotNewer { running } => {
+                write!(f, "the running ww hub {running} isn't older than this one")
+            }
+            TakeOverError::Refused(why) => write!(f, "the running ww hub didn't hand over: {why}"),
+            TakeOverError::LockNotReleased => write!(
+                f,
+                "the running ww hub agreed to hand over, but kept hub.lock beyond {HANDOVER_LOCK_TIMEOUT:?}"
+            ),
+            TakeOverError::Io(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for TakeOverError {}
+
+impl From<io::Error> for TakeOverError {
+    fn from(e: io::Error) -> Self {
+        TakeOverError::Io(e)
+    }
+}
+
+/// How long a hub that agreed to hand over may take to let go of `hub.lock`.
+const HANDOVER_LOCK_TIMEOUT: Duration = Duration::from_secs(5);
+/// How long an exiting hub waits for its connections to send what they still have (replies, `Disconnect`).
+const EXIT_DRAIN: Duration = Duration::from_millis(500);
 
 /// A hub that holds `hub.lock` and listens, not serving yet: [run](Self::run) does. Split from [serve] so a host
 /// (tests, an app hosting the hub) knows it is up and can stop it.
@@ -177,7 +238,70 @@ impl Bound {
         let socket = config.runtime_dir.join(HUB_SOCKET);
         // we hold hub.lock: a socket file there is left over from a hub that is gone
         let listener = ww_local_socket::listen(&socket, true)?;
-        let (shutdown, _) = watch::channel(false);
+        Ok(Some(Bound::new(config, lock, socket, listener)))
+    }
+
+    /// A newer hub replacing the running one (SRV-30): listens on a socket of its own in the runtime dir, asks the
+    /// running hub to hand over to it (`Hub::handover`; only a strictly newer hub is accepted), which tells its
+    /// clients, closes its devices and exits; then takes `hub.lock` and moves its socket into place (a rename on
+    /// Unix, the pipe created anew on Windows). The clients reconnect to it by themselves (CLT-40). Whoever starts it
+    /// holds `hub.start.lock` meanwhile, as for any start, so no client starts a third hub in the gap.
+    pub async fn take_over(config: HubConfig) -> io::Result<Result<Bound, TakeOverError>> {
+        let socket = config.runtime_dir.join(HUB_SOCKET);
+        let temp = config
+            .runtime_dir
+            .join(format!("hub.{}.sock", std::process::id()));
+        let listener = ww_local_socket::listen(&temp, true)?;
+        // the running hub checks who asks by the preamble answer on our socket: answered while we wait
+        let probes = async {
+            loop {
+                if let Ok((stream, _)) = listener.accept().await {
+                    let (_, mut tx) = stream.split();
+                    let _ = tx
+                        .write_all(&Answer::new(Status::Ok, &config.version).encode())
+                        .await;
+                }
+            }
+        };
+        let taken = tokio::select! {
+            taken = take_over_from(&config, &socket, &temp) => taken,
+            () = probes => unreachable!("answers probes until the running hub let go"),
+        };
+        let lock = match taken {
+            Ok(lock) => lock,
+            Err(e) => {
+                drop(listener);
+                #[cfg(unix)]
+                let _ = std::fs::remove_file(&temp);
+                return Ok(Err(e));
+            }
+        };
+        #[cfg(unix)]
+        let listener = {
+            // the socket file moves, the bound socket stays: connections to the hub's name reach it from now on
+            std::fs::rename(&temp, &socket)?;
+            listener
+        };
+        #[cfg(windows)]
+        let listener = {
+            drop(listener);
+            ww_local_socket::listen(&socket, true)?
+        };
+        info!(
+            "ww hub {}: took over on {}",
+            config.version,
+            socket.display()
+        );
+        Ok(Ok(Bound::new(config, lock, socket, listener)))
+    }
+
+    fn new(
+        config: HubConfig,
+        lock: File,
+        socket: PathBuf,
+        listener: ww_local_socket::Listener,
+    ) -> Bound {
+        let (shutdown, _) = watch::channel(None);
         let hub = Arc::new(Hub {
             state: Mutex::new(State {
                 clients: BTreeMap::new(),
@@ -196,14 +320,16 @@ impl Bound {
             started_by: started_by(),
             idle_exit: config.idle_exit,
             socket: socket.clone(),
+            version: config.version.clone(),
+            handing_over: std::sync::atomic::AtomicBool::new(false),
         });
-        Ok(Some(Bound {
+        Bound {
             config,
             _lock: lock,
             socket,
             listener,
             hub,
-        }))
+        }
     }
 
     pub fn shutdown_handle(&self) -> Shutdown {
@@ -213,7 +339,8 @@ impl Bound {
     /// Serves until idle or shut down.
     pub async fn run(self) -> Exit {
         info!(
-            "ww hub {HUB_VERSION} listening on {}",
+            "ww hub {} listening on {}",
+            self.hub.version,
             self.socket.display()
         );
         let mut shutdown = self.hub.shutdown.subscribe();
@@ -230,7 +357,9 @@ impl Bound {
                         tokio::time::sleep(Duration::from_millis(100)).await;
                     }
                 },
-                _ = async { shutdown.wait_for(|s| *s).await.is_ok() } => break Exit::Shutdown,
+                exit = async { shutdown.wait_for(Option::is_some).await.ok().and_then(|e| *e) } => {
+                    break exit.unwrap_or(Exit::Shutdown);
+                }
                 _ = tokio::time::sleep(IDLE_CHECK) => {
                     if self.hub.idle_for() >= self.config.idle_exit {
                         break Exit::Idle;
@@ -239,6 +368,11 @@ impl Bound {
             }
         };
         watcher.abort();
+        // nothing more is accepted: clients find no hub (instead of one that never answers) until the next one is up
+        drop(self.listener);
+        // still holding hub.lock: nobody else can have bound the name since
+        #[cfg(unix)]
+        let _ = std::fs::remove_file(&self.socket);
         // tunnels see their device go
         let slots: Vec<_> = self.hub.devices.lock().unwrap().values().cloned().collect();
         for slot in slots {
@@ -246,11 +380,12 @@ impl Bound {
                 let _ = handle.tx.send(device::ToDevice::Close);
             }
         }
+        // replies (to `handover`, `shutdown`) and `Disconnect`s still go out; hub.lock goes with `self`
+        let drained = Instant::now() + EXIT_DRAIN;
+        while self.hub.state.lock().unwrap().connections > 0 && Instant::now() < drained {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
         info!("ww hub exits: {exit:?}");
-        // still holding hub.lock: nobody else can have bound the name since
-        drop(self.listener);
-        #[cfg(unix)]
-        let _ = std::fs::remove_file(&self.socket);
         exit
     }
 }
@@ -271,8 +406,9 @@ fn take_hub_lock(config: &HubConfig) -> io::Result<Option<File>> {
     file.set_len(0)?;
     writeln!(
         file,
-        "pid = {}\nversion = {HUB_VERSION}\nstarted = {}",
+        "pid = {}\nversion = {}\nstarted = {}",
         std::process::id(),
+        config.version,
         unix_ms()
     )?;
     file.flush()?;
@@ -322,13 +458,17 @@ pub(crate) fn unix_ms() -> u64 {
 
 pub(crate) struct Hub {
     pub(crate) state: Mutex<State>,
-    shutdown: watch::Sender<bool>,
+    shutdown: watch::Sender<Option<Exit>>,
     /// `Registry::events` of every connection that opened the stream
     pub(crate) events: tokio::sync::broadcast::Sender<ww_hub_api::EventOwned>,
     pub(crate) started_ms: u64,
     pub(crate) started_by: String,
     pub(crate) idle_exit: Duration,
     pub(crate) socket: PathBuf,
+    /// [HubConfig::version]
+    pub(crate) version: String,
+    /// `Hub::handover` agreed: links close with `DisconnectReason::HubHandover`
+    handing_over: std::sync::atomic::AtomicBool,
     /// One slot per device key ever asked for, see [device::Slot]
     devices: Mutex<BTreeMap<String, device::Slot>>,
     linger: Duration,
@@ -423,7 +563,7 @@ impl Hub {
             }
             Ok(Err(PreambleError::UnsupportedVersion(v))) => {
                 debug!("ww hub: preamble version {v} from {peer:?}");
-                let _ = answer(&mut tx, Status::PreambleVersion).await;
+                let _ = answer(&mut tx, &self.version, Status::PreambleVersion).await;
                 return;
             }
             Ok(Err(e)) => {
@@ -434,12 +574,12 @@ impl Hub {
         };
         if let Err(not_served) = window::check(&preamble) {
             info!("ww hub: refusing {peer:?}: {not_served} not served");
-            let _ = answer(&mut tx, Status::Versions).await;
+            let _ = answer(&mut tx, &self.version, Status::Versions).await;
             return;
         }
         match preamble.target {
             Target::Hub => {
-                if answer(&mut tx, Status::Ok).await.is_err() {
+                if answer(&mut tx, &self.version, Status::Ok).await.is_err() {
                     return;
                 }
                 let id = self.client_joined(peer);
@@ -453,7 +593,7 @@ impl Hub {
                 let queue = tunnel::TunnelQueue::new();
                 match device::join(&self, &key, id, &queue).await {
                     Ok(handle) => {
-                        if answer(&mut tx, Status::Ok).await.is_ok() {
+                        if answer(&mut tx, &self.version, Status::Ok).await.is_ok() {
                             debug!("ww hub: client {id} ({peer:?}) tunnel to {key}");
                             tunnel::serve(self.clone(), id, handle, queue, rx, tx, peer).await;
                         } else {
@@ -462,7 +602,7 @@ impl Hub {
                     }
                     Err(status) => {
                         debug!("ww hub: {peer:?} asked for device {key:?}: {status}");
-                        let _ = answer(&mut tx, status).await;
+                        let _ = answer(&mut tx, &self.version, status).await;
                     }
                 }
                 self.client_left(id);
@@ -669,7 +809,108 @@ impl Hub {
     }
 
     pub(crate) fn request_shutdown(&self) {
-        self.shutdown.send_replace(true);
+        self.shutdown.send_replace(Some(Exit::Shutdown));
+    }
+
+    /// Why links close when the hub exits: a handover tells clients to reconnect to the next hub.
+    pub(crate) fn closing_reason(&self) -> ww_device::ww_link::DisconnectReason {
+        if self.handing_over.load(std::sync::atomic::Ordering::Relaxed) {
+            ww_device::ww_link::DisconnectReason::HubHandover
+        } else {
+            ww_device::ww_link::DisconnectReason::RequestByUser
+        }
+    }
+
+    /// `Hub::handover(socket)` (SRV-30): hands over to the hub listening on `socket` if it is strictly newer, then
+    /// exits ([Exit::Handover]): no more connections, `Event::Handover` to the registry's listeners, every link closed
+    /// with `DisconnectReason::HubHandover`, devices closed, `hub.lock` released.
+    pub(crate) async fn handover(&self, socket: &str) -> Result<(), ww_hub_api::HandoverError> {
+        use ww_hub_api::HandoverError;
+        let path = std::path::Path::new(socket);
+        let theirs = match tokio::time::timeout(PREAMBLE_TIMEOUT, hub_version_at(path)).await {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
+                info!("ww hub: handover to {socket}: {e}");
+                return Err(HandoverError::Unreachable);
+            }
+            Err(_) => return Err(HandoverError::Unreachable),
+        };
+        if !strictly_newer(&theirs, &self.version) {
+            info!(
+                "ww hub {}: not handing over to {theirs}, not newer",
+                self.version
+            );
+            return Err(HandoverError::NotNewer);
+        }
+        info!(
+            "ww hub {}: handing over to {theirs} on {socket}",
+            self.version
+        );
+        self.handing_over
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = self.events.send(ww_hub_api::EventOwned::Handover);
+        self.shutdown.send_replace(Some(Exit::Handover));
+        Ok(())
+    }
+}
+
+/// What the hub on `path` says its version is, from its preamble answer.
+async fn hub_version_at(path: &std::path::Path) -> io::Result<String> {
+    let (stream, _) = ww_local_socket::connect(path).await?;
+    let (mut rx, mut tx) = stream.split();
+    tx.write_all(&Preamble::new(Target::Hub).encode()).await?;
+    Answer::read(&mut rx)
+        .await
+        .map(|a| a.hub_version)
+        .map_err(io::Error::other)
+}
+
+/// `a` is a later version than `b` (SemVer precedence); one that doesn't parse is newer than nothing.
+pub fn strictly_newer(a: &str, b: &str) -> bool {
+    match (semver::Version::parse(a), semver::Version::parse(b)) {
+        (Ok(a), Ok(b)) => a > b,
+        _ => false,
+    }
+}
+
+/// Asks the hub on `socket` to hand over to us on `temp`, then waits for its `hub.lock`.
+async fn take_over_from(
+    config: &HubConfig,
+    socket: &std::path::Path,
+    temp: &std::path::Path,
+) -> Result<File, TakeOverError> {
+    use wire_weaver_client::hub::HubClient;
+    let mut hub = HubClient::config(|c| {
+        c.hub_api_at(socket.display().to_string())
+            .hub_reconnect(None)
+    })
+    .connect()
+    .await
+    .map_err(|_| TakeOverError::NotRunning)?;
+    let running = hub
+        .info()
+        .call()
+        .await
+        .map(|i| i.hub_version)
+        .unwrap_or_default();
+    match hub.handover(temp.display().to_string()).call().await {
+        Ok(()) => {}
+        Err(wire_weaver_client::CallError::Device(ww_hub_api::HandoverError::NotNewer)) => {
+            return Err(TakeOverError::NotNewer { running });
+        }
+        Err(e) => return Err(TakeOverError::Refused(format!("{e:?}"))),
+    }
+    // our connection goes, so the running hub isn't kept waiting for it
+    drop(hub);
+    let deadline = Instant::now() + HANDOVER_LOCK_TIMEOUT;
+    loop {
+        if let Some(lock) = take_hub_lock(config)? {
+            return Ok(lock);
+        }
+        if Instant::now() >= deadline {
+            return Err(TakeOverError::LockNotReleased);
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
     }
 }
 
@@ -677,9 +918,8 @@ fn secs_ceil(d: Duration) -> u32 {
     (d.as_millis().div_ceil(1000)).min(u32::MAX as u128) as u32
 }
 
-async fn answer(tx: &mut SendHalf, status: Status) -> io::Result<()> {
-    tx.write_all(&Answer::new(status, HUB_VERSION).encode())
-        .await
+async fn answer(tx: &mut SendHalf, version: &str, status: Status) -> io::Result<()> {
+    tx.write_all(&Answer::new(status, version).encode()).await
 }
 
 /// Counts a connection while it lives, so the hub isn't idle meanwhile.

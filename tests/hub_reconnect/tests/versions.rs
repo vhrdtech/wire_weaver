@@ -36,6 +36,7 @@ async fn old_client_vs_hub_that_dropped_its_version() {
         runtime_dir: dir.clone(),
         idle_exit: Duration::from_secs(60),
         linger: Duration::from_secs(30),
+        version: ww_hub::HUB_VERSION.into(),
     })
     .unwrap()
     .unwrap();

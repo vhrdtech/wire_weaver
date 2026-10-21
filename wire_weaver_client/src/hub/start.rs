@@ -19,7 +19,7 @@ use tracing::{debug, info};
 use ww_local_socket::Target;
 use ww_local_socket::files::{HUB_LOCK, HUB_LOG, HUB_SOCKET, HUB_START_LOCK};
 
-use super::{EXE_ENV, SERVE_ENV, VERSION_ARG};
+use super::{EXE_ENV, HANDOVER_ENV, SERVE_ENV, VERSION_ARG};
 
 /// How long a started hub has to answer on its socket.
 const READY_TIMEOUT: Duration = Duration::from_secs(2);
@@ -115,7 +115,11 @@ pub async fn ensure_running(start: bool) -> Result<PathBuf, HubUnavailable> {
     let socket = dir.join(HUB_SOCKET);
     if lock_held(&dir.join(HUB_LOCK)) {
         // it may have just taken the lock and not listen yet
-        return wait_ready(&dir, &socket, None).await.map(|()| socket);
+        let running = wait_ready(&dir, &socket, None).await?;
+        if start && let Some(running) = running {
+            replace_older(&dir, &socket, &running).await;
+        }
+        return Ok(socket);
     }
     if !start {
         return Err(HubUnavailable::NotRunning);
@@ -123,7 +127,7 @@ pub async fn ensure_running(start: bool) -> Result<PathBuf, HubUnavailable> {
     let _start_lock = start_lock(&dir).await?;
     if lock_held(&dir.join(HUB_LOCK)) {
         debug!("ww hub: started by another program meanwhile");
-        return wait_ready(&dir, &socket, None).await.map(|()| socket);
+        return wait_ready(&dir, &socket, None).await.map(|_| socket);
     }
     // nobody holds hub.lock: a socket file there is left over from a hub that is gone
     #[cfg(unix)]
@@ -138,7 +142,7 @@ pub async fn ensure_running(start: bool) -> Result<PathBuf, HubUnavailable> {
         .into_iter()
         .next()
         .ok_or(HubUnavailable::NoExecutable)?;
-    let mut child = spawn(&dir, &candidate)?;
+    let mut child = spawn(&dir, &candidate, false)?;
     info!(
         "ww hub {} started from {} ({}), pid {}",
         candidate.version,
@@ -149,7 +153,91 @@ pub async fn ensure_running(start: bool) -> Result<PathBuf, HubUnavailable> {
     let ready = wait_ready(&dir, &socket, Some((&mut child, &candidate.exe))).await;
     // the hub outlives us or exits when idle: someone has to reap it
     std::thread::spawn(move || child.wait());
-    ready.map(|()| socket)
+    ready.map(|_| socket)
+}
+
+/// Replaces the running hub of version `running` with this program's own when that is strictly newer (SRV-30): the
+/// new one takes over (`Hub::handover`) and the clients of the old one reconnect to it (CLT-40). Only this program's
+/// own hub is considered (registered by `ww_hub::main_if_hub()`): it costs no process to find out, so every connect
+/// can check. A failure leaves the running hub in place and is logged.
+async fn replace_older(dir: &Path, socket: &Path, running: &str) {
+    let Some(ours) = SELF_HOSTING.get() else {
+        return;
+    };
+    if !newer(ours, running) {
+        return;
+    }
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    // as for a start: one program at a time, and no client starts a hub in the gap
+    let _start_lock = match start_lock(dir).await {
+        Ok(lock) => lock,
+        Err(e) => {
+            debug!("ww hub: not replacing {running}: {e}");
+            return;
+        }
+    };
+    // another program may have replaced it meanwhile
+    match probe(socket).await {
+        Some(v) if newer(ours, &v) => {}
+        _ => return,
+    }
+    info!("ww hub {running} is older than this program's {ours}: replacing it");
+    let candidate = Candidate {
+        exe,
+        version: Version::parse(ours).unwrap_or(Version::new(0, 0, 0)),
+        source: "this program",
+    };
+    let mut child = match spawn(dir, &candidate, true) {
+        Ok(child) => child,
+        Err(e) => {
+            info!("ww hub: replacing {running} failed: {e}");
+            return;
+        }
+    };
+    let deadline = Instant::now() + START_LOCK_TIMEOUT;
+    loop {
+        if probe(socket).await.as_deref() == Some(*ours) {
+            info!("ww hub {ours} took over from {running}");
+            break;
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            info!(
+                "ww hub: replacing {running} failed, the new hub exited with {status}, see {}",
+                dir.join(HUB_LOG).display()
+            );
+            break;
+        }
+        if Instant::now() >= deadline {
+            info!("ww hub: replacing {running} takes too long, going on with what answers");
+            break;
+        }
+        tokio::time::sleep(POLL).await;
+    }
+    std::thread::spawn(move || child.wait());
+}
+
+/// `a` is a later version than `b`.
+fn newer(a: &str, b: &str) -> bool {
+    match (Version::parse(a), Version::parse(b)) {
+        (Ok(a), Ok(b)) => a > b,
+        _ => false,
+    }
+}
+
+/// The version of the hub answering on `socket`, if one does.
+async fn probe(socket: &Path) -> Option<String> {
+    match tokio::time::timeout(
+        PROBE_TIMEOUT,
+        crate::local_socket::open(socket, Target::Hub),
+    )
+    .await
+    {
+        Ok(Ok(tunnel)) => Some(tunnel.hub_version),
+        Ok(Err(crate::local_socket::OpenError::Refused { answer, .. })) => Some(answer.hub_version),
+        _ => None,
+    }
 }
 
 /// `hub.start.lock`, held until dropped.
@@ -177,25 +265,19 @@ async fn start_lock(dir: &Path) -> Result<File, HubUnavailable> {
     }
 }
 
-/// Polls the socket until the hub answers a preamble, [READY_TIMEOUT] at most. A started hub that exits early
-/// fails it, unless another hub took `hub.lock` (two starters raced, the other one won).
+/// Polls the socket until the hub answers a preamble, [READY_TIMEOUT] at most; the hub's version. A started hub
+/// that exits early fails it, unless another hub took `hub.lock` (two starters raced, the other one won).
 async fn wait_ready(
     dir: &Path,
     socket: &Path,
     mut started: Option<(&mut Child, &PathBuf)>,
-) -> Result<(), HubUnavailable> {
+) -> Result<Option<String>, HubUnavailable> {
     let deadline = Instant::now() + READY_TIMEOUT;
     loop {
-        match tokio::time::timeout(
-            PROBE_TIMEOUT,
-            crate::local_socket::open(socket, Target::Hub),
-        )
-        .await
-        {
-            // any answer is a hub that listens; a refusal of the hub API itself (preamble version) is the
-            // tunnel's to report
-            Ok(Ok(_)) | Ok(Err(crate::local_socket::OpenError::Refused { .. })) => return Ok(()),
-            Ok(Err(_)) | Err(_) => {}
+        // any answer is a hub that listens; a refusal of the hub API itself (preamble version) is the tunnel's to
+        // report
+        if let Some(version) = probe(socket).await {
+            return Ok(Some(version));
         }
         if let Some((child, exe)) = started.as_mut()
             && let Ok(Some(status)) = child.try_wait()
@@ -319,9 +401,15 @@ fn hub_version(exe: &Path) -> Option<Version> {
 
 /// Starts `candidate` as the hub, detached: its own process group (a Ctrl-C in the terminal doesn't reach it), no
 /// console window on Windows, stdin and stdout closed, stderr into `hub.log` in the runtime dir.
-fn spawn(dir: &Path, candidate: &Candidate) -> Result<Child, HubUnavailable> {
+/// With `handover`, it takes over from the running hub ([HANDOVER_ENV], SRV-30).
+fn spawn(dir: &Path, candidate: &Candidate, handover: bool) -> Result<Child, HubUnavailable> {
     let log = File::create(dir.join(HUB_LOG))?;
     let mut cmd = Command::new(&candidate.exe);
+    if handover {
+        cmd.env(HANDOVER_ENV, "1");
+    } else {
+        cmd.env_remove(HANDOVER_ENV);
+    }
     cmd.env(SERVE_ENV, "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())

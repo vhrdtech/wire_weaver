@@ -10,14 +10,25 @@ repository.workspace = true
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
-[target.'cfg(windows)'.dependencies]
-widestring.workspace = true
-windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading"] }
+[features]
+default = ["socket"]
+# Sockets, the preamble and message framing (interprocess, tokio); without it only the runtime dir and file names
+socket = [
+    "dep:interprocess",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:widestring",
+    "dep:windows-sys",
+]
 
 [dependencies]
-interprocess = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "time", "net"] }
-tracing = "0.1"
+interprocess = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["io-util", "time", "net"], optional = true }
+tracing = { version = "0.1", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+widestring = { workspace = true, optional = true }
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading"], optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["io-util", "time", "rt", "macros"] }

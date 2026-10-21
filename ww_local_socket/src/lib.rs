@@ -13,14 +13,20 @@
 
 mod dir;
 pub mod files;
+#[cfg(feature = "socket")]
 mod framing;
+#[cfg(feature = "socket")]
 mod preamble;
+#[cfg(feature = "socket")]
 mod socket;
 
 pub use dir::{RUNTIME_DIR_ENV, runtime_dir};
+#[cfg(feature = "socket")]
 pub use framing::{MessageReader, MessageWriter};
+#[cfg(feature = "socket")]
 pub use preamble::{
     Answer, AnswerError, MAGIC, MAX_KEY_LEN, PREAMBLE_VERSION, Preamble, PreambleError, Status,
     Target,
 };
+#[cfg(feature = "socket")]
 pub use socket::{Listener, Peer, Stream, connect, listen};

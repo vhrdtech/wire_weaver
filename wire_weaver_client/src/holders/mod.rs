@@ -13,7 +13,7 @@
 
 mod proc_scan;
 
-#[cfg(feature = "usb")]
+#[cfg(all(feature = "usb", target_os = "linux"))]
 pub(crate) use proc_scan::describe_holder_of_node;
 pub use proc_scan::holder_of_usb_device;
 #[cfg(all(feature = "usb", target_os = "linux"))]
@@ -22,7 +22,7 @@ pub(crate) use proc_scan::usb_device_node;
 use std::fmt;
 use std::fs::{File, TryLockError};
 use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Identifies the device a lock file is about, see [`key_for`].
@@ -351,95 +351,32 @@ fn sanitize_file_name(key: &str) -> String {
 }
 
 fn holders_dir() -> io::Result<PathBuf> {
-    let dir = runtime_dir()?.join("holders");
-    ensure_private_dir(&dir)?;
-    Ok(dir)
-}
-
-/// `$XDG_RUNTIME_DIR/ww` on Linux, `$TMPDIR/ww` on macOS, `%LOCALAPPDATA%\ww\run` on Windows: created 0700 (or
-/// checked to already be ours) the first time it's needed.
-fn runtime_dir() -> io::Result<PathBuf> {
-    let dir = base_runtime_dir()?;
-    ensure_private_dir(&dir)?;
-    Ok(dir)
-}
-
-fn base_runtime_dir() -> io::Result<PathBuf> {
-    #[cfg(target_os = "windows")]
-    let (var, suffix): (&str, &[&str]) = ("LOCALAPPDATA", &["ww", "run"]);
-    #[cfg(target_os = "macos")]
-    let (var, suffix): (&str, &[&str]) = ("TMPDIR", &["ww"]);
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let (var, suffix): (&str, &[&str]) = ("XDG_RUNTIME_DIR", &["ww"]);
-
-    let base = std::env::var_os(var)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, format!("{var} is not set")))?;
-    let mut dir = PathBuf::from(base);
-    dir.extend(suffix);
-    Ok(dir)
-}
-
-/// Creates `dir` 0700 if missing, else refuses it if it isn't ours (same check `ssh ControlMaster`-style tools
-/// skip and regret: a world-writable runtime dir would let another user plant a lock file or a socket).
-fn ensure_private_dir(dir: &Path) -> io::Result<()> {
-    match std::fs::symlink_metadata(dir) {
-        Ok(meta) if meta.is_dir() => check_owned_by_us(dir, &meta),
-        Ok(_) => Err(io::Error::new(
-            io::ErrorKind::AlreadyExists,
-            format!("{} exists and is not a directory", dir.display()),
-        )),
-        Err(e) if e.kind() == io::ErrorKind::NotFound => create_private_dir(dir),
-        Err(e) => Err(e),
+    // created 0700 and checked to be ours, as the runtime dir is (ww_local_socket::runtime_dir: the same dir the
+    // hub's socket lives in, `WW_RUNTIME_DIR` included)
+    let dir = ww_local_socket::runtime_dir()?.join(ww_local_socket::files::HOLDERS_DIR);
+    match std::fs::create_dir(&dir) {
+        Ok(()) => {}
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(e),
     }
-}
-
-fn create_private_dir(dir: &Path) -> io::Result<()> {
-    std::fs::create_dir_all(dir)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
-    }
-    Ok(())
-}
-
-#[cfg(unix)]
-fn check_owned_by_us(dir: &Path, meta: &std::fs::Metadata) -> io::Result<()> {
-    use std::os::unix::fs::MetadataExt;
-    let our_uid = rustix::process::getuid().as_raw();
-    if meta.uid() != our_uid {
-        return Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            format!(
-                "{} is owned by uid {}, not us (uid {our_uid}); refusing to use it",
-                dir.display(),
-                meta.uid()
-            ),
-        ));
-    }
-    Ok(())
-}
-
-// TODO(CLT-38): check the owning SID on Windows once that platform gets a real test (SRV-33's local security
-// pass covers the socket and pipe the same way).
-#[cfg(windows)]
-fn check_owned_by_us(_dir: &Path, _meta: &std::fs::Metadata) -> io::Result<()> {
-    Ok(())
+    Ok(dir)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::path::Path;
+    #[cfg(unix)]
     use std::sync::Mutex;
 
-    /// `runtime_dir()` reads an env var per OS: tests run serially and restore it, so they don't fight the rest
-    /// of the test binary (and each other) over `XDG_RUNTIME_DIR`.
+    /// The runtime dir comes from an env var: tests run serially and restore it, so they don't fight the rest of
+    /// the test binary (and each other) over `WW_RUNTIME_DIR`.
+    #[cfg(unix)]
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-    #[cfg(target_os = "macos")]
-    const RUNTIME_DIR_VAR: &str = "TMPDIR";
-    #[cfg(all(unix, not(target_os = "macos")))]
-    const RUNTIME_DIR_VAR: &str = "XDG_RUNTIME_DIR";
+    #[cfg(unix)]
+    const RUNTIME_DIR_VAR: &str = ww_local_socket::RUNTIME_DIR_ENV;
 
     /// Points the runtime dir at a fresh temporary directory for the duration of `f`.
     #[cfg(unix)]
@@ -464,6 +401,7 @@ mod tests {
         result
     }
 
+    #[cfg(unix)]
     fn unique() -> u64 {
         use std::sync::atomic::{AtomicU64, Ordering};
         static NEXT: AtomicU64 = AtomicU64::new(0);

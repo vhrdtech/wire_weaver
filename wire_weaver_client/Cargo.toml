@@ -7,9 +7,6 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
-[target.'cfg(unix)'.dependencies]
-rustix.workspace = true
-
 [features]
 default = ["usb"]
 usb = [] # USB (using nusb)
@@ -34,7 +31,7 @@ i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on L
 uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
 in_process = ["dep:ww_device"] # device running in the same process (simulators, tests)
 local_socket = [
-    "dep:ww_local_socket",
+    "ww_local_socket/socket",
     "dep:interprocess",
     "dep:ww_device",
     "tokio/io-util",
@@ -70,7 +67,7 @@ ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
 ww_link = { workspace = true, features = ["std"] }
-ww_local_socket = { workspace = true, optional = true }
+ww_local_socket.workspace = true # the runtime dir for holders' lock files, sockets with `local_socket`
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true

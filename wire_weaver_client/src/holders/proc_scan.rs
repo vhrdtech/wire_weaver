@@ -3,11 +3,11 @@
 //! Linux that's `/proc/*/fd`: every process with the device node open has a symlink to it there. Other platforms
 //! get no name, just "another program" (see `with_hint` in `usb/connect.rs`).
 
+#[cfg(target_os = "linux")]
 use std::path::{Path, PathBuf};
 
 /// Describes whichever process holds `node` open, e.g. `"openocd (pid 4711)"`. `None` when nothing is found (the
-/// holder exited between the busy error and this scan, or `/proc/<pid>/fd` isn't readable by us) or on a
-/// platform other than Linux.
+/// holder exited between the busy error and this scan, or `/proc/<pid>/fd` isn't readable by us). Linux only.
 #[cfg(target_os = "linux")]
 pub(crate) fn describe_holder_of_node(node: &Path) -> Option<String> {
     let target = std::fs::canonicalize(node).unwrap_or_else(|_| node.to_path_buf());
@@ -41,11 +41,6 @@ fn process_name(pid: u32) -> Option<String> {
     std::fs::read_to_string(format!("/proc/{pid}/comm"))
         .ok()
         .map(|s| s.trim().to_string())
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(crate) fn describe_holder_of_node(_node: &Path) -> Option<String> {
-    None
 }
 
 /// Linux device node for a USB device, from the bus and device numbers `nusb::DeviceInfo` reports

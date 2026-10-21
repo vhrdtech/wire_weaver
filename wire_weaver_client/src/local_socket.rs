@@ -37,10 +37,26 @@ pub(crate) fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    let Some(path) = c.pieces.iter().rev().find_map(|p| match p {
-        ConfigPiece::IpcPath { path } => Some(path.clone()),
+    let to = c.pieces.iter().rev().find_map(|p| match p {
+        // the one device the process serves
+        ConfigPiece::IpcPath { path } => Some(Ok(LocalTarget {
+            path: PathBuf::from(path),
+            target: Target::Device(String::new()),
+        })),
+        ConfigPiece::HubApi { path } => Some(
+            match path {
+                Some(path) => Ok(PathBuf::from(path)),
+                None => ww_local_socket::runtime_dir()
+                    .map(|d| d.join(ww_local_socket::files::HUB_SOCKET)),
+            }
+            .map(|path| LocalTarget {
+                path,
+                target: Target::Hub,
+            }),
+        ),
         _ => None,
-    }) else {
+    });
+    let Some(to) = to.transpose()? else {
         // devices behind the hub are listed by it (CLT-39), nothing to discover here yet
         return Ok(Selected::NotFound { unmatched: vec![] });
     };
@@ -53,12 +69,8 @@ pub(crate) fn try_connect(
         debug!("local socket worker exited");
     });
     Ok(Selected::Device {
-        info: Box::new(device_info(&path)),
-        handle: Box::new(LocalTarget {
-            path: PathBuf::from(path),
-            // the one device the process serves
-            target: Target::Device(String::new()),
-        }),
+        info: Box::new(device_info(&to.path.display().to_string())),
+        handle: Box::new(to),
     })
 }
 
@@ -198,19 +210,22 @@ pub mod device {
                 max: max_message_len,
                 reader: None,
                 writer_tx,
+                ended: None,
             },
         )
     }
 
     /// Tx and rx halves for [ww_device::Server] on one connection whose preamble was already answered, e.g. by the
     /// hub, which accepts every connection itself and picks what serves it by the preamble. Once the client leaves,
-    /// the medium stays down for good: the caller ends the server when the link goes down.
+    /// the medium stays down for good and [Ended] says so (the link may never have come up, so a link event alone
+    /// doesn't tell): the caller ends the server then.
     pub fn connection_medium(
         rx: RecvHalf,
         tx: SendHalf,
         max_message_len: usize,
-    ) -> (DeviceTx, DeviceRx) {
+    ) -> (DeviceTx, DeviceRx, Ended) {
         let (writer_tx, writer_rx) = mpsc::unbounded_channel();
+        let (ended_tx, ended_rx) = tokio::sync::watch::channel(false);
         (
             DeviceTx {
                 writer: Some(MessageWriter::new(tx)),
@@ -221,8 +236,20 @@ pub mod device {
                 max: max_message_len,
                 reader: Some(MessageReader::new(rx, max_message_len)),
                 writer_tx,
+                ended: Some(ended_tx),
             },
+            Ended(ended_rx),
         )
+    }
+
+    /// The single connection of a [connection_medium] ended.
+    pub struct Ended(tokio::sync::watch::Receiver<bool>);
+
+    impl Ended {
+        /// Returns once the client is gone. Cancel-safe.
+        pub async fn wait(&mut self) {
+            let _ = self.0.wait_for(|e| *e).await;
+        }
     }
 
     #[derive(Debug)]
@@ -284,6 +311,8 @@ pub mod device {
         max: usize,
         reader: Option<MessageReader<RecvHalf>>,
         writer_tx: mpsc::UnboundedSender<MessageWriter<SendHalf>>,
+        /// Single connection: told when it ends
+        ended: Option<tokio::sync::watch::Sender<bool>>,
     }
 
     impl DeviceRx {
@@ -338,6 +367,9 @@ pub mod device {
             if result.is_err() {
                 // closed or out of step: wait_connected accepts the next client
                 self.reader = None;
+                if let Some(ended) = &self.ended {
+                    ended.send_replace(true);
+                }
             }
             result.map_err(Error::Io)
         }

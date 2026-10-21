@@ -1000,6 +1000,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   that takes updates itself says it goes to the boot ROM (`ww stm32dfu`, CLT-34). Tested end to end in
   chunky_mcu_updater (`chunky_ww_host/tests/e2e.rs`: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.
+- ✅ **CLT-41 client-metadata** · `v0.5.x` — who connects: `ww_link::ClientMeta` (program, app version, label, kind
+  `Cli|Gui|Notebook|Service|Hub|Test`, pid, user, host, purpose, random instance id) in an appended
+  `#[default = None]` field of `LinkSetup` (wire-compatible, conformance cases `link_setup.*`).
+  `ClientConfig::client_meta(ClientMeta)` overrides; defaults are found by the library (executable name, pid, login
+  and host name, kind `Cli` when the parent process is a shell; no new C dependencies: `/proc`, `libc` on macOS,
+  `windows-sys` Toolhelp on Windows), `no_client_meta()` sends nothing, a device that can't receive it gets a
+  shortened form or none. `DeviceLink::peer_meta()` on the device; `wire_weaver_py` sets `Notebook`. Docs:
+  `docs/transport/hub.md`. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
+  only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).
 - ✅ **CLT-37 No millisecond per request from the accumulation window** · `v0.5.x` — the host slept out the device's
   frame accumulation window (250 µs on USB HS) with `tokio::time::sleep_until`, which rounds up to whole
   milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has

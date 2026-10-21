@@ -148,6 +148,7 @@ nav = [
             { "Advanced" = [
                     { "USB inside" = "transport/usb_internals.md" },
                     "transport/ww_link.md",
+                    { "Who connects" = "transport/hub.md" },
                     "transport/ww_framer.md",
                     { "Following a reboot" = "transport/follow_reboot.md" },
                     "transport/tap.md",

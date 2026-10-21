@@ -428,14 +428,14 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
     let locks_supply = rom_id.is_some_and(locks_pwr_cr3);
     if let Some(id) = rom_id.filter(|_| locks_supply) {
         eprintln!(
-            "{} bootloader {}: on an STM32H72x/73x it locks PWR_CR3 until power-off (AN2606 Table 134), the firmware cannot set up its supply: unplug and replug the board",
+            "{} bootloader {}: on an STM32H72x/73x it locks PWR_CR3 until power-off (AN2606 Table 134), unplug and replug the board when you can (a firmware that does not handle it comes back only then)",
             style("note").yellow().bold(),
             version_name(id)
         );
     }
     if let Some(follow) = follow.filter(|_| args.follow) {
         let (msg, secs) = if locks_supply {
-            ("unplug and replug the board: waiting for", 120)
+            ("waiting (replug it if it does not come) for", 120)
         } else {
             ("waiting for", 10)
         };

@@ -2,7 +2,7 @@
 
 ### 🐛 Fixes
 
-- `ww stm32dfu info` shows the ROM's version from its version byte (was `0x00 (V0.0)`, the first byte of "get commands"); `ww stm32dfu flash` notes "unplug and replug the board" only for the ROMs that lock PWR_CR3 (V9.1, V9.2 on STM32H72x/73x, AN2606 Table 134; it said "power-cycle" for every V9.x, V9.3 too) and with `--follow` waits 120 s for the board then (CLT-34). Checked on a B135 rev B (H725, V9.3).
+- `ww stm32dfu info` shows the ROM's version from its version byte (was `0x00 (V0.0)`, the first byte of "get commands"); `ww stm32dfu flash` notes "unplug and replug the board when you can" only for the ROMs that lock PWR_CR3 (V9.1, V9.2 on STM32H72x/73x, AN2606 Table 134; it said "power-cycle" for every V9.x, V9.3 too) and with `--follow` waits 120 s for the board then (CLT-34). Checked on a B135 rev B (H725, V9.3).
 - Live `--monitor` / `ww monitor` never named paths (`Request Observe [2]`) while the same traffic from a `--capture` file did: the device's API reached the capture's describe blocks only with the next data block, after the messages that needed it, and was written in its resolved form (which a decoder could not always read). It is handed over at once, as the device sent it, and live and file print the same text (TOOL-14).
 - SIGINT and SIGTERM (a `timeout`) end a command with `--capture`, and `ww monitor` / `ww capture` / `ww stats`, with the capture file synced and renamed, not left as `FILE.partial` (TOOL-14).
 - `ww explain PATH/TO/FILE.wwtape` of a file that does not exist is an error naming it, not a connect to a device.

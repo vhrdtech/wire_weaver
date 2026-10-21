@@ -85,8 +85,8 @@ host it: `ww_hub::main_if_hub()` first in `main` makes the executable serve as t
 - One hub per user: it holds an OS lock on `hub.lock` in the runtime dir for its whole life (released by the OS on a
   crash) and writes its pid, version and start time into it. A second one exits at once (`Exit::AlreadyRunning`).
   A `hub.sock` without the lock held is left over from a hub that is gone and is replaced.
-- Every connection starts with the preamble: target `Hub` is the hub's own API, a device target is answered
-  `UnknownDevice` until the hub holds devices (SRV-29).
+- Every connection starts with the preamble: target `Hub` is the hub's own API, a device target gets a tunnel to
+  that device (see [Device tunnels](#device-tunnels-srv-29)).
 - It exits after `idle_exit` (5 min, `WW_HUB_IDLE_EXIT` in seconds, `ww hub serve --idle-exit`) without connections;
   `Hub::keep(seconds)` holds it up for a bench, `Hub::shutdown()` ends it.
 
@@ -107,7 +107,8 @@ let mut events = hub.registry().events().call().await?;
   not served yet).
 - `registry().devices()`: the WireWeaver USB devices plugged in (enumerated, not opened: the hub opens a device only
   when a program asks for it) and every device a program holds, from the lock files above, as `HeldElsewhere` with
-  the holder. `take(key)` (SRV-29) is not served yet.
+  the holder; the devices the hub holds itself as `Open`, with their tunnels. `take(key)` opens a device and keeps it
+  open without clients (`Opened` / `Closed` events).
 - `registry().clients()`: the programs connected to the hub's API, with what their link setup said about them
   (program, kind, user, host, instance id) and the pid the OS reports.
 - `registry().events()`: `Plugged`, `Unplugged`, `HolderChanged` (from hotplug events and a rescan every 2 s),

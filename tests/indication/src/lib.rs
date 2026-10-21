@@ -19,7 +19,6 @@ mod tests {
         busy: bool,
         identify_calls: u32,
         last_identify: Option<Second>,
-        epoch: Option<Second>,
     }
 
     impl Default for Storage {
@@ -30,12 +29,11 @@ mod tests {
                 busy: false,
                 identify_calls: 0,
                 last_identify: None,
-                epoch: None,
             }
         }
     }
 
-    /// Every item implemented: `mode`, `brightness`, `identify`, `NAMES` and `set_mode_with_epoch`.
+    /// Every item implemented: `mode`, `brightness`, `identify` and `NAMES`.
     mod full_server {
         use super::*;
         use tests_common::TestProcessEvents;
@@ -90,18 +88,6 @@ mod tests {
                 st.identify_calls += 1;
                 st.last_identify = Some(duration);
                 Ready(Ok(()))
-            }
-
-            fn indication_set_mode_with_epoch(
-                &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
-                mode: Mode,
-                epoch: Second,
-            ) -> RpcResult<()> {
-                let mut st = self.storage.lock().unwrap();
-                st.mode = mode;
-                st.epoch = Some(epoch);
-                Ready(())
             }
         }
 
@@ -170,12 +156,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                omit = [
-                    "indication.brightness",
-                    "indication.identify",
-                    "indication.NAMES",
-                    "indication.set_mode_with_epoch"
-                ],
+                omit = ["indication.brightness", "indication.identify", "indication.NAMES"],
             );
         }
 
@@ -317,24 +298,6 @@ mod tests {
         );
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn mode_with_epoch_sets_both() {
-        let (device, storage) = start_full("indication/epoch");
-        let client = connect(&device).await;
-        let epoch = Second::micro(1_234_000_000u64);
-        client
-            .indication()
-            .set_mode_with_epoch(Mode::OnlyEssential, epoch)
-            .call()
-            .await
-            .unwrap();
-        assert_eq!(
-            client.indication().read_mode().read().await.unwrap(),
-            Mode::OnlyEssential
-        );
-        assert_eq!(storage.lock().unwrap().epoch, Some(epoch));
-    }
-
     /// A device that leaves optional items out still serves `mode`; the rest fails locally, known from the
     /// device's introspection data (see `docs/api/optional_items.md`).
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -369,11 +332,5 @@ mod tests {
                 .await,
             Err(CallError::Unimplemented { .. })
         ));
-        let r = client
-            .indication()
-            .set_mode_with_epoch(Mode::Normal, Second::micro(0u32))
-            .call()
-            .await;
-        assert!(r.unwrap_err().is_unimplemented());
     }
 }

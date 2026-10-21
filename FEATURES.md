@@ -1111,7 +1111,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Host is unknown to the old version"), although since SW-47 an older reader gets it as `Unknown(n)`, as
   `docs/evolution/rules.md` says. The `ww_self` model doesn't record whether an enum has the catch-all
   (`no_future_version` or not): needs a defaulted field on `ItemEnum` set by codegen, the checker and the
-  dynamic decoder reading it, and snapshots saved again. Found with `ww_timebase::SyncFormat::Host` (STD-49).
+  dynamic decoder reading it, and snapshots saved again. Found with `ww_timebase::SyncState::Conflict` (STD-49).
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1210,11 +1210,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-17 `ww_timebase`** — `Clock`: device time as `ww_si::Second` (full width via `now()`, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
-- 🧪 **STD-49 `ww_timebase` host sync** — devices without a sync line follow the host's monotonic clock,
-  Klipper-style: `SyncFormat::Host`, the optional `host_sync` group (`steer(SteerPoint)` with offset and rate in
-  ppb, `shared_now()`), and the std side `ww_timebase::host` (`Estimator`: min-RTT samples of `now()`, least squares
-  over a 30 s window; `DeviceTime`: unwrapping and steer points in the device's own prefix and storage).
-  Deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
+- 🧪 **STD-49 `ww_timebase` host sync, one UTC timescale** — devices without a sync line follow the host's wall
+  clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) > host > holdover > free.
+  `Clock` gets the optional `host_sync` group (`steer(SteerPoint) -> SyncSource`: offset in UTC µs, rate in ppb and
+  the host's error estimate; a line-locked device only notes the point; `shared_now()`), `SyncSource` (`Host`,
+  `Line`), `SyncStatus::source` / `error`, `TimeMapPoint::source` (the seam of a switch, slewed, not stepped),
+  `SyncState::Conflict` (two masters on a line). `configure_sync` stays the line's role, the IRIG-B / PPS model is
+  unchanged. Host side: crate `ww_clock_sync` (`Estimator`: min-RTT samples of `now()`, least squares over a 30 s
+  window against the monotonic clock; `DeviceTime`; `HostClock`; `ClockSync` for any process holding a connection),
+  deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
   `bedrock_sync`. Hardware check open: Donguru and rePort steered by `ww sync` on omarchy-m1, `sync_status`
   `Locked`, the residual offset measured with `shared_now`.
@@ -1298,10 +1302,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
     `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
     optional item).
-- 🧪 **STD-50 `ww_indication` animation epoch** — optional `set_mode_with_epoch(mode, epoch)`: the epoch (shared
-  time, STD-49) starts every animation's cycle, so devices given the same mode and epoch animate in phase.
-  `tests/indication`, `docs/std_library/ww_indication.md`. Hardware check open: Donguru and rePort breathing in
-  phase (embedded_bedrock `bedrock_led`).
+- 🧪 **STD-50 `ww_indication` animations in phase** — a device with a shared clock (STD-49 or a sync line) aligns
+  its periodic animations to period boundaries of shared time (UTC, WSPR-style: `t mod P`), so devices showing the
+  same animation are in phase with no epoch passed around, across PCs to NTP precision. A rule in the trait's docs,
+  no API item (an explicit epoch was dropped: every server would have had to implement or omit it).
+  `docs/std_library/ww_indication.md#animations-in-phase-std-50`; device side embedded_bedrock `bedrock_led` with
+  `bedrock_sync`. Hardware check open: Donguru and rePort breathing in phase.
 - ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — from simple bridges to bus debuggers. `Can` is one controller:
   six required items (`capabilities()`, `configure(CanConfig)` answering what was set, `config()`, the observable
   `status`, the counted `rx` stream, the `tx` credit sink) and `#[optional]` `set_mode` (incl. `Config` and

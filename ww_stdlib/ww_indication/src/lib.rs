@@ -3,9 +3,14 @@
 //!
 //! [Indication::mode] is the only item a device must implement. Per-unit [brightness](Indication::brightness),
 //! [identify](Indication::identify) (blink everything to find the unit on a bench) and
-//! [NAMES](Indication::NAMES), and [set_mode_with_epoch](Indication::set_mode_with_epoch) to animate in phase with
-//! other devices, are [optional](../api/optional_items.md): a device leaves out what its hardware or
+//! [NAMES](Indication::NAMES) are [optional](../api/optional_items.md): a device leaves out what its hardware or
 //! flash budget doesn't support.
+//!
+//! Animations in phase (STD-50): a device with a shared clock (`ww_timebase::Clock`, steered by a host or locked
+//! to a sync line) aligns every periodic animation to period boundaries of shared time (UTC): a breath or blink of
+//! period `P` shows `t mod P` at shared time `t`, as WSPR transmissions start on even minutes. Devices showing the
+//! same animation are in phase with no epoch passed around, across hosts too (to their NTP precision). A device
+//! whose clock runs free starts an animation when its mode changes.
 
 use wire_weaver::prelude::*;
 pub use ww_si::Second;
@@ -14,7 +19,8 @@ pub use ww_si::Second;
 /// names.
 #[ww_trait]
 pub trait Indication {
-    /// Global operation mode every indicator follows.
+    /// Global operation mode every indicator follows. Periodic animations are aligned to shared time when the device
+    /// has it, see the [crate docs](crate).
     property!(rw mode: Mode);
 
     /// Brightness of all indicators; one setting covers every one of them. Left out by a device whose
@@ -32,15 +38,6 @@ pub trait Indication {
     /// name) to save flash.
     #[optional]
     const NAMES: RefVec<'i, &'i str>;
-
-    /// Writes `mode` as the property does, with `epoch` as the start of every animation's cycle (STD-50): a
-    /// breath or blink of period `P` shows `(t - epoch) mod P` at shared time `t` (see `ww_timebase::Clock`,
-    /// `SyncFormat::Host`), so devices given the same mode and epoch breathe and blink in phase. `epoch` is in
-    /// the prefix and storage of the device's `Clock::now()`, and may lie in the past. Calling it again with the
-    /// mode unchanged only moves the phase. A device whose clock runs free (no shared time yet) starts its
-    /// animations now, as writing `mode` does. Left out by a device without a shared clock.
-    #[optional]
-    fn set_mode_with_epoch(mode: Mode, epoch: Second);
 }
 
 /// Global operation mode, see [Indication::mode].

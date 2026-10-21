@@ -8,6 +8,12 @@
     "read it in full (to unwrap fixed-width",
     "timestamps and correlate with host time), and synchronise several devices: one is the master on a sync line,",
     "the others lock to it and publish `time_map` points that map their local time to the shared one.",
+    "",
+    "Shared time is one timescale, UTC (STD-49), and each source of it is an estimate with an error bound. A device",
+    "follows its best source ([SyncSource]): a locked sync line (IRIG-B, PPS: µs) before a host steering it over the",
+    "API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last one, before",
+    "running free. Switching from one source to another slews the shared clock instead of stepping it, and shows in",
+    "`time_map` as a change of `source`.",
 ], crate_idx: 0, trait_name: "ww_timebase", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None),
 ], compact_id: None), types: [
@@ -40,10 +46,6 @@
         (docs: [
             "Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).",
         ], ident: "Pps", fields: Unit, discriminant: 1, since: None),
-        (docs: [
-            "No sync line: a host steers this device over its API with `Clock::steer` (STD-49), from its fit of",
-            "`Clock::now()` samples. Only as `SyncConfig::Slave`; the host\'s monotonic clock is the shared time.",
-        ], ident: "Host", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Static description of a device\'s clock, see `Clock::info`.",
@@ -61,20 +63,38 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
-        "State of a device\'s sync line, see `SyncStatus::state` and `TimeMapPoint::state`.",
+        "State of a device\'s shared clock, see `SyncStatus::state` and `TimeMapPoint::state`.",
     ], ident: "SyncState", generics: [], variants: [
         (docs: [
-            "Sync is off, or no signal has been seen yet: `now()` runs free.",
+            "No source yet (sync off and no host steering, or no signal seen): the shared clock runs free.",
         ], ident: "Free", fields: Unit, discriminant: 0, since: None),
         (docs: [
-            "A signal is present but not yet locked onto: `now()` still runs free.",
+            "A signal is present but not yet locked onto: the shared clock keeps its previous source or runs free.",
         ], ident: "Acquiring", fields: Unit, discriminant: 1, since: None),
         (docs: [
-            "Locked: `offset` and `last_lock` of `SyncStatus` are current.",
+            "Locked to `SyncStatus::source`: `offset` and `last_lock` of `SyncStatus` are current.",
         ], ident: "Locked", fields: Unit, discriminant: 2, since: None),
         (docs: [
-            "Was locked, lost the signal, and is coasting on the last known offset until it reacquires or times out.",
+            "Was locked, lost its source, and is coasting on the last known offset and rate until one comes back or it",
+            "times out.",
         ], ident: "Holdover", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "This device is the master of its sync line and sees another master\'s signal on it: two masters on one line,",
+            "reported until one of them goes. Slaves on that line can\'t tell which one to follow.",
+        ], ident: "Conflict", fields: Unit, discriminant: 4, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Where a device\'s shared clock takes its time from, best first: a locked sync line, then a host steering it.",
+        "See `SyncStatus::source`.",
+    ], ident: "SyncSource", generics: [], variants: [
+        (docs: [
+            "A host steering the device over its API with `Clock::steer`.",
+        ], ident: "Host", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "The sync line, as a slave locked to it.",
+        ], ident: "Line", fields: Named([
+            (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point of the `time_map` stream: this device\'s local time mapped to the shared sync time.",
@@ -87,25 +107,28 @@
         (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 0)),
         ]), docs: [
-            "The corresponding shared (master) time.",
+            "The corresponding shared time (UTC), in the prefix and storage of `local` (wrapping as it does).",
         ], slot: None, series_opaque: false),
         (ident: Some("state"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [
             "Sync state at the point, so a host can tell a real lock from a stale mapping.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
+            "The source followed at the point: a change from one point to the next is a seam (slewed, not stepped).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
     ], ident: "SyncConfig", generics: [], variants: [
         (docs: [
-            "No synchronisation; `now()` runs free.",
+            "No sync line; the shared clock follows the host if it steers, or runs free.",
         ], ident: "Off", fields: Unit, discriminant: 0, since: None),
         (docs: [
-            "This device drives the sync line in `format`, so others can lock to it.",
+            "This device drives the sync line in `format` from its shared clock, so others can lock to it.",
         ], ident: "Master", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
-            "This device locks `now()` to a master\'s sync line in `format`.",
+            "This device locks its shared clock to a master\'s sync line in `format`.",
         ], ident: "Slave", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
@@ -127,7 +150,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -146,6 +169,16 @@
         ])), docs: [
             "Local time of the last lock.",
         ], slot: None, series_opaque: false),
+        (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
+            "The source the shared clock follows (`Locked`) or last followed (`Holdover`); `None` while free, and from",
+            "devices built before sources were reported.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("error"), default: Some(Bool(false)), since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+            Type(OutOfLine(type_idx: 0)),
+        ])), docs: [
+            "Estimated bound of the shared clock\'s error against UTC: the source\'s own error and what holdover adds",
+            "since. `None` when the device can\'t tell.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
         29,
@@ -158,29 +191,35 @@
         56,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "A host\'s fit of a device\'s clock, see `Clock::steer`: the device\'s local time `local` is the shared time `shared`,",
-        "and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative: slower, as for",
-        "a device clock that runs fast).",
+        "A host\'s fit of a device\'s clock, see `Clock::steer`: the device\'s local time `local` is the shared time",
+        "`shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative:",
+        "slower, as for a device clock that runs fast).",
+        "",
+        "`shared_us` is a plain `u64`, not a [Second]: shared time is UTC and needs all 64 bits, and a `Second` in a",
+        "`U64` would make a device without 64-bit numbers (`ww_numeric`\'s `u64` feature, 8 more bytes in every",
+        "`NumericValue`) enable them for this one field.",
     ], ident: "SteerPoint", generics: [], fields: Named([
         (ident: Some("local"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 0)),
         ]), docs: [
-            "Device time at the point, in the prefix and storage of `Clock::now()`.",
+            "Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).",
         ], slot: None, series_opaque: false),
-        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 0)),
-        ]), docs: [
-            "Shared time at `local`, in the same prefix and storage.",
+        (ident: Some("shared_us"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
+            "Shared time at `local`: µs since the Unix epoch, UTC.",
         ], slot: None, series_opaque: false),
         (ident: Some("rate_ppb"), default: None, since: None, ty: NumericAny(Base(I32)), docs: [
             "Shared rate minus local rate, in parts per billion: shared time advances `1 + rate_ppb * 1e-9` s per",
             "local second. An HSI clock 1 % fast is about `-9_900_990`.",
         ], slot: None, series_opaque: false),
+        (ident: Some("error_us"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
+            "The host\'s estimate of how far `shared_us` may be off, in µs: half the shortest round trip and the",
+            "scatter of its samples. Not counting how far the host\'s own wall clock is from UTC.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...) or",
-        "steered by a host over the API (`SyncFormat::Host`, the optional `host_sync` group: `steer`, `shared_now`).",
+        "steered by a host over the API (the optional `host_sync` group: `steer`, `shared_now`).",
         "",
         "A device has exactly one free-running clock. Every timestamp it reports elsewhere in its API is a [Second]",
         "since that clock started, in whatever fixed width fits the field (so it wraps: a `U32` of microseconds wraps",
@@ -197,33 +236,38 @@
             "Static description of this clock: its resolution, what it calls itself, and which [SyncFormat]s it",
             "supports.",
         ], optional: None),
-        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 5), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
+        (id: 2, kind: Stream(ty: OutOfLine(type_idx: 6), is_up: true), multiplicity: Flat, since: None, ident: "time_map", docs: [
             "Local time mapped to the shared sync time, sent about once a second while synced and on every",
-            "[SyncState] change, so a host can line up this device\'s timeline with others and see the unsynced spans.",
+            "[SyncState] or [SyncSource] change, so a host can line up this device\'s timeline with others and see the",
+            "unsynced spans and the seams where the device switched sources.",
         ], optional: None),
         (id: 3, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 6)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 7)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
                 "InUse",
             ])),
         ])), multiplicity: Flat, since: None, ident: "configure_sync", docs: [
-            "Switch sync off, or make this device the master on the sync line, or a slave locking to one, in the given",
-            "[SyncFormat]. `Unsupported` if this device has no sync line or doesn\'t support the requested [SyncFormat]",
-            "(see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose configuration it",
-            "rejects, `InUse` if sync mode cannot be switched while already locked to something else.",
+            "Switch the sync line off, or make this device the master on it, or a slave locking to one, in the given",
+            "[SyncFormat]. A line has exactly one master, set explicitly; the master\'s own shared clock follows its host",
+            "(`steer`) when it has one. `Unsupported` if this device has no sync line or doesn\'t support the requested",
+            "[SyncFormat] (see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose",
+            "configuration it rejects, `InUse` if sync mode cannot be switched while already locked to something else.",
+            "",
+            "Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.",
         ], optional: None),
-        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
+        (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 7)), errors: None), multiplicity: Flat, since: None, ident: "sync_config", docs: [
             "Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).",
         ], optional: None),
-        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
-            "Current sync state, with the offset and local time of the last lock, when known.",
+        (id: 5, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "sync_status", docs: [
+            "Current sync state, with the source followed, its estimated error and the offset and local time of the",
+            "last lock, when known.",
         ], optional: None),
         (id: 6, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 10)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+            (ident: "t", ty: OutOfLine(type_idx: 11)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
             ])),
@@ -232,30 +276,29 @@
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None),
         (id: 7, kind: Method(args: [
-            (ident: "point", ty: OutOfLine(type_idx: 11)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+            (ident: "point", ty: OutOfLine(type_idx: 12)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
-                "WrongState",
                 "InvalidArgument",
             ])),
         ])), multiplicity: Flat, since: None, ident: "steer", docs: [
-            "Steers this device\'s shared clock with a host\'s fit of it (STD-49), about once a second while",
-            "`configure_sync` has this device as `Slave { format: SyncFormat::Host }`: from then on the device keeps",
-            "`shared(t) = point.shared + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for its local time `t`, reports",
-            "`Locked` in `sync_status` and `time_map`, and `Holdover` when the points stop coming. `WrongState` unless",
-            "configured as a `Host` slave, `InvalidArgument` for a point it can\'t use (float or a storage it doesn\'t read,",
-            "a rate beyond what it can follow).",
+            "A host\'s fit of this device\'s clock (STD-49), sent about once a second. The device follows it when it has",
+            "nothing better: its shared clock becomes",
+            "`shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed",
+            "there from where it was, not stepped), `sync_status` and `time_map` say `Locked` with source `Host`, and",
+            "`Holdover` when the points stop coming. A device locked to a sync line keeps following the line and only",
+            "notes the point: the host then correlates through `time_map` instead of steering. Returns the source the",
+            "device follows after taking the point. `InvalidArgument` for a point it can\'t use (`local` a float or in a",
+            "storage it doesn\'t read, a rate beyond what it can follow).",
             "",
-            "The values are in the prefix and storage of `now()`, so a device without 64-bit numbers gets 32-bit ones,",
-            "wrapping as its `now()` does. A host fits the line from `now()` samples with the shortest round trips",
-            "(`ww_timebase::host::Estimator`, feature `std`); shared time is the host\'s monotonic clock.",
+            "Shared time is UTC from the host\'s wall clock (NTP-disciplined), in µs since the Unix epoch, so devices",
+            "steered by different hosts agree to NTP precision, and devices on one sync line to the line\'s. A host fits",
+            "against its monotonic clock and adds the wall clock\'s offset when it sends, so a step of its wall clock",
+            "moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).",
         ], optional: Some((group: Some("host_sync")))),
-        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 0)),
-        ]))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
-            "The device\'s shared time now, as `steer` points (or a sync line) give it; `None` while the clock runs free.",
-            "In the prefix and storage of `now()`. What a host compares with its own clock to see how well the device",
-            "follows (the residual offset).",
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: NumericAny(Base(U64)))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
+            "The device\'s shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a",
+            "host compares with its own clock to see how well the device follows (the residual offset).",
         ], optional: Some((group: Some("host_sync")))),
     ], compact_id: Some(24)), crate_idx: 0),
 ], ext_crates: [

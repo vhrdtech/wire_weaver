@@ -299,7 +299,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[CAN bus](std_library/ww_can_bus.md)**: From a simple bridge to a bus debugger.
 - **[Logs](std_library/ww_log.md)**: `defmt` logs over a reliable stream, including what was logged before the host connected. <span class="ww-status">hardware check open</span>
 - **[Indicators](std_library/ww_indication.md)**: LEDs off, essential or normal, and a blink to find a unit on the bench.
-- **[Indicators in phase](std_library/ww_indication.md)**: Several devices given one mode and one epoch breathe and blink together. <span class="ww-status">hardware check open</span>
+- **[Indicators in phase](std_library/ww_indication.md#animations-in-phase-std-50)**: Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. <span class="ww-status">hardware check open</span>
 - **[Firmware updates](std_library/ww_dfu.md)**: `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. <span class="ww-status">in progress</span>
 - **[1-Wire](std_library/ww_onewire.md)**: Transactions and ROM search.
 - **[More buses](std_library/ww_i2c.md)**: `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. <span class="ww-status">in progress</span>

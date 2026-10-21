@@ -16,8 +16,6 @@ pub trait Indication {
     fn identify(duration: Second) -> Result<(), CommonError<'i>>;
     #[optional]
     const NAMES: RefVec<'i, &'i str>;
-    #[optional]
-    fn set_mode_with_epoch(mode: Mode, epoch: Second);
 }
 ```
 
@@ -32,13 +30,18 @@ what its hardware or flash budget supports:
   indication-specific error): `Unsupported` without a way to blink, `Busy` while already identifying.
 * `NAMES` — indicator names in the device's own order, a [`const` item](../api/properties.md#const-items) served
   without a handler. Left out by a device with no room to keep them.
-* `set_mode_with_epoch(mode, epoch)` — writes `mode` as the property does, with `epoch` as the start of every
-  animation's cycle (STD-50): a breath or blink of period `P` shows `(t - epoch) mod P` at shared time `t`, so devices
-  given the same mode and epoch breathe and blink in phase. Shared time comes from the device's
-  [`ww_timebase::Clock`](ww_timebase.md#host-sync-std-49) (a host steering it, or a sync line), `epoch` is in the
-  prefix and storage of its `Clock::now()` and may lie in the past. A device whose clock runs free starts its
-  animations now, as writing `mode` does. `ww sync DEV... --mode normal` steers several devices and sets their mode
-  with one epoch ([`ww sync`](../cli_reference.md#ww-sync)).
+
+## Animations in phase (STD-50)
+
+A device with a shared clock ([`ww_timebase::Clock`](ww_timebase.md#host-sync-std-49), steered by a host or locked
+to a sync line) aligns every periodic animation to period boundaries of shared time, which is UTC: a breath or blink
+of period `P` shows `t mod P` at shared time `t`, the way WSPR transmissions start on even minutes. Devices showing
+the same animation are in phase without an epoch passed around, even when they hang on different PCs (to the
+precision of those PCs' NTP, plenty for LEDs). A device whose clock runs free starts an animation when its mode
+changes, as before. This is a rule for devices, not an API item: nothing to call, and a device without a shared
+clock implements nothing more. Firmware on embedded_bedrock gets it from `bedrock_led` with `bedrock_sync`.
+
+## Evolution
 
 `Mode` and `Brightness` are `Unsized` (the default): a later version may add a variant (an in-between brightness
 level, a new mode) without breaking a host built against an older `ww_indication`, which reads it as `Unknown(u32)`

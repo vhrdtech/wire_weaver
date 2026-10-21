@@ -5,7 +5,7 @@ level: advanced
 # ww_timebase
 
 Part of the [IO trait family](io_family.md). `ww_timebase` is a global WireWeaver trait for a device's clock: reading device time, and synchronising it with
-other devices over a sync line (IRIG-B, PPS, ...). It is `no_std` by default and depends only on `wire_weaver`,
+other devices over a sync line (IRIG-B, PPS, ...) or steered by its host onto UTC. It is `no_std` by default and depends only on `wire_weaver`,
 `ww_si` (for the [Second](ww_si.md) timestamp type) and `ww_date_time` (for `set_time_of_day`).
 
 Add it to a device API crate with:
@@ -43,10 +43,10 @@ pub trait Clock {
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError>;
 
     #[optional(host_sync)]
-    fn steer(point: SteerPoint) -> Result<(), ClockError>;
+    fn steer(point: SteerPoint) -> Result<SyncSource, ClockError>;
 
     #[optional(host_sync)]
-    fn shared_now() -> Option<Second>;
+    fn shared_now() -> Option<u64>;
 }
 ```
 
@@ -60,9 +60,10 @@ pub trait Clock {
 * `sync_status()` - current sync state, with the offset and local time of the last lock, when known.
 * `set_time_of_day` - time of day a sync master sends on the sync line, set from its host; has no effect on a
   slave or while sync is off.
-* `steer(point)` - a host's fit of this device's clock, see [host sync](#host-sync-std-49); optional (group
-  `host_sync`).
-* `shared_now()` - the device's shared time now, `None` while it runs free; optional (group `host_sync`).
+* `steer(point)` - a host's fit of this device's clock, followed when the device has no better source; returns the
+  source it follows. See [host sync](#host-sync-std-49); optional (group `host_sync`, left out with
+  `omit = ["clock.host_sync"]`).
+* `shared_now()` - the device's shared time now in UTC µs, `None` while it runs free; optional (group `host_sync`).
 
 ## Types
 
@@ -70,13 +71,17 @@ pub trait Clock {
   MaxLen<RefVec<'i, SyncFormat>, 8>` (empty without a sync line).
 * `SyncConfig` - `Off`, `Master { format: SyncFormat }`, `Slave { format: SyncFormat }`; `unib32` discriminant,
   evolvable.
-* `SyncFormat` - `IrigB`, `Pps`, `Host` (no sync line, steered over the API); `unib32` discriminant, evolvable.
+* `SyncFormat` - `IrigB`, `Pps`; `unib32` discriminant, evolvable.
+* `SyncSource` - `Host`, `Line { format }`: what the shared clock follows; `unib32` discriminant, evolvable.
 * `SyncStatus` - `state: SyncState`, `offset: Option<Second>` (local minus shared time at the last lock),
-  `last_lock: Option<Second>`.
-* `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`; `unib32` discriminant, evolvable.
-* `TimeMapPoint` - one `time_map` item: `local: Second`, `shared: Second`, `state: SyncState`.
-* `SteerPoint` - `local: Second`, `shared: Second`, `rate_ppb: i32`: device time `local` is shared time `shared`,
-  and shared time runs `rate_ppb` parts per billion faster than local time from there on.
+  `last_lock: Option<Second>`, `source: Option<SyncSource>`, `error: Option<Second>` (estimated bound against UTC);
+  the last two `#[default = None]`, read as `None` from devices built before them.
+* `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`, `Conflict` (two masters on the line); `unib32`
+  discriminant, evolvable.
+* `TimeMapPoint` - one `time_map` item: `local: Second`, `shared: Second` (UTC, in the prefix and storage of
+  `local`), `state: SyncState`, `source: Option<SyncSource>` (`#[default = None]`).
+* `SteerPoint` - `local: Second`, `shared_us: u64` (UTC), `rate_ppb: i32`, `error_us: u32`: device time `local` is
+  shared time `shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there on.
 * `ClockError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized (`unib32`
   discriminant), evolvable.
 
@@ -85,41 +90,58 @@ variants are available by enabling the crate's `std` feature.
 
 ## Host sync (STD-49)
 
-Devices without a sync line can still share one time base: the host's. It works like Klipper's clock sync. The host
-reads each device's `now()` a few times a second and timestamps every request and answer with its own monotonic
-clock. It keeps the readings with the shortest round trips (their midpoint is closest to when the device read its
-clock) and fits a line through them over a sliding window: an offset and a rate. Then it pushes that fit to the
-device as a `SteerPoint` about once a second:
+### One timescale, ranked sources
 
-```rust
-client.clock().configure_sync(SyncConfig::Slave { format: SyncFormat::Host }).call().await?;
-// ... a few seconds of now() samples into ww_timebase::host::Estimator ...
-let point = device_time.steer_point(&fit, fit.local)?;
-client.clock().steer(point).call().await?;
-```
+Shared time is UTC, whatever it comes from, and every source of it is an estimate with an error bound. A device
+follows its best source and only measures the others:
 
-From then on the device runs the shared clock on its own,
-`shared(t) = point.shared + (t - point.local) * (1 + point.rate_ppb * 1e-9)`, reports `Locked` in `sync_status` and
-`time_map`, and `Holdover` when the points stop coming (it keeps the last line). Timestamps it gets in shared time,
-like an indication epoch ([`ww_indication`](ww_indication.md)) or a "do X at T", mean the same moment on every
-device steered by the same host.
+1. a **sync line** it is locked to as a slave (IRIG-B, PPS): µs between the boards on the line;
+2. its **host**, steering it over the API (`steer`): tens of µs to the host over USB, but the host's UTC is only as
+   good as its NTP (ms);
+3. **holdover** on the last source, with its last offset and rate;
+4. **free**: no shared time yet.
 
-* The values of a `SteerPoint` are in the prefix and storage of the device's `now()`. A device without 64-bit
-  numbers (a Cortex-M0+ answering `U32` µs) gets 32-bit ones, wrapping as its `now()` does, and the host unwraps
-  its `now()` readings ([`ww_si::Unwrapper`](ww_si.md)).
-* The host side is `ww_timebase::host` (feature `std`): `Estimator` keeps samples in a 30 s window and fits the best
-  half by round trip, `DeviceTime` converts device timestamps to nanoseconds and back. It never reads a clock or
-  sleeps, so tests drive it with a simulated device clock (1 % fast HSI, a crystal drifting with temperature,
-  USB full-speed jitter of up to 2 ms a round trip).
-* `ww sync DEV...` ([CLI](../cli_reference.md#ww-sync)) keeps several devices steered and can set their indication
-  mode with one epoch.
-* What to expect over USB full speed (answers wait for the next 1 ms frame): the offset to a few hundred µs, the rate
-  to tens of ppm after 10 s and a few ppm after half a minute. High speed is about ten times better. On the device,
-  embedded_bedrock's `bedrock_sync` crate keeps the shared clock.
+A line has exactly one master, set explicitly with `configure_sync`; the master's own shared clock follows its host
+(or a GPS later), and it drives the line from it. Slaves follow the line, and fall back to their host when the line
+is lost. A master that sees another master's signal on its line reports `SyncState::Conflict`. Switching from one
+source to another slews the shared clock instead of stepping it, and the switch shows in `time_map` as a change of
+`TimeMapPoint::source`, so a host sees the seam. So boards on one line agree to µs whatever PCs they hang on, and
+boards only on different PCs agree to those PCs' NTP (ms, plenty for LEDs, see
+[`ww_indication`](ww_indication.md#animations-in-phase-std-50)).
 
-Host sync doesn't replace the sync line: `IrigB` and `Pps` stay what they are, and a device lists `Host` in
-`info().sync_formats` only when it serves `steer`. `Host` is a slave format only: `Master { format: Host }` is
-`InvalidArgument`.
+`configure_sync` stays the line's role (`Off`, `Master`, `Slave` in `IrigB` or `Pps`); host steering needs no
+configuration. `sync_status()` says which source the device follows (`source`) and its estimated error (`error`).
+
+### Steering from the host
+
+It works like Klipper's clock sync. The host reads the device's `now()` a few times a second and timestamps every
+request and answer with its own monotonic clock. It keeps the readings with the shortest round trips (their midpoint
+is closest to when the device read its clock) and fits a line through them over a sliding window: an offset and a
+rate. About once a second it sends the fit as a `SteerPoint` (the device's `local` time, the UTC `shared_us` of it in
+µs, `rate_ppb`, and its own error estimate `error_us`), adding the wall clock's offset from the monotonic clock as it
+sends, so a step of the wall clock moves the points without disturbing the fit. The device runs
+`shared(t) = shared_us + (t - local) * (1 + rate_ppb * 1e-9)` on its own and answers with the source it follows:
+`Host` when it took the point, a `Line` when it is locked to something better and only noted it (then the host
+correlates the device through `time_map` instead of steering it).
+
+* `SteerPoint::local` is in the prefix and storage of the device's `now()`: a device without 64-bit numbers (a
+  Cortex-M0+ answering `U32` µs) gets 32 bits, wrapping as its `now()` does, and the host unwraps its readings
+  ([`ww_si::Unwrapper`](ww_si.md)). `shared_us` is a plain `u64`, since UTC needs all 64 bits and a `Second` in a
+  `U64` would make such a device enable 64-bit numbers for one field.
+* The host side is the `ww_clock_sync` crate, for any process holding a device connection (the `ww` CLI, a device's
+  own CLI or GUI): `ClockSync::start(&cmd, Options::default())` polls, fits and steers in a tokio task, and its
+  `Status` has the fit, the followed source and the residual offset it measures with `shared_now()`. There is no
+  central daemon: every process steers its devices onto the same UTC. `Estimator`, `DeviceTime` and `HostClock`
+  are the parts; the first two take time as numbers, so tests drive them with a simulated device clock (an HSI 1 %
+  fast, a crystal drifting with temperature, USB full-speed jitter of up to 2 ms a round trip).
+* `ww sync` ([CLI](../cli_reference.md#ww-sync)) keeps several devices steered and shows how well they follow.
+* On the device, embedded_bedrock's `bedrock_sync` crate keeps the shared clock (with an optional backend that
+  steers the oscillator itself where a chip has a fractional PLL).
+
+What to expect: in the simulation of a full-speed link with up to 2 ms of jitter per round trip, the offset is good
+to a few hundred µs and the rate to tens of ppm after 10 s, a few ppm after half a minute. Real USB bulk transfers
+are served anywhere in a frame with spare bandwidth, not only at frame starts, so real links do better; `ww sync`
+shows the measured residual.
 
 ## Composing into a device API
 

@@ -2685,6 +2685,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_clock_sync",
  "ww_date_time",
  "ww_si",
  "ww_timebase",
@@ -5953,6 +5954,18 @@ dependencies = [
  "wire_weaver",
  "ww_global",
  "ww_si",
+]
+
+[[package]]
+name = "ww_clock_sync"
+version = "0.5.0"
+dependencies = [
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_date_time",
+ "ww_si",
+ "ww_timebase",
 ]
 
 [[package]]

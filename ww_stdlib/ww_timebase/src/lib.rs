@@ -5,17 +5,20 @@
 //! read it in full (to unwrap fixed-width
 //! timestamps and correlate with host time), and synchronise several devices: one is the master on a sync line,
 //! the others lock to it and publish `time_map` points that map their local time to the shared one.
+//!
+//! Shared time is one timescale, UTC (STD-49), and each source of it is an estimate with an error bound. A device
+//! follows its best source ([SyncSource]): a locked sync line (IRIG-B, PPS: µs) before a host steering it over the
+//! API (`steer`: tens of µs to the host, whose UTC is as good as its NTP), before holdover on the last one, before
+//! running free. Switching from one source to another slews the shared clock instead of stepping it, and shows in
+//! `time_map` as a change of `source`.
 #![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(feature = "std")]
-pub mod host;
 
 use wire_weaver::prelude::*;
 pub use ww_date_time::DateTime;
 pub use ww_si::Second;
 
 /// Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...) or
-/// steered by a host over the API (`SyncFormat::Host`, the optional `host_sync` group: `steer`, `shared_now`).
+/// steered by a host over the API (the optional `host_sync` group: `steer`, `shared_now`).
 ///
 /// A device has exactly one free-running clock. Every timestamp it reports elsewhere in its API is a [Second]
 /// since that clock started, in whatever fixed width fits the field (so it wraps: a `U32` of microseconds wraps
@@ -32,20 +35,25 @@ pub trait Clock {
     fn info() -> ClockInfo<'i>;
 
     /// Local time mapped to the shared sync time, sent about once a second while synced and on every
-    /// [SyncState] change, so a host can line up this device's timeline with others and see the unsynced spans.
+    /// [SyncState] or [SyncSource] change, so a host can line up this device's timeline with others and see the
+    /// unsynced spans and the seams where the device switched sources.
     stream!(time_map: TimeMapPoint);
 
-    /// Switch sync off, or make this device the master on the sync line, or a slave locking to one, in the given
-    /// [SyncFormat]. `Unsupported` if this device has no sync line or doesn't support the requested [SyncFormat]
-    /// (see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose configuration it
-    /// rejects, `InUse` if sync mode cannot be switched while already locked to something else.
+    /// Switch the sync line off, or make this device the master on it, or a slave locking to one, in the given
+    /// [SyncFormat]. A line has exactly one master, set explicitly; the master's own shared clock follows its host
+    /// (`steer`) when it has one. `Unsupported` if this device has no sync line or doesn't support the requested
+    /// [SyncFormat] (see `info().sync_formats`), `InvalidArgument` for a format the device recognizes but whose
+    /// configuration it rejects, `InUse` if sync mode cannot be switched while already locked to something else.
+    ///
+    /// Host steering needs no configuration: it is a source of its own, taken when the line gives nothing better.
     #[errors(Common(Unsupported, InvalidArgument, InUse))]
     fn configure_sync(config: SyncConfig) -> Result<(), ClockError<'i>>;
 
     /// Current sync configuration, as last accepted by `configure_sync` (`Off` until configured).
     fn sync_config() -> SyncConfig;
 
-    /// Current sync state, with the offset and local time of the last lock, when known.
+    /// Current sync state, with the source followed, its estimated error and the offset and local time of the
+    /// last lock, when known.
     fn sync_status() -> SyncStatus;
 
     /// Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while
@@ -53,25 +61,27 @@ pub trait Clock {
     #[errors(Common(WrongState))]
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError<'i>>;
 
-    /// Steers this device's shared clock with a host's fit of it (STD-49), about once a second while
-    /// `configure_sync` has this device as `Slave { format: SyncFormat::Host }`: from then on the device keeps
-    /// `shared(t) = point.shared + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for its local time `t`, reports
-    /// `Locked` in `sync_status` and `time_map`, and `Holdover` when the points stop coming. `WrongState` unless
-    /// configured as a `Host` slave, `InvalidArgument` for a point it can't use (float or a storage it doesn't read,
-    /// a rate beyond what it can follow).
+    /// A host's fit of this device's clock (STD-49), sent about once a second. The device follows it when it has
+    /// nothing better: its shared clock becomes
+    /// `shared(t) = point.shared_us + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for local time `t` (slewed
+    /// there from where it was, not stepped), `sync_status` and `time_map` say `Locked` with source `Host`, and
+    /// `Holdover` when the points stop coming. A device locked to a sync line keeps following the line and only
+    /// notes the point: the host then correlates through `time_map` instead of steering. Returns the source the
+    /// device follows after taking the point. `InvalidArgument` for a point it can't use (`local` a float or in a
+    /// storage it doesn't read, a rate beyond what it can follow).
     ///
-    /// The values are in the prefix and storage of `now()`, so a device without 64-bit numbers gets 32-bit ones,
-    /// wrapping as its `now()` does. A host fits the line from `now()` samples with the shortest round trips
-    /// (`ww_timebase::host::Estimator`, feature `std`); shared time is the host's monotonic clock.
+    /// Shared time is UTC from the host's wall clock (NTP-disciplined), in µs since the Unix epoch, so devices
+    /// steered by different hosts agree to NTP precision, and devices on one sync line to the line's. A host fits
+    /// against its monotonic clock and adds the wall clock's offset when it sends, so a step of its wall clock
+    /// moves the points without disturbing the fit (the `ww_clock_sync` crate does all this).
     #[optional(host_sync)]
-    #[errors(Common(WrongState, InvalidArgument))]
-    fn steer(point: SteerPoint) -> Result<(), ClockError<'i>>;
+    #[errors(Common(InvalidArgument))]
+    fn steer(point: SteerPoint) -> Result<SyncSource, ClockError<'i>>;
 
-    /// The device's shared time now, as `steer` points (or a sync line) give it; `None` while the clock runs free.
-    /// In the prefix and storage of `now()`. What a host compares with its own clock to see how well the device
-    /// follows (the residual offset).
+    /// The device's shared time now, in µs since the Unix epoch (UTC); `None` while the clock runs free. What a
+    /// host compares with its own clock to see how well the device follows (the residual offset).
     #[optional(host_sync)]
-    fn shared_now() -> Option<Second>;
+    fn shared_now() -> Option<u64>;
 }
 
 /// Static description of a device's clock, see `Clock::info`.
@@ -93,11 +103,11 @@ pub struct ClockInfo<'i> {
     ww_repr = unib32
 )]
 pub enum SyncConfig {
-    /// No synchronisation; `now()` runs free.
+    /// No sync line; the shared clock follows the host if it steers, or runs free.
     Off,
-    /// This device drives the sync line in `format`, so others can lock to it.
+    /// This device drives the sync line in `format` from its shared clock, so others can lock to it.
     Master { format: SyncFormat },
-    /// This device locks `now()` to a master's sync line in `format`.
+    /// This device locks its shared clock to a master's sync line in `format`.
     Slave { format: SyncFormat },
 }
 
@@ -113,9 +123,21 @@ pub enum SyncFormat {
     IrigB,
     /// Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).
     Pps,
-    /// No sync line: a host steers this device over its API with `Clock::steer` (STD-49), from its fit of
-    /// `Clock::now()` samples. Only as `SyncConfig::Slave`; the host's monotonic clock is the shared time.
+}
+
+/// Where a device's shared clock takes its time from, best first: a locked sync line, then a host steering it.
+/// See `SyncStatus::source`.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum SyncSource {
+    /// A host steering the device over its API with `Clock::steer`.
     Host,
+    /// The sync line, as a slave locked to it.
+    Line { format: SyncFormat },
 }
 
 /// Current sync state of a device's clock, see `Clock::sync_status`.
@@ -127,9 +149,17 @@ pub struct SyncStatus {
     pub offset: Option<Second>,
     /// Local time of the last lock.
     pub last_lock: Option<Second>,
+    /// The source the shared clock follows (`Locked`) or last followed (`Holdover`); `None` while free, and from
+    /// devices built before sources were reported.
+    #[default = None]
+    pub source: Option<SyncSource>,
+    /// Estimated bound of the shared clock's error against UTC: the source's own error and what holdover adds
+    /// since. `None` when the device can't tell.
+    #[default = None]
+    pub error: Option<Second>,
 }
 
-/// State of a device's sync line, see `SyncStatus::state` and `TimeMapPoint::state`.
+/// State of a device's shared clock, see `SyncStatus::state` and `TimeMapPoint::state`.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -137,14 +167,18 @@ pub struct SyncStatus {
     ww_repr = unib32
 )]
 pub enum SyncState {
-    /// Sync is off, or no signal has been seen yet: `now()` runs free.
+    /// No source yet (sync off and no host steering, or no signal seen): the shared clock runs free.
     Free,
-    /// A signal is present but not yet locked onto: `now()` still runs free.
+    /// A signal is present but not yet locked onto: the shared clock keeps its previous source or runs free.
     Acquiring,
-    /// Locked: `offset` and `last_lock` of `SyncStatus` are current.
+    /// Locked to `SyncStatus::source`: `offset` and `last_lock` of `SyncStatus` are current.
     Locked,
-    /// Was locked, lost the signal, and is coasting on the last known offset until it reacquires or times out.
+    /// Was locked, lost its source, and is coasting on the last known offset and rate until one comes back or it
+    /// times out.
     Holdover,
+    /// This device is the master of its sync line and sees another master's signal on it: two masters on one line,
+    /// reported until one of them goes. Slaves on that line can't tell which one to follow.
+    Conflict,
 }
 
 /// One point of the `time_map` stream: this device's local time mapped to the shared sync time.
@@ -152,24 +186,38 @@ pub enum SyncState {
 pub struct TimeMapPoint {
     /// This device's own time at the point.
     pub local: Second,
-    /// The corresponding shared (master) time.
+    /// The corresponding shared time (UTC), in the prefix and storage of `local` (wrapping as it does).
     pub shared: Second,
     /// Sync state at the point, so a host can tell a real lock from a stale mapping.
     pub state: SyncState,
+    /// The source followed at the point: a change from one point to the next is a seam (slewed, not stepped).
+    #[default = None]
+    pub source: Option<SyncSource>,
 }
 
-/// A host's fit of a device's clock, see `Clock::steer`: the device's local time `local` is the shared time `shared`,
-/// and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative: slower, as for
-/// a device clock that runs fast).
-#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
+/// A host's fit of a device's clock, see `Clock::steer`: the device's local time `local` is the shared time
+/// `shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative:
+/// slower, as for a device clock that runs fast).
+///
+/// `shared_us` is a plain `u64`, not a [Second]: shared time is UTC and needs all 64 bits, and a `Second` in a
+/// `U64` would make a device without 64-bit numbers (`ww_numeric`'s `u64` feature, 8 more bytes in every
+/// `NumericValue`) enable them for this one field.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Copy, Clone, Debug, PartialEq)
+)]
 pub struct SteerPoint {
-    /// Device time at the point, in the prefix and storage of `Clock::now()`.
+    /// Device time at the point, in the prefix and storage of `Clock::now()` (a `U32` wraps as `now()` does).
     pub local: Second,
-    /// Shared time at `local`, in the same prefix and storage.
-    pub shared: Second,
+    /// Shared time at `local`: µs since the Unix epoch, UTC.
+    pub shared_us: u64,
     /// Shared rate minus local rate, in parts per billion: shared time advances `1 + rate_ppb * 1e-9` s per
     /// local second. An HSI clock 1 % fast is about `-9_900_990`.
     pub rate_ppb: i32,
+    /// The host's estimate of how far `shared_us` may be off, in µs: half the shortest round trip and the
+    /// scatter of its samples. Not counting how far the host's own wall clock is from UTC.
+    pub error_us: u32,
 }
 
 /// Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong

@@ -1,0 +1,16 @@
+[package]
+name = "ww_clock_sync"
+version.workspace = true
+authors.workspace = true
+description = "Host clock sync for WireWeaver devices: fits each device's clock against the host's and steers it onto UTC (ww_timebase::Clock)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["time", "rt", "sync"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_date_time = { workspace = true, features = ["std"] } # used by codegen in generated code (ww_codegen! macro), not by name in source
+ww_si = { workspace = true, features = ["std", "time"] }
+ww_timebase = { workspace = true, features = ["std"] }

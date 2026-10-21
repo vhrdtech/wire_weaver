@@ -280,7 +280,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-29 | CAN bus | From a simple bridge to a bus debugger. | std_library/ww_can_bus.md
 - STD-26 | Logs | `defmt` logs over a reliable stream, including what was logged before the host connected. | std_library/ww_log.md
 - STD-28 | Indicators | LEDs off, essential or normal, and a blink to find a unit on the bench. | std_library/ww_indication.md
-- STD-50 | Indicators in phase | Several devices given one mode and one epoch breathe and blink together. | std_library/ww_indication.md
+- STD-50 | Indicators in phase | Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. | std_library/ww_indication.md#animations-in-phase-std-50
 - STD-12 | Firmware updates | `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. | std_library/ww_dfu.md
 - STD-20 | 1-Wire | Transactions and ROM search. | std_library/ww_onewire.md
 - STD-8, STD-6 | More buses | `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. | std_library/ww_i2c.md

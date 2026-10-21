@@ -14,10 +14,10 @@
 
 ### 🚀 Features
 
-- `Indication::set_mode_with_epoch(mode, epoch: Second)` (STD-50), `#[optional]`: writes the mode with `epoch`
-  (shared time, see `ww_timebase` host sync) as the start of every animation's cycle, so devices given the same
-  mode and epoch breathe and blink in phase. Servers that don't have a shared clock leave it out with
-  `omit = ["indication.set_mode_with_epoch"]`; servers built before this need that line or the handler.
+- Animations in phase (STD-50): a device with a shared clock (`ww_timebase` host sync or a sync line) aligns its
+  periodic animations to period boundaries of shared time (UTC), so devices showing the same animation are in phase
+  without an epoch. A rule in the docs of `Indication` and `mode`, no API item: devices without a shared clock change
+  nothing.
 
 ### 🐛 Fixes
 

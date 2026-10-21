@@ -890,9 +890,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   running hub with the program's own (`main_if_hub`, `WW_HUB_HANDOVER`, under `hub.start.lock`). Tested on Linux in
   `tests/hub_reconnect` (`versions.rs`, `handover.rs` with clients connected, `replace.rs` across processes); check
   on macOS and Windows open (compiles for both).
-- 📋 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `Clock` with host sync
-  (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
-  `ww sync` shows the hub's steering instead of fighting it.
+- 🧪 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving
+  `ww_timebase::Clock` with `host_sync` (found in its introspection data at any path) onto the PC's UTC with
+  `ww_clock_sync` on its own connection, and keeps it open for a sync linger (30 min, `WW_HUB_SYNC_LINGER`, `forever`)
+  so boards stay steered between short-lived commands; `WW_HUB_SYNC=off` / `sync().set_enabled` per device or all.
+  `ww_hub_api::ClockSync` at `sync`: `devices` (`SyncEntry`: phase, state, source, the steerer the device follows and
+  one it only notes, rate, shortest RTT, residual via `shared_now`, error, slew, samples), `linger`, the `stats`
+  stream. Rate cache per device serial in the state dir (`ww_clock_sync::RateCache`, atomic writes, shared with
+  direct-mode programs): a known device is steered after its first reading. Steer points say who steers
+  (`ww_timebase::Steerer`, STD-49 follow-up); the device follows one and notes the others (embedded_bedrock
+  `bedrock_sync`). `ww sync` shows the hub's steering with a hub, steers directly without one, STEERED BY column.
+  `docs/transport/hub.md#clock-sync-in-the-hub-srv-31`, `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E
+  in `tests/hub` (`clock_sync`), `tests/io_timebase`. Pausing under a device-wide claim comes with SRV-32. Hardware
+  check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on one
+  board.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
   holder, and `Hub::steering_paused` for the hub's clock steering (SRV-31 skips the device while it holds);
@@ -1344,6 +1355,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
   `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; Ctrl+C leaves the devices in holdover.
+  With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column.
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
   when each device and then all are within `--within-us` (locked by their word, residual by the host's), the LED
   phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
@@ -1432,7 +1444,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   window against the monotonic clock; `DeviceTime`; `HostClock`; `ClockSync` for any process holding a connection),
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
-  `bedrock_sync`. Hardware check open: Donguru and rePort steered by `ww sync` on omarchy-m1, `sync_status`
+  `bedrock_sync`. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
+  the PC (SRV-31). Hardware check open: Donguru and rePort steered by `ww sync` on omarchy-m1, `sync_status`
   `Locked`, the residual offset measured with `shared_now`.
 - ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
   full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot

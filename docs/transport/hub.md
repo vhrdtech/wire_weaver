@@ -120,6 +120,8 @@ let mut events = hub.registry().events().call().await?;
   (program, kind, user, host, instance id) and the pid the OS reports.
 - `registry().events()`: `Plugged`, `Unplugged`, `HolderChanged` (from hotplug events and a rescan every 2 s),
   `ClientJoined`, `ClientLeft`. A client that falls behind misses events and reads the lists again.
+- `claims()`: resources one program has to itself, see [Claims on resources](#claims-on-resources-srv-34).
+- `sync()`: how the hub keeps its devices' clocks on UTC, see [Clock sync in the hub](#clock-sync-in-the-hub-srv-31).
 
 ## Reaching devices through the hub (CLT-39)
 
@@ -287,7 +289,8 @@ The hub runs one `wire_weaver_client` event loop per open device and gives each 
   and counted (a client that doesn't read must not hold up the device or the other clients), answers and stream
   sidebands are never dropped.
 - **Open and close.** A device is opened when the first client asks for it and closed 30 s after the last one left
-  (`WW_HUB_LINGER` in seconds, `HubConfig::linger`); `registry().take(key)` keeps it open without clients. The hub
+  (`WW_HUB_LINGER` in seconds, `HubConfig::linger`), a device whose clock the hub steers after 30 min
+  ([sync linger](#clock-sync-in-the-hub-srv-31)); `registry().take(key)` keeps it open without clients. The hub
   writes the device's lock file in mode `hub` (CLT-38), and the registry lists it as `Open` with its tunnels. A
   client killed mid-stream is a closed socket: its streams and observe settings are dropped as if it closed them.
 - **Older and newer clients.** A request whose envelope the hub can't decode (a newer API model) goes to the device
@@ -558,6 +561,52 @@ the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one 
 
 `hub::Lend::take(key, purpose)` is the same from a program; without a running hub it is `None` and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).
+## Clock sync in the hub (SRV-31)
+
+Every device the hub holds open that serves [`ww_timebase::Clock`](../std_library/ww_timebase.md) with its
+`host_sync` group, anywhere in its API (found in the device's introspection data, which the hub fetches once when it
+opens the device), is steered onto the PC's UTC by the hub itself: a `ww_clock_sync::ClockSync` on the hub's own
+connection to the device, so the local socket hop of the clients isn't in its round trips. The hub is the one
+steerer for the devices of its user; programs see its steering through the API instead of steering themselves, and
+`ww sync` with a hub running only shows it ([CLI](../cli_reference.md#ww-sync)).
+
+- **Steering outlives commands.** A steered device stays open for the *sync linger* after its last client left
+  (30 min, `WW_HUB_SYNC_LINGER` in seconds or `forever`, `HubConfig::sync_linger`, `sync().linger` at run time;
+  `0` closes it after the plain linger like any device), so a board used by short commands now and then stays on
+  UTC instead of coasting in holdover between them. When the sync linger runs out the device is closed and goes on
+  in holdover, and the hub may exit.
+- **Fast start.** The hub uses the [rate cache](../std_library/ww_timebase.md#the-rate-cache) in the user's state
+  dir (`HubConfig::state_dir`), shared with programs that steer directly: a device the PC has seen before gets its
+  first steer point a round trip after the hub opens it.
+- **Who steers.** The hub's steer points name it (`ww hub`, its pid, a random id): a device reached by another host
+  too follows [one steerer at a time](../std_library/ww_timebase.md#one-steerer-at-a-time) and says which, and the
+  hub reports it (`followed`, `steerer`, `noted`).
+- **Switching it off.** `WW_HUB_SYNC=off` (`HubConfig::sync`) starts the hub with steering off for every device;
+  `sync().set_enabled(key, on)` switches it per device, or for all with `key = None`. A device whose steering goes
+  off coasts in holdover and lingers like any other.
+- **Pace.** `HubConfig::sync_options` (`ww_clock_sync::Options`): readings and steer points ten times a second until
+  the device says `Locked`, then five readings and one steer point a second.
+
+The API (`ww_hub_api::ClockSync` at `sync`):
+
+```rust
+let hub = HubClient::connect().await?;
+for e in hub.sync().devices().call().await? {
+    println!("{} {:?} {:?} rate {:?} ppb, residual {:?} ns", e.key, e.phase, e.state, e.rate_ppb, e.residual_ns);
+}
+let mut stats = hub.sync().stats().call().await?; // every device's SyncEntry as it changes, ~4 a second at most
+hub.sync().set_enabled(Some("usb:c0de:cafe:204B319B5431".into()), false).call().await?;
+hub.sync().write_linger(None).write().await?; // keep steered devices open forever
+```
+
+`SyncEntry` per device: `phase` (`Starting`, `Steering`, `Off`, `Paused`, `Unsupported`, `Failed { why }`), the
+device's `SyncState` and source, the `steerer` it follows and one it only `noted`, whether it `followed` the hub,
+the rate in ppb (and whether it still is the cached one), the shortest round trip of the fit, the residual against
+the PC's UTC measured with `shared_now` (good to half the check's round trip), the device's error bound and slew
+left, samples, steer points answered, restarts and the last error.
+
+Planned with SRV-32 (device-wide claims for DFU and settings writes): steering pauses (`Paused`) while one program
+has the whole device to itself, so the device coasts in holdover meanwhile.
 
 ## Who holds a device (CLT-38)
 

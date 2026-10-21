@@ -558,16 +558,24 @@ $ ww sync --mode normal
 ✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
 ✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
 ✓ all 3 within 2.00 ms after 6.3 s, LED phase 704 µs apart (±700 µs)
-DEVICE                STATE   SOURCE  RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
-B135 USB-FDCAN 3445   locked  host    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
-rePort bench-2        locked  host    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
-Donguru A1B2C3        locked  host    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
+B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
+rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
+Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
 LED phase: 704 µs apart across 3 devices (±700 µs), 0.023 % of a 3 s breath
 ```
 
 On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
 when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
 Until Ctrl+C or `--duration`; then the devices go on in holdover on their last steer point.
+
+With a [ww hub](transport/hub.md#clock-sync-in-the-hub-srv-31) running, the hub is the steerer: `ww sync` opens each
+device through the hub (which then steers it), shows the hub's steering from its `sync().stats()` stream, and never
+steers itself, so there is never a second steerer on the PC. `--poll-ms` and `--steer-ms` are then the hub's own
+pace; after Ctrl+C the hub keeps steering the devices for its sync linger (30 min). Without a hub, or with
+`WW_HUB=off`, `ww sync` steers directly as above. Either way it starts from the
+[rate cache](std_library/ww_timebase.md#the-rate-cache), so a device this PC has seen before is steered after its
+first reading.
 
 | Column     | What it is                                                                                          |
 |------------|-----------------------------------------------------------------------------------------------------|
@@ -577,6 +585,7 @@ Until Ctrl+C or `--duration`; then the devices go on in holdover on their last s
 | `RATE`     | how much faster shared time runs than the device's clock (an HSI running 1 % fast is about -9900 ppm) |
 | `SLEW`     | offset the device still slews in (5 % of its clock while acquiring, 1 % once locked)                |
 | `RTT`      | the shortest round trip of the fit                                                                   |
+| `STEERED BY` | whose steer points the device follows, by its own word (program, pid, and host when another PC); `NOTE` names a second steerer it only notes |
 
 A device has converged once it says `locked` and its residual is within `--within-us`; all have converged once every
 device that serves a clock has. A check whose half round trip is beyond `--within-us` (a USB hiccup) can't tell

@@ -38,12 +38,12 @@ pub trait Clock {
 
     fn sync_config() -> SyncConfig;
 
-    fn sync_status() -> SyncStatus;
+    fn sync_status() -> SyncStatus<'i>;
 
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError>;
 
     #[optional(host_sync)]
-    fn steer(point: SteerPoint) -> Result<Option<SyncSource>, ClockError>;
+    fn steer(point: SteerPoint<'i>) -> Result<Option<SyncSource>, ClockError>;
 
     #[optional(host_sync)]
     fn shared_now() -> Option<u64>;
@@ -81,16 +81,20 @@ pub trait Clock {
   evolvable.
 * `SyncFormat` - `IrigB`, `Pps`; `unib32` discriminant, evolvable.
 * `SyncSource` - `Host`, `Line { format }`: what the shared clock follows; `unib32` discriminant, evolvable.
-* `SyncStatus` - `state: SyncState`, `offset: Option<Second>` (local minus shared time at the last lock),
+* `SyncStatus<'i>` - `state: SyncState`, `offset: Option<Second>` (local minus shared time at the last lock),
   `last_lock: Option<Second>`, `source: Option<SyncSource>`, `error: Option<Second>` (estimated bound against UTC),
-  `slew_us: Option<i32>` (offset still to slew in); the last three `#[default = None]`, read as `None` from devices
-  built before them.
+  `slew_us: Option<i32>` (offset still to slew in), `steerer: Option<Steerer>` (the host whose points it follows)
+  and `noted: Option<Steerer>` (another one it only notes, see [one steerer at a time](#one-steerer-at-a-time));
+  all but the first three `#[default = None]`, read as `None` from devices built before them.
 * `SyncState` - `Free`, `Acquiring`, `Locked`, `Holdover`, `Conflict` (two masters on the line), see
   [States](#states); `unib32` discriminant, evolvable.
 * `TimeMapPoint` - one `time_map` item: `local: Second`, `shared: Second` (UTC, in the prefix and storage of
   `local`), `state: SyncState`, `source: Option<SyncSource>` (`#[default = None]`).
-* `SteerPoint` - `local: Second`, `shared_us: u64` (UTC), `rate_ppb: i32`, `error_us: u32`: device time `local` is
-  shared time `shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there on.
+* `SteerPoint<'i>` - `local: Second`, `shared_us: u64` (UTC), `rate_ppb: i32`, `error_us: u32`: device time `local`
+  is shared time `shared_us`, and shared time runs `rate_ppb` parts per billion faster than local time from there
+  on; `steerer: Option<Steerer>` (`#[default = None]`) says who sends it.
+* `Steerer<'i>` - `id: u64` (random per steering program, what the device tells steerers apart by), `host: &str`,
+  `program: &str` (`ww hub`, `ww`, an app), `pid: u32`.
 * `ClockError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)); unsized (`unib32`
   discriminant), evolvable.
 
@@ -194,13 +198,40 @@ correlates the device through `time_map` instead of steering it).
   `U64` would make such a device enable 64-bit numbers for one field.
 * The host side is the `ww_clock_sync` crate, for any process holding a device connection (the `ww` CLI, a device's
   own CLI or GUI): `ClockSync::start(&cmd, Options::default())` polls, fits and steers in a tokio task, and its
-  `Status` has the fit, the followed source and the residual offset it measures with `shared_now()`. There is no
-  central daemon: every process steers its devices onto the same UTC. `Estimator`, `DeviceTime` and `HostClock`
-  are the parts; the first two take time as numbers, so tests drive them with a simulated device clock (an HSI 1 %
-  fast, a crystal drifting with temperature, USB full-speed jitter of up to 2 ms a round trip).
-* `ww sync` ([CLI](../cli_reference.md#ww-sync)) keeps several devices steered and shows how well they follow.
+  `Status` has the fit, the followed source, the residual offset it measures with `shared_now()` and whether the
+  device follows it (`followed`). Every process steers its devices onto the same UTC; on a PC with a
+  [ww hub](../transport/hub.md#clock-sync-in-the-hub-srv-31) the hub is the one steerer for the devices it holds.
+  `Estimator`, `DeviceTime` and `HostClock` are the parts; the first two take time as numbers, so tests drive them
+  with a simulated device clock (an HSI 1 % fast, a crystal drifting with temperature, USB full-speed jitter of up
+  to 2 ms a round trip).
+* `ww sync` ([CLI](../cli_reference.md#ww-sync)) keeps several devices steered and shows how well they follow; with
+  a hub it shows the hub's steering instead.
 * On the device, embedded_bedrock's `bedrock_sync` crate keeps the shared clock (with an optional backend that
   steers the oscillator itself where a chip has a fractional PLL).
+
+### One steerer at a time
+
+Steer points say who sends them (`SteerPoint::steerer`: a random id per steering program, its host, program name and
+pid), so a device reached by two hosts (USB to one PC, UDP to another) or by a hub and a program on another link
+doesn't flip between their fits. The device follows one steerer: while that one's points keep coming (bedrock
+boards: within 3 s, their holdover time), another one's points are only noted, answered with the source the device
+follows (`Host`) and reported in `SyncStatus::noted`; once the followed one has been quiet that long, the next
+steerer's point takes over, slewed like any switch of source. Points without a steerer (hosts built before the
+field) count as one steerer of their own. `SyncStatus::steerer` names the one followed, so a host sees whether it is
+(`ww_clock_sync::Status::followed`) and who is instead; `ww sync` shows it in its STEERED BY column.
+
+### The rate cache
+
+A fit needs about a second of readings before its rate is worth anything, and a young fit's rate is off by the
+jitter over its span (100 µs over 1 s is 100 ppm). A device's rate against a PC's clock changes slowly (temperature,
+ageing), so `ww_clock_sync::RateCache` keeps the last one each PC measured per device serial, in the user's state
+dir (`$XDG_STATE_HOME/ww/clock_rates/<serial>.toml`, `~/Library/Application Support/ww` on macOS,
+`%LOCALAPPDATA%\ww\state` on Windows, `WW_STATE_DIR` to move it), written to a temporary file and renamed, shared
+by the hub and every program that steers directly. With `Options::rate_cache` set, the fit takes the cached rate and
+only fits the offset from the first reading on (`Estimator::set_prior`), so the first steer point goes out a round
+trip after connecting; after 20 s (`EstimatorConfig::prior_span`) the readings' own rate takes over, and it is saved
+again every minute. Between connections the device keeps its last rate in holdover, so a new connection, or a
+restarted hub, finds it close and pulls it back within its lock tolerance quickly.
 
 What to expect: in the simulation of a full-speed link with up to 2 ms of jitter per round trip, the offset is good
 to a few hundred µs and the rate to tens of ppm after 10 s, a few ppm after half a minute. Real USB bulk transfers

@@ -21,7 +21,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   Per medium (`ww_link::Framing`): USB without a checksum and without a prefix (a frame counter as an optional
   diagnostic, told by the interface protocol), UDP with the frame counter and a CRC-32 (the one of `ww_block`) on
   every message; `ww stats` counts lost, duplicated and reordered frames.
-
 - `BoardInfo::REWORKS` (STD-24, `ww_board_info` 0.3.0): an optional list of the reworks of a bring-up board (`id`,
   `title`, `applied`), so a unit says which patches of its PCB revision it has; `ww info` and `ww report` print it.
 - `ww pins test` / `ww pins list` (TOOL-15, crate `ww_pin_probe`): shorts to GND, to the supply and between points,

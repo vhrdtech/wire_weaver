@@ -72,6 +72,7 @@ dev.disconnect()                               # or `with ww.connect(...) as dev
 | `implements_api=("my_api", ">=0.2")`          | API crate name and a SemVer requirement                                  |
 | `rtt="STM32G0B1RETx"`                         | RTT over a debug probe, probe-rs chip name                               |
 | `rtt_elf="fw.elf"`, `rtt_speed_hz`            | firmware ELF to take the RTT control block address from, probe speed     |
+| `hub_device="usb:c0de:cafe:0042"`             | a device key straight through the ww hub, skipping enumeration and the filters above |
 | `timeout`                                     | default request timeout in seconds                                       |
 | `api`                                         | API from [`load_api()`](python_advanced.md#api-from-source-offline-use), for a device with introspection disabled |
 
@@ -80,6 +81,11 @@ Definitions the device leaves out are put back from the snapshots, or from the
 [definition cache](std_library/ww_self.md#the-definition-cache) for a device built from another revision of an
 unpublished crate, so its values decode without `load_api`.
 Without `rtt_elf`, RTT attaching scans the target RAM for the control block, see [RTT](transport/rtt.md#host-side).
+
+`connect()` goes through the ww hub when it already holds the device or `WW_HUB`/the open counter say so, the
+wheel's `python -m wire_weaver.hub` serving it when no other one is found; `wire_weaver.hub()` is a client of the
+hub itself. A notebook kernel restart then reconnects in no time with the device still open — see
+[Python and notebooks](transport/hub.md#python-and-notebooks-tool-18).
 
 ## Using the API
 

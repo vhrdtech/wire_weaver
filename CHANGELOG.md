@@ -14,6 +14,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 ### Added
 
 - Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
+- Device holders registry (CLT-38, `wire_weaver_client::holders`): every program opening a USB interface or RTT
+  probe claims an OS file lock on `<runtime dir>/ww/holders/<key>.lock` first, so a busy error can name who
+  already holds the device (program, pid, since) instead of the usual generic USB/probe error, and on Linux a
+  non-WireWeaver holder is found by scanning `/proc`. The lock-file-per-device shape is what the planned per-user
+  hub (SRV-13) will use too, to know which devices it already holds.
 - `ww dfu flash` (CLT-33): a whole update of a chunky device in one command, with `chunky_ww_host` from
   chunky_mcu_updater: an ELF or binary sealed for the device, a delta plan, pipelined steps with a progress bar,
   reboot into the trial, follow by serial number, the device's confirm or revert. `ww dfu status`, `confirm`,

@@ -1006,13 +1006,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   nothing else waiting (after one yield, so requests queued together still share a frame; `TxInput::Idle`,
   `TxCore::wants_idle_flush`). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
   1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.
+- ✅ **CLT-38 Who holds a device** · `v0.5.x` — `wire_weaver_client::holders` (`key_for`, `holder_of`, `list`),
+  always on, not gated by a feature: before claiming a USB interface or RTT probe, `claim()` takes an exclusive
+  `std::fs::File::try_lock` on `<runtime dir>/ww/holders/<key>.lock` (`$XDG_RUNTIME_DIR/ww` on Linux, `$TMPDIR/ww`
+  on macOS, `%LOCALAPPDATA%\ww\run` on Windows, created 0700 and refused if not owned by us) and writes `key = value`
+  lines (pid, program, exe, `mode = direct` for now, since, ww version; unknown keys ignored by the reader, so later
+  fields — CLT-41's client metadata — add without a format change). A crash releases the OS lock immediately, even
+  with stale content left on disk: `holder_of`/`list` only ever trust a lock file while its lock is actually held.
+  Device keys `usb:<vid>:<pid>:<serial>[:<iface>]`, `rtt:<probe serial>:<chip>`. A busy error from another
+  WireWeaver holder names it (`usb/connect.rs`'s `with_claim_hint`, `rtt/event_loop.rs`'s `with_claim_hint`): "held
+  by dg, pid 4711, direct, since 14:02:03 UTC"; without a lock file (a non-ww program: probe-rs CLI, minicom,
+  dfu-util), Linux scans `/proc/*/fd` for the device node and names the process, elsewhere it just says "another
+  program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
+  stale content never reported as held.
 - 🐛 **CLT-36 A call on a link that went down waits for a reconnect** — after the device resets (its event loop
   exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
   timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for
   now. Fix: fail calls with `Error::Disconnected` while no event loop runs (or start the timeout at the send).
-- 📋 **CLT-38 Who holds a device** · `v0.5.x` — every holder (direct programs, the hub) takes an OS file lock on
-  `<runtime dir>/ww/holders/<key>.lock` and writes pid, program and mode into it; a crash releases it. A busy error
-  names the holder ("held by dg, pid 4711, direct, since 14:02"); on Linux a non-ww holder is found in `/proc`.
 - 📋 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of `ww` calls doesn't re-open it every time. `HubMode` `Auto`, `Prefer`,

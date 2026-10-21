@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, anyhow};
+use anyhow::{Context, anyhow, bail};
 use probe_rs::probe::DebugProbeInfo;
 use probe_rs::rtt::{Rtt, ScanRegion};
 use probe_rs::{Core, Permissions, Session};
@@ -93,6 +93,8 @@ struct ProbeRtt {
     rtt: Rtt,
     up: usize,
     down: usize,
+    /// Keeps the holders registry claim (CLT-38) for as long as the probe is attached
+    _claim: Option<crate::holders::Claim>,
 }
 
 impl ProbeRtt {
@@ -100,7 +102,27 @@ impl ProbeRtt {
         // before touching the probe, a wrong path fails right away
         let control_block = control_block_address(h.control_block)?;
         debug!("attaching to {} through {}", h.target, h.probe);
-        let mut probe = h.probe.open()?;
+
+        // Claim our own lock before opening the probe (CLT-38): a busy error from another WireWeaver holder
+        // then names who, instead of probe-rs's generic one.
+        let key = crate::holders::key_for(crate::holders::DeviceRef::Rtt {
+            probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
+            chip: &h.target,
+        });
+        let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+            Ok(claim) => Some(claim),
+            Err(crate::holders::ClaimError::HeldBy(holder)) => {
+                bail!(
+                    "probe is already open by another WireWeaver program or connection; {holder}"
+                );
+            }
+            Err(crate::holders::ClaimError::Io(e)) => {
+                warn!("could not record holding {key} ({e:#}), continuing without it");
+                None
+            }
+        };
+
+        let mut probe = h.probe.open().map_err(|e| with_claim_hint(e, &h.probe))?;
         if let Some(speed_hz) = h.speed_hz {
             let khz = probe.set_speed(speed_hz / 1000)?;
             debug!("probe speed set to {khz} kHz");
@@ -141,8 +163,29 @@ impl ProbeRtt {
             rtt,
             up,
             down,
+            _claim: claim,
         })
     }
+}
+
+/// Same idea as `with_hint` in `usb/connect.rs`: a busy error already passed our own lock (CLT-38: nothing else
+/// speaking WireWeaver holds this probe), so the holder is a program that never wrote a lock file (probe-rs's
+/// own CLI, OpenOCD). On Linux, named by scanning `/proc` for whoever has the probe's USB device node open;
+/// elsewhere, just the plain error.
+fn with_claim_hint(e: probe_rs::probe::DebugProbeError, info: &DebugProbeInfo) -> anyhow::Error {
+    use probe_rs::probe::{DebugProbeError as E, ProbeCreationError as C};
+    let maybe_busy = matches!(e, E::ProbeCouldNotBeCreated(C::CouldNotOpen) | E::Usb(_));
+    if !maybe_busy {
+        return anyhow!("{e}");
+    }
+    if let Some(who) = crate::holders::holder_of_usb_device(
+        info.vendor_id,
+        info.product_id,
+        info.serial_number.as_deref(),
+    ) {
+        return anyhow!("{e}; held by {who}");
+    }
+    anyhow!("{e}")
 }
 
 fn control_block_address(cb: Option<RttControlBlock>) -> anyhow::Result<Option<u64>> {

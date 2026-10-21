@@ -179,6 +179,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-37 | Low call latency | A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond. | transport/ww_link.md
+- CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
 - CLT-34 | STM32 ROM DFU | Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it. | transport/follow_reboot.md#stm32-system-bootloader-rom-dfu
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
 - CLT-33 | Updating a chunky device | `ww dfu flash app.elf`: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. | cli_reference.md#ww-dfu-flash

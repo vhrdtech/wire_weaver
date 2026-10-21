@@ -5844,6 +5844,7 @@ dependencies = [
  "picoboot_host",
  "probe-rs",
  "ron",
+ "rustix",
  "semver",
  "stm32_dfu_host",
  "strum",

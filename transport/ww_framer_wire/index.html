@@ -4585,6 +4585,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#frame-prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frame prefix
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame prefix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-a-crc-32-on-every-message-udp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        With a CRC-32 on every message (UDP)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5412,6 +5440,34 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#frame-prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frame prefix
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frame prefix">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-a-crc-32-on-every-message-udp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        With a CRC-32 on every message (UDP)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5528,7 +5584,8 @@
 
 <h1 id="framer-wire-format">Framer wire format<a class="headerlink" href="#framer-wire-format" title="Permanent link">&para;</a></h1>
 <p>The exact bytes <a href="../ww_framer/">ww_framer</a> puts into a frame: the head layout, how small messages share a frame,
-how a big one is split, what the receiver does with lost frames, and where the checksum and tail go. For
+how a big one is split, what the receiver does with lost frames, where the checksum and tail go, and the frame
+prefix. For
 debugging bytes on the wire, writing a framer in another language, or changing this one.</p>
 <p>The examples use the types from the <a href="../ww_framer/#model">framer page</a>: <code>LinkTx</code> / <code>LinkRx</code> with <code>U2Head</code> and no
 checksum or tail, unless said otherwise.</p>
@@ -5733,18 +5790,21 @@ message on <code>user_kind = 1</code>:</p>
 <li><code>user_kind</code> changes mid-message → dropped.</li>
 <li>A <code>Start</code> or <code>Continue</code> that does <em>not</em> extend to the frame end, an <code>End</code> that does not fit into the frame
   together with checksum and tail, or a message larger than the receive buffer → skipped.</li>
-<li>Checksum mismatch → <strong>only that message</strong> is dropped, the rest of the frame is decoded normally. Frames are
-  already protected by the medium, so a bad checksum on a split message means a frame of it was lost or reordered,
-  not that the bytes at hand are corrupt.</li>
+<li>Checksum mismatch → <strong>only that message</strong> is dropped, the rest of the frame is decoded normally: a bad checksum
+  on a split message means a frame of it was lost or reordered, or the bytes at hand were corrupted; the heads that
+  follow still say where the next message starts (a corrupted one is a bad head or fails its own checksum).</li>
 <li>Bad tail → the frame cannot be trusted, the message is dropped and the rest of the frame is skipped.</li>
 <li>Head or payload of a <code>Full</code> message cut between two <code>stage</code> calls (stream media, byte-by-byte UART) → kept and
   completed by the next <code>stage</code>.</li>
 </ul>
-<p>After any of these the framer is back in a clean state and the next valid message is decoded normally.</p>
+<p>After any of these the framer is back in a clean state and the next valid message is decoded normally. With a
+<a href="#frame-prefix">frame prefix</a>, duplicated, late and stale frames are dropped before any of this, and a gap in the
+counter drops a split message in progress right away.</p>
 <h2 id="with-a-checksum-and-a-tail">With a checksum and a tail<a class="headerlink" href="#with-a-checksum-and-a-tail" title="Permanent link">&para;</a></h2>
-<p>The examples below use the <code>Crc8</code> checksum (on split messages only) and the <code>0x7E</code> <code>EndMarker</code> tail from the
-<a href="../ww_framer/#hand-rolled-example">hand-rolled example</a>. After the payload of a <code>Full</code> or <code>End</code> message come the
-checksum, then the tail; <code>Start</code> and <code>Continue</code> carry neither.</p>
+<p>The examples below use the <code>Crc8</code> checksum (CRC-8/SMBUS, on split messages only) and the <code>0x7E</code> <code>EndMarker</code> tail
+from the <a href="../ww_framer/#hand-rolled-example">hand-rolled example</a>. After the payload of a <code>Full</code> or <code>End</code> message
+come the checksum, then the tail; <code>Start</code> and <code>Continue</code> carry neither. A checksum covers the frame prefix (none
+here), the head of its <code>Full</code> or <code>End</code> and the whole message.</p>
 <h3 id="small-messages">Small messages<a class="headerlink" href="#small-messages" title="Permanent link">&para;</a></h3>
 <p>Two <code>Full</code> messages in a 16-byte frame — no checksum (<code>LEN_BYTES_FULL = 0</code>), tail after each:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a> byte:  0   1  2  3  4   5    6   7  8   9
@@ -5767,9 +5827,9 @@ identical to the no-checksum case; only the <code>End</code> frame grows by two 
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a> frame 3 (End, remaining = 2)
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a> ┌────┬────┬────┬────┬────┐
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a> │ C2 │ 13 │ 14 │ 99 │ 7E │
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a> │ C2 │ 13 │ 14 │ A8 │ 7E │
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a> └────┴────┴────┴────┴────┘
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>  head [18..20]  crc8 tail       0x99 = CRC-8 over all 20 bytes
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>  head [18..20]  crc8 tail       0xA8 = CRC-8 over the head C2 and all 20 bytes
 </span></code></pre></div>
 <h3 id="end-that-would-not-fit-stays-continue"><code>End</code> that would not fit stays <code>Continue</code><a class="headerlink" href="#end-that-would-not-fit-stays-continue" title="Permanent link">&para;</a></h3>
 <p>A 12-byte message over 8-byte frames. After frame 0 there are 6 bytes left, which <em>would</em> fit into a frame with a
@@ -5788,11 +5848,62 @@ leaving one for the <code>End</code>:</p>
 </span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
 </span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a> frame 2 (End, remaining = 1)
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a> ┌────┬────┬────┬────┐
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a> │ C1 │ 0C │ FF │ 7E │
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a> │ C1 │ 0C │ 61 │ 7E │
 </span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a> └────┴────┴────┴────┘
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>  head [11] crc8 tail       0xFF = CRC-8 over all 12 bytes
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>  head [11] crc8 tail       0x61 = CRC-8 over the head C1 and all 12 bytes
 </span></code></pre></div>
 <p>Frame 1 is sent short instead of being filled with a byte that would force <code>End</code> to span two frames.</p>
+<h2 id="frame-prefix">Frame prefix<a class="headerlink" href="#frame-prefix" title="Permanent link">&para;</a></h2>
+<p>With a <a href="../ww_framer/#frame-prefix">prefix</a>, every frame starts with it and the first head comes right after.
+<code>SeqPrefix</code> is one byte:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a> bit:   7   6   5   4   3   2   1   0
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>      ┌───┬───┬───┬───┬───┬───┬───┬───┐
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>      │ 0   0 │ e   e │ s   s   s   s │
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>      └───┴───┴───┴───┴───┴───┴───┴───┘
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>        spare   epoch   frame counter
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>                mod 4   mod 16
+</span></code></pre></div>
+<p>The spare bits are sent as 0 and ignored on read. The counter starts at 0 and goes up by one per frame sent, the
+epoch goes up by one per session (<code>Tx::new_session</code>, on link setup), and the counter starts at 0 again.</p>
+<p>The three small messages from <a href="#multiple-small-messages-in-one-frame">above</a> in the first frame of a session: the
+same bytes after one more at the front.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a> 00 │ 04 01 02 03 04 │ 15 11 12 13 14 15 │ 22 21 22
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a> ▲
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a> └─ epoch 0, frame 0
+</span></code></pre></div>
+<p>The 20-byte message over 8-byte frames: the prefix takes a byte of every frame, so each piece carries one byte less
+than <a href="#large-message-spanning-multiple-frames">without it</a>, and the message takes the same four frames.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a> frame 0     00 │ 48 14 │ 01 02 03 04 05           Start, total = 20
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a> frame 1     01 │ 88 0F │ 06 07 08 09 0A           Continue, remaining = 15
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a> frame 2     02 │ 88 0A │ 0B 0C 0D 0E 0F           Continue, remaining = 10
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a> frame 3     03 │ C5    │ 10 11 12 13 14           End, remaining = 5
+</span></code></pre></div>
+<p>Losing frame 1 is now seen at frame 2 from the counter (<code>Gap { lost: 1 }</code>), before any head is read.</p>
+<h3 id="with-a-crc-32-on-every-message-udp">With a CRC-32 on every message (UDP)<a class="headerlink" href="#with-a-crc-32-on-every-message-udp" title="Permanent link">&para;</a></h3>
+<p><code>ww_link</code>'s UDP configuration: <code>SeqPrefix</code> and <code>CrcChecksum&lt;CRC-32/ISO-HDLC, FULL = true&gt;</code>. A 3-byte message and a
+12-byte one over 12-byte frames:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a> frame 0
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a> ┌────┬────┬──────────┬─────────────┬────┬────┬────┐
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a> │ 00 │ 03 │ 01 02 03 │ FC 01 6A 7E │ 48 │ 0C │ 01 │
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a> └────┴────┴──────────┴─────────────┴────┴────┴────┘
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  pfx  Full  payload   CRC-32 (LE)    Start     [0]
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>       len 3           over 00 03 01 02 03   total = 12
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a> frame 1
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a> ┌────┬────┬────┬────────────────────────────┐
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a> │ 01 │ 88 │ 0B │ 02 03 04 05 06 07 08 09 0A │
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a> └────┴────┴────┴────────────────────────────┘
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>  pfx  Continue, remaining = 11
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a> frame 2
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a> ┌────┬────┬───────┬─────────────┐
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a> │ 02 │ C2 │ 0B 0C │ A7 BC E4 A4 │
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a> └────┴────┴───────┴─────────────┘
+</span><span id="__span-15-18"><a id="__codelineno-15-18" name="__codelineno-15-18" href="#__codelineno-15-18"></a>  pfx  End  [10..12] CRC-32 over 02 C2 and all 12 bytes
+</span></code></pre></div>
+<p>The CRC of the <code>Full</code> covers the frame's prefix <code>00</code>, its head <code>03</code> and its payload; the one of the <code>End</code> covers the
+prefix of the <code>End</code>'s frame <code>02</code>, the <code>End</code> head <code>C2</code> and the whole message. A flipped bit in a prefix, a user kind or
+a length fails it, as one in the payload does.</p>
 
 
 

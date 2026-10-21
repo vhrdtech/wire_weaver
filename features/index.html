@@ -6370,6 +6370,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   seq feeding the TOOL-9 explain code. E2E tests over simulated USB (<code>tap/e2e_tests.rs</code>, <code>wire_weaver_cli</code>
   <code>cmd/tap/tests.rs</code>): shared packets, split replies, a lost packet, stats, captures replayed identically. Open:
   the tap of a ww server's clients (<code>ClientMap</code> records are defined, nothing writes them yet).</li>
+<li>✅ <strong>TR-15 Frame prefix and link setup token</strong> · <code>v0.5</code> — stale frames after a reconnect are removed at the
+  cause and each medium gets the checks it needs (<code>docs/transport/ww_link.md#setup-token</code>,
+  <code>docs/transport/ww_framer.md#frame-prefix</code>): the host puts a random 64-bit token into link setup, the device
+  echoes it and starts its reply in a fresh framer session, the host drops everything before it
+  (<code>previous_session_leftovers_are_dropped</code>). <code>ww_framer::prefix</code> (<code>FramePrefix</code>, <code>NopPrefix</code>, <code>SeqPrefix</code>: 4-bit
+  frame counter, 2-bit epoch; lost, duplicate, late and stale frames reported and counted), checksums over prefix
+  and head, fuzz target <code>framer-lossy</code>. <code>ww_link::Framing</code> per medium: USB without a checksum and without a prefix
+  (<code>SeqPrefix</code> as a diagnostic, <code>wire_weaver_usb_embassy</code> feature <code>seq-prefix</code>, told by the interface protocol),
+  UDP with <code>SeqPrefix</code> and a CRC-32 (<code>ww_block</code>'s) on every message. <code>ww stats</code> / <code>ww monitor</code> show the prefix.
+  Wire change of the link (<code>docs/evolution/crate_layers.md</code>).</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>

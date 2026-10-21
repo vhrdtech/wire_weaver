@@ -5568,6 +5568,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 <ul>
 <li><strong><a href="../transport/ww_framer/">Framer</a></strong>: Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames.</li>
 <li><strong><a href="../transport/ww_link/">Link layer</a></strong>: Link setup, device info and protocol version exchange.</li>
+<li><strong><a href="../transport/ww_link/#setup-token">Frame counter and setup token</a></strong>: Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need.</li>
 <li><strong><a href="../transport/tap/">Link tap</a></strong>: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.</li>
 <li><strong><a href="../transport/usb_internals/">USB throughput on small MCUs</a></strong>: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span></li>
 </ul>

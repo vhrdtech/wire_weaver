@@ -5433,10 +5433,15 @@ keeps working with a host or firmware built against <code>wire_weaver 0.6</code>
 <code>shrink_wrap</code> major version and the same wire protocol.</p>
 <p>The exception is code that defines what goes on the wire:</p>
 <ul>
-<li><code>ww_framer</code> (frame layout, heads, checksums) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>, <code>LinkSetup</code>) - changing
-  these breaks every device from every host. The link version is sent in <code>DeviceInfo::dev_link_version</code> but it is not
-  checked yet, so a break there is not even detected cleanly. Only add new message kinds that old peers ignore;
-  never change existing ones.</li>
+<li><code>ww_framer</code> (frame layout, heads, checksums, frame prefixes) and <code>ww_link</code> (message kinds, <code>DeviceInfo</code>,
+  <code>LinkSetup</code>, each medium's <code>Framing</code>) - changing these breaks every device from every host. The host checks the
+  device's <code>DeviceInfo::dev_link_version</code> against its own <code>LINK_VERSION</code> and the setup token
+  (<a href="../../transport/ww_link/#setup-token">link setup</a>), and fails with <code>Error::IncompatibleLinkVersion</code> instead of a
+  setup timeout. Only add new message kinds that old peers ignore; never change existing ones. The last such break
+  was TR-15 (0.5): the setup token in <code>GetDeviceInfo</code> / <code>DeviceInfo</code> / <code>LinkSetup</code> / <code>LinkReady</code>, USB packets
+  without the split-message CRC-16, UDP datagrams with a frame counter and a CRC-32 on every message. A device and a
+  host on both sides of it don't connect over USB or UDP; RTT and WebSocket only miss the token, which is refused as
+  well, so every firmware and host is rebuilt together.</li>
 <li>Server and client codegen in <code>wire_weaver_core</code> - how resources are indexed, how arguments and return values are
   wrapped. Changing it changes the wire for every user API without any user version changing, so it must stay
   byte-identical for the same API definition.</li>

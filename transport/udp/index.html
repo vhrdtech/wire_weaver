@@ -5279,17 +5279,27 @@ then blink from the host with <code>cargo run -p blinky --features udp --example
 <ul>
 <li>a lost request (or its reply) times out, as a request to a busy device would;</li>
 <li>a lost stream event is gone;</li>
-<li>a message split across datagrams is dropped if any piece of it is lost or reordered, the framer detects it from the
-  remaining length and the CRC, and continues with the next one;</li>
+<li>every datagram starts with a frame counter: a duplicated datagram, one that comes late (after a later one), or one
+  from the previous session is dropped, a gap is counted as lost (<code>ww stats</code>, <code>ww monitor</code>);</li>
+<li>a message split across datagrams is dropped if any piece of it is lost, the framer detects it from the frame counter,
+  the remaining length and the CRC, and continues with the next one;</li>
+<li>every message carries a CRC-32: a datagram corrupted on the way (the UDP checksum is a 16-bit sum, and optional over
+  IPv4) is dropped instead of decoded into wrong values;</li>
 <li>link setup survives losses, <code>GetDeviceInfo</code> is retried;</li>
 <li>if the device goes away silently, the peer timeout ends the session.</li>
 </ul>
 <p>Keep messages that must not be lost small enough to fit in one datagram, or use <a href="../websocket/">WebSocket</a> if the
 device can run TCP.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
-<p>Each datagram is one <a href="../ww_framer/">ww_framer</a> frame, with <code>ww_link</code>'s UDP configuration: <code>UdpHead</code> (<code>U2Head</code>),
-<code>UdpChecksum</code> (CRC-16 on split messages only) and <code>UdpTail</code> (none). Same as over USB, small messages accumulated by the
-event loop share a datagram and big ones are split across several.</p>
+<p>Each datagram is one <a href="../ww_framer/">ww_framer</a> frame, with <code>ww_link::UdpFraming</code>: a one-byte
+<a href="../ww_framer/#frame-prefix">frame prefix</a> (<code>UdpPrefix</code>, <code>SeqPrefix</code>: frame counter mod 16 and session epoch mod 4),
+then the messages with <code>UdpHead</code> (<code>U2Head</code>) heads and <code>UdpChecksum</code>, a CRC-32/ISO-HDLC (the CRC-32 of zip and
+Ethernet, computed by <code>ww_block</code>) after every message, covering the prefix, the head and the message, and <code>UdpTail</code>
+(none). Same as over USB, small messages accumulated by the event loop share a datagram and big ones are split across
+several. Byte examples are on <a href="../ww_framer_wire/#with-a-crc-32-on-every-message-udp">framer wire format</a>.</p>
+<p>The device starts a new session of its framer on every <code>GetDeviceInfo</code> (the epoch goes up), and the host drops
+everything before the <code>DeviceInfo</code> with its <a href="../ww_link/#setup-token">setup token</a>. A datagram only starts link setup
+(and takes the device over from another host) when its CRC is good.</p>
 <p>The host sends datagrams of at most <code>ww_link::UDP_MAX_DATAGRAM_LEN</code> (1452 B: Ethernet MTU minus IPv6 and UDP headers,
 so that nothing is fragmented over IPv4 or IPv6), the device must be able to receive datagrams of this size. The
 host accepts datagrams of any size, the device picks its own frame size.</p>

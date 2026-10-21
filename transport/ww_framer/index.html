@@ -4349,6 +4349,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frame-prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frame prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-summary" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -4361,10 +4372,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#txh-c-t" class="md-nav__link">
+  <a href="#txh-c-t-p-nopprefix" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Tx&lt;H, C, T&gt;</code>
+        <code>Tx&lt;H, C, T, P = NopPrefix&gt;</code>
       </span>
     </span>
   </a>
@@ -4372,10 +4383,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#framedrxh-c-t" class="md-nav__link">
+  <a href="#framedrxh-c-t-p-nopprefix" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>FramedRx&lt;H, C, T&gt;</code>
+        <code>FramedRx&lt;H, C, T, P = NopPrefix&gt;</code>
       </span>
     </span>
   </a>
@@ -5307,6 +5318,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#frame-prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Frame prefix
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-summary" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5319,10 +5341,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#txh-c-t" class="md-nav__link">
+  <a href="#txh-c-t-p-nopprefix" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>Tx&lt;H, C, T&gt;</code>
+        <code>Tx&lt;H, C, T, P = NopPrefix&gt;</code>
       </span>
     </span>
   </a>
@@ -5330,10 +5352,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#framedrxh-c-t" class="md-nav__link">
+  <a href="#framedrxh-c-t-p-nopprefix" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        <code>FramedRx&lt;H, C, T&gt;</code>
+        <code>FramedRx&lt;H, C, T, P = NopPrefix&gt;</code>
       </span>
     </span>
   </a>
@@ -5558,12 +5580,15 @@ on <a href="../ww_framer_wire/">framer wire format</a>.</p>
 <p>Optionally a <strong>checksum</strong> over the message and a <strong>tail</strong> may follow the payload. Both are traits and default to
 no-ops (<code>NopChecksum</code>, <code>NopTail</code>), because frame-based media like USB and CAN already check frame integrity.
 See <a href="#checksum-and-tail">Checksum and tail</a> for the ready-made CRCs and an example with both enabled.</p>
-<p>The three pieces are generic parameters:</p>
+<p>Once per frame, before the first head, a <strong>prefix</strong> may be written: a frame counter and a session epoch for media
+that lose, duplicate or reorder frames (UDP). It is a fourth generic parameter, <code>NopPrefix</code> (nothing) by default,
+see <a href="#frame-prefix">Frame prefix</a>.</p>
+<p>The pieces are generic parameters:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::{</span><span class="n">Tx</span><span class="p">,</span><span class="w"> </span><span class="n">FramedRx</span><span class="p">};</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">framed</span><span class="p">::</span><span class="n">U2Head</span><span class="p">;</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">traits</span><span class="p">::{</span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="p">};</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// prefix: NopPrefix</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">NopChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
 </span></code></pre></div>
 <h2 id="writing-and-reading">Writing and reading<a class="headerlink" href="#writing-and-reading" title="Permanent link">&para;</a></h2>
@@ -5676,17 +5701,21 @@ verified once, when the <code>End</code> arrives.</p>
 </span></code></pre></div>
 <p>Both must be <strong>fixed length</strong>: <code>read</code> has to consume exactly <code>LEN_BYTES_*</code> bytes. The receiver uses these constants
 to decide upfront whether a whole message is present in a frame, and <code>Tx</code> uses them to decide whether an <code>End</code> fits.</p>
-<p>The checksum length is configured separately for <code>Full</code> and split messages. On USB or CAN a <code>Full</code> message is
-already protected by the frame CRC, while a split one spans several frames and a lost frame in between would not
-be detected by the medium alone — so a typical setup is <em>no</em> checksum for <code>Full</code> and a small one for split messages.
+<p>The checksum length is configured separately for <code>Full</code> and split messages. A medium that checks every frame and
+keeps them in order within a session (USB) needs none at all; one that loses frames but checks them (CAN) can take a
+small one on split messages only, as a lost frame in between would not be detected by the medium alone; one whose
+frames may arrive corrupted (UDP: its 16-bit checksum is weak and optional over IPv4) takes a CRC on every message.
 Byte-level examples with a checksum and a tail are on <a href="../ww_framer_wire/#with-a-checksum-and-a-tail">framer wire format</a>.</p>
+<p>A checksum covers more than the payload: <code>Checksum::write</code> / <code>read</code> get a <code>header</code> too, the frame's prefix followed by
+the head of the piece the checksum belongs to (the <code>Full</code>, or the <code>End</code> of a split message), so that a flipped bit in
+a user kind, a length or the prefix fails it as well.</p>
 <h3 id="ready-made-crcs-ww_framercrc">Ready-made CRCs: <code>ww_framer::crc</code><a class="headerlink" href="#ready-made-crcs-ww_framercrc" title="Permanent link">&para;</a></h3>
-<p>Instead of hand-rolling a checksum, use <code>CrcChecksum&lt;A, FULL&gt;</code> built on the <a href="https://docs.rs/crc">crc</a> crate.
-<code>A</code> selects both the <strong>width</strong> (u8 / u16 / u32 / u64, written little endian) and the <strong>algorithm</strong>; the lookup table
-is computed at compile time. <code>FULL</code> (default <code>false</code>) controls whether <code>Full</code> messages are checksummed too:</p>
+<p>Instead of hand-rolling a checksum, use <code>CrcChecksum&lt;A, FULL&gt;</code>. <code>A</code> selects both the <strong>width</strong> (u8 / u16 / u32 /
+u64, written little endian) and the <strong>algorithm</strong>; the provided ones use the <a href="https://docs.rs/crc">crc</a> crate with a
+lookup table computed at compile time. <code>FULL</code> (default <code>false</code>) controls whether <code>Full</code> messages are checksummed too:</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">crc</span><span class="p">::{</span><span class="n">CrcChecksum</span><span class="p">,</span><span class="w"> </span><span class="n">Crc16Usb</span><span class="p">,</span><span class="w"> </span><span class="n">Crc32IsoHdlc</span><span class="p">};</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1">// 2-byte CRC-16/USB on split messages only — the usual choice for USB / CAN</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1">// 2-byte CRC-16/USB on split messages only — e.g. for CAN, which may lose a frame between pieces</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc16Usb</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1">// 4-byte CRC-32 on every message — for media without its own frame CRC</span>
@@ -5723,15 +5752,21 @@ is computed at compile time. <code>FULL</code> (default <code>false</code>) cont
 </tr>
 </tbody>
 </table>
-<p>Any other algorithm from the <code>crc</code> catalog is a three-line impl:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">crc</span><span class="p">::</span><span class="n">CrcAlgorithm</span><span class="p">;</span>
+<p><code>CrcAlgorithm::checksum(header, message)</code> is a plain function, so any other algorithm from the <code>crc</code> catalog is a
+few lines, and the CRC can also come from elsewhere: a hardware CRC unit, or code shared with the rest of the firmware
+(<code>ww_link</code>'s UDP configuration takes its CRC-32 from <code>ww_block::crc32_update</code>, whose table size the firmware picks
+once for both):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">crc</span><span class="p">::{</span><span class="n">CrcAlgorithm</span><span class="p">,</span><span class="w"> </span><span class="n">crc_of</span><span class="p">};</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Crc8Autosar</span><span class="p">;</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">impl</span><span class="w"> </span><span class="n">CrcAlgorithm</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">Crc8Autosar</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="k">type</span><span class="w"> </span><span class="nc">Width</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">u8</span><span class="p">;</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">CRC</span><span class="p">:</span><span class="w"> </span><span class="nc">crc</span><span class="p">::</span><span class="n">Crc</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="p">::</span><span class="n">Crc</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">crc</span><span class="p">::</span><span class="n">CRC_8_AUTOSAR</span><span class="p">);</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="p">}</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkChecksum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc8Autosar</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">checksum</span><span class="p">(</span><span class="n">header</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="n">CRC</span><span class="p">:</span><span class="w"> </span><span class="nc">crc</span><span class="p">::</span><span class="n">Crc</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crc</span><span class="p">::</span><span class="n">Crc</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">&amp;</span><span class="n">crc</span><span class="p">::</span><span class="n">CRC_8_AUTOSAR</span><span class="p">);</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">        </span><span class="n">crc_of</span><span class="p">(</span><span class="o">&amp;</span><span class="n">CRC</span><span class="p">,</span><span class="w"> </span><span class="n">header</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">)</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">}</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkChecksum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc8Autosar</span><span class="o">&gt;</span><span class="p">;</span>
 </span></code></pre></div>
 <h3 id="hand-rolled-example">Hand-rolled example<a class="headerlink" href="#hand-rolled-example" title="Permanent link">&para;</a></h3>
 <p>The traits are small enough to implement directly. CRC-8 (poly <code>0x07</code>) for split messages only, and a <code>0x7E</code> end
@@ -5745,15 +5780,15 @@ marker after every message:</p>
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LEN_BYTES_FULL</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">   </span><span class="c1">// frame CRC is enough for Full messages</span>
 </span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">LEN_BYTES_SPLIT</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
 </span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">wr</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">WrError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="n">header</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">wr</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufWriter</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">WrError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">is_split</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">            </span><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="n">crc8</span><span class="p">(</span><span class="n">message</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">            </span><span class="n">wr</span><span class="p">.</span><span class="n">write_u8</span><span class="p">(</span><span class="n">crc8</span><span class="p">(</span><span class="n">header</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">))</span><span class="o">?</span><span class="p">;</span>
 </span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">        </span><span class="p">}</span>
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
 </span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">rd</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufReader</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RdError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">is_split</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">rd</span><span class="p">.</span><span class="n">read_u8</span><span class="p">()</span><span class="o">?</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">crc8</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="n">header</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">message</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">],</span><span class="w"> </span><span class="n">is_split</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">rd</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">mut</span><span class="w"> </span><span class="n">BufReader</span><span class="o">&lt;&#39;</span><span class="nb">_</span><span class="o">&gt;</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="p">(),</span><span class="w"> </span><span class="n">RdError</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">is_split</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">rd</span><span class="p">.</span><span class="n">read_u8</span><span class="p">()</span><span class="o">?</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">crc8</span><span class="p">(</span><span class="n">header</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">RdError</span><span class="p">::</span><span class="n">ChecksumMismatch</span><span class="p">);</span>
 </span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">        </span><span class="p">}</span>
 </span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="w">        </span><span class="nb">Ok</span><span class="p">(())</span>
@@ -5779,9 +5814,117 @@ marker after every message:</p>
 </span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a><span class="k">type</span><span class="w"> </span><span class="nc">LinkRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">Crc8</span><span class="p">,</span><span class="w"> </span><span class="n">EndMarker</span><span class="o">&gt;</span><span class="p">;</span>
 </span></code></pre></div>
 <p><code>message</code> passed to <code>Checksum::write</code> / <code>read</code> is always the <strong>complete</strong> message, even for <code>End</code>, so the CRC does
-not need to be incremental.</p>
+not need to be incremental; <code>crc8(header, message)</code> is the CRC-8 of <code>header</code> followed by <code>message</code>.</p>
+<h2 id="frame-prefix">Frame prefix<a class="headerlink" href="#frame-prefix" title="Permanent link">&para;</a></h2>
+<p>A frame prefix is written by <code>Tx</code> once at the start of every frame and read by <code>FramedRx</code> once, before the first
+head; heads, checksums and tails stay as they are (a checksum covers the prefix, see above). <code>Tx</code> keeps a <code>u32</code> frame
+counter (from 0, up by one per non-empty <code>flush()</code>) and a session epoch (up by one per <code>new_session()</code>) and hands
+them to the prefix, which decides what to write. The trait is <code>ww_framer::prefix::FramePrefix</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Prefix</th>
+<th>Bytes</th>
+<th>What it carries</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NopPrefix</code> (default)</td>
+<td>0</td>
+<td>nothing</td>
+<td>USB, RTT, byte streams</td>
+</tr>
+<tr>
+<td><code>SeqPrefix</code></td>
+<td>1</td>
+<td><code>00ee_ssss</code>: frame counter mod 16, epoch mod 4, 2 spare bits (sent as 0, ignored)</td>
+<td>UDP, and USB as an optional diagnostic</td>
+</tr>
+</tbody>
+</table>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_framer</span><span class="p">::</span><span class="n">prefix</span><span class="p">::{</span><span class="n">FrameReport</span><span class="p">,</span><span class="w"> </span><span class="n">SeqPrefix</span><span class="p">};</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">UdpTx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Tx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc32IsoHdlc</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="p">,</span><span class="w"> </span><span class="n">SeqPrefix</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="k">type</span><span class="w"> </span><span class="nc">UdpRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">FramedRx</span><span class="o">&lt;&#39;</span><span class="na">a</span><span class="p">,</span><span class="w"> </span><span class="n">U2Head</span><span class="p">,</span><span class="w"> </span><span class="n">CrcChecksum</span><span class="o">&lt;</span><span class="n">Crc32IsoHdlc</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">NopTail</span><span class="p">,</span><span class="w"> </span><span class="n">SeqPrefix</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="k">match</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">stage</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">?</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">    </span><span class="n">FrameReport</span><span class="p">::</span><span class="n">Gap</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">lost</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">warn</span><span class="o">!</span><span class="p">(</span><span class="s">&quot;{lost} frames lost&quot;</span><span class="p">),</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">    </span><span class="n">report</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">report</span><span class="p">.</span><span class="n">is_dropped</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(()),</span><span class="w"> </span><span class="c1">// duplicate, late, stale, too short: not staged</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">    </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{}</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>stage</code> (and <code>commit_staged</code>) check the prefix and say what they found in a <code>FrameReport</code>. <code>SeqPrefix</code>'s receiver
+rebuilds the full counter from its low bits, as the nearest value to the expected one:</p>
+<table>
+<thead>
+<tr>
+<th>Report</th>
+<th>Meaning</th>
+<th>The frame</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Synced</code></td>
+<td>first frame after <code>new</code>, <code>reset</code> or <code>resync</code>: taken as the reference</td>
+<td>decoded</td>
+</tr>
+<tr>
+<td><code>InOrder</code></td>
+<td>the expected frame</td>
+<td>decoded</td>
+</tr>
+<tr>
+<td><code>Gap { lost }</code></td>
+<td>up to 7 frames missing before it</td>
+<td>decoded; a split message in progress is dropped</td>
+</tr>
+<tr>
+<td><code>NewEpoch</code></td>
+<td>the sender started a new session (epoch one or two on)</td>
+<td>decoded; a split message in progress is dropped</td>
+</tr>
+<tr>
+<td><code>Duplicate</code></td>
+<td>received before (a bitmap of the last 16 frames)</td>
+<td>dropped</td>
+</tr>
+<tr>
+<td><code>Late</code></td>
+<td>from before the expected one, not received before: reordered</td>
+<td>dropped (already counted lost)</td>
+</tr>
+<tr>
+<td><code>StaleEpoch</code></td>
+<td>from the sender's previous session</td>
+<td>dropped</td>
+</tr>
+<tr>
+<td><code>Resynced</code></td>
+<td>the second of two frames in a row that look received and follow each other: 8 or more frames were lost</td>
+<td>dropped, taken as the new reference</td>
+</tr>
+<tr>
+<td><code>TooShort</code></td>
+<td>shorter than the prefix</td>
+<td>dropped</td>
+</tr>
+</tbody>
+</table>
+<p>So with a prefix, messages never come out twice or out of order, and a split message never gets a piece from
+another session. <code>prefix_stats()</code> counts each case (<code>PrefixStats</code>), <code>resync()</code> takes the next frame as it is (a new
+peer), and <code>Tx::new_session()</code> drops a half-written message and starts the next frame in a new epoch, so that the
+receiver drops whatever of the old session is still on the way. Process every frame (reassemble until <code>message()</code>
+is <code>None</code>) before staging the next one, as with split messages. The bytes are on
+<a href="../ww_framer_wire/#frame-prefix">framer wire format</a>.</p>
+<p>Limits of 4 + 2 bits: losing 8 or more frames in a row costs two more (the receiver needs two frames to see it), or
+up to 8 more when the frames before were lost too; a frame delayed across two session changes is taken as new; a
+corrupted prefix can move the receiver to a wrong position before the CRC rejects its frame, after which order is
+not guaranteed for a few frames (integrity still is: every message passes its CRC).</p>
 <h2 id="api-summary">API summary<a class="headerlink" href="#api-summary" title="Permanent link">&para;</a></h2>
-<h3 id="txh-c-t"><code>Tx&lt;H, C, T&gt;</code><a class="headerlink" href="#txh-c-t" title="Permanent link">&para;</a></h3>
+<h3 id="txh-c-t-p-nopprefix"><code>Tx&lt;H, C, T, P = NopPrefix&gt;</code><a class="headerlink" href="#txh-c-t-p-nopprefix" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -5804,7 +5947,15 @@ not need to be incremental.</p>
 </tr>
 <tr>
 <td><code>flush() -&gt; usize</code></td>
-<td>Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written.</td>
+<td>Length of the frame accumulated so far; resets the buffer. Returns 0 if nothing was written. A non-empty frame moves the frame counter on.</td>
+</tr>
+<tr>
+<td><code>new_session()</code></td>
+<td><code>reset()</code>, the epoch goes up by one and frames are counted from 0, see <a href="#frame-prefix">Frame prefix</a>.</td>
+</tr>
+<tr>
+<td><code>frame_ctx() -&gt; FrameCtx</code></td>
+<td>Counter and epoch of the frame being assembled.</td>
 </tr>
 <tr>
 <td><code>buf() -&gt; &amp;[u8]</code></td>
@@ -5812,7 +5963,7 @@ not need to be incremental.</p>
 </tr>
 </tbody>
 </table>
-<h3 id="framedrxh-c-t"><code>FramedRx&lt;H, C, T&gt;</code><a class="headerlink" href="#framedrxh-c-t" title="Permanent link">&para;</a></h3>
+<h3 id="framedrxh-c-t-p-nopprefix"><code>FramedRx&lt;H, C, T, P = NopPrefix&gt;</code><a class="headerlink" href="#framedrxh-c-t-p-nopprefix" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -5826,8 +5977,16 @@ not need to be incremental.</p>
 <td>Wrap a receive buffer. Must hold at least one maximum re-assembled message <strong>plus</strong> one maximum frame.</td>
 </tr>
 <tr>
-<td><code>stage(frame) -&gt; Result&lt;(), ()&gt;</code></td>
-<td>Copy a received frame in. <code>Err(())</code> if <code>free()</code> is too small.</td>
+<td><code>stage(frame) -&gt; Result&lt;FrameReport, ()&gt;</code></td>
+<td>Copy a received frame in, checking its prefix (<code>FrameReport::Unchecked</code> without one; a dropped frame is not staged). <code>Err(())</code> if <code>free()</code> is too small.</td>
+</tr>
+<tr>
+<td><code>staging_buf()</code> / <code>commit_staged(len)</code></td>
+<td>Receive a frame straight into the free part of the buffer, then stage it (same report).</td>
+</tr>
+<tr>
+<td><code>resync()</code> / <code>prefix_stats()</code></td>
+<td>Take the next frame's prefix as it is; counters of what the prefixes showed.</td>
 </tr>
 <tr>
 <td><code>free() -&gt; usize</code></td>
@@ -5844,19 +6003,19 @@ not need to be incremental.</p>
 </tbody>
 </table>
 <p>Intended receive loop:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">rx</span><span class="p">.</span><span class="n">stage</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="n">rx</span><span class="p">.</span><span class="n">reassemble</span><span class="p">();</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">message</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="w"> </span><span class="p">};</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">    </span><span class="n">handle</span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">);</span>
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">rx</span><span class="p">.</span><span class="n">stage</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">loop</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="n">rx</span><span class="p">.</span><span class="n">reassemble</span><span class="p">();</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">))</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rx</span><span class="p">.</span><span class="n">message</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">break</span><span class="w"> </span><span class="p">};</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="n">handle</span><span class="p">(</span><span class="n">user_kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">);</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Both also have <code>reset()</code> (drop whatever is half-written or half-assembled, e.g. on a reconnect) and
 <code>into_parts()</code> / <code>from_parts()</code> to keep the state apart from the buffer. With the <code>std</code> feature, <code>TxOwned</code> and
 <code>FramedRxOwned</code> own a <code>Vec</code> buffer and have the same methods (<code>TxOwned::new(frame_size)</code>,
 <code>FramedRxOwned::new(assembly_size)</code>); the host transports use them.</p>
 <h3 id="traits">Traits<a class="headerlink" href="#traits" title="Permanent link">&para;</a></h3>
-<p>Everything above is generic over three traits in <code>ww_framer::traits</code>, so a different medium can plug in its own
+<p>Everything above is generic over these traits (in <code>ww_framer::traits</code> and <code>ww_framer::prefix</code>), so a different medium can plug in its own
 encoding without touching the packing/splitting logic:</p>
 <table>
 <thead>
@@ -5882,6 +6041,11 @@ encoding without touching the packing/splitting logic:</p>
 <td>Optional fixed-length bytes after each message (e.g. an end marker for stream media)</td>
 <td><code>NopTail</code>, <code>ByteTail</code></td>
 </tr>
+<tr>
+<td><code>prefix::FramePrefix</code></td>
+<td>Optional fixed-length bytes at the start of every frame, with its own receiver state</td>
+<td><code>NopPrefix</code>, <code>SeqPrefix</code></td>
+</tr>
 </tbody>
 </table>
 <p>See <a href="#checksum-and-tail">Checksum and tail</a> for an example implementation of the last two.</p>
@@ -5899,6 +6063,10 @@ encoding without touching the packing/splitting logic:</p>
 <td><code>TxOwned</code> / <code>FramedRxOwned</code>, backed by a <code>Vec</code></td>
 </tr>
 <tr>
+<td><code>defmt</code></td>
+<td><code>defmt::Format</code> for the prefix types (<code>FrameReport</code>, <code>PrefixStats</code>)</td>
+</tr>
+<tr>
 <td><code>large</code></td>
 <td>Enables the 3-byte head form: messages up to 128 KiB</td>
 </tr>
@@ -5912,9 +6080,11 @@ encoding without touching the packing/splitting logic:</p>
 user kind), which is what most microcontroller links need.</p>
 <h2 id="testing-and-fuzzing">Testing and Fuzzing<a class="headerlink" href="#testing-and-fuzzing" title="Permanent link">&para;</a></h2>
 <p>The framer carries every message over USB, RTT and UDP (WebSocket has framing of its own), so it has to be right.
-Unit tests cover the head forms, splitting and the receiver failure modes listed on the
-<a href="../ww_framer_wire/#receiver-robustness">wire format page</a>, and a fuzz target round-trips random messages over random
-frame sizes: <code>cargo fuzz run framer-tx-rx</code> from <code>fuzz/</code>.</p>
+Unit tests cover the head forms, splitting, the prefix cases and the receiver failure modes listed on the
+<a href="../ww_framer_wire/#receiver-robustness">wire format page</a>. Two fuzz targets (from <code>fuzz/</code>): <code>framer-tx-rx</code> round-trips
+random messages over random frame sizes (<code>just fuzz-framer</code>), <code>framer-lossy</code> runs <code>SeqPrefix</code> with a CRC-32 on every
+message over a channel that loses, duplicates, delays and corrupts frames, with new sessions on the sender: the
+receiver must deliver only sent messages, and in order unless a frame was corrupted (<code>just fuzz-framer-lossy</code>).</p>
 
 
 

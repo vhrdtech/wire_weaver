@@ -55,8 +55,8 @@ impl std::fmt::Display for GapReason {
 pub enum ConnectionEvent {
     /// The link went. Calls in flight failed with [Error::Disconnected](crate::Error::Disconnected), and so does
     /// every call until a reconnect (they are never sent again by themselves). With `reconnecting`, the client
-    /// connects again by itself (a connection through the hub, [ClientConfig::hub_reconnect]
-    /// (crate::ClientConfig::hub_reconnect)): counted and reliable streams, observed levels and sinks wait for it.
+    /// connects again by itself (a connection through the hub, [crate::ClientConfig::hub_reconnect]): counted and
+    /// reliable streams, observed levels and sinks wait for it.
     Disconnected {
         reason: GapReason,
         reconnecting: bool,

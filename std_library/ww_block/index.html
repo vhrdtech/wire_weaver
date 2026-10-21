@@ -3113,6 +3113,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reads are free">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crc-32-table-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CRC-32 table size
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5199,6 +5216,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reads are free">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crc-32-table-size" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        CRC-32 table size
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5500,6 +5534,45 @@ with 4 KiB messages and buffers eight.</p>
 the bus). <code>crc(lba, count)</code> is the CRC-32 of a range computed on the device, so a host checks what it wrote without
 reading it back over a slow link. The CRC is CRC-32/ISO-HDLC, the one of zip and Ethernet; <code>ww_block::crc32</code> and
 <code>crc32_update</code> compute it on either side, and an STM32 CRC unit gives the same with reflected input and output.</p>
+<h3 id="crc-32-table-size">CRC-32 table size<a class="headerlink" href="#crc-32-table-size" title="Permanent link">&para;</a></h3>
+<p><code>crc32</code> and <code>crc32_update</code> are table-driven on top of the <a href="https://docs.rs/crc">crc</a> crate (already used by
+<code>ww_framer</code>), with the table size picked by cargo feature; all three give bit-identical CRC-32/ISO-HDLC results,
+checked against a fixed reference table in <code>ww_block</code>'s own tests at every length and split:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Table</th>
+<th>Flash (the table itself)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>(none, default)</em></td>
+<td>bitwise, no table</td>
+<td>0 B</td>
+<td>smallest, slowest: what a device with little flash to spare uses</td>
+</tr>
+<tr>
+<td><code>crc-table-256</code></td>
+<td>256 entries</td>
+<td>1 024 B</td>
+<td>measured on an RP2350 (rePort 027): bitwise <code>crc32_update</code> runs about 2.9 ms per 8 KiB; enabling this table raised the device's end-to-end <code>crc</code> throughput from 1.36 MB/s to 2.6-3.0 MB/s</td>
+</tr>
+<tr>
+<td><code>crc-table-slice16</code></td>
+<td>16 lanes of 256 entries</td>
+<td>16 384 B</td>
+<td>fastest, not yet measured on real hardware: cycles need <code>DWT CYCCNT</code> on silicon, per this repo's own measuring rule</td>
+</tr>
+</tbody>
+</table>
+<p>Enabling both features picks <code>crc-table-slice16</code> (the faster one) instead of a build error, so
+<code>cargo clippy --all-features</code> / <code>cargo doc --all-features</code> (this repo's lint step) still build. A firmware picks
+one in its own <code>Cargo.toml</code>, e.g.:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">ww_block</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.1&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;crc-table-256&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
 <h2 id="writes-need-a-lease">Writes need a lease<a class="headerlink" href="#writes-need-a-lease" title="Permanent link">&para;</a></h2>
 <p>A write can destroy what the card's own user (a recorder logging to it) keeps there, so writes are only done under a
 <strong>lease</strong>:</p>

@@ -3,10 +3,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, app_version: Some(1), version_floor: 1,
-      manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed, last_result: { outcome: Nothing,
-      version: 0 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
-        41 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
+      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
+      stage: true, stage_bulk: true } }
+        45 B  01 80 01 73 69 6d 2d 64 66 75 …
    ── host doesn't know this manifest digest: reads the manifest
 → inventory.layout(slot: Active)
          5 B  02 02 00 00 02
@@ -84,10 +85,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, app_version: Some(2), version_floor: 1,
-      manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed, last_result: { outcome: Confirmed,
-      version: 2 }, offers: { boot_control: true, inventory: true, stage: true, stage_bulk: true } }
-        41 B  01 80 01 73 69 6d 2d 64 66 75 …
+← { role: App, profile: InPlace, product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
+      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
+      stage: true, stage_bulk: true } }
+        45 B  01 80 01 73 69 6d 2d 64 66 75 …
 ```
 
 <details markdown="1">
@@ -96,9 +98,9 @@
 ```text
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-          80 01 00 00 00 01 00 00 00 80 1d d9 5e ff d1 e0
-          02 14 00 00 00 00 00 00 f0 01 57
+←   47 B  08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+          01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d d9
+          5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
    ── host doesn't know this manifest digest: reads the manifest
 →    6 B  05 02 02 00 00 02
 ←   18 B  08 10 02 80 80 40 00 00 00 08 00 80 00 00 00 04
@@ -177,9 +179,9 @@
    ── bootloader: image verified against the descriptor, plan area cleared
    ── device runs the app
 →    5 B  04 01 00 00 02
-←   43 B  08 29 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
-          80 02 00 00 00 01 00 00 00 80 56 73 03 0c 91 c1
-          ef 0d 00 10 02 00 00 00 f0 01 57
+←   47 B  08 2d 01 80 01 73 69 6d 2d 64 66 75 92 10 00 00
+          01 00 00 00 08 02 00 00 00 01 00 00 00 80 56 73
+          03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01 57
 ```
 
 </details>

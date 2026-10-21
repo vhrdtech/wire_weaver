@@ -3,11 +3,11 @@
    ── link up: dfu_app_api (link setup not shown, same on every link)
 → node.node()
          4 B  01 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, app_version: Some(1),
-      version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
       last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
       stage: true, stage_bulk: true } }
-        42 B  01 80 00 00 73 69 6d 2d 64 66 …
+        46 B  01 80 00 00 73 69 6d 2d 64 66 …
 → stage.limits()
          4 B  02 03 00 02
 ← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
@@ -83,11 +83,11 @@
          3 B  01 80 80
 → node.node()
          4 B  02 00 00 02
-← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, app_version: Some(2),
-      version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
+← { role: App, profile: AB(Copy), product: "sim-dfu", geometry_id: 4242, product_id: 1, seal: Unsigned,
+      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
       last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
       stage: true, stage_bulk: true } }
-        42 B  02 80 00 00 73 69 6d 2d 64 66 …
+        46 B  02 80 00 00 73 69 6d 2d 64 66 …
 ```
 
 <details markdown="1">
@@ -96,10 +96,10 @@
 ```text
    ── device runs the app
 →   10 B  03 04 01 00 00 02 84 73 64 94
-←   49 B  03 08 2a 01 80 00 00 73 69 6d 2d 64 66 75 92 10
-          00 00 80 01 00 00 00 01 00 00 00 80 1d d9 5e ff
-          d1 e0 02 14 00 00 00 00 00 00 f0 01 57 b3 a5 81
-          2d
+←   53 B  03 08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10
+          00 00 01 00 00 00 08 01 00 00 00 01 00 00 00 80
+          1d d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01
+          57 e8 8a 34 ed
 →   10 B  04 04 02 03 00 02 8b 52 92 99
 ←   20 B  04 08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
           06 e4 55 c3
@@ -171,10 +171,10 @@
 →   10 B  03 04 01 01 10 02 e2 0b 64 df
 ←    9 B  03 03 01 80 80 7f 53 ce 44
 →   10 B  04 04 02 00 00 02 d2 ec d4 9b
-←   49 B  04 08 2a 02 80 00 00 73 69 6d 2d 64 66 75 92 10
-          00 00 80 02 00 00 00 01 00 00 00 80 56 73 03 0c
-          91 c1 ef 0d 00 10 02 00 00 00 f0 01 57 eb c6 9d
-          e9
+←   53 B  04 08 2e 02 80 00 00 73 69 6d 2d 64 66 75 92 10
+          00 00 01 00 00 00 08 02 00 00 00 01 00 00 00 80
+          56 73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01
+          57 eb da 23 57
 ```
 
 </details>

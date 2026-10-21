@@ -14,4 +14,7 @@ pub enum DisconnectReason {
     IncompatibleVersion,
     Other(u8),
     Unknown,
+    /// The ww hub hands over to a newer one (SRV-30): the client reconnects to the new hub, the device stays.
+    /// Appended: an older reader gets `Newer`.
+    HubHandover,
 }

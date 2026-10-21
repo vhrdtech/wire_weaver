@@ -746,6 +746,22 @@
       "note": "ww_link LinkSetup (CLT-41) with the appended client_meta"
     },
     {
+      "name": "disconnect_reason.hub_handover",
+      "type": "DisconnectReason",
+      "value": "HubHandover",
+      "bytes": "06",
+      "gaps": {"dynamic": "ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's Disconnect payload, not a type of an API in the model", "python": "ww_link's Disconnect payload, not a type of an API in the model", "c": "ww_link's Disconnect payload, not a type of an API in the model"},
+      "note": "wire_weaver DisconnectReason::HubHandover (SRV-30), appended after Unknown: the ww hub hands over to a newer one"
+    },
+    {
+      "name": "disconnect_reason.from_newer",
+      "type": "DisconnectReason",
+      "value": {"Newer": 7},
+      "bytes": "07",
+      "gaps": {"dynamic": "ww_link's Disconnect payload, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail)", "explain": "ww_link's Disconnect payload, not a type of an API in the model", "python": "ww_link's Disconnect payload, not a type of an API in the model", "c": "ww_link's Disconnect payload, not a type of an API in the model"},
+      "note": "a reason appended after HubHandover reads as Newer with its discriminant, as an older client reads HubHandover (Newer(6))"
+    },
+    {
       "name": "tail_bytes",
       "type": "WithTail",
       "value": {"kind": 3, "rest": [1, 2, 3]},

@@ -354,6 +354,7 @@ impl TxCore {
                 link_setup_timeout_ms,
                 tap,
                 client_meta,
+                keep_streams_on_loss,
                 connected_tx,
                 failed_tx,
             } => {
@@ -395,6 +396,7 @@ impl TxCore {
                     token: self.token,
                     connected_tx,
                     link,
+                    keep_streams_on_loss,
                 }));
             }
             Command::RegisterTracer { trace_event_tx } => {

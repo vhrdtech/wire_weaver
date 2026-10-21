@@ -429,6 +429,7 @@ async fn try_connect(
             link_setup_timeout_ms: config.link_setup_timeout_ms,
             tap: config.tap.clone(),
             client_meta: config.client_meta.clone(),
+            keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
             failed_tx: Some(residual_tx),
         })
@@ -453,6 +454,7 @@ fn try_connect_blocking(
             link_setup_timeout_ms: config.link_setup_timeout_ms,
             tap: config.tap.clone(),
             client_meta: config.client_meta.clone(),
+            keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

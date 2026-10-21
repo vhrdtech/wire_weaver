@@ -1,5 +1,12 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `EventLoopExitReason::DisconnectFromDevice` carries the `DisconnectReason` the device (or the ww hub) sent.
+- `Command::Connect` has the new field `keep_streams_on_loss`: when the link goes rather than being disconnected on
+  request, counted and reliable streams, observed levels and sinks stay for a resume as after
+  `disconnect().keep_streams()` (set by the reconnect through the hub, CLT-40); `false` keeps today's behaviour.
+
 ### 🐛 Fixes
 
 - A call (or any command) while no event loop runs, after the link went down or `disconnect().keep_streams()` and before `Commander::reconnect()`, fails at once with `Error::Disconnected` instead of waiting in the command channel until someone reconnects (CLT-36): a keeper task holds the channel between event loops and answers what comes in; `reconnect()` takes the channel from it and gives it back.

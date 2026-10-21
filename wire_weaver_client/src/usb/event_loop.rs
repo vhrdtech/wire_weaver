@@ -411,6 +411,7 @@ mod tests {
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
             })
@@ -465,6 +466,7 @@ mod tests {
                     "".into(),
                     VersionOwned::new(0, 0, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
             })

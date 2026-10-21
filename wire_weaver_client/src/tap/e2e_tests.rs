@@ -134,6 +134,7 @@ async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
                 "test_api".into(),
                 VersionOwned::new(0, 3, 0),
             )),
+            keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

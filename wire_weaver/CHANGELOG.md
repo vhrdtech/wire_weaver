@@ -4,6 +4,8 @@
 
 - `ValidIndices` gets `Unknown(u32)` (SW-47), an index form from a newer version: it contains no index and iterates
   over nothing. `DisconnectReason` gets `Newer(u32)` (its own `Unknown` stays). Exhaustive matches need the arm.
+- `DisconnectReason::HubHandover` (SRV-30), appended: the ww hub hands over to a newer one and its clients reconnect;
+  an older reader gets `Newer(6)`. Exhaustive matches need the arm.
 - `WireWeaverAsyncApiBackend::process_bytes` takes `out: &mut EventWriter<'_, impl MessageSink>` and
   `medium: Self::Medium` instead of `sink: &mut impl MessageSink`, `WireWeaverApiBackend::process_bytes` takes
   `out: &mut impl BlockingEventOut` and `medium`. Both traits have a `type Medium: Copy` (`()` unless the server is

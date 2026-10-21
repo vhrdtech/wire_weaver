@@ -127,6 +127,8 @@ pub(crate) enum ToRx {
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
         /// The link's tap, for rx's link events
         link: ww_tap::RecorderLink,
+        /// See [Command::Connect]`::keep_streams_on_loss`
+        keep_streams_on_loss: bool,
     },
     /// Tx exits on [Command::DisconnectKeepStreams]: counted and reliable streams stay open for a resume on the next
     /// connection ([crate::Commander::resume_streams]).
@@ -607,6 +609,7 @@ mod tests {
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
             },
@@ -670,6 +673,7 @@ mod tests {
                     "test".into(),
                     VersionOwned::new(0, 1, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
             },
@@ -1102,7 +1106,9 @@ mod tests {
         assert!(p.rx_exited);
         assert!(matches!(
             p.tx_exit,
-            Some(Ok(EventLoopExitReason::DisconnectFromDevice))
+            Some(Ok(EventLoopExitReason::DisconnectFromDevice(
+                DisconnectReason::RequestByUser
+            )))
         ));
     }
 
@@ -1140,6 +1146,7 @@ mod tests {
                     "".into(),
                     VersionOwned::new(0, 0, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: None,
                 failed_tx: None,
             },
@@ -1296,6 +1303,7 @@ mod tests {
                     "".into(),
                     VersionOwned::new(0, 0, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx,
                 failed_tx: None,
             },
@@ -1356,6 +1364,7 @@ mod tests {
                     "test".into(),
                     VersionOwned::new(0, 2, 0),
                 )),
+                keep_streams_on_loss: false,
                 connected_tx: Some(connected_tx),
                 failed_tx: None,
             },
@@ -1529,6 +1538,7 @@ mod tests {
                     token: 1,
                     connected_tx: None,
                     link,
+                    keep_streams_on_loss: false,
                 })
                 .unwrap();
 

@@ -311,6 +311,7 @@ async fn connect_with_meta(
                 "test_api".into(),
                 VersionOwned::new(version.0, version.1, 0),
             )),
+            keep_streams_on_loss: false,
             connected_tx: Some(connected_tx),
             failed_tx: None,
         })

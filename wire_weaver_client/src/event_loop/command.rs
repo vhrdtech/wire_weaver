@@ -38,6 +38,11 @@ pub enum Command {
         tap: Option<ww_tap::Recorder>,
         /// Who this client is, sent in link setup, [ClientConfig::client_meta](crate::ClientConfig::client_meta).
         client_meta: Option<Box<ww_link::ClientMetaOwned>>,
+        /// When the link goes (the medium ends, the device sends `Disconnect`, it stops answering), counted and reliable
+        /// streams, observed levels and sinks stay for a resume on the next connection, as after
+        /// `disconnect().keep_streams()`: set for a connection the client reconnects by itself (CLT-40, through the
+        /// ww hub). A disconnect the client asks for still ends them.
+        keep_streams_on_loss: bool,
         /// Connection status sender.
         connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
         /// Before exiting, event loop will return it's command receiver through this channel.
@@ -259,11 +264,13 @@ pub enum EventLoopExitReason {
     CommanderDropped,
     DisconnectCommand,
     DisconnectKeepStreamsCommand,
-    DisconnectFromDevice,
+    /// The other side sent `Disconnect` with this reason
+    DisconnectFromDevice(DisconnectReason),
 }
 
 const _: () = {
-    assert!(size_of::<Command>() <= 80); // was 56, then 64 until Connect took the tap, 72 until it took the client meta
+    // was 56, then 64 until Connect took the tap, 72 until it took the client meta, 80 until keep_streams_on_loss
+    assert!(size_of::<Command>() <= 88);
 };
 
 /// Tunables of [Command::LoopbackTest], [Default] has the values `ww usb-loopback` uses unless told otherwise.

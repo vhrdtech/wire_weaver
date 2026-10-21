@@ -85,6 +85,32 @@ where
     }
 }
 
+/// A borrowed-only type without a lifetime (`wire_weaver::DisconnectReason`): its borrowed traits, both ways.
+fn case_borrowed_only<T>(name: &'static str, value: T) -> Typed
+where
+    T: SerializeShrinkWrap
+        + for<'i> DeserializeShrinkWrap<'i>
+        + PartialEq
+        + Debug
+        + Copy
+        + Send
+        + Sync
+        + 'static,
+{
+    Typed {
+        name,
+        encode: Box::new(move || {
+            let mut buf = [0u8; 64];
+            value
+                .to_ww_bytes(&mut buf)
+                .map(|b| b.to_vec())
+                .map_err(|e| format!("{e:?}"))
+        }),
+        decode: Box::new(move |bytes| compare(T::from_ww_bytes(bytes), |got| *got == value, value)),
+        borrowed: None,
+    }
+}
+
 /// A `head_tail` type (SW-46): `to_head_tail` / `from_head_tail`, its own format.
 fn case_head_tail(name: &'static str, value: HtRecord<'static>) -> Typed {
     Typed {
@@ -518,6 +544,16 @@ pub fn table() -> Vec<Typed> {
                 instance_id: 0x0102_0304_0506_0708,
             }))
         }),
+        // ww_link's Disconnect payload, not in the API model
+        case_borrowed_only(
+            "disconnect_reason.hub_handover",
+            wire_weaver::DisconnectReason::HubHandover,
+        ),
+        // a reason appended after HubHandover, as this version reads it
+        case_borrowed_only(
+            "disconnect_reason.from_newer",
+            wire_weaver::DisconnectReason::Newer(7),
+        ),
         case_debug("tail_bytes", || WithTailOwned {
             kind: 3,
             rest: TailBytesOwned(vec![1, 2, 3]),

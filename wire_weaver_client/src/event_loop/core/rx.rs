@@ -72,6 +72,8 @@ pub(crate) struct RxCore {
 
     last_rx_at: Option<Instant>,
     malformed_messages_left: u32,
+    /// See [Command::Connect](crate::event_loop::command::Command::Connect)`::keep_streams_on_loss`
+    keep_streams_on_loss: bool,
 }
 
 impl Default for RxCore {
@@ -94,6 +96,7 @@ impl RxCore {
             token_seen: false,
             last_rx_at: None,
             malformed_messages_left: MAX_MALFORMED_MESSAGES,
+            keep_streams_on_loss: false,
         }
     }
 
@@ -197,8 +200,10 @@ impl RxCore {
                 token,
                 connected_tx,
                 link,
+                keep_streams_on_loss,
             } => {
                 self.events.set(link);
+                self.keep_streams_on_loss = keep_streams_on_loss;
                 self.phase = Phase::LinkSetup;
                 self.client_version = Some(*client_version);
                 self.token = token;
@@ -304,7 +309,7 @@ impl RxCore {
                 } else {
                     info!("received Disconnect({reason:?}) from remote device, exiting");
                 }
-                return Ok(Some(EventLoopExitReason::DisconnectFromDevice));
+                return Ok(Some(EventLoopExitReason::DisconnectFromDevice(reason)));
             }
             Message::Ping | Message::Nop => {}
             Message::DeviceInfo(info) => {
@@ -442,6 +447,11 @@ impl RxCore {
         match &result {
             Ok(r) => debug!("rx exiting with: {r:?}"),
             Err(e) => error!("rx exiting with: {e:?}"),
+        }
+        // the link went (not a disconnect asked for): the client reconnects by itself and resumes them (CLT-40)
+        let lost = matches!(result, Err(_) | Ok(EventLoopExitReason::DisconnectFromDevice(_)));
+        if lost && self.keep_streams_on_loss {
+            self.dispatcher.keep_streams = true;
         }
         if self.phase == Phase::Up {
             self.dispatcher.handle_msg(DispatcherMessage::Disconnected);

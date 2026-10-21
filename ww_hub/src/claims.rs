@@ -94,7 +94,7 @@ fn kind_of(mode: ClaimMode) -> ClaimKind {
 pub(crate) fn resolve(
     bundle: Option<&ApiBundleOwned>,
     path: &[u32],
-) -> Result<Resource, ClaimErrorOwned> {
+) -> Result<Resource, Box<ClaimErrorOwned>> {
     if path.is_empty() {
         return Ok(Resource::root());
     }
@@ -120,7 +120,7 @@ pub(crate) fn resolve(
             continue;
         }
         if !matches!(item.kind, ApiItemKindOwned::Trait { .. }) {
-            return Err(ClaimErrorOwned::NotClaimable);
+            return Err(ClaimErrorOwned::NotClaimable.into());
         }
         let mode = item
             .claim_mode(bundle)
@@ -430,7 +430,7 @@ impl Claims {
         new: NewClaim,
         now: Instant,
         now_ms: u64,
-    ) -> Result<&Claim, ClaimErrorOwned> {
+    ) -> Result<&Claim, Box<ClaimErrorOwned>> {
         for c in self
             .list
             .iter()
@@ -444,13 +444,13 @@ impl Claims {
                 continue;
             }
             if same {
-                return Err(ClaimErrorOwned::InUse { claim: c.entry() });
+                return Err(ClaimErrorOwned::InUse { claim: c.entry() }.into());
             }
             if c.path.starts_with(&new.path)
                 || new.path.starts_with(&c.path)
                 || c.resource.shares_with(&new.resource)
             {
-                return Err(ClaimErrorOwned::Overlap { claim: c.entry() });
+                return Err(ClaimErrorOwned::Overlap { claim: c.entry() }.into());
             }
         }
         self.next_id = self.next_id.wrapping_add(1).max(1);
@@ -578,7 +578,7 @@ mod tests {
         }
     }
 
-    fn take(c: &mut Claims, n: NewClaim) -> Result<u32, ClaimErrorOwned> {
+    fn take(c: &mut Claims, n: NewClaim) -> Result<u32, Box<ClaimErrorOwned>> {
         c.claim(n, Instant::now(), 0).map(|c| c.id)
     }
 
@@ -590,19 +590,19 @@ mod tests {
         take(&mut c, new(1, &[3, 0], ex(), None)).unwrap();
         assert!(matches!(
             take(&mut c, new(2, &[3, 0], ex(), None)),
-            Err(ClaimErrorOwned::InUse { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::InUse { .. })
         ));
         assert!(matches!(
             take(&mut c, new(2, &[3], ex(), None)),
-            Err(ClaimErrorOwned::Overlap { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::Overlap { .. })
         ));
         assert!(matches!(
             take(&mut c, new(2, &[3, 0, 1], ex(), None)),
-            Err(ClaimErrorOwned::Overlap { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::Overlap { .. })
         ));
         assert!(matches!(
             take(&mut c, new(2, &[], ex(), None)),
-            Err(ClaimErrorOwned::Overlap { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::Overlap { .. })
         ));
         // another element of the array is free, the same owner nests
         take(&mut c, new(2, &[3, 1], ex(), None)).unwrap();
@@ -619,16 +619,16 @@ mod tests {
                 &mut c,
                 new(2, &[6], res(ClaimKind::Exclusive, &["PA0", "PA9"]), None)
             ),
-            Err(ClaimErrorOwned::Overlap { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::Overlap { .. })
         ));
 
-        // shared: together, an exclusive one above it waits
+        // shared: together, an exclusive one above it is refused
         let sh = || res(ClaimKind::Shared, &[]);
         take(&mut c, new(1, &[7], sh(), None)).unwrap();
         take(&mut c, new(2, &[7], sh(), None)).unwrap();
         assert!(matches!(
             take(&mut c, new(3, &[], ex(), None)),
-            Err(ClaimErrorOwned::Overlap { .. })
+            Err(e) if matches!(*e, ClaimErrorOwned::Overlap { .. })
         ));
     }
 

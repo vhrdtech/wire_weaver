@@ -90,15 +90,16 @@ pub enum Kind {
     /// If USB data toggle bits are messed up after re-connection, this ensures no useful packets are lost.
     Nop = 3,
 
-    /// Sent from host to device to get device info.
+    /// Sent from host to device to get device info, with the host's [setup token](Message::GetDeviceInfo).
+    /// Starts a new session on the device: its transmit framer drops whatever is left of the previous one.
     GetDeviceInfo = 4,
-    /// Sent from device to host in response to GetDeviceInfo with [DeviceInfo] struct.
+    /// Sent from device to host in response to GetDeviceInfo with [DeviceInfo] struct, echoing the token.
     DeviceInfo = 5,
 
     /// Sent from host to device with its link, client server, and user versions ([LinkSetup]).
     LinkSetup = 6,
-    /// Sent from device to host to let it know that it received LinkSetup and that protocol version is compatible.
-    /// Otherwise, Disconnect with DisconnectReason::IncompatibleVersion is sent.
+    /// Sent from device to host to let it know that it received LinkSetup and that protocol version is compatible,
+    /// echoing the token. Otherwise, Disconnect with DisconnectReason::IncompatibleVersion is sent.
     /// Guard against host starting to send before device received LinkSetup to avoid losing messages.
     LinkReady = 7,
 
@@ -165,6 +166,10 @@ pub struct DeviceInfo<'i> {
     pub dev_max_message_len: u32,
     /// Configures host side to use the same value
     pub packet_accumulation_time_us: u16,
+    /// The token of the [Kind::GetDeviceInfo] this answers, see [Message::GetDeviceInfo]. 0 from a device built
+    /// before the token existed.
+    #[default = 0]
+    pub token: u64,
 }
 
 #[cfg(feature = "std")]
@@ -177,6 +182,7 @@ impl DeviceInfo<'_> {
             hash: self.hash.make_owned(),
             dev_max_message_len: self.dev_max_message_len,
             packet_accumulation_time_us: self.packet_accumulation_time_us,
+            token: self.token,
         }
     }
 }
@@ -192,6 +198,10 @@ pub struct LinkSetup<'i> {
     pub host_user_version: FullVersion<'i>,
     /// Maximum length message that host can process
     pub host_max_message_len: u32,
+    /// The host's setup token, echoed in [Message::LinkReady]. 0 from a host built before the token existed, which
+    /// the device refuses.
+    #[default = 0]
+    pub token: u64,
 }
 
 /// Decoded link message, see [Kind] for details on each.
@@ -203,10 +213,20 @@ pub enum Message<'i> {
         bytes: &'i [u8],
     },
     Nop,
-    GetDeviceInfo,
+    /// `token` is a random, non-zero number the host picks per connection (`u64`, little endian). The device
+    /// echoes it in [DeviceInfo::token] and [Message::LinkReady], and the host drops everything that arrives
+    /// before the reply carrying it: whatever was still on the way from a previous session (an answer already in
+    /// the device's IN buffer, a half-sent message) is never taken for the new one. 0 (no payload) from a host
+    /// built before the token existed.
+    GetDeviceInfo {
+        token: u64,
+    },
     DeviceInfo(DeviceInfo<'i>),
     LinkSetup(LinkSetup<'i>),
-    LinkReady,
+    /// `token` echoes [LinkSetup::token] (`u64`, little endian), 0 (no payload) from a device built before it existed.
+    LinkReady {
+        token: u64,
+    },
     Ping,
     GetStats,
     /// Not defined yet, raw bytes
@@ -239,10 +259,10 @@ impl<'i> Message<'i> {
                 _ => Kind::Data2,
             },
             Message::Nop => Kind::Nop,
-            Message::GetDeviceInfo => Kind::GetDeviceInfo,
+            Message::GetDeviceInfo { .. } => Kind::GetDeviceInfo,
             Message::DeviceInfo(_) => Kind::DeviceInfo,
             Message::LinkSetup(_) => Kind::LinkSetup,
-            Message::LinkReady => Kind::LinkReady,
+            Message::LinkReady { .. } => Kind::LinkReady,
             Message::Ping => Kind::Ping,
             Message::GetStats => Kind::GetStats,
             Message::Stats(_) => Kind::Stats,
@@ -262,14 +282,18 @@ impl<'i> Message<'i> {
                 bytes: payload,
             },
             Kind::Nop => Message::Nop,
-            Kind::GetDeviceInfo => Message::GetDeviceInfo,
+            Kind::GetDeviceInfo => Message::GetDeviceInfo {
+                token: read_token(&mut rd).map_err(malformed)?,
+            },
             Kind::DeviceInfo => {
                 Message::DeviceInfo(DeviceInfo::des_shrink_wrap(&mut rd).map_err(malformed)?)
             }
             Kind::LinkSetup => {
                 Message::LinkSetup(LinkSetup::des_shrink_wrap(&mut rd).map_err(malformed)?)
             }
-            Kind::LinkReady => Message::LinkReady,
+            Kind::LinkReady => Message::LinkReady {
+                token: read_token(&mut rd).map_err(malformed)?,
+            },
             Kind::Ping => Message::Ping,
             Kind::GetStats => Message::GetStats,
             Kind::Stats => Message::Stats(payload),
@@ -299,11 +323,10 @@ impl<'i> Message<'i> {
         match self {
             Message::Data { bytes, .. } => return Ok((kind, bytes)),
             Message::Stats(bytes) => return Ok((kind, bytes)),
-            Message::Nop
-            | Message::GetDeviceInfo
-            | Message::LinkReady
-            | Message::Ping
-            | Message::GetStats => {}
+            Message::Nop | Message::Ping | Message::GetStats => {}
+            Message::GetDeviceInfo { token } | Message::LinkReady { token } => {
+                wr.write_u64(*token).map_err(too_small)?
+            }
             Message::DeviceInfo(info) => info.ser_shrink_wrap(&mut wr).map_err(too_small)?,
             Message::LinkSetup(setup) => setup.ser_shrink_wrap(&mut wr).map_err(too_small)?,
             Message::Loopback { repeat, seq, data } => {
@@ -315,6 +338,14 @@ impl<'i> Message<'i> {
         }
         Ok((kind, wr.finish_and_take().map_err(too_small)?))
     }
+}
+
+/// A token: 8 bytes little endian, or 0 when there are none (a peer built before tokens existed).
+fn read_token(rd: &mut BufReader<'_>) -> Result<u64, shrink_wrap::Error> {
+    if rd.bytes_left() == 0 {
+        return Ok(0);
+    }
+    rd.read_u64()
 }
 
 #[cfg(test)]
@@ -337,7 +368,9 @@ mod tests {
             bytes: &[1, 2, 3],
         });
         round_trip(Message::Nop);
-        round_trip(Message::GetDeviceInfo);
+        round_trip(Message::GetDeviceInfo {
+            token: 0x0123_4567_89AB_CDEF,
+        });
         round_trip(Message::DeviceInfo(DeviceInfo {
             dev_link_version: CompactVersion::new(ww_global::WIRE_WEAVER_USB_LINK, 1, 2, 3),
             api_model_version: CompactVersion::new(ww_global::WW_CLIENT_SERVER, 0, 2, 0),
@@ -345,12 +378,14 @@ mod tests {
             hash: ApiHashPair::empty(),
             dev_max_message_len: 2048,
             packet_accumulation_time_us: 1000,
+            token: u64::MAX,
         }));
         round_trip(Message::LinkSetup(LinkSetup {
             host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
             host_max_message_len: 4096,
+            token: 7,
         }));
-        round_trip(Message::LinkReady);
+        round_trip(Message::LinkReady { token: 7 });
         round_trip(Message::Ping);
         round_trip(Message::Loopback {
             repeat: 1,
@@ -358,6 +393,45 @@ mod tests {
             data: &[0xAA; 10],
         });
         round_trip(Message::Disconnect(DisconnectReason::RequestByUser));
+    }
+
+    #[test]
+    fn token_bytes_and_peers_without_one() {
+        let mut scratch = [0u8; 16];
+        let (kind, payload) = Message::GetDeviceInfo { token: 0x0102 }
+            .encode(&mut scratch)
+            .unwrap();
+        assert_eq!(kind, Kind::GetDeviceInfo as u8);
+        assert_eq!(payload, &[0x02, 0x01, 0, 0, 0, 0, 0, 0]);
+        // an older peer sends no payload
+        assert!(matches!(
+            Message::decode(Kind::GetDeviceInfo as u8, &[]),
+            Ok(Message::GetDeviceInfo { token: 0 })
+        ));
+        assert!(matches!(
+            Message::decode(Kind::LinkReady as u8, &[]),
+            Ok(Message::LinkReady { token: 0 })
+        ));
+        assert!(matches!(
+            Message::decode(Kind::LinkReady as u8, &[1, 2, 3]),
+            Err(Error::Malformed(Kind::LinkReady))
+        ));
+        // LinkSetup (and DeviceInfo) of an older peer end before the token: read as 0
+        #[derive_shrink_wrap(borrowed, derive(Debug))]
+        struct OldLinkSetup<'i> {
+            host_user_version: FullVersion<'i>,
+            host_max_message_len: u32,
+        }
+        let old = OldLinkSetup {
+            host_user_version: FullVersion::new("test", ww_version::Version::new(0, 1, 0)),
+            host_max_message_len: 4096,
+        };
+        let mut buf = [0u8; 64];
+        let bytes = old.to_ww_bytes(&mut buf).unwrap().to_vec();
+        let Ok(Message::LinkSetup(read)) = Message::decode(Kind::LinkSetup as u8, &bytes) else {
+            panic!("an older LinkSetup must still decode");
+        };
+        assert_eq!((read.host_max_message_len, read.token), (4096, 0));
     }
 
     #[test]

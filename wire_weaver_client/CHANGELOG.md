@@ -10,6 +10,7 @@
 
 ### ⚠️ Breaking
 
+- Link setup token (TR-15): every connection sends a random non-zero token in `GetDeviceInfo` and `LinkSetup` and drops every message until the `DeviceInfo` carrying it (and a `LinkReady` with another one), so an answer still in the device's buffers from a previous session (a `DeviceInfo`, the rest of a split message) is never taken for the new session; tested end to end (`previous_session_leftovers_are_dropped`). A device without the token, or with an incompatible `dev_link_version`, fails the connection with the new `Error::IncompatibleLinkVersion { device, host }` instead of timing out.
 - `StreamStats` has `lost_codec`, `codec_bytes_in` and `codec_bytes_out` (API-55): code building it by hand adds them. `RequestKind::StreamOpen` carries `codecs` (a wire change, see `ww_client_server`).
 - `Sink` of a credit sink runs on `ww_stream::sink::SinkTx` (API-34): it opens with `StreamOpen` and a session it names (random), waits for the answer, writes `SinkWrite` / `SinkWriteUnits`, takes `Ack` / `Resend` and opens its session again when the device answers `Close`; it needs a device with the same change. Positions count units: `credit_progress()` returns units (one per value, the bytes of a byte sink's payload), no longer bytes. A device that lost the session (a reboot) fails the call with the new `StreamError::SinkSessionLost { device_at, acked }` (`SinkAhead` for a device ahead of what was sent). `client::credit` (`CreditTx`) is gone, `CreditConfig` is in `client::sink` (still re-exported at the root).
 

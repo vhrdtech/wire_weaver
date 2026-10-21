@@ -338,7 +338,10 @@ mod tests {
 
     fn rx_at(seq: u32, epoch: u8) -> SeqRx {
         let mut rx = SeqRx::default();
-        assert!(matches!(rx.check::<4, 2>(seq & 15, epoch & 3), FrameReport::Synced(_)));
+        assert!(matches!(
+            rx.check::<4, 2>(seq & 15, epoch & 3),
+            FrameReport::Synced(_)
+        ));
         rx
     }
 
@@ -349,8 +352,14 @@ mod tests {
     #[test]
     fn encode_decode() {
         assert_eq!(SeqPrefix::encode(FrameCtx { seq: 0, epoch: 0 }), 0x00);
-        assert_eq!(SeqPrefix::encode(FrameCtx { seq: 17, epoch: 5 }), 0b0001_0001);
-        assert_eq!(SeqPrefix::encode(FrameCtx { seq: 15, epoch: 3 }), 0b0011_1111);
+        assert_eq!(
+            SeqPrefix::encode(FrameCtx { seq: 17, epoch: 5 }),
+            0b0001_0001
+        );
+        assert_eq!(
+            SeqPrefix::encode(FrameCtx { seq: 15, epoch: 3 }),
+            0b0011_1111
+        );
         assert_eq!(SeqPrefix::decode(0b0011_1111), (15, 3));
         // spare bits ignored
         assert_eq!(SeqPrefix::decode(0b1110_0101), (5, 2));

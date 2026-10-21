@@ -65,6 +65,10 @@ pub(crate) struct RxCore {
     connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     client_version: Option<FullVersionOwned>,
     device_api_info: Option<DeviceApiInfo>,
+    /// This connection's setup token, see [ww_link::Message::GetDeviceInfo]
+    token: u64,
+    /// A DeviceInfo with [Self::token] arrived: everything before it was from a previous session
+    token_seen: bool,
 
     last_rx_at: Option<Instant>,
     malformed_messages_left: u32,
@@ -86,6 +90,8 @@ impl RxCore {
             connected_tx: None,
             client_version: None,
             device_api_info: None,
+            token: 0,
+            token_seen: false,
             last_rx_at: None,
             malformed_messages_left: MAX_MALFORMED_MESSAGES,
         }
@@ -183,12 +189,15 @@ impl RxCore {
             ToRx::KeepStreams => self.dispatcher.keep_streams = true,
             ToRx::TransportUp {
                 client_version,
+                token,
                 connected_tx,
                 link,
             } => {
                 self.events.set(link);
                 self.phase = Phase::LinkSetup;
                 self.client_version = Some(*client_version);
+                self.token = token;
+                self.token_seen = false;
                 self.connected_tx = connected_tx;
                 self.last_rx_at = Some(now);
                 self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
@@ -229,6 +238,14 @@ impl RxCore {
         }
         self.last_rx_at = Some(now);
         let r = match Message::decode(kind, payload) {
+            Ok(msg) if !self.token_seen && !matches!(msg, Message::DeviceInfo(_)) => {
+                // from a previous session: an answer still in the device's buffers, a half-sent message
+                debug!(
+                    "dropping {:?} from before this session's DeviceInfo",
+                    msg.kind()
+                );
+                Ok(None)
+            }
             Ok(msg) => self.on_link_message(msg),
             Err(ww_link::Error::UnknownKind(kind)) => {
                 warn!("unknown link message kind {kind}, ignoring");
@@ -286,10 +303,37 @@ impl RxCore {
             }
             Message::Ping | Message::Nop => {}
             Message::DeviceInfo(info) => {
-                if self.phase != Phase::LinkSetup {
+                if self.phase != Phase::LinkSetup || self.token_seen {
                     warn!("unexpected DeviceInfo in {:?}, ignoring", self.phase);
                     return Ok(None);
                 }
+                // an older link never answers with the token: that, not a timeout, is the error
+                if info.token == 0
+                    || !info
+                        .dev_link_version
+                        .is_protocol_compatible(&ww_link::LINK_VERSION)
+                {
+                    let v = |v: &ww_version::CompactVersion| {
+                        format!("{}.{}.{}", v.major.0, v.minor.0, v.patch.0)
+                    };
+                    let device = if info.token == 0 {
+                        format!("{} (without setup token)", v(&info.dev_link_version))
+                    } else {
+                        v(&info.dev_link_version)
+                    };
+                    return Err(anyhow!(Error::IncompatibleLinkVersion {
+                        device,
+                        host: v(&ww_link::LINK_VERSION),
+                    }));
+                }
+                if info.token != self.token {
+                    debug!(
+                        "dropping DeviceInfo of a previous session (token {:#x})",
+                        info.token
+                    );
+                    return Ok(None);
+                }
+                self.token_seen = true;
                 let device_api_info = DeviceApiInfo {
                     link_version: compact_to_full(&info.dev_link_version),
                     max_message_size: info.dev_max_message_len as usize,
@@ -313,9 +357,13 @@ impl RxCore {
                         info.make_owned(),
                     ))));
             }
-            Message::LinkReady => {
+            Message::LinkReady { token } => {
                 if self.phase != Phase::LinkSetup {
                     warn!("unexpected LinkReady in {:?}, ignoring", self.phase);
+                    return Ok(None);
+                }
+                if token != self.token {
+                    debug!("dropping LinkReady of a previous session (token {token:#x})");
                     return Ok(None);
                 }
                 self.phase = Phase::Up;
@@ -341,7 +389,7 @@ impl RxCore {
                     }));
                 }
             }
-            Message::GetDeviceInfo
+            Message::GetDeviceInfo { .. }
             | Message::LinkSetup(_)
             | Message::GetStats
             | Message::Stats(_) => {
@@ -387,6 +435,7 @@ impl RxCore {
             _ = tx.send(ConnectionInfo::err(anyhow!("{e}")));
         }
         self.phase = Phase::Idle;
+        self.token_seen = false;
         self.last_rx_at = None;
         // freed seqs don't matter anymore, tx clears in-flight on exit
         self.dispatcher.take_freed();

@@ -111,8 +111,9 @@ impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
     }
 }
 
-/// Longest datagram that can start link setup. The host sends `Nop` and `GetDeviceInfo` alone, 2 bytes each.
-const SETUP_DATAGRAM_MAX_LEN: usize = 8;
+/// Longest datagram that can start link setup. The host sends `Nop` (1 byte) and `GetDeviceInfo` (2 byte head and
+/// 8 byte token) alone.
+const SETUP_DATAGRAM_MAX_LEN: usize = 16;
 
 /// Datagram that starts link setup, kept across the medium going down and up again.
 #[derive(Copy, Clone)]
@@ -450,7 +451,8 @@ mod tests {
     }
 
     const NOP: (Kind, &[u8]) = (Kind::Nop, &[]);
-    const GET_INFO: (Kind, &[u8]) = (Kind::GetDeviceInfo, &[]);
+    /// With its 8 byte token
+    const GET_INFO: (Kind, &[u8]) = (Kind::GetDeviceInfo, &[1, 0, 0, 0, 0, 0, 0, 0]);
     const DATA: (Kind, &[u8]) = (Kind::Data0, &[1, 2, 3]);
 
     #[test]
@@ -462,6 +464,7 @@ mod tests {
         assert!(!starts_link_setup(&datagram(&[DATA])));
         assert!(!starts_link_setup(&datagram(&[(Kind::Ping, &[])])));
         assert!(!starts_link_setup(&[]));
+        assert!(datagram(&[NOP, DATA, DATA, DATA, DATA]).len() > SETUP_DATAGRAM_MAX_LEN);
     }
 
     #[test]
@@ -477,7 +480,7 @@ mod tests {
 
         // stray data and a datagram too long to be a setup one are ignored while waiting
         push(&conn, 1, datagram(&[DATA]));
-        push(&conn, 1, datagram(&[NOP, DATA, DATA]));
+        push(&conn, 1, datagram(&[NOP, DATA, DATA, DATA, DATA]));
         push(&conn, 2, datagram(&[GET_INFO]));
         push(&conn, 2, datagram(&[DATA]));
         assert!(poll_once(rx.rx.wait_connected()).is_ready());
@@ -486,7 +489,7 @@ mod tests {
         // GetDeviceInfo that started it is not lost
         assert_eq!(
             rx.messages().unwrap(),
-            [(4, std::vec![]), (0, std::vec![1, 2, 3])]
+            [(4, GET_INFO.1.to_vec()), (0, std::vec![1, 2, 3])]
         );
 
         // replies go to the peer only
@@ -524,7 +527,10 @@ mod tests {
         assert_eq!(rx.messages(), Err(UdpError::PeerChanged));
         rx.connect();
         assert_eq!(conn.peer(), Some(2));
-        assert_eq!(rx.messages().unwrap(), [(3, std::vec![]), (4, std::vec![])]);
+        assert_eq!(
+            rx.messages().unwrap(),
+            [(3, std::vec![]), (4, GET_INFO.1.to_vec())]
+        );
 
         // the previous host is not heard anymore
         push(&conn, 1, datagram(&[DATA]));

@@ -347,6 +347,10 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
     fn drain_transmit(&mut self, scratch: &mut [u8]) {
         while let Some(t) = self.link.poll_transmit(self.now, scratch) {
             let r = match t {
+                Transmit::NewSession => {
+                    self.tx.new_session();
+                    Ok(())
+                }
                 Transmit::Message { kind, bytes } => self.write_message(kind, bytes),
                 Transmit::Flush => self.send_frame().map(|_| ()),
             };

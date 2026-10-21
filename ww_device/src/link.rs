@@ -113,6 +113,10 @@ pub enum Received<'m> {
 /// See [DeviceLink::poll_transmit].
 #[derive(Debug, PartialEq, Eq)]
 pub enum Transmit<'s> {
+    /// A host started link setup: start a new session in the transmit framer (`Tx::new_session` in
+    /// `ww_framer`, [MessageTx::new_session](crate::MessageTx::new_session)), dropping whatever is left of the
+    /// previous one (a frame being filled, a half-sent message), so that the reply starts in a fresh frame.
+    NewSession,
     /// Write this message into the framer.
     Message { kind: u8, bytes: &'s [u8] },
     /// Send the current frame now, even if not full. No-op when nothing is pending.
@@ -135,6 +139,7 @@ pub enum SendError {
 /// as the device only ever sends a few kinds of them.
 #[derive(Default)]
 struct Pending {
+    new_session: bool,
     nop: bool,
     device_info: bool,
     link_ready: bool,
@@ -145,7 +150,8 @@ struct Pending {
 
 impl Pending {
     fn is_empty(&self) -> bool {
-        !(self.nop
+        !(self.new_session
+            || self.nop
             || self.device_info
             || self.link_ready
             || self.disconnect.is_some()
@@ -160,6 +166,8 @@ pub struct DeviceLink<'a> {
     max_message_len: u32,
     phase: Phase,
     remote_max_message_len: u32,
+    /// Setup token of the host's current session ([ww_link::Message::GetDeviceInfo]), 0 before one.
+    token: u64,
     pending: Pending,
     event: Option<LinkEvent>,
 
@@ -178,6 +186,7 @@ impl<'a> DeviceLink<'a> {
             max_message_len: max_message_len.try_into().unwrap_or(u32::MAX),
             phase: Phase::Down,
             remote_max_message_len: 0,
+            token: 0,
             pending: Pending::default(),
             event: None,
             last_rx_at: None,
@@ -262,16 +271,35 @@ impl<'a> DeviceLink<'a> {
                 warn!("ignoring data on unused channel {}", channel);
             }
             Message::Nop | Message::Ping => {}
-            Message::GetDeviceInfo => {
+            Message::GetDeviceInfo { token } => {
                 if self.phase == Phase::Up {
                     warn!("link setup while link is up, previous host session did not disconnect");
                     self.go_idle(DownReason::NewSession);
                 }
+                if token == 0 {
+                    // a host built before the setup token, it speaks an older link
+                    warn!("host without a setup token, refusing: incompatible link version");
+                    self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
+                    return None;
+                }
                 debug!("GetDeviceInfo");
+                self.token = token;
+                // the reply starts in a fresh frame, nothing of the previous session goes before it
+                self.pending.new_session = true;
                 // Nop is flushed alone first: if USB data toggle bits are messed up after
                 // re-connection, the first packet might get lost and this ensures it's not DeviceInfo.
                 self.pending.nop = true;
                 self.pending.device_info = true;
+            }
+            Message::LinkSetup(setup) if setup.token != self.token || setup.token == 0 => {
+                if setup.token == 0 {
+                    warn!("host without a setup token, refusing: incompatible link version");
+                    self.go_idle(DownReason::NewSession);
+                    self.pending.disconnect = Some(DisconnectReason::IncompatibleVersion);
+                } else {
+                    // from a previous host session, the current one sent its own GetDeviceInfo since
+                    debug!("ignoring LinkSetup with a stale token");
+                }
             }
             Message::LinkSetup(setup) => {
                 // a host without generated client code works with the API dynamically, via introspection
@@ -316,7 +344,7 @@ impl<'a> DeviceLink<'a> {
             Message::GetStats => {
                 // TODO: link statistics
             }
-            Message::DeviceInfo(_) | Message::LinkReady | Message::Stats(_) => {
+            Message::DeviceInfo(_) | Message::LinkReady { .. } | Message::Stats(_) => {
                 warn!("ignoring host-only message");
             }
         }
@@ -370,6 +398,10 @@ impl<'a> DeviceLink<'a> {
     where
         'a: 's,
     {
+        if self.pending.new_session {
+            self.pending.new_session = false;
+            return Some(Transmit::NewSession);
+        }
         let msg = if self.pending.nop {
             self.pending.nop = false;
             Message::Nop
@@ -394,10 +426,11 @@ impl<'a> DeviceLink<'a> {
                     .as_micros()
                     .try_into()
                     .unwrap_or(u16::MAX),
+                token: self.token,
             })
         } else if self.pending.link_ready {
             self.pending.link_ready = false;
-            Message::LinkReady
+            Message::LinkReady { token: self.token }
         } else if let Some(reason) = self.pending.disconnect.take() {
             Message::Disconnect(reason)
         } else if self.pending.ping {

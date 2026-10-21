@@ -69,10 +69,10 @@ size). Both ends of a link must of course agree on the configuration.
 pub enum Message<'i> {
     Data { channel: u8, bytes: &'i [u8] },   // channel 0..=2
     Nop,
-    GetDeviceInfo,
-    DeviceInfo(DeviceInfo<'i>),
-    LinkSetup(LinkSetup<'i>),
-    LinkReady,
+    GetDeviceInfo { token: u64 },
+    DeviceInfo(DeviceInfo<'i>),             // DeviceInfo::token echoes it
+    LinkSetup(LinkSetup<'i>),               // LinkSetup::token
+    LinkReady { token: u64 },
     Ping,
     GetStats,
     Stats(&'i [u8]),
@@ -85,10 +85,10 @@ pub enum Message<'i> {
 | -------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Data`               | both          | Application bytes, opaque to the link. Channel `0` carries `ww_client_server`; `1` and `2` are free for future use.                           |
 | `Nop`                | both          | Ignored by the receiver. Sent first after connecting so that a lost first packet (e.g., USB toggle mismatch) doesn't eat something important. |
-| `GetDeviceInfo`      | host → device | Start of link setup.                                                                                                                          |
-| `DeviceInfo`         | device → host | Link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window.                                 |
-| `LinkSetup`          | host → device | Host user API version and max message length the host accepts.                                                                                |
-| `LinkReady`          | device → host | Setup accepted, `Data` may flow.                                                                                                              |
+| `GetDeviceInfo`      | host → device | Start of link setup, with the host's [setup token](#setup-token) (`u64` LE). The device starts a new session in its transmit framer.         |
+| `DeviceInfo`         | device → host | Link/API/user versions, API hash, max message length the device accepts, requested frame accumulation window, the token.                      |
+| `LinkSetup`          | host → device | Host user API version, max message length the host accepts, the token.                                                                        |
+| `LinkReady`          | device → host | Setup accepted, `Data` may flow; the token (`u64` LE).                                                                                        |
 | `Ping`               | both          | Keep-alive, sent when nothing else was sent for `PING_INTERVAL_MS` (3 s).                                                                     |
 | `GetStats` / `Stats` | host ↔ device | Reserved for link statistics, payload not defined yet.                                                                                        |
 | `Loopback`           | both          | Test helper: the peer echoes `data` back `repeat` times with increasing `seq`.                                                                |
@@ -144,11 +144,11 @@ Also re-exported for convenience: `DisconnectReason`, `CompactVersion`, `FullVer
  host                                       device
  ────                                       ──────
  Nop                     ───────────►
- GetDeviceInfo           ───────────►
-                         ◄───────────       DeviceInfo { versions, hash, max_len, acc_time }
-   (check user API compatibility)
- LinkSetup { version, max_len }  ──►
-                         ◄───────────       LinkReady
+ GetDeviceInfo { token } ───────────►       (new session in the transmit framer)
+                         ◄───────────       DeviceInfo { versions, hash, max_len, acc_time, token }
+   (check link and user API compatibility)
+ LinkSetup { version, max_len, token } ──►
+                         ◄───────────       LinkReady { token }
 
  ── link up ──────────────────────────────────────
 
@@ -167,10 +167,33 @@ Rules the reference event loop follows (and a new transport should too):
   `Disconnect(IncompatibleVersion)` after `LinkSetup`.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
   being flushed; control messages are flushed immediately.
+- The host drops every message until the `DeviceInfo` carrying its token, see [Setup token](#setup-token).
 - `Data` received before `LinkReady` and `Disconnect` received while not connected are ignored — they are
   stragglers from a previous session.
 - Nothing received for `PEER_TIMEOUT_MS` → the host disconnects with an error.
 - Each side sends `Disconnect` on the way out when it can, but must not rely on the peer doing so.
+
+### Setup token
+
+A new session can start while the previous one still has bytes on the way: an answer already in the device's USB IN
+buffer for a host that went away, the rest of a split message, a reply to a `GetDeviceInfo` the host already
+re-sent. Without anything to tell them apart, an old `DeviceInfo` would be taken for the new one. So the host puts a
+random, non-zero 64-bit **token** into `GetDeviceInfo` and `LinkSetup` (one per connection, the same on retries),
+the device echoes it in `DeviceInfo` and `LinkReady`, and:
+
+- the host drops everything that arrives before the `DeviceInfo` with its token, and a `LinkReady` with another
+  one; a wrong match needs a stale reply to carry the same 64-bit value (1 in 1.8·10¹⁹);
+- the device takes `LinkSetup` only with the token of the last `GetDeviceInfo`;
+- on `GetDeviceInfo` the device starts a new session in its transmit framer (`Transmit::NewSession`,
+  `MessageTx::new_session`, `Tx::new_session` in `ww_framer`): a frame being filled and a half-sent message are
+  dropped, the reply starts in a fresh frame, and with a [frame prefix](ww_framer.md#frame-prefix) the epoch goes
+  up, so that frames of the old session still on the way are dropped by the host's framer;
+- there is no USB reset on connect (slow, re-enumerates, kicks other tools off the device).
+
+A peer built before the token sends none (the field reads as 0): a host answers such a `DeviceInfo` with
+`Error::IncompatibleLinkVersion` ("without setup token"), a device answers such a `GetDeviceInfo` or `LinkSetup`
+with `Disconnect(IncompatibleVersion)`, so a mismatch is a clear error, not a setup timeout. The host also checks
+`DeviceInfo::dev_link_version` against its own `LINK_VERSION`.
 
 ## How the host runs it
 
@@ -235,7 +258,8 @@ next to the link:
 | `worker` with `tokio::select!`, two tasks             | user loop with `Server::wait()` / `Server::handle()`, or `run()`   |
 | —                                                     | `blocking::Server` for devices without async                       |
 
-**`DeviceLink`** answers `GetDeviceInfo` (Nop first, flushed alone), checks the host version on `LinkSetup` and
+**`DeviceLink`** answers `GetDeviceInfo` (a new framer session, then Nop flushed alone, then `DeviceInfo` with
+the host's token), checks the token and the host version on `LinkSetup` and
 replies `LinkReady` or `Disconnect(IncompatibleVersion)`, runs the frame accumulation window and pings, and
 declares the host gone after the peer timeout. `GetDeviceInfo` while the link is up means the host application
 restarted without disconnecting: the old session is dropped and a new one starts. Control replies are queued as

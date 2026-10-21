@@ -276,15 +276,16 @@ mod tests {
         let mut scratch = [0u8; 1024];
         while let Some((kind, payload)) = from_host.recv().await {
             let reply = match Message::decode(kind, &payload).unwrap() {
-                Message::GetDeviceInfo => Some(Message::DeviceInfo(DeviceInfo {
-                    dev_link_version: CompactVersion::new(GlobalTypeId::new(512), 0, 1, 0),
+                Message::GetDeviceInfo { token } => Some(Message::DeviceInfo(DeviceInfo {
+                    dev_link_version: ww_link::LINK_VERSION,
                     api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
                     user_api_version: FullVersion::new("test", Version::new(0, 1, 0)),
                     hash: ApiHashPair::empty(),
                     dev_max_message_len: 1024,
                     packet_accumulation_time_us: 100,
+                    token,
                 })),
-                Message::LinkSetup(_) => Some(Message::LinkReady),
+                Message::LinkSetup(setup) => Some(Message::LinkReady { token: setup.token }),
                 Message::Disconnect(_) => return,
                 Message::Data { bytes, .. } => {
                     let mut rd = wire_weaver::shrink_wrap::BufReader::new(bytes);

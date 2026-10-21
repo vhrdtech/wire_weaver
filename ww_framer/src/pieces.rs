@@ -254,7 +254,9 @@ pub fn verify_split<C: Checksum>(
     message: &[u8],
     trailer: &[u8],
 ) -> bool {
-    if end_head.len() > crate::traits::MAX_COVERED_HEAD || prefix.len() > crate::prefix::MAX_PREFIX_LEN {
+    if end_head.len() > crate::traits::MAX_COVERED_HEAD
+        || prefix.len() > crate::prefix::MAX_PREFIX_LEN
+    {
         return false;
     }
     let header = Header::new(C::LEN_BYTES_SPLIT > 0, prefix, end_head);
@@ -350,8 +352,18 @@ mod tests {
         let end = walk::<XorChecksum, ByteTail<0xEE>>(&[END_1, 3, 1 ^ 2 ^ 3, 0xEE]);
         let p = end[0].as_ref().unwrap();
         assert_eq!((p.checksum_ok, p.tail_ok), (None, true));
-        assert!(verify_split::<XorChecksum>(&[], &[END_1], &[1, 2, 3], &[1 ^ 2 ^ 3, 0xEE]));
-        assert!(!verify_split::<XorChecksum>(&[], &[END_1], &[1, 2, 4], &[1 ^ 2 ^ 3, 0xEE]));
+        assert!(verify_split::<XorChecksum>(
+            &[],
+            &[END_1],
+            &[1, 2, 3],
+            &[1 ^ 2 ^ 3, 0xEE]
+        ));
+        assert!(!verify_split::<XorChecksum>(
+            &[],
+            &[END_1],
+            &[1, 2, 4],
+            &[1 ^ 2 ^ 3, 0xEE]
+        ));
     }
 
     /// Pieces reassembled by hand give the same messages as [FramedRx], over frames a [Tx] wrote from messages of
@@ -416,7 +428,12 @@ mod tests {
                         MessageKind::End => {
                             let (uk, mut m) = assembling.take().unwrap();
                             m.extend(bytes);
-                            assert!(verify_split::<C>(&[], &f[p.head.clone()], &m, &f[p.trailer.clone()]));
+                            assert!(verify_split::<C>(
+                                &[],
+                                &f[p.head.clone()],
+                                &m,
+                                &f[p.trailer.clone()]
+                            ));
                             by_pieces.push((uk, m));
                         }
                     }

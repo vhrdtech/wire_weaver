@@ -317,8 +317,29 @@ fn start_paced(
     tokio::task::JoinHandle<()>,
     tokio::task::JoinHandle<()>,
 ) {
-    let (host_to_dev_tx, host_to_dev_rx) = mpsc::channel::<Packet>(4);
-    let (dev_to_host_tx, dev_to_host_rx) = mpsc::channel::<Packet>(64);
+    start_with(pace_every, vec![], vec![])
+}
+
+/// Same as [start_paced], with packets of a previous session already on the way: `to_host` as if left in the
+/// device's IN buffer, `to_device` as if left in its OUT buffer.
+fn start_with(
+    pace_every: Option<u32>,
+    to_host: Vec<Packet>,
+    to_device: Vec<Packet>,
+) -> (
+    mpsc::Sender<Command>,
+    mpsc::UnboundedReceiver<LinkEvent>,
+    tokio::task::JoinHandle<()>,
+    tokio::task::JoinHandle<()>,
+) {
+    let (host_to_dev_tx, host_to_dev_rx) = mpsc::channel::<Packet>(4 + to_device.len());
+    let (dev_to_host_tx, dev_to_host_rx) = mpsc::channel::<Packet>(64 + to_host.len());
+    for p in to_device {
+        host_to_dev_tx.try_send(p).unwrap();
+    }
+    for p in to_host {
+        dev_to_host_tx.try_send(p).unwrap();
+    }
     let (events_tx, events_rx) = mpsc::unbounded_channel();
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
     let dev = tokio::spawn(device(
@@ -713,6 +734,97 @@ async fn loopback_test_needs_a_connection() {
         Some(TestProgress::FatalError(_))
     ));
     assert!(progress_rx.recv().await.is_none());
+}
+
+/// Packets of `messages` as a framer of an earlier session wrote them; `keep` of them, as if the rest never left.
+fn old_session_packets(messages: &[ww_link::Message<'_>], keep: usize) -> Vec<Packet> {
+    let mut framer = TxFramer::new(PACKET);
+    let mut packets = vec![];
+    let mut scratch = [0u8; 512];
+    for m in messages {
+        let (kind, payload) = m.encode(&mut scratch).unwrap();
+        while !framer.write(kind, payload).unwrap() {
+            packets.extend(framer.flush_to_vec());
+        }
+        packets.extend(framer.flush_to_vec());
+    }
+    packets.truncate(keep);
+    packets
+}
+
+/// What a previous session left on the way is never taken for the new one (TR-15): a DeviceInfo and LinkReady
+/// already in the device's IN buffer (from a device that would be incompatible, so taking it fails the connection),
+/// the first packets of a split message the old host never read, and on the other side a half-sent request and a
+/// LinkSetup of the old host. The setup token sorts them out; the device's framer starts a new session on
+/// GetDeviceInfo.
+#[tokio::test]
+async fn previous_session_leftovers_are_dropped() {
+    use ww_link::{DeviceInfo, LinkSetup, Message};
+    let old_token = 0xDEAD_BEEF;
+    let stale_info = Message::DeviceInfo(DeviceInfo {
+        dev_link_version: ww_link::LINK_VERSION,
+        api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
+        user_api_version: FullVersion::new("test_api", Version::new(9, 0, 0)),
+        hash: ApiHashPair::empty(),
+        dev_max_message_len: 64,
+        packet_accumulation_time_us: 1000,
+        token: old_token,
+    });
+    let big = [0x5Au8; 300];
+    let mut to_host = old_session_packets(
+        &[stale_info, Message::LinkReady { token: old_token }],
+        usize::MAX,
+    );
+    // Start and one Continue of a 300 byte reply
+    let half = old_session_packets(
+        &[Message::Data {
+            channel: 0,
+            bytes: &big,
+        }],
+        2,
+    );
+    assert_eq!(half.len(), 2);
+    to_host.extend(half);
+    let mut to_device = old_session_packets(
+        &[Message::Data {
+            channel: 0,
+            bytes: &big[..200],
+        }],
+        1,
+    );
+    to_device.extend(old_session_packets(
+        &[Message::LinkSetup(LinkSetup {
+            host_user_version: FullVersion::new("test_api", Version::new(0, 3, 0)),
+            host_max_message_len: 4096,
+            token: old_token,
+        })],
+        usize::MAX,
+    ));
+
+    let (cmd_tx, mut events_rx, dev, host) = start_with(None, to_host, to_device);
+    let info = tokio::time::timeout(Duration::from_secs(5), connect(&cmd_tx, (0, 3)))
+        .await
+        .expect("connects, no timeout")
+        .result
+        .expect("the stale, incompatible DeviceInfo is not taken");
+    assert_eq!(info.user_api_version.version.minor.0, 3);
+    assert_eq!(info.max_message_size, DEV_MAX_MESSAGE);
+    assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+
+    // and data flows: the reply is not mixed up with the half-sent one
+    let (done_tx, done_rx) = oneshot::channel();
+    cmd_tx
+        .send(Command::SendMessage {
+            bytes: vec![0, 0, 0, 0, 0, 0x42],
+            done_tx: Some((done_tx, Duration::from_secs(5))),
+        })
+        .await
+        .unwrap();
+    let bytes = done_rx.await.unwrap().unwrap();
+    assert_eq!(bytes[0], 0x42);
+    assert_eq!(bytes.len(), 300);
+    dev.abort();
+    host.abort();
 }
 
 #[tokio::test]

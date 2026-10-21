@@ -128,7 +128,7 @@
           24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d
           54 0c 01 ff 97 77 ce a5 6c 24 19 17 af 8f e6 bd
 →   30 B  c8 1a 84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df bf
-          16 ed b4 6c 61 5f f7 d7 2e 00 89 02 f1 74
+          16 ed b4 6c 61 5f f7 d7 2e 00 89 02 69 e9
 ←    4 B  03 08 80 80
 →   22 B  08 14 09 03 30 05 00 00 00 01 00 01 00 3c e2 93
           64 32 07 b8 7c 02
@@ -138,7 +138,7 @@
           16 4c de 9f 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
           46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
 →   30 B  c8 1a 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1
-          6b b8 a6 dc 6e 2f b8 b9 83 00 89 02 1e 16
+          6b b8 a6 dc 6e 2f b8 b9 83 00 89 02 86 8b
 ←    4 B  03 0a 80 80
 →   22 B  08 14 0b 03 30 07 00 00 00 03 00 05 00 1e c7 0f
           b2 57 d1 be fc 02
@@ -151,14 +151,14 @@
           5d 3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac
           8d 6c 95 a5 54 cf b5 c4 a5 84 ad bd 6c e7 cd dc
 →   30 B  c8 1a bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17
-          fd 0c ed cc f5 05 b4 2f 15 00 89 02 e6 79
+          fd 0c ed cc f5 05 b4 2f 15 00 89 02 7e e4
 ←    4 B  03 0d 80 80
 →   64 B  48 58 0e 03 40 0a 00 00 00 06 00 d1 8f 7c e6 80
           78 12 57 00 00 00 00 6f 74 61 94 9a 86 af 33 c8
           a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8
           d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28
 →   30 B  c8 1a 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f
-          c3 58 36 7a 3c 42 2e 57 db 00 89 02 87 5e
+          c3 58 36 7a 3c 42 2e 57 db 00 89 02 1f c3
 ←    4 B  03 0e 80 80
    ── host resends step 5 as if its reply was lost: skipped
 →   22 B  08 14 0f 03 30 05 00 00 00 01 00 01 00 3c e2 93

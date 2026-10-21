@@ -13,6 +13,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Frame prefix and link setup token (TR-15, wire change of the link): `ww_framer` writes an optional per-frame
+  prefix (`SeqPrefix`: 4-bit frame counter, 2-bit session epoch) and tells lost, duplicated, reordered and stale
+  frames apart; checksums cover prefix and head too. The host picks a random 64-bit token per connection, the
+  device echoes it and starts a new framer session on `GetDeviceInfo`, and the host drops everything before its
+  reply, so nothing of a previous session is taken for the new one.
+
 - `BoardInfo::REWORKS` (STD-24, `ww_board_info` 0.3.0): an optional list of the reworks of a bring-up board (`id`,
   `title`, `applied`), so a unit says which patches of its PCB revision it has; `ww info` and `ww report` print it.
 - `ww pins test` / `ww pins list` (TOOL-15, crate `ww_pin_probe`): shorts to GND, to the supply and between points,

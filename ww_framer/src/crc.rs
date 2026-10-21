@@ -234,7 +234,10 @@ mod tests {
     #[test]
     fn read_detects_mismatch() {
         let mut rd = BufReader::new(&[0xC8, 0xB4]);
-        assert_eq!(CrcChecksum::<Crc16Usb>::read(&[], CHECK, true, &mut rd), Ok(()));
+        assert_eq!(
+            CrcChecksum::<Crc16Usb>::read(&[], CHECK, true, &mut rd),
+            Ok(())
+        );
 
         let mut rd = BufReader::new(&[0xC8, 0xB5]);
         assert_eq!(
@@ -251,7 +254,10 @@ mod tests {
 
         // Full is not checked by default, nothing is consumed
         let mut rd = BufReader::new(&[0xC8, 0xB5]);
-        assert_eq!(CrcChecksum::<Crc16Usb>::read(&[], CHECK, false, &mut rd), Ok(()));
+        assert_eq!(
+            CrcChecksum::<Crc16Usb>::read(&[], CHECK, false, &mut rd),
+            Ok(())
+        );
         assert_eq!(rd.bytes_left(), 2);
     }
 
@@ -262,7 +268,8 @@ mod tests {
         let mut tx = LinkTx::new(&mut buf);
         let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         // over the End's head and the whole message
-        let crc = crc::Crc::<u16>::new(&crc::CRC_16_USB).checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let crc = crc::Crc::<u16>::new(&crc::CRC_16_USB)
+            .checksum(&[END_4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
         assert_eq!(tx.write(0, &msg), Ok(false));
         let len = tx.flush();

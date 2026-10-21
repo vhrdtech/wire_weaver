@@ -34,6 +34,8 @@ pub enum Error {
     ShrinkWrap(wire_weaver::shrink_wrap::Error),
     #[error("Tried connecting to a device with incompatible protocol")]
     IncompatibleDeviceProtocol,
+    #[error("The device speaks link {device}, this host link {host}: update the older side")]
+    IncompatibleLinkVersion { device: String, host: String },
     #[error("Connected device has an older protocol version: {:?}, required for the operation: {:?}", .0, .1)]
     OlderProtocol(Box<FullVersionOwned>, Box<FullVersionOwned>),
     #[error("'{resource}' is not implemented by the connected device, its API is {device:?}")]

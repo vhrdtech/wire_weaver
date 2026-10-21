@@ -103,6 +103,8 @@ pub(crate) struct TxCore {
     /// From a disconnect command, notified by the wrapper once the transport is closed, see [Self::take_disconnected_tx]
     disconnected_tx: Option<tokio::sync::oneshot::Sender<()>>,
     client_version: Option<FullVersionOwned>,
+    /// Link setup token of the current connection, see [super::new_setup_token]
+    token: u64,
     /// Requested by a device, how long to accumulate messages into one frame before sending it out
     frame_accumulation_time: Duration,
     /// From DeviceInfo, requests bigger than this are rejected
@@ -152,6 +154,7 @@ impl TxCore {
             exited_tx: None,
             disconnected_tx: None,
             client_version: None,
+            token: 0,
             frame_accumulation_time: Duration::from_millis(1),
             device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
             link_setup_timeout,
@@ -276,6 +279,7 @@ impl TxCore {
                     self.link_setup_timeout = Duration::from_millis(ms.get().into());
                 }
                 self.client_version = Some(*client_version.clone());
+                self.token = super::new_setup_token();
                 self.phase = Phase::Connecting;
                 let recorder = tap.unwrap_or_else(|| default_recorder().clone());
                 let link = recorder.link();
@@ -289,6 +293,7 @@ impl TxCore {
                 // rx needs these to check DeviceInfo and to report the connection
                 self.output.push_back(TxOutput::ToRx(ToRx::TransportUp {
                     client_version,
+                    token: self.token,
                     connected_tx,
                     link,
                 }));
@@ -497,6 +502,12 @@ impl TxCore {
         }
     }
 
+    /// This connection's link setup token.
+    #[cfg(test)]
+    pub(crate) fn token(&self) -> u64 {
+        self.token
+    }
+
     fn on_transport_up(&mut self, now: Instant) -> anyhow::Result<Flow> {
         if self.phase != Phase::Connecting {
             warn!("unexpected TransportUp in {:?}", self.phase);
@@ -534,6 +545,7 @@ impl TxCore {
                 self.send(&Message::LinkSetup(LinkSetup {
                     host_user_version: client_version.as_ref(),
                     host_max_message_len: DEFAULT_MAX_MESSAGE_SIZE as u32,
+                    token: self.token,
                 }))?;
                 self.flush(now);
             }
@@ -764,7 +776,8 @@ impl TxCore {
         // the first packet might get lost and this ensures it's not GetDeviceInfo.
         self.send(&Message::Nop)?;
         self.flush(now);
-        self.send(&Message::GetDeviceInfo)?;
+        // the same token on every retry: a late answer to an earlier one is as good
+        self.send(&Message::GetDeviceInfo { token: self.token })?;
         self.flush(now);
         Ok(())
     }

@@ -575,7 +575,10 @@ mod prefixed {
                 }
             }
         }
-        assert_eq!(got, [(0, std::vec![1, 2, 3, 4, 5, 6, 7, 8]), (2, std::vec![3])]);
+        assert_eq!(
+            got,
+            [(0, std::vec![1, 2, 3, 4, 5, 6, 7, 8]), (2, std::vec![3])]
+        );
         // a duplicate is not committed
         rx.staging_buf()[..f[1].len()].copy_from_slice(&f[1]);
         assert_eq!(rx.commit_staged(f[1].len()), Ok(FrameReport::Duplicate));
@@ -654,16 +657,35 @@ mod prefixed {
         assert_eq!(end.kind, MessageKind::End);
         assert_eq!(walk.prefix(), &last[..1]);
         let head = &last[end.head.clone()];
-        assert!(verify_split::<Crc>(&last[..1], head, &msg, &last[end.trailer.clone()]));
-        assert!(!verify_split::<Crc>(&[], head, &msg, &last[end.trailer.clone()]));
-        assert!(!verify_split::<Crc>(&last[..1], &[], &msg, &last[end.trailer.clone()]));
+        assert!(verify_split::<Crc>(
+            &last[..1],
+            head,
+            &msg,
+            &last[end.trailer.clone()]
+        ));
+        assert!(!verify_split::<Crc>(
+            &[],
+            head,
+            &msg,
+            &last[end.trailer.clone()]
+        ));
+        assert!(!verify_split::<Crc>(
+            &last[..1],
+            &[],
+            &msg,
+            &last[end.trailer.clone()]
+        ));
         let full = pieces_with_prefix::<U2Head, Crc, NopTail, SeqPrefix>(&frame)
             .next()
             .unwrap()
             .unwrap();
         assert_eq!((full.payload.clone(), full.checksum_ok), (2..4, Some(true)));
-        let too_short: Vec<_> = pieces_with_prefix::<U2Head, Crc, NopTail, SeqPrefix>(&[]).collect();
+        let too_short: Vec<_> =
+            pieces_with_prefix::<U2Head, Crc, NopTail, SeqPrefix>(&[]).collect();
         assert_eq!(too_short.len(), 1);
-        assert_eq!(too_short[0].as_ref().unwrap_err().kind, PieceErrorKind::TooShort);
+        assert_eq!(
+            too_short[0].as_ref().unwrap_err().kind,
+            PieceErrorKind::TooShort
+        );
     }
 }

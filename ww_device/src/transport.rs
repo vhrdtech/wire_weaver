@@ -33,6 +33,13 @@ pub trait MessageTx {
 
     /// Drop anything held back, called when the medium goes down.
     fn reset(&mut self);
+
+    /// A host started link setup ([Transmit::NewSession](crate::link::Transmit::NewSession)): drop anything held
+    /// back and start the framer's next session (`Tx::new_session` in `ww_framer`), so that the reply starts in
+    /// a fresh frame. [reset](Self::reset) by default, for media without a framer.
+    fn new_session(&mut self) {
+        self.reset();
+    }
 }
 
 /// Message rx half.
@@ -179,6 +186,10 @@ impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
 
     fn reset(&mut self) {
         self.framer.reset();
+    }
+
+    fn new_session(&mut self) {
+        self.framer.new_session();
     }
 }
 
@@ -392,6 +403,10 @@ impl<S: StreamSink, H: Head<UserKind = u8>, C: Checksum, T: Tail> MessageTx
 
     fn reset(&mut self) {
         self.framer.reset();
+    }
+
+    fn new_session(&mut self) {
+        self.framer.new_session();
     }
 }
 

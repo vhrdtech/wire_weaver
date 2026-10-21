@@ -316,6 +316,10 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                 break;
             };
             let r = match t {
+                Transmit::NewSession => {
+                    self.tx.new_session();
+                    Ok(())
+                }
                 Transmit::Message { kind, bytes } => self.tx.write_message(kind, bytes).await,
                 Transmit::Flush => self.tx.flush().await,
             };

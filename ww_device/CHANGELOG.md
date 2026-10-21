@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- Link setup token (TR-15): `DeviceLink` echoes the host's token in `DeviceInfo` and `LinkReady`, takes `LinkSetup` only with the token of the last `GetDeviceInfo`, and answers a host without a token with `Disconnect(IncompatibleVersion)`. On every `GetDeviceInfo`, `poll_transmit` first returns the new `Transmit::NewSession`: `Server` and `blocking::Server` call `MessageTx::new_session()` (new, `reset()` by default; `FramedTx` / `StreamTx` start the framer's next session), so a frame being filled and a half-sent message of the previous session are dropped and the reply starts in a fresh frame. Code matching `Transmit` handles the new variant.
+
 ### 🚀 Features
 
 - `Server::wait_until(at: Option<Instant>)` (SRV-25): `wait()` that also returns when `at` comes, `Ready::is_due()`, so the event loop sleeps until the device's own next deadline (`ObserveState::next_wake`) instead of waking on a fixed tick; `handle` does nothing with a due `Ready`. `Server::now()`, the server's clock.
@@ -10,6 +14,7 @@
 
 ### 🐛 Bug Fixes
 
+- UDP: the datagram that starts link setup may be 16 bytes now (was 8), `GetDeviceInfo` carries the 8-byte token (TR-15).
 - RTT devices no longer panic on their first request ("Found waker not created by the Embassy executor"): the async
   `Server`'s check for another waiting request polls with the task's own waker instead of a no-op one, which
   embassy-time refuses once the medium waits on a `Timer` (TR-13, broken since TR-12).

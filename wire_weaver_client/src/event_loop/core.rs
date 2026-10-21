@@ -106,6 +106,8 @@ pub(crate) enum ToRx {
     TransportUp {
         /// Used for the compatibility check against DeviceInfo, empty crate_id = skip
         client_version: Box<ww_version::FullVersionOwned>,
+        /// This connection's setup token: rx drops everything until a DeviceInfo carrying it
+        token: u64,
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
         /// The link's tap, for rx's link events
         link: ww_tap::RecorderLink,
@@ -133,6 +135,22 @@ fn is_due(deadline: Option<Instant>, now: Instant) -> bool {
 }
 
 // TODO: lookup from ww_global
+/// A random, non-zero link setup token for one connection (`ww_link::Message::GetDeviceInfo`). `RandomState` keys
+/// are random per process and differ per call, the time and process id mix in more; it only has to differ from
+/// the token of an earlier session, it guards against stale messages, not against an attacker.
+pub(crate) fn new_setup_token() -> u64 {
+    use std::hash::{BuildHasher, Hasher};
+    let mut h = std::hash::RandomState::new().build_hasher();
+    h.write_u128(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0),
+    );
+    h.write_u32(std::process::id());
+    h.finish().max(1)
+}
+
 fn compact_to_full(v: &ww_version::CompactVersion) -> ww_version::FullVersionOwned {
     ww_version::FullVersionOwned::new(
         format!("G{}", v.gid.id.0),
@@ -534,14 +552,15 @@ mod tests {
         sent.iter().map(|s| s.kind).collect()
     }
 
-    fn device_info() -> Message<'static> {
+    fn device_info(token: u64) -> Message<'static> {
         Message::DeviceInfo(DeviceInfo {
-            dev_link_version: CompactVersion::new(GlobalTypeId::new(512), 0, 1, 0),
+            dev_link_version: ww_link::LINK_VERSION,
             api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
             user_api_version: FullVersion::new("test", Version::new(0, 1, 3)),
             hash: ApiHashPair::empty(),
             dev_max_message_len: 512,
             packet_accumulation_time_us: 500,
+            token,
         })
     }
 
@@ -573,7 +592,7 @@ mod tests {
         assert_ne!(sent[0].frame, sent[1].frame, "Nop is flushed alone");
         assert_eq!(p.tx.poll_timeout(), Some(now + RETRY));
 
-        p.feed_from_device(now, &device_info());
+        p.feed_from_device(now, &device_info(p.tx.token()));
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::LinkSetup]);
         let Message::LinkSetup(setup) =
@@ -592,9 +611,55 @@ mod tests {
             "no retries while waiting for LinkReady"
         );
 
-        p.feed_from_device(now, &Message::LinkReady);
+        p.feed_from_device(
+            now,
+            &Message::LinkReady {
+                token: p.tx.token(),
+            },
+        );
         assert!(p.take_sent().is_empty());
         connected_rx
+    }
+
+    /// A device built before the setup token answers without one: a clear error, not a setup timeout. A DeviceInfo
+    /// with another token is from a previous session and dropped, as is anything before this session's one.
+    #[test]
+    fn device_without_token_and_stale_device_info() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let (connected_tx, mut connected_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::Connect {
+                handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
+                tap: None,
+                client_version: Box::new(FullVersionOwned::new(
+                    "test".into(),
+                    VersionOwned::new(0, 1, 0),
+                )),
+                connected_tx: Some(connected_tx),
+                failed_tx: None,
+            },
+        );
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        p.take_sent();
+        // stale ones: dropped, still waiting
+        p.feed_from_device(
+            now,
+            &Message::LinkReady {
+                token: p.tx.token(),
+            },
+        );
+        p.feed_from_device(now, &device_info(p.tx.token() ^ 1));
+        assert!(p.take_sent().is_empty());
+        assert!(connected_rx.try_recv().is_err());
+        // an older device
+        p.feed_from_device(now, &device_info(0));
+        let e = connected_rx.try_recv().unwrap().result.unwrap_err();
+        assert!(format!("{e:#}").contains("without setup token"), "{e:#}");
     }
 
     #[test]
@@ -855,7 +920,7 @@ mod tests {
         );
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
-        p.feed_from_device(now, &device_info());
+        p.feed_from_device(now, &device_info(p.tx.token()));
         assert_eq!(
             kinds(&p.take_sent()),
             [Kind::Nop, Kind::GetDeviceInfo, Kind::LinkSetup]
@@ -878,7 +943,12 @@ mod tests {
         assert!(p.take_sent().is_empty(), "held until the link is up");
         assert!(done_rx.try_recv().is_err(), "not failed either");
 
-        p.feed_from_device(now, &Message::LinkReady);
+        p.feed_from_device(
+            now,
+            &Message::LinkReady {
+                token: p.tx.token(),
+            },
+        );
         let sent = p.take_sent();
         assert_eq!(kinds(&sent), [Kind::Data0]);
         assert_eq!(sent[0].payload, [1, 0xAA]);
@@ -944,7 +1014,7 @@ mod tests {
             assert!(p.tx_exit.is_none());
         }
         p.take_sent();
-        p.feed_from_device(now, &device_info());
+        p.feed_from_device(now, &device_info(p.tx.token()));
         assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup]);
         assert!(p.tx_exit.is_none());
         assert!(connected_rx.try_recv().is_err(), "waits for LinkReady");
@@ -1033,7 +1103,7 @@ mod tests {
         p.tx.handle(now, TxInput::TransportUp);
         p.settle(now);
         p.take_sent();
-        p.feed_from_device(now, &device_info()); // device is 0.1.3
+        p.feed_from_device(now, &device_info(p.tx.token())); // device is 0.1.3
         assert!(
             p.take_sent().is_empty(),
             "no LinkSetup to an incompatible device"
@@ -1196,13 +1266,14 @@ mod tests {
                         "".into(),
                         VersionOwned::new(0, 0, 0),
                     )),
+                    token: 1,
                     connected_tx: None,
                     link,
                 })
                 .unwrap();
 
             let mut scratch = [0u8; 256];
-            let (kind, payload) = device_info().encode(&mut scratch).unwrap();
+            let (kind, payload) = device_info(1).encode(&mut scratch).unwrap();
             msg_tx
                 .send((kind, payload.to_vec()))
                 .await

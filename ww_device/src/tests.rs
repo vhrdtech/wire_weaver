@@ -43,9 +43,17 @@ fn ww_global_gid() -> ww_version::GlobalTypeId {
     ww_version::GlobalTypeId::new(513)
 }
 
+/// The host's setup token in these tests.
+const TOKEN: u64 = 0x5EED_0000_0000_0001;
+
+fn get_device_info() -> Message<'static> {
+    Message::GetDeviceInfo { token: TOKEN }
+}
+
 /// Transmits in a form that is easy to compare: decoded kind, or None for Flush
 #[derive(Debug, PartialEq)]
 enum Tx {
+    NewSession,
     Msg(Kind, Vec<u8>),
     Flush,
 }
@@ -55,6 +63,7 @@ fn drain(link: &mut DeviceLink<'_>, now: Instant) -> Vec<Tx> {
     let mut out = vec![];
     while let Some(t) = link.poll_transmit(now, &mut scratch) {
         out.push(match t {
+            Transmit::NewSession => Tx::NewSession,
             Transmit::Message { kind, bytes } => {
                 Tx::Msg(Kind::from_repr(kind).unwrap(), bytes.to_vec())
             }
@@ -64,11 +73,13 @@ fn drain(link: &mut DeviceLink<'_>, now: Instant) -> Vec<Tx> {
     out
 }
 
+/// Kinds of the messages sent, None for a Flush; [Tx::NewSession] is left out (see `new_session_before_reply`).
 fn kinds(tx: &[Tx]) -> Vec<Option<Kind>> {
     tx.iter()
-        .map(|t| match t {
-            Tx::Msg(k, _) => Some(*k),
-            Tx::Flush => None,
+        .filter_map(|t| match t {
+            Tx::Msg(k, _) => Some(Some(*k)),
+            Tx::Flush => Some(None),
+            Tx::NewSession => None,
         })
         .collect()
 }
@@ -91,6 +102,7 @@ fn link_setup(host_version: FullVersion<'_>) -> Message<'_> {
     Message::LinkSetup(LinkSetup {
         host_user_version: host_version,
         host_max_message_len: 1000,
+        token: TOKEN,
     })
 }
 
@@ -98,7 +110,7 @@ fn link_setup(host_version: FullVersion<'_>) -> Message<'_> {
 fn connect(link: &mut DeviceLink<'_>, now: Instant) -> Vec<Tx> {
     let mut scratch = [0u8; 256];
     link.on_transport_up(now);
-    assert!(feed(link, now, &Message::GetDeviceInfo, &mut scratch).is_none());
+    assert!(feed(link, now, &get_device_info(), &mut scratch).is_none());
     let mut sent = drain(link, now);
     let host = FullVersion::new("test_api", Version::new(0, 3, 0));
     assert!(feed(link, now, &link_setup(host), &mut scratch).is_none());
@@ -125,7 +137,7 @@ fn link_setup_sequence() {
         ],
         "Nop is flushed alone, control messages are flushed right away"
     );
-    let Tx::Msg(_, info) = &sent[2] else { panic!() };
+    let Tx::Msg(_, info) = &sent[3] else { panic!() };
     let Message::DeviceInfo(info) = Message::decode(Kind::DeviceInfo as u8, info).unwrap() else {
         panic!()
     };
@@ -133,9 +145,83 @@ fn link_setup_sequence() {
     assert_eq!(info.packet_accumulation_time_us, 1000);
     assert_eq!(info.dev_link_version, ww_link::LINK_VERSION);
     assert_eq!(info.user_api_version.crate_id, "test_api");
+    assert_eq!(info.token, TOKEN);
+    let Tx::Msg(_, ready) = &sent[5] else {
+        panic!()
+    };
+    assert!(matches!(
+        Message::decode(Kind::LinkReady as u8, ready),
+        Ok(Message::LinkReady { token: TOKEN })
+    ));
     assert!(link.is_up());
     assert_eq!(link.remote_max_message_len(), 1000);
     assert_eq!(link.poll_timeout(), Some(now + PING));
+}
+
+#[test]
+fn new_session_before_reply() {
+    let now = Instant::from_millis(1);
+    let mut link = DeviceLink::new(config(), 512);
+    let mut scratch = [0u8; 256];
+    link.on_transport_up(now);
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    // the framer starts a new session before anything of the reply, on every GetDeviceInfo
+    let sent = drain(&mut link, now);
+    assert_eq!(sent[0], Tx::NewSession);
+    assert_eq!(sent.iter().filter(|t| **t == Tx::NewSession).count(), 1);
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    assert_eq!(drain(&mut link, now)[0], Tx::NewSession);
+}
+
+#[test]
+fn hosts_without_a_token_or_with_a_stale_one() {
+    let now = Instant::from_millis(1);
+    let mut link = DeviceLink::new(config(), 512);
+    let mut scratch = [0u8; 256];
+    link.on_transport_up(now);
+    let host = || FullVersion::new("test_api", Version::new(0, 3, 0));
+
+    // a host built before the token: refused with IncompatibleVersion, no DeviceInfo
+    feed(
+        &mut link,
+        now,
+        &Message::GetDeviceInfo { token: 0 },
+        &mut scratch,
+    );
+    let sent = drain(&mut link, now);
+    assert_eq!(kinds(&sent), [Some(Kind::Disconnect), None]);
+    let Tx::Msg(_, reason) = &sent[0] else {
+        panic!()
+    };
+    assert!(matches!(
+        Message::decode(Kind::Disconnect as u8, reason),
+        Ok(Message::Disconnect(DisconnectReason::IncompatibleVersion))
+    ));
+    let old_setup = Message::LinkSetup(LinkSetup {
+        host_user_version: host(),
+        host_max_message_len: 1000,
+        token: 0,
+    });
+    feed(&mut link, now, &old_setup, &mut scratch);
+    assert_eq!(
+        kinds(&drain(&mut link, now)),
+        [Some(Kind::Disconnect), None]
+    );
+    assert!(!link.is_up());
+
+    // a LinkSetup of an earlier session (its host restarted and sent a new GetDeviceInfo since) is ignored
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    drain(&mut link, now);
+    let stale = Message::LinkSetup(LinkSetup {
+        host_user_version: host(),
+        host_max_message_len: 1000,
+        token: TOKEN + 1,
+    });
+    feed(&mut link, now, &stale, &mut scratch);
+    assert!(drain(&mut link, now).is_empty());
+    assert!(!link.is_up());
+    feed(&mut link, now, &link_setup(host()), &mut scratch);
+    assert!(link.is_up());
 }
 
 #[test]
@@ -194,6 +280,9 @@ fn incompatible_and_dynamic_hosts() {
     let mut link = DeviceLink::new(config(), 512);
     link.on_transport_up(now);
     let mut scratch = [0u8; 256];
+    // LinkSetup is only taken with the token of a GetDeviceInfo before it
+    feed(&mut link, now, &get_device_info(), &mut scratch);
+    drain(&mut link, now);
 
     let other_minor = FullVersion::new("test_api", Version::new(0, 4, 0));
     assert!(feed(&mut link, now, &link_setup(other_minor), &mut scratch).is_none());
@@ -228,7 +317,7 @@ fn stragglers_and_session_changes() {
     let mut scratch = [0u8; 256];
 
     // transport down: nothing is processed
-    assert!(feed(&mut link, now, &Message::GetDeviceInfo, &mut scratch).is_none());
+    assert!(feed(&mut link, now, &get_device_info(), &mut scratch).is_none());
     assert!(drain(&mut link, now).is_empty());
 
     link.on_transport_up(now);
@@ -256,7 +345,7 @@ fn stragglers_and_session_changes() {
 
     connect(&mut link, now);
     // host application restarted without disconnecting
-    feed(&mut link, now, &Message::GetDeviceInfo, &mut scratch);
+    feed(&mut link, now, &get_device_info(), &mut scratch);
     assert_eq!(
         link.poll_event(),
         Some(LinkEvent::Down(DownReason::NewSession))
@@ -469,11 +558,7 @@ fn blocking_server() {
         server.on_transport_up(now);
         let host_version = FullVersion::new("test_api", Version::new(0, 3, 0));
         let mut event = None;
-        for p in host.packets(&[
-            Message::Nop,
-            Message::GetDeviceInfo,
-            link_setup(host_version),
-        ]) {
+        for p in host.packets(&[Message::Nop, get_device_info(), link_setup(host_version)]) {
             event = server.on_packet(now, &p, &mut backend).or(event);
         }
         assert_eq!(event, Some(LinkEvent::Up));
@@ -891,7 +976,7 @@ mod async_server {
             &mut scratch,
             &mut event_scratch,
         );
-        push(&queue, &Message::GetDeviceInfo);
+        push(&queue, &get_device_info());
         push(
             &queue,
             &link_setup(FullVersion::new("test_api", Version::new(0, 3, 0))),
@@ -973,7 +1058,7 @@ mod async_server {
             &mut scratch,
             &mut event_scratch,
         );
-        push(&queue, &Message::GetDeviceInfo);
+        push(&queue, &get_device_info());
         push(
             &queue,
             &link_setup(FullVersion::new("test_api", Version::new(0, 3, 0))),

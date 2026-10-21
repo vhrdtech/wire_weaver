@@ -268,6 +268,7 @@ fn start_event_loop(
         return Ok(Selected::Device {
             handle: tunnel,
             info: Box::new(info),
+            via_hub: true,
         });
     }
     #[cfg(not(feature = "hub"))]
@@ -282,6 +283,7 @@ fn start_event_loop(
             mode: c.holder_mode,
         }),
         info: Box::new(info),
+        via_hub: false,
     })
 }
 

@@ -1,0 +1,22 @@
+[package]
+name = "hub_reconnect"
+version = "0.1.0"
+publish = false
+description = "Tests of clients reconnecting when their ww hub goes (CLT-40) and hub handover (SRV-30)"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+hub_reconnect_api.workspace = true
+interprocess.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time", "io-util"] }
+tracing-subscriber.workspace = true
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }
+ww_client_server.workspace = true
+ww_hub.workspace = true
+ww_local_socket.workspace = true
+ww_stream = { workspace = true, features = ["std"] }

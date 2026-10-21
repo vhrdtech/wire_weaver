@@ -2371,6 +2371,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "hub_reconnect"
+version = "0.1.0"
+dependencies = [
+ "hub_reconnect_api",
+ "interprocess",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_hub",
+ "ww_local_socket",
+ "ww_stream",
+]
+
+[[package]]
+name = "hub_reconnect_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "hub_routing"
 version = "0.1.0"
 dependencies = [

@@ -84,6 +84,8 @@ pub(crate) enum Selected {
     Device {
         handle: DeviceHandle,
         info: Box<crate::DeviceInfo>,
+        /// Through the ww hub: the client reconnects by itself when the link goes (CLT-40)
+        via_hub: bool,
     },
     /// No device matched, event loop is not started
     NotFound {

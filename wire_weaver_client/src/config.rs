@@ -11,6 +11,9 @@ use crate::client_meta::ClientMetaSetting;
 use crate::hub::{HubMode, OpenCounter};
 use crate::{ClientMeta, DeviceInfo, SeqTy};
 
+/// [ClientConfig::hub_reconnect] by default: a connection through the hub gives up after this long without a link.
+pub const DEFAULT_HUB_GIVE_UP: Duration = Duration::from_secs(60);
+
 /// Configuration of device enumeration, selection and connection.
 /// Flexible filters allow for many different scenarios:
 /// - Specific device selection
@@ -44,6 +47,8 @@ pub struct ClientConfig {
     hub_mode: Option<HubMode>,
     hub_opens: Option<OpenCounter>,
     holder_mode: Option<crate::holders::Mode>,
+    /// [ClientConfig::hub_reconnect]; None: the default
+    hub_reconnect: Option<Option<Duration>>,
 }
 
 #[derive(Clone)]
@@ -74,6 +79,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) hub_opens: OpenCounter,
     /// [ClientConfig::holder_mode]
     pub(crate) holder_mode: crate::holders::Mode,
+    /// [ClientConfig::hub_reconnect]: give up after this long without a link, None: don't reconnect
+    pub(crate) hub_reconnect: Option<Duration>,
 }
 
 #[derive(Clone, Debug)]
@@ -290,6 +297,7 @@ impl ClientConfig {
             hub_mode: s.hub_mode.unwrap_or_else(HubMode::from_env),
             hub_opens: s.hub_opens.unwrap_or_else(OpenCounter::from_env),
             holder_mode: s.holder_mode.unwrap_or(crate::holders::Mode::Direct),
+            hub_reconnect: s.hub_reconnect.unwrap_or(Some(DEFAULT_HUB_GIVE_UP)),
         })
     }
 
@@ -396,6 +404,20 @@ impl ClientConfig {
     pub fn hub(self, mode: HubMode) -> Self {
         let mut c = self;
         c.hub_mode = Some(mode);
+        c
+    }
+
+    /// Whether a connection through the ww hub reconnects by itself when its link goes (CLT-40): the hub exited,
+    /// crashed or handed over to a newer one, or lent the device for a while. `Some(give_up)`: connect again
+    /// (starting a hub if none runs, except with [HubMode::Direct]), resume counted and reliable streams, observed
+    /// levels and sinks, and tell the app ([Commander::connection_events](crate::Commander::connection_events));
+    /// stop trying after `give_up` without a link (time the device is lent doesn't count). Calls in flight when the
+    /// link went fail with [Error::Disconnected](crate::Error::Disconnected), and so does every call until the
+    /// link is back: none is sent again by itself. `None`: the link through the hub ends like an unplugged device.
+    /// Default `Some(60 s)`. Connections that don't go through the hub are not affected.
+    pub fn hub_reconnect(self, give_up: Option<Duration>) -> Self {
+        let mut c = self;
+        c.hub_reconnect = Some(give_up);
         c
     }
 

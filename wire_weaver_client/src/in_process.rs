@@ -413,6 +413,7 @@ pub(crate) fn try_connect(
     Ok(Selected::Device {
         info: Box::new(device_info(path.clone())),
         handle: Box::new(path),
+        via_hub: false,
     })
 }
 

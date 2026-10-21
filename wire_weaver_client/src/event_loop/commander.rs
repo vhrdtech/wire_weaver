@@ -91,6 +91,50 @@ pub struct TransportCommander {
     pub(crate) observes: ObserveRegistry,
 }
 
+/// A [Commander] that doesn't keep the connection or the Commander's clones alive, see [Commander::downgrade].
+pub(crate) struct WeakCommander {
+    cmd_tx: mpsc::WeakSender<Command>,
+    last_clone: Weak<()>,
+    base_path: Option<Vec<UNib32>>,
+    default_timeout: Duration,
+    connected_device: DeviceApiInfo,
+    client_introspect: Option<IntrospectBundle>,
+    device_introspect: Option<IntrospectBundle>,
+    api_match: ApiMatch,
+    traits_only: bool,
+    stream_queue_bytes: usize,
+    stream_compression: bool,
+    streams: StreamRegistry,
+    sinks: SinkRegistry,
+    consts: ConstCache,
+    observes: ObserveRegistry,
+}
+
+impl WeakCommander {
+    /// The Commander again, while one of its clones lives.
+    pub(crate) fn upgrade(&self) -> Option<Commander> {
+        Some(Commander {
+            transport_cmd_tx: self.cmd_tx.upgrade()?,
+            last_clone: self.last_clone.upgrade()?,
+            base_path: self.base_path.clone(),
+            default_timeout: self.default_timeout,
+            connected_device: self.connected_device.clone(),
+            client_introspect: self.client_introspect.clone(),
+            device_introspect: self.device_introspect.clone(),
+            api_match: self.api_match.clone(),
+            traits_only: self.traits_only,
+            stream_queue_bytes: self.stream_queue_bytes,
+            stream_compression: self.stream_compression,
+            streams: self.streams.clone(),
+            sinks: self.sinks.clone(),
+            consts: self.consts.clone(),
+            observes: self.observes.clone(),
+            // the keeper holds the Reconnect itself
+            reconnect: None,
+        })
+    }
+}
+
 /// Values of `const` items read on a connection (API-36), by request path (serialized [PathKindOwned]): response
 /// bytes, decoded again on each read. Shared by a [Commander] and its clones, a new connection starts empty.
 pub(crate) type ConstCache = Arc<Mutex<HashMap<Vec<u8>, Vec<u8>>>>;
@@ -725,6 +769,66 @@ impl Commander {
 
     pub(crate) fn set_reconnect(&mut self, reconnect: Arc<Reconnect>) {
         self.reconnect = Some(reconnect);
+    }
+
+    /// What happens to the connection (CLT-40): the link went, a reconnect through the ww hub attempted, done or
+    /// given up. Events from the moment of the call on; for a Commander made by hand or connected with
+    /// `connect_blocking` the receiver is closed.
+    pub fn connection_events(&self) -> tokio::sync::broadcast::Receiver<crate::ConnectionEvent> {
+        match &self.reconnect {
+            Some(r) => r.events.subscribe(),
+            None => tokio::sync::broadcast::channel(1).1,
+        }
+    }
+
+    /// A handle that doesn't keep the connection alive, for the keeper that reconnects through the hub (CLT-40).
+    pub(crate) fn downgrade(&self) -> WeakCommander {
+        WeakCommander {
+            cmd_tx: self.transport_cmd_tx.downgrade(),
+            last_clone: Arc::downgrade(&self.last_clone),
+            base_path: self.base_path.clone(),
+            default_timeout: self.default_timeout,
+            connected_device: self.connected_device.clone(),
+            client_introspect: self.client_introspect.clone(),
+            device_introspect: self.device_introspect.clone(),
+            api_match: self.api_match.clone(),
+            traits_only: self.traits_only,
+            stream_queue_bytes: self.stream_queue_bytes,
+            stream_compression: self.stream_compression,
+            streams: self.streams.clone(),
+            sinks: self.sinks.clone(),
+            consts: self.consts.clone(),
+            observes: self.observes.clone(),
+        }
+    }
+
+    pub(crate) fn cmd_tx(&self) -> &mpsc::Sender<Command> {
+        &self.transport_cmd_tx
+    }
+
+    /// Ends the streams, observed levels and sinks waiting for a resume: no reconnect comes (CLT-40 gave up).
+    pub(crate) fn end_kept_streams(&self) {
+        let streams: Vec<Arc<Shared>> = {
+            let streams = self.streams.lock().unwrap_or_else(|e| e.into_inner());
+            streams.iter().filter_map(Weak::upgrade).collect()
+        };
+        for shared in streams {
+            shared.lock().ended();
+            shared.wake();
+        }
+        for route in self.observed_levels() {
+            route.on_detached();
+        }
+        for link in self.kept_sinks() {
+            if link.kept().is_some() {
+                // a closed sideband and no session: the handle sees the connection gone
+                let (_, sideband_rx) = event_queue(1);
+                link.resume(Resumed {
+                    sideband_rx,
+                    answer: Some(Err(Error::Disconnected)),
+                });
+            }
+        }
     }
 
     pub(crate) fn set_client_introspect(&mut self, client_bundle: IntrospectBundle) {

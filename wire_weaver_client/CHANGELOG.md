@@ -6,6 +6,10 @@
 - `Command::Connect` has the new field `keep_streams_on_loss`: when the link goes rather than being disconnected on
   request, counted and reliable streams, observed levels and sinks stay for a resume as after
   `disconnect().keep_streams()` (set by the reconnect through the hub, CLT-40); `false` keeps today's behaviour.
+- `Selected::Device` (internal) and the `Error` enum: `Error::HubRefused { target, status, why, hub_version }` is new,
+  a refusal of the hub's preamble answer (before, a refusal became a `ConnectFailed` string); exhaustive matches need
+  the arm. A local socket connection (`ipc_path`, `hub_api`, `hub_device`) opens its tunnel before the event loop
+  starts, so a refusal fails `connect()` as this error.
 
 ### 🐛 Fixes
 
@@ -14,6 +18,20 @@
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
 
 ### 🚀 Features
+
+- Reconnect after a hub restart (CLT-40): a connection through the ww hub (routed by `connect()` or
+  `ClientConfig::hub_device`) connects again by itself when its link goes: the hub exited, crashed, was killed,
+  handed over to a newer one, or lent the device for a while. The client starts a hub if none runs (in `HubMode::Auto`
+  as if `Prefer`), redoes link setup, resumes counted and reliable streams, observed levels and sinks
+  (`resume_streams`), and tries with backoff (10 ms doubling to 1 s) until `ClientConfig::hub_reconnect(give_up)`
+  without a link (`DEFAULT_HUB_GIVE_UP`, 60 s; time the device is lent doesn't count; `None` turns it off). Calls in
+  flight fail with `Error::Disconnected`, as does every call until the link is back; none is sent again by itself.
+  `Commander::connection_events()` tells the app: `ConnectionEvent::Disconnected { reason: GapReason, reconnecting }`,
+  `AttemptFailed`, `Reconnected { gap, attempts, resumed }`, `GaveUp` (the waiting streams end). `GapReason`: `Lost`,
+  `HubHandover`, `Lent` (`DisconnectReason::Other(1)` from the hub, preamble status 5: wait, don't start a hub),
+  `Disconnect(reason)`. `Error::is_lent()`. Tested in `tests/hub_reconnect`.
+- A device through the user's own hub (`hub_device(key)`, no path) starts the hub when none runs (feature `hub`),
+  except with `HubMode::Direct`.
 
 - Hub routing in `connect()` (CLT-39), feature `hub`: `ClientConfig::hub(HubMode)` (`WW_HUB` when not set: `auto`, `prefer`, `required`, `off`). `Auto`, the default, opens a USB device directly unless the hub already holds it (its registry says so) or the device was opened often lately: the open counter in `<runtime dir>/ww/opens/<key>` trips at 3 opens within 60 s (`ClientConfig::hub_opens(OpenCounter)`, `WW_HUB_OPENS=N/T`), a shell-launched client (kind `Cli`) counting 1, other kinds 1/4. `Prefer` goes through the hub, started if needed, and directly when none can start or it can't serve the device; `Required` fails instead; `Direct` never uses it and says so when the hub holds the device. Without the feature every mode but `Required` connects directly. `connect_blocking()` routes on a multi-thread tokio runtime only.
 - `hub::ensure_running(start)`: the user's hub socket once the hub answers there; with `start`, a hub is started under `hub.start.lock` when none holds `hub.lock` (two programs starting at once get one hub), a stale socket file removed, the newest hub executable started detached (`WW_HUB_EXE`; else this program if `ww_hub::main_if_hub()` registered it, `ww` next to it, `ww` on `PATH`, each asked `--hub-version`), and its socket polled with the preamble for 2 s (no inherited pipe, the same on every OS). The hub's stderr goes to `<runtime dir>/ww/hub.log`. `hub::candidates()`, `hub_running()`, `register_self_hosting()`, `record_open()`, `take(key)` (`ww hub take`), `key_of(&DeviceInfo)`.

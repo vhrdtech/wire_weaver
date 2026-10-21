@@ -33,52 +33,58 @@ pub(crate) struct LocalTarget {
     pub target: Target,
 }
 
-pub(crate) fn try_connect(
+/// Opens the connection now, before an event loop starts, so that a refusal (a lent device, versions the hub doesn't
+/// serve) is an [Error::HubRefused](crate::Error::HubRefused) the caller can act on. A device through the user's
+/// own hub (no path given) starts the hub when none runs, unless the config says [HubMode::Direct]
+/// (crate::hub::HubMode::Direct) (feature `hub`).
+pub(crate) async fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
+    // no path: the user's hub
     let to = c.pieces.iter().rev().find_map(|p| match p {
         // the one device the process serves
-        ConfigPiece::IpcPath { path } => Some(Ok(LocalTarget {
-            path: PathBuf::from(path),
-            target: Target::Device(String::new()),
-        })),
-        ConfigPiece::HubApi { path } => Some(
-            match path {
-                Some(path) => Ok(PathBuf::from(path)),
-                None => ww_local_socket::runtime_dir()
-                    .map(|d| d.join(ww_local_socket::files::HUB_SOCKET)),
-            }
-            .map(|path| LocalTarget {
-                path,
-                target: Target::Hub,
-            }),
-        ),
-        ConfigPiece::HubDevice { path, key } => Some(
-            match path {
-                Some(path) => Ok(PathBuf::from(path)),
-                None => ww_local_socket::runtime_dir()
-                    .map(|d| d.join(ww_local_socket::files::HUB_SOCKET)),
-            }
-            .map(|path| LocalTarget {
-                path,
-                target: Target::Device(key.clone()),
-            }),
-        ),
+        ConfigPiece::IpcPath { path } => Some((
+            Some(PathBuf::from(path)),
+            Target::Device(String::new()),
+            false,
+        )),
+        ConfigPiece::HubApi { path } => Some((path.as_ref().map(PathBuf::from), Target::Hub, true)),
+        ConfigPiece::HubDevice { path, key } => Some((
+            path.as_ref().map(PathBuf::from),
+            Target::Device(key.clone()),
+            true,
+        )),
         _ => None,
     });
-    let Some(to) = to.transpose()? else {
+    let Some((path, target, via_hub)) = to else {
         // devices behind the hub are listed by it (CLT-39), nothing to discover here yet
         return Ok(Selected::NotFound { unmatched: vec![] });
     };
+    let path = match path {
+        Some(path) => path,
+        None => users_hub(c, &target).await?,
+    };
+    let tunnel = open(&path, target).await.map_err(OpenError::into_error)?;
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
     tokio::spawn(worker(cmd_rx));
     Ok(Selected::Device {
-        info: Box::new(device_info(&to.path.display().to_string())),
-        handle: Box::new(to),
+        info: Box::new(device_info(&path.display().to_string())),
+        handle: Box::new(tunnel),
+        via_hub,
     })
+}
+
+/// The socket of the user's hub, started for a device when none runs (feature `hub`).
+async fn users_hub(c: &ValidatedConfig, target: &Target) -> Result<PathBuf, anyhow::Error> {
+    #[cfg(feature = "hub")]
+    if matches!(target, Target::Device(_)) && c.hub_mode != crate::hub::HubMode::Direct {
+        return Ok(crate::hub::ensure_running(true).await?);
+    }
+    _ = (c, target);
+    Ok(ww_local_socket::runtime_dir()?.join(ww_local_socket::files::HUB_SOCKET))
 }
 
 /// The event loop on a local socket, until its commander is gone.
@@ -161,6 +167,26 @@ pub(crate) enum OpenError {
     Io(String),
     /// The other side answered, with a status but `Ok`
     Refused { shown: String, answer: Answer },
+}
+
+impl OpenError {
+    /// As the client's error: a refusal is [Error::HubRefused](crate::Error::HubRefused).
+    pub(crate) fn into_error(self) -> anyhow::Error {
+        match self {
+            OpenError::Io(e) => anyhow::anyhow!(e),
+            OpenError::Refused { shown, answer } => refusal(shown, answer).into(),
+        }
+    }
+}
+
+/// What a refusal means for this program.
+pub(crate) fn refusal(target: String, answer: Answer) -> crate::Error {
+    crate::Error::HubRefused {
+        target,
+        status: answer.status.to_u8(),
+        why: answer.status.to_string(),
+        hub_version: answer.hub_version,
+    }
 }
 
 impl std::fmt::Display for OpenError {

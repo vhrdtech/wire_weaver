@@ -449,7 +449,10 @@ impl RxCore {
             Err(e) => error!("rx exiting with: {e:?}"),
         }
         // the link went (not a disconnect asked for): the client reconnects by itself and resumes them (CLT-40)
-        let lost = matches!(result, Err(_) | Ok(EventLoopExitReason::DisconnectFromDevice(_)));
+        let lost = matches!(
+            result,
+            Err(_) | Ok(EventLoopExitReason::DisconnectFromDevice(_))
+        );
         if lost && self.keep_streams_on_loss {
             self.dispatcher.keep_streams = true;
         }

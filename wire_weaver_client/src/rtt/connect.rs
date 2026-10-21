@@ -44,6 +44,7 @@ pub(crate) fn try_connect(
             holder_mode: c.holder_mode,
         }),
         info: Box::new(info),
+        via_hub: false,
     })
 }
 

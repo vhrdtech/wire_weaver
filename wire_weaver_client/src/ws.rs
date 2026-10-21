@@ -50,6 +50,7 @@ pub(crate) fn try_connect(
     Ok(Selected::Device {
         info: Box::new(device_info(&url)),
         handle: Box::new(url),
+        via_hub: false,
     })
 }
 

@@ -77,12 +77,31 @@ pub enum Error {
         "Connected with `traits_only()`, only global trait calls are possible, not absolute path '{}'", .0
     )]
     AbsolutePathInTraitsOnly(String),
+    /// The ww hub (or another process serving the local socket) answered the preamble with a status but `Ok`.
+    #[error("{target}: {why} (ww hub {hub_version})")]
+    HubRefused {
+        /// The socket and device asked for
+        target: String,
+        /// The preamble answer's status (`ww_local_socket::Status`): 1 unknown device, 2 held elsewhere, 3 preamble
+        /// version, 4 versions not served, 5 lent
+        status: u8,
+        /// What it means, with the fix where there is one
+        why: String,
+        hub_version: String,
+    },
     #[error("{what} is not supported by the connected device: {reason}")]
     Unsupported {
         /// What was tried, e.g. `observing properties`
         what: &'static str,
         reason: String,
     },
+}
+
+impl Error {
+    /// A ww hub that lent the device to another program (SRV-32): it comes back, wait and try again.
+    pub fn is_lent(&self) -> bool {
+        matches!(self, Error::HubRefused { status, .. } if *status == crate::connection_event::STATUS_LENT)
+    }
 }
 
 fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo]) -> String {

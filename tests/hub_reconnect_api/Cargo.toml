@@ -1,0 +1,15 @@
+[package]
+name = "hub_reconnect_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+wire_weaver = { workspace = true, features = ["std"] }

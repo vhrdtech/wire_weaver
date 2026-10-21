@@ -538,7 +538,11 @@ mod tests {
         let t = std::time::Instant::now();
         let e = client.plain_return().call().await.unwrap_err();
         assert!(format!("{e:?}").contains("Disconnected"), "{e:?}");
-        assert!(t.elapsed() < Duration::from_millis(500), "{:?}", t.elapsed());
+        assert!(
+            t.elapsed() < Duration::from_millis(500),
+            "{:?}",
+            t.elapsed()
+        );
         client.cmd.reconnect().await.unwrap();
         client.no_args().call().await.unwrap();
         assert!(data.read().unwrap().no_args_called);

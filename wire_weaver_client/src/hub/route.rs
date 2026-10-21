@@ -7,8 +7,9 @@ use ww_local_socket::Target;
 use super::{HubClient, HubMode, MODE_ENV, ensure_running, hub_running, record_open};
 use crate::ClientKind;
 use crate::config::ValidatedConfig;
+use crate::connection_event::STATUS_LENT;
 use crate::holders::{self, Mode};
-use crate::local_socket::{Tunnel, open};
+use crate::local_socket::{OpenError, Tunnel, open, refusal};
 
 /// See [route].
 pub(crate) enum Route {
@@ -98,6 +99,13 @@ async fn via_hub(key: &str, mode: HubMode, why: &str) -> anyhow::Result<Route> {
         Ok(tunnel) => {
             debug!("{key} through the ww hub: {why}");
             Ok(Route::Hub(Box::new(tunnel)))
+        }
+        // the hub holds the device, opening it directly would only find it busy: lent (it comes back, the caller waits)
+        // or versions it doesn't serve (the error says what to do)
+        Err(OpenError::Refused { shown, answer })
+            if matches!(answer.status.to_u8(), 4 | STATUS_LENT) =>
+        {
+            Err(refusal(shown, answer).into())
         }
         Err(e) if mode == HubMode::Required => {
             anyhow::bail!("{key} through the ww hub ({why}): {e}")

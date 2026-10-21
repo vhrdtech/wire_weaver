@@ -17,7 +17,7 @@ use crate::tx::{Tx, TxState};
 pub struct TxOwned<H, C, T, P = NopPrefix> {
     buf: Vec<u8>,
     state: TxState,
-    _phantom: core::marker::PhantomData<(H, C, T, P)>,
+    _phantom: crate::ConfigMarker<(H, C, T, P)>,
 }
 
 impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> TxOwned<H, C, T, P>
@@ -99,7 +99,7 @@ where
 pub struct FramedRxOwned<H: Head, C, T, P: FramePrefix = NopPrefix> {
     buf: Vec<u8>,
     state: FramedRxState<H::UserKind, P::Rx>,
-    _phantom: core::marker::PhantomData<(C, T, P)>,
+    _phantom: crate::ConfigMarker<(C, T, P)>,
 }
 
 impl<H: Head, C: Checksum, T: Tail, P: FramePrefix> FramedRxOwned<H, C, T, P>

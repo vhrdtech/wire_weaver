@@ -233,6 +233,9 @@ pub enum Framer {
         tail: FramerTail,
         /// Stream medium: frames are chunks of a byte stream, every message is Full and may span chunks.
         stream: bool,
+        /// What every frame starts with, before the first head.
+        #[default = FramerPrefix::None]
+        prefix: FramerPrefix,
     },
 }
 
@@ -248,6 +251,25 @@ pub enum FramerChecksum {
     Crc16IbmSdlc {
         full: bool,
     },
+    /// `CrcChecksum<Crc32IsoHdlc, FULL>` (`ww_link::LinkCrc32` is the same algorithm): split messages always, Full
+    /// ones when `full`.
+    Crc32IsoHdlc {
+        full: bool,
+    },
+}
+
+/// Frame prefix (`ww_framer::prefix`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Debug, PartialEq, Eq, Copy, Clone),
+    ww_repr = u4
+)]
+pub enum FramerPrefix {
+    /// `NopPrefix`: frames start with the first head.
+    None,
+    /// `SeqPrefix`: one byte `00ee_ssss`, frame counter mod 16 and session epoch mod 4.
+    Seq,
 }
 
 #[derive_shrink_wrap(

@@ -28,6 +28,9 @@ use crate::transport::{RxFramer, TxFramer};
 /// Blocking packet (frame) level sink, e.g., USB IN endpoint.
 pub trait PacketSink {
     type Error;
+    /// How messages are packed into this medium's packets, also for the received ones (e.g., `UsbFraming` from
+    /// [ww_link]).
+    type Framing: ww_link::Framing;
 
     /// Write one packet, blocking until it is accepted. Should fail eventually if the other side
     /// does not read, so that the device notices a host that is gone without disconnecting.
@@ -36,11 +39,11 @@ pub trait PacketSink {
 
 /// Blocking device server, see the [module docs](self). Same as the async [Server](crate::Server), several media
 /// are served by one server per medium, each tagged with [with_medium](Self::with_medium).
-pub struct Server<'a, P, M = ()> {
+pub struct Server<'a, P: PacketSink, M = ()> {
     link: DeviceLink<'a>,
-    tx: TxFramer<'a>,
+    tx: TxFramer<'a, P::Framing>,
     sink: P,
-    rx: RxFramer<'a>,
+    rx: RxFramer<'a, P::Framing>,
     scratch: &'a mut [u8],
     event_scratch: &'a mut [u8],
     medium: M,
@@ -65,9 +68,9 @@ impl<'a, P: PacketSink> Server<'a, P> {
         let max_message_len = rx_assembly_buf.len().saturating_sub(tx_frame_buf.len());
         Server {
             link: DeviceLink::new(config, max_message_len),
-            tx: TxFramer::new(tx_frame_buf),
+            tx: TxFramer::<P::Framing>::new(tx_frame_buf),
             sink,
-            rx: RxFramer::new(rx_assembly_buf),
+            rx: RxFramer::<P::Framing>::new(rx_assembly_buf),
             scratch,
             event_scratch,
             medium: (),
@@ -241,9 +244,9 @@ struct Scratch<'s> {
 
 /// Everything but the rx framer and scratch, so that a received message and scratch can be borrowed
 /// at the same time.
-struct Ctx<'s, 'a, P> {
+struct Ctx<'s, 'a, P: PacketSink> {
     link: &'s mut DeviceLink<'a>,
-    tx: &'s mut TxFramer<'a>,
+    tx: &'s mut TxFramer<'a, P::Framing>,
     sink: &'s mut P,
     now: Instant,
 }
@@ -362,7 +365,7 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
 }
 
 /// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend inside an [EventWriter].
-pub struct Sink<'s, 'a, P> {
+pub struct Sink<'s, 'a, P: PacketSink> {
     ctx: Ctx<'s, 'a, P>,
 }
 

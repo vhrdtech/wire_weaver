@@ -5,7 +5,9 @@
 //! [ww_link::UDP_MAX_DATAGRAM_LEN], any size is accepted from the device.
 //!
 //! UDP is unreliable and nothing is retransmitted: a lost request times out, a lost stream event is gone, a split
-//! message with a lost or reordered piece is dropped by the framer. Link setup, version checks, pings and timeouts
+//! message with a lost or reordered piece is dropped by the framer. Every datagram starts with a frame counter
+//! ([ww_link::UdpPrefix]): duplicated, late and previous-session datagrams are dropped, lost ones counted (`ww
+//! stats`), and every message carries a CRC-32. Link setup, version checks, pings and timeouts
 //! are the same as over USB or RTT, see [ww_link].
 
 use std::net::SocketAddr;
@@ -21,8 +23,8 @@ use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
 use ww_tap::Tap;
 
-type TxFramer = ww_framer::TxOwned<ww_link::UdpHead, ww_link::UdpChecksum, ww_link::UdpTail>;
-type RxFramer = ww_framer::FramedRxOwned<ww_link::UdpHead, ww_link::UdpChecksum, ww_link::UdpTail>;
+type TxFramer = ww_link::FramingTxOwned<ww_link::UdpFraming>;
+type RxFramer = ww_link::FramingRxOwned<ww_link::UdpFraming>;
 
 /// Largest UDP payload, datagrams are received whole whatever their size
 const MAX_RX_DATAGRAM_LEN: usize = 65_535;
@@ -87,7 +89,7 @@ impl Transport for UdpTransport {
         let mut tap = tap;
         tap.session(&crate::tap::host_session(
             ww_tap::Medium::Udp,
-            crate::tap::FRAMED_CRC16,
+            crate::tap::FRAMED_UDP,
             ww_link::UDP_MAX_DATAGRAM_LEN,
             &addr,
         ));
@@ -202,8 +204,9 @@ impl MessageRx for UdpRx {
             if self.tap.wants_frames() {
                 self.tap.frame(ww_tap::Dir::Rx, datagram);
             }
-            if self.framer.stage(datagram).is_err() {
-                return Err("out of staging area, this is a bug".into());
+            match self.framer.stage(datagram) {
+                Ok(report) => crate::framing::log_report(report),
+                Err(()) => return Err("out of staging area, this is a bug".into()),
             }
         }
         // second lookup instead of returning from inside the loop: keeps the borrow checker happy

@@ -16,7 +16,7 @@ use wire_weaver::{BlockingEventOut, WireWeaverApiBackend};
 use ww_client_server::{ErrorKind, Event, EventKind};
 use ww_link::{
     ApiHashPair, CompactVersion, DisconnectReason, FullVersion, Kind, LinkSetup, Message,
-    PEER_TIMEOUT_MS, PING_INTERVAL_MS,
+    PEER_TIMEOUT_MS, PING_INTERVAL_MS, UsbFraming,
 };
 use ww_version::Version;
 
@@ -480,6 +480,7 @@ struct Packets(Vec<Vec<u8>>);
 
 impl blocking::PacketSink for &mut Packets {
     type Error = ();
+    type Framing = UsbFraming;
 
     fn write_packet(&mut self, packet: &[u8]) -> Result<(), ()> {
         self.0.push(packet.to_vec());
@@ -495,7 +496,7 @@ struct Host {
 
 impl Host {
     fn packets(&mut self, messages: &[Message<'_>]) -> Vec<Vec<u8>> {
-        let mut tx = TxFramer::new(&mut self.tx_buf);
+        let mut tx = TxFramer::<UsbFraming>::new(&mut self.tx_buf);
         let mut out = vec![];
         let mut scratch = [0u8; 256];
         for m in messages {
@@ -516,7 +517,7 @@ impl Host {
     }
 
     fn messages(&mut self, packets: &[Vec<u8>]) -> Vec<(Kind, Vec<u8>)> {
-        let mut rx = RxFramer::new(&mut self.rx_buf);
+        let mut rx = RxFramer::<UsbFraming>::new(&mut self.rx_buf);
         let mut out = vec![];
         for p in packets {
             rx.stage(p).unwrap();

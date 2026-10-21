@@ -10,26 +10,110 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use shrink_wrap::prelude::*;
-use ww_framer::crc::{Crc16IbmSdlc, CrcChecksum};
+use ww_framer::crc::{CrcAlgorithm, CrcChecksum};
 use ww_framer::framed::U2Head;
-use ww_framer::traits::{NopChecksum, NopTail};
+use ww_framer::prefix::{FramePrefix, NopPrefix, SeqPrefix};
+use ww_framer::traits::{Checksum, Head, NopChecksum, NopTail, Tail};
 pub use ww_version::{ApiHashPair, CompactVersion, FullVersion};
 #[cfg(feature = "std")]
 pub use ww_version::{ApiHashPairOwned, FullVersionOwned};
 
 pub use wire_weaver::DisconnectReason;
 
+/// Framer configuration of a frame based medium: both ends of a link must use the same one.
+pub trait Framing {
+    type Head: Head<UserKind = u8>;
+    type Checksum: Checksum;
+    type Tail: Tail;
+    type Prefix: FramePrefix;
+}
+
+/// [ww_framer::Tx] of a [Framing].
+pub type FramingTx<'a, F> = ww_framer::Tx<
+    'a,
+    <F as Framing>::Head,
+    <F as Framing>::Checksum,
+    <F as Framing>::Tail,
+    <F as Framing>::Prefix,
+>;
+/// [ww_framer::FramedRx] of a [Framing].
+pub type FramingRx<'a, F> = ww_framer::FramedRx<
+    'a,
+    <F as Framing>::Head,
+    <F as Framing>::Checksum,
+    <F as Framing>::Tail,
+    <F as Framing>::Prefix,
+>;
+/// [ww_framer::TxOwned] of a [Framing].
+#[cfg(feature = "std")]
+pub type FramingTxOwned<F> = ww_framer::TxOwned<
+    <F as Framing>::Head,
+    <F as Framing>::Checksum,
+    <F as Framing>::Tail,
+    <F as Framing>::Prefix,
+>;
+/// [ww_framer::FramedRxOwned] of a [Framing].
+#[cfg(feature = "std")]
+pub type FramingRxOwned<F> = ww_framer::FramedRxOwned<
+    <F as Framing>::Head,
+    <F as Framing>::Checksum,
+    <F as Framing>::Tail,
+    <F as Framing>::Prefix,
+>;
+
 // Framer configuration for USB
 /// Framer head used by the link.
 pub type UsbHead = U2Head;
-/// Split messages are protected with CRC-16 to detect lost frames, Full ones rely on the medium.
-/// This might not be needed though.
-pub type UsbChecksum = CrcChecksum<Crc16IbmSdlc>;
+/// No checksum: USB checks every packet with its own CRC and retries, and bulk endpoints deliver in order without
+/// losing packets within a session (a full host just NAKs). Frames left over from a previous session are told
+/// apart by the link setup token, see [Message::GetDeviceInfo].
+pub type UsbChecksum = NopChecksum;
 /// Frame based media (USB, CAN, etc.) do not need a delimiter.
 pub type UsbTail = NopTail;
+/// No prefix by default, see [UsbSeqFraming] for a frame counter as a diagnostic.
+pub type UsbPrefix = NopPrefix;
 
-// pub type UsbTx<'i> = ww_framer::Tx<'i, UsbHead, UsbChecksum, UsbTail>;
-// pub type UsbRx<'i> = ww_framer::FramedRx<'i, UsbHead, UsbChecksum, UsbTail>;
+/// USB: one frame per packet, see [UsbHead], [UsbChecksum], [UsbTail], [UsbPrefix].
+pub struct UsbFraming;
+
+impl Framing for UsbFraming {
+    type Head = UsbHead;
+    type Checksum = UsbChecksum;
+    type Tail = UsbTail;
+    type Prefix = UsbPrefix;
+}
+
+/// [UsbFraming] with a [SeqPrefix] frame counter, as a diagnostic: counts lost, duplicated or reordered packets
+/// (which a working USB stack never has). Off by default, host and device must both turn it on.
+pub struct UsbSeqFraming;
+
+impl Framing for UsbSeqFraming {
+    type Head = UsbHead;
+    type Checksum = UsbChecksum;
+    type Tail = UsbTail;
+    type Prefix = SeqPrefix;
+}
+
+/// USB interface protocol (`bInterfaceProtocol`, class 0xFF, subclass 0) of a WireWeaver interface with
+/// [UsbFraming]: the host picks the framing from it.
+pub const USB_INTERFACE_PROTOCOL: u8 = 0x37;
+/// USB interface protocol of a WireWeaver interface with [UsbSeqFraming].
+pub const USB_INTERFACE_PROTOCOL_SEQ: u8 = 0x38;
+
+/// A framing a USB device can use, and the interface protocol that tells the host about it: [UsbFraming] or
+/// [UsbSeqFraming].
+pub trait UsbFramingProtocol: Framing {
+    /// `bInterfaceProtocol` of the WireWeaver interface.
+    const INTERFACE_PROTOCOL: u8;
+}
+
+impl UsbFramingProtocol for UsbFraming {
+    const INTERFACE_PROTOCOL: u8 = USB_INTERFACE_PROTOCOL;
+}
+
+impl UsbFramingProtocol for UsbSeqFraming {
+    const INTERFACE_PROTOCOL: u8 = USB_INTERFACE_PROTOCOL_SEQ;
+}
 
 // Framer configuration for RTT (SEGGER Real-Time Transfer over a debug probe)
 /// RTT is a byte stream, so only `Full` messages are used (see `Tx::write_full` in [ww_framer]).
@@ -43,11 +127,39 @@ pub type RttTail = NopTail;
 // Framer configuration for UDP: one frame per datagram
 /// Datagrams keep their boundaries, so messages are packed and split as over USB.
 pub type UdpHead = U2Head;
-/// UDP checksums each datagram, but datagrams get lost or reordered: split messages are protected with CRC-16,
-/// so that a message assembled from the wrong pieces is dropped.
-pub type UdpChecksum = CrcChecksum<Crc16IbmSdlc>;
+/// CRC-32 on every message, with the frame prefix and the head folded in: datagrams get lost, duplicated or
+/// reordered and nothing is retried, the UDP checksum is a 16-bit sum (optional over IPv4) and Ethernet's CRC only
+/// covers each hop. shrink_wrap is dense, so a flipped bit often still parses: the CRC is the real guard.
+pub type UdpChecksum = CrcChecksum<LinkCrc32, true>;
 /// Datagrams do not need a delimiter.
 pub type UdpTail = NopTail;
+/// Frame counter and session epoch: lost, duplicated, reordered and previous-session datagrams are told apart.
+pub type UdpPrefix = SeqPrefix;
+
+/// UDP: one frame per datagram, see [UdpHead], [UdpChecksum], [UdpTail], [UdpPrefix].
+pub struct UdpFraming;
+
+impl Framing for UdpFraming {
+    type Head = UdpHead;
+    type Checksum = UdpChecksum;
+    type Tail = UdpTail;
+    type Prefix = UdpPrefix;
+}
+
+/// CRC-32/ISO-HDLC (zip, Ethernet) of [UdpChecksum], computed by `ww_block::crc32_update`: one implementation
+/// for the link and block checksums, with the lookup table size a firmware picks once with `ww_block`'s
+/// `crc-table-*` features (bitwise without one).
+pub struct LinkCrc32;
+
+impl CrcAlgorithm for LinkCrc32 {
+    type Width = u32;
+
+    #[inline]
+    fn checksum(header: &[u8], message: &[u8]) -> u32 {
+        !ww_block::crc32_update(ww_block::crc32_update(!0, header), message)
+    }
+}
+
 /// Largest datagram payload the host sends: 1500 B Ethernet MTU - 40 B IPv6 header - 8 B UDP header, so that
 /// datagrams are not fragmented over IPv4 or IPv6. A device must be able to receive datagrams of this size.
 pub const UDP_MAX_DATAGRAM_LEN: usize = 1452;
@@ -440,5 +552,15 @@ mod tests {
             Message::decode(200, &[]).err(),
             Some(Error::UnknownKind(200))
         );
+    }
+
+    #[test]
+    fn link_crc32_is_crc32_iso_hdlc_over_header_and_message() {
+        use ww_framer::crc::Crc32IsoHdlc;
+        assert_eq!(LinkCrc32::checksum(b"", b"123456789"), 0xcbf4_3926);
+        assert_eq!(LinkCrc32::checksum(b"1234", b"56789"), 0xcbf4_3926);
+        for (h, m) in [(&b""[..], &b""[..]), (&[0x15, 0x02], &[1, 2, 3, 4, 5][..])] {
+            assert_eq!(LinkCrc32::checksum(h, m), Crc32IsoHdlc::checksum(h, m));
+        }
     }
 }

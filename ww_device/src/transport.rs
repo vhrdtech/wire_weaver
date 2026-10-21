@@ -6,16 +6,17 @@
 
 use core::future::Future;
 
+use ww_framer::prefix::PrefixStats;
 use ww_framer::traits::{Checksum, Head, Tail};
-use ww_link::{UsbChecksum, UsbHead, UsbTail};
+use ww_link::{Framing, FramingRx, FramingTx, UsbFraming};
 use ww_tap::{Dir, NoTap, Tap};
 
 use crate::fmt::warn;
 
-/// Framer used by [FramedTx], USB configuration from [ww_link].
-pub type TxFramer<'a> = ww_framer::Tx<'a, UsbHead, UsbChecksum, UsbTail>;
-/// Framer used by [FramedRx], USB configuration from [ww_link].
-pub type RxFramer<'a> = ww_framer::FramedRx<'a, UsbHead, UsbChecksum, UsbTail>;
+/// Framer used by [FramedTx] with the [Framing] `F` of its [PacketSink], USB by default.
+pub type TxFramer<'a, F = UsbFraming> = FramingTx<'a, F>;
+/// Framer used by [FramedRx] with the [Framing] `F` of its [PacketSource], USB by default.
+pub type RxFramer<'a, F = UsbFraming> = FramingRx<'a, F>;
 
 /// Message tx half.
 pub trait MessageTx {
@@ -77,6 +78,9 @@ pub trait MessageRx {
 /// Packet (frame) level sink, e.g., USB IN endpoint.
 pub trait PacketSink {
     type Error;
+    /// How messages are packed into this medium's packets, the same as the host uses (e.g., [UsbFraming] or
+    /// `UdpFraming` from [ww_link]).
+    type Framing: Framing;
 
     /// Write one packet. Should fail eventually if the other side does not read, so that the device
     /// notices a host that is gone without disconnecting.
@@ -86,6 +90,8 @@ pub trait PacketSink {
 /// Packet (frame) level source, e.g., USB OUT endpoint.
 pub trait PacketSource {
     type Error;
+    /// How messages are packed into this medium's packets, see [PacketSink::Framing].
+    type Framing: Framing;
 
     /// Largest packet that can be received.
     fn max_packet_len(&self) -> usize;
@@ -107,10 +113,11 @@ pub enum FramedError<E> {
     Framing,
 }
 
-/// [MessageTx] over a [PacketSink], packing messages into frames with [ww_framer]. Messages and frames go to the
-/// [Tap] `T` as they are sent ([NoTap] by default, which compiles away).
-pub struct FramedTx<'a, P, T = NoTap> {
-    framer: TxFramer<'a>,
+/// [MessageTx] over a [PacketSink], packing messages into frames with [ww_framer] in the sink's
+/// [Framing](PacketSink::Framing). Messages and frames go to the [Tap] `T` as they are sent ([NoTap] by default,
+/// which compiles away).
+pub struct FramedTx<'a, P: PacketSink, T = NoTap> {
+    framer: TxFramer<'a, P::Framing>,
     sink: P,
     tap: T,
 }
@@ -126,7 +133,7 @@ impl<'a, P: PacketSink, T: Tap> FramedTx<'a, P, T> {
     /// Same as [FramedTx::new], with a link tap.
     pub fn with_tap(sink: P, frame_buf: &'a mut [u8], tap: T) -> Self {
         FramedTx {
-            framer: TxFramer::new(frame_buf),
+            framer: TxFramer::<P::Framing>::new(frame_buf),
             sink,
             tap,
         }
@@ -193,11 +200,11 @@ impl<P: PacketSink, T: Tap> MessageTx for FramedTx<'_, P, T> {
     }
 }
 
-/// [MessageRx] over a [PacketSource], reassembling messages with [ww_framer].
-/// Packets are received directly into the framer's buffer, without an extra copy. Frames and messages go to the
-/// [Tap] `T` as they are received ([NoTap] by default, which compiles away).
-pub struct FramedRx<'a, P, T = NoTap> {
-    framer: RxFramer<'a>,
+/// [MessageRx] over a [PacketSource], reassembling messages with [ww_framer] in the source's
+/// [Framing](PacketSource::Framing). Packets are received directly into the framer's buffer, without an extra
+/// copy. Frames and messages go to the [Tap] `T` as they are received ([NoTap] by default, which compiles away).
+pub struct FramedRx<'a, P: PacketSource, T = NoTap> {
+    framer: RxFramer<'a, P::Framing>,
     source: P,
     max_message_len: usize,
     /// A message is ready and not consumed yet
@@ -221,7 +228,7 @@ impl<'a, P: PacketSource, T: Tap> FramedRx<'a, P, T> {
         debug_assert!(assembly_buf.len() > max_packet_len);
         let max_message_len = assembly_buf.len().saturating_sub(max_packet_len);
         FramedRx {
-            framer: RxFramer::new(assembly_buf),
+            framer: RxFramer::<P::Framing>::new(assembly_buf),
             source,
             max_message_len,
             ready: false,
@@ -235,6 +242,11 @@ impl<'a, P: PacketSource, T: Tap> FramedRx<'a, P, T> {
 
     pub fn tap_mut(&mut self) -> &mut T {
         &mut self.tap
+    }
+
+    /// Lost, duplicated, reordered and previous-session frames seen so far, all zeros without a frame prefix.
+    pub fn prefix_stats(&self) -> PrefixStats {
+        self.framer.prefix_stats()
     }
 }
 

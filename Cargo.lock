@@ -5917,6 +5917,7 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",

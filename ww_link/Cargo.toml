@@ -9,13 +9,22 @@ license.workspace = true
 
 [features]
 default = []
-std = ["shrink_wrap/std", "ww_version/std", "ww_framer/std", "wire_weaver/std"]
+# hosts get the fastest CRC-32 table (16 KiB), firmware picks one with ww_block's crc-table-* features
+std = [
+    "shrink_wrap/std",
+    "ww_version/std",
+    "ww_framer/std",
+    "wire_weaver/std",
+    "ww_block/std",
+    "ww_block/crc-table-slice16",
+]
 defmt = ["dep:defmt", "shrink_wrap/defmt", "ww_version/defmt", "wire_weaver/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 shrink_wrap.workspace = true
 wire_weaver.workspace = true
+ww_block.workspace = true
 ww_framer = { workspace = true, features = ["large", "very_large"] }
 ww_global.workspace = true
 ww_version.workspace = true

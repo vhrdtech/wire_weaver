@@ -8,6 +8,7 @@
 - `CrcAlgorithm` is a function now, `fn checksum(header, message) -> Width`, instead of a `const CRC: crc::Crc<Width>`, so a CRC can come from elsewhere (a hardware unit, `ww_block::crc32_update`); `crc::crc_of(&CRC, header, message)` keeps a `crc` crate algorithm a few lines. `CrcWidth::checksum` is replaced by `checksum2` (TR-15).
 - `pieces::verify_split` takes the End's frame prefix and head: `verify_split::<C>(prefix, end_head, message, trailer)`; `PieceErrorKind::TooShort` is new (TR-15).
 - `FramedRx::stage` / `commit_staged` (and `FramedRxOwned::stage`) return `Result<FrameReport, ()>` instead of `Result<(), ()>`: callers that only used `?`, `unwrap` or `is_err` don't change (TR-15).
+- `FramePrefix::Rx` must be `Send`; in return `Tx`, `FramedRx`, `TxOwned`, `FramedRxOwned`, `Pieces` and `CrcChecksum` are `Send` and `Sync` whatever their head, checksum, tail and prefix types are (they only mark them), so a framer generic over a configuration moves between threads (TR-15).
 
 ### ⚡ Performance
 

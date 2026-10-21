@@ -23,8 +23,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use wire_weaver_client::DynClient;
 use wire_weaver_client::tap::{
-    Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, Layers, MessageInfo,
-    PieceOutcome, Recorder, RecorderConfig, Subscription, What, decode::kind_name, stats::ns,
+    Check, Decoded, Decoder, DecoderConfig, Dir, FrameInfo, FrameOutcome, FrameReport, Layers,
+    MessageInfo, PieceOutcome, Recorder, RecorderConfig, Subscription, What, decode::kind_name,
+    stats::ns,
 };
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::ww_self::explain::PartKind;
@@ -514,11 +515,38 @@ fn frame_line(f: &FrameInfo) -> String {
             style(format!("({} frames missing before)", f.gap)).red()
         );
     }
+    if let Some(report) = f.outcome.prefix_report {
+        let prefix: Vec<String> = f.bytes[f.outcome.prefix.clone()]
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        _ = write!(s, " [{} {}]", prefix.join(" "), prefix_text(report));
+    }
     let pieces = pieces_text(&f.outcome);
     if !pieces.is_empty() {
         _ = write!(s, ": {pieces}");
     }
     s
+}
+
+/// What a frame's prefix check found, coloured: red when the frame is dropped or frames were lost.
+fn prefix_text(report: FrameReport) -> String {
+    let text = match report {
+        FrameReport::Unchecked | FrameReport::InOrder => return "in order".into(),
+        FrameReport::Synced(at) => return format!("synced at seq {} epoch {}", at.seq, at.epoch),
+        FrameReport::NewEpoch(at) => {
+            return format!("new session: seq {} epoch {}", at.seq, at.epoch);
+        }
+        FrameReport::Gap { lost } => format!("{lost} frames lost before"),
+        FrameReport::Resynced(at) => {
+            format!("dropped, resynced at seq {} epoch {}", at.seq, at.epoch)
+        }
+        FrameReport::Duplicate => "dropped: duplicate".into(),
+        FrameReport::Late => "dropped: late".into(),
+        FrameReport::StaleEpoch => "dropped: previous session".into(),
+        FrameReport::TooShort => "dropped: shorter than the prefix".into(),
+    };
+    style(text).red().to_string()
 }
 
 fn pieces_text(o: &FrameOutcome) -> String {

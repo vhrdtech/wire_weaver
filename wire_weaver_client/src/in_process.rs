@@ -29,9 +29,11 @@
 //! would over its USB endpoints. Everything on the wire is then what a real full-speed (64 B) or high-speed (512 B)
 //! bulk endpoint pair carries; only USB itself (enumeration, data toggles, NAKs) is not simulated. The host connects
 //! with the same [ClientConfig::in_process_path](crate::ClientConfig::in_process_path), the path standing in for the
-//! USB serial number.
+//! USB serial number. [usb_device_framed] picks the framing, e.g. [ww_link::UsbSeqFraming] with its frame counter,
+//! as a real device's interface protocol does.
 
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::Duration;
 
@@ -42,6 +44,7 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use ww_link::{UsbFraming, UsbFramingProtocol};
 use ww_tap::Tap;
 
 type Message = (u8, Vec<u8>);
@@ -57,7 +60,15 @@ struct Registered {
     connections: mpsc::UnboundedSender<Connection>,
     /// Some for [usb_device]: messages are framed into packets of at most this size, each moved as one
     /// [Message] with kind 0
-    usb_packet: Option<usize>,
+    usb_packet: Option<UsbPacket>,
+}
+
+/// Packets of a simulated USB device
+#[derive(Copy, Clone)]
+struct UsbPacket {
+    max_size: usize,
+    /// The device uses [ww_link::UsbSeqFraming]
+    seq_prefix: bool,
 }
 
 static DEVICES: LazyLock<Mutex<HashMap<String, Registered>>> = LazyLock::new(Default::default);
@@ -87,7 +98,7 @@ pub fn device(path: &str, max_message_len: usize) -> (DeviceTx, DeviceRx) {
 
 fn register(
     path: &str,
-    usb_packet: Option<usize>,
+    usb_packet: Option<UsbPacket>,
 ) -> (
     mpsc::UnboundedSender<Connection>,
     mpsc::UnboundedReceiver<Connection>,
@@ -222,12 +233,26 @@ impl Drop for DeviceRx {
 /// in [ww_device::FramedTx] / [ww_device::FramedRx], as it does its USB endpoints. A device already registered under
 /// the same path is replaced.
 pub fn usb_device(path: &str, max_packet_size: usize) -> (UsbSink, UsbSource) {
-    let (connections_tx, connections) = register(path, Some(max_packet_size));
+    usb_device_framed::<UsbFraming>(path, max_packet_size)
+}
+
+/// Same as [usb_device], with the framing `F` the device uses ([UsbFraming] or [ww_link::UsbSeqFraming]); the host
+/// learns it as from a real device's interface protocol.
+pub fn usb_device_framed<F: UsbFramingProtocol>(
+    path: &str,
+    max_packet_size: usize,
+) -> (UsbSink<F>, UsbSource<F>) {
+    let packet = UsbPacket {
+        max_size: max_packet_size,
+        seq_prefix: F::INTERFACE_PROTOCOL == ww_link::USB_INTERFACE_PROTOCOL_SEQ,
+    };
+    let (connections_tx, connections) = register(path, Some(packet));
     let to_host = Arc::new(Mutex::new(None));
     (
         UsbSink {
             to_host: to_host.clone(),
             max_packet_size,
+            _framing: PhantomData,
         },
         UsbSource {
             path: path.to_string(),
@@ -236,18 +261,21 @@ pub fn usb_device(path: &str, max_packet_size: usize) -> (UsbSink, UsbSource) {
             to_device: None,
             to_host,
             max_packet_size,
+            _framing: PhantomData,
         },
     )
 }
 
 /// Device IN endpoint of a simulated USB device, see [usb_device].
-pub struct UsbSink {
+pub struct UsbSink<F = UsbFraming> {
     to_host: Arc<Mutex<Option<mpsc::UnboundedSender<Message>>>>,
     max_packet_size: usize,
+    _framing: PhantomData<fn() -> F>,
 }
 
-impl ww_device::PacketSink for UsbSink {
+impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
     type Error = Disconnected;
+    type Framing = F;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Disconnected> {
         assert!(
@@ -261,17 +289,19 @@ impl ww_device::PacketSink for UsbSink {
 }
 
 /// Device OUT endpoint of a simulated USB device, see [usb_device]. Dropping it unregisters the device.
-pub struct UsbSource {
+pub struct UsbSource<F = UsbFraming> {
     path: String,
     connections_tx: mpsc::UnboundedSender<Connection>,
     connections: mpsc::UnboundedReceiver<Connection>,
     to_device: Option<mpsc::UnboundedReceiver<Message>>,
     to_host: Arc<Mutex<Option<mpsc::UnboundedSender<Message>>>>,
     max_packet_size: usize,
+    _framing: PhantomData<fn() -> F>,
 }
 
-impl ww_device::PacketSource for UsbSource {
+impl<F: UsbFramingProtocol> ww_device::PacketSource for UsbSource<F> {
     type Error = Disconnected;
+    type Framing = F;
 
     fn max_packet_len(&self) -> usize {
         self.max_packet_size
@@ -305,7 +335,7 @@ impl ww_device::PacketSource for UsbSource {
     }
 }
 
-impl Drop for UsbSource {
+impl<F> Drop for UsbSource<F> {
     fn drop(&mut self) {
         unregister(&self.path, &self.connections_tx);
     }
@@ -431,8 +461,8 @@ impl Transport for InProcessTransport {
         tap.session(&match usb_packet {
             Some(p) => crate::tap::host_session(
                 ww_tap::Medium::InProcessUsb,
-                crate::tap::FRAMED_CRC16,
-                p,
+                crate::framing::usb_tap_framer(p.seq_prefix),
+                p.max_size,
                 &path,
             ),
             None => {
@@ -442,22 +472,22 @@ impl Transport for InProcessTransport {
         Ok(Opened {
             tx: HostTx {
                 to_device: to_device_tx,
-                framer: usb_packet.map(UsbTxFramer::new),
+                framer: usb_packet.map(|p| UsbTxFramer::new(p.seq_prefix, p.max_size)),
                 tap: tap.clone(),
             },
             rx: HostRx {
                 from_device: to_host_rx,
                 message: None,
-                framer: usb_packet.map(|p| UsbRxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + p)),
+                framer: usb_packet.map(|p| {
+                    UsbRxFramer::new(p.seq_prefix, crate::DEFAULT_MAX_MESSAGE_SIZE + p.max_size)
+                }),
                 tap,
             },
         })
     }
 }
 
-type UsbTxFramer = ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
-type UsbRxFramer =
-    ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
+use crate::framing::{UsbRx as UsbRxFramer, UsbTx as UsbTxFramer};
 
 struct HostTx {
     to_device: mpsc::UnboundedSender<Message>,
@@ -552,9 +582,10 @@ impl MessageRx for HostRx {
             if self.tap.wants_frames() {
                 self.tap.frame(ww_tap::Dir::Rx, &packet);
             }
-            framer
+            let report = framer
                 .stage(&packet)
                 .map_err(|_| "out of staging area, this is a bug".to_string())?;
+            crate::framing::log_report(report);
         }
         Ok(self
             .framer
@@ -593,9 +624,18 @@ mod tests {
 
     #[tokio::test]
     async fn host_and_device_talk_over_simulated_usb() {
+        talk_over_simulated_usb::<UsbFraming>("in_process/usb_talk").await
+    }
+
+    /// The device uses the frame counter diagnostic: the host learns it as from the interface protocol.
+    #[tokio::test]
+    async fn host_and_device_talk_over_simulated_usb_with_frame_counter() {
+        talk_over_simulated_usb::<ww_link::UsbSeqFraming>("in_process/usb_seq_talk").await
+    }
+
+    async fn talk_over_simulated_usb<F: UsbFramingProtocol + 'static>(path: &str) {
         const PACKET: usize = 64;
-        let path = "in_process/usb_talk";
-        let (sink, source) = usb_device(path, PACKET);
+        let (sink, source) = usb_device_framed::<F>(path, PACKET);
         let (events_tx, events_rx) = mpsc::unbounded_channel();
         let dev = tokio::spawn(async move {
             let mut tx_frame = [0u8; PACKET];

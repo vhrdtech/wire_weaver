@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- USB packets carry no CRC-16 on split messages anymore (`ww_link::UsbFraming`, TR-15): a wire change, devices and hosts must both be built with it. `seq-prefix` feature: a frame counter at the start of every packet (`ww_link::UsbSeqFraming`) as a diagnostic, told to the host by the interface protocol (`USB_PROTOCOL_WIRE_WEAVER` is 0x38 then, 0x37 without); `UsbFraming` is the framing in use.
 - `ServerBuffers` has an event scratch buffer, `MAX_MESSAGE_LEN` bytes more, used to serialize events sent from
   handlers and through `server.sink()`. `UsbServer` takes an optional medium type (`UsbServer<'d, D, M = ()>`), set
   with `server.with_medium(..)`.

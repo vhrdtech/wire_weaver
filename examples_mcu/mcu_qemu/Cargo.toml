@@ -15,6 +15,8 @@ ww_client_server = { path = "../../ww_stdlib/ww_client_server", default-features
 ww_stream = { path = "../../ww_stream", default-features = false }
 ww_framer = { path = "../../ww_framer" }
 ww_link = { path = "../../ww_link" }
+# for its crc-table-* features (the CRC-32 of ww_link's UDP framing), e.g. `--features ww_block/crc-table-256`
+ww_block = { path = "../../ww_stdlib/ww_block", default-features = false }
 ww_bus_slave = { path = "../../ww_bus_slave" }
 ww_i2c = { path = "../../ww_stdlib/ww_i2c", default-features = false }
 ww_spi = { path = "../../ww_stdlib/ww_spi", default-features = false }

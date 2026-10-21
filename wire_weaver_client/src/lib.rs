@@ -48,6 +48,8 @@ pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
 pub use event_loop::commander::Commander;
 pub use ww_stream::StreamCursor;
 
+#[cfg(any(feature = "usb", feature = "udp", feature = "in_process"))]
+mod framing;
 #[cfg(feature = "usb")]
 mod usb;
 #[cfg(feature = "usb")]

@@ -7,6 +7,12 @@ description = "WireWeaver USB device class using embassy"
 license = "MIT"
 repository = "https://github.com/vhrdtech/wire_weaver"
 
+[features]
+default = []
+# Frame counter at the start of every packet (ww_link::UsbSeqFraming), as a diagnostic: lost, duplicated or
+# reordered packets show in `ww stats`. Told to the host by the interface protocol, costs one byte per packet.
+seq-prefix = []
+
 [dependencies]
 embassy-usb = { version = "0.6", features = ["defmt"] }
 embassy-futures = "0.1"

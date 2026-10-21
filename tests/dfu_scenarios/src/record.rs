@@ -201,15 +201,24 @@ fn hidden_packets(recs: &[Rec]) -> Vec<usize> {
     hidden
 }
 
-/// A frame (or WebSocket message) that carries nothing but a ping.
+/// A frame (USB packet, UDP datagram or WebSocket message) that carries nothing but a ping.
 fn is_lone_ping(bytes: &[u8]) -> bool {
-    static PING: LazyLock<Vec<u8>> = LazyLock::new(|| {
-        let mut tx =
-            ww_framer::TxOwned::<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>::new(64);
-        assert!(tx.write(Kind::Ping as u8, &[]).unwrap());
-        tx.flush_to_vec().unwrap()
-    });
-    bytes == PING.as_slice() || ws_payload(bytes).is_some_and(|p| p == [Kind::Ping as u8])
+    use ww_framer::pieces::{Piece, PieceError, pieces_with_prefix};
+    use ww_link::{Framing, UdpFraming, UsbFraming};
+    fn lone<F: Framing>(frame: &[u8]) -> bool {
+        let mut it = pieces_with_prefix::<F::Head, F::Checksum, F::Tail, F::Prefix>(frame);
+        let first: Option<Result<Piece<u8>, PieceError>> = it.next();
+        matches!(
+            (first, it.next()),
+            (Some(Ok(p)), None) if p.kind == ww_framer::traits::MessageKind::Full
+                && p.user_kind == Kind::Ping as u8
+                && p.payload.is_empty()
+                && p.checksum_ok == Some(true)
+        )
+    }
+    lone::<UsbFraming>(bytes)
+        || lone::<UdpFraming>(bytes)
+        || ws_payload(bytes).is_some_and(|p| p == [Kind::Ping as u8])
 }
 
 /// One readable line: the decoded message, then its size and first bytes.
@@ -657,6 +666,7 @@ pub struct TapPackets<P> {
 
 impl<P: ww_device::PacketSink> ww_device::PacketSink for TapPackets<P> {
     type Error = P::Error;
+    type Framing = P::Framing;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), P::Error> {
         self.rec.packet(Dir::ToHost, packet);
@@ -666,6 +676,7 @@ impl<P: ww_device::PacketSink> ww_device::PacketSink for TapPackets<P> {
 
 impl<P: ww_device::PacketSource> ww_device::PacketSource for TapPackets<P> {
     type Error = P::Error;
+    type Framing = P::Framing;
 
     fn max_packet_len(&self) -> usize {
         self.inner.max_packet_len()

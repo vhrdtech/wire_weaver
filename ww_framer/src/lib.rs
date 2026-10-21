@@ -22,5 +22,9 @@ pub use owned::{FramedRxOwned, TxOwned};
 pub use pieces::{Piece, Pieces, pieces};
 pub use tx::Tx;
 
+/// Marks the configuration types (head, checksum, tail, prefix) a framer is generic over without holding any of
+/// them, so a framer is `Send` and `Sync` whatever they are.
+pub(crate) type ConfigMarker<T> = core::marker::PhantomData<fn() -> T>;
+
 #[cfg(all(feature = "very_large", not(feature = "large")))]
 compile_error!("Doesn't make sense having 'very_large' feature enabled, but not 'large'");

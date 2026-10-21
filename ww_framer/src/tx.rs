@@ -11,10 +11,10 @@ pub struct Tx<'i, H, C, T, P = NopPrefix> {
     wr: BufWriter<'i>,
     state: State,
     frame: FrameCtx,
-    _phantom_h: PhantomData<H>,
-    _phantom_c: PhantomData<C>,
-    _phantom_t: PhantomData<T>,
-    _phantom_p: PhantomData<P>,
+    _phantom_h: PhantomData<fn() -> H>,
+    _phantom_c: PhantomData<fn() -> C>,
+    _phantom_t: PhantomData<fn() -> T>,
+    _phantom_p: PhantomData<fn() -> P>,
 }
 
 #[derive(Copy, Clone)]

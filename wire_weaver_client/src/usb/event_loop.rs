@@ -1,4 +1,5 @@
-//! USB [Transport]: nusb endpoints + [ww_framer] with the USB framer configuration from [ww_link].
+//! USB [Transport]: nusb endpoints + [ww_framer] with the USB framer configuration from [ww_link]: no checksum,
+//! no frame prefix, or the `SeqPrefix` diagnostic when the interface protocol says so.
 //! Tx and rx halves are used from two independent tasks by the generic event loop,
 //! see [core](crate::event_loop::core).
 
@@ -11,10 +12,10 @@ use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
+use ww_framer::prefix::FrameReport;
 use ww_tap::{Dir, RecorderLink, Tap};
 
-type TxFramer = ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
-type RxFramer = ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
+use crate::framing::{UsbRx as RxFramer, UsbTx as TxFramer};
 
 pub async fn usb_worker(cmd_rx: mpsc::Receiver<Command>) {
     debug!("usb worker started");
@@ -65,20 +66,23 @@ impl Transport for NusbTransport {
         let peer = di.serial_number().unwrap_or_default();
         tap.session(&crate::tap::host_session(
             ww_tap::Medium::Usb,
-            crate::tap::FRAMED_CRC16,
+            crate::framing::usb_tap_framer(dev.seq_prefix),
             dev.max_packet_size,
             peer,
         ));
         Ok(Opened {
             tx: NusbTx {
-                framer: TxFramer::new(dev.max_packet_size),
+                framer: TxFramer::new(dev.seq_prefix, dev.max_packet_size),
                 sink,
                 tap: tap.clone(),
                 _device: dev.device,
             },
             rx: NusbRx {
                 // must hold one maximum message plus one more packet, see FramedRx docs
-                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size),
+                framer: RxFramer::new(
+                    dev.seq_prefix,
+                    crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size,
+                ),
                 source,
                 tap,
             },
@@ -146,7 +150,7 @@ impl MessageRx for NusbRx {
             if self.framer.message().is_some() {
                 break;
             }
-            let mut stage_err = false;
+            let mut staged = Ok(FrameReport::Unchecked);
             let framer = &mut self.framer;
             let tap = &mut self.tap;
             self.source
@@ -155,12 +159,13 @@ impl MessageRx for NusbRx {
                     if tap.wants_frames() {
                         tap.frame(Dir::Rx, packet);
                     }
-                    stage_err = framer.stage(packet).is_err();
+                    staged = framer.stage(packet);
                 })
                 .await
                 .map_err(describe_transfer_error)?;
-            if stage_err {
-                return Err("out of staging area, this is a bug".into());
+            match staged {
+                Ok(report) => crate::framing::log_report(report),
+                Err(()) => return Err("out of staging area, this is a bug".into()),
             }
         }
         // second lookup instead of returning from inside the loop: keeps the borrow checker happy
@@ -328,7 +333,7 @@ mod tests {
     /// Guards against the bug where only the first message of a packet was ever returned.
     #[test]
     fn several_messages_per_packet_are_all_delivered() {
-        let mut tx = TxFramer::new(64);
+        let mut tx = TxFramer::new(false, 64);
         let mut packets: Vec<Vec<u8>> = vec![];
         for (k, m) in [(0u8, &[1u8, 2, 3][..]), (1, &[4, 5]), (5, &[6])] {
             assert_eq!(tx.write(k, m), Ok(true));
@@ -350,7 +355,7 @@ mod tests {
         let len = tx.flush();
         packets.push(tx.buf()[..len].to_vec());
 
-        let mut rx = RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + 64);
+        let mut rx = RxFramer::new(false, crate::DEFAULT_MAX_MESSAGE_SIZE + 64);
         let mut packets = packets.into_iter();
         let mut read_message = |rx: &mut RxFramer| -> Option<(u8, Vec<u8>)> {
             loop {

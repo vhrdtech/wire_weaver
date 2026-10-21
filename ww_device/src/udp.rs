@@ -21,13 +21,14 @@ use core::cell::Cell;
 use core::future::Future;
 
 use wire_weaver::shrink_wrap::BufReader;
-use ww_framer::traits::{Head, MessageKind};
-use ww_link::{Kind, UDP_MAX_DATAGRAM_LEN, UdpChecksum, UdpHead, UdpTail};
+use ww_framer::prefix::FramePrefix;
+use ww_framer::traits::{Checksum, Head, MessageKind};
+use ww_link::{Kind, UDP_MAX_DATAGRAM_LEN, UdpChecksum, UdpFraming, UdpHead, UdpPrefix};
 
 use crate::buffer::RxBuffer;
 use crate::fmt::{debug, warn};
 use crate::server::Clock;
-use crate::transport::{FramedRx, FramedTx, PacketSink, PacketSource, RxFramer, TxFramer};
+use crate::transport::{FramedRx, FramedTx, PacketSink, PacketSource};
 use crate::{LinkConfig, Server};
 
 /// Datagram socket bound to a local port. Both methods take `&self`, so that tx and rx can use it independently.
@@ -100,6 +101,7 @@ impl<'a, S: DatagramSocket> UdpSink<'a, S> {
 
 impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
     type Error = UdpError<S::SendError>;
+    type Framing = UdpFraming;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error> {
         let peer = self.conn.peer.get().ok_or(UdpError::NoPeer)?;
@@ -111,8 +113,8 @@ impl<S: DatagramSocket> PacketSink for UdpSink<'_, S> {
     }
 }
 
-/// Longest datagram that can start link setup. The host sends `Nop` (1 byte) and `GetDeviceInfo` (2 byte head and
-/// 8 byte token) alone.
+/// Longest datagram that can start link setup. The host sends `Nop` (1 byte prefix, 1 byte head, 4 byte CRC) and
+/// `GetDeviceInfo` (1 byte prefix, 2 byte head, 8 byte token, 4 byte CRC) alone.
 const SETUP_DATAGRAM_MAX_LEN: usize = 16;
 
 /// Datagram that starts link setup, kept across the medium going down and up again.
@@ -139,13 +141,24 @@ impl<A> SetupDatagram<A> {
     }
 }
 
-/// First message in `datagram` is a whole `Nop` or `GetDeviceInfo`.
+/// First message in `datagram` (after the frame prefix) is a whole `Nop` or `GetDeviceInfo` with a good CRC, so
+/// that a corrupted datagram can't take over.
 fn starts_link_setup(datagram: &[u8]) -> bool {
-    let mut rd = BufReader::new(datagram);
-    matches!(
-        UdpHead::read(&mut rd),
-        Ok((MessageKind::Full, kind, _)) if kind == Kind::Nop as u8 || kind == Kind::GetDeviceInfo as u8
-    )
+    let Some(after_prefix) = datagram.get(UdpPrefix::LEN..) else {
+        return false;
+    };
+    let mut rd = BufReader::new(after_prefix);
+    let Ok((MessageKind::Full, kind, len)) = UdpHead::read(&mut rd) else {
+        return false;
+    };
+    if kind != Kind::Nop as u8 && kind != Kind::GetDeviceInfo as u8 {
+        return false;
+    }
+    let header = &datagram[..datagram.len() - rd.bytes_left()];
+    let Ok(message) = rd.read_raw_slice(len) else {
+        return false;
+    };
+    UdpChecksum::read(header, message, false, &mut rd).is_ok()
 }
 
 /// [PacketSource] receiving datagrams from the current peer, see the [module docs](self) on how peers are adopted.
@@ -169,6 +182,7 @@ impl<'a, S: DatagramSocket> UdpSource<'a, S> {
 
 impl<S: DatagramSocket> PacketSource for UdpSource<'_, S> {
     type Error = UdpError<S::RecvError>;
+    type Framing = UdpFraming;
 
     /// The host sends datagrams of at most this size.
     fn max_packet_len(&self) -> usize {
@@ -216,19 +230,6 @@ impl<S: DatagramSocket> PacketSource for UdpSource<'_, S> {
             }
         }
     }
-}
-
-/// Fails to compile if the UDP framer configuration in `ww_link` ever diverges from the USB one used by [FramedTx]
-/// and [FramedRx].
-#[allow(dead_code)]
-fn framer_config_is_the_same<'a>(
-    tx: TxFramer<'a>,
-    rx: RxFramer<'a>,
-) -> (
-    ww_framer::Tx<'a, UdpHead, UdpChecksum, UdpTail>,
-    ww_framer::FramedRx<'a, UdpHead, UdpChecksum, UdpTail>,
-) {
-    (tx, rx)
 }
 
 pub type UdpTx<'a, S> = FramedTx<'a, UdpSink<'a, S>>;
@@ -375,7 +376,7 @@ mod tests {
     use embassy_futures::{block_on, poll_once};
 
     use super::*;
-    use crate::transport::{MessageRx, MessageTx};
+    use crate::transport::{MessageRx, MessageTx, TxFramer};
 
     /// Datagrams to be received `(from, bytes)`, and sent ones `(to, bytes)`. Receiving with nothing queued stays
     /// pending.
@@ -408,15 +409,31 @@ mod tests {
         }
     }
 
-    /// One datagram with the given messages, as the host would send them
-    fn datagram(messages: &[(Kind, &[u8])]) -> Vec<u8> {
-        let mut buf = [0u8; UDP_MAX_DATAGRAM_LEN];
-        let mut tx = TxFramer::new(&mut buf);
-        for (kind, m) in messages {
-            assert!(tx.write(*kind as u8, m).unwrap());
+    /// A host's frame counter, so that its datagrams follow each other
+    #[derive(Default)]
+    struct Host(Option<ww_framer::tx::TxState>);
+
+    impl Host {
+        /// One datagram with the given messages, as the host would send them
+        fn datagram(&mut self, messages: &[(Kind, &[u8])]) -> Vec<u8> {
+            let mut buf = [0u8; UDP_MAX_DATAGRAM_LEN];
+            let mut tx = match self.0.take() {
+                Some(state) => TxFramer::<UdpFraming>::from_parts(&mut buf, state),
+                None => TxFramer::<UdpFraming>::new(&mut buf),
+            };
+            for (kind, m) in messages {
+                assert!(tx.write(*kind as u8, m).unwrap());
+            }
+            let len = tx.flush();
+            let d = tx.buf()[..len].to_vec();
+            self.0 = Some(tx.into_parts());
+            d
         }
-        let len = tx.flush();
-        tx.buf()[..len].to_vec()
+    }
+
+    /// A datagram of a host that sends only this one
+    fn datagram(messages: &[(Kind, &[u8])]) -> Vec<u8> {
+        Host::default().datagram(messages)
     }
 
     fn push(conn: &UdpConnection<MockSocket>, from: u8, d: Vec<u8>) {
@@ -465,6 +482,13 @@ mod tests {
         assert!(!starts_link_setup(&datagram(&[(Kind::Ping, &[])])));
         assert!(!starts_link_setup(&[]));
         assert!(datagram(&[NOP, DATA, DATA, DATA, DATA]).len() > SETUP_DATAGRAM_MAX_LEN);
+        // a flipped bit anywhere (prefix, head, token, CRC) fails the CRC: no takeover by a corrupted datagram
+        let good = datagram(&[GET_INFO]);
+        for bit in 0..good.len() * 8 {
+            let mut bad = good.clone();
+            bad[bit / 8] ^= 1 << (bit % 8);
+            assert!(!starts_link_setup(&bad), "bit {bit}");
+        }
     }
 
     #[test]
@@ -478,11 +502,12 @@ mod tests {
             ),
         };
 
+        let (mut h1, mut h2) = (Host::default(), Host::default());
         // stray data and a datagram too long to be a setup one are ignored while waiting
-        push(&conn, 1, datagram(&[DATA]));
-        push(&conn, 1, datagram(&[NOP, DATA, DATA, DATA, DATA]));
-        push(&conn, 2, datagram(&[GET_INFO]));
-        push(&conn, 2, datagram(&[DATA]));
+        push(&conn, 1, h1.datagram(&[DATA]));
+        push(&conn, 1, h1.datagram(&[NOP, DATA, DATA, DATA, DATA]));
+        push(&conn, 2, h2.datagram(&[GET_INFO]));
+        push(&conn, 2, h2.datagram(&[DATA]));
         assert!(poll_once(rx.rx.wait_connected()).is_ready());
         rx.rx.reset();
         assert_eq!(conn.peer(), Some(2));
@@ -512,18 +537,19 @@ mod tests {
                 buf.assembly_buf(UDP_MAX_DATAGRAM_LEN),
             ),
         };
-        push(&conn, 1, datagram(&[NOP]));
+        let (mut h1, mut h2) = (Host::default(), Host::default());
+        push(&conn, 1, h1.datagram(&[NOP]));
         rx.connect();
         assert_eq!(rx.messages().unwrap(), [(3, std::vec![])]);
 
         // data from someone else is dropped, the peer stays
-        push(&conn, 2, datagram(&[DATA]));
-        push(&conn, 1, datagram(&[DATA]));
+        push(&conn, 2, h2.datagram(&[DATA]));
+        push(&conn, 1, h1.datagram(&[DATA]));
         assert_eq!(rx.messages().unwrap(), [(0, std::vec![1, 2, 3])]);
 
         // link setup from someone else: medium goes down, the new host is adopted, its datagram replayed
-        push(&conn, 2, datagram(&[NOP]));
-        push(&conn, 2, datagram(&[GET_INFO]));
+        push(&conn, 2, h2.datagram(&[NOP]));
+        push(&conn, 2, h2.datagram(&[GET_INFO]));
         assert_eq!(rx.messages(), Err(UdpError::PeerChanged));
         rx.connect();
         assert_eq!(conn.peer(), Some(2));
@@ -533,7 +559,7 @@ mod tests {
         );
 
         // the previous host is not heard anymore
-        push(&conn, 1, datagram(&[DATA]));
+        push(&conn, 1, h1.datagram(&[DATA]));
         assert_eq!(rx.messages().unwrap(), []);
     }
 

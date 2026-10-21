@@ -23,7 +23,8 @@ pub mod stats;
 
 pub use decode::{ApiInfo, Check, Decoded, Decoder, DecoderConfig, FrameInfo, MessageInfo, What};
 pub use reassembly::{FrameOutcome, FramePart, PieceInfo, PieceOutcome, Reassembled};
-pub use stats::{DirStats, LinkStats, PathStats, Stats};
+pub use stats::{DirStats, LinkStats, PathStats, PrefixCounts, Stats};
+pub use ww_framer::prefix::{FrameCtx, FrameReport};
 
 static DEFAULT: LazyLock<Recorder> = LazyLock::new(Recorder::default);
 
@@ -94,11 +95,30 @@ pub(crate) fn trace_events(
     }
 }
 
-/// Framer configuration of frame-based media with `ww_link`'s USB / UDP setup: `U2Head`, CRC-16 on split messages.
-pub(crate) const FRAMED_CRC16: ww_tap::Framer = ww_tap::Framer::U2 {
-    checksum: ww_tap::FramerChecksum::Crc16IbmSdlc { full: false },
+/// Framer configuration of `ww_link::UsbFraming`: `U2Head`, no checksum, no prefix.
+pub(crate) const FRAMED_USB: ww_tap::Framer = ww_tap::Framer::U2 {
+    checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: false,
+    prefix: ww_tap::FramerPrefix::None,
+};
+
+/// Framer configuration of `ww_link::UsbSeqFraming`: [FRAMED_USB] with the `SeqPrefix` diagnostic.
+#[allow(dead_code)] // USB only
+pub(crate) const FRAMED_USB_SEQ: ww_tap::Framer = ww_tap::Framer::U2 {
+    checksum: ww_tap::FramerChecksum::None,
+    tail: ww_tap::FramerTail::None,
+    stream: false,
+    prefix: ww_tap::FramerPrefix::Seq,
+};
+
+/// Framer configuration of `ww_link::UdpFraming`: `SeqPrefix`, `U2Head`, CRC-32 on every message.
+#[allow(dead_code)] // UDP only
+pub(crate) const FRAMED_UDP: ww_tap::Framer = ww_tap::Framer::U2 {
+    checksum: ww_tap::FramerChecksum::Crc32IsoHdlc { full: true },
+    tail: ww_tap::FramerTail::None,
+    stream: false,
+    prefix: ww_tap::FramerPrefix::Seq,
 };
 
 /// Framer configuration of stream media (RTT) with `ww_link`'s setup: `U2Head`, no checksum, chunks of a stream.
@@ -107,6 +127,7 @@ pub(crate) const STREAM_PLAIN: ww_tap::Framer = ww_tap::Framer::U2 {
     checksum: ww_tap::FramerChecksum::None,
     tail: ww_tap::FramerTail::None,
     stream: true,
+    prefix: ww_tap::FramerPrefix::None,
 };
 
 /// A host side session record.

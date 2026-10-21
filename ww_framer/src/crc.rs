@@ -89,7 +89,7 @@ pub trait CrcAlgorithm {
     type Width: CrcWidth;
 
     /// CRC of `header` followed by `message` (`header` is the frame prefix and the piece's head, see
-    /// [Checksum](crate::traits::Checksum)).
+    /// [Checksum]).
     fn checksum(header: &[u8], message: &[u8]) -> Self::Width;
 }
 
@@ -145,7 +145,7 @@ algorithm!(
 ///
 /// See the [module docs](self) for examples.
 pub struct CrcChecksum<A: CrcAlgorithm, const FULL: bool = false> {
-    _phantom: PhantomData<A>,
+    _phantom: PhantomData<fn() -> A>,
 }
 
 impl<A: CrcAlgorithm, const FULL: bool> Checksum for CrcChecksum<A, FULL> {

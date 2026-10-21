@@ -10,10 +10,10 @@ use nusb::{Device, DeviceInfo, Interface, MaybeFuture};
 use tokio::sync::mpsc;
 use tracing::trace;
 
-/// USB class, subclass and protocol of the WireWeaver interface, see `wire_weaver_usb_embassy`
+/// USB class and subclass of the WireWeaver interface, see `wire_weaver_usb_embassy`; the protocol tells the framing,
+/// see [ww_link::USB_INTERFACE_PROTOCOL].
 const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 const USB_SUBCLASS_NONE: u8 = 0x00;
-const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
 
 pub(crate) struct ConnectOk {
     pub(crate) device: Device,
@@ -22,6 +22,8 @@ pub(crate) struct ConnectOk {
     pub(crate) max_packet_size: usize,
     pub(crate) ep_out: u8,
     pub(crate) ep_in: u8,
+    /// The interface says it uses [ww_link::UsbSeqFraming]
+    pub(crate) seq_prefix: bool,
 }
 
 /// WireWeaver interface and its endpoints, as found in the configuration descriptor
@@ -32,6 +34,7 @@ struct WwInterface {
     max_packet_size: usize,
     ep_out: u8,
     ep_in: u8,
+    seq_prefix: bool,
 }
 
 pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
@@ -53,6 +56,7 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         max_packet_size: ww.max_packet_size,
         ep_out: ww.ep_out,
         ep_in: ww.ep_in,
+        seq_prefix: ww.seq_prefix,
     })
 }
 
@@ -61,14 +65,18 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
 fn find_ww_interface(config: &ConfigurationDescriptor) -> anyhow::Result<WwInterface> {
     let mut first_usable = None;
     for alt in config.interface_alt_settings() {
-        let Some(ww) = endpoint_pair(&alt) else {
+        let Some(mut ww) = endpoint_pair(&alt) else {
             continue;
         };
-        if alt.class() == USB_CLASS_VENDOR_SPECIFIC
-            && alt.subclass() == USB_SUBCLASS_NONE
-            && alt.protocol() == USB_PROTOCOL_WIRE_WEAVER
-        {
-            return Ok(ww);
+        if alt.class() == USB_CLASS_VENDOR_SPECIFIC && alt.subclass() == USB_SUBCLASS_NONE {
+            match alt.protocol() {
+                ww_link::USB_INTERFACE_PROTOCOL => return Ok(ww),
+                ww_link::USB_INTERFACE_PROTOCOL_SEQ => {
+                    ww.seq_prefix = true;
+                    return Ok(ww);
+                }
+                _ => {}
+            }
         }
         first_usable.get_or_insert(ww);
     }
@@ -96,6 +104,7 @@ fn endpoint_pair(alt: &InterfaceDescriptor) -> Option<WwInterface> {
         max_packet_size: ep_out.max_packet_size().min(ep_in.max_packet_size()),
         ep_out: ep_out.address(),
         ep_in: ep_in.address(),
+        seq_prefix: false,
     })
 }
 
@@ -248,6 +257,7 @@ mod tests {
                 max_packet_size: 512,
                 ep_out: 0x03,
                 ep_in: 0x83,
+                seq_prefix: false,
             }
         );
     }
@@ -264,8 +274,19 @@ mod tests {
                 max_packet_size: 64,
                 ep_out: 0x02,
                 ep_in: 0x82,
+                seq_prefix: false,
             }
         );
+    }
+
+    #[test]
+    fn interface_protocol_tells_the_framing() {
+        let mut ww = WW;
+        ww[7] = ww_link::USB_INTERFACE_PROTOCOL_SEQ;
+        let buf = config(&[&CDC_DATA, &ww]);
+        let config = ConfigurationDescriptor::new(&buf).unwrap();
+        let found = find_ww_interface(&config).unwrap();
+        assert_eq!((found.number, found.seq_prefix), (2, true));
     }
 
     #[test]

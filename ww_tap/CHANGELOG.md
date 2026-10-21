@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Framer::U2` has a `prefix: FramerPrefix` field (`None`, `Seq`; `#[default = None]`, so older sessions still decode) and `FramerChecksum` a `Crc32IsoHdlc { full }` variant, for `ww_link`'s UDP framing and the USB frame counter diagnostic (TR-15). Code building `Framer::U2` adds `prefix`.
+
 ### 🐛 Fixes
 
 - `Recorder::add_bundle` hands the open block and a describe block with the bundle to subscribers at once: a live reader got the bundle after the messages that needed it.

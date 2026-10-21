@@ -135,7 +135,7 @@ pub trait FramePrefix {
     const LEN: usize;
     /// What the receiver keeps between frames: the expected position and the counters. `()` when there is nothing
     /// to check, so a framer without a prefix carries nothing for it.
-    type Rx: Copy + Default;
+    type Rx: Copy + Default + Send;
 
     /// Write exactly [Self::LEN] bytes for a frame at `frame`.
     fn write(frame: FrameCtx, wr: &mut BufWriter<'_>) -> Result<(), WrError>;

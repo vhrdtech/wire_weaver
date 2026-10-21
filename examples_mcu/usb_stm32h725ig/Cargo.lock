@@ -1982,6 +1982,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_block"
+version = "0.1.0"
+dependencies = [
+ "crc",
+ "wire_weaver",
+ "ww_error",
+]
+
+[[package]]
 name = "ww_client_server"
 version = "0.2.0"
 dependencies = [
@@ -2047,6 +2056,7 @@ dependencies = [
  "defmt 1.1.1",
  "shrink_wrap",
  "wire_weaver",
+ "ww_block",
  "ww_framer",
  "ww_global",
  "ww_version",

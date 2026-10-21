@@ -6,7 +6,48 @@ use std::fmt::Write;
 
 use ww_tap::Dir;
 
+use ww_framer::prefix::FrameReport;
+
 use super::reassembly::{FrameOutcome, PieceOutcome};
+
+/// What frame prefix checks found (a `SeqPrefix` medium: UDP, USB with the diagnostic), as `FramedRx` counts it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PrefixCounts {
+    /// Frames checked, including the dropped ones.
+    pub checked: u64,
+    /// Frames missing, summed over every gap.
+    pub lost: u64,
+    /// Dropped: received before, from before the expected one (reordered), from the previous session, too short
+    /// for a prefix, or taken as the new reference after a long loss.
+    pub duplicate: u64,
+    pub late: u64,
+    pub stale_epoch: u64,
+    pub too_short: u64,
+    pub resynced: u64,
+    /// The sender started a new session (link setup).
+    pub new_epoch: u64,
+}
+
+impl PrefixCounts {
+    fn count(&mut self, report: FrameReport) {
+        self.checked += 1;
+        match report {
+            FrameReport::Gap { lost } => self.lost += lost as u64,
+            FrameReport::Duplicate => self.duplicate += 1,
+            FrameReport::Late => self.late += 1,
+            FrameReport::StaleEpoch => self.stale_epoch += 1,
+            FrameReport::TooShort => self.too_short += 1,
+            FrameReport::Resynced(_) => self.resynced += 1,
+            FrameReport::NewEpoch(_) => self.new_epoch += 1,
+            FrameReport::Unchecked | FrameReport::Synced(_) | FrameReport::InOrder => {}
+        }
+    }
+
+    /// Frames dropped by their prefix.
+    pub fn dropped(&self) -> u64 {
+        self.duplicate + self.late + self.stale_epoch + self.too_short + self.resynced
+    }
+}
 
 /// One direction of a link.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -15,7 +56,8 @@ pub struct DirStats {
     pub frame_bytes: u64,
     /// Sum of the session's frame size over the frames: `frame_bytes / frame_capacity` is the fill ratio.
     pub frame_capacity: u64,
-    /// Bytes of heads, of checksums and tails, of message payload in frames.
+    /// Bytes of frame prefixes, of heads, of checksums and tails, of message payload in frames.
+    pub prefix_bytes: u64,
     pub head_bytes: u64,
     pub trailer_bytes: u64,
     pub payload_bytes: u64,
@@ -33,6 +75,8 @@ pub struct DirStats {
     pub bad_frames: u64,
     /// Frames missing by their numbers (the tap lost them, or they were recorded before a consumer joined).
     pub frame_gaps: u64,
+    /// What the frame prefixes say: frames the medium lost, duplicated or reordered (none without a prefix).
+    pub prefix: PrefixCounts,
     /// Message records whose bytes differ from what the framer gave back: a framer bug.
     pub mismatches: u64,
     /// Messages recorded by the transport, by `ww_link` kind name.
@@ -53,6 +97,10 @@ impl DirStats {
         }
         if outcome.dropped_partial.is_some() {
             self.partial_dropped += 1;
+        }
+        if let Some(report) = outcome.prefix_report {
+            self.prefix.count(report);
+            self.prefix_bytes += outcome.prefix.len() as u64;
         }
         for p in &outcome.pieces {
             self.head_bytes += p.head.len() as u64;
@@ -188,7 +236,8 @@ impl Stats {
                     );
                     _ = writeln!(
                         s,
-                        "  overhead: heads {} B, checksums and tails {} B, unused {} B",
+                        "  overhead: prefixes {} B, heads {} B, checksums and tails {} B, unused {} B",
+                        d.prefix_bytes,
                         d.head_bytes,
                         d.trailer_bytes,
                         d.frame_capacity.saturating_sub(d.frame_bytes)
@@ -208,6 +257,21 @@ impl Stats {
                             d.bad_frames,
                             d.frame_gaps,
                             d.mismatches
+                        );
+                    }
+                    let p = &d.prefix;
+                    if p.checked > 0 {
+                        _ = writeln!(
+                            s,
+                            "  frame prefix: {} lost, {} dropped ({} duplicate, {} late, {} previous session, {} too short, {} resynced), {} new sessions",
+                            p.lost,
+                            p.dropped(),
+                            p.duplicate,
+                            p.late,
+                            p.stale_epoch,
+                            p.too_short,
+                            p.resynced,
+                            p.new_epoch
                         );
                     }
                     if let Some(mean) = d.latency_sum_ns.checked_div(d.latency_count) {

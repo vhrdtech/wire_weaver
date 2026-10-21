@@ -22,10 +22,22 @@ use embassy_usb::types::{InterfaceNumber, StringIndex};
 use embassy_usb::{Builder, Handler, InterfaceAltBuilder, msos};
 use wire_weaver::full_version;
 use wire_weaver::prelude::FullVersion;
+use ww_device::ww_link::{self, UsbFramingProtocol};
 
 pub const USB_CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
 pub const USB_SUBCLASS_NONE: u8 = 0x00;
-pub const USB_PROTOCOL_WIRE_WEAVER: u8 = 0x37;
+/// Interface protocol, tells the host the framing: [ww_link::USB_INTERFACE_PROTOCOL] for [UsbFraming], or
+/// [ww_link::USB_INTERFACE_PROTOCOL_SEQ] with the `seq-prefix` feature.
+pub const USB_PROTOCOL_WIRE_WEAVER: u8 = <UsbFraming as UsbFramingProtocol>::INTERFACE_PROTOCOL;
+
+/// How messages are packed into packets: no checksum and no frame prefix ([ww_link::UsbFraming]), or with the
+/// `seq-prefix` feature a frame counter as a diagnostic ([ww_link::UsbSeqFraming]). The host picks the same from
+/// the interface protocol.
+#[cfg(not(feature = "seq-prefix"))]
+pub type UsbFraming = ww_link::UsbFraming;
+/// How messages are packed into packets, see the `seq-prefix` feature.
+#[cfg(feature = "seq-prefix")]
+pub type UsbFraming = ww_link::UsbSeqFraming;
 
 /// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
 pub const ENDPOINTS_USED: usize = 2;
@@ -346,6 +358,7 @@ impl<'d, D: Driver<'d>> Receiver<'d, D> {
 
 impl<'d, D: Driver<'d>> ww_device::PacketSink for Sender<'d, D> {
     type Error = EndpointError;
+    type Framing = UsbFraming;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error> {
         defmt::trace!("usb sending packet {}: {:02x}", packet.len(), packet);
@@ -355,6 +368,7 @@ impl<'d, D: Driver<'d>> ww_device::PacketSink for Sender<'d, D> {
 
 impl<'d, D: Driver<'d>> ww_device::PacketSource for Receiver<'d, D> {
     type Error = EndpointError;
+    type Framing = UsbFraming;
 
     fn max_packet_len(&self) -> usize {
         self.max_packet_size() as usize

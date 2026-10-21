@@ -123,7 +123,7 @@ pub struct Pieces<'f, H, C, T, P = NopPrefix> {
     frame: &'f [u8],
     pos: usize,
     done: bool,
-    _phantom: PhantomData<(H, C, T, P)>,
+    _phantom: crate::ConfigMarker<(H, C, T, P)>,
 }
 
 /// The pieces of `frame` without a prefix, see [Pieces].

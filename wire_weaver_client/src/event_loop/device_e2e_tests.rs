@@ -29,10 +29,8 @@ pub(crate) const PACKET: usize = 64;
 pub(crate) const DEV_MAX_MESSAGE: usize = 1024;
 
 pub(crate) type Packet = Vec<u8>;
-pub(crate) type TxFramer =
-    ww_framer::TxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
-pub(crate) type RxFramer =
-    ww_framer::FramedRxOwned<ww_link::UsbHead, ww_link::UsbChecksum, ww_link::UsbTail>;
+pub(crate) type TxFramer = ww_link::FramingTxOwned<ww_link::UsbFraming>;
+pub(crate) type RxFramer = ww_link::FramingRxOwned<ww_link::UsbFraming>;
 
 // Host side: same framing as NusbTx / NusbRx, over channels
 
@@ -106,6 +104,7 @@ pub(crate) struct DevSink(pub(crate) mpsc::Sender<Packet>);
 
 impl ww_device::PacketSink for DevSink {
     type Error = ();
+    type Framing = ww_link::UsbFraming;
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), ()> {
         self.0.send(packet.to_vec()).await.map_err(|_| ())
     }
@@ -115,6 +114,7 @@ pub(crate) struct DevSource(pub(crate) mpsc::Receiver<Packet>);
 
 impl ww_device::PacketSource for DevSource {
     type Error = ();
+    type Framing = ww_link::UsbFraming;
     fn max_packet_len(&self) -> usize {
         PACKET
     }
@@ -183,6 +183,7 @@ struct PacedSink {
 
 impl ww_device::PacketSink for PacedSink {
     type Error = ();
+    type Framing = ww_link::UsbFraming;
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), ()> {
         self.n += 1;
         if self.n.is_multiple_of(self.every) {
@@ -200,6 +201,7 @@ struct PacedSource {
 
 impl ww_device::PacketSource for PacedSource {
     type Error = ();
+    type Framing = ww_link::UsbFraming;
     fn max_packet_len(&self) -> usize {
         PACKET
     }

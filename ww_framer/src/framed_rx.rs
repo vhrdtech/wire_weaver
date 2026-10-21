@@ -31,8 +31,8 @@ pub struct FramedRx<'i, H: Head, C, T, P: FramePrefix = NopPrefix> {
 
     prefix: PrefixState<P::Rx>,
 
-    _phantom_c: PhantomData<C>,
-    _phantom_t: PhantomData<T>,
+    _phantom_c: PhantomData<fn() -> C>,
+    _phantom_t: PhantomData<fn() -> T>,
 }
 
 /// What a [FramePrefix] needs between frames: its own state, the counters of frames too short for it, and the

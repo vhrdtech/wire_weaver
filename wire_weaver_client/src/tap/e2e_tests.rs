@@ -13,18 +13,20 @@ use ww_version::{FullVersionOwned, VersionOwned};
 use super::*;
 use crate::event_loop::command::Command;
 use crate::event_loop::device_e2e_tests::{DEV_MAX_MESSAGE, serve};
-use crate::in_process::{UsbSink, usb_device};
+use crate::in_process::{UsbSink, usb_device_framed};
+use ww_link::{UsbFraming, UsbFramingProtocol, UsbSeqFraming};
 
 const PACKET: usize = 64;
 
 /// The device's IN endpoint, dropping one packet when told: `drop_at` counts packets down, the one at 0 is lost.
-struct LossySink {
-    inner: UsbSink,
+struct LossySink<F> {
+    inner: UsbSink<F>,
     drop_at: Arc<AtomicIsize>,
 }
 
-impl ww_device::PacketSink for LossySink {
+impl<F: UsbFramingProtocol> ww_device::PacketSink for LossySink<F> {
     type Error = crate::in_process::Disconnected;
+    type Framing = F;
 
     async fn write_packet(&mut self, packet: &[u8]) -> Result<(), Self::Error> {
         if self.drop_at.fetch_sub(1, Ordering::SeqCst) == 0 {
@@ -73,8 +75,29 @@ fn decode_all<'a>(blocks: impl Iterator<Item = ww_tape::Block<'a>>) -> (Vec<Deco
 
 #[tokio::test]
 async fn linkage_split_shared_lost_and_replay() {
-    let path = "tap/e2e";
-    let (sink, source) = usb_device(path, PACKET);
+    let stats = linkage::<UsbFraming>("tap/e2e").await;
+    let rx = &stats.links[&0].rx;
+    assert_eq!(rx.prefix, PrefixCounts::default(), "no prefix to check");
+    assert!(!stats.report().contains("frame prefix"));
+}
+
+/// The same with the frame counter diagnostic: the lost packet shows as lost by its prefix, nothing else does.
+#[tokio::test]
+async fn frame_counter_counts_the_lost_packet() {
+    let stats = linkage::<UsbSeqFraming>("tap/e2e_seq").await;
+    let link = &stats.links[&0];
+    assert_eq!(link.rx.prefix.lost, 1, "{:?}", link.rx.prefix);
+    assert_eq!(link.rx.prefix.dropped(), 0);
+    assert_eq!(link.rx.prefix.checked, link.rx.frames);
+    assert_eq!((link.tx.prefix.lost, link.tx.prefix.dropped()), (0, 0));
+    assert_eq!(link.rx.prefix_bytes, link.rx.frames);
+    assert!(stats.report().contains("frame prefix: 1 lost, 0 dropped"));
+}
+
+/// Requests and replies over a simulated USB device with framing `F`, one reply packet lost; checks what both
+/// framings have in common and returns the stats.
+async fn linkage<F: UsbFramingProtocol + 'static>(path: &str) -> Stats {
+    let (sink, source) = usb_device_framed::<F>(path, PACKET);
     let drop_at = Arc::new(AtomicIsize::new(isize::MAX));
     let sink = LossySink {
         inner: sink,
@@ -237,4 +260,5 @@ async fn linkage_split_shared_lost_and_replay() {
     let (replayed, replay_stats) = decode_all(blocks.iter().map(|b| b.block()));
     assert_eq!(format!("{replayed:?}"), format!("{live:?}"));
     assert_eq!(replay_stats, stats);
+    stats
 }

@@ -4,24 +4,52 @@
 use std::marker::PhantomData;
 use std::ops::Range;
 
-use ww_framer::crc::{Crc16IbmSdlc, CrcChecksum};
+use ww_framer::crc::{Crc16IbmSdlc, Crc32IsoHdlc, CrcChecksum};
 use ww_framer::framed::U2Head;
-use ww_framer::pieces::{Piece, PieceError, PieceErrorKind, pieces, verify_split};
+use ww_framer::pieces::{Piece, PieceError, PieceErrorKind, pieces_with_prefix, verify_split};
+use ww_framer::prefix::{FramePrefix, FrameReport, NopPrefix, SeqPrefix};
 use ww_framer::traits::{Checksum, MessageKind, NopChecksum, NopTail, RdError, Tail};
-use ww_tap::{Framer, FramerChecksum, FramerTail};
+use ww_tap::{Framer, FramerChecksum, FramerPrefix, FramerTail};
 
-/// The framer a session names, as code.
+/// The framer a session names, as code, with what its frame prefix checks keep between frames.
 pub(crate) trait Walker: Send {
+    /// Bytes of the frame prefix.
+    fn prefix_len(&self) -> usize;
+    /// Check a frame's prefix as `FramedRx` does when it stages it.
+    fn check_prefix(&mut self, frame: &[u8]) -> FrameReport;
     fn pieces(&self, frame: &[u8]) -> Vec<Result<Piece<u8>, PieceError>>;
     /// `prefix` and `end_head` are the End's frame prefix and head, covered by the checksum.
     fn verify_split(&self, prefix: &[u8], end_head: &[u8], message: &[u8], trailer: &[u8]) -> bool;
 }
 
-struct U2<C, T>(PhantomData<fn() -> (C, T)>);
+struct U2<C, T, P: FramePrefix> {
+    rx: P::Rx,
+    _phantom: PhantomData<fn() -> (C, T)>,
+}
 
-impl<C: Checksum, T: Tail> Walker for U2<C, T> {
+impl<C, T, P: FramePrefix> U2<C, T, P> {
+    fn boxed() -> Box<Self> {
+        Box::new(U2 {
+            rx: Default::default(),
+            _phantom: PhantomData,
+        })
+    }
+}
+
+impl<C: Checksum, T: Tail, P: FramePrefix> Walker for U2<C, T, P> {
+    fn prefix_len(&self) -> usize {
+        P::LEN
+    }
+
+    fn check_prefix(&mut self, frame: &[u8]) -> FrameReport {
+        if frame.len() < P::LEN {
+            return FrameReport::TooShort;
+        }
+        P::read(&mut self.rx, &frame[..P::LEN])
+    }
+
     fn pieces(&self, frame: &[u8]) -> Vec<Result<Piece<u8>, PieceError>> {
-        pieces::<U2Head, C, T>(frame).collect()
+        pieces_with_prefix::<U2Head, C, T, P>(frame).collect()
     }
 
     fn verify_split(&self, prefix: &[u8], end_head: &[u8], message: &[u8], trailer: &[u8]) -> bool {
@@ -39,6 +67,7 @@ pub(crate) fn walker(framer: &Framer) -> Result<Option<FramerCode>, String> {
         checksum,
         tail,
         stream,
+        prefix,
     } = framer
     else {
         return Ok(None);
@@ -48,21 +77,46 @@ pub(crate) fn walker(framer: &Framer) -> Result<Option<FramerCode>, String> {
             "framer tail {tail:?} is not supported by this decoder"
         ));
     }
-    let w: Box<dyn Walker> = match checksum {
-        FramerChecksum::None => Box::new(U2::<NopChecksum, NopTail>(PhantomData)),
+    if *stream && !matches!(prefix, FramerPrefix::None) {
+        return Err(format!(
+            "frame prefix {prefix:?} on a stream medium is not supported by this decoder"
+        ));
+    }
+    let w = match prefix {
+        FramerPrefix::None => with_checksum::<NopPrefix>(checksum)?,
+        FramerPrefix::Seq => with_checksum::<SeqPrefix>(checksum)?,
+        other => {
+            return Err(format!(
+                "frame prefix {other:?} is not supported by this decoder"
+            ));
+        }
+    };
+    Ok(Some((w, *stream)))
+}
+
+fn with_checksum<P: FramePrefix + 'static>(
+    checksum: &FramerChecksum,
+) -> Result<Box<dyn Walker>, String> {
+    Ok(match checksum {
+        FramerChecksum::None => U2::<NopChecksum, NopTail, P>::boxed(),
         FramerChecksum::Crc16IbmSdlc { full: false } => {
-            Box::new(U2::<CrcChecksum<Crc16IbmSdlc, false>, NopTail>(PhantomData))
+            U2::<CrcChecksum<Crc16IbmSdlc, false>, NopTail, P>::boxed()
         }
         FramerChecksum::Crc16IbmSdlc { full: true } => {
-            Box::new(U2::<CrcChecksum<Crc16IbmSdlc, true>, NopTail>(PhantomData))
+            U2::<CrcChecksum<Crc16IbmSdlc, true>, NopTail, P>::boxed()
+        }
+        FramerChecksum::Crc32IsoHdlc { full: false } => {
+            U2::<CrcChecksum<Crc32IsoHdlc, false>, NopTail, P>::boxed()
+        }
+        FramerChecksum::Crc32IsoHdlc { full: true } => {
+            U2::<CrcChecksum<Crc32IsoHdlc, true>, NopTail, P>::boxed()
         }
         other => {
             return Err(format!(
                 "framer checksum {other:?} is not supported by this decoder"
             ));
         }
-    };
-    Ok(Some((w, *stream)))
+    })
 }
 
 /// Bytes of one frame a message was built from.
@@ -117,6 +171,10 @@ pub struct FrameOutcome {
     pub completed: Vec<Reassembled>,
     /// A split message was dropped half way (a frame of it lost), with the bytes it had.
     pub dropped_partial: Option<usize>,
+    /// The frame prefix (`0..0` without one, shorter if the frame is) and what its check found; a frame the check
+    /// drops has no pieces.
+    pub prefix: Range<usize>,
+    pub prefix_report: Option<FrameReport>,
 }
 
 struct Partial {
@@ -153,6 +211,17 @@ impl Reassembler {
             return self.feed_stream(frame_no, frame);
         }
         let mut out = FrameOutcome::default();
+        if self.walker.prefix_len() > 0 {
+            let report = self.walker.check_prefix(frame);
+            out.prefix_report = Some(report);
+            out.prefix = 0..self.walker.prefix_len().min(frame.len());
+            if report.is_dropped() {
+                return out;
+            }
+            if report.breaks_message() {
+                self.drop_partial(&mut out);
+            }
+        }
         let all = self.walker.pieces(frame);
         let part = |r: &Range<usize>| FramePart {
             frame_no,
@@ -244,7 +313,7 @@ impl Reassembler {
                             break 'pieces;
                         }
                         if self.walker.verify_split(
-                            &[],
+                            &frame[out.prefix.clone()],
                             &frame[p.head.clone()],
                             &partial.bytes,
                             &frame[p.trailer.clone()],
@@ -384,6 +453,56 @@ fn describe(e: &PieceError) -> String {
 mod tests {
     use super::*;
 
+    /// Frames written with a `ww_link` framing decode whole through the tap's description of it, every message
+    /// checked (CRC-32 on UDP); a corrupted byte in a UDP frame is caught.
+    fn decodes_what_framing_writes<F: ww_link::Framing>(framer: Framer) {
+        let (w, stream) = walker(&framer).unwrap().unwrap();
+        assert!(!stream);
+        let mut r = Reassembler::new(w, false);
+        let mut tx = ww_link::FramingTxOwned::<F>::new(64);
+        let messages: Vec<Vec<u8>> = (0..12u8).map(|i| vec![i; 1 + 13 * i as usize]).collect();
+        let mut frames = vec![];
+        for m in &messages {
+            while !tx.write(0, m).unwrap() {
+                frames.push(tx.flush_to_vec().unwrap());
+            }
+        }
+        frames.push(tx.flush_to_vec().unwrap());
+        let mut got = vec![];
+        for (no, f) in frames.iter().enumerate() {
+            let out = r.feed(no as u64, f);
+            assert!(
+                out.error.is_none() && out.dropped_partial.is_none(),
+                "{out:?}"
+            );
+            got.extend(out.completed.into_iter().map(|m| m.bytes));
+        }
+        assert_eq!(got, messages);
+    }
+
+    #[test]
+    fn tap_framers_match_ww_link() {
+        decodes_what_framing_writes::<ww_link::UsbFraming>(crate::tap::FRAMED_USB);
+        decodes_what_framing_writes::<ww_link::UsbSeqFraming>(crate::tap::FRAMED_USB_SEQ);
+        decodes_what_framing_writes::<ww_link::UdpFraming>(crate::tap::FRAMED_UDP);
+    }
+
+    #[test]
+    fn udp_crc_catches_a_flipped_bit() {
+        let (w, _) = walker(&crate::tap::FRAMED_UDP).unwrap().unwrap();
+        let mut r = Reassembler::new(w, false);
+        let mut tx = ww_link::FramingTxOwned::<ww_link::UdpFraming>::new(64);
+        assert!(tx.write(0, &[1, 2, 3]).unwrap());
+        let mut frame = tx.flush_to_vec().unwrap();
+        frame[3] ^= 0x10;
+        let out = r.feed(0, &frame);
+        assert!(out.completed.is_empty());
+        assert_eq!(
+            out.pieces[0].outcome,
+            PieceOutcome::Dropped("checksum mismatch")
+        );
+    }
+
     /// A stream medium cuts chunks anywhere: messages spanning chunks come out whole, with the part of every chunk.
     #[test]
     fn stream_chunks_cut_anywhere() {
@@ -391,6 +510,7 @@ mod tests {
             checksum: FramerChecksum::None,
             tail: FramerTail::None,
             stream: true,
+            prefix: FramerPrefix::None,
         };
         let (w, stream) = walker(&framer).unwrap().unwrap();
         assert!(stream);

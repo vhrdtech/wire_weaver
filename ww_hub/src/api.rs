@@ -135,7 +135,7 @@ mod server {
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
         ) -> RpcResult<Vec<DeviceEntryOwned>> {
-            RpcResult::Ready(crate::devices::entries().await)
+            RpcResult::Ready(crate::devices::entries(&self.hub).await)
         }
 
         async fn registry_clients(
@@ -164,13 +164,25 @@ mod server {
             )
         }
 
-        /// TODO(SRV-29): open the device and keep it.
         async fn registry_take(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
-            _key: String,
+            key: String,
         ) -> RpcResult<Result<(), TakeErrorOwned>> {
-            Unimplemented.into()
+            RpcResult::Ready(match self.hub.take(&key).await {
+                Ok(()) => Ok(()),
+                Err(ww_local_socket::Status::HeldElsewhere) => {
+                    match wire_weaver_client::holders::holder_of(&key) {
+                        Some(holder) => Err(TakeErrorOwned::HeldElsewhere {
+                            holder: crate::devices::holder_owned(&holder),
+                        }),
+                        None => Err(TakeErrorOwned::Failed {
+                            why: "held by another program".into(),
+                        }),
+                    }
+                }
+                Err(_) => Err(TakeErrorOwned::UnknownDevice),
+            })
         }
 
         async fn registry_events(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {

@@ -16,7 +16,7 @@ use crate::Hub;
 const RESCAN: Duration = Duration::from_secs(2);
 
 /// Every device the hub can tell about now.
-pub(crate) async fn entries() -> Vec<DeviceEntryOwned> {
+pub(crate) async fn entries(hub: &Hub) -> Vec<DeviceEntryOwned> {
     let usb = wire_weaver_client::list_usb_devices()
         .await
         .unwrap_or_default();
@@ -80,10 +80,40 @@ pub(crate) async fn entries() -> Vec<DeviceEntryOwned> {
             }
         }
     }
+    // what the hub holds itself: open, with its tunnels, whatever its own lock file says
+    let open = hub.state.lock().unwrap().open.clone();
+    for (key, tunnels) in open {
+        let entry = entries
+            .iter_mut()
+            .find(|(k, _)| key == **k || key.starts_with(&format!("{k}:")))
+            .map(|(_, e)| e);
+        match entry {
+            Some(e) => {
+                e.state = DeviceStateOwned::Open;
+                e.tunnels = tunnels;
+            }
+            None => {
+                entries.insert(
+                    key.clone(),
+                    DeviceEntryOwned {
+                        key,
+                        product: String::new(),
+                        serial: String::new(),
+                        api: None,
+                        state: DeviceStateOwned::Open,
+                        tunnels,
+                        location: None,
+                        label: None,
+                        api_hash: None,
+                    },
+                );
+            }
+        }
+    }
     entries.into_values().collect()
 }
 
-fn holder_owned(h: &Holder) -> HolderOwned {
+pub(crate) fn holder_owned(h: &Holder) -> HolderOwned {
     HolderOwned {
         pid: h.pid,
         program: h.program.clone(),
@@ -106,7 +136,7 @@ pub(crate) async fn watch(hub: Arc<Hub>) {
             None
         }
     };
-    let mut known: BTreeMap<String, DeviceStateOwned> = entries()
+    let mut known: BTreeMap<String, DeviceStateOwned> = entries(&hub)
         .await
         .into_iter()
         .map(|e| (e.key, e.state))
@@ -123,7 +153,7 @@ pub(crate) async fn watch(hub: Arc<Hub>) {
             }
         };
         wait.await;
-        let now: BTreeMap<String, DeviceStateOwned> = entries()
+        let now: BTreeMap<String, DeviceStateOwned> = entries(&hub)
             .await
             .into_iter()
             .map(|e| (e.key, e.state))

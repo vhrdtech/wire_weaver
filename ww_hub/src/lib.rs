@@ -8,12 +8,16 @@
 //! Built so far (SRV-28): one hub per user (an OS lock on `hub.lock`, released on a crash), the socket in the runtime
 //! dir, the `Preamble` of each connection picking the hub's API or a device, the API
 //! itself (`ww_hub_api`: info, keep, shutdown, the registry of devices, holders and clients, events), exit after
-//! [HubConfig::idle_exit] without connections. Device tunnels come with SRV-29: until then a device target is
-//! answered `UnknownDevice`.
+//! [HubConfig::idle_exit] without connections. Device tunnels (SRV-29): a connection whose preamble names a device
+//! gets a tunnel to it, the hub opens the device on demand (one event loop for all its tunnels) and closes it
+//! [HubConfig::linger] after the last tunnel left.
 
 mod api;
 pub mod client;
+mod device;
 mod devices;
+mod envelope;
+mod tunnel;
 
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
@@ -40,6 +44,8 @@ pub const IDLE_EXIT_ENV: &str = "WW_HUB_IDLE_EXIT";
 /// Who started the hub, e.g. `dg (pid 4711)`, shown by `ww hub status`. Starters set it; without it the hub uses the
 /// name of its parent process where it can find it.
 pub const STARTED_BY_ENV: &str = "WW_HUB_STARTED_BY";
+/// Linger in seconds, overrides [HubConfig::linger]'s default.
+pub const LINGER_ENV: &str = "WW_HUB_LINGER";
 
 /// A client must send its preamble within this time, or it is dropped.
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -52,23 +58,26 @@ pub struct HubConfig {
     pub runtime_dir: PathBuf,
     /// Exit after this long without connections (and nothing holding it up, see `Hub::keep`).
     pub idle_exit: Duration,
+    /// Close a device this long after its last tunnel left (30 s): the next short command finds it open.
+    pub linger: Duration,
 }
 
 impl HubConfig {
-    /// The user's runtime dir, idle exit 5 min or [IDLE_EXIT_ENV].
+    /// The user's runtime dir, idle exit 5 min or [IDLE_EXIT_ENV], linger 30 s or [LINGER_ENV].
     pub fn from_env() -> io::Result<Self> {
-        let idle_exit = match std::env::var(IDLE_EXIT_ENV) {
-            Ok(s) => Duration::from_secs(s.parse().map_err(|_| {
+        let seconds = |name: &str, default: u64| match std::env::var(name) {
+            Ok(s) => s.parse().map(Duration::from_secs).map_err(|_| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("{IDLE_EXIT_ENV}={s}: expected seconds"),
+                    format!("{name}={s}: expected seconds"),
                 )
-            })?),
-            Err(_) => Duration::from_secs(300),
+            }),
+            Err(_) => Ok(Duration::from_secs(default)),
         };
         Ok(HubConfig {
             runtime_dir: ww_local_socket::runtime_dir()?,
-            idle_exit,
+            idle_exit: seconds(IDLE_EXIT_ENV, 300)?,
+            linger: seconds(LINGER_ENV, 30)?,
         })
     }
 }
@@ -164,7 +173,10 @@ impl Bound {
                 connections: 0,
                 last_active: Instant::now(),
                 keep_until: None,
+                open: BTreeMap::new(),
             }),
+            devices: Mutex::new(BTreeMap::new()),
+            linger: config.linger,
             shutdown,
             events: tokio::sync::broadcast::channel(256).0,
             started_ms: unix_ms(),
@@ -214,6 +226,13 @@ impl Bound {
             }
         };
         watcher.abort();
+        // tunnels see their device go
+        let slots: Vec<_> = self.hub.devices.lock().unwrap().values().cloned().collect();
+        for slot in slots {
+            if let Some(handle) = slot.lock().await.as_ref() {
+                let _ = handle.tx.send(device::ToDevice::Close);
+            }
+        }
         info!("ww hub exits: {exit:?}");
         // still holding hub.lock: nobody else can have bound the name since
         drop(self.listener);
@@ -263,6 +282,9 @@ pub(crate) struct Hub {
     pub(crate) started_by: String,
     pub(crate) idle_exit: Duration,
     pub(crate) socket: PathBuf,
+    /// One slot per device key ever asked for, see [device::Slot]
+    devices: Mutex<BTreeMap<String, device::Slot>>,
+    linger: Duration,
 }
 
 pub(crate) struct State {
@@ -274,6 +296,8 @@ pub(crate) struct State {
     last_active: Instant,
     /// `Hub::keep`: stay up until then
     keep_until: Option<Instant>,
+    /// Devices the hub holds, with their tunnels
+    pub(crate) open: BTreeMap<String, u32>,
 }
 
 /// A program connected to the hub's API: the OS's pid for it, and what its link setup said (CLT-41) once up.
@@ -327,7 +351,10 @@ impl Hub {
     fn idle_for(&self) -> Duration {
         let state = self.state.lock().unwrap();
         let now = Instant::now();
-        if state.connections > 0 || state.keep_until.is_some_and(|k| k > now) {
+        if state.connections > 0
+            || !state.open.is_empty()
+            || state.keep_until.is_some_and(|k| k > now)
+        {
             return Duration::ZERO;
         }
         let since = match state.keep_until {
@@ -367,10 +394,24 @@ impl Hub {
                 self.client_left(id);
                 debug!("ww hub: client {id} left");
             }
-            // TODO(SRV-29): tunnels to the devices the hub holds
             Target::Device(key) => {
-                debug!("ww hub: {peer:?} asked for device {key:?}, none served yet");
-                let _ = answer(&mut tx, Status::UnknownDevice).await;
+                let id = self.client_joined(peer);
+                let queue = tunnel::TunnelQueue::new();
+                match device::join(&self, &key, id, &queue).await {
+                    Ok(handle) => {
+                        if answer(&mut tx, Status::Ok).await.is_ok() {
+                            debug!("ww hub: client {id} ({peer:?}) tunnel to {key}");
+                            tunnel::serve(self.clone(), id, handle, queue, rx, tx, peer).await;
+                        } else {
+                            let _ = handle.tx.send(device::ToDevice::Leave { id });
+                        }
+                    }
+                    Err(status) => {
+                        debug!("ww hub: {peer:?} asked for device {key:?}: {status}");
+                        let _ = answer(&mut tx, status).await;
+                    }
+                }
+                self.client_left(id);
             }
         }
     }
@@ -407,6 +448,58 @@ impl Hub {
         let _ = self
             .events
             .send(ww_hub_api::EventOwned::ClientJoined { id, program });
+    }
+
+    /// The slot of the device behind `key`, made on first use.
+    fn device_slot(&self, key: &str) -> device::Slot {
+        self.devices
+            .lock()
+            .unwrap()
+            .entry(key.to_string())
+            .or_default()
+            .clone()
+    }
+
+    pub(crate) fn linger(&self) -> Duration {
+        self.linger
+    }
+
+    pub(crate) fn device_opened(&self, key: &str) {
+        self.state.lock().unwrap().open.insert(key.to_string(), 0);
+        let _ = self.events.send(ww_hub_api::EventOwned::Opened {
+            key: key.to_string(),
+        });
+    }
+
+    pub(crate) fn device_closed(&self, key: &str) {
+        let mut state = self.state.lock().unwrap();
+        state.open.remove(key);
+        state.last_active = Instant::now();
+        drop(state);
+        let _ = self.events.send(ww_hub_api::EventOwned::Closed {
+            key: key.to_string(),
+        });
+    }
+
+    pub(crate) fn tunnels_changed(&self, key: &str, tunnels: usize) {
+        if let Some(n) = self.state.lock().unwrap().open.get_mut(key) {
+            *n = tunnels as u32;
+        }
+    }
+
+    /// `Registry::take`: open the device now and keep it open without clients.
+    pub(crate) async fn take(self: &Arc<Self>, key: &str) -> Result<(), Status> {
+        let slot = self.device_slot(key);
+        let mut guard = slot.lock().await;
+        if let Some(handle) = guard.as_ref()
+            && handle.tx.send(device::ToDevice::Keep).is_ok()
+        {
+            return Ok(());
+        }
+        let handle = device::open(self, key, slot.clone()).await?;
+        let _ = handle.tx.send(device::ToDevice::Keep);
+        *guard = Some(handle);
+        Ok(())
     }
 
     pub(crate) fn keep(&self, seconds: u32) {

@@ -72,6 +72,76 @@ mod tests {
             ) -> Option<ww_client_server::StreamSideband> {
                 None
             }
+
+            fn valid_indices_root_bus(&mut self) -> ValidIndices<'_> {
+                ValidIndices::range_u32(0..2)
+            }
+
+            // ---- hub_api::Bus at bus[] ----
+
+            /// Sends a frame: `Common(InUse)` from the hub while another program holds the bus.
+            fn bus_send(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+                id: u32,
+            ) -> RpcResult<Result<u32, hub_api::BusError<'_>>> {
+                Ready(Ok(id))
+            }
+
+            /// Bit rate.
+            fn set_bus_speed(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+                _value: u32,
+            ) -> SetResult<hub_api::BusError<'_>> {
+                Unimplemented.into()
+            }
+
+            /// Bit rate.
+            fn get_bus_speed(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+            ) -> GetResult<u32, hub_api::BusError<'_>> {
+                Unimplemented.into()
+            }
+
+            /// Received frames.
+            ///
+            /// Opens the stream (a new session): `Ok` / `Ready` starts it.
+            fn bus_rx(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+            ) -> RpcResult<()> {
+                RpcResult::Ready(())
+            }
+
+            /// The host closed the stream.
+            fn close_bus_rx(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+            ) {
+            }
+
+            fn sideband_bus_rx(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                _index_chain: [UNib32; 1],
+                _sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                // TODO: None sends no reply
+                None
+            }
+
+            // ---- hub_api::Port at port ----
+
+            fn port_ping(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<u8> {
+                Ready(1)
+            }
         }
 
         pub mod api_impl {

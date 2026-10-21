@@ -31,6 +31,8 @@ pub(crate) struct NusbTx {
     tap: RecorderLink,
     /// Keeps the device open while endpoints are in use
     _device: nusb::Device,
+    /// Keeps the holders registry claim (CLT-38) for as long as the interface is held
+    _claim: Option<crate::holders::Claim>,
 }
 
 pub(crate) struct NusbRx {
@@ -76,6 +78,7 @@ impl Transport for NusbTransport {
                 sink,
                 tap: tap.clone(),
                 _device: dev.device,
+                _claim: dev.claim,
             },
             rx: NusbRx {
                 // must hold one maximum message plus one more packet, see FramedRx docs

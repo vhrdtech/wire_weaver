@@ -7,6 +7,9 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
 [features]
 default = ["usb"]
 usb = [] # USB (using nusb)

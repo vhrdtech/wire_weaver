@@ -11,6 +11,7 @@ pub(crate) mod event_loop;
 pub mod evolution;
 pub mod expr;
 pub mod follow;
+pub mod holders;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;
 mod layout;

@@ -3,6 +3,13 @@
 ### 🚀 Features
 
 - Local socket transport (TR-16), feature `local_socket`: `ClientConfig::ipc_path(path)` connects to a device served by another process on the same PC, over a Unix socket or a Windows named pipe (`ww_local_socket`), user-only on both ends. `local_socket::device::device_medium()` is the matching `ww_device::Server` medium. Selecting IPC without the feature is now an error instead of being skipped.
+- `holders` module (CLT-38), always on: before claiming a USB interface or RTT probe, an exclusive
+  `std::fs::File::try_lock` is taken on `<runtime dir>/ww/holders/<key>.lock` (`key_for`, `claim`, `holder_of`,
+  `list`), content written in extensible `key = value` lines (pid, program, exe, `mode` direct/hub, since, ww
+  version). A crash releases the OS lock immediately, independent of the file's (possibly stale) content, which
+  `holder_of`/`list` never trust on its own. `usb::connect` and `rtt::event_loop` claim before opening the device
+  and name the holder in their busy errors; without a lock file, Linux falls back to scanning `/proc/*/fd` for the
+  device node (`holder_of_usb_device`).
 - `PreparedCall::send()` → `PendingCall`, `reply()` later: requests leave in the order they are sent whatever order
   their replies are awaited in, for calls kept in flight (pipelined `ww_dfu::Stage` steps, CLT-33).
 - Per-medium framing (TR-15): USB packets without the split-message CRC-16 and without a prefix by default; the USB transport reads the framing from the device's interface protocol and uses `ww_link::UsbSeqFraming` (a frame counter, as a diagnostic) when the device says so. UDP datagrams start with a `SeqPrefix` frame counter and carry a CRC-32 on every message (`ww_link::UdpFraming`): duplicated, late and previous-session datagrams are dropped, lost ones counted. Wire change, see `ww_link`. `in_process::usb_device_framed::<F>()` simulates a USB device with framing `F`.

@@ -8,7 +8,7 @@ use nusb::descriptors::{
 use nusb::transfer::Direction;
 use nusb::{Device, DeviceInfo, Interface, MaybeFuture};
 use tokio::sync::mpsc;
-use tracing::trace;
+use tracing::{trace, warn};
 
 /// USB class and subclass of the WireWeaver interface, see `wire_weaver_usb_embassy`; the protocol tells the framing,
 /// see [ww_link::USB_INTERFACE_PROTOCOL].
@@ -24,6 +24,9 @@ pub(crate) struct ConnectOk {
     pub(crate) ep_in: u8,
     /// The interface says it uses [ww_link::UsbSeqFraming]
     pub(crate) seq_prefix: bool,
+    /// Held while the interface is claimed (CLT-38); `None` only when the registry itself couldn't be written
+    /// to (a broken runtime dir), never when another holder has it (that refuses the connection instead).
+    pub(crate) claim: Option<crate::holders::Claim>,
 }
 
 /// WireWeaver interface and its endpoints, as found in the configuration descriptor
@@ -45,10 +48,30 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         .context("getting active configuration")?;
     let ww = find_ww_interface(&active_configuration)?;
     trace!("using {ww:x?}");
+
+    // Claim our own lock before claiming the interface (CLT-38): a busy error from another WireWeaver holder
+    // then names who, instead of nusb's generic one.
+    let key = crate::holders::key_for(crate::holders::DeviceRef::Usb {
+        vid: di.vendor_id(),
+        pid: di.product_id(),
+        serial: di.serial_number().unwrap_or_default(),
+        iface: Some(ww.number),
+    });
+    let claim = match crate::holders::claim(&key, crate::holders::Mode::Direct) {
+        Ok(claim) => Some(claim),
+        Err(crate::holders::ClaimError::HeldBy(holder)) => {
+            bail!("device is already open by another WireWeaver program or connection; {holder}");
+        }
+        Err(crate::holders::ClaimError::Io(e)) => {
+            warn!("could not record holding {key} ({e:#}), continuing without it");
+            None
+        }
+    };
+
     let interface = device
         .claim_interface(ww.number)
         .wait()
-        .map_err(with_hint)?;
+        .map_err(|e| with_claim_hint(e, di))?;
     Ok(ConnectOk {
         device,
         interface,
@@ -57,6 +80,7 @@ pub(crate) fn connect(di: &DeviceInfo) -> anyhow::Result<ConnectOk> {
         ep_out: ww.ep_out,
         ep_in: ww.ep_in,
         seq_prefix: ww.seq_prefix,
+        claim,
     })
 }
 
@@ -120,6 +144,24 @@ fn with_hint(e: nusb::Error) -> anyhow::Error {
         _ => return e.into(),
     };
     anyhow!("{e}; {hint}")
+}
+
+/// Same as [with_hint], but a busy claim already passed our own lock (CLT-38: nothing else speaking WireWeaver
+/// holds this device), so the holder is a program that never wrote a lock file. On Linux, named by scanning
+/// `/proc` for whoever has the device node open; elsewhere, just "another program".
+fn with_claim_hint(e: nusb::Error, di: &DeviceInfo) -> anyhow::Error {
+    let _ = di; // only used on Linux, see below
+    if e.kind() != nusb::ErrorKind::Busy {
+        return with_hint(e);
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let node = crate::holders::usb_device_node(di.busnum(), di.device_address());
+        if let Some(who) = crate::holders::describe_holder_of_node(&node) {
+            return anyhow!("{e}; held by {who}");
+        }
+    }
+    anyhow!("{e}; device is already open by another program")
 }
 
 pub(crate) async fn try_connect(

@@ -99,15 +99,13 @@ fn config_for(key: &str) -> Option<ClientConfig> {
         } else {
             config.serial_eq(serial.to_string())
         }
-    } else if let Some(rest) = key.strip_prefix("rtt:") {
+    } else {
         // `rtt:<probe serial>:<chip>`; filters after `rtt` pick the probe. Needs `wire_weaver_client`'s `rtt`
         // feature, which `ww` has: without it the open fails with a message that says so.
-        let (probe, chip) = rest.split_once(':')?;
+        let (probe, chip) = key.strip_prefix("rtt:")?.split_once(':')?;
         ClientConfig::new()
             .rtt(chip.to_string(), None)
             .serial_eq(probe.to_string())
-    } else {
-        return None;
     };
     // what the hub forwards was checked by its clients, and it never calls the device's API itself
     Some(

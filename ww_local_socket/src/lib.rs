@@ -25,8 +25,8 @@ pub use dir::{RUNTIME_DIR_ENV, runtime_dir};
 pub use framing::{MessageReader, MessageWriter};
 #[cfg(feature = "socket")]
 pub use preamble::{
-    Answer, AnswerError, MAGIC, MAX_KEY_LEN, PREAMBLE_VERSION, Preamble, PreambleError, Status,
-    Target,
+    Answer, AnswerError, DISCONNECT_LENT, MAGIC, MAX_KEY_LEN, PREAMBLE_VERSION, Preamble,
+    PreambleError, Status, Target,
 };
 #[cfg(feature = "socket")]
 pub use socket::{Listener, Peer, Stream, connect, listen};

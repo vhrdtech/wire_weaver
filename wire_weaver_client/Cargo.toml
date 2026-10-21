@@ -31,6 +31,12 @@ i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on L
 uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
 in_process = ["dep:ww_device"] # device running in the same process (simulators, tests)
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+
 [dependencies]
 anyhow.workspace = true
 either = "1"
@@ -64,12 +70,6 @@ ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-libc = "0.2"
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "test-util"] }

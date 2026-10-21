@@ -186,7 +186,12 @@ mod server {
             ttl_s: Option<u32>,
         ) -> RpcResult<Result<u32, ClaimErrorOwned>> {
             let path = path.iter().map(|n| n.0).collect();
-            RpcResult::Ready(self.hub.claim(self.id, key, path, purpose, ttl_s).await)
+            RpcResult::Ready(
+                self.hub
+                    .claim(self.id, key, path, purpose, ttl_s)
+                    .await
+                    .map_err(|e| *e),
+            )
         }
 
         async fn claims_release(

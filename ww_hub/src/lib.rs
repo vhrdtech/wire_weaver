@@ -513,14 +513,14 @@ impl Hub {
         path: Vec<u32>,
         purpose: String,
         ttl_s: Option<u32>,
-    ) -> Result<u32, ww_hub_api::ClaimErrorOwned> {
+    ) -> Result<u32, Box<ww_hub_api::ClaimErrorOwned>> {
         let (reply, bundle) = tokio::sync::oneshot::channel();
         if self
             .send_to_device(&key, device::ToDevice::Bundle { reply })
             .await
             .is_err()
         {
-            return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice);
+            return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice.into());
         }
         let bundle = tokio::time::timeout(BUNDLE_TIMEOUT, bundle)
             .await

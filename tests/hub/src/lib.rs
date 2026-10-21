@@ -547,18 +547,25 @@ mod tests {
             Program { hub, dev }
         }
 
-        async fn claim(
-            &self,
-            p: &Program,
-            path: Vec<UNib32>,
-            ttl_s: Option<u32>,
-        ) -> Result<u32, ClaimErrorOwned> {
+        /// Claims `path` for `p`, the claim's id.
+        async fn claim(&self, p: &Program, path: Vec<UNib32>, ttl_s: Option<u32>) -> u32 {
             p.hub
                 .claims()
                 .claim(self.key.clone(), path, "flashing".into(), ttl_s)
                 .call()
                 .await
-                .map_err(device_error)
+                .expect("claimed")
+        }
+
+        /// Why `p` can't claim `path`.
+        async fn claim_refused(&self, p: &Program, path: Vec<UNib32>) -> ClaimErrorOwned {
+            let r = p
+                .hub
+                .claims()
+                .claim(self.key.clone(), path, "flashing".into(), None)
+                .call()
+                .await;
+            device_error(r.expect_err("refused"))
         }
     }
 
@@ -596,7 +603,7 @@ mod tests {
         let b = bench.program("bob").await;
         let mut rx = b.dev.bus(0).rx().call().await.unwrap();
 
-        let id = bench.claim(&a, bus0(), None).await.unwrap();
+        let id = bench.claim(&a, bus0(), None).await;
         let claims = a
             .hub
             .claims()
@@ -660,46 +667,45 @@ mod tests {
         let a = bench.program("alice").await;
         let b = bench.program("bob").await;
         assert_eq!(
-            bench.claim(&a, vec![UNib32(0)], None).await,
-            Err(ClaimErrorOwned::NotClaimable),
+            bench.claim_refused(&a, vec![UNib32(0)]).await,
+            ClaimErrorOwned::NotClaimable,
             "add"
         );
         assert_eq!(
-            bench.claim(&a, vec![UNib32(9)], None).await,
-            Err(ClaimErrorOwned::BadPath)
+            bench.claim_refused(&a, vec![UNib32(9)]).await,
+            ClaimErrorOwned::BadPath
         );
         let unknown = a
             .hub
             .claims()
             .claim("inproc:nope".into(), vec![], String::new(), None)
             .call()
-            .await
-            .map_err(device_error);
-        assert_eq!(unknown, Err(ClaimErrorOwned::UnknownDevice));
+            .await;
+        assert_eq!(
+            device_error(unknown.expect_err("refused")),
+            ClaimErrorOwned::UnknownDevice
+        );
 
-        let id = bench.claim(&a, bus0(), None).await.unwrap();
+        let id = bench.claim(&a, bus0(), None).await;
         // nested and overlapping claims of one program
-        bench.claim(&a, vec![UNib32(4)], None).await.unwrap();
-        let root = bench.claim(&a, vec![], None).await.unwrap();
+        bench.claim(&a, vec![UNib32(4)], None).await;
+        let root = bench.claim(&a, vec![], None).await;
         a.hub.claims().release(root).call().await.unwrap();
 
-        match bench.claim(&b, bus0(), None).await {
-            Err(ClaimErrorOwned::InUse { claim }) => assert_eq!(claim.id, id),
+        match bench.claim_refused(&b, bus0()).await {
+            ClaimErrorOwned::InUse { claim } => assert_eq!(claim.id, id),
             other => panic!("expected InUse, got {other:?}"),
         }
         for path in [vec![], vec![UNib32(4)]] {
-            match bench.claim(&b, path.clone(), None).await {
-                Err(ClaimErrorOwned::Overlap { claim }) => {
+            match bench.claim_refused(&b, path.clone()).await {
+                ClaimErrorOwned::Overlap { claim } => {
                     assert_eq!(claim.holder.program, "alice", "{path:?}")
                 }
                 other => panic!("{path:?}: expected Overlap, got {other:?}"),
             }
         }
         // the other bus shares nothing with bus[0]
-        bench
-            .claim(&b, vec![UNib32(3), UNib32(1)], None)
-            .await
-            .unwrap();
+        bench.claim(&b, vec![UNib32(3), UNib32(1)], None).await;
         bench.stop().await;
     }
 
@@ -710,7 +716,7 @@ mod tests {
         let bench = start("claim-observe", Duration::from_secs(30));
         let a = bench.program("alice").await;
         let b = bench.program("bob").await;
-        let id = bench.claim(&a, vec![UNib32(4)], None).await.unwrap();
+        let id = bench.claim(&a, vec![UNib32(4)], None).await;
         let claims = b
             .hub
             .claims()
@@ -797,7 +803,7 @@ mod tests {
 
         // a ttl: gone after it, without anyone asking
         let c = bench.program("carol").await;
-        bench.claim(&c, bus0(), Some(1)).await.unwrap();
+        bench.claim(&c, bus0(), Some(1)).await;
         assert_eq!(refused(b.dev.bus(0).send(2).call().await), in_use("carol"));
         tokio::time::sleep(Duration::from_millis(1100)).await;
         assert_eq!(b.dev.bus(0).send(2).call().await.unwrap(), 2);

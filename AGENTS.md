@@ -239,8 +239,6 @@ Every handler takes `cx: &mut Context<'_, impl EventOut, Medium>` (`BlockingEven
 right after `&mut self`; `Medium` comes from `ww_codegen!(.., medium = "..")` (`--medium` for the scaffold), `()` by
 default. Deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`.
 
-Known server codegen limitation the scaffold can't work around: `no_alloc = false` servers don't compile.
-
 ## Compatibility rules (don't guess — check `docs/evolution/rules.md`)
 
 Types default to `Unsized` (fully evolvable: fields can be appended with `#[default = ..]`, renamed but not

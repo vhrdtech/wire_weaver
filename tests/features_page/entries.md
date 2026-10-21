@@ -109,6 +109,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-18 | Size analysis | Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. | types.md#worst-case-size-at-compile-time
 - DOC-6 | API docs in rustdoc | `#[ww_trait]` also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. | api/traits.md#in-rustdoc
 - API-8 | Code generation from `build.rs` | `gen_server` / `gen_client` as an alternative to the macros. |
+- API-21 | Servers on std with owned types | A server running on a PC returns `String`, `Vec` and owned types from its handlers, the same bytes on the wire as a firmware's. | transport/hub.md#servers-on-std-no_alloc-false
 - API-26 | Generated C | The C runtime is there; generated C for an API's types and server is next. | c.md
 
 ## Nomicon

@@ -609,6 +609,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   78 %, 1 MHz 181 %, 2 values at 2 MHz 313 %): their polls are the codec and each column's framing now
   (`docs/articles/series.md#high-rates-a-few-values-at-400-khz-to-2-mhz`, `examples_mcu` `foc_observe`,
   `high_rate`, `ww_stream` `cells_tests`).
+- ✅ **API-21 `no_alloc = false` servers** — servers generated for `std` whose handlers take and give owned types
+  (`String`, `Vec<T>`, `FooOwned`): method arguments and returns, property values and write errors, sink items,
+  stream function results, stream items, deferred returns; written into the reply buffer with the bytes a `no_alloc`
+  server sends (shrink_wrap `BufWriter::ser_owned` / `write_owned`, `OwnedSer`). The `methods`, `properties` and
+  `streams` suites run against such servers with a `no_alloc` one as the byte reference (`tests_common::Twin`);
+  `ww api scaffold --alloc` prints the owned signatures. Prerequisite of the hub API (SRV-28)
+  (`docs/transport/hub.md#servers-on-std-no_alloc-false`).
 - 📋 **API-17 Methods arguments to a user struct** · `v0.5.x`.
 - 🚧 **API-18 Size analysis** · `v0.5.x` — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: `MAX_SIZE` of types (SW-19) and per-method `<METHOD>_REQUEST_MAX_LEN` /
@@ -625,7 +632,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   compact paths and falls back to `GlobalFull` for devices built before an id existed, the tap decoder and
   `ww explain` name compact calls; 64 B of flash on a Cortex-M3 (`examples_mcu/mcu_qemu` `qemu-global-paths`).
   Missing: traits under a resource array.
-- 📋 **API-21 `no_alloc = false` servers** — don't compile today.
 - ⛔ **API-22 Implement the same trait several times → enum selector** · `v0.5.x` — stalled. At least print a proper error
   when a trait is implemented twice (`tests/traits_api`).
 - ⛔ **API-23 Index chain array → named arguments** · `v0.5.x` — stalled. Generating ad-hoc structs with named index
@@ -816,7 +822,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
   wire_weaver device with its own API (`ww_hub_api`). Today a second program gets "busy". Pieces: SRV-28 process and
   API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
-  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
+  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21 (done). Later API groups: logs to several viewers, shared
   captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
 - 📋 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
   `keep`; `Registry`: `devices`, `clients`, `events`, `set_client_name`) and `ww_hub`: one instance per user

@@ -5,9 +5,14 @@
 //! [main_if_hub] first in `main` so the client library can start the hub from the app's own executable.
 //!
 //! Built so far (SRV-28): one hub per user (an OS lock on `hub.lock`, released on a crash), the socket in the runtime
-//! dir, the [Preamble](ww_local_socket::Preamble) of each connection picking the hub's API or a device, connected
-//! programs tracked, exit after [HubConfig::idle_exit] without connections, [Hub::keep](ww_hub_api) and shutdown.
-//! Device tunnels come with SRV-29: until then a device target is answered `UnknownDevice`.
+//! dir, the `Preamble` of each connection picking the hub's API or a device, the API
+//! itself (`ww_hub_api`: info, keep, shutdown, the registry of devices, holders and clients, events), exit after
+//! [HubConfig::idle_exit] without connections. Device tunnels come with SRV-29: until then a device target is
+//! answered `UnknownDevice`.
+
+mod api;
+pub mod client;
+mod devices;
 
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
@@ -16,9 +21,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use interprocess::local_socket::tokio::{RecvHalf, SendHalf};
+use interprocess::local_socket::tokio::SendHalf;
 use interprocess::local_socket::traits::tokio::Stream as _;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
@@ -148,6 +153,9 @@ impl Bound {
                 keep_until: None,
             }),
             shutdown,
+            events: tokio::sync::broadcast::channel(256).0,
+            started_ms: unix_ms(),
+            socket: socket.clone(),
         });
         Ok(Some(Bound {
             config,
@@ -169,6 +177,7 @@ impl Bound {
             self.socket.display()
         );
         let mut shutdown = self.hub.shutdown.subscribe();
+        let watcher = tokio::spawn(devices::watch(self.hub.clone()));
         let exit = loop {
             tokio::select! {
                 accepted = self.listener.accept() => match accepted {
@@ -189,6 +198,7 @@ impl Bound {
                 }
             }
         };
+        watcher.abort();
         info!("ww hub exits: {exit:?}");
         // still holding hub.lock: nobody else can have bound the name since
         drop(self.listener);
@@ -222,20 +232,24 @@ fn take_hub_lock(config: &HubConfig) -> io::Result<Option<File>> {
     Ok(Some(file))
 }
 
-fn unix_ms() -> u64 {
+pub(crate) fn unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0)
 }
 
-struct Hub {
-    state: Mutex<State>,
+pub(crate) struct Hub {
+    pub(crate) state: Mutex<State>,
     shutdown: watch::Sender<bool>,
+    /// `Registry::events` of every connection that opened the stream
+    pub(crate) events: tokio::sync::broadcast::Sender<ww_hub_api::EventOwned>,
+    pub(crate) started_ms: u64,
+    pub(crate) socket: PathBuf,
 }
 
-struct State {
-    clients: BTreeMap<u32, Client>,
+pub(crate) struct State {
+    pub(crate) clients: BTreeMap<u32, Client>,
     next_client: u32,
     /// Open connections of any kind; the hub is idle only without any
     connections: usize,
@@ -245,12 +259,12 @@ struct State {
     keep_until: Option<Instant>,
 }
 
-/// A program connected to the hub's API.
-#[allow(dead_code)] // read by Registry::clients, served with the API (TODO(SRV-28) at serve_api)
+/// A program connected to the hub's API: the OS's pid for it, and what its link setup said (CLT-41) once up.
 #[derive(Clone, Debug)]
-struct Client {
-    pid: Option<u32>,
-    since_ms: u64,
+pub(crate) struct Client {
+    pub(crate) peer_pid: Option<u32>,
+    pub(crate) meta: Option<ww_device::PeerMeta>,
+    pub(crate) since_ms: u64,
 }
 
 impl Hub {
@@ -293,7 +307,7 @@ impl Hub {
                 }
                 let id = self.client_joined(peer);
                 debug!("ww hub: client {id} ({peer:?}) connected");
-                self.serve_api(rx, tx).await;
+                api::serve_connection(self.clone(), id, rx, tx).await;
                 self.client_left(id);
                 debug!("ww hub: client {id} left");
             }
@@ -305,18 +319,6 @@ impl Hub {
         }
     }
 
-    /// TODO(SRV-28): the generated `ww_hub_api` server on this connection (ww_device::Server over
-    /// `wire_weaver_client::local_socket::device::connection_medium`), once API-21 lets it return owned lists.
-    /// Until then the connection is held open and counted, and its messages dropped.
-    async fn serve_api(&self, mut rx: RecvHalf, _tx: SendHalf) {
-        let mut buf = [0u8; 1024];
-        while let Ok(n) = rx.read(&mut buf).await {
-            if n == 0 {
-                break;
-            }
-        }
-    }
-
     fn client_joined(&self, peer: Peer) -> u32 {
         let mut state = self.state.lock().unwrap();
         let id = state.next_client;
@@ -324,7 +326,8 @@ impl Hub {
         state.clients.insert(
             id,
             Client {
-                pid: peer.pid,
+                peer_pid: peer.pid,
+                meta: None,
                 since_ms: unix_ms(),
             },
         );
@@ -333,17 +336,30 @@ impl Hub {
 
     fn client_left(&self, id: u32) {
         self.state.lock().unwrap().clients.remove(&id);
+        let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
     }
 
-    #[allow(dead_code)] // Hub::keep and Hub::shutdown, served with the API (TODO(SRV-28) above)
-    fn keep(&self, seconds: u32) {
+    /// The client's link came up: what it said about itself (CLT-41).
+    pub(crate) fn client_up(&self, id: u32, meta: Option<ww_device::PeerMeta>) {
+        let program = meta
+            .as_ref()
+            .map(|m| m.program.to_string())
+            .unwrap_or_default();
+        if let Some(c) = self.state.lock().unwrap().clients.get_mut(&id) {
+            c.meta = meta;
+        }
+        let _ = self
+            .events
+            .send(ww_hub_api::EventOwned::ClientJoined { id, program });
+    }
+
+    pub(crate) fn keep(&self, seconds: u32) {
         let mut state = self.state.lock().unwrap();
         state.keep_until =
             (seconds > 0).then(|| Instant::now() + Duration::from_secs(seconds as u64));
     }
 
-    #[allow(dead_code)]
-    fn request_shutdown(&self) {
+    pub(crate) fn request_shutdown(&self) {
         self.shutdown.send_replace(true);
     }
 }

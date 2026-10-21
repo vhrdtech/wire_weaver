@@ -107,6 +107,9 @@ pub enum DeviceState<'i> {
 pub struct Holder<'i> {
     pub pid: u32,
     pub program: &'i str,
+    pub exe: &'i str,
+    /// `direct` or `hub`
+    pub mode: &'i str,
     /// Since when, ms since the Unix epoch.
     pub since_ms: u64,
 }
@@ -122,16 +125,22 @@ pub enum TakeError<'i> {
     Failed { why: &'i str },
 }
 
-// TODO(CLT-41): ClientEntry and Holder carry the client's metadata (ClientMeta from ww_link's LinkSetup) once it
-// lands, instead of program and pid alone.
-
-/// One connected program, see [Registry::clients].
+/// One connected program, see [Registry::clients]: what its link setup said about it (`ww_link::ClientMeta`, CLT-41)
+/// and what the OS says.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
 pub struct ClientEntry<'i> {
-    /// Hub-wide id of the program's connection to the hub API
+    /// Hub-wide id of the connection
     pub id: u32,
-    pub pid: Option<u32>,
+    /// Process id the OS reports for the other end (Linux, Windows), else the one the program sent, `0` if neither.
+    pub pid: u32,
+    /// Program name, as the program sent it.
     pub program: &'i str,
+    /// `Cli`, `Gui`, `Notebook`, `Service`, `Hub`, `Test`, empty if not sent.
+    pub kind: &'i str,
+    pub user: &'i str,
+    pub host: &'i str,
+    /// Shared by every connection of one client object.
+    pub instance_id: u64,
     /// Connected since, ms since the Unix epoch.
     pub since_ms: u64,
 }

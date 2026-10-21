@@ -6,6 +6,7 @@
 
 ### 🚀 Features
 
+- `ClientConfig::hub_api()` / `hub_api_at(path)`: a client of the ww hub's own API (SRV-28) instead of a device.
 - Local socket transport (TR-16), feature `local_socket`: `ClientConfig::ipc_path(path)` connects to a device served by another process on the same PC, over a Unix socket or a Windows named pipe (`ww_local_socket`), user-only on both ends. `local_socket::device::device_medium()` is the matching `ww_device::Server` medium. Selecting IPC without the feature is now an error instead of being skipped.
 - `holders` module (CLT-38), always on: before claiming a USB interface or RTT probe, an exclusive
   `std::fs::File::try_lock` is taken on `<runtime dir>/ww/holders/<key>.lock` (`key_for`, `claim`, `holder_of`,

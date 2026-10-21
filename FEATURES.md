@@ -824,10 +824,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
   SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21 (done). Later API groups: logs to several viewers, shared
   captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
-- 📋 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
-  `keep`; `Registry`: `devices`, `clients`, `events`, `set_client_name`) and `ww_hub`: one instance per user
-  (`hub.lock`), readiness line to the starter, idle exit, detached on three OSes, hotplug watch without opening,
-  served with generated server code, `ww_hub::main_if_hub()` for apps that host the hub themselves.
+- 🧪 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
+  `keep`; `Registry`: `devices`, `clients`, `take`, `events`) and `ww_hub` (`docs/transport/hub.md`): one hub per
+  user (`hub.lock`), the socket with the preamble picking the hub API or a device, the API served with generated
+  `no_alloc = false` code on `ww_device::Server` per connection, devices enumerated without opening plus the
+  CLT-38 holders, plug / unplug / holder / client events, idle exit, `keep`, `shutdown`; `ww hub serve`,
+  `ww_hub::main_if_hub()`, the typed `ww_hub::client::HubClient`. Starting it detached is CLT-39's, `handover`
+  SRV-30's and `take` SRV-29's (answered `Unimplemented` until then). Tested on Linux; check open on macOS and
+  Windows (compiles for both).
 - 📋 **SRV-29 Hub device multiplexing** · `v0.5.x` — one client event loop per open device, a link endpoint per client
   tunnel answering like the device, seq remap, stream and observe fan-out, introspection from cache, bounded
   per-client queues (stream data dropped and counted, replies never), devices opened on demand and closed after a

@@ -157,6 +157,17 @@ impl Introspect {
     }
 }
 
+/// Introspection data as a device sends it (the bytes of its introspection stream, concatenated), decoded, with the
+/// traits and types it left out put back (snapshots, definition cache) and generic types instantiated: the API of a
+/// device whose traffic a program forwards rather than calls, as the ww hub does to find claimable resources (SRV-34).
+/// `None` for an empty stream (a device with introspection disabled); an error for malformed data.
+pub fn decode_introspection(ww_self_bytes: &[u8]) -> Result<Option<ApiBundleOwned>> {
+    if ww_self_bytes.is_empty() {
+        return Ok(None);
+    }
+    inlined(ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?).map(Some)
+}
+
 fn decode_and_cache(
     ww_self_bytes: &[u8],
     hash: &ApiHashPairOwned,

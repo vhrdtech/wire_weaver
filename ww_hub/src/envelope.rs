@@ -2,6 +2,7 @@
 //! the user API. Requests and events are copied with another seq in front; the bytes after the seq stay as they are,
 //! so a request of a newer envelope version, which this build can't decode, still goes through.
 
+use crate::claims::{Access, TraitId};
 use wire_weaver::shrink_wrap::{
     BufReader, DeserializeShrinkWrap, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
@@ -86,6 +87,64 @@ pub(crate) fn classify(request: &[u8]) -> Op {
     }
 }
 
+/// Where a request goes, as it names it (SRV-34).
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Place {
+    Absolute(Vec<u32>),
+    /// A global path: the trait, then the path from it
+    Trait(TraitId, Vec<u32>),
+}
+
+/// What a request does where, for claims (SRV-34): the access, the place, and whether it is a multi request (it
+/// reaches the resources under its path). `Ok(None)` for introspection, `Err` for a request this build can't decode
+/// (a newer envelope).
+pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()> {
+    let req = Request::from_ww_bytes(request).map_err(|_| ())?;
+    let (access, multi) = match &req.kind {
+        RequestKind::Call { .. } => (Access::Call, false),
+        RequestKind::MultiCall { .. } => (Access::Call, true),
+        RequestKind::Write { .. }
+        | RequestKind::SinkWrite { .. }
+        | RequestKind::SinkWriteUnits { .. } => (Access::Write, false),
+        RequestKind::MultiWrite { .. } => (Access::Write, true),
+        RequestKind::Read => (Access::Read, false),
+        RequestKind::MultiRead { .. } => (Access::Read, true),
+        RequestKind::StreamOpen { .. } | RequestKind::StreamSideband { .. } => {
+            (Access::Stream, false)
+        }
+        RequestKind::Observe { .. } => (Access::Observe, false),
+        RequestKind::Introspect => return Ok(None),
+    };
+    let ids = |p: &wire_weaver::shrink_wrap::RefVec<'_, wire_weaver::shrink_wrap::UNib32>| {
+        p.iter()
+            .map(|n| n.map(|n| n.0))
+            .collect::<Result<Vec<u32>, _>>()
+            .ok()
+    };
+    let place = match &req.path_kind {
+        PathKind::Absolute { path } => Place::Absolute(ids(path).ok_or(())?),
+        PathKind::GlobalCompact {
+            gid,
+            path_from_trait,
+        } => Place::Trait(
+            TraitId::Compact(gid.gid.id.0),
+            ids(path_from_trait).ok_or(())?,
+        ),
+        PathKind::GlobalFull {
+            gid,
+            trait_name,
+            path_from_trait,
+        } => Place::Trait(
+            TraitId::Full {
+                crate_id: gid.crate_id.to_string(),
+                trait_name: trait_name.to_string(),
+            },
+            ids(path_from_trait).ok_or(())?,
+        ),
+    };
+    Ok(Some((access, place, multi)))
+}
+
 /// A request the hub sends itself: closing a stream, an observe merged from several clients. Seq placeholder in front.
 pub(crate) fn request(path: &[u32], kind: RequestKindOwned) -> Option<Vec<u8>> {
     use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
@@ -152,6 +211,21 @@ pub(crate) fn classify_event(event: &[u8]) -> Unsolicited {
         }
         _ => Unsolicited::Other,
     }
+}
+
+/// The introspection data in the events of an introspection answer (each after its seq): the stream data at the
+/// root path, in order.
+pub(crate) fn introspection_bytes(events: &[Vec<u8>]) -> Vec<u8> {
+    let mut bytes = vec![];
+    for e in events {
+        if let Ok(event) = Event::from_ww_bytes(&with_seq(0, e))
+            && let Ok(EventKind::StreamData { path, data }) = event.result
+            && path.is_empty()
+        {
+            bytes.extend_from_slice(data.0);
+        }
+    }
+    bytes
 }
 
 /// Whether an answer says the request worked: a value, `Written` or a sideband, not an error.

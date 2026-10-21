@@ -31,13 +31,37 @@ const START_LOCK_TIMEOUT: Duration = Duration::from_secs(5);
 const PROBE_TIMEOUT: Duration = Duration::from_millis(300);
 const POLL: Duration = Duration::from_millis(20);
 
-/// The hub version of this executable, when it can serve as the hub (`ww_hub::main_if_hub` registers it).
-static SELF_HOSTING: OnceLock<&'static str> = OnceLock::new();
+/// A program able to serve as the hub, from [register_self_hosting] / [register_self_hosting_with].
+struct SelfHost {
+    version: String,
+    /// `None`: [std::env::current_exe], run with no arguments (a Rust program re-execs itself).
+    exe: Option<PathBuf>,
+    /// Given before [VERSION_ARG] / [SERVE_ENV]'s invocation, e.g. `["-m", "wire_weaver.hub"]` for Python.
+    args: Vec<String>,
+}
+
+/// The program able to serve as the hub, when it registered itself.
+static SELF_HOSTING: OnceLock<SelfHost> = OnceLock::new();
 
 /// Says that this executable serves as the hub when started with [SERVE_ENV] set, with hub version `version`.
 /// `ww_hub::main_if_hub()` calls it; a client then starts the hub from the app itself when it has no newer one.
-pub fn register_self_hosting(version: &'static str) {
-    let _ = SELF_HOSTING.set(version);
+pub fn register_self_hosting(version: &str) {
+    let _ = SELF_HOSTING.set(SelfHost {
+        version: version.to_string(),
+        exe: None,
+        args: vec![],
+    });
+}
+
+/// Same as [register_self_hosting], naming the executable and the arguments to start it with (before [VERSION_ARG]
+/// / [SERVE_ENV]'s invocation): `wire_weaver_py` registers `sys.executable`, `["-m", "wire_weaver.hub"]`, since a
+/// Python interpreter run with no arguments doesn't serve the hub.
+pub fn register_self_hosting_with(version: &str, exe: PathBuf, args: Vec<String>) {
+    let _ = SELF_HOSTING.set(SelfHost {
+        version: version.to_string(),
+        exe: Some(exe),
+        args,
+    });
 }
 
 /// Why no hub is there to use.
@@ -161,13 +185,14 @@ pub async fn ensure_running(start: bool) -> Result<PathBuf, HubUnavailable> {
 /// own hub is considered (registered by `ww_hub::main_if_hub()`): it costs no process to find out, so every connect
 /// can check. A failure leaves the running hub in place and is logged.
 async fn replace_older(dir: &Path, socket: &Path, running: &str) {
-    let Some(ours) = SELF_HOSTING.get() else {
+    let Some(sh) = SELF_HOSTING.get() else {
         return;
     };
+    let ours = sh.version.as_str();
     if !newer(ours, running) {
         return;
     }
-    let Ok(exe) = std::env::current_exe() else {
+    let Some(exe) = sh.exe.clone().or_else(|| std::env::current_exe().ok()) else {
         return;
     };
     // as for a start: one program at a time, and no client starts a hub in the gap
@@ -186,6 +211,7 @@ async fn replace_older(dir: &Path, socket: &Path, running: &str) {
     info!("ww hub {running} is older than this program's {ours}: replacing it");
     let candidate = Candidate {
         exe,
+        args: sh.args.clone(),
         version: Version::parse(ours).unwrap_or(Version::new(0, 0, 0)),
         source: "this program",
     };
@@ -198,7 +224,7 @@ async fn replace_older(dir: &Path, socket: &Path, running: &str) {
     };
     let deadline = Instant::now() + START_LOCK_TIMEOUT;
     loop {
-        if probe(socket).await.as_deref() == Some(*ours) {
+        if probe(socket).await.as_deref() == Some(ours) {
             info!("ww hub {ours} took over from {running}");
             break;
         }
@@ -301,31 +327,36 @@ async fn wait_ready(
 #[derive(Clone, Debug)]
 pub struct Candidate {
     pub exe: PathBuf,
+    /// Given before [VERSION_ARG] / [SERVE_ENV]'s invocation, e.g. `["-m", "wire_weaver.hub"]` for Python.
+    pub args: Vec<String>,
     pub version: Version,
     /// Where it was found: `WW_HUB_EXE`, `this program`, `next to this program`, `PATH`
     pub source: &'static str,
 }
 
 /// Hub executables to start, best first: [EXE_ENV] alone when set; else this program if it registered itself
-/// ([register_self_hosting]), `ww` next to it and `ww` on `PATH`, the newest hub version first (each asked with
-/// [VERSION_ARG]; one that doesn't answer is left out).
+/// ([register_self_hosting] / [register_self_hosting_with]), `ww` next to it and `ww` on `PATH`, the newest hub
+/// version first (each asked with [VERSION_ARG]; one that doesn't answer is left out).
 pub fn candidates() -> Vec<Candidate> {
     if let Some(exe) = std::env::var_os(EXE_ENV).filter(|e| !e.is_empty()) {
         let exe = PathBuf::from(exe);
-        let version = hub_version(&exe).unwrap_or(Version::new(0, 0, 0));
+        let version = hub_version(&exe, &[]).unwrap_or(Version::new(0, 0, 0));
         return vec![Candidate {
             exe,
+            args: vec![],
             version,
             source: "WW_HUB_EXE",
         }];
     }
     let current = std::env::current_exe().ok();
     let mut found: Vec<Candidate> = vec![];
-    if let (Some(v), Some(exe)) = (SELF_HOSTING.get(), &current)
-        && let Ok(version) = Version::parse(v)
+    if let Some(sh) = SELF_HOSTING.get()
+        && let Some(exe) = sh.exe.clone().or_else(|| current.clone())
+        && let Ok(version) = Version::parse(&sh.version)
     {
         found.push(Candidate {
-            exe: exe.clone(),
+            exe,
+            args: sh.args.clone(),
             version,
             source: "this program",
         });
@@ -356,8 +387,9 @@ pub fn candidates() -> Vec<Candidate> {
         .into_iter()
         .map(|(exe, source)| {
             std::thread::spawn(move || {
-                hub_version(&exe).map(|version| Candidate {
+                hub_version(&exe, &[]).map(|version| Candidate {
                     exe,
+                    args: vec![],
                     version,
                     source,
                 })
@@ -370,9 +402,10 @@ pub fn candidates() -> Vec<Candidate> {
     found
 }
 
-/// Runs `exe --hub-version`, its answer if it gives one in time.
-fn hub_version(exe: &Path) -> Option<Version> {
+/// Runs `exe <args> --hub-version`, its answer if it gives one in time.
+fn hub_version(exe: &Path, args: &[String]) -> Option<Version> {
     let mut child = Command::new(exe)
+        .args(args)
         .arg(VERSION_ARG)
         .env_remove(SERVE_ENV)
         .stdin(Stdio::null())
@@ -410,7 +443,8 @@ fn spawn(dir: &Path, candidate: &Candidate, handover: bool) -> Result<Child, Hub
     } else {
         cmd.env_remove(HANDOVER_ENV);
     }
-    cmd.env(SERVE_ENV, "1")
+    cmd.args(&candidate.args)
+        .env(SERVE_ENV, "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(log);
@@ -490,6 +524,28 @@ pub(crate) mod tests {
             assert!(hub_running());
             drop(lock);
             assert!(!hub_running());
+        });
+    }
+
+    /// A Python-style self-host (an interpreter run with no arguments doesn't serve the hub, `-m wire_weaver.hub`
+    /// does): the registered exe and args end up on the candidate, carried into both the version check and spawn.
+    #[test]
+    fn self_hosting_with_args_keeps_them_on_the_candidate() {
+        with_runtime_dir(|_| {
+            let exe = PathBuf::from("/usr/bin/python3");
+            register_self_hosting_with(
+                "1.2.3",
+                exe.clone(),
+                vec!["-m".into(), "wire_weaver.hub".into()],
+            );
+            let found = candidates();
+            let mine = found.iter().find(|c| c.source == "this program").unwrap();
+            assert_eq!(mine.exe, exe);
+            assert_eq!(
+                mine.args,
+                vec!["-m".to_string(), "wire_weaver.hub".to_string()]
+            );
+            assert_eq!(mine.version, Version::new(1, 2, 3));
         });
     }
 

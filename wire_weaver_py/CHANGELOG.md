@@ -15,6 +15,8 @@
 
 ### 🚀 Features
 
+- The ww hub from Python and notebooks (TOOL-18): `python -m wire_weaver.hub` serves the hub (found by `connect()`'s hub routing the same way as a Rust `ww` executable, CLT-39: `sys.executable -m wire_weaver.hub` is registered at import), `connect()` takes `hub_device` (a device key through the hub, `WW_HUB`/`WW_HUB_OPENS` route the USB/RTT filters the same as the Rust client), and `wire_weaver.hub()` connects to the running hub's own API (`ww_hub_api`) through the dynamic client, starting one if none runs: `hub().registry.devices()`, `.clients()`, `for e in hub().registry.events: ...`. The wheel now carries `wire_weaver_client` with its `hub` feature and `ww_hub`.
+- The package is now a mixed Python/Rust project (`maturin`'s `python-source`): the compiled extension lives at `wire_weaver._wire_weaver`, re-exported by `wire_weaver/__init__.py` plus the new `wire_weaver/hub.py`; `import wire_weaver as ww` is unchanged.
 - `connect()` tells the device it is a notebook (`ClientKind::Notebook` in the link setup client meta, CLT-41).
 
 - `PositionedStream.stats` has `lost_codec`, `codec_bytes_in` and `codec_bytes_out`: counted streams come compressed from devices that compress them (API-55), decoded on the way.

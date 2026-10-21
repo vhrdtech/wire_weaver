@@ -20,7 +20,8 @@ dev = [
 ]
 
 [tool.maturin]
-module-name = "wire_weaver"
+python-source = "python"
+module-name = "wire_weaver._wire_weaver"
 features = ["rtt"]
 
 [tool.uv]

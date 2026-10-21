@@ -19,5 +19,6 @@ rtt = ["wire_weaver_client/rtt"]
 pyo3.workspace = true
 shrink_wrap.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }
-wire_weaver_client.workspace = true
+wire_weaver_client = { workspace = true, features = ["hub"] }
 wire_weaver_core.workspace = true
+ww_hub.workspace = true

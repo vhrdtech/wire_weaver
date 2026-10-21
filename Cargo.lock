@@ -5984,6 +5984,7 @@ dependencies = [
  "tokio",
  "wire_weaver_client",
  "wire_weaver_core",
+ "ww_hub",
 ]
 
 [[package]]

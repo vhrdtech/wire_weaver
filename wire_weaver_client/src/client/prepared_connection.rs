@@ -123,6 +123,29 @@ impl<T: WwClient> PreparedConnection<T> {
                     Selected::NotFound { unmatched: u } => unmatched.extend(u),
                 }
             }
+            if iface_kind == InterfaceKind::Ipc {
+                // the tunnel is opened before the event loop runs (CLT-40), on the runtime the event loop runs on,
+                // which a multi-thread one drives while this thread waits
+                let rt = tokio::runtime::Handle::current();
+                if rt.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
+                    return Err(anyhow::anyhow!(
+                        "connect_blocking() reaches a local socket (the ww hub, IPC) on a multi-thread tokio runtime only"
+                    )
+                    .into());
+                }
+                match rt.block_on(try_select_local_socket(&config, &mut cmd_rx))? {
+                    Selected::Device { handle, info, .. } => {
+                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                            .map_err(|e| connect_failed(info, e))?;
+                        return Ok(T::from_cmd(create_commander_blocking(
+                            config,
+                            cmd_tx,
+                            device_api_info,
+                        )));
+                    }
+                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                }
+            }
         }
 
         Err(not_found(&config, unmatched))

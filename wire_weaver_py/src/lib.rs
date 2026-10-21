@@ -149,10 +149,39 @@ impl Device {
     }
 }
 
+/// The connected client's introspection data, or `bundle` when given (`connect(api=...)`), fetched fresh otherwise
+/// (`hub()` has no `api` of its own: the hub always introspects).
+fn introspect(
+    client: &DynClient,
+    bundle: Option<Arc<wire_weaver_client::ww_self::ApiBundleOwned>>,
+) -> PyResult<Arc<wire_weaver_client::ww_self::ApiBundleOwned>> {
+    if let Some(bundle) = bundle {
+        return Ok(bundle);
+    }
+    match client.device_introspect() {
+        Some(introspect) => Ok(introspect.api_bundle.clone()),
+        None => Ok(Arc::new(
+            client
+                .cmd()
+                .introspect()
+                .get_blocking()
+                .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?
+                .ok_or_else(|| {
+                    WireWeaverError::new_err(
+                        "device has introspection disabled, pass its API: \
+                         connect(api=wire_weaver.load_api(\"path/to/api_crate\"))",
+                    )
+                })?,
+        )),
+    }
+}
+
 /// Connect to a device and build its API from introspection data (or from `api`, see `load_api`).
 ///
-/// Filters select which device to connect to, a USB device is used unless `rtt` is given. `timeout` is the default
-/// request timeout in seconds.
+/// Filters select which device to connect to, a USB device is used unless `rtt` or `hub_device` is given.
+/// `hub_device` goes straight to the ww hub by this device key (`usb:<vid>:<pid>:<serial>`, `inproc:<path>`,
+/// `ww hub status` lists them), skipping enumeration and the other filters. `timeout` is the default request
+/// timeout in seconds.
 #[pyfunction]
 #[pyo3(signature = (
     *,
@@ -166,6 +195,7 @@ impl Device {
     rtt=None,
     rtt_speed_hz=None,
     rtt_elf=None,
+    hub_device=None,
     timeout=None,
     api=None,
 ))]
@@ -182,6 +212,7 @@ fn connect(
     rtt: Option<String>,
     rtt_speed_hz: Option<u32>,
     rtt_elf: Option<PathBuf>,
+    hub_device: Option<String>,
     timeout: Option<f64>,
     api: Option<PyRef<'_, Node>>,
 ) -> PyResult<Device> {
@@ -189,7 +220,10 @@ fn connect(
     let mut config = ClientConfig::new().client_meta(
         wire_weaver_client::ClientMeta::new().kind(wire_weaver_client::ClientKind::Notebook),
     );
-    if let Some(target) = rtt {
+    let through_hub = hub_device.is_some();
+    if let Some(key) = hub_device {
+        config = config.hub_device(key);
+    } else if let Some(target) = rtt {
         config = config.rtt(target, rtt_speed_hz);
         if let Some(elf) = rtt_elf {
             config = config.rtt_elf(elf);
@@ -197,27 +231,29 @@ fn connect(
     } else {
         config = config.usb();
     }
-    if let Some((vid, pid)) = vid_pid {
-        config = config.usb_vid_pid(vid, pid);
-    }
-    if let Some(s) = serial {
-        config = config.serial_eq(s);
-    }
-    if let Some(s) = serial_contains {
-        config = config.serial_contains(s);
-    }
-    if let Some(s) = user_label {
-        config = config.user_label_eq(s);
-    }
-    if let Some(s) = product_contains {
-        config = config.product_contains(s);
-    }
-    if let Some(s) = manufacturer_contains {
-        config = config.manufacturer_contains(s);
-    }
-    if let Some((name, req)) = implements_api {
-        let req = semver_req(&req)?;
-        config = config.implements_api(name, req);
+    if !through_hub {
+        if let Some((vid, pid)) = vid_pid {
+            config = config.usb_vid_pid(vid, pid);
+        }
+        if let Some(s) = serial {
+            config = config.serial_eq(s);
+        }
+        if let Some(s) = serial_contains {
+            config = config.serial_contains(s);
+        }
+        if let Some(s) = user_label {
+            config = config.user_label_eq(s);
+        }
+        if let Some(s) = product_contains {
+            config = config.product_contains(s);
+        }
+        if let Some(s) = manufacturer_contains {
+            config = config.manufacturer_contains(s);
+        }
+        if let Some((name, req)) = implements_api {
+            let req = semver_req(&req)?;
+            config = config.implements_api(name, req);
+        }
     }
     let timeout = timeout.map(Duration::from_secs_f64);
     if let Some(t) = timeout {
@@ -234,25 +270,7 @@ fn connect(
         let client = DynClient::from_config(config)
             .connect_blocking()
             .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
-        let bundle = match api_bundle {
-            Some(bundle) => bundle,
-            None => match client.device_introspect() {
-                Some(introspect) => introspect.api_bundle.clone(),
-                None => Arc::new(
-                    client
-                        .cmd()
-                        .introspect()
-                        .get_blocking()
-                        .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?
-                        .ok_or_else(|| {
-                            WireWeaverError::new_err(
-                                "device has introspection disabled, pass its API: \
-                                 connect(api=wire_weaver.load_api(\"path/to/api_crate\"))",
-                            )
-                        })?,
-                ),
-            },
-        };
+        let bundle = introspect(&client, api_bundle)?;
         Ok((client, bundle))
     })?;
     let conn = Arc::new(Conn {
@@ -267,6 +285,63 @@ fn connect(
         },
         conn,
     })
+}
+
+/// A client of the running ww hub's own API (`ww_hub_api`), starting the hub if none runs (CLT-39): `hub().info`,
+/// `hub().registry.devices()`, `hub().registry.clients()`, `for e in hub().registry.events: ...` (a `Stream`, see
+/// `connect()`'s example). `timeout` is the default request timeout in seconds.
+#[pyfunction]
+#[pyo3(signature = (*, timeout=None))]
+fn hub(py: Python<'_>, timeout: Option<f64>) -> PyResult<Device> {
+    let timeout = timeout.map(Duration::from_secs_f64);
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?;
+    let (client, bundle) = py.detach(|| -> PyResult<_> {
+        let _guard = runtime.enter();
+        let socket = runtime
+            .block_on(wire_weaver_client::hub::ensure_running(true))
+            .map_err(|e| WireWeaverError::new_err(e.to_string()))?;
+        let mut config = ClientConfig::new()
+            .hub_api_at(socket.display().to_string())
+            .client_meta(
+                wire_weaver_client::ClientMeta::new()
+                    .kind(wire_weaver_client::ClientKind::Notebook),
+            );
+        if let Some(t) = timeout {
+            config = config.default_timeout(t);
+        }
+        let client = DynClient::from_config(config)
+            .connect_blocking()
+            .map_err(|e| WireWeaverError::new_err(format!("{e:#}")))?;
+        let bundle = introspect(&client, None)?;
+        Ok((client, bundle))
+    })?;
+    let conn = Arc::new(Conn {
+        client,
+        runtime,
+        timeout,
+    });
+    Ok(Device {
+        root: Node {
+            res: DynResource::root(bundle),
+            conn: Some(conn.clone()),
+        },
+        conn,
+    })
+}
+
+/// Runs the ww hub (CLT-39) until it is idle, shut down, or finds another hub running; exit code for
+/// `sys.exit(...)`. `python -m wire_weaver.hub` calls this when started with `WW_HUB_SERVE` set, the same as
+/// `ww_hub::main_if_hub()` for a Rust program.
+#[pyfunction]
+fn run_hub(py: Python<'_>) -> PyResult<i32> {
+    py.detach(ww_hub::run_blocking)
+        .map(|exit| match exit {
+            ww_hub::Exit::Idle | ww_hub::Exit::Shutdown | ww_hub::Exit::AlreadyRunning => 0,
+        })
+        .map_err(|e| WireWeaverError::new_err(format!("ww hub: {e}")))
 }
 
 fn semver_req(req: &str) -> PyResult<wire_weaver_client::ww_version::semver::VersionReq> {
@@ -307,11 +382,35 @@ fn list_devices(py: Python<'_>) -> PyResult<Vec<String>> {
     })
 }
 
+/// `sys.executable -m wire_weaver.hub` is how CLT-39 starts the hub from Python: the interpreter run with no
+/// arguments doesn't serve it, so a plain `current_exe()` self-host (what `ww_hub::main_if_hub()` registers for a
+/// Rust program) doesn't apply. Logged, never fatal: without it, Python just can't self-host (a `ww` on PATH still
+/// can).
+fn register_python_self_hosting(py: Python<'_>) {
+    let exe = PyModule::import(py, "sys")
+        .and_then(|sys| sys.getattr("executable"))
+        .and_then(|exe| exe.extract::<String>());
+    match exe {
+        Ok(exe) if !exe.is_empty() => wire_weaver_client::hub::register_self_hosting_with(
+            ww_hub::HUB_VERSION,
+            PathBuf::from(exe),
+            vec!["-m".to_string(), "wire_weaver.hub".to_string()],
+        ),
+        _ => {}
+    }
+}
+
 #[pymodule]
-#[pyo3(name = "wire_weaver")]
+#[pyo3(name = "_wire_weaver")]
 fn wire_weaver_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_python_self_hosting(m.py());
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add("HUB_VERSION", ww_hub::HUB_VERSION)?;
+    m.add("VERSION_ARG", wire_weaver_client::hub::VERSION_ARG)?;
+    m.add("SERVE_ENV", wire_weaver_client::hub::SERVE_ENV)?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
+    m.add_function(wrap_pyfunction!(hub, m)?)?;
+    m.add_function(wrap_pyfunction!(run_hub, m)?)?;
     m.add_function(wrap_pyfunction!(load_api, m)?)?;
     m.add_function(wrap_pyfunction!(list_devices, m)?)?;
     m.add_class::<Device>()?;

@@ -34,6 +34,7 @@ pub(crate) use route::{Route, route};
 #[cfg(feature = "hub")]
 pub use start::{
     Candidate, HubUnavailable, candidates, ensure_running, hub_running, register_self_hosting,
+    register_self_hosting_with,
 };
 
 /// [HubMode] for programs whose config doesn't set one: `auto`, `prefer`, `required`, `off` (or `direct`).

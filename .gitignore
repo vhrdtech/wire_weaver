@@ -4,4 +4,7 @@ target/
 history.txt
 site/
 __pycache__/
+# maturin develop (editable install) drops the compiled extension next to wire_weaver_py's pure-Python package
+wire_weaver_py/python/wire_weaver/*.so
+wire_weaver_py/python/wire_weaver/*.pyd
 tests/dfu_scenarios/transcripts/*.actual.md

@@ -683,6 +683,34 @@ mod tests {
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 
+    /// `connect_blocking()` (used by `wire_weaver_py`, blocking test helpers) once had no `InterfaceKind::Ipc`
+    /// branch, so `ClientConfig::ipc_path` / `hub_api` / `hub_device` always failed with "no devices found" even
+    /// with a device or hub answering: only the async `connect()` path reached local sockets.
+    #[test]
+    fn connect_blocking_reaches_a_local_socket_device() {
+        let path = socket_path("blocking");
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let _guard = rt.enter();
+        let (events_tx, _events_rx) = mpsc::unbounded_channel();
+        let listener = ww_local_socket::listen(&path, true).unwrap();
+        rt.spawn(async move {
+            let (tx, rx) = device::device_medium(listener, "test 0.1.0", DEV_MAX_MESSAGE);
+            serve(tx, rx, events_tx).await
+        });
+        let client = crate::DynClient::from_config(
+            crate::ClientConfig::new()
+                .ipc_path(path.display().to_string())
+                .traits_only(),
+        )
+        .connect_blocking()
+        .expect("connect_blocking reaches a device over a local socket");
+        client.disconnect().blocking().unwrap();
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
     #[tokio::test]
     async fn nothing_listening_fails_connect() {
         let path = socket_path("none");

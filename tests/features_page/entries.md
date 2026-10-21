@@ -280,6 +280,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-29 | CAN bus | From a simple bridge to a bus debugger. | std_library/ww_can_bus.md
 - STD-26 | Logs | `defmt` logs over a reliable stream, including what was logged before the host connected. | std_library/ww_log.md
 - STD-28 | Indicators | LEDs off, essential or normal, and a blink to find a unit on the bench. | std_library/ww_indication.md
+- STD-50 | Indicators in phase | Several devices given one mode and one epoch breathe and blink together. | std_library/ww_indication.md
 - STD-12 | Firmware updates | `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. | std_library/ww_dfu.md
 - STD-20 | 1-Wire | Transactions and ROM search. | std_library/ww_onewire.md
 - STD-8, STD-6 | More buses | `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. | std_library/ww_i2c.md
@@ -290,6 +291,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
 - STD-19 | PWM | Outputs and input capture. | std_library/ww_pwm.md
 - STD-17 | Device time | A clock with sync to a shared time source. | std_library/ww_timebase.md
+- STD-49 | Host clock sync | Devices without a sync line follow the host's clock: the host fits offset and rate from round trips and steers each device. | std_library/ww_timebase.md#host-sync-std-49
 - STD-35 | I2C and SPI slave | The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. | std_library/ww_i2c.md#slave-mode
 - STD-21 | Logic analyzer | Triggered captures, transitions compressed. | std_library/ww_logic_analyzer.md
 - STD-47 | Pin tests | Shorts, pulls and floating pins on any board through one trait, the board's safety rules kept in its firmware. | std_library/ww_pin_diag.md

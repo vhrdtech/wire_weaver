@@ -3,7 +3,8 @@
 //!
 //! [Indication::mode] is the only item a device must implement. Per-unit [brightness](Indication::brightness),
 //! [identify](Indication::identify) (blink everything to find the unit on a bench) and
-//! [NAMES](Indication::NAMES) are [optional](../api/optional_items.md): a device leaves out what its hardware or
+//! [NAMES](Indication::NAMES), and [set_mode_with_epoch](Indication::set_mode_with_epoch) to animate in phase with
+//! other devices, are [optional](../api/optional_items.md): a device leaves out what its hardware or
 //! flash budget doesn't support.
 
 use wire_weaver::prelude::*;
@@ -31,6 +32,15 @@ pub trait Indication {
     /// name) to save flash.
     #[optional]
     const NAMES: RefVec<'i, &'i str>;
+
+    /// Writes `mode` as the property does, with `epoch` as the start of every animation's cycle (STD-50): a
+    /// breath or blink of period `P` shows `(t - epoch) mod P` at shared time `t` (see `ww_timebase::Clock`,
+    /// `SyncFormat::Host`), so devices given the same mode and epoch breathe and blink in phase. `epoch` is in
+    /// the prefix and storage of the device's `Clock::now()`, and may lie in the past. Calling it again with the
+    /// mode unchanged only moves the phase. A device whose clock runs free (no shared time yet) starts its
+    /// animations now, as writing `mode` does. Left out by a device without a shared clock.
+    #[optional]
+    fn set_mode_with_epoch(mode: Mode, epoch: Second);
 }
 
 /// Global operation mode, see [Indication::mode].

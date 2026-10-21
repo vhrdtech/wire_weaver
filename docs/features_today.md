@@ -299,6 +299,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[CAN bus](std_library/ww_can_bus.md)**: From a simple bridge to a bus debugger.
 - **[Logs](std_library/ww_log.md)**: `defmt` logs over a reliable stream, including what was logged before the host connected. <span class="ww-status">hardware check open</span>
 - **[Indicators](std_library/ww_indication.md)**: LEDs off, essential or normal, and a blink to find a unit on the bench.
+- **[Indicators in phase](std_library/ww_indication.md)**: Several devices given one mode and one epoch breathe and blink together. <span class="ww-status">hardware check open</span>
 - **[Firmware updates](std_library/ww_dfu.md)**: `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. <span class="ww-status">in progress</span>
 - **[1-Wire](std_library/ww_onewire.md)**: Transactions and ROM search.
 - **[More buses](std_library/ww_i2c.md)**: `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. <span class="ww-status">in progress</span>
@@ -309,6 +310,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
 - **[PWM](std_library/ww_pwm.md)**: Outputs and input capture.
 - **[Device time](std_library/ww_timebase.md)**: A clock with sync to a shared time source.
+- **[Host clock sync](std_library/ww_timebase.md#host-sync-std-49)**: Devices without a sync line follow the host's clock: the host fits offset and rate from round trips and steers each device. <span class="ww-status">hardware check open</span>
 - **[I2C and SPI slave](std_library/ww_i2c.md#slave-mode)**: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">hardware check open</span>
 - **[Logic analyzer](std_library/ww_logic_analyzer.md)**: Triggered captures, transitions compressed. <span class="ww-status">in progress</span>
 - **[Pin tests](std_library/ww_pin_diag.md)**: Shorts, pulls and floating pins on any board through one trait, the board's safety rules kept in its firmware. <span class="ww-status">in progress</span>

@@ -40,6 +40,10 @@
         (docs: [
             "Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).",
         ], ident: "Pps", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "No sync line: a host steers this device over its API with `Clock::steer` (STD-49), from its fit of",
+            "`Clock::now()` samples. Only as `SyncConfig::Slave`; the host\'s monotonic clock is the shared time.",
+        ], ident: "Host", fields: Unit, discriminant: 2, since: None),
     ], path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Static description of a device\'s clock, see `Clock::info`.",
@@ -153,9 +157,30 @@
         133,
         56,
     ]),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A host\'s fit of a device\'s clock, see `Clock::steer`: the device\'s local time `local` is the shared time `shared`,",
+        "and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative: slower, as for",
+        "a device clock that runs fast).",
+    ], ident: "SteerPoint", generics: [], fields: Named([
+        (ident: Some("local"), default: None, since: None, ty: Instance(type_idx: 1, args: [
+            Type(OutOfLine(type_idx: 0)),
+        ]), docs: [
+            "Device time at the point, in the prefix and storage of `Clock::now()`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("shared"), default: None, since: None, ty: Instance(type_idx: 1, args: [
+            Type(OutOfLine(type_idx: 0)),
+        ]), docs: [
+            "Shared time at `local`, in the same prefix and storage.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rate_ppb"), default: None, since: None, ty: NumericAny(Base(I32)), docs: [
+            "Shared rate minus local rate, in parts per billion: shared time advances `1 + rate_ppb * 1e-9` s per",
+            "local second. An HSI clock 1 % fast is about `-9_900_990`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
-        "Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...).",
+        "Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...) or",
+        "steered by a host over the API (`SyncFormat::Host`, the optional `host_sync` group: `steer`, `shared_now`).",
         "",
         "A device has exactly one free-running clock. Every timestamp it reports elsewhere in its API is a [Second]",
         "since that clock started, in whatever fixed width fits the field (so it wraps: a `U32` of microseconds wraps",
@@ -206,6 +231,32 @@
             "Time of day a sync master sends on the sync line, set from its host. Has no effect on a slave or while",
             "sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.",
         ], optional: None),
+        (id: 7, kind: Method(args: [
+            (ident: "point", ty: OutOfLine(type_idx: 11)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 8))), errors: Some([
+            (ident: "Common", nested: Some([
+                "WrongState",
+                "InvalidArgument",
+            ])),
+        ])), multiplicity: Flat, since: None, ident: "steer", docs: [
+            "Steers this device\'s shared clock with a host\'s fit of it (STD-49), about once a second while",
+            "`configure_sync` has this device as `Slave { format: SyncFormat::Host }`: from then on the device keeps",
+            "`shared(t) = point.shared + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for its local time `t`, reports",
+            "`Locked` in `sync_status` and `time_map`, and `Holdover` when the points stop coming. `WrongState` unless",
+            "configured as a `Host` slave, `InvalidArgument` for a point it can\'t use (float or a storage it doesn\'t read,",
+            "a rate beyond what it can follow).",
+            "",
+            "The values are in the prefix and storage of `now()`, so a device without 64-bit numbers gets 32-bit ones,",
+            "wrapping as its `now()` does. A host fits the line from `now()` samples with the shortest round trips",
+            "(`ww_timebase::host::Estimator`, feature `std`); shared time is the host\'s monotonic clock.",
+        ], optional: Some((group: Some("host_sync")))),
+        (id: 8, kind: Method(args: [], return_ty: Some(Option(some_ty: Instance(type_idx: 1, args: [
+            Type(OutOfLine(type_idx: 0)),
+        ]))), errors: None), multiplicity: Flat, since: None, ident: "shared_now", docs: [
+            "The device\'s shared time now, as `steer` points (or a sync line) give it; `None` while the clock runs free.",
+            "In the prefix and storage of `now()`. What a host compares with its own clock to see how well the device",
+            "follows (the residual offset).",
+        ], optional: Some((group: Some("host_sync")))),
     ], compact_id: Some(24)), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

@@ -1106,6 +1106,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
+- 📋 **EVO-10 Checker knows the `Unknown(u32)` catch-all** — the evolution checker (`ww api save` / `check`,
+  `wire_weaver_client::compat::check_enum`) reports a variant appended to an `Unsized` enum as breaking ("variant
+  Host is unknown to the old version"), although since SW-47 an older reader gets it as `Unknown(n)`, as
+  `docs/evolution/rules.md` says. The `ww_self` model doesn't record whether an enum has the catch-all
+  (`no_future_version` or not): needs a defaulted field on `ItemEnum` set by codegen, the checker and the
+  dynamic decoder reading it, and snapshots saved again. Found with `ww_timebase::SyncFormat::Host` (STD-49).
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1204,6 +1210,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-17 `ww_timebase`** — `Clock`: device time as `ww_si::Second` (full width via `now()`, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
+- 🧪 **STD-49 `ww_timebase` host sync** — devices without a sync line follow the host's monotonic clock,
+  Klipper-style: `SyncFormat::Host`, the optional `host_sync` group (`steer(SteerPoint)` with offset and rate in
+  ppb, `shared_now()`), and the std side `ww_timebase::host` (`Estimator`: min-RTT samples of `now()`, least squares
+  over a 30 s window; `DeviceTime`: unwrapping and steer points in the device's own prefix and storage).
+  Deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
+  `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
+  `bedrock_sync`. Hardware check open: Donguru and rePort steered by `ww sync` on omarchy-m1, `sync_status`
+  `Locked`, the residual offset measured with `shared_now`.
 - ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
   full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
   (STD-13).
@@ -1284,6 +1298,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `AlertBrightness`, `animation_enable`, `test_mode` / `TestMode` and `HAS_NOT_CONTROLLABLE`. Docs
     `docs/std_library/ww_indication.md`, tests `tests/indication` (mock servers with only `mode`, and with every
     optional item).
+- 🧪 **STD-50 `ww_indication` animation epoch** — optional `set_mode_with_epoch(mode, epoch)`: the epoch (shared
+  time, STD-49) starts every animation's cycle, so devices given the same mode and epoch animate in phase.
+  `tests/indication`, `docs/std_library/ww_indication.md`. Hardware check open: Donguru and rePort breathing in
+  phase (embedded_bedrock `bedrock_led`).
 - ✅ **STD-29 `ww_can_bus` on the stdlib idioms** — from simple bridges to bus debuggers. `Can` is one controller:
   six required items (`capabilities()`, `configure(CanConfig)` answering what was set, `config()`, the observable
   `status`, the counted `rx` stream, the `tx` credit sink) and `#[optional]` `set_mode` (incl. `Config` and

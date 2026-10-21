@@ -5,7 +5,8 @@
     "",
     "[Indication::mode] is the only item a device must implement. Per-unit [brightness](Indication::brightness),",
     "[identify](Indication::identify) (blink everything to find the unit on a bench) and",
-    "[NAMES](Indication::NAMES) are [optional](../api/optional_items.md): a device leaves out what its hardware or",
+    "[NAMES](Indication::NAMES), and [set_mode_with_epoch](Indication::set_mode_with_epoch) to animate in phase with",
+    "other devices, are [optional](../api/optional_items.md): a device leaves out what its hardware or",
     "flash budget doesn\'t support.",
 ], crate_idx: 0, trait_name: "ww_indication", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Indication", docs: [], optional: None),
@@ -104,6 +105,19 @@
         (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
             "Indicator names, in the device\'s own order. Left out (empty on devices that implement it with nothing to",
             "name) to save flash.",
+        ], optional: Some((group: None))),
+        (id: 4, kind: Method(args: [
+            (ident: "mode", ty: OutOfLine(type_idx: 0)),
+            (ident: "epoch", ty: Instance(type_idx: 3, args: [
+                Type(OutOfLine(type_idx: 2)),
+            ])),
+        ], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "set_mode_with_epoch", docs: [
+            "Writes `mode` as the property does, with `epoch` as the start of every animation\'s cycle (STD-50): a",
+            "breath or blink of period `P` shows `(t - epoch) mod P` at shared time `t` (see `ww_timebase::Clock`,",
+            "`SyncFormat::Host`), so devices given the same mode and epoch breathe and blink in phase. `epoch` is in",
+            "the prefix and storage of the device\'s `Clock::now()`, and may lie in the past. Calling it again with the",
+            "mode unchanged only moves the phase. A device whose clock runs free (no shared time yet) starts its",
+            "animations now, as writing `mode` does. Left out by a device without a shared clock.",
         ], optional: Some((group: None))),
     ], compact_id: Some(25)), crate_idx: 0),
 ], ext_crates: [

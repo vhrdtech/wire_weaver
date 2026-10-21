@@ -220,6 +220,12 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   `wire_weaver_client`, `ww_self` changelogs and `docs/api/observing.md`.
 - `ww_board_info` (STD-24): `RevisionSource::Provisional`, a provisional board record written in flash by a bench or
   developer; `ww info` shows it as "provisional record".
+- Host clock sync (STD-49, STD-50, TOOL-16): `ww_timebase` gets `SyncFormat::Host` and an optional `host_sync`
+  group (`steer(SteerPoint)`, `shared_now()`), so a host steers a device's shared clock with its fit of `now()`
+  samples (offset and rate, Klipper-style); `ww_timebase::host` (`Estimator`, `DeviceTime`) is the std side, tested
+  with simulated drifting and jittery device clocks. `ww_indication` gets an optional
+  `set_mode_with_epoch(mode, epoch)`, so devices animate in phase, and `ww sync DEV...` keeps several devices steered
+  and sets their mode with one epoch.
 
 ### Changed
 

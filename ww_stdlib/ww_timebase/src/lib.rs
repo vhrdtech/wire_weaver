@@ -7,11 +7,15 @@
 //! the others lock to it and publish `time_map` points that map their local time to the shared one.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "std")]
+pub mod host;
+
 use wire_weaver::prelude::*;
 pub use ww_date_time::DateTime;
 pub use ww_si::Second;
 
-/// Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...).
+/// Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...) or
+/// steered by a host over the API (`SyncFormat::Host`, the optional `host_sync` group: `steer`, `shared_now`).
 ///
 /// A device has exactly one free-running clock. Every timestamp it reports elsewhere in its API is a [Second]
 /// since that clock started, in whatever fixed width fits the field (so it wraps: a `U32` of microseconds wraps
@@ -48,6 +52,26 @@ pub trait Clock {
     /// sync is off: `WrongState` unless `configure_sync` currently has this device set as `Master`.
     #[errors(Common(WrongState))]
     fn set_time_of_day(t: DateTime) -> Result<(), ClockError<'i>>;
+
+    /// Steers this device's shared clock with a host's fit of it (STD-49), about once a second while
+    /// `configure_sync` has this device as `Slave { format: SyncFormat::Host }`: from then on the device keeps
+    /// `shared(t) = point.shared + (t - point.local) * (1 + point.rate_ppb * 1e-9)` for its local time `t`, reports
+    /// `Locked` in `sync_status` and `time_map`, and `Holdover` when the points stop coming. `WrongState` unless
+    /// configured as a `Host` slave, `InvalidArgument` for a point it can't use (float or a storage it doesn't read,
+    /// a rate beyond what it can follow).
+    ///
+    /// The values are in the prefix and storage of `now()`, so a device without 64-bit numbers gets 32-bit ones,
+    /// wrapping as its `now()` does. A host fits the line from `now()` samples with the shortest round trips
+    /// (`ww_timebase::host::Estimator`, feature `std`); shared time is the host's monotonic clock.
+    #[optional(host_sync)]
+    #[errors(Common(WrongState, InvalidArgument))]
+    fn steer(point: SteerPoint) -> Result<(), ClockError<'i>>;
+
+    /// The device's shared time now, as `steer` points (or a sync line) give it; `None` while the clock runs free.
+    /// In the prefix and storage of `now()`. What a host compares with its own clock to see how well the device
+    /// follows (the residual offset).
+    #[optional(host_sync)]
+    fn shared_now() -> Option<Second>;
 }
 
 /// Static description of a device's clock, see `Clock::info`.
@@ -89,6 +113,9 @@ pub enum SyncFormat {
     IrigB,
     /// Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).
     Pps,
+    /// No sync line: a host steers this device over its API with `Clock::steer` (STD-49), from its fit of
+    /// `Clock::now()` samples. Only as `SyncConfig::Slave`; the host's monotonic clock is the shared time.
+    Host,
 }
 
 /// Current sync state of a device's clock, see `Clock::sync_status`.
@@ -129,6 +156,20 @@ pub struct TimeMapPoint {
     pub shared: Second,
     /// Sync state at the point, so a host can tell a real lock from a stale mapping.
     pub state: SyncState,
+}
+
+/// A host's fit of a device's clock, see `Clock::steer`: the device's local time `local` is the shared time `shared`,
+/// and shared time runs `rate_ppb` parts per billion faster than local time from there on (negative: slower, as for
+/// a device clock that runs fast).
+#[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Copy, Clone, Debug))]
+pub struct SteerPoint {
+    /// Device time at the point, in the prefix and storage of `Clock::now()`.
+    pub local: Second,
+    /// Shared time at `local`, in the same prefix and storage.
+    pub shared: Second,
+    /// Shared rate minus local rate, in parts per billion: shared time advances `1 + rate_ppb * 1e-9` s per
+    /// local second. An HSI clock 1 % fast is about `-9_900_990`.
+    pub rate_ppb: i32,
 }
 
 /// Errors of `Clock`: the common ones (unsupported sync line or format, invalid configuration, in use, wrong

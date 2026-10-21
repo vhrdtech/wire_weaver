@@ -404,6 +404,11 @@ async fn rx_task<T: Transport>(
                         core.handle(now, RxInput::Message { kind, message });
                     }
                     Err(e) => {
+                        // what tx said before the medium went (e.g., KeepStreams before its Disconnect, which the
+                        // device answers by closing) goes in first
+                        while let Ok(msg) = from_tx.try_recv() {
+                            core.handle(now, RxInput::FromTx(msg));
+                        }
                         core.handle(now, RxInput::TransportError(e));
                         // rx core exits on transport error; outputs are handled at the top of the loop
                     }

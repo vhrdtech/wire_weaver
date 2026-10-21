@@ -253,6 +253,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- Host event loop: `disconnect().keep_streams()` no longer ends kept streams and sinks when the device closes the medium right after the `Disconnect` (rx took the transport error before tx's word to keep them). See `wire_weaver_client/CHANGELOG.md`.
 - Observe (API-39): `ObserveState::reset()` drops the samples taken before it, which went to the next host observing in `Samples` mode with their old times. See the `wire_weaver_core` changelog.
 - Reliable streams (API-47): a resend or a resume from inside a multi-unit event (a batch confirmed item by item)
   gets that event again whole and the host keeps only the units it doesn't have; `ResendFrom` no longer frees store

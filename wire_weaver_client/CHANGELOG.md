@@ -28,6 +28,10 @@
   (HID-based) debug probes are no longer supported over RTT, only v2 (bulk, no `hidapi`/libusb HID binding pulled
   in). CMSIS-DAP v2 and other probe-rs-supported probes (ST-Link, J-Link, ...) are unaffected.
 
+### 🐛 Fixes
+
+- `disconnect().keep_streams()` could end the kept streams and sinks (`StreamError::Closed`) when the device closed the medium right after the `Disconnect`: the rx half of the event loop took the transport error before tx's word to keep the streams. It now takes in everything tx said first, as it does for a received message.
+
 ### 🚀 Features
 
 - The evolution checker (`ww api check`) classifies `#[optional]` changes (API-16, API-54): making an item or `ww_impl!` optional, or putting it into a group, is compatible; making it required again or moving it to another group (or out of its group) is breaking, since servers leaving it out stop compiling. See `docs/evolution/rules.md#optional-items`.

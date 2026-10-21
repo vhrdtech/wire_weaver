@@ -15,6 +15,11 @@ picoboot = [
     "ww_picoboot/usb",
     "ww_picoboot/elf",
 ] # PICOBOOT flashing (RP2040/RP2350 boot ROM): follow::rp2_update(), ww_picoboot re-export, ELF images
+stm32_dfu = [
+    "usb",
+    "ww_stm32_dfu/usb",
+    "ww_stm32_dfu/elf",
+] # STM32 system bootloader (ROM DFU, DfuSe) flashing: follow::stm32_dfu_update(), ww_stm32_dfu re-export, ELF images
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
@@ -52,6 +57,7 @@ ww_link = { workspace = true, features = ["std"] }
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
+ww_stm32_dfu.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }

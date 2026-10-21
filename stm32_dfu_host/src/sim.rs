@@ -105,6 +105,16 @@ impl SimStm32Dfu {
         self.state.lock().unwrap().left
     }
 
+    /// Reset the device into the bootloader again: DFU idle, flash and the erase log kept.
+    pub fn reset(&self) {
+        let mut s = self.state.lock().unwrap();
+        s.state = State::DfuIdle;
+        s.status = DfuStatus::Ok;
+        s.pending = None;
+        s.left = None;
+        s.gone = false;
+    }
+
     /// Flip the lowest bit of the byte at `addr` as soon as it is programmed, so a read-back differs.
     pub fn corrupt_on_write(&self, addr: u32) {
         self.state.lock().unwrap().corrupt = Some(addr);

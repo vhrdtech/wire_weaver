@@ -15,6 +15,14 @@ Design: `~/git/tpm/prj/P2401-wireweaver/design/framer_frame_seq.md` (round 2, de
 - dfu_scenarios transcripts change again (USB without CRC): `just dfu-transcripts`.
 - Piece 4: usb_internals.md, udp.md, evolution note; FEATURES TR-15 (claimed) + tests/features_page/entries.md + `just features-page`; flash/stack numbers on thumbv8m for the device side; just test + just lint.
 
+## Piece 3 call sites (rg UsbChecksum|UdpChecksum|TxFramer|RxFramer|FRAMED_CRC16)
+
+- ww_device/src/transport.rs: `TxFramer`/`RxFramer` aliases = USB config, used by `FramedTx`/`FramedRx` (also UDP!), blocking.rs, udp.rs (`UdpBuffers`, `starts_link_setup` reads `UdpHead` at datagram start: skip prefix), tests.rs.
+- wire_weaver_client: usb/event_loop.rs, udp.rs, in_process.rs (UsbTxFramer), event_loop/device_e2e_tests.rs + stream_e2e_tests.rs (USB aliases), tap: `crate::tap::FRAMED_CRC16` passed to `host_session` (usb, udp, in_process) -> becomes per-medium framer descriptions; tap/reassembly.rs `walker()` maps `ww_tap::FramerChecksum` (only None / Crc16IbmSdlc today) and passes `&[]` prefix to `verify_split` (TODO piece 3: real prefix via `pieces_with_prefix`).
+- ww_tap/src/lib.rs: `Framer::U2 { checksum, tail, stream }` needs a prefix field (enum `FramerPrefix { None, Seq }`) and `FramerChecksum::Crc32IsoHdlc { full }`; it's a ww_trait type in ww_tap's API bundle: check `just save-snapshots` / ww_tap snapshot rules if any.
+- tests/dfu_scenarios/src/record.rs, examples_mcu/mcu_qemu/src/bin/framer_rx.rs (QEMU instruction benchmark of FramedRx with USB config: good place for before/after numbers).
+- Embedded numbers: thumbv8m (e.g. `thumbv8m.main-none-eabihf`) flash/stack of a ww_device USB build and UDP build before (master 1c93a961) vs after; examples_mcu/rp2 has `ww_udp_ncm` (RP2350 = thumbv8m).
+
 ## Decisions / gotchas
 
 - No version bump (memory rule; workspace 0.5.0 already > crates.io 0.4.0). Older 0.5.0-dev peers are detected by the missing token (reads 0), not by version.

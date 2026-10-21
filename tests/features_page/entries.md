@@ -184,6 +184,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-37 | Low call latency | A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond. | transport/ww_link.md
 - CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
 - CLT-39 | Hub routing in connect | A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; `WW_HUB` says when. | transport/hub.md#reaching-devices-through-the-hub-clt-39
+- CLT-40 | Back after a hub restart | A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. | transport/hub.md#reconnect-after-a-hub-restart-clt-40
 - CLT-41 | Who connects | Every client tells the device its program, user, host, pid and kind in link setup; a device can log it, a hub or a lock file shows it. | transport/hub.md
 - CLT-34 | STM32 ROM DFU | Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it. | transport/follow_reboot.md#stm32-system-bootloader-rom-dfu
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
@@ -212,6 +213,7 @@ layer checks on connect that both ends speak the same protocol.
 - SRV-28 | The ww hub | One small process per user that knows the devices, who holds them and which programs are connected, with its own API. | transport/hub.md#the-hub-process-srv-28
 - TOOL-17 | `ww hub` | See and steer the hub from the shell: its status and who started it, who holds each of your devices (the hub, another ww program, or any program on Linux), keep it up for a bench, stop it; `ww list` shows what it holds. | cli_reference.md#ww-hub
 - SRV-29 | Many programs, one device | Several programs use one device at once through the hub, each with its own calls, streams and observed properties. | transport/hub.md#device-tunnels-srv-29
+- SRV-30 | Hub version skew | Programs built with different WireWeaver releases share one hub; a newer program replaces an older hub without losing anyone, and a hub that can't serve a program says which versions and what to do. | transport/hub.md#version-skew-and-handover-srv-30
 - TR-16 | Local sockets | A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. | transport/hub.md
 - TR-14 | Link tap | Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it. | transport/tap.md
 - TR-12 | USB throughput on small MCUs | Measured and tuned on an STM32G0 so far. | transport/usb_internals.md

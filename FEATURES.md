@@ -877,9 +877,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   510-600 µs), throughput and max-size transfers are as direct. Ideas if it matters: busy-poll the socket for a short
   window after a request (spends a core), or a shared-memory ring between client and hub with a futex / event for
   the wake. Kept as is for now (person, 22 Oct 2026); measure with `tests/hub/examples/hub_loopback.rs` first.
-- 📋 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
+- 🧪 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
   versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
-  newer replaces older, so it converges); a refusal names both versions and the fix.
+  newer replaces older, so it converges); a refusal names both versions and the fix. Built
+  (`docs/transport/hub.md#version-skew-and-handover-srv-30`, `docs/evolution/rules.md#the-ww-hub-and-version-skew`):
+  preamble version 2 with a skippable trailer carrying the client's `ww_link` and `ww_client_server` versions (version
+  1 still read: versions unknown; a client asks a v1-only hub again in v1), the hub's window (`ww_hub/src/window.rs`:
+  SemVer-compatible with its build, plus earlier majors it keeps after a break, none yet) and status 4 with
+  `Error::HubRefused` naming both sides and the fix; `Hub::handover(socket)` (strictly newer only, `Event::Handover`,
+  links closed with `DisconnectReason::HubHandover`, `Exit::Handover`), `ww_hub::Bound::take_over` (own socket, then
+  `hub.lock`, rename into place on Unix, the pipe anew on Windows), and `hub::ensure_running` replacing an older
+  running hub with the program's own (`main_if_hub`, `WW_HUB_HANDOVER`, under `hub.start.lock`). Tested on Linux in
+  `tests/hub_reconnect` (`versions.rs`, `handover.rs` with clients connected, `replace.rs` across processes); check
+  on macOS and Windows open (compiles for both).
 - 📋 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `Clock` with host sync
   (STD-49) and keeps it steered between short-lived commands; per-device rate cache, steer points say who steers,
   `ww sync` shows the hub's steering instead of fighting it.
@@ -1119,8 +1129,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a routed USB connection through the
   SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
   can't fake); a check on macOS and Windows (compiles for both).
-- 📋 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
-  observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed.
+- 🧪 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
+  observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed. Built
+  (`docs/transport/hub.md#reconnect-after-a-hub-restart-clt-40`): a connection through the hub that loses its link
+  (hub exited, crashed, killed, handed over, device lent) is reconnected by the keeper of its command channel
+  (CLT-36) with backoff, through a hub again (one started if none runs), and resumes counted and reliable streams,
+  observed levels and sinks (`resume_streams`); calls fail with `Disconnected` meanwhile; `ConnectionEvent` /
+  `GapReason` from `Commander::connection_events()`; `ClientConfig::hub_reconnect(give_up)` (60 s, lent time not
+  counted, no hub started while lent). Tested on Linux in `tests/hub_reconnect` (`restart.rs`; `kill.rs`: `SIGKILL`
+  twice under load, back in ~90 ms, stream resumed, nothing sent twice); check on macOS and Windows open. Plain
+  streams end with the link, as on an unplug.
 - 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
   through the hub after a short gap; one that doesn't is named in the other's error.

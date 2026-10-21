@@ -230,6 +230,26 @@ out (v0.5.0), then user_device_api must be bumped to v0.2.0 to use the newer API
 new features though, and if previous version is doing all that it is supposed to, there might not be a need to
 upgrade.
 
+## The ww hub and version skew
+
+The [ww hub](../transport/hub.md#version-skew-and-handover-srv-30) (SRV-30) sits between programs built with
+different WireWeaver releases and the devices, so it adds rules of its own:
+
+* **The preamble is frozen.** Its bytes never change; new fields are new trailer entries (a new tag), which a reader
+  that doesn't know them skips. That is what lets any client and any hub exchange their versions and a clear refusal.
+* **What the hub serves.** A client says its `ww_link` and `ww_client_server` versions in the preamble; the hub serves
+  every version its build is compatible with by Cargo's SemVer rule (the same major, 0.x: the same minor). A
+  wire-compatible change of either is invisible to the hub. A breaking one means: the hub keeps the previous major's
+  code for one more major and lists it in its window, the way a device keeps an old protocol, so programs built
+  before the break keep working through a newer hub until they are rebuilt. A client outside the window is refused
+  (status 4) with both versions and the fix, never served half-way.
+* **The user API is end to end.** The hub reads the envelope only, never a user API: a user API change is between the
+  client and the device as without a hub, and the hub doesn't need rebuilding for it.
+* **`ww_hub_api`** evolves like any API crate: additions are wire-compatible (an older hub answers `Unimplemented`),
+  `Hub::info` and `Hub::handover` are frozen.
+* **Newer replaces older.** A program that can host a newer hub than the running one has it hand over; only a strictly
+  newer `ww_hub` version replaces an older one, so a PC converges on its newest hub.
+
 ## Settings stored on a device
 
 A [settings store](../api/settings.md) (`ww_settings`, STD-32) keeps a record per group in the device's flash, and

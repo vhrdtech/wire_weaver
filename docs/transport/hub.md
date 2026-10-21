@@ -59,19 +59,26 @@ A connection starts with a preamble from the client and an answer from the serve
 [ww_link](ww_link.md) messages; a reliable stream, so [ww_framer](ww_framer.md) isn't used.
 
 ```
-client → server   | "WWHB" | version: u8 = 1 | target: u8 | key_len: u16 LE | key: UTF-8 |
-server → client   | "WWHB" | version: u8 = 1 | status: u8 | hub_version_len: u8 | hub_version: UTF-8 |
+client → server   | "WWHB" | version: u8 = 2 | target: u8 | key_len: u16 LE | key: UTF-8 | trailer_len: u16 LE | entries |
+  each entry      | tag: u8 | len: u8 | value |
+server → client   | "WWHB" | version: u8 = 2 | status: u8 | hub_version_len: u8 | hub_version: UTF-8 |
 then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payload
 ```
 
 - `target` 0 is the hub's own API (no key), 1 a device by its key (`usb:c0de:cafe:<serial>`); a process serving a
   single device accepts any key, the client sends an empty one.
+- The trailer (version 2, SRV-30) carries the client's versions, each value `| major: u32 LE | minor: u32 LE | patch:
+  u32 LE |`: tag 1 its `ww_link`, tag 2 its `ww_client_server`. A reader takes the entries it knows and skips the
+  others; a missing entry is unknown. Version 1 is the same without the trailer, as clients from before SRV-30 send
+  it: a server reads both, and a client asks again with version 1 when a server answers status 3 to version 2.
 - `status`: 0 ok, 1 no such device, 2 the device is held by another program, 3 preamble version not served, 4 the
-  client's WireWeaver versions are not served. The server closes the connection after any status but 0, and the
-  client's connect error says which, with the server's version.
-- The preamble is frozen: a later layout gets a new version number, and a reader of any version can still read an
-  answer up to the server's version string, so two programs built years apart can at least tell each other what
-  they are.
+  client's `ww_link` or `ww_client_server` version is not served ([Version skew](#version-skew-and-handover-srv-30)),
+  5 the device is lent to another program for a while (SRV-32: wait and ask again). The server closes the
+  connection after any status but 0, and the client's connect error says which, with the server's version
+  (`Error::HubRefused`).
+- The preamble is frozen: what is in it never changes, later fields only come as new trailer entries (a new tag), and
+  a reader of any version can still read an answer up to the server's version string, so two programs built years
+  apart can at least tell each other what they are.
 - Messages are held back until the event loop flushes, so the messages of one turn go out in one write. A message
   longer than the receiver's limit drops the connection.
 
@@ -103,8 +110,8 @@ let clients = hub.registry().clients().call().await?;
 let mut events = hub.registry().events().call().await?;
 ```
 
-- `info()` and `handover(socket)` are frozen: a client of any version can ask what hub runs (`handover`, SRV-30, is
-  not served yet).
+- `info()` and `handover(socket)` are frozen: a client of any version can ask what hub runs and have it replaced by a
+  newer one ([Handover](#handover-to-a-newer-hub)).
 - `registry().devices()`: the WireWeaver USB devices plugged in (enumerated, not opened: the hub opens a device only
   when a program asks for it) and every device a program holds, from the lock files above, as `HeldElsewhere` with
   the holder; the devices the hub holds itself as `Open`, with their tunnels. `take(key)` opens a device and keeps it
@@ -261,8 +268,9 @@ The hub runs one `wire_weaver_client` event loop per open device and gives each 
   a path the hub didn't see opened go to every client.
 - Loopback test messages are echoed to the client that sent the last ones (`ww usb-loopback` through the hub: one at
   a time).
-- Device keys: `usb:`, `rtt:` (with the `rtt` feature, `ww` has it) and `inproc:<path>` (a device served in the
-  hub's own process: simulators, tests).
+- Device keys: `usb:`, `rtt:` (with the `rtt` feature, `ww` has it), `inproc:<path>` (a device served in the
+  hub's own process: simulators, tests) and `ipc:<socket path>` (a device another process serves on a local socket,
+  [Device side](#device-side): a simulator or host-emulated firmware, which outlives the hub).
 
 ### What it costs
 
@@ -298,6 +306,111 @@ Medians of 7 rounds of 2 s per stage on an idle PC (omarchy-m1, Apple M1 under A
 | in the hub's process            | 16 B  | 36771 → 16131 (−56 %) | 25620 → 25489 msg/s  | 698446 → 667606 msg/s  |
 
 Single runs swing by ±15 % on a PC that does other work: compare medians of several rounds.
+## Reconnect after a hub restart (CLT-40)
+
+To a program, its hub going away looks like an unplugged device: the socket ends. A connection through the hub (routed
+by `connect()`, or `ClientConfig::hub_device`) connects again by itself instead, and the program goes on:
+
+- **What triggers it.** The link through the hub goes: the hub exited, crashed or was killed, handed over to a newer
+  one ([below](#handover-to-a-newer-hub)), lent the device to another program (SRV-32), or stopped answering.
+  A disconnect the program asks for doesn't (`disconnect()`, dropping the client).
+- **Calls.** Calls in flight fail with `Error::Disconnected`, and so does every call until the link is back, at
+  once (CLT-36). None is sent again by itself: a call may have reached the device before the link went, and calls
+  aren't idempotent in general.
+- **Reconnecting.** The client tries at once, then with backoff (10 ms doubling to 1 s): through a hub again, starting
+  one when none runs (in `HubMode::Auto` as if `Prefer`, see [the modes](#the-modes)), with link setup and the version
+  checks as on the first connect. A device with another API than before ends it.
+- **Streams.** Counted and reliable streams wait and resume from their cursor (`StreamEvent::Resumed`, gaps if the
+  device didn't keep everything), observed trait levels are subscribed again (`ObserveEvent::Resumed`), sinks are
+  registered again and a credit sink's session goes on: the same path as
+  [`disconnect().keep_streams()` and `Commander::resume_streams()`](../api/stream_reliability.md). The device keeps its streams'
+  sessions while the hub is gone, so nothing is lost but what didn't fit its store. Plain streams (without `#[counted]`
+  or `#[reliable]`) end with the link, as on an unplug: open them again after `Reconnected`.
+- **Giving up.** After `ClientConfig::hub_reconnect(Some(give_up))` without a link (`DEFAULT_HUB_GIVE_UP`, 60 s) the
+  client stops: the waiting streams end and calls keep failing. Time the device is lent doesn't count: the hub said it
+  comes back (preamble status 5, or the tunnel closed with `DisconnectReason::Other(1)`), and while it is lent no hub
+  is started. Versions the hub doesn't serve end it at once. `hub_reconnect(None)` turns it all off.
+
+The app hears about it from `Commander::connection_events()`, a broadcast receiver:
+
+```rust
+let mut events = device.cmd.connection_events();
+while let Ok(event) = events.recv().await {
+    match event {
+        ConnectionEvent::Disconnected { reason, reconnecting } => show_gap(reason, reconnecting),
+        ConnectionEvent::AttemptFailed { attempt, error, retry_in } => {}
+        ConnectionEvent::Reconnected { gap, attempts, resumed } => show_back(gap),
+        ConnectionEvent::GaveUp { error } => break,
+        _ => {}
+    }
+}
+```
+
+`GapReason` says why: `Lost(why)` (the socket ended, an IO error, the peer timeout), `HubHandover`, `Lent`,
+`Disconnect(reason)` (the hub or device ended the link for another reason). While the client reconnects by itself,
+`Commander::reconnect()` is refused; after `GaveUp` it works as after any disconnect.
+
+Measured on Linux (`tests/hub_reconnect`, `kill.rs`): with calls in flight all the time and a counted stream open,
+the hub killed with `SIGKILL` twice; each time the client was back in about 90 ms, the new hub started by the client
+itself, the stream went on from where it was, the calls in flight failed with `Disconnected` and none reached the
+device twice.
+
+## Version skew and handover (SRV-30)
+
+Programs on one PC are built at different times: `dg` with one WireWeaver release, the rePort GUI with another, one
+hub for both. Three layers keep that working, each under WireWeaver's own [evolution rules](../evolution/rules.md#the-ww-hub-and-version-skew):
+
+1. **The preamble** is frozen ([Wire format](#wire-format)): any client and any hub can exchange their versions and a
+   clear refusal.
+2. **The envelope.** The hub reads only what is around a user API: `ww_link` messages and the envelope of
+   `ww_client_server` requests and events. A client says its `ww_link` and `ww_client_server` versions in the
+   preamble, and the hub serves every version its build is compatible with by Cargo's SemVer rule (the same major;
+   for 0.x the same minor), so a newer hub keeps serving older clients. When a release breaks `ww_link` or
+   `ww_client_server`, the hub keeps the previous major's code for one more major and lists it in its window
+   (`ww_hub/src/window.rs`), as a device keeps an old protocol. The device's versions only have to match the hub's
+   build: the hub talks to the device itself. The user API is end to end between client and device, checked against
+   the device as without a hub (CLT-8).
+3. **The hub's own API** (`ww_hub_api`) evolves like any API: a client newer than the hub gets `Unimplemented` for
+   methods the hub doesn't have yet.
+
+### A refusal
+
+A hub that doesn't serve a client's versions answers status 4 and closes. The client's `connect()` fails with
+`Error::HubRefused { status: 4, .. }`, naming both sides and what to do, by which one is older:
+
+```
+…/hub.sock: the ww hub 0.6.0 doesn't serve this program's ww_link 0.5.0 and ww_client_server 0.2.0: rebuild this
+program with WireWeaver 0.6.0 or newer (it is built with 0.5.0), or stop the hub (`ww hub stop`) and connect directly
+with WW_HUB=off while it is stopped (ww hub 0.6.0)
+```
+
+The client doesn't fall back to opening the device directly then: the hub holds it, the open would only find it busy.
+
+### Handover to a newer hub
+
+Only strictly newer replaces older, so the hub on a PC converges on the newest one and never flaps between two (the
+mistake of adb, where two versions kill each other's server forever):
+
+1. A program that can host a hub newer than the one running (`ww_hub::main_if_hub()` registered its own; it costs no
+   process to find out, so every connect checks) takes `hub.start.lock`, as for any start, and starts itself with
+   `WW_HUB_SERVE` and `WW_HUB_HANDOVER` set.
+2. The new hub (`ww_hub::Bound::take_over`) listens on a socket of its own (`hub.<pid>.sock`) and calls
+   `Hub::handover(socket)` on the running one.
+3. The old hub asks the new socket for its version (the preamble answer) and refuses one that isn't strictly newer
+   (`HandoverError::NotNewer`). Otherwise it stops accepting (its socket file goes at once, so clients find no hub
+   rather than one that doesn't answer), sends `Event::Handover` to the registry's listeners, closes every tunnel and
+   API connection with `DisconnectReason::HubHandover`, closes its devices, and exits (`Exit::Handover`), releasing
+   `hub.lock` once its connections sent what they still had (500 ms at most).
+4. The new hub takes `hub.lock` and moves its socket into place: a rename on Unix (the bound socket stays, its name
+   changes), the pipe created anew on Windows once the old one's instances closed.
+5. The clients reconnect to it by themselves ([CLT-40](#reconnect-after-a-hub-restart-clt-40), `GapReason::HubHandover`),
+   and the program that asked goes on with the new hub. A hub that can't hand over (built before SRV-30) answers
+   `Unimplemented`: the new one exits and the old one keeps serving.
+
+The start lock is held through all of it, so a client reconnecting in the gap waits for it instead of starting a third
+hub. Tested in `tests/hub_reconnect` (`handover.rs` with clients connected, `replace.rs` across processes); macOS and
+Windows compile only so far.
+
 ## Claims on resources (SRV-34)
 
 Several programs share a device through the hub; sometimes one of them needs a part of it to itself for a while (a

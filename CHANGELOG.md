@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Reconnect after a hub restart (CLT-40): a program reaching its device through the ww hub connects again by itself when the hub exits, crashes, is killed, hands over or lends the device, starting a hub if needed; counted and reliable streams, observed levels and sinks resume, calls in the gap fail with `Disconnected` and are never sent again, `Commander::connection_events()` tells the app. Calls made while no event loop runs fail at once (CLT-36). See `wire_weaver_client/CHANGELOG.md`.
+- Hub version skew and handover (SRV-30): clients say their `ww_link` and `ww_client_server` versions in the preamble (a skippable trailer), the hub serves every compatible version and refuses others naming both sides and the fix; a program whose own hub is newer than the running one has it hand over, only strictly newer replaces older. See `ww_hub/CHANGELOG.md`, `ww_local_socket/CHANGELOG.md`.
 - Hub routing in `connect()` (CLT-39, `wire_weaver_client` feature `hub`): direct by default, through the ww hub when it already holds the device or after repeated short connections (3 within 60 s, shell-launched calls weighted), `HubMode` `Auto` / `Prefer` / `Required` / `Direct` (`WW_HUB`); the hub is started by the client when needed (start lock, newest hub executable, readiness by polling its socket). Lock files show the holder's client metadata. `ww hub take`.
 
 - `ww hub status | stop | who | keep` (TOOL-17): look at and steer the per-user hub, see who holds each device with or without a hub, `ww list` through a running hub; completions with live device keys. Details in `wire_weaver_cli/CHANGELOG.md`.

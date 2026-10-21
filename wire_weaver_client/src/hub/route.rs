@@ -155,3 +155,95 @@ mod tests {
         assert!(!same_device("usb:c0de:cafe:12", "usb:c0de:cafe:1"));
     }
 }
+
+#[cfg(all(test, unix))]
+mod route_tests {
+    use super::*;
+    use crate::ClientConfig;
+    use crate::hub::start::tests::with_runtime_dir;
+
+    fn config(mode: HubMode) -> ValidatedConfig {
+        ClientConfig::new()
+            .usb()
+            .hub(mode)
+            .client_meta(crate::ClientMeta::new().kind(ClientKind::Cli))
+            .validate()
+            .unwrap()
+    }
+
+    /// Runs `f` with no hub executable to be found: none named, none on `PATH`, none next to the test binary.
+    fn without_hub_exe<R>(f: impl FnOnce() -> R) -> R {
+        with_runtime_dir(|dir| {
+            let path = std::env::var_os("PATH");
+            // SAFETY: with_runtime_dir holds the environment lock
+            unsafe { std::env::set_var("PATH", dir) };
+            let r = f();
+            if let Some(p) = path {
+                // SAFETY: as above
+                unsafe { std::env::set_var("PATH", p) };
+            }
+            r
+        })
+    }
+
+    fn block_on<F: std::future::Future>(f: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(f)
+    }
+
+    #[test]
+    fn no_hub_executable_prefer_goes_direct() {
+        without_hub_exe(|| {
+            let route = block_on(route(&config(HubMode::Prefer), "usb:c0de:cafe:1")).unwrap();
+            match route {
+                Route::Direct { note: Some(note) } => {
+                    assert!(note.contains("no ww hub executable"), "{note}")
+                }
+                other => panic!("expected direct with a note, got {other:?}"),
+            }
+        });
+    }
+
+    #[test]
+    fn no_hub_executable_required_fails_and_says_how_to_get_one() {
+        without_hub_exe(|| {
+            let e = block_on(route(&config(HubMode::Required), "usb:c0de:cafe:1")).unwrap_err();
+            assert!(
+                e.to_string().contains("cargo install wire_weaver_cli"),
+                "{e}"
+            );
+        });
+    }
+
+    #[test]
+    fn auto_goes_direct_until_the_counter_trips() {
+        without_hub_exe(|| {
+            let c = config(HubMode::Auto);
+            for _ in 0..2 {
+                let r = block_on(route(&c, "usb:c0de:cafe:2")).unwrap();
+                assert!(matches!(r, Route::Direct { note: None }), "{r:?}");
+            }
+            // the third shell-launched open wants the hub, finds none to start and goes direct
+            let r = block_on(route(&c, "usb:c0de:cafe:2")).unwrap();
+            assert!(matches!(r, Route::Direct { note: Some(_) }), "{r:?}");
+        });
+    }
+
+    #[test]
+    fn off_goes_direct_with_a_note_when_the_hub_holds_the_device() {
+        with_runtime_dir(|_| {
+            // as the hub holds a device it opened: `mode = hub`, the key with the interface number
+            let _held = holders::claim("usb:c0de:cafe:3:0", Mode::Hub).unwrap();
+            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:3")).unwrap();
+            match r {
+                Route::Direct { note: Some(note) } => assert!(note.contains("holds"), "{note}"),
+                other => panic!("expected direct with a note, got {other:?}"),
+            }
+            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:4")).unwrap();
+            assert!(matches!(r, Route::Direct { note: None }), "{r:?}");
+        });
+    }
+}

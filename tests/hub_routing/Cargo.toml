@@ -1,0 +1,14 @@
+[package]
+name = "hub_routing"
+version = "0.1.0"
+publish = false
+description = "Tests of starting and finding the ww hub from client processes (CLT-39)"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+wire_weaver_client = { workspace = true, features = ["hub"] }
+ww_hub.workspace = true

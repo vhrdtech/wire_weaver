@@ -5328,6 +5328,17 @@ is <a href="https://github.com/romixlab/chunky_mcu_updater">chunky</a> (<code>ch
 <li><a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky/src/apply.rs"><code>chunky/src/apply.rs</code></a> is the apply
   engine: it runs an untrusted plan against the DFU slot over <code>embedded_storage</code>, one step per call, checking the
   descriptor first, then every COPY source and WRITE hash, then the whole image.</li>
+<li><a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_ww/src/lib.rs"><code>chunky_ww</code></a> is the real device
+  side of this API (scenario <code>2C-APP-STEP</code>, no_std): <code>ChunkyNode</code> answers <code>UpdateNode</code>, <code>BootControl</code>, <code>Inventory</code>
+  and <code>Stage</code> with the apply engine and a boot backend (embassy-boot swap, hardware bank swap), so a firmware's
+  generated handlers only forward. Its one error without a variant here is <code>Error::Custom(1)</code>
+  (<code>chunky_ww::CUSTOM_NOT_BLANK</code>): the chunk a COPY or WRITE goes to is not blank, nothing was written, and the host
+  reads the manifest again and plans again (SPEC §10).</li>
+<li><a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_ww_host/src/lib.rs"><code>chunky_ww_host</code></a> is the host
+  side: node, manifest, plan, steps pipelined up to <code>StageLimits::in_flight</code> (<code>PreparedCall::send</code>), timeouts from the
+  flash layout, reboot into the trial, the device's confirm or revert. <a href="../../cli_reference/#ww-dfu-flash"><code>ww dfu flash</code></a>
+  is built on it, and its end-to-end tests run it against <code>chunky_ww</code> on chunky's simulated flash over the simulated
+  USB of <code>in_process</code>.</li>
 </ul>
 <p>The raw octets are these records: <code>Stage::begin</code> and <code>StageBulk::begin_bulk</code> take the 145 header bytes, <code>Stage::write</code>
 carries one step's data, and the <code>StageBulk::plan</code> sink carries the body as segments. What a node answers with

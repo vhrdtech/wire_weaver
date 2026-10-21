@@ -5825,7 +5825,9 @@ framing: USB tells it in the interface protocol (<code>USB_INTERFACE_PROTOCOL</c
   generated client API (see <a href="../../std_library/ww_version/">ww_version</a>). A device may likewise reply with
   <code>Disconnect(IncompatibleVersion)</code> after <code>LinkSetup</code>.</li>
 <li><code>Data</code> accumulates into the current frame for <code>packet_accumulation_time_us</code> (as requested by the device) before
-  being flushed; control messages are flushed immediately.</li>
+  being flushed; control messages are flushed immediately. A window shorter than the host's timer can wait (tokio
+  counts whole milliseconds) is not slept on: the host flushes as soon as nothing else is waiting to go out, so
+  requests sent together still share a frame and a lone request isn't held back a millisecond (CLT-37).</li>
 <li>The host drops every message until the <code>DeviceInfo</code> carrying its token, see <a href="#setup-token">Setup token</a>.</li>
 <li><code>Data</code> received before <code>LinkReady</code> and <code>Disconnect</code> received while not connected are ignored — they are
   stragglers from a previous session.</li>

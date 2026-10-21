@@ -6190,9 +6190,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
   <code>nmi-handler</code>) or a bus error (STM32H7, <code>DBECCERR</code>, ignored under FAULTMASK + <code>BFHFNMIGN</code>), so sequential-storage
-  skips it. Never <code>MultiwriteNorFlash</code>. Blocking and async. <code>docs/api/ecc_flash.md</code>. On hardware: a G0B1 (B153A)
-  store survives 3000 resets in the middle of its programs and erases (TEST-21), but a reset never tears a G0 flash
-  word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is built, not run on hardware.
+  skips it. Never <code>MultiwriteNorFlash</code>. Blocking and async. <code>docs/api/ecc_flash.md</code>. Strict mode for bootloaders
+  and image checks: <code>EccSafeFlash::new_strict</code> → <code>EccStrictFlash</code>, whose read fails with <code>Error::Ecc { offset }</code>
+  (<code>is_ecc()</code>) instead of zeros; chunky's feature <code>ww-ecc-flash</code> implements <code>chunky::ecc::EccError</code> for it (chunky
+  ECC-2), for the B135 bootloader and app. Both modes host-tested on a simulated flash (<code>just test-ecc-flash</code>).
+  On hardware: a G0B1 (B153A) store survives 3000 resets in the middle of its programs and erases (TEST-21), but a
+  reset never tears a G0 flash word, so the zeros path itself still waits for a real power cut (TEST-21); H7 is
+  built, and <code>examples_mcu/ecc_flash_h7</code> makes real ECC errors by programming a scratch flash word twice to check
+  both modes (not run on a board yet).
 - ⛔ <strong>SRV-8 One crate per role for firmware and host</strong> · <code>v0.5</code> — blocked on generated code using absolute paths.
   Agreed direction, instead of putting everything into <code>wire_weaver</code> behind features or splitting by
   std/no_std:
@@ -6307,6 +6312,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   definition (<code>ww_si::Quantity&lt;U&gt;</code>, <code>Timed&lt;T&gt;</code>) <code>check_instances</code> compares identity and signature only, so a docs-only
   change reads as incompatible. Compare the two generic definitions field by field with the arguments substituted.
   Found by STD-38 (<code>wire_weaver_client</code> <code>compat::tests::other_revision</code> now use the marker <code>units::Volt</code>).</li>
+<li>✅ <strong>CLT-34 stm32-rom-dfu: STM32 system bootloader (ROM DFU) as an updater</strong> — <code>stm32_dfu_host</code> (<code>ww_stm32_dfu</code>), a
+  pure-Rust DfuSe host on nusb in a crate of its own (library first, to move to its own repo like <code>picoboot_host</code>):
+  lists <code>0483:DF11</code>, parses the alt setting's memory layout string (<code>@Internal Flash /0x08000000/08*128Kg</code>), erases
+  only the sectors an image touches, writes in flash words (32 B, padded with <code>0xFF</code>), reads back and compares,
+  leaves DFU by jumping to an address (the start of flash by default). ELF (<code>PT_LOAD</code> by physical address) and binary
+  at an address. <code>dfu-core</code> / <code>dfu-nusb</code> evaluated first and not used: they own the download loop, have no upload
+  (no read-back verify), no sans-IO boundary for a simulated device and no say over the seconds a 128 KB erase takes.
+  <code>follow::stm32_dfu_update()</code> / <code>stm32_dfu_update_with()</code> (<code>wire_weaver_client</code>, feature <code>stm32_dfu</code>, the <code>_with</code>
+  one needs neither it nor <code>usb</code>) wait for the bootloader under the app's serial number, flash, jump and wait for the
+  app, tested end to end on <code>SimStm32Dfu</code> (<code>tests/follow_reboot</code>); <code>ww stm32dfu list/info/flash</code> with a progress bar,
+  <code>--wait</code>, <code>--follow</code>. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
+  start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. On a real H725 (B135 rev B, 21 Oct 2026): the
+  ROM serial is <code>rom_serial</code> (UID 000F0009 34315102 34363338, serial 344533413431), the version byte at 0x1FF1E7FE
+  is 0x93 (V9.3, AN2606 Table 134: only V9.1/V9.2 lock PWR_CR3, <code>flash</code> says "unplug and replug" for them), "get
+  commands" answers 0x00 first (the command's code, no version), 220 KB erased, written and verified in 7.7 s.
+  "Leave" jumps to the firmware with the ROM's clocks and USB still on: the firmware must reset first (B135 does).
+  Missing: option bytes / OTP alt settings are listed but not written.</li>
 <li>📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).</li>
 <li>📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
   a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>
@@ -6348,6 +6370,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Generated clients open streams through it (<code>tests/streams_reliable</code>, API-31); the dynamic client and Python pass
   the stream function's arguments and return its result. Missing: counted and reliable streams on trait paths
   (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).</li>
+<li>🚧 <strong>CLT-33 <code>ww dfu flash</code>: updates of a chunky device</strong> — <code>ww dfu flash &lt;ELF|sealed image|bin&gt;</code>, <code>status</code>,
+  <code>confirm</code>, <code>revert</code> (<code>wire_weaver_cli/src/cmd/dfu.rs</code>) on the host library <code>chunky_ww_host</code> of chunky_mcu_updater
+  (NET-2; a path dependency on <code>../chunky_mcu_updater</code>, as chunky depends on <code>../wire_weaver</code>): seals an ELF or a
+  binary for the device (product and seal scheme from <code>NodeInfo</code>, which carries <code>product_id</code> and <code>seal</code> for it,
+  STD-12), plans a delta, sends the steps pipelined up to <code>StageLimits::in_flight</code> (<code>PreparedCall::send</code> →
+  <code>PendingCall</code>: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
+  follows the device by serial number and waits for its confirm or revert. <code>reboot --into updater</code> on an A/B app
+  that takes updates itself says it goes to the boot ROM (<code>ww stm32dfu</code>, CLT-34). Tested end to end in
+  chunky_mcu_updater (<code>chunky_ww_host/tests/e2e.rs</code>: simulated USB HS, delta, full image, lost reply, re-plan,
+  revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.</li>
+<li>✅ <strong>CLT-37 No millisecond per request from the accumulation window</strong> · <code>v0.5.x</code> — the host slept out the device's
+  frame accumulation window (250 µs on USB HS) with <code>tokio::time::sleep_until</code>, which rounds up to whole
+  milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has
+  nothing else waiting (after one yield, so requests queued together still share a frame; <code>TxInput::Idle</code>,
+  <code>TxCore::wants_idle_flush</code>). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
+  1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.</li>
+<li>🐛 <strong>CLT-36 A call on a link that went down waits for a reconnect</strong> — after the device resets (its event loop
+  exits), a call's request goes into the command channel the residual keeps for <code>Commander::reconnect</code> and its
+  timeout never starts: <code>call()</code> hangs until someone reconnects. <code>chunky_ww_host</code> polls with its own deadline for
+  now. Fix: fail calls with <code>Error::Disconnected</code> while no event loop runs (or start the timeout at the send).</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>

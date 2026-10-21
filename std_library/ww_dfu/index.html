@@ -5371,7 +5371,9 @@ turn what the device holds into the new image:</p>
 and simply never sees a COPY. The plan, manifest and descriptor are records of the chunky protocol, defined in octets by
 its <a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/SPEC.md"><code>SPEC.md</code></a> (a draft) and implemented by
 <a href="https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_format/src/lib.rs"><code>chunky_format</code></a>; <code>ww_dfu</code> only
-carries them, as raw bytes. See <a href="../ww_dfu_internals/#the-other-side-chunky">the other side: chunky</a>.</p>
+carries them, as raw bytes. See <a href="../ww_dfu_internals/#the-other-side-chunky">the other side: chunky</a>: chunky also has
+the real implementation of the A/B app (<code>chunky_ww</code> on the device, <code>chunky_ww_host</code> on the host), and
+<a href="../../cli_reference/#ww-dfu-flash"><code>ww dfu flash</code></a> updates such a device in one command.</p>
 <table>
 <thead>
 <tr>

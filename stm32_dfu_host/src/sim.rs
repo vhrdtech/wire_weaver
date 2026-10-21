@@ -92,7 +92,9 @@ impl SimStm32Dfu {
     /// `len` bytes of memory at `addr`.
     pub fn memory(&self, addr: u32, len: usize) -> Vec<u8> {
         let mut s = self.state.lock().unwrap();
-        (0..len as u32).map(|i| *s.byte(addr + i).expect("inside memory")).collect()
+        (0..len as u32)
+            .map(|i| *s.byte(addr + i).expect("inside memory"))
+            .collect()
     }
 
     /// Sectors erased so far, in order.
@@ -133,7 +135,9 @@ impl Sim {
     }
 
     fn command(&mut self, data: &[u8]) {
-        let addr = data.get(1..5).map(|a| u32::from_le_bytes(a.try_into().unwrap()));
+        let addr = data
+            .get(1..5)
+            .map(|a| u32::from_le_bytes(a.try_into().unwrap()));
         match (data[0], addr) {
             (CMD_SET_ADDRESS, Some(addr)) => {
                 if self.layout.region_at(addr).is_some() {
@@ -215,7 +219,10 @@ impl DfuIo for SimStm32Dfu {
                 Ok(())
             }
             DFU_ABORT => {
-                if matches!(s.state, State::Error | State::Manifest | State::ManifestSync) {
+                if matches!(
+                    s.state,
+                    State::Error | State::Manifest | State::ManifestSync
+                ) {
                     return Err(IoError::Stall);
                 }
                 s.state = State::DfuIdle;
@@ -225,7 +232,12 @@ impl DfuIo for SimStm32Dfu {
         }
     }
 
-    async fn control_in(&mut self, request: u8, value: u16, len: usize) -> Result<Vec<u8>, IoError> {
+    async fn control_in(
+        &mut self,
+        request: u8,
+        value: u16,
+        len: usize,
+    ) -> Result<Vec<u8>, IoError> {
         let mut s = self.state.lock().unwrap();
         if s.gone {
             return Err(IoError::Disconnected);
@@ -268,7 +280,9 @@ impl DfuIo for SimStm32Dfu {
             }
             DFU_GETSTATE => Ok(vec![s.state.into()]),
             DFU_UPLOAD => {
-                if !matches!(s.state, State::DfuIdle | State::UploadIdle) || value < FIRST_DATA_BLOCK {
+                if !matches!(s.state, State::DfuIdle | State::UploadIdle)
+                    || value < FIRST_DATA_BLOCK
+                {
                     return Err(IoError::Stall);
                 }
                 let addr = s.addr + (value - FIRST_DATA_BLOCK) as u32 * s.transfer_size as u32;

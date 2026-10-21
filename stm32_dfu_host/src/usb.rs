@@ -130,7 +130,8 @@ impl NusbIo {
                 }
             }
         }
-        let number = number.ok_or_else(|| Error::Other("no DFU interface (class 0xFE, subclass 1)".into()))?;
+        let number = number
+            .ok_or_else(|| Error::Other("no DFU interface (class 0xFE, subclass 1)".into()))?;
         let layout = alts
             .iter()
             .find(|(a, _)| *a == alt)
@@ -171,7 +172,12 @@ impl DfuIo for NusbIo {
             .map_err(io_err)
     }
 
-    async fn control_in(&mut self, request: u8, value: u16, len: usize) -> Result<Vec<u8>, IoError> {
+    async fn control_in(
+        &mut self,
+        request: u8,
+        value: u16,
+        len: usize,
+    ) -> Result<Vec<u8>, IoError> {
         self.interface
             .control_in(
                 ControlIn {

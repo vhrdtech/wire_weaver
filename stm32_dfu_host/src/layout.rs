@@ -49,11 +49,15 @@ impl MemoryLayout {
                 .or_else(|| addr.strip_prefix("0X"))
                 .and_then(|h| u32::from_str_radix(h, 16).ok())
                 .ok_or_else(|| bad("start address is not 0x<hex>"))?;
-            let runs = parts.next().ok_or_else(|| bad("no sectors after the address"))?;
+            let runs = parts
+                .next()
+                .ok_or_else(|| bad("no sectors after the address"))?;
             let mut at = start;
             for run in runs.split(',') {
                 let run = run.trim();
-                let (count, rest) = run.split_once('*').ok_or_else(|| bad("no '*' in a sector run"))?;
+                let (count, rest) = run
+                    .split_once('*')
+                    .ok_or_else(|| bad("no '*' in a sector run"))?;
                 let sectors: u32 = count.trim().parse().map_err(|_| bad("bad sector count"))?;
                 // <size><unit: B, K or M><type letter>
                 let rest = rest.trim();
@@ -81,8 +85,18 @@ impl MemoryLayout {
                     'g' => (true, true, true),
                     _ => return Err(bad("type is not a..g")),
                 };
-                let sector_size = size.checked_mul(mult).filter(|s| *s > 0).ok_or_else(|| bad("bad sector size"))?;
-                let region = Region { start: at, sector_size, sectors, readable, erasable, writable };
+                let sector_size = size
+                    .checked_mul(mult)
+                    .filter(|s| *s > 0)
+                    .ok_or_else(|| bad("bad sector size"))?;
+                let region = Region {
+                    start: at,
+                    sector_size,
+                    sectors,
+                    readable,
+                    erasable,
+                    writable,
+                };
                 if region.end() > u32::MAX as u64 + 1 {
                     return Err(bad("region reaches past 4 GiB"));
                 }
@@ -139,7 +153,10 @@ mod tests {
         assert_eq!(l.name, "Internal Flash");
         assert_eq!(l.regions.len(), 1);
         let r = &l.regions[0];
-        assert_eq!((r.start, r.sector_size, r.sectors), (0x0800_0000, 128 * 1024, 8));
+        assert_eq!(
+            (r.start, r.sector_size, r.sectors),
+            (0x0800_0000, 128 * 1024, 8)
+        );
         assert!(r.readable && r.erasable && r.writable);
         assert_eq!(l.sector_at(0x0802_0001), Some((0x0802_0000, 128 * 1024, r)));
         assert!(l.writable(0x0800_0000, 8 * 128 * 1024));
@@ -148,7 +165,10 @@ mod tests {
 
     #[test]
     fn f4_mixed_sectors_and_areas() {
-        let l = MemoryLayout::parse("@Internal Flash  /0x08000000/04*016Kg,01*064Kg,07*128Kg/0x1FFF0000/01*016Ka").unwrap();
+        let l = MemoryLayout::parse(
+            "@Internal Flash  /0x08000000/04*016Kg,01*064Kg,07*128Kg/0x1FFF0000/01*016Ka",
+        )
+        .unwrap();
         assert_eq!(l.regions.len(), 4);
         assert_eq!(l.regions[1].start, 0x0801_0000);
         assert_eq!(l.regions[2].start, 0x0802_0000);
@@ -159,7 +179,13 @@ mod tests {
 
     #[test]
     fn bad_strings() {
-        for s in ["Internal Flash/0x08000000/8*128Kg", "@x/08000000/8*128Kg", "@x/0x0/8*128Kz", "@x/0x0/8*Kg", "@x"] {
+        for s in [
+            "Internal Flash/0x08000000/8*128Kg",
+            "@x/08000000/8*128Kg",
+            "@x/0x0/8*128Kz",
+            "@x/0x0/8*Kg",
+            "@x",
+        ] {
             assert!(MemoryLayout::parse(s).is_err(), "{s}");
         }
     }

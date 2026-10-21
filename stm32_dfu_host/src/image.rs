@@ -59,7 +59,9 @@ impl Image {
             image.add(paddr, data)?;
         }
         if image.is_empty() {
-            return Err(Error::Image("ELF: no PT_LOAD segment with file bytes".into()));
+            return Err(Error::Image(
+                "ELF: no PT_LOAD segment with file bytes".into(),
+            ));
         }
         Ok(image)
     }
@@ -195,7 +197,10 @@ mod tests {
         assert_eq!(a.segments.len(), 1);
         assert_eq!(a.segments[0].addr, 0x0800_0000);
         assert_eq!(a.segments[0].data.len(), 64);
-        assert_eq!(&a.segments[0].data[..8], &[0xFF, 0xFF, 0xFF, 0xFF, 1, 2, 3, 0xFF]);
+        assert_eq!(
+            &a.segments[0].data[..8],
+            &[0xFF, 0xFF, 0xFF, 0xFF, 1, 2, 3, 0xFF]
+        );
         assert_eq!(a.segments[0].data[48], 9);
         // two segments in one word share it
         let mut i = Image::default();
@@ -203,6 +208,13 @@ mod tests {
         i.add(0x0800_0008, &[2]).unwrap();
         let a = i.aligned(32).unwrap();
         assert_eq!(a.segments.len(), 1);
-        assert_eq!((a.segments[0].data[0], a.segments[0].data[8], a.segments[0].data[1]), (1, 2, 0xFF));
+        assert_eq!(
+            (
+                a.segments[0].data[0],
+                a.segments[0].data[8],
+                a.segments[0].data[1]
+            ),
+            (1, 2, 0xFF)
+        );
     }
 }

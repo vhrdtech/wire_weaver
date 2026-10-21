@@ -93,6 +93,9 @@ mod tests {
 
     #[test]
     fn serial_from_uid() {
-        assert_eq!(rom_serial([0x0000_0010, 0x1234_5678, 0x0000_0001]), "000000111234");
+        assert_eq!(
+            rom_serial([0x0000_0010, 0x1234_5678, 0x0000_0001]),
+            "000000111234"
+        );
     }
 }

@@ -103,7 +103,9 @@ pub enum DfuStatus {
     Verify,
     #[error("received address is out of range")]
     Address,
-    #[error("received DFU_DNLOAD with wLength = 0 but the device does not think it has all the data")]
+    #[error(
+        "received DFU_DNLOAD with wLength = 0 but the device does not think it has all the data"
+    )]
     NotDone,
     #[error("firmware is corrupt")]
     Firmware,

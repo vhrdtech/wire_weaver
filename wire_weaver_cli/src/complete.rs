@@ -55,7 +55,7 @@ fn candidates(value: impl Fn(&DeviceInfo) -> Vec<String>) -> Vec<CompletionCandi
         .collect()
 }
 
-/// Serial numbers of WireWeaver devices and of RP2040 / RP2350 boot ROMs in BOOTSEL mode (`ww bootsel`).
+/// Serial numbers of WireWeaver devices of RP2040 / RP2350 boot ROMs in BOOTSEL mode (`ww bootsel`) and of STM32 bootloaders in DFU mode (`ww stm32dfu`).
 pub(crate) fn serials() -> Vec<CompletionCandidate> {
     let mut all = candidates(|d| d.serials.clone());
     if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
@@ -65,6 +65,15 @@ pub(crate) fn serials() -> Vec<CompletionCandidate> {
         let bootsel = rt
             .block_on(wire_weaver_client::ww_picoboot::usb::list())
             .unwrap_or_default();
+        let stm32 = rt
+            .block_on(wire_weaver_client::ww_stm32_dfu::usb::list())
+            .unwrap_or_default();
+        for d in stm32 {
+            if let Some(serial) = d.serial_number() {
+                let help = format!("{} (STM32 DFU)", d.product_string().unwrap_or("bootloader"));
+                all.push(CompletionCandidate::new(serial).help(Some(help.into())));
+            }
+        }
         for d in bootsel {
             if let Some(serial) = d.serial_number() {
                 let help = format!("{} (BOOTSEL)", d.product_string().unwrap_or("boot ROM"));

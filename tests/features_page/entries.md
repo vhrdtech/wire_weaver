@@ -178,6 +178,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
+- CLT-34 | STM32 ROM DFU | Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it. | transport/follow_reboot.md#stm32-system-bootloader-rom-dfu
 - CLT-21 | Following a reboot | Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). | transport/follow_reboot.md
 
 ## Nomicon

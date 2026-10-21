@@ -11,6 +11,7 @@ use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
 use crate::cmd::pins::PinsCommand;
 use crate::cmd::settings::SettingsCommand;
+use crate::cmd::stm32dfu::Stm32DfuCommand;
 use crate::cmd::stream::StreamArgs;
 use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
 use crate::complete;
@@ -170,6 +171,13 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Bootsel(BootselCommand),
 
+    /// STM32 system bootloader in DFU mode (ROM DFU, DfuSe): list, show the memory layout, flash
+    ///
+    /// --serial selects the device, as for other commands (the bootloader reports a serial number made from the chip's
+    /// unique id, see 'ww stm32dfu list').
+    #[command(subcommand)]
+    Stm32dfu(Stm32DfuCommand),
+
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///
     /// Create udev rule:
@@ -276,7 +284,7 @@ impl Cli {
             Commands::Monitor(_) | Commands::Capture(_) => true,
             Commands::Stats(args) => args.file.is_none(),
             Commands::Config(_) => false,
-            Commands::Bootsel(_) => false,
+            Commands::Bootsel(_) | Commands::Stm32dfu(_) => false,
             Commands::Dfu(_) => true,
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
             Commands::Pins(_) => true,

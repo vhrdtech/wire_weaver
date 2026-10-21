@@ -87,7 +87,9 @@ impl<I: DfuIo> Dfuse<I> {
                 State::DfuIdle if s.status == DfuStatus::Ok => return Ok(()),
                 State::Error | State::DfuIdle => self.io.control_out(DFU_CLRSTATUS, 0, &[]).await?,
                 State::AppIdle | State::AppDetach => {
-                    return Err(Error::Protocol("the device runs its application, not DFU".into()));
+                    return Err(Error::Protocol(
+                        "the device runs its application, not DFU".into(),
+                    ));
                 }
                 _ => self.io.control_out(DFU_ABORT, 0, &[]).await?,
             }
@@ -103,7 +105,10 @@ impl<I: DfuIo> Dfuse<I> {
             let s = self.get_status().await?;
             if s.status != DfuStatus::Ok || s.state == State::Error {
                 _ = self.io.control_out(DFU_CLRSTATUS, 0, &[]).await;
-                return Err(Error::Device { what, status: s.status });
+                return Err(Error::Device {
+                    what,
+                    status: s.status,
+                });
             }
             match s.state {
                 State::DnBusy | State::DnloadSync | State::ManifestSync | State::Manifest => {
@@ -136,7 +141,12 @@ impl<I: DfuIo> Dfuse<I> {
     }
 
     /// Write `data` at `addr`, no erase, no alignment (the device checks what it wants).
-    pub async fn write(&mut self, addr: u32, data: &[u8], progress: &mut impl FnMut(usize)) -> Result<(), Error> {
+    pub async fn write(
+        &mut self,
+        addr: u32,
+        data: &[u8],
+        progress: &mut impl FnMut(usize),
+    ) -> Result<(), Error> {
         self.set_address(addr).await?;
         for (i, chunk) in data.chunks(self.transfer_size).enumerate() {
             let block = FIRST_DATA_BLOCK + i as u16;
@@ -148,7 +158,12 @@ impl<I: DfuIo> Dfuse<I> {
     }
 
     /// Read `len` bytes at `addr`.
-    pub async fn read(&mut self, addr: u32, len: usize, progress: &mut impl FnMut(usize)) -> Result<Vec<u8>, Error> {
+    pub async fn read(
+        &mut self,
+        addr: u32,
+        len: usize,
+        progress: &mut impl FnMut(usize),
+    ) -> Result<Vec<u8>, Error> {
         self.set_address(addr).await?;
         // the address pointer survives the abort, and UPLOAD is only accepted from dfuIDLE
         self.io.control_out(DFU_ABORT, 0, &[]).await?;
@@ -195,7 +210,8 @@ impl<I: DfuIo> Dfuse<I> {
             let mut at = s.addr as u64;
             let end = at + s.data.len() as u64;
             while at < end {
-                let (base, size, region) = self.layout.sector_at(at as u32).expect("checked writable");
+                let (base, size, region) =
+                    self.layout.sector_at(at as u32).expect("checked writable");
                 if region.erasable && sectors.last().is_none_or(|l| l.0 != base) {
                     sectors.push((base, size));
                 }
@@ -253,7 +269,10 @@ impl<I: DfuIo> Dfuse<I> {
         self.io.control_out(DFU_DNLOAD, 0, &[]).await?;
         // the manifestation starts with this status request, the device may be gone before it answers
         match self.get_status().await {
-            Ok(_) | Err(Error::Io(IoError::Disconnected | IoError::Stall | IoError::Timeout | IoError::Other(_))) => Ok(()),
+            Ok(_)
+            | Err(Error::Io(
+                IoError::Disconnected | IoError::Stall | IoError::Timeout | IoError::Other(_),
+            )) => Ok(()),
             Err(e) => Err(e),
         }
     }

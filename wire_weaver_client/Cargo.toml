@@ -57,9 +57,9 @@ ww_link = { workspace = true, features = ["std"] }
 ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
-ww_stm32_dfu.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
 ww_si = { workspace = true, features = ["std"] }
+ww_stm32_dfu.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }

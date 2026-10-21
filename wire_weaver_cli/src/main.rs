@@ -45,10 +45,12 @@ async fn run() -> Result<()> {
         args.check()?;
     }
     let selection = match &cli.command {
-        Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) => Some(Selection::resolve(
-            &matches,
-            matches!(cli.command, Commands::Config(ConfigCommand::Save)),
-        )?),
+        Commands::List(_) | Commands::Config(_) | Commands::Bootsel(_) | Commands::Stm32dfu(_) => {
+            Some(Selection::resolve(
+                &matches,
+                matches!(cli.command, Commands::Config(ConfigCommand::Save)),
+            )?)
+        }
         _ if cli.need_device() => Some(Selection::resolve(&matches, false)?),
         _ => None,
     };
@@ -232,6 +234,9 @@ async fn run_command(
         Commands::Settings(settings_cmd) => cmd::settings::settings(settings_cmd)?,
         Commands::Bootsel(bootsel_cmd) => {
             cmd::bootsel::bootsel(bootsel_cmd, selection.as_ref().unwrap()).await?
+        }
+        Commands::Stm32dfu(dfu_cmd) => {
+            cmd::stm32dfu::stm32dfu(dfu_cmd, selection.as_ref().unwrap()).await?
         }
 
         #[cfg(target_os = "linux")]

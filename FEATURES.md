@@ -871,6 +871,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
   wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
   first client's, streams on trait paths are not counted per client.
+- 💡 **SRV-41 Fewer wakes on the hub path** — the tunnel's cost is two extra process wakes per message (client →
+  hub → client): 16 B round trips over USB FS are 15 % (donguru) and 23 % (b200) fewer than direct on an idle PC
+  (median of 7 rounds), 3.5 % and 12.6 % under load; the hub's own USB round trip equals direct (480 µs against
+  510-600 µs), throughput and max-size transfers are as direct. Ideas if it matters: busy-poll the socket for a short
+  window after a request (spends a core), or a shared-memory ring between client and hub with a futex / event for
+  the wake. Kept as is for now (person, 22 Oct 2026); measure with `tests/hub/examples/hub_loopback.rs` first.
 - 📋 **SRV-30 Hub version skew and handover** · `v0.5.x` — a hub serves every client whose link and API model
   versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
   newer replaces older, so it converges); a refusal names both versions and the fix.

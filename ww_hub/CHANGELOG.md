@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- Version window (SRV-30): a connection whose preamble names `ww_link` or `ww_client_server` versions the hub's build doesn't serve (compatible by SemVer with its own, or in the window it keeps after a breaking release) is answered `Status::Versions` (4) and closed; a client that doesn't say (preamble version 1) is served as before.
 - `main_if_hub()` answers `--hub-version` (prints `HUB_VERSION`, exits) and registers the executable with `wire_weaver_client::hub::register_self_hosting`, so a client can start the hub from the app itself (CLT-39). `SERVE_ENV` is `wire_weaver_client::hub::SERVE_ENV`; `client::HubClient` is `wire_weaver_client::hub::HubClient` re-exported.
 
 - `Hub::status` served (TOOL-17): who started the hub (`WW_HUB_STARTED_BY`, else the parent process's name on Linux), idle exit, seconds until it exits or of a `keep`, open connections. `Registry::devices` fills location, label and API hash.

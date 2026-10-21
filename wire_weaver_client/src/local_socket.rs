@@ -16,7 +16,7 @@ use interprocess::local_socket::traits::tokio::Stream as _;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tracing::debug;
-use ww_local_socket::{Answer, MessageReader, MessageWriter, Preamble, Status, Target};
+use ww_local_socket::{Answer, MessageReader, MessageWriter, Preamble, Status, Target, Version};
 
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
@@ -179,14 +179,41 @@ impl OpenError {
     }
 }
 
-/// What a refusal means for this program.
+/// What a refusal means for this program: for versions the hub doesn't serve (SRV-30), both sides' and the fix.
 pub(crate) fn refusal(target: String, answer: Answer) -> crate::Error {
+    let why = match answer.status {
+        Status::Versions => versions_not_served(&answer.hub_version),
+        status => status.to_string(),
+    };
     crate::Error::HubRefused {
         target,
         status: answer.status.to_u8(),
-        why: answer.status.to_string(),
+        why,
         hub_version: answer.hub_version,
     }
+}
+
+/// The hub `hub_version` doesn't serve this program's versions: which side is older, and what to do.
+fn versions_not_served(hub_version: &str) -> String {
+    let (link, api_model) = own_versions();
+    let ours = env!("CARGO_PKG_VERSION");
+    let fix = match (
+        semver::Version::parse(hub_version),
+        semver::Version::parse(ours),
+    ) {
+        (Ok(hub), Ok(ours)) if hub < ours => format!(
+            "the hub is older than this program (WireWeaver {ours}): stop it (`ww hub stop`) and let a newer one \
+             start (install `ww` {ours} or newer: cargo install wire_weaver_cli), or connect directly with \
+             WW_HUB=off while it is stopped"
+        ),
+        _ => format!(
+            "rebuild this program with WireWeaver {hub_version} or newer (it is built with {ours}), or stop the \
+             hub (`ww hub stop`) and connect directly with WW_HUB=off while it is stopped"
+        ),
+    };
+    format!(
+        "the ww hub {hub_version} doesn't serve this program's ww_link {link} and ww_client_server {api_model}: {fix}"
+    )
 }
 
 impl std::fmt::Display for OpenError {
@@ -202,15 +229,39 @@ impl std::fmt::Display for OpenError {
     }
 }
 
-/// Connects to the socket at `path` and asks for `target` with the preamble.
+/// This program's `ww_link` and `ww_client_server` versions, for the preamble (SRV-30).
+fn own_versions() -> (Version, Version) {
+    let v = |v: ww_version::CompactVersion| Version::new(v.major.0, v.minor.0, v.patch.0);
+    (
+        v(ww_link::LINK_VERSION),
+        v(ww_client_server::COMPACT_VERSION),
+    )
+}
+
+/// Connects to the socket at `path` and asks for `target` with the preamble, which carries this program's versions;
+/// a hub that only reads the first preamble layout is asked again with it.
 pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
+    let (link, api_model) = own_versions();
+    let preamble = Preamble::new(target).with_versions(link, api_model);
+    match open_with(path, &preamble).await {
+        Err(OpenError::Refused { answer, .. }) if answer.status == Status::PreambleVersion => {
+            debug!(
+                "{}: preamble version 1 for a hub {}",
+                path.display(),
+                answer.hub_version
+            );
+            open_with(path, &preamble.v1()).await
+        }
+        r => r,
+    }
+}
+
+async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel, OpenError> {
     let shown = path.display().to_string();
     let io = |e: &dyn std::fmt::Display| OpenError::Io(format!("{shown}: {e}"));
     let (stream, _peer) = ww_local_socket::connect(path).await.map_err(|e| io(&e))?;
     let (mut rx, mut tx) = stream.split();
-    tx.write_all(&Preamble::new(target).encode())
-        .await
-        .map_err(|e| io(&e))?;
+    tx.write_all(&preamble.encode()).await.map_err(|e| io(&e))?;
     let answer = tokio::time::timeout(ANSWER_TIMEOUT, Answer::read(&mut rx))
         .await
         .map_err(|_| io(&"no answer to the preamble"))?

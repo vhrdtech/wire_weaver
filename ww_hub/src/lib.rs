@@ -19,6 +19,7 @@ mod device;
 mod devices;
 mod envelope;
 mod tunnel;
+mod window;
 
 use std::collections::BTreeMap;
 use std::fs::{File, OpenOptions, TryLockError};
@@ -431,6 +432,11 @@ impl Hub {
             }
             Ok(Ok(p)) => p,
         };
+        if let Err(not_served) = window::check(&preamble) {
+            info!("ww hub: refusing {peer:?}: {not_served} not served");
+            let _ = answer(&mut tx, Status::Versions).await;
+            return;
+        }
         match preamble.target {
             Target::Hub => {
                 if answer(&mut tx, Status::Ok).await.is_err() {

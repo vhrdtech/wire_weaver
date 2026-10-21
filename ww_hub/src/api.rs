@@ -11,7 +11,8 @@ use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
 use ww_hub_api::{
-    ClientEntryOwned, DeviceEntryOwned, HandoverError, HubInfoOwned, HubStatusOwned, TakeErrorOwned,
+    ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
+    HubInfoOwned, HubStatusOwned, ReleaseError, TakeErrorOwned,
 };
 
 use crate::{HUB_VERSION, Hub};
@@ -39,6 +40,7 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
     );
     let mut backend = server::Server {
         hub: hub.clone(),
+        id,
         events_open: false,
     };
     let mut events = hub.events.subscribe();
@@ -75,6 +77,8 @@ mod server {
 
     pub struct Server {
         pub hub: Arc<Hub>,
+        /// The connection's client id: whose claims these are
+        pub id: u32,
         /// The client opened `Registry::events`
         pub events_open: bool,
     }
@@ -146,20 +150,8 @@ mod server {
             RpcResult::Ready(
                 state
                     .clients
-                    .iter()
-                    .map(|(id, c)| {
-                        let meta = c.meta.clone().unwrap_or_default();
-                        ClientEntryOwned {
-                            id: *id,
-                            pid: c.peer_pid.unwrap_or(meta.pid),
-                            program: meta.program.to_string(),
-                            kind: meta.kind.map(|k| format!("{k:?}")).unwrap_or_default(),
-                            user: meta.user.to_string(),
-                            host: meta.host.to_string(),
-                            instance_id: meta.instance_id,
-                            since_ms: c.since_ms,
-                        }
-                    })
+                    .keys()
+                    .map(|id| crate::client_entry(&state, *id))
                     .collect(),
             )
         }
@@ -183,6 +175,34 @@ mod server {
                 }
                 Err(_) => Err(TakeErrorOwned::UnknownDevice),
             })
+        }
+
+        async fn claims_claim(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: String,
+            path: Vec<UNib32>,
+            purpose: String,
+            ttl_s: Option<u32>,
+        ) -> RpcResult<Result<u32, ClaimErrorOwned>> {
+            let path = path.iter().map(|n| n.0).collect();
+            RpcResult::Ready(self.hub.claim(self.id, key, path, purpose, ttl_s).await)
+        }
+
+        async fn claims_release(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: u32,
+        ) -> RpcResult<Result<(), ReleaseError>> {
+            RpcResult::Ready(self.hub.release(self.id, id))
+        }
+
+        async fn claims_claims(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: String,
+        ) -> RpcResult<Vec<ClaimEntryOwned>> {
+            RpcResult::Ready(self.hub.claims_on(&key))
         }
 
         async fn registry_events(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {

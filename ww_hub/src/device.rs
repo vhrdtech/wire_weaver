@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver::shrink_wrap::UNib32;
@@ -21,17 +21,22 @@ use wire_weaver_client::ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRequestOwned,
 };
 use wire_weaver_client::ww_client_server::{RequestKindOwned, StreamSideband};
+use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::{ClientConfig, ClientKind, ClientMeta, Commander, WwClient};
 use ww_device::ww_link::Kind;
 use ww_local_socket::Status;
 
 use crate::Hub;
-use crate::envelope::{self, Op, Unsolicited};
+use crate::claims::{self, Target};
+use crate::envelope::{self, Op, Place, Unsolicited};
 use crate::tunnel::{DeviceLinkInfo, TunnelQueue};
 
 /// A forwarded request whose answer doesn't come for this long is given up (its seq freed on the device): longer
 /// than any client waits, as the hub doesn't know a call's own timeout.
 const FORWARD_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// The hub itself as the requester of an introspection fetch (for claims): no tunnel has this id.
+const HUB_ITSELF: u32 = u32::MAX;
 
 /// What a tunnel needs of an open device.
 #[derive(Clone)]
@@ -51,6 +56,11 @@ pub(crate) enum ToDevice {
     },
     /// `Registry::take`: keep it open without clients
     Keep,
+    /// The device's API from its introspection data (fetched once, from the cache after), for claims (SRV-34);
+    /// `None` when the device has none or it can't be read
+    Bundle {
+        reply: oneshot::Sender<Option<Arc<ApiBundleOwned>>>,
+    },
     /// The hub exits: close the device now
     Close,
 }
@@ -192,6 +202,9 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
             streams: HashMap::new(),
             observed: HashMap::new(),
             introspect: Introspect::None,
+            bundle: None,
+            bundle_waiters: vec![],
+            key: key.to_string(),
             loopback_owner: None,
             keep: false,
             stamp: 0,
@@ -199,6 +212,8 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
             out: vec![],
         }),
         cmd,
+        key: key.to_string(),
+        hub: hub.clone(),
     });
     let task = Task {
         key: key.to_string(),
@@ -378,6 +393,12 @@ struct State {
     streams: HashMap<Vec<u32>, Stream>,
     observed: HashMap<Vec<u32>, Level>,
     introspect: Introspect,
+    /// The device's API decoded from the cached introspection data, once someone needed it (SRV-34)
+    bundle: Option<Arc<ApiBundleOwned>>,
+    /// Asked for the API while the introspection data is on its way
+    bundle_waiters: Vec<oneshot::Sender<Option<Arc<ApiBundleOwned>>>>,
+    /// The device's key, for messages
+    key: String,
     /// The client whose loopback messages went out last gets the echoes
     loopback_owner: Option<u32>,
     /// `Registry::take`: no linger
@@ -395,6 +416,8 @@ struct State {
 pub(crate) struct Device {
     state: tokio::sync::Mutex<State>,
     cmd: Commander,
+    key: String,
+    hub: Arc<Hub>,
 }
 
 impl Device {
@@ -403,9 +426,73 @@ impl Device {
     /// batch now, with the flush right behind the request, so the event loop takes both in one go.
     pub(crate) async fn request(&self, id: u32, bytes: Vec<u8>, last: bool) -> Result<(), ()> {
         let mut state = self.state.lock().await;
+        if let Some((seq, reply)) = self.refused(&mut state, id, &bytes) {
+            if seq != 0
+                && let Some(queue) = state.tunnels.get(&id)
+            {
+                queue.push(Kind::Data0, reply);
+            }
+            return Ok(());
+        }
         state.request(id, bytes)?;
         self.send_out(&mut state, false).await?;
         self.flush_if(last).await
+    }
+
+    /// The answer to a request another program's claim refuses (SRV-34) with the request's seq, `None` when it may
+    /// go to the device.
+    fn refused(&self, state: &mut State, id: u32, bytes: &[u8]) -> Option<(u32, Vec<u8>)> {
+        let owner = {
+            let hub = self.hub.state.lock().unwrap();
+            if !hub.claims.any_on(&self.key) {
+                return None;
+            }
+            crate::owner_of(&hub, id)
+        };
+        let (seq, _) = envelope::split_seq(bytes)?;
+        let (access, target, path) = match envelope::access(bytes) {
+            Ok(None) => return None,
+            Ok(Some((access, place, multi))) => {
+                let path = match place {
+                    Place::Absolute(path) => Some(path),
+                    Place::Trait(trait_id, from_trait) => state
+                        .bundle()
+                        .and_then(|b| claims::trait_path(&b, &trait_id))
+                        .map(|mut p| {
+                            p.extend(from_trait);
+                            p
+                        }),
+                };
+                let target = match (&path, multi) {
+                    (Some(p), false) => Target::At(p.clone()),
+                    (Some(p), true) => Target::Under(p.clone()),
+                    (None, _) => Target::Anywhere,
+                };
+                (access, target, path.filter(|_| !multi))
+            }
+            // a newer envelope than this build: it can't be placed, so not past a claim
+            Err(()) => (claims::Access::Call, Target::Anywhere, None),
+        };
+        let by = {
+            let mut hub = self.hub.state.lock().unwrap();
+            let expired = hub.claims.expire(Instant::now());
+            let by = hub
+                .claims
+                .refusing(&self.key, &owner, &target, access)
+                .map(|c| c.by());
+            drop(hub);
+            self.hub.claims_released(&expired);
+            by?
+        };
+        debug!(
+            "ww hub: {} refused for client {id}: in use by {by}",
+            self.key
+        );
+        let bundle = state.bundle();
+        Some((
+            seq,
+            claims::in_use_reply(bundle.as_deref(), path.as_deref(), access, &by, seq),
+        ))
     }
 
     pub(crate) async fn loopback(
@@ -552,6 +639,26 @@ impl State {
             }
             ToDevice::Leave { id } => self.leave(id)?,
             ToDevice::Keep => self.keep = true,
+            ToDevice::Bundle { reply } => match &self.introspect {
+                Introspect::Cached(_) => {
+                    let _ = reply.send(self.bundle());
+                }
+                Introspect::Fetching { .. } => self.bundle_waiters.push(reply),
+                Introspect::None => {
+                    self.bundle_waiters.push(reply);
+                    let request = envelope::request(&[], RequestKindOwned::Introspect)
+                        .and_then(|r| envelope::split_seq(&r).map(|(_, rest)| rest.to_vec()))
+                        .unwrap_or_default();
+                    // asked with seq 0: the data comes as stream data at the root path, to nobody's tunnel
+                    self.introspect = Introspect::Fetching {
+                        events: vec![],
+                        request: request.clone(),
+                        requester: (HUB_ITSELF, 0),
+                        waiting: vec![],
+                    };
+                    self.forward(HUB_ITSELF, 0, &request, Purpose::Introspect)?;
+                }
+            },
             ToDevice::Close => {
                 let _ = self.send(
                     Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser).0,
@@ -678,6 +785,20 @@ impl State {
             queue.push(Kind::Data0, envelope::with_seq(seq, opened));
         }
         Ok(())
+    }
+
+    /// The device's API, decoded from the cached introspection data on first use.
+    fn bundle(&mut self) -> Option<Arc<ApiBundleOwned>> {
+        if self.bundle.is_none()
+            && let Introspect::Cached(events) = &self.introspect
+        {
+            let bytes = envelope::introspection_bytes(events);
+            match wire_weaver_client::decode_introspection(&bytes) {
+                Ok(bundle) => self.bundle = bundle.map(Arc::new),
+                Err(e) => warn!("ww hub: introspection data of {}: {e:#}", self.key),
+            }
+        }
+        self.bundle.clone()
     }
 
     fn answer_written(&self, id: u32, seq: u32) {
@@ -880,6 +1001,12 @@ impl State {
                     }
                 }
                 self.introspect = Introspect::Cached(events);
+                if !self.bundle_waiters.is_empty() {
+                    let bundle = self.bundle();
+                    for reply in self.bundle_waiters.drain(..) {
+                        let _ = reply.send(bundle.clone());
+                    }
+                }
             }
             None => {
                 let mut waiting = waiting.into_iter();
@@ -891,6 +1018,11 @@ impl State {
                         waiting: waiting.collect(),
                     };
                     let _ = self.forward(t, seq, &request, Purpose::Introspect);
+                } else {
+                    // nobody left to ask for it: claims go without the API
+                    for reply in self.bundle_waiters.drain(..) {
+                        let _ = reply.send(None);
+                    }
                 }
             }
         }

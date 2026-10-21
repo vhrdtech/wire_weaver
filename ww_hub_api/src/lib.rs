@@ -28,6 +28,9 @@ pub trait Hub {
 
     /// Devices, clients and what happens to them.
     ww_impl!(registry: Registry);
+
+    /// Resources of a device one program has to itself for a while (SRV-34).
+    ww_impl!(claims: Claims);
 }
 
 /// Devices the hub knows and the programs connected to it.
@@ -44,6 +47,33 @@ pub trait Registry {
 
     /// Plug, open, close and client changes, as they happen.
     stream!(events: Event<'i>);
+}
+
+/// Claims on resources of devices (SRV-34): while a program holds one, the hub answers other programs' calls and
+/// property writes at or under the claimed path itself, with `Common(InUse)` naming the holder, without reaching the
+/// device; their reads, streams and observing stay open (taken too for a `#[claim(observe)]` resource). Which
+/// resources can be claimed, and how, is in the device's API (`#[claim(..)]`, `docs/api/metadata.md`); a device's
+/// root always can, exclusively.
+///
+/// A claim belongs to the program's client instance (the instance id of its `ClientMeta`, CLT-41) as the OS user it
+/// runs as: every connection of that instance, to the hub's API and to the device, may use the resource. It is
+/// released by [Claims::release], when the instance's last connection closes (a crash frees it), or after its ttl.
+#[ww_trait]
+pub trait Claims {
+    /// Claims the resource at `path` (resource ids from the device's root, array indices included, as in a request)
+    /// of the device `key` for `purpose` (shown to others), for `ttl_s` seconds or until released.
+    fn claim(
+        key: &'i str,
+        path: RefVec<'i, UNib32>,
+        purpose: &'i str,
+        ttl_s: Option<u32>,
+    ) -> Result<u32, ClaimError<'i>>;
+
+    /// Releases a claim this client instance holds.
+    fn release(id: u32) -> Result<(), ReleaseError>;
+
+    /// Claims held on the device `key`.
+    fn claims(key: &'i str) -> RefVec<'i, ClaimEntry<'i>>;
 }
 
 /// See [Hub::info].
@@ -173,6 +203,71 @@ pub struct ClientEntry<'i> {
     pub since_ms: u64,
 }
 
+/// What a claim takes from other programs, as the device's API says (`#[claim(..)]`).
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum ClaimKind {
+    /// One holder: others' calls and writes are refused
+    Exclusive,
+    /// Several holders together: calls and writes of programs without a claim are refused
+    Shared,
+    /// One holder: others' calls, writes, reads, streams and observing are refused
+    Observe,
+}
+
+/// One claim, see [Claims::claims].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
+pub struct ClaimEntry<'i> {
+    pub id: u32,
+    pub key: &'i str,
+    pub path: RefVec<'i, UNib32>,
+    pub kind: ClaimKind,
+    /// The resource's `#[label]`, empty without one.
+    pub label: &'i str,
+    pub purpose: &'i str,
+    /// The connection that claimed it (its instance's other connections share the claim).
+    pub holder: ClientEntry<'i>,
+    /// Claimed at, ms since the Unix epoch.
+    pub since_ms: u64,
+    /// Released by itself then, ms since the Unix epoch.
+    pub expires_ms: Option<u64>,
+}
+
+/// Why [Claims::claim] failed.
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum ClaimError<'i> {
+    /// No device with this key, or it can't be opened
+    UnknownDevice,
+    /// The device's API isn't known (introspection disabled or failed): only its root can be claimed
+    ApiUnknown,
+    /// The path names no resource of the device's API
+    BadPath,
+    /// The resource isn't marked `#[claim]` in the device's API
+    NotClaimable,
+    /// Another program holds a claim on this resource
+    InUse { claim: ClaimEntry<'i> },
+    /// Another program holds a claim on a resource above or below this one, or one sharing its pins or peripherals
+    Overlap { claim: ClaimEntry<'i> },
+}
+
+/// Why [Claims::release] failed.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    derive(Clone, Copy, Debug, PartialEq, Eq),
+    ww_repr = unib32
+)]
+pub enum ReleaseError {
+    /// No such claim, or it was released already
+    UnknownClaim,
+    /// The claim belongs to another program
+    NotHolder,
+}
+
 /// See [Registry::events].
 #[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
 pub enum Event<'i> {
@@ -201,4 +296,14 @@ pub enum Event<'i> {
     },
     /// This hub hands over to a newer one: reconnect (SRV-30)
     Handover,
+    /// A resource was claimed (SRV-34)
+    Claimed {
+        key: &'i str,
+        id: u32,
+    },
+    /// A claim was released, by its holder, its holder leaving or its ttl
+    Released {
+        key: &'i str,
+        id: u32,
+    },
 }

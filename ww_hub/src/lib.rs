@@ -13,6 +13,7 @@
 //! [HubConfig::linger] after the last tunnel left.
 
 mod api;
+mod claims;
 pub mod client;
 mod device;
 mod devices;
@@ -51,6 +52,8 @@ pub const LINGER_ENV: &str = "WW_HUB_LINGER";
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
 /// How often the hub checks whether it is idle.
 const IDLE_CHECK: Duration = Duration::from_millis(200);
+/// How long `Claims::claim` waits for a device's introspection data (SRV-34).
+const BUNDLE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug)]
 pub struct HubConfig {
@@ -182,6 +185,7 @@ impl Bound {
                 last_active: Instant::now(),
                 keep_until: None,
                 open: BTreeMap::new(),
+                claims: Default::default(),
             }),
             devices: Mutex::new(BTreeMap::new()),
             linger: config.linger,
@@ -274,6 +278,40 @@ fn take_hub_lock(config: &HubConfig) -> io::Result<Option<File>> {
     Ok(Some(file))
 }
 
+/// Who connection `id` acts for (SRV-34): its client instance as the principal it connected as.
+pub(crate) fn owner_of(state: &State, id: u32) -> claims::Owner {
+    let instance = state
+        .clients
+        .get(&id)
+        .and_then(|c| c.meta.as_ref())
+        .map(|m| m.instance_id)
+        .filter(|i| *i != 0);
+    claims::Owner {
+        // every connection is the hub's own OS user: the socket checks it (SRV-33/SRV-37 add others)
+        principal: claims::Principal::LocalUser,
+        instance: match instance {
+            Some(i) => claims::Instance::Meta(i),
+            None => claims::Instance::Connection(id),
+        },
+    }
+}
+
+/// Connection `id` as `Registry::clients` lists it.
+pub(crate) fn client_entry(state: &State, id: u32) -> ww_hub_api::ClientEntryOwned {
+    let c = state.clients.get(&id);
+    let meta = c.and_then(|c| c.meta.clone()).unwrap_or_default();
+    ww_hub_api::ClientEntryOwned {
+        id,
+        pid: c.and_then(|c| c.peer_pid).unwrap_or(meta.pid),
+        program: meta.program.to_string(),
+        kind: meta.kind.map(|k| format!("{k:?}")).unwrap_or_default(),
+        user: meta.user.to_string(),
+        host: meta.host.to_string(),
+        instance_id: meta.instance_id,
+        since_ms: c.map_or(0, |c| c.since_ms),
+    }
+}
+
 pub(crate) fn unix_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -306,6 +344,8 @@ pub(crate) struct State {
     keep_until: Option<Instant>,
     /// Devices the hub holds, with their tunnels
     pub(crate) open: BTreeMap<String, u32>,
+    /// Claims on resources of devices (SRV-34)
+    pub(crate) claims: claims::Claims,
 }
 
 /// A program connected to the hub's API: the OS's pid for it, and what its link setup said (CLT-41) once up.
@@ -440,8 +480,102 @@ impl Hub {
     }
 
     fn client_left(&self, id: u32) {
-        self.state.lock().unwrap().clients.remove(&id);
+        let mut state = self.state.lock().unwrap();
+        let owner = owner_of(&state, id);
+        state.clients.remove(&id);
+        // the instance's last connection: its claims go (SRV-34)
+        let gone = match state.clients.keys().any(|c| owner_of(&state, *c) == owner) {
+            true => vec![],
+            false => state.claims.drop_owner(&owner),
+        };
+        drop(state);
+        self.claims_released(&gone);
         let _ = self.events.send(ww_hub_api::EventOwned::ClientLeft { id });
+    }
+
+    /// Tells the registry's listeners that claims went.
+    pub(crate) fn claims_released(&self, gone: &[claims::Claim]) {
+        for c in gone {
+            debug!("ww hub: claim {} on {} released", c.id, c.key);
+            let _ = self.events.send(ww_hub_api::EventOwned::Released {
+                key: c.key.clone(),
+                id: c.id,
+            });
+        }
+    }
+
+    /// `Claims::claim` of client `id` (SRV-34): what the resource is comes from the device's API, so the device is
+    /// opened if the hub doesn't hold it yet.
+    pub(crate) async fn claim(
+        self: &Arc<Self>,
+        id: u32,
+        key: String,
+        path: Vec<u32>,
+        purpose: String,
+        ttl_s: Option<u32>,
+    ) -> Result<u32, ww_hub_api::ClaimErrorOwned> {
+        let (reply, bundle) = tokio::sync::oneshot::channel();
+        if self
+            .send_to_device(&key, device::ToDevice::Bundle { reply })
+            .await
+            .is_err()
+        {
+            return Err(ww_hub_api::ClaimErrorOwned::UnknownDevice);
+        }
+        let bundle = tokio::time::timeout(BUNDLE_TIMEOUT, bundle)
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .flatten();
+        let resource = claims::resolve(bundle.as_deref(), &path)?;
+        let mut state = self.state.lock().unwrap();
+        let expired = state.claims.expire(Instant::now());
+        let new = claims::NewClaim {
+            key: key.clone(),
+            path,
+            resource,
+            purpose,
+            owner: owner_of(&state, id),
+            holder: client_entry(&state, id),
+            ttl_s,
+        };
+        let claimed = state
+            .claims
+            .claim(new, Instant::now(), unix_ms())
+            .map(|c| c.id);
+        drop(state);
+        self.claims_released(&expired);
+        if let Ok(claim_id) = claimed {
+            debug!("ww hub: client {id} claimed {claim_id} on {key}");
+            let _ = self
+                .events
+                .send(ww_hub_api::EventOwned::Claimed { key, id: claim_id });
+        }
+        claimed
+    }
+
+    /// `Claims::release` of client `id`.
+    pub(crate) fn release(&self, id: u32, claim: u32) -> Result<(), ww_hub_api::ReleaseError> {
+        let mut state = self.state.lock().unwrap();
+        let owner = owner_of(&state, id);
+        let gone = state.claims.release(&owner, claim)?;
+        drop(state);
+        self.claims_released(&[gone]);
+        Ok(())
+    }
+
+    /// `Claims::claims`: the ones held on `key`.
+    pub(crate) fn claims_on(&self, key: &str) -> Vec<ww_hub_api::ClaimEntryOwned> {
+        let mut state = self.state.lock().unwrap();
+        let expired = state.claims.expire(Instant::now());
+        let entries = state
+            .claims
+            .on_device(key)
+            .map(claims::Claim::entry)
+            .collect();
+        drop(state);
+        self.claims_released(&expired);
+        entries
     }
 
     /// The client's link came up: what it said about itself (CLT-41).
@@ -497,15 +631,27 @@ impl Hub {
 
     /// `Registry::take`: open the device now and keep it open without clients.
     pub(crate) async fn take(self: &Arc<Self>, key: &str) -> Result<(), Status> {
+        self.send_to_device(key, device::ToDevice::Keep).await
+    }
+
+    /// Sends `msg` to the device's task, opening the device first if the hub doesn't hold it.
+    async fn send_to_device(
+        self: &Arc<Self>,
+        key: &str,
+        msg: device::ToDevice,
+    ) -> Result<(), Status> {
         let slot = self.device_slot(key);
         let mut guard = slot.lock().await;
-        if let Some(handle) = guard.as_ref()
-            && handle.tx.send(device::ToDevice::Keep).is_ok()
-        {
-            return Ok(());
-        }
+        let msg = match guard.as_ref() {
+            Some(handle) => match handle.tx.send(msg) {
+                Ok(()) => return Ok(()),
+                // the task is ending: a new one gets it
+                Err(e) => e.0,
+            },
+            None => msg,
+        };
         let handle = device::open(self, key, slot.clone()).await?;
-        let _ = handle.tx.send(device::ToDevice::Keep);
+        let _ = handle.tx.send(msg);
         *guard = Some(handle);
         Ok(())
     }

@@ -210,7 +210,7 @@ async fn run_command(
         }
         Commands::Dfu(dfu_cmd) => {
             let resets_device = dfu_cmd.resets_device();
-            cmd::dfu::dfu(dfu_cmd, device.as_ref().unwrap()).await?;
+            cmd::dfu::dfu(dfu_cmd, device.take().unwrap(), selection.as_ref().unwrap()).await?;
             if resets_device {
                 // the device is gone or about to, nothing to disconnect from
                 return Ok(Ran {

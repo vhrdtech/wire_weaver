@@ -13,6 +13,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `ww dfu flash` (CLT-33): a whole update of a chunky device in one command, with `chunky_ww_host` from
+  chunky_mcu_updater: an ELF or binary sealed for the device, a delta plan, pipelined steps with a progress bar,
+  reboot into the trial, follow by serial number, the device's confirm or revert. `ww dfu status`, `confirm`,
+  `revert`. `PreparedCall::send` → `PendingCall` in `wire_weaver_client` sends now and awaits the reply later.
+  `ww_dfu::NodeInfo` carries `product_id` and `seal` (STD-12).
 - Frame prefix and link setup token (TR-15, wire change of the link): `ww_framer` writes an optional per-frame
   prefix (`SeqPrefix`: 4-bit frame counter, 2-bit session epoch) and tells lost, duplicated, reordered and stale
   frames apart; checksums cover prefix and head too. The host picks a random 64-bit token per connection, the

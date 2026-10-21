@@ -93,7 +93,7 @@ From there:
 | [`ww api`](cli_reference.md#ww-api)                  | no             | From an API crate's source: resource tree, AST, server scaffold, snapshots (save, check, diff) |
 | [`ww observe`](cli_reference.md#ww-observe)          | yes            | Observes a trait level's `+observe` properties: values, rate, link bytes/s |
 | [`ww usb-loopback`](cli_reference.md#ww-usb-loopback) | yes, any API  | Runs link loopback and throughput tests                            |
-| [`ww dfu`](cli_reference.md#ww-dfu)                  | yes, any API   | Firmware update steps through `ww_dfu` traits: `ww dfu reboot`     |
+| [`ww dfu`](cli_reference.md#ww-dfu)                  | yes, any API   | Firmware updates through `ww_dfu` traits: `reboot`, `status`, `confirm`, `revert`; `flash` a chunky device |
 | [`ww counters`](cli_reference.md#ww-counters)        | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
 | [`ww info`](cli_reference.md#ww-info)                | yes, any API   | What the device is: firmware, board, ids, label, last reset        |
 | [`ww report`](cli_reference.md#ww-report)            | yes, any API   | A bug report in one file: info, counters, stored log, crash, decoded with the ELF |

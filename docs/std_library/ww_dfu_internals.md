@@ -58,6 +58,17 @@ is [chunky](https://github.com/romixlab/chunky_mcu_updater) (`chunky_mcu_updater
 - [`chunky/src/apply.rs`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky/src/apply.rs) is the apply
   engine: it runs an untrusted plan against the DFU slot over `embedded_storage`, one step per call, checking the
   descriptor first, then every COPY source and WRITE hash, then the whole image.
+- [`chunky_ww`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_ww/src/lib.rs) is the real device
+  side of this API (scenario `2C-APP-STEP`, no_std): `ChunkyNode` answers `UpdateNode`, `BootControl`, `Inventory`
+  and `Stage` with the apply engine and a boot backend (embassy-boot swap, hardware bank swap), so a firmware's
+  generated handlers only forward. Its one error without a variant here is `Error::Custom(1)`
+  (`chunky_ww::CUSTOM_NOT_BLANK`): the chunk a COPY or WRITE goes to is not blank, nothing was written, and the host
+  reads the manifest again and plans again (SPEC §10).
+- [`chunky_ww_host`](https://github.com/romixlab/chunky_mcu_updater/blob/main/chunky_ww_host/src/lib.rs) is the host
+  side: node, manifest, plan, steps pipelined up to `StageLimits::in_flight` (`PreparedCall::send`), timeouts from the
+  flash layout, reboot into the trial, the device's confirm or revert. [`ww dfu flash`](../cli_reference.md#ww-dfu-flash)
+  is built on it, and its end-to-end tests run it against `chunky_ww` on chunky's simulated flash over the simulated
+  USB of `in_process`.
 
 The raw octets are these records: `Stage::begin` and `StageBulk::begin_bulk` take the 145 header bytes, `Stage::write`
 carries one step's data, and the `StageBulk::plan` sink carries the body as segments. What a node answers with

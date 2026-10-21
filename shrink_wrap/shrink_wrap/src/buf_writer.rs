@@ -28,6 +28,72 @@ pub struct BufWriter<'i> {
     latch: Option<Error>,
 }
 
+/// Owned values (`Vec`, `String`, `..Owned` types) into a fixed buffer, with the same bytes as their borrowed
+/// counterparts written with [write](BufWriter::write) and [SerializeShrinkWrap::ser_shrink_wrap]: a std server
+/// that builds its replies in a fixed buffer writes its handlers' owned return values this way (API-21).
+#[cfg(feature = "std")]
+impl BufWriter<'_> {
+    /// [write](Self::write) for a value that has only [SerializeShrinkWrapOwned](crate::SerializeShrinkWrapOwned):
+    /// the same bytes the borrowed counterpart gives, at the same bit position, its lengths pushed to this
+    /// writer's back for [finish](Self::finish) or an enclosing `Unsized` value to encode.
+    ///
+    /// The value goes through a [BufWriterOwned](crate::BufWriterOwned) first and is copied after, so it costs an
+    /// allocation and a copy; values that have [SerializeShrinkWrap] are better written with `write`.
+    ///
+    /// ```
+    /// use shrink_wrap::BufWriter;
+    /// let (mut owned, mut borrowed) = ([0u8; 16], [0u8; 16]);
+    /// let mut wr = BufWriter::new(&mut owned);
+    /// wr.write_bool(true).unwrap();
+    /// wr.write_owned(&vec![String::from("ab")]).unwrap();
+    /// let owned = wr.finish().unwrap();
+    ///
+    /// let mut wr = BufWriter::new(&mut borrowed);
+    /// wr.write_bool(true).unwrap();
+    /// wr.write(&shrink_wrap::RefVec::Slice { slice: &["ab"] }).unwrap();
+    /// assert_eq!(owned, wr.finish().unwrap());
+    /// assert_eq!(owned, &[0x80, b'a', b'b', 0x21]);
+    /// ```
+    pub fn write_owned<T: crate::SerializeShrinkWrapOwned>(&mut self, val: &T) -> Result<(), Error> {
+        self.through_owned(|wr| wr.write(val))
+    }
+
+    /// [ser_shrink_wrap](SerializeShrinkWrap::ser_shrink_wrap) for a value that has only
+    /// [SerializeShrinkWrapOwned](crate::SerializeShrinkWrapOwned): the value as a root one (an `Unsized` value
+    /// without its size), as [write_owned](Self::write_owned) otherwise.
+    pub fn ser_owned<T: crate::SerializeShrinkWrapOwned>(&mut self, val: &T) -> Result<(), Error> {
+        self.through_owned(|wr| val.ser_shrink_wrap_owned(wr))
+    }
+
+    fn through_owned(
+        &mut self,
+        f: impl FnOnce(&mut crate::BufWriterOwned) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        let open_byte = if self.bit_idx == 7 {
+            0
+        } else {
+            match self.buf[..self.len_bytes].get(self.byte_idx) {
+                Some(byte) => *byte,
+                None => return Err(Error::OutOfBoundsWriteRawSlice),
+            }
+        };
+        let mut owned = crate::BufWriterOwned::continue_at(open_byte, self.bit_idx);
+        f(&mut owned)?;
+        let (bytes, byte_idx, bit_idx, lens) = owned.into_parts();
+        let room = self.len_bytes.saturating_sub(self.byte_idx);
+        if bytes.len() + 2 * lens.len() > room {
+            return Err(Error::OutOfBoundsWriteRawSlice);
+        }
+        self.buf[self.byte_idx..self.byte_idx + bytes.len()].copy_from_slice(&bytes);
+        self.byte_idx += byte_idx;
+        self.bit_idx = bit_idx;
+        for len in lens {
+            self.write_rev_len(len as usize)?;
+        }
+        Ok(())
+    }
+}
+
 /// Buffer writer state that can be used to jump back and fill in some data.
 #[derive(Copy, Clone)]
 pub struct BufWriterState {

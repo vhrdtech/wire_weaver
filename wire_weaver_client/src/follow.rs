@@ -386,7 +386,7 @@ pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     };
     let rom = follow.back_in_stm32_dfu(bus, timeouts.to_bootsel).await?;
     tracing::debug!("{} is in the STM32 DFU bootloader: {rom}", follow.serial);
-    let io = open_retrying(&rom, open, timeouts.open)
+    let io = open_retrying(async || open(&rom).await, timeouts.open)
         .await
         .map_err(dfu_err)?;
     let mut dfu = ww_stm32_dfu::Dfuse::new(io).map_err(dfu_err)?;
@@ -399,19 +399,19 @@ pub async fn stm32_dfu_update_with<I: ww_stm32_dfu::DfuIo>(
     follow.back_in_wire_weaver(bus, timeouts.to_app).await
 }
 
-/// `open`, tried again every 100 ms until it works or `within` is over; the last error otherwise.
-async fn open_retrying<I>(
-    info: &DeviceInfo,
-    open: impl AsyncFn(&DeviceInfo) -> Result<I, ww_stm32_dfu::Error>,
+/// `open`, tried again every 100 ms until it works or `within` is over; the last error otherwise. A device just
+/// listed can refuse to open for a moment (udev still setting its permissions, a driver binding).
+pub async fn open_retrying<I>(
+    open: impl AsyncFn() -> Result<I, ww_stm32_dfu::Error>,
     within: Duration,
 ) -> Result<I, ww_stm32_dfu::Error> {
     let deadline = Instant::now() + within;
     loop {
-        match open(info).await {
+        match open().await {
             Ok(io) => return Ok(io),
             Err(e) if Instant::now() >= deadline => return Err(e),
             Err(e) => {
-                tracing::debug!("opening {info}: {e}, trying again");
+                tracing::debug!("opening the DFU device: {e}, trying again");
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
         }

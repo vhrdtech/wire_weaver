@@ -8,7 +8,7 @@ use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use wire_weaver_client::follow::{Follow, UsbBus};
+use wire_weaver_client::follow::{Follow, Timeouts, UsbBus, open_retrying};
 use wire_weaver_client::ww_stm32_dfu::layout::MemoryLayout;
 use wire_weaver_client::ww_stm32_dfu::proto::ROM_ID_ADDR;
 use wire_weaver_client::ww_stm32_dfu::usb::{self, NusbIo};
@@ -152,20 +152,18 @@ async fn info(serial: Option<&str>) -> Result<()> {
     let device = usb::find(serial).await?;
     println!("serial {}", device.serial_number().unwrap_or("?"));
     match Dfuse::new(NusbIo::open(&device, 0).await?) {
-        Ok(mut dfu) => {
-            match dfu.rom_id().await {
-                Some(v) => println!(
-                    "bootloader version {} (byte at {ROM_ID_ADDR:#010x}){}",
-                    version_name(v),
-                    if locks_pwr_cr3(v) {
-                        ", locks PWR_CR3 on STM32H72x/73x (a power cycle after it)"
-                    } else {
-                        ""
-                    }
-                ),
-                None => println!("bootloader version: not readable"),
-            }
-        }
+        Ok(mut dfu) => match dfu.rom_id().await {
+            Some(v) => println!(
+                "bootloader version {} (byte at {ROM_ID_ADDR:#010x}){}",
+                version_name(v),
+                if locks_pwr_cr3(v) {
+                    ", locks PWR_CR3 on STM32H72x/73x (a power cycle after it)"
+                } else {
+                    ""
+                }
+            ),
+            None => println!("bootloader version: not readable"),
+        },
         Err(e) => println!("{e}"),
     }
     for (alt, name) in usb::alt_settings(&device).await? {
@@ -372,7 +370,12 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
         _ => usb::find(serial.as_deref()).await?,
     };
     let full_serial = info.serial_number().unwrap_or_default().to_string();
-    let mut dfu = Dfuse::new(NusbIo::open(&info, 0).await?)?;
+    let io = open_retrying(
+        async || NusbIo::open(&info, 0).await,
+        Timeouts::default().open,
+    )
+    .await?;
+    let mut dfu = Dfuse::new(io)?;
     let leave_addr = args
         .leave_addr
         .unwrap_or_else(|| dfu.layout().regions[0].start);

@@ -40,6 +40,12 @@ local_socket = [
     "tokio/io-util",
 ] # device served by another process (or the ww hub): Unix socket, named pipe on Windows
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+
 [dependencies]
 anyhow.workspace = true
 either = "1"
@@ -75,12 +81,6 @@ ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }
 ww_version = { workspace = true, features = ["std"] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-libc = "0.2"
-
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "test-util"] }

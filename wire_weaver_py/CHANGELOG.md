@@ -15,6 +15,8 @@
 
 ### 🚀 Features
 
+- `connect()` tells the device it is a notebook (`ClientKind::Notebook` in the link setup client meta, CLT-41).
+
 - `PositionedStream.stats` has `lost_codec`, `codec_bytes_in` and `codec_bytes_out`: counted streams come compressed from devices that compress them (API-55), decoded on the way.
 
 - Credit sinks resume (API-34): `Sink.cursor` (`(session, pos)`, where the device is), `Sink.resume(cursor)` continues a session after a restart of the program and returns the position where the device is, `Sink.open(session=n)` opens a session the program names; `ww.SessionLost` (a `WireWeaverError`) when the device lost the session.

@@ -9,6 +9,8 @@
 
 ### 🚀 Features
 
+- `DeviceLink::peer_meta()` and `PeerMeta` (CLT-41): who the host said it is in link setup (program, user, host cut to 24 bytes, kind, pid, instance id), set before `LinkEvent::Up`, for firmware that wants to log it. About 90 bytes of RAM in `DeviceLink`.
+
 - `FramedRx::prefix_stats()`: lost, duplicated, reordered and previous-session frames seen so far (UDP, USB with `UsbSeqFraming`).
 - `Server::wait_until(at: Option<Instant>)` (SRV-25): `wait()` that also returns when `at` comes, `Ready::is_due()`, so the event loop sleeps until the device's own next deadline (`ObserveState::next_wake`) instead of waking on a fixed tick; `handle` does nothing with a due `Ready`. `Server::now()`, the server's clock.
 - `GENERIC_ERROR_SEQ` is `ww_client_server::err_seq::GENERIC` (SRV-22), same value.

@@ -154,3 +154,21 @@ async fn leave_jumps_to_the_address() {
     dfu.leave(FLASH).await.unwrap();
     assert_eq!(sim.left(), Some(FLASH));
 }
+
+/// An STM32G0B1-like device: 2 KiB pages, 8-byte flash words. A bootloader-sized image and an app at a page boundary.
+#[tokio::test]
+async fn g0b1_pages() {
+    let sim = SimStm32Dfu::with_layout("@Internal Flash  /0x08000000/128*002Kg", UID, 1024, 8);
+    let mut dfu = Dfuse::new(sim.clone()).unwrap();
+    let mut image = Image::from_bin(FLASH, data(5000, 2)).unwrap();
+    image.add(FLASH + 0x8000 + 3, &[7; 10]).unwrap();
+    dfu.flash(&image, &FlashOptions::default(), &mut ())
+        .await
+        .unwrap();
+    assert_eq!(
+        sim.erased(),
+        [FLASH, FLASH + 0x800, FLASH + 0x1000, FLASH + 0x8000]
+    );
+    assert_eq!(sim.memory(FLASH, 5000), data(5000, 2));
+    assert_eq!(sim.memory(FLASH + 0x8003, 10), [7; 10]);
+}

@@ -185,6 +185,7 @@ firmware_info_api = { version = "0.1.0", path = "./tests/firmware_info_api" }
 foc_observe_api = { version = "0.1.0", path = "./examples/foc_observe_api" }
 generics_api = { version = "0.1.0", path = "./tests/generics_api" }
 hub_api = { version = "0.1.0", path = "./tests/hub_api" }
+hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }
 hub_reconnect_api = { version = "0.1.0", path = "./tests/hub_reconnect_api" }
 indication_api = { version = "0.1.0", path = "./tests/indication_api" }
 io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }

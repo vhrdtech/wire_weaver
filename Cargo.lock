@@ -2371,6 +2371,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hub_pytest_device"
+version = "0.1.0"
+dependencies = [
+ "hub_pytest_device_api",
+ "tests_common",
+ "tokio",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_hub",
+]
+
+[[package]]
+name = "hub_pytest_device_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "hub_reconnect"
 version = "0.1.0"
 dependencies = [

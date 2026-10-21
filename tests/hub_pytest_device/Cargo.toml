@@ -1,0 +1,21 @@
+[package]
+name = "hub_pytest_device"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "hub_pytest_device"
+path = "src/bin/hub_pytest_device.rs"
+
+[dependencies]
+hub_pytest_device_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["hub", "in_process"] }
+ww_client_server = { workspace = true, features = ["std"] }
+ww_hub.workspace = true

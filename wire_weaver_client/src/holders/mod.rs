@@ -289,7 +289,7 @@ fn format_time_of_day_utc(t: SystemTime) -> String {
 pub enum ClaimError {
     /// Another WireWeaver program already holds this device.
     #[error("{0}")]
-    HeldBy(Holder),
+    HeldBy(Box<Holder>),
     #[error(transparent)]
     Io(#[from] io::Error),
 }
@@ -340,7 +340,7 @@ pub fn claim_with(
                 key: key.to_string(),
             })
         }
-        Err(TryLockError::WouldBlock) => Err(ClaimError::HeldBy(read_holder(&mut file)?)),
+        Err(TryLockError::WouldBlock) => Err(ClaimError::HeldBy(Box::new(read_holder(&mut file)?))),
         Err(TryLockError::Error(e)) => Err(ClaimError::Io(e)),
     }
 }

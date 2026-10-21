@@ -1042,11 +1042,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   exits), a call's request goes into the command channel the residual keeps for `Commander::reconnect` and its
   timeout never starts: `call()` hangs until someone reconnects. `chunky_ww_host` polls with its own deadline for
   now. Fix: fail calls with `Error::Disconnected` while no event loop runs (or start the timeout at the send).
-- 📋 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
+- 🚧 **CLT-39 Hub routing in `connect`** · `v0.5.x` — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of `ww` calls doesn't re-open it every time. `HubMode` `Auto`, `Prefer`,
   `Required`, `Direct` (`WW_HUB`); hub found or started (start lock, readiness, newest hub executable: `WW_HUB_EXE`,
-  the app itself, `ww`); user code doesn't change.
+  the app itself, `ww`); user code doesn't change. Built (feature `hub` of `wire_weaver_client`, on in `ww`): the
+  mode (`ClientConfig::hub`, `WW_HUB`), the open counter in `<runtime>/ww/opens/<key>` (3 in 60 s,
+  `ClientConfig::hub_opens`, `WW_HUB_OPENS`; kind `Cli` counts 1, others 1/4), the registry asked whether the hub
+  holds the device, the tunnel opened before the event loop starts (so a refusal falls back to direct in `Auto` and
+  `Prefer`), `hub::ensure_running` (start lock, stale socket removal, the newest of `WW_HUB_EXE` / the app itself via
+  `ww_hub::main_if_hub()` / `ww` next to the exe / on `PATH` by `--hub-version`, started detached, readiness by
+  polling the socket with the preamble for 2 s), lock files with the holder's client metadata, busy errors that say
+  how to get a hub, `ww hub take` (`hub::take`). See `docs/transport/hub.md#reaching-devices-through-the-hub-clt-39`.
+  Tested on Linux (`tests/hub_routing`: two programs starting a hub at once get one, stale socket, no executable;
+  unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a run through a hub that serves
+  devices, which comes with SRV-29 (until then the hub answers `UnknownDevice`, so `Auto` and `Prefer` go direct and
+  `Required` fails); a check on macOS and Windows (compiles for both).
 - 📋 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
   observe subscriptions and tells the app (`Reconnected`); requests in flight fail, never replayed.
 - 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,

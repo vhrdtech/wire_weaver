@@ -367,7 +367,7 @@ pub(crate) mod tests {
             super::super::OPENS_ENV,
             EXE_ENV,
         ];
-        let saved: Vec<_> = vars.iter().map(|v| std::env::var_os(v)).collect();
+        let saved: Vec<_> = vars.iter().map(std::env::var_os).collect();
         // SAFETY: tests that touch the environment hold ENV_LOCK
         unsafe {
             std::env::set_var(ww_local_socket::RUNTIME_DIR_ENV, &tmp);

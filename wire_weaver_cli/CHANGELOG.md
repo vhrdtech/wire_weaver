@@ -8,6 +8,8 @@
   converges (locked and its residual within `--within-us`, default 2000) or falls out, and `all N within X after
   N s` with the LED phase spread; the LED phase spread under the table. Steers ten times a second until a device is
   locked. On a terminal a live table, into a pipe only those lines (no colour) and the table at the end.
+- `ww` reaches devices through the ww hub when it holds them or after repeated calls (CLT-39, `WW_HUB=off` to always open directly), starts the hub by itself, answers `ww --hub-version`, and `ww hub take DEVICE` (a key or a serial number) has the hub open a device and keep it.
+
 - `ww hub serve` runs the per-user hub in the foreground (SRV-28), and `ww` can be started as the hub by a client (`WW_HUB_SERVE`, `ww_hub::main_if_hub`).
 
 ### 🐛 Fixes

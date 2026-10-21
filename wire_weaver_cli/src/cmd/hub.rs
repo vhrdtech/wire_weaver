@@ -18,7 +18,7 @@ pub(crate) enum HubCommand {
     /// Have the hub open a device now and keep it, so every program reaches it through the hub from its first call
     /// (starts the hub if none runs)
     Take {
-        /// Device key as the hub lists it (usb:<vid>:<pid>:<serial>), or the serial number of a WireWeaver USB device
+        /// Device key as the hub lists it (usb:VID:PID:SERIAL), or the serial number of a WireWeaver USB device
         device: String,
     },
 }
@@ -60,9 +60,7 @@ async fn device_key(device: &str) -> Result<String> {
         (Some(key), None) => Ok(key),
         (None, _) => anyhow::bail!("no WireWeaver USB device with serial {device}"),
         (Some(_), Some(_)) => {
-            anyhow::bail!(
-                "several devices with serial {device}, give the key (usb:<vid>:<pid>:<serial>)"
-            )
+            anyhow::bail!("several devices with serial {device}, give the key (usb:VID:PID:SERIAL)")
         }
     }
 }

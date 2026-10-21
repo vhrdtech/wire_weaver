@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- Hub routing in `connect()` (CLT-39, `wire_weaver_client` feature `hub`): direct by default, through the ww hub when it already holds the device or after repeated short connections (3 within 60 s, shell-launched calls weighted), `HubMode` `Auto` / `Prefer` / `Required` / `Direct` (`WW_HUB`); the hub is started by the client when needed (start lock, newest hub executable, readiness by polling its socket). Lock files show the holder's client metadata. `ww hub take`.
+
 - The ww hub process and its API (SRV-28, crates `ww_hub`, `ww_hub_api`, `ww hub serve`): one per user, the devices plugged in and who holds them, the connected programs, events; device tunnels come next (SRV-29).
 - Local socket transport (TR-16): a device served by another process on the same PC, over a user-only Unix socket or named pipe (new crate `ww_local_socket`, `wire_weaver_client` feature `local_socket`, `ClientConfig::ipc_path`); the base of the planned ww hub (SRV-13).
 - Device holders registry (CLT-38, `wire_weaver_client::holders`): every program opening a USB interface or RTT

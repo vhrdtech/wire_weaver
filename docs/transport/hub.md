@@ -79,7 +79,8 @@ then, both ways   | len: u32 LE | kind: u8 | payload |    len counts kind + payl
 
 The hub is crate `ww_hub`, with its API in `ww_hub_api`. `ww hub serve` runs it in the foreground; a program can also
 host it: `ww_hub::main_if_hub()` first in `main` makes the executable serve as the hub when started with
-`WW_HUB_SERVE` set (sccache-style), so a client can start the hub from the app itself (CLT-39, planned).
+`WW_HUB_SERVE` set (sccache-style), so a client can start the hub from the app itself (see
+[below](#reaching-devices-through-the-hub-clt-39)).
 
 - One hub per user: it holds an OS lock on `hub.lock` in the runtime dir for its whole life (released by the OS on a
   crash) and writes its pid, version and start time into it. A second one exits at once (`Exit::AlreadyRunning`).
@@ -111,6 +112,84 @@ let mut events = hub.registry().events().call().await?;
   (program, kind, user, host, instance id) and the pid the OS reports.
 - `registry().events()`: `Plugged`, `Unplugged`, `HolderChanged` (from hotplug events and a rescan every 2 s),
   `ClientJoined`, `ClientLeft`. A client that falls behind misses events and reads the lists again.
+
+## Reaching devices through the hub (CLT-39)
+
+A program holds its device directly, as it always did, unless the hub pays off: a long-lived GUI, service or notebook
+gains nothing from a hub in between, a loop of short `ww` calls in a terminal does (each call would enumerate, open,
+set up the link and fetch the API again). `connect()` decides per device, after it picked one with the usual
+filters; nothing changes in user code. It needs `wire_weaver_client`'s feature `hub` (on in `ww`).
+
+### The modes
+
+| `HubMode` | `WW_HUB` | What `connect()` does |
+|---|---|---|
+| `Auto` (default) | `auto` | Through the hub when the hub already holds the device, or when the device was opened often lately (below); else directly, holding the device exclusively. |
+| `Prefer` | `prefer` | Through the hub, starting one if none runs; directly when none can start or it can't serve the device. |
+| `Required` | `required` | Through the hub, starting one if none runs, or fail. |
+| `Direct` | `off` | Never through the hub, even past the open counter; it says so in the log when the hub holds the device (the open then fails as busy, naming the hub). |
+
+```rust
+let device = MyDevice::config(|c| c.hub(HubMode::Prefer)).connect().await?;
+```
+
+`ClientConfig::hub` wins; a config that doesn't set it takes `WW_HUB`, else `Auto`. So `WW_HUB=off` turns the hub off
+for every program that leaves the choice to its user, and a program that must never share its device (a test bench,
+the hub itself) sets `Direct` in code.
+
+"The hub holds the device" is what the hub's registry says (`Registry::devices()`: the device open by the hub, or
+held in its name, `mode = hub` in the lock file). Without a running hub (nobody holds `hub.lock`) nothing is asked.
+
+### Repeated opens
+
+Every open in `Auto` mode leaves a line in `<runtime dir>/ww/opens/<key>` (`<unix ms> <weight>`, older lines dropped,
+rewritten under an OS lock). When the weights within the window reach the limit, the open goes through the hub,
+started if none runs, and the hub keeps the device open for its linger: the rest of the loop costs a socket round
+trip per call. The default is 3 within 60 s (`ClientConfig::hub_opens(OpenCounter { opens, window })`,
+`WW_HUB_OPENS=3/60`). A client of kind `Cli` (the default when the parent process is a shell, see
+[client meta](#who-connects-client-meta-clt-41)) counts 1, every other kind 1/4: a loop in a terminal goes through
+the hub from its third call, a GUI restarted twice doesn't.
+
+### Starting the hub
+
+`wire_weaver_client::hub::ensure_running(start)` is what `connect()` uses, and any program can call it:
+
+1. Someone holds `hub.lock`: a hub runs, wait until it answers on its socket.
+2. Else take `hub.start.lock` (waiting up to 5 s for another starter), check `hub.lock` again: two programs starting
+   a hub at once get one, the second finds the first one's.
+3. Remove a socket file left behind by a hub that is gone (nobody holds `hub.lock`).
+4. Start the newest hub executable, detached (its own process group on Unix, `DETACHED_PROCESS |
+   CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW` on Windows, stdin and stdout closed, stderr into
+   `<runtime dir>/ww/hub.log`), with `WW_HUB_SERVE=1`.
+5. Poll the socket: connect and send the preamble for the hub's API every 20 ms, until an answer comes (2 s at most).
+   This works the same on every OS; no pipe is inherited. A hub that exits before answering (and no other hub took
+   `hub.lock`) fails it with its exit status.
+
+In `Auto` and `Prefer` a hub that can't be had means a direct connection with a log line saying why; in `Required` it
+is the connect error.
+
+Which executable: `WW_HUB_EXE` when set, alone. Otherwise every one of these that answers `--hub-version` with a
+version, the newest first (among equal versions, this order):
+
+- the program itself, when it put `ww_hub::main_if_hub()` first in `main` (which registers it, and answers
+  `--hub-version`), so an app shipped alone still gets a hub;
+- `ww` next to the program's executable;
+- `ww` on `PATH`.
+
+None found: the error says how to get one (`cargo install wire_weaver_cli`, `WW_HUB_EXE`, or `main_if_hub()`).
+
+### `ww hub take`
+
+`ww hub take DEVICE` (a key such as `usb:c0de:cafe:0042`, or a serial number) starts the hub if needed and has it
+open the device now and keep it, so every program reaches the device through the hub from its first call
+(`wire_weaver_client::hub::take(key)`; `hub::key_of(&DeviceInfo)` gives a device's key).
+
+### What is there today
+
+The hub doesn't open devices yet (SRV-29): it answers a device tunnel with `UnknownDevice` and `take` with
+`Unimplemented`. Until then `Auto` and `Prefer` fall back to a direct connection with a note and `Required` fails.
+Only USB devices are routed, RTT and the other transports connect directly. `connect_blocking()` routes when it runs
+on a multi-thread tokio runtime (Python's is one); on a current-thread runtime it connects directly.
 
 ## Who holds a device (CLT-38)
 
@@ -173,7 +252,16 @@ exe = /home/user/.cargo/bin/dg
 mode = direct
 since = 1771234567
 ww_version = 0.5.0
+kind = Cli
+user = roman
+host = pc1
+label =
+purpose =
+instance_id = 9318842301562216747
 ```
+
+The last six lines are the holder's [client meta](#who-connects-client-meta-clt-41); a file written by an older
+program lacks them and reads with those fields empty.
 
 ### Busy errors name the holder
 
@@ -181,7 +269,9 @@ A connection refused because another WireWeaver program already holds the device
 own lock file content (`Holder`'s `Display`):
 
 ```text
-device is already open by another WireWeaver program or connection; held by dg, pid 4711, direct, since 14:02:03 UTC
+device is already open by another WireWeaver program or connection; held by dg, pid 4711, Cli, roman@pc1, direct,
+since 14:02:03 UTC; to share a device between programs, let the ww hub hold it: `ww hub take`, or WW_HUB=prefer for
+both programs (a hub comes with `ww`: cargo install wire_weaver_cli)
 ```
 
 A program that doesn't speak WireWeaver (probe-rs's own CLI, `minicom`, `dfu-util`) never writes a lock file, so

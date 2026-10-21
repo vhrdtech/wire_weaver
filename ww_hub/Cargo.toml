@@ -17,9 +17,12 @@ tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client = { workspace = true, features = ["hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }
+ww_clock_sync.workspace = true
 ww_device.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket = { workspace = true, features = ["socket"] }
+ww_si = { workspace = true, features = ["std", "time"] }
+ww_timebase = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "test-util"] }

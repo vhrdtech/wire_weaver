@@ -41,3 +41,10 @@ pub enum BusError<'i> {
     /// The bus is off.
     BusOff,
 }
+
+/// A device whose clock the hub steers (SRV-31): `ww_timebase::Clock` with `host_sync`.
+#[ww_trait]
+trait ClockedTest {
+    fn add(a: u32, b: u32) -> u32;
+    ww_impl!(clock: ww_timebase::Clock);
+}

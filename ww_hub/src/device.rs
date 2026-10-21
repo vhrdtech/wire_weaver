@@ -73,6 +73,8 @@ pub(crate) enum ToDevice {
     Lend {
         done: oneshot::Sender<claims::Lend>,
     },
+    /// Whether the device is steered changed (SRV-31): its linger is looked at again
+    Recheck,
 }
 
 /// One slot per device key: whoever opens or closes the device holds it, so a tunnel joins either the running task or
@@ -241,6 +243,7 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
         device: device.clone(),
     };
     hub.device_opened(key);
+    crate::sync::start(hub, key, device.clone(), &tx);
     tokio::spawn(task.run(rx, sink, slot, tx.clone()));
     Ok(DeviceHandle { tx, info, device })
 }
@@ -435,7 +438,7 @@ struct State {
 /// An open device: its state, shared by its tunnels (requests) and its task (answers, joins and leaves).
 pub(crate) struct Device {
     state: tokio::sync::Mutex<State>,
-    cmd: Commander,
+    pub(crate) cmd: Commander,
     key: String,
     hub: Arc<Hub>,
 }
@@ -576,8 +579,11 @@ impl Task {
         // lent out (SRV-32): who waits for the device to be closed
         let mut lend = None;
         loop {
-            let linger = self.hub.linger();
-            let linger_at = idle_since.filter(|_| !keep).map(|t| t + linger);
+            // a steered device lingers longer (SRV-31), maybe forever
+            let linger = self.hub.linger_for(&self.key);
+            let linger_at = idle_since
+                .filter(|_| !keep)
+                .and_then(|t| linger.map(|l| t + l));
             let timer = async {
                 match linger_at {
                     Some(at) => tokio::time::sleep_until(at).await,
@@ -716,6 +722,7 @@ impl State {
                     self.forward(HUB_ITSELF, 0, &request, Purpose::Introspect)?;
                 }
             },
+            ToDevice::Recheck => {}
             ToDevice::Close => {
                 let _ = self.send(
                     Command::disconnect_and_exit(wire_weaver::DisconnectReason::RequestByUser).0,

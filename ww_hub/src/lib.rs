@@ -10,7 +10,8 @@
 //! itself (`ww_hub_api`: info, keep, shutdown, the registry of devices, holders and clients, events), exit after
 //! [HubConfig::idle_exit] without connections. Device tunnels (SRV-29): a connection whose preamble names a device
 //! gets a tunnel to it, the hub opens the device on demand (one event loop for all its tunnels) and closes it
-//! [HubConfig::linger] after the last tunnel left.
+//! [HubConfig::linger] after the last tunnel left. Clock sync (SRV-31): the hub steers every open device serving
+//! `ww_timebase::Clock` with host sync onto this PC's UTC and keeps it open for [HubConfig::sync_linger].
 
 mod api;
 mod claims;
@@ -18,6 +19,7 @@ pub mod client;
 mod device;
 mod devices;
 mod envelope;
+mod sync;
 mod tunnel;
 mod window;
 
@@ -48,6 +50,10 @@ pub const IDLE_EXIT_ENV: &str = "WW_HUB_IDLE_EXIT";
 pub const STARTED_BY_ENV: &str = "WW_HUB_STARTED_BY";
 /// Linger in seconds, overrides [HubConfig::linger]'s default.
 pub const LINGER_ENV: &str = "WW_HUB_LINGER";
+/// `off` switches clock steering off for every device ([HubConfig::sync]).
+pub const SYNC_ENV: &str = "WW_HUB_SYNC";
+/// Seconds a steered device stays open after its last client, or `forever` ([HubConfig::sync_linger]).
+pub const SYNC_LINGER_ENV: &str = "WW_HUB_SYNC_LINGER";
 
 /// A client must send its preamble within this time, or it is dropped.
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -66,10 +72,23 @@ pub struct HubConfig {
     pub linger: Duration,
     /// The version this hub answers with and compares in a handover (SRV-30): [HUB_VERSION]; tests set others.
     pub version: String,
+    /// Steer the clock of every open device serving `ww_timebase::Clock` with host sync (SRV-31), unless switched
+    /// off for it (`ClockSync::set_enabled`).
+    pub sync: bool,
+    /// A steered device stays open this long after its last tunnel left (30 min; `None` forever), so it doesn't
+    /// coast between short commands; at least [HubConfig::linger].
+    pub sync_linger: Option<Duration>,
+    /// How the hub polls and steers each device ([ww_clock_sync::Options]; its `steerer` and `rate_cache` are the
+    /// hub's own).
+    pub sync_options: ww_clock_sync::Options,
+    /// Where the clock rates of devices are kept between connections (`ww_clock_sync::RateCache`), shared with
+    /// programs that steer in direct mode; `None`: not kept.
+    pub state_dir: Option<PathBuf>,
 }
 
 impl HubConfig {
-    /// The user's runtime dir, idle exit 5 min or [IDLE_EXIT_ENV], linger 30 s or [LINGER_ENV].
+    /// The user's runtime dir, idle exit 5 min or [IDLE_EXIT_ENV], linger 30 s or [LINGER_ENV], clock sync on unless
+    /// [SYNC_ENV] is `off`, sync linger 30 min or [SYNC_LINGER_ENV], the user's state dir (`ww_clock_sync::state_dir`).
     pub fn from_env() -> io::Result<Self> {
         let seconds = |name: &str, default: u64| match std::env::var(name) {
             Ok(s) => s.parse().map(Duration::from_secs).map_err(|_| {
@@ -80,11 +99,29 @@ impl HubConfig {
             }),
             Err(_) => Ok(Duration::from_secs(default)),
         };
+        let sync = match std::env::var(SYNC_ENV).as_deref() {
+            Ok("off") => false,
+            Ok("on") | Err(_) => true,
+            Ok(other) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("{SYNC_ENV}={other}: expected on or off"),
+                ));
+            }
+        };
+        let sync_linger = match std::env::var(SYNC_LINGER_ENV).as_deref() {
+            Ok("forever") => None,
+            _ => Some(seconds(SYNC_LINGER_ENV, 30 * 60)?),
+        };
         Ok(HubConfig {
             runtime_dir: ww_local_socket::runtime_dir()?,
             idle_exit: seconds(IDLE_EXIT_ENV, 300)?,
             linger: seconds(LINGER_ENV, 30)?,
             version: HUB_VERSION.to_string(),
+            sync,
+            sync_linger,
+            sync_options: ww_clock_sync::Options::default(),
+            state_dir: ww_clock_sync::state_dir().ok(),
         })
     }
 }
@@ -319,6 +356,13 @@ impl Bound {
             }),
             devices: Mutex::new(BTreeMap::new()),
             linger: config.linger,
+            steering: Mutex::new(sync::Steering::new(config.sync, config.sync_linger)),
+            sync_stats: tokio::sync::broadcast::channel(256).0,
+            steerer: ww_clock_sync::steerer(Some(
+                &wire_weaver_client::ClientMeta::new().program("ww hub"),
+            )),
+            state_dir: config.state_dir.clone(),
+            sync_options: config.sync_options.clone(),
             shutdown,
             events: tokio::sync::broadcast::channel(256).0,
             started_ms: unix_ms(),
@@ -478,6 +522,16 @@ pub(crate) struct Hub {
     /// One slot per device key ever asked for, see [device::Slot]
     devices: Mutex<BTreeMap<String, device::Slot>>,
     linger: Duration,
+    /// Clock sync of the open devices (SRV-31)
+    pub(crate) steering: Mutex<sync::Steering>,
+    /// `ClockSync::stats` of every connection that opened the stream
+    pub(crate) sync_stats: tokio::sync::broadcast::Sender<ww_hub_api::SyncEntryOwned>,
+    /// Who the hub's steer points say they are from
+    pub(crate) steerer: ww_timebase::SteererOwned,
+    /// See [HubConfig::state_dir]
+    pub(crate) state_dir: Option<PathBuf>,
+    /// See [HubConfig::sync_options]
+    pub(crate) sync_options: ww_clock_sync::Options,
 }
 
 pub(crate) struct State {
@@ -889,8 +943,24 @@ impl Hub {
             .clone()
     }
 
-    pub(crate) fn linger(&self) -> Duration {
-        self.linger
+    /// How long the device `key` stays open after its last tunnel left: [HubConfig::linger], or
+    /// [HubConfig::sync_linger] while the hub steers its clock; `None` forever.
+    pub(crate) fn linger_for(&self, key: &str) -> Option<Duration> {
+        let steering = self.steering.lock().unwrap();
+        match steering.steering(key) {
+            true => steering.linger.map(|l| l.max(self.linger)),
+            false => Some(self.linger),
+        }
+    }
+
+    /// The lingers changed: every open device's task looks at its own again.
+    pub(crate) async fn recheck_lingers(&self) {
+        let slots: Vec<_> = self.devices.lock().unwrap().values().cloned().collect();
+        for slot in slots {
+            if let Some(handle) = slot.lock().await.as_ref() {
+                let _ = handle.tx.send(device::ToDevice::Recheck);
+            }
+        }
     }
 
     pub(crate) fn device_opened(&self, key: &str) {
@@ -901,6 +971,7 @@ impl Hub {
     }
 
     pub(crate) fn device_closed(&self, key: &str) {
+        sync::stop(self, key);
         let mut state = self.state.lock().unwrap();
         state.open.remove(key);
         state.last_active = Instant::now();

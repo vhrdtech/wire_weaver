@@ -26,6 +26,10 @@ fn config(dir: &Path, version: &str) -> HubConfig {
         idle_exit: Duration::from_secs(60),
         linger: Duration::from_secs(30),
         version: version.into(),
+        sync: false,
+        sync_linger: None,
+        sync_options: Default::default(),
+        state_dir: None,
     }
 }
 

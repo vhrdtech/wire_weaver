@@ -2,6 +2,9 @@
 //! with the hub's event loop to the device in between.
 
 #[cfg(test)]
+mod clock_sync;
+
+#[cfg(test)]
 mod tests {
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
@@ -260,6 +263,10 @@ mod tests {
             idle_exit: Duration::from_secs(60),
             linger,
             version: ww_hub::HUB_VERSION.into(),
+            sync: true,
+            sync_linger: Some(Duration::from_secs(30 * 60)),
+            sync_options: ww_clock_sync::Options::default(),
+            state_dir: None,
         })
         .unwrap()
         .expect("no other hub in this dir");

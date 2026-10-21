@@ -23,6 +23,10 @@ fn bind(dir: &Path) -> (tokio::task::JoinHandle<Exit>, Shutdown) {
         idle_exit: Duration::from_secs(60),
         linger: Duration::from_secs(30),
         version: ww_hub::HUB_VERSION.into(),
+        sync: false,
+        sync_linger: None,
+        sync_options: Default::default(),
+        state_dir: None,
     })
     .unwrap()
     .expect("no other hub in this dir");

@@ -339,7 +339,10 @@ fn hub(py: Python<'_>, timeout: Option<f64>) -> PyResult<Device> {
 fn run_hub(py: Python<'_>) -> PyResult<i32> {
     py.detach(ww_hub::run_blocking)
         .map(|exit| match exit {
-            ww_hub::Exit::Idle | ww_hub::Exit::Shutdown | ww_hub::Exit::AlreadyRunning => 0,
+            ww_hub::Exit::Idle
+            | ww_hub::Exit::Shutdown
+            | ww_hub::Exit::AlreadyRunning
+            | ww_hub::Exit::Handover => 0,
         })
         .map_err(|e| WireWeaverError::new_err(format!("ww hub: {e}")))
 }

@@ -18,6 +18,10 @@ fn config(dir: &Path, idle_ms: u64) -> HubConfig {
         idle_exit: Duration::from_millis(idle_ms),
         linger: Duration::from_secs(30),
         version: HUB_VERSION.into(),
+        sync: true,
+        sync_linger: Some(Duration::from_secs(30 * 60)),
+        sync_options: ww_clock_sync::Options::default(),
+        state_dir: None,
     }
 }
 

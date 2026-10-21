@@ -31,6 +31,9 @@ pub trait Hub {
 
     /// Resources of a device one program has to itself for a while (SRV-34).
     ww_impl!(claims: Claims);
+
+    /// How the hub keeps its devices' clocks on UTC (SRV-31).
+    ww_impl!(sync: ClockSync);
 }
 
 /// Devices the hub knows and the programs connected to it.
@@ -85,6 +88,86 @@ pub trait Claims {
     /// until the claim is released, answering new tunnels `Status::Lent` meanwhile. Returns once the device is
     /// closed, so the other program can open it right after.
     fn lend(key: &'i str, purpose: &'i str, ttl_s: Option<u32>) -> Result<u32, ClaimError<'i>>;
+}
+
+/// Clock sync of the hub's devices (SRV-31): the hub steers every device it holds open that serves
+/// `ww_timebase::Clock` with the `host_sync` group, wherever in its API, onto this PC's UTC (`ww_clock_sync`), and
+/// keeps such a device open for [ClockSync::linger] after its last client left, so short commands don't leave it
+/// coasting. Programs see the steering here instead of steering themselves (`ww sync` with a hub).
+#[ww_trait]
+pub trait ClockSync {
+    /// Every device the hub holds open, with how its clock is steered.
+    fn devices() -> RefVec<'i, SyncEntry<'i>>;
+
+    /// Steering on (the default) or off, for the device `key` or, with `None`, for every device (a device's own
+    /// setting is then dropped). A device whose steering goes off coasts in holdover.
+    fn set_enabled(key: Option<&'i str>, on: bool);
+
+    /// How long a steered device stays open after its last client left, in seconds: `Some(0)` only while clients
+    /// are connected, `None` forever (a bench). The hub's default is 30 min (`WW_HUB_SYNC_LINGER`).
+    property!(rw linger: Option<u32>);
+
+    /// Each device's [SyncEntry] whenever it changes, a few times a second at most per device.
+    stream!(stats: SyncEntry<'i>);
+}
+
+/// How one device's clock is steered, see [ClockSync::devices].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq))]
+pub struct SyncEntry<'i> {
+    /// The device's key, as in [DeviceEntry::key].
+    pub key: &'i str,
+    pub phase: SyncPhase<'i>,
+    /// The device's sync state at the last check (`Acquiring`, `Locked`, `Holdover`, ...), `None` before one.
+    pub state: Option<ww_timebase::SyncState>,
+    /// The source the device follows, as it answered the last steer point.
+    pub source: Option<ww_timebase::SyncSource>,
+    /// The host whose steer points the device follows, by its own word: the hub itself, or a program on another PC
+    /// or with another link to the device; `None` when the device doesn't tell.
+    pub steerer: Option<ww_timebase::Steerer<'i>>,
+    /// Another steerer the device only notes.
+    pub noted: Option<ww_timebase::Steerer<'i>>,
+    /// The device follows the hub's points; `None` when it doesn't tell.
+    pub followed: Option<bool>,
+    /// The device clock's rate against this PC's, in ppb (negative: it runs fast).
+    pub rate_ppb: Option<i32>,
+    /// The rate came from the rate cache (this PC measured it before), not yet from this connection's readings.
+    pub rate_from_cache: bool,
+    /// Shortest round trip of the readings in the fit, ns.
+    pub min_rtt_ns: Option<u64>,
+    /// The device's shared time minus this PC's UTC at the last check (`shared_now`), ns, good to half of
+    /// `check_rtt_ns`.
+    pub residual_ns: Option<i64>,
+    /// Round trip of the last check, ns.
+    pub check_rtt_ns: Option<u64>,
+    /// The device's own bound of its error against UTC, µs.
+    pub error_us: Option<u32>,
+    /// Offset the device still slews in, µs.
+    pub slew_us: Option<i32>,
+    /// Readings in the fit's window.
+    pub samples: u32,
+    /// Steer points the device answered.
+    pub steers: u64,
+    /// The device restarted (its clock went backwards) this often while steered.
+    pub restarts: u32,
+    /// The last error of a call, `None` once a call works again.
+    pub error: Option<&'i str>,
+}
+
+/// What the hub does with a device's clock, see [SyncEntry::phase].
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum SyncPhase<'i> {
+    /// Looking at the device's API
+    Starting,
+    /// Steering it
+    Steering,
+    /// Steering is off for it (`ClockSync::set_enabled`, `WW_HUB_SYNC=off`)
+    Off,
+    /// Paused while a program has the whole device to itself (SRV-32)
+    Paused,
+    /// The device has no `ww_timebase::Clock` with `host_sync`
+    Unsupported,
+    /// Steering failed to start
+    Failed { why: &'i str },
 }
 
 /// See [Hub::info].

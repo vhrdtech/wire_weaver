@@ -9,7 +9,8 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["wire_weaver/std", "ww_timebase/std"]
 
 [dependencies]
 wire_weaver.workspace = true
+ww_timebase.workspace = true

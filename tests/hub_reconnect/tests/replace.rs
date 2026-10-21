@@ -39,6 +39,10 @@ async fn a_newer_program_replaces_the_running_hub() {
         idle_exit: Duration::from_secs(60),
         linger: Duration::from_secs(30),
         version: "0.0.1".into(),
+        sync: false,
+        sync_linger: None,
+        sync_options: Default::default(),
+        state_dir: None,
     })
     .unwrap()
     .unwrap();

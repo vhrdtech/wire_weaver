@@ -12,7 +12,7 @@ use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
 use ww_hub_api::{
     ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
-    HubInfoOwned, HubStatusOwned, ReleaseError, TakeErrorOwned,
+    HubInfoOwned, HubStatusOwned, ReleaseError, SyncEntryOwned, TakeErrorOwned,
 };
 
 use crate::Hub;
@@ -42,8 +42,10 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
         hub: hub.clone(),
         id,
         events_open: false,
+        stats_open: false,
     };
     let mut events = hub.events.subscribe();
+    let mut stats = hub.sync_stats.subscribe();
     loop {
         tokio::select! {
             ready = server.wait() => match server.handle(ready, &mut backend).await {
@@ -75,6 +77,18 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
                 Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} events"),
                 Err(RecvError::Closed) => break,
             },
+            entry = stats.recv() => match entry {
+                Ok(entry) if backend.stats_open && server.is_up() => {
+                    let _ = server::api_impl::stream_data_ser()
+                        .sync()
+                        .stats_send(&entry, &mut server.sink())
+                        .await;
+                }
+                Ok(_) => {}
+                // the next update of the device brings it up to date
+                Err(RecvError::Lagged(n)) => debug!("ww hub: client {id} missed {n} sync stats"),
+                Err(RecvError::Closed) => break,
+            },
         }
     }
 }
@@ -88,6 +102,8 @@ mod server {
         pub id: u32,
         /// The client opened `Registry::events`
         pub events_open: bool,
+        /// The client opened `ClockSync::stats`
+        pub stats_open: bool,
     }
 
     impl Server {
@@ -244,6 +260,66 @@ mod server {
         }
 
         async fn sideband_registry_events(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            _sideband: ww_client_server::StreamSideband,
+        ) -> Option<ww_client_server::StreamSideband> {
+            None
+        }
+    }
+
+    /// `ClockSync` (SRV-31).
+    impl Server {
+        async fn sync_devices(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> RpcResult<Vec<SyncEntryOwned>> {
+            RpcResult::Ready(self.hub.steering.lock().unwrap().entries())
+        }
+
+        async fn sync_set_enabled(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            key: Option<String>,
+            on: bool,
+        ) -> RpcResult<()> {
+            self.hub
+                .steering
+                .lock()
+                .unwrap()
+                .set_enabled(key.as_deref(), on);
+            RpcResult::Ready(())
+        }
+
+        async fn set_sync_linger(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            value: Option<u32>,
+        ) -> SetResult<()> {
+            self.hub.steering.lock().unwrap().linger =
+                value.map(|s| std::time::Duration::from_secs(s as u64));
+            self.hub.recheck_lingers().await;
+            SetResult::Set
+        }
+
+        async fn get_sync_linger(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+        ) -> GetResult<Option<u32>, ()> {
+            let linger = self.hub.steering.lock().unwrap().linger;
+            GetResult::Value(linger.map(|l| l.as_secs().min(u32::MAX as u64) as u32))
+        }
+
+        async fn sync_stats(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<()> {
+            self.stats_open = true;
+            RpcResult::Ready(())
+        }
+
+        async fn close_sync_stats(&mut self, _cx: &mut Context<'_, impl EventOut>) {
+            self.stats_open = false;
+        }
+
+        async fn sideband_sync_stats(
             &mut self,
             _cx: &mut Context<'_, impl EventOut>,
             _sideband: ww_client_server::StreamSideband,

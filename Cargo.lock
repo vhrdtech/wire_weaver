@@ -2360,10 +2360,14 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_clock_sync",
+ "ww_date_time",
  "ww_device",
  "ww_hub",
  "ww_hub_api",
  "ww_local_socket",
+ "ww_si",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -2371,6 +2375,7 @@ name = "hub_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -6233,9 +6238,12 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
+ "ww_clock_sync",
  "ww_device",
  "ww_hub_api",
  "ww_local_socket",
+ "ww_si",
+ "ww_timebase",
 ]
 
 [[package]]
@@ -6243,6 +6251,7 @@ name = "ww_hub_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_timebase",
 ]
 
 [[package]]

@@ -187,6 +187,11 @@ async fn main() {
         idle_exit: Duration::from_secs(600),
         linger: Duration::from_secs(1),
         version: ww_hub::HUB_VERSION.into(),
+        // the clock's readings would share the link with what is measured
+        sync: false,
+        sync_linger: None,
+        sync_options: ww_clock_sync::Options::default(),
+        state_dir: None,
     };
     // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)
     let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel();

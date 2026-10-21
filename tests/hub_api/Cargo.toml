@@ -13,3 +13,4 @@ std = []
 
 [dependencies]
 wire_weaver = { workspace = true, features = ["std"] }
+ww_timebase = { workspace = true, features = ["std"] }

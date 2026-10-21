@@ -37,6 +37,10 @@ async fn old_client_vs_hub_that_dropped_its_version() {
         idle_exit: Duration::from_secs(60),
         linger: Duration::from_secs(30),
         version: ww_hub::HUB_VERSION.into(),
+        sync: false,
+        sync_linger: None,
+        sync_options: Default::default(),
+        state_dir: None,
     })
     .unwrap()
     .unwrap();

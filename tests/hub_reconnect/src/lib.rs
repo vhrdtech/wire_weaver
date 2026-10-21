@@ -1,6 +1,6 @@
 //! Clients of a device behind the ww hub when the hub goes (CLT-40) or hands over to a newer one (SRV-30). The device
-//! is served in the hub's process (`inproc:` key): in the tests' own process for a hub that is shut down and bound
-//! again, in `hub_dev` for a hub that is killed and started again by the client.
+//! is served in the tests' own process: as `inproc:` for a hub in that process too (shut down and bound again), on a
+//! local socket (`ipc:`) for `hub_dev`, a hub in another process that is killed and started again by the client.
 
 use std::sync::{Arc, Mutex};
 
@@ -115,17 +115,34 @@ pub mod client {
     }
 }
 
-/// The device, served in this process at `inproc:<path>`.
+fn new_server(seen: &Arc<Mutex<Seen>>) -> server::Server {
+    server::Server {
+        seen: seen.clone(),
+        ticks_stream: Counted::new(),
+        next_tick: 0,
+        stream_sessions: 0,
+    }
+}
+
+/// The device, served in this process at `inproc:<path>`: a hub in this process reaches it.
 pub fn start_device(path: &str) -> (TestDevice, Arc<Mutex<Seen>>) {
     let seen = Arc::new(Mutex::new(Seen::default()));
     let device = tests_common::start_device_async(
         path,
-        server::Server {
-            seen: seen.clone(),
-            ticks_stream: Counted::new(),
-            next_tick: 0,
-            stream_sessions: 0,
-        },
+        new_server(&seen),
+        hub_reconnect_api::HUB_RECONNECT_FULL_GID,
+        server::api_impl::api_hash(),
+    );
+    (device, seen)
+}
+
+/// The device, served by this process on a local socket: a hub in another process reaches it as `ipc:<socket>`,
+/// and it outlives that hub, as a real device does.
+pub fn start_device_ipc(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<Seen>>) {
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    let device = tests_common::start_device_async_ipc(
+        socket,
+        new_server(&seen),
         hub_reconnect_api::HUB_RECONNECT_FULL_GID,
         server::api_impl::api_hash(),
     );

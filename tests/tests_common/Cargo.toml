@@ -7,9 +7,14 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# Devices served on a local socket (start_device_async_ipc), for a hub in another process to open
+local_socket = ["dep:ww_local_socket", "wire_weaver_client/local_socket"]
+
 [dependencies]
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["in_process"] }
 ww_client_server.workspace = true
 ww_device.workspace = true
+ww_local_socket = { workspace = true, optional = true }

@@ -256,10 +256,15 @@ impl Bound {
         let probes = async {
             loop {
                 if let Ok((stream, _)) = listener.accept().await {
-                    let (_, mut tx) = stream.split();
-                    let _ = tx
-                        .write_all(&Answer::new(Status::Ok, &config.version).encode())
-                        .await;
+                    let (mut rx, mut tx) = stream.split();
+                    // read first: closing with the preamble unread would reset the connection before the answer is read
+                    if let Ok(Ok(_)) =
+                        tokio::time::timeout(PREAMBLE_TIMEOUT, Preamble::read(&mut rx)).await
+                    {
+                        let _ = tx
+                            .write_all(&Answer::new(Status::Ok, &config.version).encode())
+                            .await;
+                    }
                 }
             }
         };

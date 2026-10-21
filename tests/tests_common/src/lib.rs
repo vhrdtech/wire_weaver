@@ -367,12 +367,34 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
 }
 
 /// How the device is connected to the host.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 enum Media {
     /// Whole messages.
     Messages,
     /// Simulated USB packets of at most this many bytes.
     Usb(usize),
+    /// Whole messages on a local socket at this path, one client at a time (a hub in another process).
+    #[cfg(feature = "local_socket")]
+    LocalSocket(std::path::PathBuf),
+}
+
+/// Like [start_device_async], but served on a local socket at `socket` (feature `local_socket`), one client at a
+/// time: a hub in another process opens it as `ipc:<socket>` and the device outlives the hub.
+#[cfg(feature = "local_socket")]
+pub fn start_device_async_ipc<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    socket: &std::path::Path,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_on(
+        &socket.display().to_string(),
+        Media::LocalSocket(socket.to_path_buf()),
+        AsyncServer(server),
+        version,
+        api_hash,
+        (),
+    )
 }
 
 /// Largest simulated USB packet [start_device_usb] supports.
@@ -427,6 +449,25 @@ fn start_on<S: Process + Send + 'static>(
                     serve(config, tx, rx, backend, medium, from_test).await
                 })
             });
+        }
+        #[cfg(feature = "local_socket")]
+        Media::LocalSocket(socket) => {
+            let (ready_tx, ready) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                block_on(async move {
+                    // the listener belongs to this thread's runtime
+                    let listener = ww_local_socket::listen(&socket, true)
+                        .expect("listen on the device socket");
+                    let _ = ready_tx.send(());
+                    let (tx, rx) = wire_weaver_client::local_socket::device::device_medium(
+                        listener,
+                        "test device",
+                        MAX_MESSAGE_LEN,
+                    );
+                    serve(config, tx, rx, backend, medium, from_test).await
+                })
+            });
+            ready.recv().expect("the device listens");
         }
     }
     TestDevice {

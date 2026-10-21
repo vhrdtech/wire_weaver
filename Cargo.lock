@@ -4978,6 +4978,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_device",
+ "ww_local_socket",
 ]
 
 [[package]]

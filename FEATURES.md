@@ -816,7 +816,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
   wire_weaver device with its own API (`ww_hub_api`). Today a second program gets "busy". Pieces: SRV-28 process and
   API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation,
-  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
+  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21. Later API groups: logs to several viewers, shared
   captures (TR-14's `ClientMap`), labels and settings, fault notifications, published (virtual) devices.
 - 📋 **SRV-28 Hub process and its API** · `v0.5.x` — crates `ww_hub_api` (`Hub`: `info`, `handover`, `shutdown`,
   `keep`; `Registry`: `devices`, `clients`, `events`, `set_client_name`) and `ww_hub`: one instance per user
@@ -1033,6 +1033,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
   through the hub after a short gap; one that doesn't is named in the other's error.
+- 📋 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (the USB
+  handle passed between the processes, link, requests in flight, streams and subscriptions), so the device never
+  sees a reconnect and the holder goes on through the hub without a gap; elsewhere CLT-43's release and reopen.
 
 ## Transports and protocols (`TR`)
 

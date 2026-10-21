@@ -155,7 +155,9 @@ async fn run(config: ClientConfig, seconds: u64, packet_size: Option<usize>) -> 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() {
     let mut args = std::env::args().skip(1);
-    let key = args.next().unwrap_or_else(|| "inproc:bench/loopback".into());
+    let key = args
+        .next()
+        .unwrap_or_else(|| "inproc:bench/loopback".into());
     let seconds = args.next().map_or(3, |s| s.parse().expect("seconds"));
     let packet_size = args
         .next()
@@ -189,7 +191,10 @@ async fn main() {
     .expect("a hub of its own");
     let shutdown = bound.shutdown_handle();
     let hub = tokio::spawn(bound.run());
-    let socket = dir.join(ww_local_socket::files::HUB_SOCKET).display().to_string();
+    let socket = dir
+        .join(ww_local_socket::files::HUB_SOCKET)
+        .display()
+        .to_string();
     let through_hub = ClientConfig::new().hub_device_at(socket, key.clone());
 
     let (mut ds, mut hs) = (vec![], vec![]);

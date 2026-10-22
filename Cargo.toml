@@ -227,3 +227,7 @@ user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }
 wire_weaver_core = { path = "./wire_weaver_core" }
+
+[profile.deploy]
+inherits = "release"
+incremental = true

@@ -16,17 +16,13 @@ Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli
 ```
 
-Or from a local checkout of the repository:
-
-```sh
-cargo install --path wire_weaver_cli
-```
-
-Re-run the same command with `--force` to update an existing installation.
+From a local checkout of the repository, on a PC with `tpm`, `just install` builds `ww` with the `deploy` profile and installs
+it into the kept-releases stack in `~/.local/bin` (the only `ww` on `PATH`); `just deploy` pulls main first and checks
+`ww --version`. Without `tpm`, use `cargo install --path wire_weaver_cli` from the checkout, and re-run it with `--force`
+to update an existing installation.
 
 Inside the repository it can also be run without installing, with `cargo ww <args>` (alias from
-`.cargo/config.toml`). `just install-cli` builds the current checkout in release mode and copies the binary into
-`~/.local/bin/ww`, which is handy when testing changes to the tool itself.
+`.cargo/config.toml`). `just install` (also `just install-cli`) installs the current checkout as above, which is handy when testing changes to the tool itself.
 
 !!! note "Linux permissions"
     Listing devices works without any setup, but opening one (`introspect`, `info`, ...) needs read/write access

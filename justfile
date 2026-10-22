@@ -194,11 +194,24 @@ check-examples-mcu-rp2:
 upload-examples-mcu-usb-stm32h725ig:
     mx3 fw upload --bin uart --release --rename usb_b135_uart
 
-# Build the ww CLI in release mode and copy it into ~/.local/bin for quick testing
-install-cli:
-    cargo build --release -p wire_weaver_cli
-    install -Dm755 target/release/ww ~/.local/bin/ww
-    @echo "Installed ww into ~/.local/bin"
+# Build ww and install it on this PC (kept-releases stack in ~/.local/bin, the only ww on PATH)
+install:
+    cargo build --profile deploy --locked -p wire_weaver_cli
+    tpm install target/deploy/ww
+
+# Old name of install, kept for people and docs
+install-cli: install
+
+# Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
+deploy:
+    #!/usr/bin/env bash
+    set -eu
+    dirty=$(git status --porcelain)
+    if [ -n "$dirty" ]; then echo "local changes, not deploying:"; echo "$dirty"; exit 1; fi
+    git pull --ff-only
+    just install
+    ww --version | grep -q "($(git rev-parse --short HEAD)" || { echo "ww --version does not show $(git rev-parse --short HEAD):"; ww --version; exit 1; }
+    ww --version
 
 # Save API snapshots of ww_global and ww_stdlib crates, and copy them into wire_weaver_snapshots to be embedded.
 # Pass --force to overwrite snapshots of versions that were never published.

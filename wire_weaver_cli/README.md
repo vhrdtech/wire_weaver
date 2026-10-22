@@ -10,13 +10,13 @@ Install from git with cargo (the binary ends up in `~/.cargo/bin`):
 cargo install --git https://github.com/vhrdtech/wire_weaver ww
 ```
 
-Or from a local checkout of this repository:
+From a local checkout of this repository, on a PC with `tpm`:
 
 ```sh
-cargo install --path wire_weaver_cli
+just install
 ```
 
-Re-run the same command with `--force` to update an existing installation.
+It builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. Without `tpm`, use `cargo install --path wire_weaver_cli` from the checkout; re-run it with `--force` to update.
 
 ### Shell completions
 
@@ -34,8 +34,7 @@ Elvish and PowerShell are supported as well (`COMPLETE=elvish`, `COMPLETE=powers
 
 ### Quick testing during development
 
-`just install-cli` builds the current checkout in release mode and copies the binary into `~/.local/bin/ww`,
-without going through `cargo install`. Alternatively, run it without installing from anywhere in the repository
+`just install` (also available as `just install-cli`) builds the current checkout and installs it as described above. Alternatively, run it without installing from anywhere in the repository
 with `cargo ww <args>` (alias from `.cargo/config.toml`).
 
 ## Usage

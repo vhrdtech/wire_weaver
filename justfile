@@ -2,8 +2,14 @@
 default:
     @just --list
 
+# The tests. `just test`: all of them (test-all), the run of the `tpm land` gate. `just test --changed`: only the
+# workspace crates changed against main and the crates that depend on them (tpm test changed), what a session runs
+# before tpm work ready.
+test *flags:
+    if [ "{{flags}}" = "--changed" ]; then tpm test changed -- cargo nextest run --workspace; else {{just_executable()}} test-all {{flags}}; fi
+
 # Test everything
-test:
+test-all:
     cargo nextest run --workspace --no-fail-fast
     # a firmware's SeriesStore sizes, compare and conversions, with the number types up to 32 bits only
     cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer

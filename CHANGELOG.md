@@ -253,6 +253,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   with simulated drifting and jittery device clocks. `ww_indication`: devices with a shared clock align their
   animations to period boundaries of UTC, so they breathe in phase. `ww sync DEV...` keeps several devices steered
   and shows how well they follow.
+- `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
 
 ### Changed
 

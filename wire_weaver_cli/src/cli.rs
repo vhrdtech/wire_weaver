@@ -1,5 +1,4 @@
 use crate::cmd::api::ApiCommand;
-use crate::cmd::bootsel::BootselCommand;
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
@@ -11,7 +10,6 @@ use crate::cmd::list::ListArgs;
 use crate::cmd::observe::ObserveArgs;
 use crate::cmd::pins::PinsCommand;
 use crate::cmd::settings::SettingsCommand;
-use crate::cmd::stm32dfu::Stm32DfuCommand;
 use crate::cmd::stream::StreamArgs;
 use crate::cmd::sync::SyncArgs;
 use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
@@ -187,14 +185,6 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Settings(SettingsCommand),
 
-    /// Old name of `ww dfu rp`, kept for scripts: says the new name and runs it
-    #[command(subcommand, hide = true)]
-    Bootsel(BootselCommand),
-
-    /// Old name of `ww dfu stm32`, kept for scripts: says the new name and runs it
-    #[command(subcommand, hide = true)]
-    Stm32dfu(Stm32DfuCommand),
-
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
     ///
     /// Create udev rule:
@@ -336,28 +326,11 @@ impl GlobalFlags {
         Some(match path {
             "usb-loopback" | "introspect" | "observe" | "stream" | "dfu" | "counters" | "info"
             | "report" | "pins" => DeviceAndTap,
-            "list" | "sync" | "config" | "dfu rp" | "dfu stm32" | "bootsel" | "stm32dfu"
-            | "explain" | "monitor" | "stats" | "capture" => Device,
+            "list" | "sync" | "config" | "dfu rp" | "dfu stm32" | "explain" | "monitor"
+            | "stats" | "capture" => Device,
             "api" | "elf" | "settings" | "hub" | "udev" => Neither,
             _ => return None,
         })
-    }
-}
-
-impl Commands {
-    /// The command an old name stands for, saying its new name on stderr.
-    pub(crate) fn renamed(self) -> Self {
-        match self {
-            Commands::Bootsel(cmd) => {
-                eprintln!("`ww bootsel` is `ww dfu rp` now");
-                Commands::Dfu(DfuCommand::Rp(cmd))
-            }
-            Commands::Stm32dfu(cmd) => {
-                eprintln!("`ww stm32dfu` is `ww dfu stm32` now");
-                Commands::Dfu(DfuCommand::Stm32(cmd))
-            }
-            cmd => cmd,
-        }
     }
 }
 
@@ -442,7 +415,6 @@ impl Cli {
             Commands::Stats(args) => args.file.is_none(),
             Commands::Config(_) => false,
             Commands::Dfu(dfu) => dfu.needs_device(),
-            Commands::Bootsel(_) | Commands::Stm32dfu(_) => false,
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
             Commands::Pins(_) => true,
             Commands::Elf(_) => false,
@@ -511,25 +483,6 @@ mod tests {
         assert!(!help(&["dfu", "flash", "--help"]).contains("-p/--product"));
         // in full where they are defined
         assert!(help(&["--help"]).contains("[env: WW_SERIAL=]"));
-    }
-
-    #[test]
-    fn old_boot_rom_names_still_run() {
-        let parse = |args: &[&str]| {
-            let matches = Cli::command_fitted()
-                .try_get_matches_from(std::iter::once(&"ww").chain(args))
-                .unwrap();
-            Cli::from_arg_matches(&matches).unwrap().command.renamed()
-        };
-        assert!(matches!(
-            parse(&["bootsel", "list"]),
-            Commands::Dfu(DfuCommand::Rp(_))
-        ));
-        assert!(matches!(
-            parse(&["stm32dfu", "list"]),
-            Commands::Dfu(DfuCommand::Stm32(_))
-        ));
-        assert!(!help(&["--help"]).contains("bootsel"));
     }
 
     #[test]

@@ -31,8 +31,7 @@ fn main() -> Result<()> {
 
 async fn run() -> Result<()> {
     let matches = Cli::command_fitted().get_matches();
-    let mut cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
-    cli.command = cli.command.renamed();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     // keep connection progress logs out of the printed tree
     let max_level: tracing::level_filters::LevelFilter = match cli.command {
         // the hub closes the connection on us by design
@@ -234,11 +233,10 @@ async fn run_command(
             let (device, tap) = (device.take().unwrap(), tap.unwrap());
             cmd::tap::capture(args, device, tap, stop.unwrap()).await?
         }
-        // the old names are mapped to these by `Commands::renamed`
-        Commands::Dfu(DfuCommand::Rp(rp_cmd)) | Commands::Bootsel(rp_cmd) => {
+        Commands::Dfu(DfuCommand::Rp(rp_cmd)) => {
             cmd::bootsel::bootsel(rp_cmd, selection.as_ref().unwrap()).await?
         }
-        Commands::Dfu(DfuCommand::Stm32(stm32_cmd)) | Commands::Stm32dfu(stm32_cmd) => {
+        Commands::Dfu(DfuCommand::Stm32(stm32_cmd)) => {
             cmd::stm32dfu::stm32dfu(stm32_cmd, selection.as_ref().unwrap()).await?
         }
         Commands::Dfu(DfuCommand::Device(dfu_cmd)) => {

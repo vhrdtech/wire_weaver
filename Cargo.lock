@@ -671,7 +671,7 @@ dependencies = [
 
 [[package]]
 name = "chunky"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "chunky_format",
  "ed25519-dalek",
@@ -681,14 +681,14 @@ dependencies = [
 
 [[package]]
 name = "chunky_format"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "shrink_wrap",
 ]
 
 [[package]]
 name = "chunky_server"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "chunky",
  "chunky_format",
@@ -700,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "chunky_ww"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "chunky",
  "embedded-storage",
@@ -710,7 +710,7 @@ dependencies = [
 
 [[package]]
 name = "chunky_ww_host"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "chunky",
  "chunky_server",

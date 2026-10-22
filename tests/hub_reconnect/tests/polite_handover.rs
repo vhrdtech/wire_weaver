@@ -160,7 +160,7 @@ async fn a_gui_holder_refuses_and_is_named() {
     let socket = dir.join("dev.sock");
     let (_device, _seen) = hub_reconnect::start_device_ipc(&socket);
     let key = format!("ipc:{}", socket.display());
-    let mut holder = Holder::start(&socket, "Gui");
+    let holder = Holder::start(&socket, "Gui");
 
     let e =
         match Client::config(|c| asker()(c.ipc_path(socket.display().to_string()).ipc_exclusive()))

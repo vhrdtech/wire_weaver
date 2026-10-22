@@ -7,6 +7,12 @@
   points. `ClientConfig::clock_sync(false)` (or `WW_CLOCK_SYNC=off`) keeps the old behaviour; a program that steers
   with a `ClockSync` of its own should turn it off. A connection without introspection data (`traits_only`) tries
   `Clock::now()` once to find out. New default feature `clock_sync` (dependencies `ww_timebase`, `ww_date_time`).
+- `EventLoopExitReason::HandedToHub` is new (CLT-43): an exhaustive match needs the arm. `holders::Holder` has the new
+  public field `handover` (the holder's socket for a polite handover, empty if none): code building a `Holder` sets it.
+- RTT takes its lock-file claim in the event loop's `connect` (on the tokio runtime) instead of on the probe's IO thread,
+  still before the probe is opened; both halves of a USB, RTT or `ipc_exclusive` link keep the claim, so it goes once
+  both closed the medium.
+
 - `EventLoopExitReason::DisconnectFromDevice` carries the `DisconnectReason` the device (or the ww hub) sent.
 - `Command::Connect` has the new field `keep_streams_on_loss`: when the link goes rather than being disconnected on
   request, counted and reliable streams, observed levels and sinks stay for a resume as after
@@ -37,6 +43,23 @@
   reconnect that reaches the device directly. The task holds the connection weakly, one round of calls at a time,
   so it never keeps it open. The rate cache is picked by the device's serial (USB, RTT), the steerer is the
   connection's `ClientMeta`.
+- Polite handover to the ww hub (CLT-43): a program holding a device directly hands it to the hub when another
+  program wants it, and goes on through the hub after a short gap. `ClientConfig::allow_handover(bool)`, by default on
+  for client kinds `Cli`, `Notebook` and `Test`, off for `Gui`, `Service` and the rest, in effect where the holder can
+  reconnect through the hub (`connect()`, `hub_reconnect` set, `HubMode` not `Direct`, feature `hub`). The holder
+  listens on `<runtime>/ww/holders/<key>.sock` (user-only, its lock file names it: `handover = <path>`), lets go of the
+  device on a `HandToHub` request and reconnects through the hub on the CLT-40 path:
+  `ConnectionEvent::Disconnected { reason: GapReason::HandedToHub, .. }`, then `Reconnected`, streams resumed. One
+  that doesn't allow it answers no with its client metadata. `connect()` (USB, RTT, `ipc_exclusive`) in every mode but
+  `Direct`, and `hub::take`, ask a direct holder first when a hub runs or can start; a refusal fails naming the holder
+  and its kind. Release and reopen; tested on Linux between two processes (gap ~5 ms on a simulated device).
+- `ClientConfig::ipc_exclusive()`: a device on a local socket that takes one host at a time (a simulated USB device)
+  is held like one: a lock file `ipc:<path>` (CLT-38, a second program is told who holds it), hub routing without the
+  open counter (CLT-39) and polite handover (CLT-43). Off by default, so a process serving several connections stays
+  reachable by all of them.
+- `connect()` routes RTT probes through the hub too when the hub holds them, their holder hands them over, or in
+  `HubMode::Prefer` / `Required` (the open counter still counts USB only).
+
 - `hub::ensure_running(true)` replaces a running hub that is older than this program's own (registered by `ww_hub::main_if_hub()`, no process spawned to find out) under `hub.start.lock`: it starts itself with `hub::HANDOVER_ENV`, and the new hub takes over (SRV-30); a failure leaves the running hub in place. Only strictly newer replaces older, so it converges on the newest hub.
 - The local socket preamble carries this program's `ww_link` and `ww_client_server` versions (SRV-30), and is sent again in the first layout to a hub that answers it doesn't read the second. A hub that doesn't serve them fails `connect()` with `Error::HubRefused { status: 4, .. }` naming both versions and the fix (rebuild with the hub's WireWeaver, or update the hub, or `WW_HUB=off` while it is stopped); routing doesn't fall back to a direct open then, and a reconnect gives up.
 - Reconnect after a hub restart (CLT-40): a connection through the ww hub (routed by `connect()` or

@@ -1148,7 +1148,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   polling the socket with the preamble for 2 s), lock files with the holder's client metadata, busy errors that say
   how to get a hub, `ww hub take` (`hub::take`). See `docs/transport/hub.md#reaching-devices-through-the-hub-clt-39`.
   Tested on Linux (`tests/hub_routing`: two programs starting a hub at once get one, stale socket, no executable;
-  unit tests for the modes). Missing: USB only (RTT and the rest connect directly); a routed USB connection through the
+  unit tests for the modes). Missing: the open counter counts USB only (RTT and `ipc_exclusive` local sockets go through the hub when it holds them,
+  their holder hands them over (CLT-43) or in `Prefer` / `Required`; the rest connect directly); a routed USB connection through the
   SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
   can't fake); a check on macOS and Windows (compiles for both).
 - 🧪 **CLT-40 Reconnect after a hub restart** · `v0.5.x` — the client reconnects by itself, re-opens its streams and
@@ -1175,9 +1176,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`a_direct_connection_steers_by_itself`, `own_steering_never_keeps_the_connection_open`), `tests/hub`
   (`ThroughHub`). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct `ww` command or
   app, `ww sync` with a hub showing it followed, no second steerer with the hub.
-- 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
+- 🧪 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
-  through the hub after a short gap; one that doesn't is named in the other's error.
+  through the hub after a short gap; one that doesn't is named in the other's error. Built
+  (`docs/transport/hub.md#polite-handover-from-a-direct-holder-clt-43`): `ClientConfig::allow_handover` (default by
+  client kind, only where the holder can reconnect through the hub); a direct holder listens on
+  `<runtime>/ww/holders/<key>.sock` (user-only, peer checked, named in its lock file as `handover = <path>`) for the
+  frozen `WWHO` request (`ww_local_socket::HandoverRequest` / `HandoverAnswer`, TLV trailer with the client metadata);
+  its event loop lets go of the device (`HandedToHub`, streams kept), the claim is shared by both link halves so
+  `Released` comes only once the medium is closed, and it reconnects through the hub on CLT-40's path
+  (`GapReason::HandedToHub`, `Reconnected`). `connect()` (USB, RTT, `ClientConfig::ipc_exclusive` local sockets) and
+  `ww hub take` ask a direct holder before opening when a hub runs or can start; a refusal fails with the holder's
+  name and kind. Release and reopen on every OS. Tested on Linux between two processes on a simulated device
+  (`tests/hub_reconnect` `polite_handover.rs`: a `Cli` holder hands over with a counted stream resumed, gap 4.6 ms
+  median; a `Gui` holder refuses and is named). Open: the gap with a real USB device and an RTT probe (omarchy-m1),
+  the CLT-44 baseline; a check on macOS and Windows (compiles by inspection only).
 - 📋 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (the USB
   handle passed between the processes, link, requests in flight, streams and subscriptions), so the device never
   sees a reconnect and the holder goes on through the hub without a gap; elsewhere CLT-43's release and reopen.

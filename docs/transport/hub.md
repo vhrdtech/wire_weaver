@@ -22,6 +22,12 @@ let sim = Blinky::config(|c| c.ipc_path("/run/user/1000/ww/sim.sock".into()))
 Everything above the medium is the same as with [USB](usb.md) or [WebSocket](websocket.md): [link setup](ww_link.md),
 version check, introspection, pings, timeouts, streams.
 
+A device served on a socket that takes one host at a time, as a USB device does (a simulated one), can be held like
+one with `.ipc_exclusive()`: the connection takes the device's lock file (`ipc:<path>`, [CLT-38](#who-holds-a-device-clt-38)),
+so a second program is told who holds it, and it takes part in the hub's routing and in a
+[polite handover](#polite-handover-from-a-direct-holder-clt-43). Without it, nothing is recorded, and a process serving
+several connections stays reachable by all of them.
+
 ## Device side
 
 `wire_weaver_client::local_socket::device::device_medium()` gives the `MessageTx` / `MessageRx` pair for a
@@ -52,6 +58,10 @@ Sockets are for the user that runs the programs, nobody else:
 - Both ends ask the OS who is on the other side (`SO_PEERCRED` / `getpeereid`, the pipe's process and its token's
   user on Windows) and drop a connection of another user. That covers a name squatted by someone else, as named
   pipes live in one namespace for all users.
+- A direct holder's handover socket (`holders/<key>.sock`, [CLT-43](#polite-handover-from-a-direct-holder-clt-43))
+  takes commands from other processes, so it is made the same way: the same user-only listener, the peer's user
+  checked on accept. What it accepts is narrow: a holder that doesn't allow a handover only ever answers no, and
+  never lets go of its device.
 
 ## Wire format
 
@@ -196,9 +206,11 @@ open the device now and keep it, so every program reaches the device through the
 
 ### Limits of the routing
 
-A routed connection is a [device tunnel](#device-tunnels-srv-29), with that section's limits. Only USB devices are
-routed so far; RTT and the other transports connect directly (a program reaches an RTT device through the hub with
-`ClientConfig::hub_device("rtt:..")`). `connect_blocking()` routes when it runs on a multi-thread tokio runtime
+A routed connection is a [device tunnel](#device-tunnels-srv-29), with that section's limits. The open counter
+counts USB devices only. An RTT probe and a device on a local socket that takes one host at a time
+(`ClientConfig::ipc_exclusive()`) go through the hub when the hub holds them, when their direct holder hands them over
+([CLT-43](#polite-handover-from-a-direct-holder-clt-43)), and in `Prefer` / `Required`; the other transports connect
+directly (a program reaches any device through the hub with `ClientConfig::hub_device("..")`). `connect_blocking()` routes when it runs on a multi-thread tokio runtime
 (Python's is one); on a current-thread runtime it connects directly.
 
 ## Python and notebooks (TOOL-18)
@@ -382,6 +394,7 @@ while let Ok(event) = events.recv().await {
 ```
 
 `GapReason` says why: `Lost(why)` (the socket ended, an IO error, the peer timeout), `HubHandover`, `Lent`,
+`HandedToHub` (this program handed a device it held directly to the hub, [below](#polite-handover-from-a-direct-holder-clt-43)),
 `Disconnect(reason)` (the hub or device ended the link for another reason). While the client reconnects by itself,
 `Commander::reconnect()` is refused; after `GaveUp` it works as after any disconnect.
 
@@ -389,6 +402,69 @@ Measured on Linux (`tests/hub_reconnect`, `kill.rs`): with calls in flight all t
 the hub killed with `SIGKILL` twice; each time the client was back in about 90 ms, the new hub started by the client
 itself, the stream went on from where it was, the calls in flight failed with `Disconnected` and none reached the
 device twice.
+
+## Polite handover from a direct holder (CLT-43)
+
+A program that holds a device directly (it opened it before the hub took an interest) can hand it to the hub when
+another program wants it, instead of that one failing with "busy". Both go on through the hub afterwards.
+
+- **Who hands over.** `ClientConfig::allow_handover(bool)`; by default the client's kind decides
+  ([client meta](#who-connects-client-meta-clt-41)): `Cli`, `Notebook` and `Test` do, `Gui`, `Service` and the rest
+  don't (they hold a device for long, a gap buys them nothing). It takes effect only where the holder can reconnect
+  through the hub: `connect()` (not `connect_blocking()`), `hub_reconnect` not `None`, `HubMode` not `Direct`, the
+  `hub` feature. The hub's own connections offer nothing.
+- **The holder's socket.** While it holds the device, a direct holder listens on `<runtime dir>/ww/holders/<key>.sock`
+  (a hashed name when the key makes the path too long for a Unix socket) and names it in its lock file
+  (`handover = <path>`). A holder that refuses listens too, so that it can say no and who it is.
+- **Asking.** `connect()` in every mode but `Direct` looks for a direct holder of the device it picked before opening
+  it (USB, RTT, `ipc_exclusive` local sockets). With a hub running or startable, it sends `HandToHub` with its own
+  client metadata. Without a hub nobody is asked: the holder would lose the device for nothing, and the open fails as
+  busy, naming it. `ww hub take` asks the same way.
+- **Handing over.** The holder's event loop lets go of the device as `disconnect().keep_streams()` does
+  (`EventLoopExitReason::HandedToHub`). Once both halves of its link closed the medium and its claim on the lock file
+  is gone, it answers `Released`. The asker then reaches the device through the hub (`Prefer`, the hub opens it), and
+  the holder reconnects through the hub by itself on [CLT-40's path](#reconnect-after-a-hub-restart-clt-40):
+  `ConnectionEvent::Disconnected { reason: GapReason::HandedToHub, reconnecting: true }`, then `Reconnected`, with
+  counted and reliable streams, observed levels and sinks resumed. Calls in flight fail with `Error::Disconnected`;
+  none is sent again.
+- **Refusing.** A holder that doesn't allow it answers `Refused` with its client metadata, at once, and keeps the
+  device. The asker's connect fails naming it:
+
+```text
+ipc:/tmp/dev.sock is held by rePort, pid 4711, Gui, roman@pc1, direct, since 14:02:03 UTC; asked to hand the
+device to the ww hub, it doesn't hand it over (kind Gui): close it, or let it hand over
+(ClientConfig::allow_handover(true))
+```
+
+A holder built before CLT-43 (no `handover` line) isn't asked; the open fails as busy, as before.
+
+### The holder socket's bytes
+
+Frozen like the [preamble](#wire-format) (`ww_local_socket::HandoverRequest` / `HandoverAnswer`): a new layout gets a
+new version, and fields are added as trailer entries, so holders and askers of any two versions understand each other.
+
+| Direction | Bytes |
+|---|---|
+| asker → holder | `"WWHO"`, version (u8, 1), op (u8: 1 `HandToHub`), trailer length (u16 LE), entries |
+| holder → asker | `"WWHO"`, version (u8, 1), status (u8: 0 `Released`, 1 `Refused`, 2 `Failed`), trailer length (u16 LE), entries |
+
+Entries are the preamble's, `| tag: u8 | len: u8 | value |`, unknown tags skipped. Tag 1 is the sender's client
+metadata (`ww_link::ClientMeta`, shrink_wrap bytes), split over consecutive tag-1 entries when it is longer than 255
+bytes. The holder closes the connection after its answer; `Released` comes only after the device is free, `Failed`
+when it wasn't within 5 s.
+
+### What the gap costs
+
+This is release and reopen: the holder closes the device, the hub opens it again (USB: open, claim the interface, link
+setup; RTT: attach the probe again, which can take a second or more), and the holder sets up its link through the hub.
+On Linux, CLT-44 is to replace it with a live handover of the open link, measured against this baseline.
+
+Measured on Linux (`tests/hub_reconnect`, `polite_handover.rs`, debug build, gpd-omarchy, 22 Oct 2026), with a
+simulated device that takes one host at a time on a local socket and the holder in another process with a counted
+stream open, 30 runs: the holder let go of the device within about 4.5 ms of the request; its gap, from the link going
+to the stream resumed through the hub, was 4.6 ms median (3.5 to 12 ms); the asker's whole `connect()`, starting the
+hub process included, took 34 ms median. A real USB device adds its open and link setup to the gap, an RTT probe its
+attach; those are to be measured on hardware.
 
 ## Version skew and handover (SRV-30)
 
@@ -681,10 +757,12 @@ host = pc1
 label =
 purpose =
 instance_id = 9318842301562216747
+handover = /run/user/1000/ww/holders/usb_046d_c52b_ABCD1234_0.sock
 ```
 
-The last six lines are the holder's [client meta](#who-connects-client-meta-clt-41); a file written by an older
-program lacks them and reads with those fields empty.
+`kind` to `instance_id` are the holder's [client meta](#who-connects-client-meta-clt-41); `handover` is its socket
+for a [polite handover](#polite-handover-from-a-direct-holder-clt-43), empty for a holder that listens on none. A file
+written by an older program lacks them and reads with those fields empty.
 
 ### Busy errors name the holder
 

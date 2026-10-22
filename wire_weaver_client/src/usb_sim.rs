@@ -73,6 +73,9 @@ struct Bus {
     claims_waiting: std::sync::atomic::AtomicUsize,
 }
 
+/// Holder id of the program of [UsbSimControl::grab], hosts count from 1.
+const FOREIGN: u64 = 0;
+
 /// What a test does to the simulated device from outside ([UsbSource::control]).
 #[derive(Clone)]
 pub struct UsbSimControl(Arc<Bus>);
@@ -89,6 +92,31 @@ impl UsbSimControl {
         self.0
             .claims_waiting
             .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Another program claims the interface (and takes the IN packets, they are dropped) until [Self::ungrab]:
+    /// hosts' claims are refused meanwhile. False when a host holds it now.
+    pub fn grab(&self) -> bool {
+        let mut holder = self.0.holder.lock().unwrap();
+        if holder.is_some() {
+            return false;
+        }
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        std::thread::spawn(move || while rx.blocking_recv().is_some() {});
+        *holder = Some((FOREIGN, tx));
+        drop(holder);
+        self.0.bump();
+        true
+    }
+
+    /// The other program of [Self::grab] lets the interface go.
+    pub fn ungrab(&self) {
+        let mut holder = self.0.holder.lock().unwrap();
+        if holder.as_ref().is_some_and(|h| h.0 == FOREIGN) {
+            *holder = None;
+            drop(holder);
+            self.0.bump();
+        }
     }
 
     /// Whether a host holds the interface now.
@@ -215,7 +243,8 @@ async fn serve_host(
     });
     let mut reader = MessageReader::new(rx, MAX_PACKET);
     let holds = |bus: &Bus| bus.holder.lock().unwrap().as_ref().map(|h| h.0) == Some(id);
-    while let Ok((kind, bytes)) = reader.read_message().await {
+    while reader.wait_message().await.is_ok() {
+        let (kind, bytes) = reader.message().expect("a message was just received");
         match kind {
             PACKET if holds(&bus) => {
                 if bytes.len() > max_packet {
@@ -226,13 +255,26 @@ async fn serve_host(
             }
             PACKET => trace!("usb sim: host {id} sent a packet without holding the interface"),
             CLAIM => {
+                reader.consume();
                 let mut held = bus.claims_held.subscribe();
                 if *held.borrow() {
                     bus.claims_waiting
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    let _ = held.wait_for(|h| !*h).await;
+                    // a host that goes while it waits never gets the interface; a message it sends meanwhile
+                    // stays buffered for after the answer
+                    let gone = tokio::select! {
+                        _ = held.wait_for(|h| !*h) => false,
+                        r = reader.wait_message() => r.is_err(),
+                    };
+                    if !gone {
+                        let _ = held.wait_for(|h| !*h).await;
+                    }
                     bus.claims_waiting
                         .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                    if gone {
+                        debug!("usb sim: host {id} closed the device waiting for its claim");
+                        break;
+                    }
                 }
                 let granted = {
                     let mut holder = bus.holder.lock().unwrap();
@@ -250,6 +292,8 @@ async fn serve_host(
                     bus.configured.send_replace(true);
                     bus.bump();
                 }
+                // consumed already, a message buffered meanwhile is the next one
+                continue;
             }
             RELEASE => {
                 let released = {
@@ -269,6 +313,7 @@ async fn serve_host(
             }
             other => debug!("usb sim: host {id} sent unknown kind {other}"),
         }
+        reader.consume();
     }
     // the host is gone: its claim goes, as the kernel releases a closed usbfs file's interfaces
     let was_holder = {
@@ -872,6 +917,36 @@ mod tests {
             a2 = open(&path).await;
         }
         a2.unwrap();
+        drop(a);
+    }
+    /// A host that goes while its claim waits never holds the interface; another program's grab refuses claims.
+    #[tokio::test]
+    async fn waiting_claims_and_a_grab() {
+        let path = socket("waiting");
+        let listener = ww_local_socket::listen(&path, true).unwrap();
+        let (_sink, source) = device(listener, 64);
+        let control = source.control();
+        control.hold_claims(true);
+        let p = path.clone();
+        let waiting = tokio::spawn(async move { open(&p).await.map(|_| ()) });
+        while control.claims_waiting() == 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+        waiting.abort();
+        while control.claims_waiting() != 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+        control.hold_claims(false);
+        assert!(!control.held(), "a host gone while waiting got the interface");
+
+        assert!(control.grab());
+        assert_eq!(
+            open(&path).await.err().unwrap(),
+            format!("{}: the interface is held by another host", path.display())
+        );
+        control.ungrab();
+        let a = open(&path).await.unwrap();
+        assert!(!control.grab(), "a host holds it");
         drop(a);
     }
 }

@@ -143,8 +143,10 @@ mod tests {
             shared: ns as f64 + 1e9,
             slope: 1.0,
             min_rtt: 0,
+            max_rtt: 0,
             used: 4,
             residual_rms: 0.0,
+            rate_sensitivity: 0.0,
             prior: false,
         };
         // UTC is the monotonic clock + 1.7e18 ns
@@ -176,8 +178,10 @@ mod tests {
             shared: 1e12,
             slope: 1.0 - 1e-6,
             min_rtt: 0,
+            max_rtt: 0,
             used: 4,
             residual_rms: 0.0,
+            rate_sensitivity: 0.0,
             prior: false,
         };
         let p = dt.steer_point(&fit, 7_000, 0).unwrap();

@@ -59,6 +59,10 @@ mod tests {
         steer: Option<SteerPoint<'static>>,
         /// `steer` points taken, followed or only noted.
         steers: u32,
+        /// `now()` calls answered.
+        nows: u32,
+        /// `now()` calls answered when the first `steer` point came.
+        nows_at_first_steer: Option<u32>,
         /// The `time_map` stream is open.
         time_map_open: bool,
     }
@@ -80,6 +84,8 @@ mod tests {
                 times_of_day: Vec::new(),
                 steer: None,
                 steers: 0,
+                nows: 0,
+                nows_at_first_steer: None,
                 time_map_open: false,
             }
         }
@@ -124,6 +130,7 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<Second> {
+                self.m.lock().unwrap().nows += 1;
                 Ready(self.elapsed())
             }
 
@@ -332,6 +339,9 @@ mod tests {
                 }
                 let mut m = self.m.lock().unwrap();
                 m.steers += 1;
+                if m.nows_at_first_steer.is_none() {
+                    m.nows_at_first_steer = Some(m.nows);
+                }
                 let line = SyncSource::Line {
                     format: SyncFormat::IrigB,
                 };
@@ -825,9 +835,11 @@ mod tests {
             .unwrap()
             .clone();
         assert!(s.rate_from_cache);
-        // the first steer point went out after the first reading, not after `min_span` of them
-        assert_eq!(s.samples, 1);
         assert!(s.fit.unwrap().prior);
+        // the first steer point went out after the first sample, not after `min_span` of them: the device saw the
+        // reading that learns its time format and that one. Counted by the device, since the watch only keeps the
+        // latest status (on a loaded PC more samples come before the test reads it)
+        assert_eq!(m.lock().unwrap().nows_at_first_steer, Some(2));
         assert!(m.lock().unwrap().steer.is_some());
         sync.stop();
         let _ = std::fs::remove_dir_all(&dir);
@@ -852,11 +864,13 @@ mod tests {
         .expect("a check within 2 s")
         .unwrap()
         .clone();
-        // the mock runs 1 % fast: the fit sees it within a few hundred ppm after 40 ms
+        // the mock runs 1 % fast in real time: the fit has it within its own bound, which holds however loaded the
+        // PC is (round trips of milliseconds only widen it); how close the fit gets is the estimator's tests' job
         let fit = status.fit.unwrap();
+        let bound = fit.rate_bound_ppb(1_000).unwrap();
         assert!(
-            (fit.rate_ppb() + 9_900_990).abs() < 1_000_000,
-            "{}",
+            (fit.rate_ppb() + 9_900_990).unsigned_abs() <= bound,
+            "{} ppb, bound {bound} ppb",
             fit.rate_ppb()
         );
         assert_eq!(status.source, Some(SyncSource::Host));

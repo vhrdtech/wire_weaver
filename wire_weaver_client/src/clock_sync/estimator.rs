@@ -221,6 +221,9 @@ impl Estimator {
         }
         let slope = sxy / sxx;
         let intercept = my - slope * mx;
+        // every sample's host_mid is within half its round trip of when the device read its clock: how far that moves
+        // the slope at most (least squares is linear in the y values)
+        let rate_sensitivity = points.clone().map(|(x, _)| (x - mx).abs()).sum::<f64>() / sxx;
         let residual = (points
             .map(|(x, y)| {
                 let e = y - (intercept + slope * x);
@@ -234,8 +237,10 @@ impl Estimator {
             shared: y0 as f64 + intercept,
             slope,
             min_rtt: best.iter().map(|s| s.rtt()).min().unwrap_or(0),
+            max_rtt: best.iter().map(|s| s.rtt()).max().unwrap_or(0),
             used: best.len(),
             residual_rms: residual,
+            rate_sensitivity,
             prior: false,
         })
     }
@@ -255,8 +260,10 @@ fn fixed_slope(best: &[&Sample], x0: u64, slope: f64) -> Fit {
         shared: y0 as f64 + mean,
         slope,
         min_rtt: best.iter().map(|s| s.rtt()).min().unwrap_or(0),
+        max_rtt: best.iter().map(|s| s.rtt()).max().unwrap_or(0),
         used: best.len(),
         residual_rms: residual,
+        rate_sensitivity: 0.0,
         prior: true,
     }
 }
@@ -272,10 +279,15 @@ pub struct Fit {
     pub slope: f64,
     /// Shortest round trip of the samples used.
     pub min_rtt: u64,
+    /// Longest round trip of the samples used.
+    pub max_rtt: u64,
     /// Samples the line was fitted to.
     pub used: usize,
     /// RMS distance of those samples from the line, in nanoseconds: the jitter left after the filter.
     pub residual_rms: f64,
+    /// How far the slope moves at most per nanosecond of error in the samples' host times (`Σ|x - x̄| / Σ(x - x̄)²`
+    /// over their device times); 0 for a [prior](Fit::prior) slope. See [Fit::rate_bound_ppb].
+    pub rate_sensitivity: f64,
     /// The slope is the [prior](Estimator::set_prior) one, not the samples' own yet.
     pub prior: bool,
 }
@@ -297,6 +309,24 @@ impl Fit {
         ((self.min_rtt as f64 / 2.0 + 2.0 * self.residual_rms) / 1000.0)
             .ceil()
             .min(u32::MAX as f64) as u32
+    }
+
+    /// How far [Fit::rate_ppb] can be from the device's true rate at most, in ppb, for a clock that ticks in
+    /// `resolution_ns`; `None` for a [prior](Fit::prior) slope, which the samples didn't measure.
+    ///
+    /// A bound, not an estimate: the device read its clock somewhere within each round trip, so every sample's host
+    /// time is within half its round trip of the true one (and its device time within a tick), whatever the load.
+    /// Round trips of milliseconds over a short span give a wide bound; the typical error is far smaller.
+    pub fn rate_bound_ppb(&self, resolution_ns: u64) -> Option<u32> {
+        if self.prior {
+            return None;
+        }
+        let error_ns = self.max_rtt as f64 / 2.0 + self.slope * resolution_ns as f64;
+        Some(
+            (error_ns * self.rate_sensitivity * 1e9)
+                .ceil()
+                .min(u32::MAX as f64) as u32,
+        )
     }
 
     /// Shared rate minus local rate in parts per billion, as `SteerPoint::rate_ppb` has it.
@@ -461,6 +491,27 @@ mod tests {
             assert!(
                 (fit.rate_ppb() as f64 - want).abs() < 50_000.0,
                 "seed {seed}: {} vs {want}, err {err}",
+                fit.rate_ppb()
+            );
+        }
+    }
+
+    #[test]
+    fn the_rate_bound_holds() {
+        for seed in 1..50 {
+            let clock = SimClock {
+                start: 1e9 * seed as f64,
+                rate: 1.0 + (seed as f64 - 25.0) * 4e-4,
+                wander: 0.0,
+            };
+            // short and jittery, as on a loaded PC: up to 10 ms extra each way
+            let (e, _) = run(clock, 2_000_000_000, 50_000_000, 10_000_000, seed);
+            let fit = e.fit().unwrap();
+            let want = (1.0 / clock.rate - 1.0) * 1e9;
+            let bound = fit.rate_bound_ppb(1).unwrap();
+            assert!(
+                (fit.rate_ppb() as f64 - want).abs() <= bound as f64 + 1.0,
+                "seed {seed}: {} vs {want}, bound {bound}",
                 fit.rate_ppb()
             );
         }

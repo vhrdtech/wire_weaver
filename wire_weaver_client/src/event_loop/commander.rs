@@ -1720,10 +1720,10 @@ impl Drop for Commander {
         if Arc::strong_count(&self.last_clone) > 1 {
             return;
         }
-        _ = self
-            .disconnect()
+        // until the event loop closed the transport (a few ms), 50 ms at most: was always 50 ms, which a short
+        // command (`ww hub status`) paid on every run
+        self.disconnect()
             .reason(wire_weaver::DisconnectReason::CommanderDropped)
-            .forget();
-        std::thread::sleep(Duration::from_millis(50));
+            .on_drop(Duration::from_millis(50));
     }
 }

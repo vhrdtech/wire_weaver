@@ -25,6 +25,7 @@
 
 ### 🐛 Fixes
 
+- Dropping the last `Commander` waits until the event loop closed the transport (a few ms), 50 ms at most, instead of always blocking 50 ms; with the snapshots parsed one at a time (`wire_weaver_snapshots`), a short program through the ww hub (`ww hub status`) connects, calls and disconnects in about 15 ms instead of 150-300 ms. Found by a `ww hub` test hitting its 3 s limit on a loaded PC.
 - `holders` lock files are one per device key (CLT-45): lower-case letters, digits and `-` stay, every other byte of the key is `_xx` (was `_` for any of them, so `usb:..:a:b` and `usb:..:a_b` shared a file and a crafted USB serial could make another device look held). A name over 200 bytes, and a handover socket path too long for a Unix socket, is `_h` and the key's SHA-256 (was FNV-1a for the socket). A held lock file whose content names another key reads as an unknown holder. Lock files of programs built before this change aren't seen by programs built after it (holders are unreleased so far).
 - `local_socket::device::device_medium` accepts clients in a task of its own: `wait_connected` was not cancel-safe, and a server waiting on it next to a timer dropped a client in the middle of its preamble (the client saw `Connection reset by peer` or `Broken pipe`). The next client still waits in the backlog until the current one leaves.
 - A request whose bookkeeping reached the receive task after it exited (the link going down while the request was sent) fails with `Error::Disconnected` instead of `RxDispatcherNotRunning`.

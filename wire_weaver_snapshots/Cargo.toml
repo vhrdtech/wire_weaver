@@ -11,3 +11,8 @@ license.workspace = true
 ron.workspace = true
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["std", "serde"] }
+
+[build-dependencies]
+ron.workspace = true
+ww_self = { workspace = true, features = ["std", "serde"] }
+ww_version = { workspace = true, features = ["std", "serde"] }

@@ -173,7 +173,7 @@ snapshot, e.g. an unpublished crate version that changed after its snapshot was 
 calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
 definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer `ww_stdlib` crate) stays skipped, and resources using it
 are only checked by crate version and signature. In this repo, `just save-snapshots` saves the snapshots and copies
-them into `wire_weaver_snapshots/api_snapshots/`; a `wire_weaver_core` test fails if any of them is out of date.
+them into `wire_weaver_snapshots/api_snapshots/`; a `wire_weaver_core` test fails if any of them is out of date. A snapshot is RON for people to read, its header holds the SHA-256 of the shrink_wrap bytes it stands for (`// shrink_wrap sha256: ..`); `wire_weaver_snapshots` encodes the RON at build time, fails on a mismatch, and embeds only the bytes.
 
 ```
 $ ww api save ww_stdlib/ww_uart

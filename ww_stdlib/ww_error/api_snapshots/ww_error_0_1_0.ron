@@ -1,5 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: eb71b46cf08bf8c75d6951cd72f77f1ae0b43fd2d70ccfcbeaa62845e7f0be47
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",

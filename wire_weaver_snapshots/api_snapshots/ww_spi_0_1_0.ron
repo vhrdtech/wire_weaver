@@ -1,5 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 3553b1cdfa83bde5fcc8bc11591998b8a068662fae0cfd6af1458ce6b2c24739
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",

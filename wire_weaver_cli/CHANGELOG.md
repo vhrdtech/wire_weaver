@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- `ww api save` writes the SHA-256 of the snapshot's shrink_wrap bytes into the RON header (`// shrink_wrap sha256: ..`), which the build of `wire_weaver_snapshots` checks; a snapshot without it is saved again.
 - Every `ww` command holding a device directly steers its clock onto UTC while it runs (CLT-46, `WW_CLOCK_SYNC=off`
   to leave it alone); `ww dfu reboot | flash | confirm | revert` pause it while they change the device, `ww sync`
   steers with its own sync as before. `ww` no longer depends on `ww_clock_sync` (it is in `wire_weaver_client`).

@@ -1,5 +1,6 @@
 // ww_date_time 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: dc1bcced67a1c5af77dea29c4f41518571f7d9d8641dc90798c740b3619caf38
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_date_time", items: []), types: [
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "Calendar year, `UNib32` of the year shifted by 2025, a negative shift cut to 20 bits (bit 19 is the sign), so that it",

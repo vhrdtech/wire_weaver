@@ -1,5 +1,6 @@
 // ww_sd 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 091a9af28dbcb928f867822706ee9f89c74984349e127c3b04000a52a77cc3a2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to an SD card over WireWeaver (STD-40): its state, its registers as the card sent them, the init",
     "sequence with what each step answered, and single raw commands with their response, status bits and timing.",

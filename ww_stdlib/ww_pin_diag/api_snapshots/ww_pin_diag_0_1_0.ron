@@ -1,5 +1,6 @@
 // ww_pin_diag 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 0c15c344203a2fe6d72c8fdc7a646aa485019ef324e80014cf9bd85017a62c10
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to a board\'s digital points for bring-up, verification and production tests (STD-47).",
     "",

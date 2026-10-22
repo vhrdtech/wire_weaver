@@ -1,5 +1,6 @@
 // ww_global 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 57e1d2a814c5f35e8835c3fa4efc2b5d8c9dc8bc071a4071ab20111d90275f18
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Global id registry: small numbers for commonly used crates and traits, so that a request can name a trait in",
     "a few bits instead of its crate name and version (`PathKind::GlobalCompact`). Ids are assigned by hand in",

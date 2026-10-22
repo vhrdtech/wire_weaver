@@ -933,6 +933,7 @@ mod tests {
         let hint =
             "run `just save-snapshots` (with --force for versions that were never published)";
         let embedded = wire_weaver_snapshots::files();
+        let copies = root.join("wire_weaver_snapshots").join("api_snapshots");
         let mut saved_count = 0;
         for crate_path in crate_paths {
             let bundle = load_crate(&crate_path).unwrap();
@@ -950,13 +951,21 @@ mod tests {
             for entry in std::fs::read_dir(crate_path.join("api_snapshots")).unwrap() {
                 let path = entry.unwrap().path();
                 let file_name = path.file_name().unwrap().to_str().unwrap();
-                let (_, contents) = embedded
+                let (_, rendered) = embedded
                     .iter()
                     .find(|(name, _)| *name == file_name)
                     .unwrap_or_else(|| panic!("{file_name} is not embedded, {hint}"));
+                // only the bytes are embedded (files() renders the text from them): the copy in
+                // wire_weaver_snapshots is the saved file, and the embedded bytes are the ones it hashes to
+                let text = std::fs::read_to_string(&path).unwrap();
                 assert_eq!(
-                    *contents,
-                    std::fs::read_to_string(&path).unwrap(),
+                    std::fs::read_to_string(copies.join(file_name)).unwrap(),
+                    text,
+                    "copy of {file_name} in wire_weaver_snapshots differs, {hint}"
+                );
+                assert_eq!(
+                    ww_self::snapshot::saved_hash(rendered),
+                    ww_self::snapshot::saved_hash(&text),
                     "embedded {file_name} differs, {hint}"
                 );
                 saved_count += 1;

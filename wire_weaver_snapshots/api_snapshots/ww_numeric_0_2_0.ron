@@ -1,5 +1,6 @@
 // ww_numeric 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 8d1f11c60d4a9d9b8fe4fb4707d6cb6454456ffe6bc1823a3d066411ce16f059
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: []), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Number of bits in UB number. Serialized as 7-bits and shifted by -1 to represent U1-U128.",

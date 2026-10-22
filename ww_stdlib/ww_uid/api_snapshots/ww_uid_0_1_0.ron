@@ -1,5 +1,6 @@
 // ww_uid 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 0d6b20f082467ea1f70842f8238c510c93dacf1a30867162174d7a0b08a6b443
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Unique ids of a device (STD-24).",
     "",

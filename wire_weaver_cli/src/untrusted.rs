@@ -12,7 +12,7 @@
 //!
 //! [value_fmt](crate::value_fmt)'s `ValueOwned::String(s) => format!("{s:?}")` already goes through `{:?}`, which
 //! uses [char::escape_debug] and already escapes all of the above (verified by
-//! [tests::debug_format_already_escapes_what_escape_does]) — this module exists for the many places that print a
+//! the test `debug_format_already_escapes_what_escape_does`) — this module exists for the many places that print a
 //! device/hub string with `{}` instead, where that protection doesn't apply.
 //!
 //! Our own ANSI colour codes (`console::style`) must keep working: escape the untrusted piece on its own with

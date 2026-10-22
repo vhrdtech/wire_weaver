@@ -48,7 +48,9 @@ use ww_tap::{Dir, RecorderLink, Tap};
 pub(crate) use rx::{RxCore, RxInput, RxOutput, RxPart};
 pub(crate) use tx::{TxCore, TxInput, TxOutput};
 
-use super::live::{Connecting, Outcome, RxCtl};
+#[cfg(feature = "hub")]
+use super::live::Outcome;
+use super::live::{Connecting, RxCtl};
 
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
 const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
@@ -134,6 +136,7 @@ pub(crate) enum ToRx {
     },
     /// The link goes on over a new medium, through the ww hub that adopted the device (CLT-44, [TxCore::relink]):
     /// expect link setup with this token, keeping the dispatcher (requests in flight, streams) as it is.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     Relink { token: u64 },
     /// An adopted link is up ([Command::Adopt]): no link setup, the device's `DeviceInfo` as the other program
     /// received it; the other program's requests in flight answer to the forward sink with these tags.
@@ -255,7 +258,9 @@ async fn tx_task<T: Transport>(
     mut from_rx: mpsc::UnboundedReceiver<ToTx>,
     to_rx: mpsc::UnboundedSender<ToRx>,
     msg_rx_tx: oneshot::Sender<(T::Rx, RecorderLink)>,
-    rx_ctl: mpsc::UnboundedSender<RxCtl<T::Rx>>,
+    #[cfg_attr(not(feature = "hub"), allow(unused_variables))] rx_ctl: mpsc::UnboundedSender<
+        RxCtl<T::Rx>,
+    >,
 ) -> (
     (TxCore, anyhow::Result<EventLoopExitReason>),
     mpsc::Receiver<Command>,
@@ -378,19 +383,21 @@ async fn tx_task<T: Transport>(
             },
             hub = connecting.wait() => {
                 #[cfg(feature = "hub")]
-                let outcome = match msg_tx.as_mut() {
-                    Some(tx) => {
-                        super::live::hand_over::<T>(&mut core, tx, &to_rx, &rx_ctl, &mut tap, hub).await
+                {
+                    let outcome = match msg_tx.as_mut() {
+                        Some(tx) => {
+                            super::live::hand_over::<T>(&mut core, tx, &to_rx, &rx_ctl, &mut tap, hub).await
+                        }
+                        None => Outcome::Release,
+                    };
+                    match outcome {
+                        Outcome::Switched | Outcome::Kept => {}
+                        Outcome::Release => core.handle(now(), TxInput::HandToHub),
+                        Outcome::HandedOff => core.handle(now(), TxInput::HandedOff),
                     }
-                    None => Outcome::Release,
-                };
-                #[cfg(not(feature = "hub"))]
-                let outcome: Outcome = match hub {};
-                match outcome {
-                    Outcome::Switched | Outcome::Kept => {}
-                    Outcome::Release => core.handle(now(), TxInput::HandToHub),
-                    Outcome::HandedOff => core.handle(now(), TxInput::HandedOff),
                 }
+                #[cfg(not(feature = "hub"))]
+                match hub {}
             },
             cmd = cmd_rx.recv() => match cmd {
                 Some(cmd) => core.handle(now(), TxInput::Command(cmd)),

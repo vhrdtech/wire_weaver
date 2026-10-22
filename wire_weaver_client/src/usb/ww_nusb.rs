@@ -16,7 +16,7 @@ pub(crate) struct Sink {
     completion_rx: mpsc::Receiver<Completion>,
     max_packet_size: usize,
     marker: &'static str,
-    worker: JoinHandle<()>,
+    worker: JoinHandle<bool>,
 }
 
 // Rx and tx are used from two independent tasks, so a slow device can never stall receiving.
@@ -55,7 +55,7 @@ impl Sink {
             buf_pool.push(ep_out.allocate(max_packet_size));
         }
         let worker = tokio::spawn(async move {
-            endpoint_worker(ep_out, submit_rx, completion_tx, TX_LINGER, marker).await;
+            endpoint_worker(ep_out, submit_rx, completion_tx, TX_LINGER, marker).await
         });
         Ok(Sink {
             buf_pool,
@@ -80,6 +80,38 @@ impl Sink {
         drop(submit_tx);
         drop(completion_rx);
         _ = worker.await;
+    }
+
+    /// Waits until every submitted packet went out (a live handover, CLT-44): an error when one failed or `within` ran
+    /// out first. Nothing is cancelled.
+    #[cfg(feature = "local_socket")]
+    pub async fn drain(&mut self, within: Duration) -> Result<(), String> {
+        let deadline = Instant::now() + within;
+        while self.buf_pool.len() < TX_QUEUE_SIZE {
+            match timeout_at(deadline, self.completion_rx.recv()).await {
+                Ok(Some(completion)) => {
+                    self.buf_pool.push(completion.buffer);
+                    completion
+                        .status
+                        .map_err(|e| format!("{}: {e:?}", self.marker))?;
+                }
+                Ok(None) => {
+                    return Err(format!(
+                        "{}: {:?}",
+                        self.marker,
+                        TransferError::Disconnected
+                    ));
+                }
+                Err(_) => {
+                    return Err(format!(
+                        "{}: {} packets not taken by the device within {within:?}",
+                        self.marker,
+                        TX_QUEUE_SIZE - self.buf_pool.len()
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Waits for a free transfer buffer when all are in flight. Never times out on its own —
@@ -130,13 +162,15 @@ impl Sink {
     }
 }
 
+/// Submits what comes on `submit_rx` and hands back completions, until `submit_rx` closes; then [drain]s. True when
+/// every transfer was returned.
 async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
     mut ep: Endpoint<EpType, Dir>,
     mut submit_rx: mpsc::Receiver<Buffer>,
     completion_tx: mpsc::Sender<Completion>,
     linger: Duration,
     marker: &'static str,
-) {
+) -> bool {
     loop {
         if ep.pending() > 0 {
             tokio::select! {
@@ -162,44 +196,51 @@ async fn endpoint_worker<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
             break;
         }
     }
-    drain(&mut ep, linger, marker).await;
+    drain(&mut ep, &completion_tx, linger, marker).await
 }
 
 /// Wait up to `linger` for pending transfers to complete, then cancel the rest and wait for them to be returned.
 /// Cancelled, but not yet returned transfers keep the interface claimed even after the endpoint is dropped,
-/// and re-connecting right away fails with "interface is busy".
+/// and re-connecting right away fails with "interface is busy". Each returned transfer goes to `completions` while
+/// someone reads them ([Source::pause] does). True when every transfer was returned.
 async fn drain<EpType: BulkOrInterrupt, Dir: EndpointDirection>(
     ep: &mut Endpoint<EpType, Dir>,
+    completions: &mpsc::Sender<Completion>,
     linger: Duration,
     marker: &'static str,
-) {
+) -> bool {
     let deadline = Instant::now() + linger;
     while ep.pending() > 0 {
-        if timeout_at(deadline, ep.next_complete()).await.is_err() {
-            break;
+        match timeout_at(deadline, ep.next_complete()).await {
+            Ok(completion) => _ = completions.send(completion).await,
+            Err(_) => break,
         }
     }
     if ep.pending() == 0 {
-        return;
+        return true;
     }
     trace!("{marker}: cancelling {} pending transfers", ep.pending());
     ep.cancel_all();
     while ep.pending() > 0 {
-        if timeout(CANCEL_TIMEOUT, ep.next_complete()).await.is_err() {
-            warn!(
-                "{marker}: {} cancelled transfers were not returned in time",
-                ep.pending()
-            );
-            return;
+        match timeout(CANCEL_TIMEOUT, ep.next_complete()).await {
+            Ok(completion) => _ = completions.send(completion).await,
+            Err(_) => {
+                warn!(
+                    "{marker}: {} cancelled transfers were not returned in time",
+                    ep.pending()
+                );
+                return false;
+            }
         }
     }
+    true
 }
 
 pub(crate) struct Source {
     submit_tx: mpsc::Sender<Buffer>,
     completion_rx: mpsc::Receiver<Completion>,
     marker: &'static str,
-    worker: JoinHandle<()>,
+    worker: JoinHandle<bool>,
 }
 
 impl Source {
@@ -232,7 +273,7 @@ impl Source {
         let (completion_tx, completion_rx) = mpsc::channel(RX_QUEUE_SIZE);
         let worker = tokio::spawn(async move {
             // IN transfers only complete when a device sends something, no point waiting for them
-            endpoint_worker(ep_in, submit_rx, completion_tx, Duration::ZERO, marker).await;
+            endpoint_worker(ep_in, submit_rx, completion_tx, Duration::ZERO, marker).await
         });
         Ok(Source {
             submit_tx,
@@ -255,6 +296,32 @@ impl Source {
         drop(submit_tx);
         drop(completion_rx);
         _ = worker.await;
+    }
+
+    /// Cancels the IN transfers and reaps them (a live handover, CLT-44): every packet the device sent this host goes
+    /// to `packet` in order, the device keeps the rest until another host reads. An error when the OS didn't return
+    /// every transfer: what they held may be lost.
+    #[cfg(feature = "local_socket")]
+    pub async fn pause(self, mut packet: impl FnMut(&[u8])) -> Result<(), String> {
+        let Source {
+            submit_tx,
+            mut completion_rx,
+            marker,
+            worker,
+        } = self;
+        drop(submit_tx);
+        while let Some(completion) = completion_rx.recv().await {
+            // a transfer is one packet at most: one that arrived is complete, even if cancelled meanwhile
+            let len = completion.buffer.len();
+            if len > 0 {
+                trace!("reaped packet: {len}: {:02x?}", &completion.buffer[..len]);
+                packet(&completion.buffer[..len]);
+            }
+        }
+        match worker.await {
+            Ok(true) => Ok(()),
+            _ => Err(format!("{marker}: IN transfers not returned by the OS")),
+        }
     }
 
     // /// Cancel-safe: the only await is on the completion channel.

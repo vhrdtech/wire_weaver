@@ -2,6 +2,11 @@
 //! no frame prefix, or the `SeqPrefix` diagnostic when the interface protocol says so.
 //! Tx and rx halves are used from two independent tasks by the generic event loop,
 //! see [core](crate::event_loop::core).
+//!
+//! Live link handover (CLT-44, Linux): [Transport::pause] sends every OUT transfer and cancels and reaps the IN ones
+//! into the framer, [Transport::let_go] releases the interface keeping the device open, [Transport::take_back]
+//! claims it again. Releasing an interface at alternate setting 0 sends nothing on the bus and keeps the endpoints'
+//! data toggles, so the program that claims it next goes on where this one stopped.
 
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
@@ -11,6 +16,8 @@ use tracing::{debug, trace};
 use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
+#[cfg(feature = "local_socket")]
+use crate::event_loop::transport::{Live, Paused};
 use crate::event_loop::transport::{
     MessageRx, MessageTx, Opened, SharedClaim, Transport, handover_requested,
 };
@@ -29,20 +36,75 @@ struct NusbTransport;
 
 pub(crate) struct NusbTx {
     framer: TxFramer,
-    sink: Sink,
+    /// None while paused for a live handover
+    sink: Option<Sink>,
     tap: RecorderLink,
-    /// Keeps the device open while endpoints are in use
-    _device: nusb::Device,
+    /// Keeps the device open while endpoints are in use, and across a live handover's let go
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    device: nusb::Device,
+    /// None once let go of in a live handover
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    interface: Option<nusb::Interface>,
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    eps: Eps,
     /// Keeps the holders registry claim (CLT-38) for as long as the interface is held
     claim: SharedClaim,
 }
 
 pub(crate) struct NusbRx {
     framer: RxFramer,
-    source: Source,
+    /// None while paused for a live handover
+    source: Option<Source>,
     tap: RecorderLink,
     /// Shared with [NusbTx]: released once both halves let go of the interface
-    _claim: SharedClaim,
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    claim: SharedClaim,
+}
+
+/// The WireWeaver interface and its endpoints, to open them again.
+#[derive(Copy, Clone)]
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+struct Eps {
+    interface: u8,
+    ep_out: u8,
+    ep_in: u8,
+    max_packet: usize,
+    bulk: bool,
+    seq_prefix: bool,
+}
+
+/// How long the device has to take the OUT packets sent before a live handover's pause.
+#[cfg(feature = "local_socket")]
+const PAUSE_OUT_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
+
+#[cfg(feature = "local_socket")]
+type Tx = Live<NusbTx, crate::local_socket::LocalTx>;
+#[cfg(feature = "local_socket")]
+type Rx = Live<NusbRx, crate::local_socket::LocalRx>;
+#[cfg(not(feature = "local_socket"))]
+type Tx = NusbTx;
+#[cfg(not(feature = "local_socket"))]
+type Rx = NusbRx;
+
+/// Both halves on the device, for the live handover steps.
+#[cfg(feature = "local_socket")]
+fn on_device<'a>(
+    tx: &'a mut Tx,
+    rx: &'a mut Rx,
+) -> Result<(&'a mut NusbTx, &'a mut NusbRx), String> {
+    match (tx, rx) {
+        (Live::Device(tx), Live::Device(rx)) => Ok((tx, rx)),
+        _ => Err("the link goes through the hub already".into()),
+    }
+}
+
+/// Endpoints on the claimed interface, IN transfers submitted.
+fn endpoints(interface: &nusb::Interface, eps: Eps) -> Result<(Sink, Source), String> {
+    let sink =
+        Sink::new(interface, eps.ep_out, eps.max_packet, eps.bulk).map_err(|e| e.to_string())?;
+    let source =
+        Source::new(interface, eps.ep_in, eps.max_packet, eps.bulk).map_err(|e| e.to_string())?;
+    Ok((sink, source))
 }
 
 impl Transport for NusbTransport {
@@ -50,14 +112,19 @@ impl Transport for NusbTransport {
         crate::event_loop::transport::link_setup_timeout::USB
     }
 
-    type Tx = NusbTx;
-    type Rx = NusbRx;
+    type Tx = Tx;
+    type Rx = Rx;
 
     async fn connect(
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
-    ) -> Result<Opened<NusbTx, NusbRx>, String> {
+    ) -> Result<Opened<Tx, Rx>, String> {
+        // an adopted link (CLT-44): the framers go on where the other program's stopped
+        let (handle, carried) = match handle.downcast::<crate::event_loop::transport::Adopting>() {
+            Ok(a) => (a.handle, Some(a.carried)),
+            Err(handle) => (handle, None),
+        };
         let target = handle
             .downcast::<super::connect::UsbTarget>()
             .map_err(|_| "expected a USB device handle".to_string())?;
@@ -65,11 +132,29 @@ impl Transport for NusbTransport {
         let claim = dev.claim.map(std::sync::Arc::new);
         let di = &target.info;
         trace!("max_packet_size: {}", dev.max_packet_size);
-        let is_bulk = dev.transfer_type == TransferType::Bulk;
-        let sink = Sink::new(&dev.interface, dev.ep_out, dev.max_packet_size, is_bulk)
-            .map_err(|e| e.to_string())?;
-        let source = Source::new(&dev.interface, dev.ep_in, dev.max_packet_size, is_bulk)
-            .map_err(|e| e.to_string())?;
+        let eps = Eps {
+            interface: dev.interface_number,
+            ep_out: dev.ep_out,
+            ep_in: dev.ep_in,
+            max_packet: dev.max_packet_size,
+            bulk: dev.transfer_type == TransferType::Bulk,
+            seq_prefix: dev.seq_prefix,
+        };
+        let mut tx_framer = TxFramer::new(dev.seq_prefix, dev.max_packet_size);
+        // must hold one maximum message plus one more packet, see FramedRx docs
+        let mut rx_framer = RxFramer::new(
+            dev.seq_prefix,
+            crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size,
+        );
+        if let Some(carried) = carried {
+            if let Some(frame) = carried.tx_frame {
+                tx_framer.continue_at(frame);
+            }
+            rx_framer
+                .continue_from(&carried.rx)
+                .map_err(|_| "the adopted link's partial message doesn't fit".to_string())?;
+        }
+        let (sink, source) = endpoints(&dev.interface, eps)?;
         let mut tap = tap;
         let peer = di.serial_number().unwrap_or_default();
         tap.session(&crate::tap::host_session(
@@ -78,25 +163,156 @@ impl Transport for NusbTransport {
             dev.max_packet_size,
             peer,
         ));
-        Ok(Opened {
-            tx: NusbTx {
-                framer: TxFramer::new(dev.seq_prefix, dev.max_packet_size),
-                sink,
-                tap: tap.clone(),
-                _device: dev.device,
-                claim: claim.clone(),
+        let tx = NusbTx {
+            framer: tx_framer,
+            sink: Some(sink),
+            tap: tap.clone(),
+            device: dev.device,
+            interface: Some(dev.interface),
+            eps,
+            claim: claim.clone(),
+        };
+        let rx = NusbRx {
+            framer: rx_framer,
+            source: Some(source),
+            tap,
+            claim,
+        };
+        #[cfg(feature = "local_socket")]
+        let (tx, rx) = (Live::Device(tx), Live::Device(rx));
+        Ok(Opened { tx, rx })
+    }
+
+    // what releasing an interface does to the bus and the data toggles is known on Linux only
+    #[cfg(feature = "local_socket")]
+    const LIVE: bool = cfg!(target_os = "linux");
+
+    #[cfg(feature = "local_socket")]
+    async fn pause(tx: &mut Tx, rx: &mut Rx) -> Result<Paused, String> {
+        let (tx, rx) = on_device(tx, rx)?;
+        // OUT: everything queued goes out and is taken by the device
+        tx.send_frame().await?;
+        let mut sink = tx.sink.take().ok_or("paused already")?;
+        let drained = sink.drain(PAUSE_OUT_TIMEOUT).await;
+        sink.close().await;
+        // IN: cancelled; what the device sent this host is reaped, the rest waits in the device
+        let source = rx.source.take().ok_or("paused already")?;
+        rx.framer.reassemble();
+        let mut messages = vec![];
+        let framer = &mut rx.framer;
+        let tap = &mut rx.tap;
+        let mut staged = Ok(());
+        let reaped = source
+            .pause(|packet| {
+                if tap.wants_frames() {
+                    tap.frame(Dir::Rx, packet);
+                }
+                if staged.is_err() {
+                    return;
+                }
+                match framer.stage(packet) {
+                    Ok(report) => crate::framing::log_report(report),
+                    Err(()) => staged = Err(()),
+                }
+                loop {
+                    framer.reassemble();
+                    match framer.message() {
+                        Some((kind, m)) => messages.push((kind, m.to_vec())),
+                        None => break,
+                    }
+                }
+            })
+            .await;
+        let failed = drained
+            .and(reaped)
+            .and(staged.map_err(|_| "out of staging area, this is a bug".to_string()));
+        if let Err(e) = failed {
+            // the link goes on as well as it can: endpoints again, whatever ends it ends it
+            if let Some(interface) = &tx.interface
+                && let Ok((sink, source)) = endpoints(interface, tx.eps)
+            {
+                tx.sink = Some(sink);
+                rx.source = Some(source);
+            }
+            return Err(e);
+        }
+        let eps = tx.eps;
+        Ok(Paused {
+            medium: crate::adopt::MediumOwned::Usb {
+                interface: eps.interface,
+                ep_in: eps.ep_in,
+                ep_out: eps.ep_out,
+                max_packet: eps.max_packet as u16,
+                bulk: eps.bulk,
+                seq_prefix: eps.seq_prefix,
             },
-            rx: NusbRx {
-                // must hold one maximum message plus one more packet, see FramedRx docs
-                framer: RxFramer::new(
-                    dev.seq_prefix,
-                    crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size,
-                ),
-                source,
-                tap,
-                _claim: claim,
-            },
+            tx_frame: tx.framer.frame_ctx(),
+            rx: rx.framer.carry(),
+            messages,
         })
+    }
+
+    #[cfg(feature = "local_socket")]
+    async fn let_go(tx: &mut Tx, rx: &mut Rx) -> Result<(), String> {
+        let (tx, _) = on_device(tx, rx)?;
+        // the endpoints went in the pause: this releases the interface, the device stays open
+        tx.interface = None;
+        Ok(())
+    }
+
+    #[cfg(feature = "local_socket")]
+    async fn take_back(tx: &mut Tx, rx: &mut Rx) -> Result<(), String> {
+        let (tx, rx) = on_device(tx, rx)?;
+        let interface = match tx.interface.take() {
+            Some(interface) => interface,
+            None => tx
+                .device
+                .claim_interface(tx.eps.interface)
+                .await
+                .map_err(|e| format!("claiming the interface again: {e}"))?,
+        };
+        let (sink, source) = endpoints(&interface, tx.eps)?;
+        tx.interface = Some(interface);
+        tx.sink = Some(sink);
+        rx.source = Some(source);
+        Ok(())
+    }
+
+    #[cfg(feature = "local_socket")]
+    fn switch(tx: &mut Tx, rx: &mut Rx, tunnel: crate::local_socket::Tunnel) -> Result<(), String> {
+        let (htx, hrx) = tunnel.into_halves(None);
+        *tx = Live::Hub(htx);
+        *rx = Live::Hub(hrx);
+        Ok(())
+    }
+
+    #[cfg(feature = "local_socket")]
+    fn take_claim(tx: &mut Tx, rx: &mut Rx) -> SharedClaim {
+        let rx_claim = match rx {
+            Live::Device(rx) => rx.claim.take(),
+            Live::Hub(_) => None,
+        };
+        let tx_claim = match tx {
+            Live::Device(tx) => tx.claim.take(),
+            Live::Hub(_) => None,
+        };
+        tx_claim.or(rx_claim)
+    }
+
+    #[cfg(feature = "local_socket")]
+    fn claim_of(tx: &Tx) -> SharedClaim {
+        match tx {
+            Live::Device(tx) => tx.claim.clone(),
+            Live::Hub(_) => None,
+        }
+    }
+
+    #[cfg(feature = "local_socket")]
+    fn put_claim(tx: &mut Tx, rx: &mut Rx, claim: SharedClaim) {
+        if let (Live::Device(tx), Live::Device(rx)) = (tx, rx) {
+            tx.claim = claim.clone();
+            rx.claim = claim;
+        }
     }
 }
 
@@ -112,6 +328,8 @@ impl NusbTx {
             self.tap.frame(Dir::Tx, frame);
         }
         self.sink
+            .as_mut()
+            .ok_or("paused for a live handover")?
             .write_packet(frame)
             .await
             .map_err(describe_transfer_error)?;
@@ -149,7 +367,9 @@ impl MessageTx for NusbTx {
     }
 
     async fn close(self) {
-        self.sink.close().await;
+        if let Some(sink) = self.sink {
+            sink.close().await;
+        }
     }
 }
 
@@ -168,6 +388,8 @@ impl MessageRx for NusbRx {
             let framer = &mut self.framer;
             let tap = &mut self.tap;
             self.source
+                .as_mut()
+                .ok_or("paused for a live handover")?
                 .read_packet_with(|packet| {
                     trace!("rx frame: {}: {packet:02x?}", packet.len());
                     if tap.wants_frames() {
@@ -187,7 +409,9 @@ impl MessageRx for NusbRx {
     }
 
     async fn close(self) {
-        self.source.close().await;
+        if let Some(source) = self.source {
+            source.close().await;
+        }
     }
 }
 

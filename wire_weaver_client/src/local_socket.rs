@@ -216,6 +216,7 @@ impl Transport for LocalSocketTransport {
 
 impl Tunnel {
     /// Its message halves, sharing `claim`.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     pub(crate) fn into_halves(self, claim: SharedClaim) -> (LocalTx, LocalRx) {
         halves((self.rx, self.tx), claim)
     }

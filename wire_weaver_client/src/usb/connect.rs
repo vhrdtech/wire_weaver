@@ -18,6 +18,7 @@ const USB_SUBCLASS_NONE: u8 = 0x00;
 pub(crate) struct ConnectOk {
     pub(crate) device: Device,
     pub(crate) interface: Interface,
+    pub(crate) interface_number: u8,
     pub(crate) transfer_type: TransferType,
     pub(crate) max_packet_size: usize,
     pub(crate) ep_out: u8,
@@ -94,6 +95,7 @@ pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
     Ok(ConnectOk {
         device,
         interface,
+        interface_number: ww.number,
         transfer_type: ww.transfer_type,
         max_packet_size: ww.max_packet_size,
         ep_out: ww.ep_out,

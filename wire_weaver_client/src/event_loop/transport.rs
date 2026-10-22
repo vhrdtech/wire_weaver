@@ -154,6 +154,7 @@ pub(crate) trait Transport {
     /// Pauses the medium for a live handover (CLT-44), given both halves: every OUT transfer has gone out, IN is
     /// stopped and everything received so far was taken in, the messages it completed returned, nothing lost. The
     /// device may still hold IN data, which waits for the next host (NAKed). The interface may still be held.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn pause(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -162,6 +163,7 @@ pub(crate) trait Transport {
     }
 
     /// Lets go of the paused device (releases the interface), keeping what [Self::take_back] needs.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn let_go(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -170,6 +172,7 @@ pub(crate) trait Transport {
     }
 
     /// The handover didn't happen: holds the device again (if it let go) and goes on where [Self::pause] stopped.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn take_back(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -180,6 +183,7 @@ pub(crate) trait Transport {
     /// Both halves go on over the tunnel to the hub that adopted the device. The device's halves are dropped (it
     /// was let go of before).
     #[cfg(feature = "local_socket")]
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn switch(
         _tx: &mut Self::Tx,
         _rx: &mut Self::Rx,
@@ -190,22 +194,25 @@ pub(crate) trait Transport {
 
     /// The holders registry claim of the device, taken out of both halves: dropping it releases the device's lock
     /// file (and tells a waiting asker of a polite handover, CLT-43).
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn take_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> SharedClaim {
         None
     }
 
     /// The holders registry claim of the device, as the halves hold it.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn claim_of(_tx: &Self::Tx) -> SharedClaim {
         None
     }
 
     /// Gives both halves the claim taken again after [Self::take_claim] (a live handover rolled back).
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     fn put_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx, _claim: SharedClaim) {}
 }
 
 /// A medium paused for a live handover (CLT-44, [Transport::pause]).
 #[derive(Debug)]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(not(feature = "hub"), allow(dead_code))]
 pub(crate) struct Paused {
     pub medium: crate::adopt::MediumOwned,
     /// The tx framer's next frame, None without a frame prefix
@@ -223,7 +230,7 @@ pub(crate) type RxCarryOf = ();
 /// How the framers of an adopted medium go on (CLT-44): wraps the transport's own handle in
 /// [TxOutput::Connect](super::core::TxOutput::Connect).
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(not(feature = "hub"), allow(dead_code))]
 pub(crate) struct Carried {
     pub tx_frame: Option<ww_framer::prefix::FrameCtx>,
     pub rx: RxCarryOf,
@@ -232,12 +239,12 @@ pub(crate) struct Carried {
 /// A transport handle with [Carried] framer state.
 pub(crate) struct Adopting {
     pub handle: DeviceHandle,
-    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     pub carried: Carried,
 }
 
 /// A medium's halves, on the device or, after a live handover (CLT-44), on the tunnel to the hub.
-#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+#[cfg_attr(not(feature = "hub"), allow(dead_code))]
 pub(crate) enum Live<D, H> {
     Device(D),
     Hub(H),

@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- Device key `usbsim:<socket path>`: a simulated USB device on a local socket (`wire_weaver_client::usb_sim`).
 - The hub's own connections to its devices don't steer by themselves (`ClientConfig::clock_sync(false)`, CLT-46):
   the hub steers them with its sync (SRV-31). Clients reaching a device through the hub leave the steering to it
   (`Phase::ThroughHub`). The hub uses `wire_weaver_client::clock_sync` (`serves_host_sync`, `rate_key` moved there)

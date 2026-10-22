@@ -34,6 +34,12 @@
 
 ### 🚀 Features
 
+- Simulated USB device on a local socket (`usb_sim`, feature `local_socket`): `usb_sim::device` / `device_framed`
+  serve one on a `ww_local_socket::Listener` for `ww_device::FramedTx` / `FramedRx` (`UsbSink`, `UsbSource`), hosts
+  reach it with `ClientConfig::usb_sim_path` (holders key `usbsim:<path>`, the ww hub opens it under the same key).
+  Unlike `in_process::usb_device` it outlives its hosts as a USB device does: one host holds the interface at a time,
+  IN packets wait while nobody does, and the device's link doesn't notice a host releasing and another claiming, so a
+  live link handover (CLT-44) can be tested across processes.
 - `clock_sync` module (feature `clock_sync`, default; CLT-46): the code of `ww_clock_sync` (`ClockSync`, `Estimator`,
   `DeviceTime`, `HostClock`, `RateCache`, `Options`, `Status`, `steerer`) moved here, with `serves_host_sync(bundle)`
   and `rate_key(key)` from the hub. Every direct connection steers by itself: `ClientConfig::clock_sync(on)`,

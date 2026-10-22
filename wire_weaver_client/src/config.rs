@@ -195,6 +195,8 @@ pub(crate) enum ConfigPiece {
     /// Used to split multiplex multiple clients to one USB device for example.
     /// Server claims USB interface, clients connect to it via ipc or network.
     UsbOverIpc,
+    /// A simulated USB device served on a local socket ([crate::usb_sim]), at `path`.
+    UsbSimPath { path: String },
     /// Consider IPC as a connection interface.
     Ipc,
     /// Negate previous IPC related filters or exclude IPC from the interfaces to try.
@@ -434,6 +436,14 @@ impl ClientConfig {
     pub fn ipc_path(self, path: String) -> Self {
         let mut f = self;
         f.pieces.push(ConfigPiece::IpcPath { path });
+        f
+    }
+
+    /// Select the simulated USB device served on the local socket at `path` ([crate::usb_sim]): held like a USB
+    /// device (key `usbsim:<path>` in the holders registry), reached through the hub when that is the way.
+    pub fn usb_sim_path(self, path: String) -> Self {
+        let mut f = self;
+        f.pieces.push(ConfigPiece::UsbSimPath { path });
         f
     }
 
@@ -982,6 +992,7 @@ impl ValidatedConfig {
                 ConfigPieceDiscriminants::HubApi,
                 ConfigPieceDiscriminants::HubDevice,
                 ConfigPieceDiscriminants::UsbOverIpc,
+                ConfigPieceDiscriminants::UsbSimPath,
                 ConfigPieceDiscriminants::Ipc,
             ],
             ConfigPieceDiscriminants::NoIpc,

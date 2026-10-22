@@ -44,6 +44,19 @@ pub(crate) async fn try_connect(
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
     supervised: bool,
 ) -> Result<Selected, anyhow::Error> {
+    if c.pieces
+        .iter()
+        .rev()
+        .find(|p| {
+            matches!(
+                p,
+                ConfigPiece::IpcPath { .. } | ConfigPiece::UsbSimPath { .. }
+            )
+        })
+        .is_some_and(|p| matches!(p, ConfigPiece::UsbSimPath { .. }))
+    {
+        return crate::usb_sim::try_connect(c, cmd_rx, supervised).await;
+    }
     // no path: the user's hub
     let to = c.pieces.iter().rev().find_map(|p| match p {
         // the one device the process serves
@@ -85,7 +98,7 @@ pub(crate) async fn try_connect(
 }
 
 /// Starts the event loop for an opened tunnel.
-fn started(
+pub(crate) fn started(
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
     shown: &str,
     tunnel: Tunnel,
@@ -108,7 +121,7 @@ fn started(
 
 /// Holds the device `key` in the holders registry before opening it ([ClientConfig::ipc_exclusive](
 /// crate::ClientConfig::ipc_exclusive)), offering a polite handover to the hub (CLT-43).
-fn hold(
+pub(crate) fn hold(
     c: &ValidatedConfig,
     key: &str,
     supervised: bool,

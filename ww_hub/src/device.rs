@@ -100,7 +100,7 @@ pub(crate) fn has_transport(key: &str) -> bool {
 }
 
 /// How the hub reaches the device behind a key: `usb:<vid>:<pid>:<serial>[:<iface>]`, `rtt:<probe serial>:<chip>`
-/// (`holders::key_for`), `inproc:<path>`, a device served in the hub's own process (`wire_weaver_client::in_process`:
+/// (`holders::key_for`), `usbsim:<socket path>`, a simulated USB device on a local socket (`wire_weaver_client::usb_sim`), `inproc:<path>`, a device served in the hub's own process (`wire_weaver_client::in_process`:
 /// tests, simulators hosted with the hub), or `ipc:<socket path>`, a device another process serves on a local socket
 /// (`wire_weaver_client::local_socket::device`: a simulator, host-emulated firmware), which outlives the hub.
 fn config_for(key: &str) -> Option<ClientConfig> {
@@ -108,6 +108,7 @@ fn config_for(key: &str) -> Option<ClientConfig> {
     let config = match scheme {
         "inproc" => ClientConfig::new().in_process_path(rest.to_string()),
         "ipc" => ClientConfig::new().ipc_path(rest.to_string()),
+        "usbsim" => ClientConfig::new().usb_sim_path(rest.to_string()),
         "usb" => {
             let mut parts = rest.splitn(4, ':');
             let vid = u16::from_str_radix(parts.next()?, 16).ok()?;

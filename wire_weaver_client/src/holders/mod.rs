@@ -1,5 +1,5 @@
 //! Who holds a device (CLT-38): a lock-file registry under the user's runtime dir,
-//! `<runtime>/ww/holders/<key>.lock` (the key escaped, one file per key: [`file_name`]), written by every holder (a direct-mode program today, the hub later).
+//! `<runtime>/ww/holders/<key>.lock` (the key escaped, one file per key, see `file_name`), written by every holder (a direct-mode program today, the hub later).
 //!
 //! A holder takes an exclusive [`std::fs::File::try_lock`] on the device's lock file before claiming the USB
 //! interface or RTT probe, and keeps the file open ([`Claim`]) for as long as it holds the device. The OS releases

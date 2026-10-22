@@ -55,6 +55,18 @@ pub struct ClientConfig {
     /// [ClientConfig::clock_sync_options]
     #[cfg(feature = "clock_sync")]
     clock_sync_options: Option<Box<crate::clock_sync::Options>>,
+    /// [ClientConfig::allow_handover]; None: by the client's kind
+    allow_handover: Option<bool>,
+    /// [ClientConfig::ipc_exclusive]
+    ipc_exclusive: bool,
+}
+
+/// [ClientConfig::allow_handover] when not set: programs that hold a device for a short while hand it over.
+fn handover_by_default(kind: crate::ClientKind) -> bool {
+    matches!(
+        kind,
+        crate::ClientKind::Cli | crate::ClientKind::Notebook | crate::ClientKind::Test
+    )
 }
 
 #[derive(Clone)]
@@ -90,6 +102,11 @@ pub(crate) struct ValidatedConfig {
     /// [ClientConfig::clock_sync]: the connection steers the device's clock, with these options
     #[cfg(feature = "clock_sync")]
     pub(crate) clock_sync: Option<crate::clock_sync::Options>,
+    /// [ClientConfig::allow_handover], resolved by the client's kind when not set
+    pub(crate) allow_handover: bool,
+    /// [ClientConfig::ipc_exclusive]
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    pub(crate) ipc_exclusive: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -312,6 +329,14 @@ impl ClientConfig {
                 .clock_sync
                 .unwrap_or_else(crate::clock_sync::enabled_from_env)
                 .then(|| s.clock_sync_options.map(|o| *o).unwrap_or_default()),
+            allow_handover: s.allow_handover.unwrap_or_else(|| {
+                let kind = match &s.client_meta {
+                    ClientMetaSetting::On(meta) => meta.resolve().kind,
+                    ClientMetaSetting::Off => crate::ClientMeta::new().resolve().kind,
+                };
+                handover_by_default(kind)
+            }),
+            ipc_exclusive: s.ipc_exclusive,
         })
     }
 
@@ -457,6 +482,36 @@ impl ClientConfig {
     pub fn clock_sync_options(self, options: crate::clock_sync::Options) -> Self {
         let mut c = self;
         c.clock_sync_options = Some(Box::new(options));
+        c
+    }
+
+    /// Whether this program hands a device it holds directly to the ww hub when another program asks for it (CLT-43,
+    /// a polite handover): it lets go of the device, the hub opens it, and this client reconnects through the hub
+    /// by itself after a short gap, as after a hub restart ([ConnectionEvent::Disconnected] with
+    /// [GapReason::HandedToHub], then [ConnectionEvent::Reconnected]; calls in flight fail with
+    /// [Error::Disconnected](crate::Error::Disconnected)). A holder that doesn't allow it answers no, and the
+    /// asker's error names it. Default by the client's kind ([ClientMeta::kind](crate::ClientMeta::kind)): on for
+    /// `Cli`, `Notebook` and `Test`, off for `Gui`, `Service` and the rest, which hold a device for long and would
+    /// only pay the gap. Only takes effect for connections that can reconnect through the hub: `connect()` (not
+    /// `connect_blocking()`), [Self::hub_reconnect] not `None`, [HubMode] not `Direct`, and the `hub` feature.
+    ///
+    /// [ConnectionEvent::Disconnected]: crate::ConnectionEvent::Disconnected
+    /// [ConnectionEvent::Reconnected]: crate::ConnectionEvent::Reconnected
+    /// [GapReason::HandedToHub]: crate::GapReason::HandedToHub
+    pub fn allow_handover(self, allow: bool) -> Self {
+        let mut c = self;
+        c.allow_handover = Some(allow);
+        c
+    }
+
+    /// The device on the local socket of [Self::ipc_path] takes one host at a time, as a USB device does (a
+    /// simulated one): `connect()` records holding it in the holders registry (`ipc:<path>`, CLT-38), so a second
+    /// program is told who holds it, a direct holder offers a polite handover to the hub (CLT-43, [Self::allow_handover])
+    /// and a program asking for it goes through the hub ([HubMode], without the open counter). Off by default: a
+    /// process serving several connections stays reachable by all of them.
+    pub fn ipc_exclusive(self) -> Self {
+        let mut c = self;
+        c.ipc_exclusive = true;
         c
     }
 
@@ -782,6 +837,24 @@ impl ClientConfig {
 }
 
 impl ValidatedConfig {
+    /// How a direct holder with this config answers a polite handover (CLT-43), for
+    /// [holders::claim_offering](crate::holders::claim_offering): `None` listens on no holder socket (the hub's own
+    /// connections), `Some(false)` refuses, `Some(true)` hands the device over. `supervised`: the connection reconnects
+    /// by itself (`connect()`, not `connect_blocking()`).
+    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    pub(crate) fn handover_offer(&self, supervised: bool) -> Option<bool> {
+        if self.holder_mode == crate::holders::Mode::Hub {
+            return None;
+        }
+        Some(
+            cfg!(feature = "hub")
+                && self.allow_handover
+                && supervised
+                && self.hub_reconnect.is_some()
+                && self.hub_mode != HubMode::Direct,
+        )
+    }
+
     /// Human-readable device filters (serial, label, product, API, VID:PID, etc.), for error messages.
     pub(crate) fn describe_filters(&self) -> Vec<String> {
         self.pieces

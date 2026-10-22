@@ -46,6 +46,8 @@ pub(crate) struct UsbTarget {
     pub(crate) info: DeviceInfo,
     pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
     pub(crate) mode: crate::holders::Mode,
+    /// How the holder answers a polite handover to the hub (CLT-43), see [ValidatedConfig::handover_offer]
+    pub(crate) handover: Option<bool>,
 }
 
 pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
@@ -66,7 +68,12 @@ pub(crate) fn connect(target: &UsbTarget) -> anyhow::Result<ConnectOk> {
         serial: di.serial_number().unwrap_or_default(),
         iface: Some(ww.number),
     });
-    let claim = match crate::holders::claim_with(&key, target.mode, target.meta.as_deref()) {
+    let claim = match crate::holders::claim_offering(
+        &key,
+        target.mode,
+        target.meta.as_deref(),
+        target.handover,
+    ) {
         Ok(claim) => Some(claim),
         Err(crate::holders::ClaimError::HeldBy(holder)) => {
             bail!(
@@ -186,10 +193,10 @@ pub(crate) async fn try_connect(
         Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
     };
     #[cfg(feature = "hub")]
-    let route = crate::hub::route(c, &hub_key(&nusb_info)).await?;
+    let route = crate::hub::route(c, &hub_key(&nusb_info), true).await?;
     #[cfg(not(feature = "hub"))]
     let route = no_hub(c)?;
-    start_event_loop(c, nusb_info, info, route, cmd_rx)
+    start_event_loop(c, nusb_info, info, route, cmd_rx, true)
 }
 
 pub(crate) fn try_connect_blocking(
@@ -208,7 +215,7 @@ pub(crate) fn try_connect_blocking(
         // while this thread waits; a current-thread runtime only runs inside its own block_on
         let handle = tokio::runtime::Handle::current();
         if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread {
-            handle.block_on(crate::hub::route(c, &hub_key(&nusb_info)))?
+            handle.block_on(crate::hub::route(c, &hub_key(&nusb_info), true))?
         } else if c.hub_mode == crate::hub::HubMode::Required {
             bail!("connect_blocking() reaches the ww hub on a multi-thread tokio runtime only");
         } else {
@@ -219,7 +226,7 @@ pub(crate) fn try_connect_blocking(
     };
     #[cfg(not(feature = "hub"))]
     let route = no_hub(c)?;
-    start_event_loop(c, nusb_info, info, route, cmd_rx)
+    start_event_loop(c, nusb_info, info, route, cmd_rx, false)
 }
 
 /// The device's key in the hub's registry: `usb:<vid>:<pid>:<serial>`, without the interface number.
@@ -259,6 +266,7 @@ fn start_event_loop(
     info: crate::DeviceInfo,
     route: Route,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    supervised: bool,
 ) -> Result<Selected, anyhow::Error> {
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
@@ -284,6 +292,7 @@ fn start_event_loop(
             info: nusb_info,
             meta: c.client_meta.clone(),
             mode: c.holder_mode,
+            handover: c.handover_offer(supervised),
         }),
         info: Box::new(info),
         via_hub: false,

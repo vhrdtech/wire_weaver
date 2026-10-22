@@ -74,7 +74,7 @@ impl<T: WwClient> PreparedConnection<T> {
                             "connect_blocking() reaches a local socket (the ww hub, IPC) on a multi-thread tokio runtime only"
                         ));
                     }
-                    rt.block_on(try_select_local_socket(&config, &mut cmd_rx))?
+                    rt.block_on(try_select_local_socket(&config, &mut cmd_rx, false))?
                 }
             };
             match selected {
@@ -224,7 +224,7 @@ pub(crate) async fn connect_to(
             InterfaceKind::Rtt => try_select_rtt(config, cmd_rx),
             InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
             InterfaceKind::Udp => try_select_udp(config, cmd_rx),
-            InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx).await,
+            InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx, true).await,
         };
         match selected {
             Ok(Selected::Device {
@@ -383,7 +383,8 @@ impl Reconnect {
 /// ([Command::fail_detached]: calls fail with [Error::Disconnected](crate::Error::Disconnected), CLT-36) instead of
 /// waiting in the channel for a reconnect that may never come; a reconnect takes the channel and gives it back.
 /// Supervising (CLT-40), it connects again by itself when a link through the hub goes, with backoff, and resumes the
-/// Commander's streams. Tells the app through [Reconnect::events]. Ends when the Commander and its clones are gone.
+/// Commander's streams; the same for a direct link this program handed to the hub (CLT-43). Tells the app through
+/// [Reconnect::events]. Ends when the Commander and its clones are gone.
 struct Keeper {
     ctl: mpsc::UnboundedReceiver<Ctl>,
     config: ValidatedConfig,
@@ -502,6 +503,7 @@ impl Keeper {
             Ok(EventLoopExitReason::DisconnectFromDevice(reason)) => {
                 GapReason::from_disconnect(*reason)
             }
+            Ok(EventLoopExitReason::HandedToHub) => GapReason::HandedToHub,
             Err(e) => GapReason::Lost(format!("{e:#}")),
             Ok(_) => return,
         };
@@ -514,7 +516,8 @@ impl Keeper {
             return;
         }
         let via_hub = *self.via_hub.borrow();
-        let reconnecting = via_hub
+        // a direct link handed to the hub (CLT-43) goes on through it
+        let reconnecting = (via_hub || reason == GapReason::HandedToHub)
             && self.commander.is_some()
             && !matches!(
                 reason,
@@ -679,12 +682,13 @@ fn try_select_rtt(
 async fn try_select_local_socket(
     config: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    supervised: bool,
 ) -> Result<Selected> {
     #[cfg(feature = "local_socket")]
-    return crate::local_socket::try_connect(config, cmd_rx).await;
+    return crate::local_socket::try_connect(config, cmd_rx, supervised).await;
     #[cfg(not(feature = "local_socket"))]
     {
-        _ = (config, cmd_rx);
+        _ = (config, cmd_rx, supervised);
         Err(anyhow::anyhow!(
             "a local socket (IPC) selected in the client config, but wire_weaver_client is built without the `local_socket` feature"
         ))

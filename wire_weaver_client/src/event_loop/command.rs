@@ -266,6 +266,9 @@ pub enum EventLoopExitReason {
     DisconnectKeepStreamsCommand,
     /// The other side sent `Disconnect` with this reason
     DisconnectFromDevice(DisconnectReason),
+    /// Another program asked this direct holder to hand the device to the ww hub (CLT-43): streams are kept, the
+    /// client reconnects through the hub.
+    HandedToHub,
 }
 
 const _: () = {

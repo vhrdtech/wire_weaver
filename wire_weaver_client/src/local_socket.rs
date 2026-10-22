@@ -40,6 +40,7 @@ pub(crate) struct LocalTarget {
 pub(crate) async fn try_connect(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    supervised: bool,
 ) -> Result<Selected, anyhow::Error> {
     // no path: the user's hub
     let to = c.pieces.iter().rev().find_map(|p| match p {
@@ -65,16 +66,67 @@ pub(crate) async fn try_connect(
         Some(path) => path,
         None => users_hub(c, &target).await?,
     };
-    let tunnel = open(&path, target).await.map_err(OpenError::into_error)?;
+    // a device that takes one host at a time is held like a USB device (CLT-38) and reached through the hub when
+    // that is the way (CLT-39, CLT-43)
+    let mut claim = None;
+    if !via_hub && c.ipc_exclusive {
+        let key = format!("ipc:{}", path.display());
+        #[cfg(feature = "hub")]
+        if let crate::hub::Route::Hub(tunnel) = crate::hub::route(c, &key, false).await? {
+            return started(cmd_rx, &key, *tunnel, true);
+        }
+        claim = hold(c, &key, supervised)?;
+    }
+    let mut tunnel = open(&path, target).await.map_err(OpenError::into_error)?;
+    tunnel.claim = claim;
+    started(cmd_rx, &path.display().to_string(), tunnel, via_hub)
+}
+
+/// Starts the event loop for an opened tunnel.
+fn started(
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    shown: &str,
+    tunnel: Tunnel,
+    via_hub: bool,
+) -> Result<Selected, anyhow::Error> {
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
     tokio::spawn(worker(cmd_rx));
+    let mut info = device_info(shown);
+    if via_hub && shown.starts_with("ipc:") {
+        info.location = format!("{} through the ww hub", info.location);
+    }
     Ok(Selected::Device {
-        info: Box::new(device_info(&path.display().to_string())),
+        info: Box::new(info),
         handle: Box::new(tunnel),
         via_hub,
     })
+}
+
+/// Holds the device `key` in the holders registry before opening it ([ClientConfig::ipc_exclusive](
+/// crate::ClientConfig::ipc_exclusive)), offering a polite handover to the hub (CLT-43).
+fn hold(
+    c: &ValidatedConfig,
+    key: &str,
+    supervised: bool,
+) -> Result<Option<crate::holders::Claim>, anyhow::Error> {
+    match crate::holders::claim_offering(
+        key,
+        c.holder_mode,
+        c.client_meta.as_deref(),
+        c.handover_offer(supervised),
+    ) {
+        Ok(claim) => Ok(Some(claim)),
+        Err(crate::holders::ClaimError::HeldBy(holder)) => bail!(
+            "device is already open by another WireWeaver program or connection; {holder}{}",
+            crate::hub::busy_hint(&holder)
+        ),
+        Err(crate::holders::ClaimError::Io(e)) => {
+            tracing::warn!("could not record holding {key} ({e:#}), continuing without it");
+            Ok(None)
+        }
+    }
 }
 
 /// The socket of the user's hub, started for a device when none runs (feature `hub`).
@@ -142,7 +194,7 @@ impl Transport for LocalSocketTransport {
             ),
         );
         Ok(Opened {
-            tx: LocalTx(MessageWriter::new(tunnel.tx)),
+            tx: LocalTx(MessageWriter::new(tunnel.tx), tunnel.claim),
             // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
             rx: LocalRx(MessageReader::new(
                 tunnel.rx,
@@ -161,6 +213,9 @@ pub(crate) struct Tunnel {
     /// What the hub (or the serving process) says its version is
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     pub(crate) hub_version: String,
+    /// Held for a device that takes one host at a time ([ClientConfig::ipc_exclusive](
+    /// crate::ClientConfig::ipc_exclusive)), for as long as the link lives
+    pub(crate) claim: Option<crate::holders::Claim>,
 }
 
 /// Why [open] failed.
@@ -277,10 +332,11 @@ async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel
         tx,
         shown,
         hub_version: answer.hub_version,
+        claim: None,
     })
 }
 
-pub(crate) struct LocalTx(MessageWriter<SendHalf>);
+pub(crate) struct LocalTx(MessageWriter<SendHalf>, Option<crate::holders::Claim>);
 
 impl MessageTx for LocalTx {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
@@ -290,6 +346,13 @@ impl MessageTx for LocalTx {
 
     async fn flush(&mut self) -> Result<(), String> {
         self.0.flush().await.map_err(|e| e.to_string())
+    }
+
+    async fn handover_requested(&mut self) {
+        match self.1.as_mut() {
+            Some(claim) => claim.handover_requested().await,
+            None => std::future::pending().await,
+        }
     }
 
     async fn close(mut self) {

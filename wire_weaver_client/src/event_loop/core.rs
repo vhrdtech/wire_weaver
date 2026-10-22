@@ -339,11 +339,18 @@ async fn tx_task<T: Transport>(
                 None => std::future::pending().await,
             }
         };
+        let handover = async {
+            match msg_tx.as_mut() {
+                Some(tx) => tx.handover_requested().await,
+                None => std::future::pending().await,
+            }
+        };
         tokio::select! {
             msg = from_rx.recv() => match msg {
                 Some(msg) => core.handle(now(), TxInput::FromRx(msg)),
                 None => core.handle(now(), TxInput::TransportError("rx task is gone".into())),
             },
+            _ = handover => core.handle(now(), TxInput::HandToHub),
             cmd = cmd_rx.recv() => match cmd {
                 Some(cmd) => core.handle(now(), TxInput::Command(cmd)),
                 None => core.handle(now(), TxInput::CommanderDropped),

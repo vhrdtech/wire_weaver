@@ -32,7 +32,7 @@ pub(crate) struct NusbTx {
     /// Keeps the device open while endpoints are in use
     _device: nusb::Device,
     /// Keeps the holders registry claim (CLT-38) for as long as the interface is held
-    _claim: Option<crate::holders::Claim>,
+    claim: Option<crate::holders::Claim>,
 }
 
 pub(crate) struct NusbRx {
@@ -79,7 +79,7 @@ impl Transport for NusbTransport {
                 sink,
                 tap: tap.clone(),
                 _device: dev.device,
-                _claim: dev.claim,
+                claim: dev.claim,
             },
             rx: NusbRx {
                 // must hold one maximum message plus one more packet, see FramedRx docs
@@ -136,6 +136,13 @@ impl MessageTx for NusbTx {
 
     async fn flush(&mut self) -> Result<(), String> {
         self.send_frame().await.map(|_| ())
+    }
+
+    async fn handover_requested(&mut self) {
+        match self.claim.as_mut() {
+            Some(claim) => claim.handover_requested().await,
+            None => std::future::pending().await,
+        }
     }
 
     async fn close(self) {

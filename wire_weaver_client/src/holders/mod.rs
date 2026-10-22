@@ -11,6 +11,8 @@
 //!
 //! This module has no feature gate: direct-mode programs write the lock file too, not only a future hub.
 
+#[cfg(feature = "local_socket")]
+mod handover;
 mod proc_scan;
 
 #[cfg(all(feature = "usb", target_os = "linux"))]
@@ -114,6 +116,9 @@ pub struct Holder {
     pub purpose: String,
     /// Shared by every connection of one client object, 0 if unknown.
     pub instance_id: u64,
+    /// The holder's socket for a polite handover to the hub (CLT-43), empty if it listens on none (a hub, a build
+    /// without `local_socket`, a file written before CLT-43).
+    pub handover: String,
 }
 
 impl Holder {
@@ -139,6 +144,7 @@ impl Holder {
             label: meta.map(|m| m.label.clone()).unwrap_or_default(),
             purpose: meta.and_then(|m| m.purpose.clone()).unwrap_or_default(),
             instance_id: meta.map(|m| m.instance_id).unwrap_or(0),
+            handover: String::new(),
         }
     }
 
@@ -158,6 +164,7 @@ impl Holder {
             label: String::new(),
             purpose: String::new(),
             instance_id: 0,
+            handover: String::new(),
         }
     }
 
@@ -180,7 +187,8 @@ impl Holder {
              host = {host}\n\
              label = {label}\n\
              purpose = {purpose}\n\
-             instance_id = {instance_id}\n",
+             instance_id = {instance_id}\n\
+             handover = {handover}\n",
             key = key,
             pid = holder.pid,
             program = holder.program,
@@ -194,6 +202,7 @@ impl Holder {
             label = one_line(&holder.label),
             purpose = one_line(&holder.purpose),
             instance_id = holder.instance_id,
+            handover = one_line(&holder.handover),
         )
     }
 
@@ -227,6 +236,8 @@ impl Holder {
                 "label" => extra.label = v.to_string(),
                 "purpose" => extra.purpose = v.to_string(),
                 "instance_id" => extra.instance_id = v.parse().unwrap_or(0),
+                // added with CLT-43
+                "handover" => extra.handover = v.to_string(),
                 _ => {}
             }
         }
@@ -299,13 +310,42 @@ pub enum ClaimError {
 #[derive(Debug)]
 pub struct Claim {
     /// Never read again: holding it open (and so the OS lock) for as long as `Claim` lives is the whole point.
-    _file: File,
+    /// `None` only while dropping.
+    file: Option<File>,
     key: String,
+    /// Listening for askers of a handover to the hub (CLT-43)
+    #[cfg(feature = "local_socket")]
+    offer: Option<handover::Offer>,
 }
 
 impl Claim {
     pub fn key(&self) -> &str {
         &self.key
+    }
+
+    /// Returns once another program asked this holder to hand the device to the hub and it allows it (CLT-43):
+    /// the event loop then lets go of the device. Never for a claim that offers no handover. Cancel-safe.
+    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    pub(crate) async fn handover_requested(&mut self) {
+        #[cfg(feature = "local_socket")]
+        if let Some(offer) = self.offer.as_mut() {
+            return offer.requested().await;
+        }
+        std::future::pending::<()>().await
+    }
+}
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        // the socket goes while the lock is still ours, so it never takes away the next holder's socket
+        #[cfg(feature = "local_socket")]
+        if let Some(offer) = &self.offer {
+            let _ = std::fs::remove_file(&offer.socket);
+        }
+        drop(self.file.take());
+        // then a waiting asker hears that the device is free
+        #[cfg(feature = "local_socket")]
+        drop(self.offer.take());
     }
 }
 
@@ -321,6 +361,19 @@ pub fn claim_with(
     mode: Mode,
     meta: Option<&ClientMetaOwned>,
 ) -> Result<Claim, ClaimError> {
+    claim_offering(key, mode, meta, None)
+}
+
+/// [`claim_with`], listening for a polite handover to the hub (CLT-43) with `handover`: `Some(true)` hands the
+/// device over when asked ([`Claim::handover_requested`]), `Some(false)` answers `Refused` with `meta`. Without a
+/// tokio runtime or the `local_socket` feature it listens on nothing.
+#[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+pub(crate) fn claim_offering(
+    key: &str,
+    mode: Mode,
+    meta: Option<&ClientMetaOwned>,
+    handover: Option<bool>,
+) -> Result<Claim, ClaimError> {
     let path = lock_path(key)?;
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -330,15 +383,33 @@ pub fn claim_with(
         .open(&path)?;
     match file.try_lock() {
         Ok(()) => {
-            let holder = Holder::current(mode, meta);
+            let mut holder = Holder::current(mode, meta);
+            #[cfg(feature = "local_socket")]
+            let offer = handover.and_then(|allowed| {
+                let dir = path.parent()?;
+                handover::Offer::start(dir, key, allowed, meta)
+                    .inspect_err(|e| tracing::debug!("{key}: no holder socket: {e}"))
+                    .ok()
+            });
+            #[cfg(feature = "local_socket")]
+            if let Some(offer) = &offer {
+                holder.handover = offer.socket.display().to_string();
+            }
+            #[cfg(not(feature = "local_socket"))]
+            let _ = (handover, &mut holder);
+            let claim = Claim {
+                file: Some(file),
+                key: key.to_string(),
+                #[cfg(feature = "local_socket")]
+                offer,
+            };
+            let file = claim.file.as_ref().expect("just set");
+            let mut file: &File = file;
             file.set_len(0)?;
             file.seek(SeekFrom::Start(0))?;
             file.write_all(Holder::serialize(key, &holder).as_bytes())?;
             file.flush()?;
-            Ok(Claim {
-                _file: file,
-                key: key.to_string(),
-            })
+            Ok(claim)
         }
         Err(TryLockError::WouldBlock) => Err(ClaimError::HeldBy(Box::new(read_holder(&mut file)?))),
         Err(TryLockError::Error(e)) => Err(ClaimError::Io(e)),

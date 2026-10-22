@@ -44,6 +44,10 @@ pub(crate) enum TxInput {
     /// Nothing else is waiting to go out: send the frame being accumulated now. For accumulation windows shorter
     /// than the wrapper's timer can wait (tokio counts whole milliseconds), see [TxCore::wants_idle_flush].
     Idle,
+    /// Another program asked this direct holder to hand the device to the ww hub (CLT-43,
+    /// [MessageTx::handover_requested](crate::event_loop::transport::MessageTx::handover_requested)): let go of it
+    /// as `disconnect().keep_streams()` does, exiting with [EventLoopExitReason::HandedToHub].
+    HandToHub,
 }
 
 pub(crate) enum TxOutput {
@@ -264,6 +268,15 @@ impl TxCore {
                     self.flush(now);
                 }
                 Ok(Flow::Continue)
+            }
+            TxInput::HandToHub => {
+                info!(
+                    "handing the device to the ww hub (keeping streams for the reconnect through it)"
+                );
+                self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
+                self.events.disconnected("handed to the ww hub", true);
+                self.send_disconnect(now, DisconnectReason::RequestByUser);
+                Ok(Flow::Exit(EventLoopExitReason::HandedToHub))
             }
         };
         match r {

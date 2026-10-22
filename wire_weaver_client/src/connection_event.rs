@@ -24,6 +24,9 @@ pub enum GapReason {
     Lent,
     /// The other side ended the link for this reason.
     Disconnect(DisconnectReason),
+    /// Another program asked for the device this program held directly, and it handed the device to the ww hub
+    /// (CLT-43, [ClientConfig::allow_handover](crate::ClientConfig::allow_handover)): it reconnects through the hub.
+    HandedToHub,
 }
 
 impl GapReason {
@@ -42,6 +45,9 @@ impl std::fmt::Display for GapReason {
             GapReason::Lost(why) => write!(f, "link lost: {why}"),
             GapReason::HubHandover => f.write_str("the ww hub handed over to a newer one"),
             GapReason::Lent => f.write_str("the ww hub lent the device to another program"),
+            GapReason::HandedToHub => {
+                f.write_str("handed the device to the ww hub for another program")
+            }
             GapReason::Disconnect(reason) => {
                 write!(f, "disconnected by the other side: {reason:?}")
             }
@@ -55,7 +61,8 @@ impl std::fmt::Display for GapReason {
 pub enum ConnectionEvent {
     /// The link went. Calls in flight failed with [Error::Disconnected](crate::Error::Disconnected), and so does
     /// every call until a reconnect (they are never sent again by themselves). With `reconnecting`, the client
-    /// connects again by itself (a connection through the hub, [crate::ClientConfig::hub_reconnect]): counted and
+    /// connects again by itself (a connection through the hub, [crate::ClientConfig::hub_reconnect], or one handed to
+    /// the hub, [crate::ClientConfig::allow_handover]): counted and
     /// reliable streams, observed levels and sinks wait for it.
     Disconnected {
         reason: GapReason,

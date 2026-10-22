@@ -4,7 +4,7 @@ use tracing::{debug, info};
 use ww_hub_api::DeviceStateOwned;
 use ww_local_socket::Target;
 
-use super::{HubClient, HubMode, MODE_ENV, ensure_running, hub_running, record_open};
+use super::{HubClient, HubMode, MODE_ENV, ensure_running, handover, hub_running, record_open};
 use crate::ClientKind;
 use crate::config::ValidatedConfig;
 use crate::connection_event::STATUS_LENT;
@@ -35,7 +35,21 @@ impl std::fmt::Debug for Route {
 ///   (then a hub is started if none runs); directly otherwise, and when the hub can't be had.
 /// - `Prefer`: through the hub, started if needed; directly when none can start or it can't serve the device.
 /// - `Required`: through the hub, started if needed, or an error.
-pub(crate) async fn route(config: &ValidatedConfig, key: &str) -> anyhow::Result<Route> {
+///
+/// In every mode but `Direct`, a device another program holds directly is asked for first (CLT-43): a holder that
+/// hands it to the hub is reached through the hub, one that refuses fails the connection naming it.
+///
+/// `count_opens`: [HubMode::Auto] counts opens of this device (USB); a device on a local socket isn't counted.
+pub(crate) async fn route(
+    config: &ValidatedConfig,
+    key: &str,
+    count_opens: bool,
+) -> anyhow::Result<Route> {
+    if config.hub_mode != HubMode::Direct
+        && let Some(route) = ask_holder(config, key).await?
+    {
+        return Ok(route);
+    }
     let route = match config.hub_mode {
         HubMode::Direct => Route::Direct {
             note: holders::list()
@@ -51,6 +65,8 @@ pub(crate) async fn route(config: &ValidatedConfig, key: &str) -> anyhow::Result
         HubMode::Auto => {
             if hub_running() && registry_holds(key).await {
                 via_hub(key, HubMode::Auto, "the ww hub holds it").await?
+            } else if !count_opens {
+                Route::Direct { note: None }
             } else {
                 let kind = match &config.client_meta {
                     Some(meta) => meta.kind,
@@ -81,6 +97,53 @@ pub(crate) async fn route(config: &ValidatedConfig, key: &str) -> anyhow::Result
         info!("{note}");
     }
     Ok(route)
+}
+
+/// Another program holds `key` directly and listens for a polite handover (CLT-43): with a hub to hand it to, asks
+/// it. `None`: nobody to ask (or no hub), go on as without a holder (the open fails as busy, naming it).
+async fn ask_holder(config: &ValidatedConfig, key: &str) -> anyhow::Result<Option<Route>> {
+    let Some(holder) = tokio::task::spawn_blocking({
+        let key = key.to_string();
+        move || handover::direct_holder(&key)
+    })
+    .await
+    .ok()
+    .flatten() else {
+        return Ok(None);
+    };
+    // a holder is only asked when there is a hub to take the device: it would lose it for nothing otherwise
+    if let Err(e) = ensure_running(true).await {
+        if config.hub_mode == HubMode::Required {
+            anyhow::bail!("{key} through the ww hub: {e}");
+        }
+        info!("{key} is {holder}; not asking it to hand the device over: {e}");
+        return Ok(None);
+    }
+    let program = holder.program.clone();
+    let started = std::time::Instant::now();
+    match handover::ask(holder, config.client_meta.as_deref()).await {
+        handover::Asked::Released(holder) => {
+            info!(
+                "{program} (pid {}) handed {key} to the ww hub in {:?}",
+                holder.pid,
+                started.elapsed()
+            );
+            // the device is free now: through the hub whatever the mode, Auto included
+            let mode = match config.hub_mode {
+                HubMode::Required => HubMode::Required,
+                _ => HubMode::Prefer,
+            };
+            Ok(Some(
+                via_hub(key, mode, &format!("{program} handed it over")).await?,
+            ))
+        }
+        handover::Asked::Refused(holder, meta) => {
+            anyhow::bail!(handover::refused(key, &holder, meta.as_deref()))
+        }
+        handover::Asked::Failed(holder, why) => {
+            anyhow::bail!("{key} is {holder}; asked to hand the device to the ww hub, {why}")
+        }
+    }
 }
 
 async fn via_hub(key: &str, mode: HubMode, why: &str) -> anyhow::Result<Route> {
@@ -145,7 +208,7 @@ async fn registry_holds(key: &str) -> bool {
 }
 
 /// A holder's key carries the interface number (`usb:..:<serial>:<iface>`), the registry's and ours don't.
-fn same_device(holder_key: &str, key: &str) -> bool {
+pub(crate) fn same_device(holder_key: &str, key: &str) -> bool {
     holder_key == key
         || holder_key
             .strip_prefix(key)
@@ -205,7 +268,7 @@ mod route_tests {
     #[test]
     fn no_hub_executable_prefer_goes_direct() {
         without_hub_exe(|| {
-            let route = block_on(route(&config(HubMode::Prefer), "usb:c0de:cafe:1")).unwrap();
+            let route = block_on(route(&config(HubMode::Prefer), "usb:c0de:cafe:1", true)).unwrap();
             match route {
                 Route::Direct { note: Some(note) } => {
                     assert!(note.contains("no ww hub executable"), "{note}")
@@ -218,7 +281,8 @@ mod route_tests {
     #[test]
     fn no_hub_executable_required_fails_and_says_how_to_get_one() {
         without_hub_exe(|| {
-            let e = block_on(route(&config(HubMode::Required), "usb:c0de:cafe:1")).unwrap_err();
+            let e =
+                block_on(route(&config(HubMode::Required), "usb:c0de:cafe:1", true)).unwrap_err();
             assert!(
                 e.to_string().contains("cargo install wire_weaver_cli"),
                 "{e}"
@@ -231,11 +295,11 @@ mod route_tests {
         without_hub_exe(|| {
             let c = config(HubMode::Auto);
             for _ in 0..2 {
-                let r = block_on(route(&c, "usb:c0de:cafe:2")).unwrap();
+                let r = block_on(route(&c, "usb:c0de:cafe:2", true)).unwrap();
                 assert!(matches!(r, Route::Direct { note: None }), "{r:?}");
             }
             // the third shell-launched open wants the hub, finds none to start and goes direct
-            let r = block_on(route(&c, "usb:c0de:cafe:2")).unwrap();
+            let r = block_on(route(&c, "usb:c0de:cafe:2", true)).unwrap();
             assert!(matches!(r, Route::Direct { note: Some(_) }), "{r:?}");
         });
     }
@@ -245,12 +309,12 @@ mod route_tests {
         with_runtime_dir(|_| {
             // as the hub holds a device it opened: `mode = hub`, the key with the interface number
             let _held = holders::claim("usb:c0de:cafe:3:0", Mode::Hub).unwrap();
-            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:3")).unwrap();
+            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:3", true)).unwrap();
             match r {
                 Route::Direct { note: Some(note) } => assert!(note.contains("holds"), "{note}"),
                 other => panic!("expected direct with a note, got {other:?}"),
             }
-            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:4")).unwrap();
+            let r = block_on(route(&config(HubMode::Direct), "usb:c0de:cafe:4", true)).unwrap();
             assert!(matches!(r, Route::Direct { note: None }), "{r:?}");
         });
     }

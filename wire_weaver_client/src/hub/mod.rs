@@ -17,6 +17,8 @@ mod client;
 #[cfg(feature = "hub")]
 mod exclusive;
 #[cfg(feature = "hub")]
+mod handover;
+#[cfg(feature = "hub")]
 mod opens;
 #[cfg(feature = "hub")]
 mod route;
@@ -170,11 +172,24 @@ pub fn key_of(device: &crate::DeviceInfo) -> Option<String> {
 }
 
 /// `ww hub take`: the hub opens the device `key` now and keeps it, so programs reach it through the hub from their
-/// first call. Starts the hub if none runs.
+/// first call. Starts the hub if none runs. A program holding the device directly is asked to hand it over first
+/// (CLT-43); one that refuses is named in the error.
 #[cfg(feature = "hub")]
 pub async fn take(key: &str) -> anyhow::Result<()> {
     use anyhow::Context;
     let socket = ensure_running(true).await?;
+    if let Some(holder) = handover::direct_holder(key) {
+        let me = crate::ClientMeta::new().resolve();
+        match handover::ask(holder, Some(&me)).await {
+            handover::Asked::Released(_) => {}
+            handover::Asked::Refused(holder, meta) => {
+                anyhow::bail!(handover::refused(key, &holder, meta.as_deref()))
+            }
+            handover::Asked::Failed(holder, why) => {
+                anyhow::bail!("{key} is {holder}; asked to hand the device to the ww hub, {why}")
+            }
+        }
+    }
     let hub = HubClient::config(|c| c.hub_api_at(socket.display().to_string()))
         .connect()
         .await

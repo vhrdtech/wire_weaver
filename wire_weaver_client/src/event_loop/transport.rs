@@ -21,6 +21,13 @@ pub(crate) trait MessageTx: Send + 'static {
     /// Send whatever is held back, even if the frame is not full. No-op if nothing is pending.
     fn flush(&mut self) -> impl Future<Output = Result<(), String>> + Send;
 
+    /// Returns when another program asked to have the device handed to the ww hub and this holder allows it
+    /// (CLT-43, the holder's [Claim](crate::holders::Claim)); the event loop then lets go of it. Never, for media
+    /// that hold no claim. Must be cancel-safe.
+    fn handover_requested(&mut self) -> impl Future<Output = ()> + Send {
+        std::future::pending()
+    }
+
     /// Release the medium. Returns once it is actually released, so that a new connection can open it again
     /// right away (e.g., claim the same USB interface).
     fn close(self) -> impl Future<Output = ()> + Send

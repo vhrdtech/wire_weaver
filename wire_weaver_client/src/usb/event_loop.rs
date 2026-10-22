@@ -47,6 +47,9 @@ pub(crate) struct NusbTx {
     interface: Option<nusb::Interface>,
     #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
     eps: Eps,
+    /// The device's key in the hub, for a live handover
+    #[cfg(feature = "local_socket")]
+    hub_key: String,
     /// Keeps the holders registry claim (CLT-38) for as long as the interface is held
     claim: SharedClaim,
 }
@@ -170,6 +173,8 @@ impl Transport for NusbTransport {
             device: dev.device,
             interface: Some(dev.interface),
             eps,
+            #[cfg(feature = "local_socket")]
+            hub_key: super::connect::hub_key(&target.info),
             claim: claim.clone(),
         };
         let rx = NusbRx {
@@ -238,6 +243,7 @@ impl Transport for NusbTransport {
         }
         let eps = tx.eps;
         Ok(Paused {
+            key: tx.hub_key.clone(),
             medium: crate::adopt::MediumOwned::Usb {
                 interface: eps.interface,
                 ep_in: eps.ep_in,

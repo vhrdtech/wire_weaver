@@ -232,8 +232,8 @@ pub(crate) fn try_connect_blocking(
 }
 
 /// The device's key in the hub's registry: `usb:<vid>:<pid>:<serial>`, without the interface number.
-#[cfg(feature = "hub")]
-fn hub_key(di: &DeviceInfo) -> String {
+#[cfg(any(feature = "hub", feature = "local_socket"))]
+pub(crate) fn hub_key(di: &DeviceInfo) -> String {
     crate::holders::key_for(crate::holders::DeviceRef::Usb {
         vid: di.vendor_id(),
         pid: di.product_id(),

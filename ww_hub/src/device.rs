@@ -199,7 +199,13 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
             });
         }
     };
-    start(hub, key, slot, cmd, |_| {})
+    let (router, routes, sink) = wiring();
+    cmd.send(Command::ForwardSink {
+        sink: Box::new(router),
+    })
+    .await
+    .map_err(|_| Status::UnknownDevice)?;
+    start(hub, key, slot, cmd, routes, sink, |_| {})
         .await
         .ok_or(Status::UnknownDevice)
 }
@@ -216,8 +222,12 @@ pub(crate) async fn adopt(
     let key = snapshot.key.as_str();
     let config = config_for(key).ok_or_else(|| format!("no transport for {key}"))?;
     let adopted = Adopted::new(snapshot, |seq| direct_tag(tunnel, seq), FORWARD_TIMEOUT)?;
+    // the device answers the program's requests in flight in the first frames: their tunnel and the router are in
+    // place before the event loop reads
+    let (router, routes, sink) = wiring();
+    routes.tunnels.lock().unwrap().insert(tunnel, queue.clone());
     let cmd = match wire_weaver_client::PreparedConnection::<Raw>::new(config)
-        .adopt(adopted)
+        .adopt(adopted, Box::new(router))
         .await
     {
         Ok(Raw(cmd)) => cmd,
@@ -229,9 +239,8 @@ pub(crate) async fn adopt(
     };
     let streams = snapshot.streams.clone();
     let observed = snapshot.observed.clone();
-    start(hub, key, slot, cmd, move |state| {
-        state.tunnels.insert(tunnel, queue.clone());
-        state.routes.tunnels.lock().unwrap().insert(tunnel, queue);
+    start(hub, key, slot, cmd, routes, sink, move |state| {
+        state.tunnels.insert(tunnel, queue);
         for path in streams {
             state.streams.insert(
                 path,
@@ -257,25 +266,28 @@ pub(crate) async fn adopt(
     .ok_or_else(|| "the device's event loop is gone".to_string())
 }
 
-/// Starts the task of a device opened with `cmd`, its state set up by `init`.
-async fn start(
-    hub: &Arc<Hub>,
-    key: &str,
-    slot: Slot,
-    cmd: Commander,
-    init: impl FnOnce(&mut State),
-) -> Option<DeviceHandle> {
+/// The [Router] for a device's event loop, the tunnels it routes to, and what it passes to the device's task.
+fn wiring() -> (Router, Arc<Routes>, mpsc::UnboundedReceiver<Forwarded>) {
     let (sink_tx, sink) = mpsc::unbounded_channel();
     let routes = Arc::new(Routes::default());
     let router = Router {
         routes: routes.clone(),
         task: sink_tx,
     };
-    cmd.send(Command::ForwardSink {
-        sink: Box::new(router),
-    })
-    .await
-    .ok()?;
+    (router, routes, sink)
+}
+
+/// Starts the task of a device opened with `cmd`, whose event loop forwards to the [Router] of `routes` and `sink`
+/// ([wiring]), its state set up by `init`.
+async fn start(
+    hub: &Arc<Hub>,
+    key: &str,
+    slot: Slot,
+    cmd: Commander,
+    routes: Arc<Routes>,
+    sink: mpsc::UnboundedReceiver<Forwarded>,
+    init: impl FnOnce(&mut State),
+) -> Option<DeviceHandle> {
     info!(
         "ww hub: opened {key}: {:?}",
         cmd.device_api_info().user_api_version

@@ -214,6 +214,8 @@ pub(crate) trait Transport {
 #[derive(Debug)]
 #[cfg_attr(not(feature = "hub"), allow(dead_code))]
 pub(crate) struct Paused {
+    /// The device's key in the hub (`usb:<vid>:<pid>:<serial>`), which may differ from its holders registry key
+    pub key: String,
     pub medium: crate::adopt::MediumOwned,
     /// The tx framer's next frame, None without a frame prefix
     pub tx_frame: Option<ww_framer::prefix::FrameCtx>,

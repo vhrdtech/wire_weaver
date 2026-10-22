@@ -14,6 +14,7 @@ hub_reconnect_api.workspace = true
 interprocess.workspace = true
 tests_common = { workspace = true, features = ["local_socket"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time", "io-util"] }
+tracing = "0.1"
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
 wire_weaver_client = { workspace = true, features = ["local_socket", "in_process", "hub"] }

@@ -176,7 +176,7 @@ mod with_hub {
         };
         let snapshot = LinkSnapshotOwned {
             client_version: crate::adopt::CLIENT_VERSION.into(),
-            key: key.clone(),
+            key: paused.key.clone(),
             medium: paused.medium,
             tx_frame: paused.tx_frame.map(frame),
             rx_partial: paused
@@ -205,6 +205,7 @@ mod with_hub {
             observed: rx_part.observed,
         };
         let in_flight = snapshot.in_flight.len();
+        let hub_key = snapshot.key.clone();
         let id = match hub.prepare(&snapshot).await {
             Ok(id) => id,
             Err(e) => {
@@ -260,7 +261,7 @@ mod with_hub {
                 }
             };
         }
-        let tunnel = match hub.tunnel(&key, id).await {
+        let tunnel = match hub.tunnel(&hub_key, id).await {
             Ok(tunnel) => tunnel,
             Err(e) => {
                 warn!("{key}: the ww hub took the live link, but its tunnel failed: {e}");

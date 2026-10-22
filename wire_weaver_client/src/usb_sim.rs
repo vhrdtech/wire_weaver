@@ -676,6 +676,11 @@ impl Transport for UsbSimTransport {
         .await?;
         staged.map_err(|_| "out of staging area, this is a bug".to_string())?;
         Ok(Paused {
+            key: tx
+                .claim
+                .as_ref()
+                .map(|c| c.key().to_string())
+                .unwrap_or_default(),
             medium: crate::adopt::MediumOwned::UsbSim {
                 max_packet: tx.max_packet as u16,
                 seq_prefix: tx.seq_prefix,

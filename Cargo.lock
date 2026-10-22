@@ -2406,6 +2406,7 @@ dependencies = [
  "interprocess",
  "tests_common",
  "tokio",
+ "tracing",
  "tracing-subscriber",
  "wire_weaver",
  "wire_weaver_client",

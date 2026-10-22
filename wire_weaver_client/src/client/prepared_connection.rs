@@ -30,23 +30,31 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 
     pub async fn connect(self) -> Result<T> {
-        self.connect_with(None).await
+        self.connect_with(vec![]).await
     }
 
     /// Connects going on with another program's live link (CLT-44, the ww hub adopting a direct holder's link): no
     /// link setup, the link is up as soon as the device is open. The config must name the same device.
-    pub async fn adopt(self, adopted: crate::event_loop::command::Adopted) -> Result<T> {
-        self.connect_with(Some(Command::Adopt {
-            adopted: Box::new(adopted),
-        }))
+    /// Answers to the other program's requests in flight go to `sink` from the first frame read on.
+    pub async fn adopt(
+        self,
+        adopted: crate::event_loop::command::Adopted,
+        sink: Box<dyn crate::event_loop::command::ForwardSink>,
+    ) -> Result<T> {
+        self.connect_with(vec![
+            Command::ForwardSink { sink },
+            Command::Adopt {
+                adopted: Box::new(adopted),
+            },
+        ])
         .await
     }
 
-    async fn connect_with(self, first: Option<Command>) -> Result<T> {
+    async fn connect_with(self, first: Vec<Command>) -> Result<T> {
         let config = self.config.validate()?;
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
-        if let Some(cmd) = first {
-            // queued: the event loop takes it before the Connect
+        for cmd in first {
+            // queued: the event loop takes them before the Connect
             cmd_tx
                 .try_send(cmd)
                 .map_err(|_| crate::Error::EventLoopNotRunning)?;

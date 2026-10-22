@@ -524,3 +524,42 @@ async fn a_prepared_adoption_goes_with_its_connection() {
     stop_hub().await;
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The device answers the requests in flight while the interface is between the holder and the hub: the answers wait
+/// in the device and reach the hub in its very first reads, before anything else of the adopted link is set up. They
+/// still go to the holder: no call fails.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn answers_waiting_in_the_device_reach_the_holder() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let dir = setup("waiting-answers");
+    let socket = dir.join("dev.sock");
+    let (device, seen) = hub_reconnect::start_device_usb_sim(&socket);
+    let (mut holder, before, asker) = holder_in_commit(&socket, &device).await;
+    let usb = device.usb_sim().unwrap();
+
+    // every request in flight is answered meanwhile, the answers wait for the next host
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    usb.hold_claims(false);
+    let mut client = tokio::time::timeout(Duration::from_secs(2), asker)
+        .await
+        .expect("the asker connects")
+        .unwrap()
+        .expect("connect through the hub");
+    let (after, lines) = holder.advance(before, 100, 10);
+    assert!(
+        lines.iter().any(|l| l.contains("handed the live link")),
+        "{lines:?}"
+    );
+    assert_eq!(after.failed, 0, "no call failed: {after:?}");
+    assert_eq!(after.out_of_order, 0, "no tick lost, doubled or out of order");
+    assert_eq!(device.link_events(), (1, 0));
+    assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
+    drop(holder);
+    let adds = adds_once(&seen);
+    let missing: Vec<u32> = (1..=after.ok).filter(|a| !adds.contains(a)).collect();
+    assert!(missing.is_empty(), "calls the device never saw: {missing:?}");
+
+    drop(client);
+    stop_hub().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}

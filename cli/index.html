@@ -5372,13 +5372,12 @@ properties, asks any device what it is and what it counted, and tests the link.<
 <p>Install from git with cargo (the binary ends up in <code>~/.cargo/bin</code>):</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>--git<span class="w"> </span>https://github.com/vhrdtech/wire_weaver<span class="w"> </span>wire_weaver_cli
 </span></code></pre></div>
-<p>Or from a local checkout of the repository:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>--path<span class="w"> </span>wire_weaver_cli
-</span></code></pre></div>
-<p>Re-run the same command with <code>--force</code> to update an existing installation.</p>
+<p>From a local checkout of the repository, on a PC with <code>tpm</code>, <code>just install</code> builds <code>ww</code> with the <code>deploy</code> profile and installs
+it into the kept-releases stack in <code>~/.local/bin</code> (the only <code>ww</code> on <code>PATH</code>); <code>just deploy</code> pulls main first and checks
+<code>ww --version</code>. Without <code>tpm</code>, use <code>cargo install --path wire_weaver_cli</code> from the checkout, and re-run it with <code>--force</code>
+to update an existing installation.</p>
 <p>Inside the repository it can also be run without installing, with <code>cargo ww &lt;args&gt;</code> (alias from
-<code>.cargo/config.toml</code>). <code>just install-cli</code> builds the current checkout in release mode and copies the binary into
-<code>~/.local/bin/ww</code>, which is handy when testing changes to the tool itself.</p>
+<code>.cargo/config.toml</code>). <code>just install</code> (also <code>just install-cli</code>) installs the current checkout as above, which is handy when testing changes to the tool itself.</p>
 <div class="admonition note">
 <p class="admonition-title">Linux permissions</p>
 <p>Listing devices works without any setup, but opening one (<code>introspect</code>, <code>info</code>, ...) needs read/write access
@@ -5388,30 +5387,30 @@ to <code>/dev/bus/usb/...</code>, usually granted to your user with a udev rule.
 <p>Completions are produced by <code>ww</code> itself, so they always match the installed version. Values of the device
 selection flags (<code>--serial</code>, <code>--label</code>, <code>--api</code>, <code>--usb-path</code>, ...) are completed from the devices connected right
 now, with the product and label of each shown as a hint. Register them once in the shell's startup file:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=bash ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.bashrc<span class="w">                  </span><span class="c1"># bash</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=zsh ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.zshrc<span class="w">                    </span><span class="c1"># zsh</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;COMPLETE=fish ww | source&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.config/fish/config.fish<span class="w">  </span><span class="c1"># fish</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=bash ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.bashrc<span class="w">                  </span><span class="c1"># bash</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;source &lt;(COMPLETE=zsh ww)&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.zshrc<span class="w">                    </span><span class="c1"># zsh</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;COMPLETE=fish ww | source&#39;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>~/.config/fish/config.fish<span class="w">  </span><span class="c1"># fish</span>
 </span></code></pre></div>
 <p>Elvish and PowerShell are supported as well (<code>COMPLETE=elvish</code>, <code>COMPLETE=powershell</code>). In bash, values containing
 spaces or quotes are inserted quoted, and values after <code>@</code> or <code>:</code> complete too (<code>--api blinky_api@&lt;TAB&gt;</code>,
 <code>--vid-pid c0de:&lt;TAB&gt;</code>).</p>
 <h2 id="first-steps">First steps<a class="headerlink" href="#first-steps" title="Permanent link">&para;</a></h2>
 <p>Plug in a device and look at what is there:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ ww list
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>LOCATION             PRODUCT             SERIAL                    API                 HASH              LABEL
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>usb 003-1 c0de:cafe  WireWeaver Generic  09000F000251313438333634  all_gpio_api@0.1.0  5ff989a95162d4d7
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww list
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>LOCATION             PRODUCT             SERIAL                    API                 HASH              LABEL
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>usb 003-1 c0de:cafe  WireWeaver Generic  09000F000251313438333634  all_gpio_api@0.1.0  5ff989a95162d4d7
 </span></code></pre></div>
 <p><code>ww list</code> reads the USB descriptors only, without opening the device. <code>API</code> is the API crate the firmware
 implements. With one device connected, every other command uses it; with several, pick one with a
 <a href="#device-selection">device selection</a> flag such as <code>--serial 0900</code>.</p>
 <p>Next, the device's API as a resource tree, from the introspection data it carries (<code>-d</code> hides doc comments):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>$ ww introspect -d
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>trait AllGpioApi all_gpio_api@0.1.0
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>└─ 0 impl port[]: ww_gpio::Bank
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>   ├─ 0 impl pin[]: ww_gpio::Pin
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>   │  ├─ 0 fn set_output_level(level: Level)
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>   │  ├─ 1 fn toggle()
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>   ...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ ww introspect -d
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>trait AllGpioApi all_gpio_api@0.1.0
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>└─ 0 impl port[]: ww_gpio::Bank
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>   ├─ 0 impl pin[]: ww_gpio::Pin
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>   │  ├─ 0 fn set_output_level(level: Level)
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>   │  ├─ 1 fn toggle()
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>   ...
 </span></code></pre></div>
 <p>From there:</p>
 <ul>
@@ -5593,11 +5592,11 @@ narrow the selection together. Each setting is taken from the first place that h
 <h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
 <p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
 from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">[device]</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># ww.toml</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">[device]</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
 </span></code></pre></div>
 <p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
 whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are

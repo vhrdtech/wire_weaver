@@ -1393,6 +1393,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   in one binary): a kernel restart reconnects well under a second with the device still open and steered, two
   Python processes share one device through the hub's tunnel (`wire_weaver_py/tests/test_hub.py`).
   `docs/transport/hub.md#python-and-notebooks-tool-18`.
+- ✅ **TOOL-19 Escape device strings in `ww` output** — `Untrusted`/`escape` (`wire_weaver_cli/src/untrusted.rs`)
+  turn a C0/C1 control character, DEL or a Unicode bidi override/isolate in a device- or hub-supplied string into a
+  visible `\u{..}` escape (`\n`/`\r`/`\t` as their short two-character form) before it reaches the terminal, so a
+  device can no longer write terminal escape sequences through its USB product/manufacturer/serial strings,
+  introspection docs/idents, `UserStr` text, pin names or hub/holder program/label/user/host fields; `--json` is
+  untouched (JSON's own escaping already covers it), and the CLI's own ANSI colour codes stay outside the escaped
+  text. `docs/cli_reference.md#untrusted-device-and-hub-strings`.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
@@ -1429,9 +1436,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
-- 📋 **TOOL-19 Escape device strings in `ww` output** — USB product and serial strings, `UserStr` errors,
-  introspection docs and (with SRV-36) remote hub data are printed as they come, so a device can write terminal
-  escape sequences into the user's terminal. One display helper that escapes control characters, outside `--json`.
 - 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case

@@ -14,6 +14,7 @@ use ww_hub::client::HubClient;
 use ww_hub_api::{ClientEntryOwned, DeviceEntryOwned, DeviceStateOwned};
 
 use crate::complete;
+use crate::untrusted::escape;
 
 #[derive(Subcommand)]
 pub(crate) enum HubCommand {
@@ -222,7 +223,7 @@ async fn status() -> Result<()> {
     let started_by = if st.started_by.is_empty() {
         "unknown".to_string()
     } else {
-        st.started_by.clone()
+        escape(&st.started_by).into_owned()
     };
     println!(
         "{}{started_by}, up {}",
@@ -257,7 +258,7 @@ async fn status() -> Result<()> {
                 .map(|d| {
                     vec![
                         d.key.clone(),
-                        d.product.clone(),
+                        escape(&d.product).into_owned(),
                         device_state(d),
                         d.tunnels.to_string(),
                     ]
@@ -292,11 +293,15 @@ fn device_state(d: &DeviceEntryOwned) -> String {
         DeviceStateOwned::Open => style("open (hub)").green().to_string(),
         DeviceStateOwned::HeldElsewhere { holder } => style(format!(
             "held by {} (pid {}, {})",
-            holder.program, holder.pid, holder.mode
+            escape(&holder.program),
+            holder.pid,
+            holder.mode
         ))
         .yellow()
         .to_string(),
-        DeviceStateOwned::Faulted { why } => style(format!("faulted: {why}")).red().to_string(),
+        DeviceStateOwned::Faulted { why } => {
+            style(format!("faulted: {}", escape(why))).red().to_string()
+        }
         // a state a newer hub knows
         DeviceStateOwned::Unknown(_) => "unknown".to_string(),
     }
@@ -316,12 +321,12 @@ fn print_clients(clients: &[ClientEntryOwned]) {
                     } else {
                         c.pid.to_string()
                     },
-                    c.program.clone(),
-                    c.kind.clone(),
+                    escape(&c.program).into_owned(),
+                    escape(&c.kind).into_owned(),
                     if c.user.is_empty() && c.host.is_empty() {
                         String::new()
                     } else {
-                        format!("{}@{}", c.user, c.host)
+                        format!("{}@{}", escape(&c.user), escape(&c.host))
                     },
                     format!("{} ago", fmt_secs(now.saturating_sub(c.since_ms) / 1000)),
                 ]
@@ -431,7 +436,7 @@ async fn who(filter: Option<&str>) -> Result<()> {
         if holder.is_none() {
             let u = d.usb.as_ref().unwrap();
             holder = holders::holder_of_usb_device(u.vid, u.pid, Some(&serial))
-                .map(|who| format!("{who}, not a ww program"));
+                .map(|who| format!("{}, not a ww program", escape(&who)));
         }
         rows.push(WhoRow {
             key,
@@ -470,8 +475,8 @@ async fn who(filter: Option<&str>) -> Result<()> {
                 .map(|r| {
                     vec![
                         r.key.clone(),
-                        r.product.clone(),
-                        r.label.clone(),
+                        escape(&r.product).into_owned(),
+                        escape(&r.label).into_owned(),
                         match &r.holder {
                             Some(h) => style(h).yellow().to_string(),
                             None => style("free").green().to_string(),
@@ -513,7 +518,7 @@ fn describe_holder(h: &Holder) -> String {
     let program = if h.mode == holders::Mode::Hub {
         "ww hub".to_string()
     } else {
-        h.program.clone()
+        escape(&h.program).into_owned()
     };
     format!(
         "{program} (pid {}, {}, for {})",

@@ -1,4 +1,5 @@
 use crate::device::Selection;
+use crate::untrusted::{Untrusted, escape};
 use anyhow::Result;
 use clap::Args;
 use console::measure_text_width;
@@ -49,7 +50,10 @@ pub(crate) async fn list(args: ListArgs, selection: &Selection) -> Result<()> {
     }
     if args.plain {
         for device in devices {
-            println!("{device}");
+            // DeviceInfo's own Display interleaves our literal text (quotes, `serial=`, ..) with the device's own
+            // manufacturer/product/serial/label strings; escaping the whole rendered line is safe here (and
+            // simpler than picking the fields apart again) because this line never carries our own colour codes
+            println!("{}", Untrusted(&device.to_string()));
         }
     } else {
         print_table(&devices);
@@ -65,31 +69,11 @@ fn print_hub_list(entries: &[DeviceEntryOwned], plain: bool) -> Result<()> {
     }
     if plain {
         for e in entries {
-            let api = e.api.as_deref().unwrap_or("");
-            println!(
-                "{} \"{}\" serial={} api={api} label=\"{}\"",
-                e.location.as_deref().unwrap_or(&e.key),
-                e.product,
-                e.serial,
-                e.label.as_deref().unwrap_or("")
-            );
+            println!("{}", hub_list_plain_line(e));
         }
         return Ok(());
     }
-    let rows = entries
-        .iter()
-        .map(|e| {
-            vec![
-                e.location.clone().unwrap_or_else(|| e.key.clone()),
-                e.product.clone(),
-                e.serial.clone(),
-                e.api.clone().unwrap_or_default(),
-                e.api_hash.clone().unwrap_or_default(),
-                e.label.clone().unwrap_or_default(),
-                state_text(&e.state),
-            ]
-        })
-        .collect();
+    let rows = entries.iter().map(hub_list_row).collect();
     crate::cmd::hub::print_table(
         &[
             "LOCATION", "PRODUCT", "SERIAL", "API", "HASH", "LABEL", "STATE",
@@ -99,45 +83,54 @@ fn print_hub_list(entries: &[DeviceEntryOwned], plain: bool) -> Result<()> {
     Ok(())
 }
 
+/// One `ww list --plain` line of the hub's registry, with every device/hub-supplied field escaped (TOOL-19):
+/// `location`/`key` carry the raw USB serial too, `product` and `label` are free text.
+fn hub_list_plain_line(e: &DeviceEntryOwned) -> String {
+    format!(
+        "{} \"{}\" serial={} api={} label=\"{}\"",
+        escape(e.location.as_deref().unwrap_or(&e.key)),
+        escape(&e.product),
+        escape(&e.serial),
+        escape(e.api.as_deref().unwrap_or("")),
+        escape(e.label.as_deref().unwrap_or(""))
+    )
+}
+
+/// One table row of the hub's registry, same escaping as [hub_list_plain_line].
+fn hub_list_row(e: &DeviceEntryOwned) -> Vec<String> {
+    vec![
+        escape(e.location.as_deref().unwrap_or(&e.key)).into_owned(),
+        escape(&e.product).into_owned(),
+        escape(&e.serial).into_owned(),
+        e.api
+            .as_deref()
+            .map(|a| escape(a).into_owned())
+            .unwrap_or_default(),
+        e.api_hash.clone().unwrap_or_default(),
+        e.label
+            .as_deref()
+            .map(|l| escape(l).into_owned())
+            .unwrap_or_default(),
+        state_text(&e.state),
+    ]
+}
+
 fn state_text(state: &DeviceStateOwned) -> String {
     match state {
         DeviceStateOwned::Absent => "absent".into(),
         DeviceStateOwned::Present => "free".into(),
         DeviceStateOwned::Open => "open (hub)".into(),
         DeviceStateOwned::HeldElsewhere { holder } => {
-            format!("held by {} (pid {})", holder.program, holder.pid)
+            format!("held by {} (pid {})", escape(&holder.program), holder.pid)
         }
-        DeviceStateOwned::Faulted { why } => format!("faulted: {why}"),
+        DeviceStateOwned::Faulted { why } => format!("faulted: {}", escape(why)),
         DeviceStateOwned::Unknown(_) => "unknown".into(),
     }
 }
 
 fn print_table(devices: &[DeviceInfo]) {
     let header = ["LOCATION", "PRODUCT", "SERIAL", "API", "HASH", "LABEL"];
-    let rows: Vec<[String; 6]> = devices
-        .iter()
-        .map(|d| {
-            let (api, hash) = match &d.api {
-                Some(api) => (
-                    format!("{}@{}", api.gid, api.version),
-                    if api.signature.hash.is_empty() {
-                        String::new()
-                    } else {
-                        api.signature.to_string()
-                    },
-                ),
-                None => (String::new(), String::new()),
-            };
-            [
-                d.location.clone(),
-                d.product.clone(),
-                d.serials.join(","),
-                api,
-                hash,
-                d.user_label.clone(),
-            ]
-        })
-        .collect();
+    let rows: Vec<[String; 6]> = devices.iter().map(device_row).collect();
     let mut widths = header.map(measure_text_width);
     for row in &rows {
         for (w, cell) in widths.iter_mut().zip(row) {
@@ -156,5 +149,72 @@ fn print_table(devices: &[DeviceInfo]) {
     print_row(&header);
     for row in &rows {
         print_row(&row.each_ref().map(String::as_str));
+    }
+}
+
+/// One table row of a directly-enumerated USB device, `location`/`product`/`serials`/`label` escaped (TOOL-19).
+fn device_row(d: &DeviceInfo) -> [String; 6] {
+    let (api, hash) = match &d.api {
+        Some(api) => (
+            format!("{}@{}", escape(&api.gid), api.version),
+            if api.signature.hash.is_empty() {
+                String::new()
+            } else {
+                api.signature.to_string()
+            },
+        ),
+        None => (String::new(), String::new()),
+    };
+    [
+        escape(&d.location).into_owned(),
+        escape(&d.product).into_owned(),
+        escape(&d.serials.join(",")).into_owned(),
+        api,
+        hash,
+        escape(&d.user_label).into_owned(),
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A device whose product string carries a terminal title-change escape (TOOL-19): the table row comes out
+    /// with the ESC and BEL bytes escaped, keeping the rest of the text readable.
+    #[test]
+    fn device_row_escapes_a_hostile_product_string() {
+        let d = DeviceInfo {
+            location: "usb 3-1.2 c0de:cafe".into(),
+            manufacturer: "Acme".into(),
+            product: "\x1b]0;evil\x07Widget".into(),
+            serials: vec!["0B135A01".into()],
+            user_label: String::new(),
+            api: None,
+            usb: None,
+        };
+        let row = device_row(&d);
+        assert_eq!(row[1], "\\u{1b}]0;evil\\u{7}Widget");
+        assert!(!row[1].contains('\x1b'));
+    }
+
+    /// The hub registry's plain line escapes the same way, product and label both (TOOL-19).
+    #[test]
+    fn hub_list_plain_line_escapes_product_and_label() {
+        let e = DeviceEntryOwned {
+            key: "usb:c0de:cafe:0B135A01".into(),
+            location: Some("usb 3-1.2 c0de:cafe".into()),
+            product: "\x1b]0;evil\x07Widget".into(),
+            serial: "0B135A01".into(),
+            api: None,
+            api_hash: None,
+            label: Some("left\u{202e}bench".into()),
+            state: DeviceStateOwned::Present,
+            tunnels: 0,
+        };
+        let line = hub_list_plain_line(&e);
+        assert!(line.contains("\\u{1b}]0;evil\\u{7}Widget"));
+        assert!(line.contains("left\\u{202e}bench"));
+        assert!(!line.contains('\x1b'));
+        assert!(!line.contains('\u{202e}'));
     }
 }

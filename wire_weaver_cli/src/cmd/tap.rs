@@ -6,6 +6,7 @@
 //! this process opened) or a file ([FileFeed]); a ww server's tap of every client's link (SRV-13) is one more feed.
 
 use crate::cmd::explain;
+use crate::untrusted::escape;
 use crate::util::StopSignal;
 use crate::value_fmt::fmt_value;
 use anyhow::{Context, Result, anyhow};
@@ -653,7 +654,7 @@ fn api_line(
     api: &wire_weaver_client::tap::ApiInfo,
     bundle: Option<&ApiBundleOwned>,
 ) -> String {
-    let mut s = format!("{} {}", arrow(m.dir), style(&api.title).bold());
+    let mut s = format!("{} {}", arrow(m.dir), style(escape(&api.title)).bold());
     if let (Some(e), Some(bundle)) = (&api.envelope, bundle) {
         let fields = payload_text(e, bundle);
         if !fields.is_empty() {
@@ -713,7 +714,7 @@ fn payload_text(e: &wire_weaver_client::envelope::Envelope, bundle: &ApiBundleOw
         .map(|(i, v)| {
             let value = fmt_value(v, e.types.get(i), bundle);
             match names.get(i) {
-                Some(name) if !name.is_empty() => format!("{name}: {value}"),
+                Some(name) if !name.is_empty() => format!("{}: {value}", escape(name)),
                 _ => value,
             }
         })

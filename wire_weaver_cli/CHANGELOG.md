@@ -21,6 +21,12 @@
 
 ### 🐛 Fixes
 
+- Strings a device, or another program through the hub, hands over (USB product/manufacturer/serial, introspection
+  docs and resource/type names, `UserStr` text, pin names, holder program/label/user/host) are escaped before
+  printing (TOOL-19): a C0/C1 control character, DEL or a Unicode bidi override/isolate shows as a visible
+  `\u{..}` escape instead of reaching the terminal as is, so a device can no longer move the cursor, start a colour
+  or title-change escape sequence, or make a line read back out of order. New `wire_weaver_cli::untrusted` module
+  (`Untrusted`, `escape`); `--json` output is unaffected.
 - `ww api scaffold --alloc` prints handlers with owned types (`Vec`, `String`, `..Owned`) for return values, property values and errors, sink items and stream function results, as a `no_alloc = false` server calls them (API-21); it printed borrowed return types, which did not compile.
 - `ww stm32dfu flash --wait` retries opening the bootloader for 3 s, as `--follow` does: right after it enumerates, udev may not have set its permissions yet ("opening device: permission denied", seen once in three updates of a B135 rev B) (CLT-34).
 - `ww stm32dfu info` shows the ROM's version from its version byte (was `0x00 (V0.0)`, the first byte of "get commands"); `ww stm32dfu flash` notes "unplug and replug the board when you can" only for the ROMs that lock PWR_CR3 (V9.1, V9.2 on STM32H72x/73x, AN2606 Table 134; it said "power-cycle" for every V9.x, V9.3 too) and with `--follow` waits 120 s for the board then (CLT-34). Checked on a B135 rev B (H725, V9.3).

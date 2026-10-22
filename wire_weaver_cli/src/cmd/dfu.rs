@@ -23,6 +23,7 @@ use wire_weaver_client::{CallError, ClientConfig, ClientMeta, DynClient, Error};
 use ww_dfu::{BootState, BootTarget, NodeInfoOwned, Outcome, Profile, Seal};
 
 use crate::device::Selection;
+use crate::untrusted::escape;
 
 #[derive(Subcommand)]
 pub(crate) enum DfuCommand {
@@ -306,7 +307,7 @@ fn print_node(n: &NodeInfoOwned) {
     println!(
         "{:12} {} (id {})",
         style("product").bold(),
-        n.product.as_str(),
+        escape(n.product.as_str()),
         n.product_id
     );
     println!("{:12} {layout}", style("layout").bold());

@@ -2,6 +2,7 @@
 //! into it and back (CLT-34).
 
 use crate::device::Selection;
+use crate::untrusted::escape;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Subcommand, ValueHint};
 use console::style;
@@ -141,8 +142,8 @@ async fn list() -> Result<()> {
                 .join("."),
             d.vendor_id(),
             d.product_id(),
-            d.product_string().unwrap_or_default(),
-            d.serial_number().unwrap_or_default(),
+            escape(d.product_string().unwrap_or_default()),
+            escape(d.serial_number().unwrap_or_default()),
         );
     }
     Ok(())
@@ -150,7 +151,7 @@ async fn list() -> Result<()> {
 
 async fn info(serial: Option<&str>) -> Result<()> {
     let device = usb::find(serial).await?;
-    println!("serial {}", device.serial_number().unwrap_or("?"));
+    println!("serial {}", escape(device.serial_number().unwrap_or("?")));
     match Dfuse::new(NusbIo::open(&device, 0).await?) {
         Ok(mut dfu) => match dfu.rom_id().await {
             Some(v) => println!(
@@ -167,7 +168,7 @@ async fn info(serial: Option<&str>) -> Result<()> {
         Err(e) => println!("{e}"),
     }
     for (alt, name) in usb::alt_settings(&device).await? {
-        println!("alt {alt}: {name}");
+        println!("alt {alt}: {}", escape(&name));
         match MemoryLayout::parse(&name) {
             Ok(layout) => {
                 for r in layout.regions {
@@ -364,7 +365,7 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
                 .await;
             spinner.finish_and_clear();
             let found = found?;
-            eprintln!("{} {found}", style("found").bold());
+            eprintln!("{} {}", style("found").bold(), escape(&found.to_string()));
             usb::find(found.serials.first().map(String::as_str)).await?
         }
         _ => usb::find(serial.as_deref()).await?,
@@ -417,8 +418,9 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
     .await?;
     bar.finish_and_clear();
     eprintln!(
-        "{} {full_serial}: written{} in {:.1?}",
+        "{} {}: written{} in {:.1?}",
         style("✔").green(),
+        escape(&full_serial),
         if args.no_verify { "" } else { " and verified" },
         started.elapsed()
     );
@@ -447,7 +449,8 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
             .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(secs))
             .await;
         spinner.finish_and_clear();
-        eprintln!("{} {}", style("back").bold(), back.map_err(|e| anyhow!(e))?);
+        let back = back.map_err(|e| anyhow!(e))?;
+        eprintln!("{} {}", style("back").bold(), escape(&back.to_string()));
     }
     Ok(())
 }

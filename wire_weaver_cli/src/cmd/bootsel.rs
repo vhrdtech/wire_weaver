@@ -2,6 +2,7 @@
 //! into BOOTSEL and back (CLT-21).
 
 use crate::device::Selection;
+use crate::untrusted::escape;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use console::style;
@@ -128,8 +129,8 @@ async fn list() -> Result<()> {
                 .join("."),
             d.vendor_id(),
             d.product_id(),
-            d.product_string().unwrap_or_default(),
-            d.serial_number().unwrap_or_default(),
+            escape(d.product_string().unwrap_or_default()),
+            escape(d.serial_number().unwrap_or_default()),
         );
     }
     Ok(())
@@ -159,7 +160,7 @@ async fn find(serial: Option<&str>) -> Result<nusb::DeviceInfo> {
             "{n} BOOTSEL devices match, choose one with --serial: {}",
             matching
                 .iter()
-                .map(|d| d.serial_number().unwrap_or("?"))
+                .map(|d| escape(d.serial_number().unwrap_or("?")))
                 .collect::<Vec<_>>()
                 .join(", ")
         )),
@@ -225,7 +226,7 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
                 .await;
             spinner.finish_and_clear();
             let found = found?;
-            eprintln!("{} {found}", style("found").bold());
+            eprintln!("{} {}", style("found").bold(), escape(&found.to_string()));
             find(found.serials.first().map(String::as_str)).await?
         }
         _ => find(serial.as_deref()).await?,
@@ -260,8 +261,9 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
     .await?;
     bar.finish_and_clear();
     eprintln!(
-        "{} {full_serial}: written and verified in {:.1?}",
+        "{} {}: written and verified in {:.1?}",
         style("✔").green(),
+        escape(&full_serial),
         started.elapsed()
     );
     if args.no_reboot {
@@ -277,7 +279,8 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
             .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(10))
             .await;
         spinner.finish_and_clear();
-        eprintln!("{} {}", style("back").bold(), back?);
+        let back = back?;
+        eprintln!("{} {}", style("back").bold(), escape(&back.to_string()));
     }
     Ok(())
 }

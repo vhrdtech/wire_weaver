@@ -1,5 +1,6 @@
 //! Human-readable resource tree of an [ApiBundleOwned], shared by `ww introspect` and `ww api tree`.
 
+use crate::untrusted::escape;
 use console::style;
 use shrink_wrap::ElementSize;
 use std::collections::HashMap;
@@ -155,7 +156,7 @@ impl TreePrinter<'_> {
             return;
         }
         for line in docs {
-            let line = format!("/// {line}").trim_end().to_string();
+            let line = format!("/// {}", escape(line)).trim_end().to_string();
             _ = writeln!(
                 self.out,
                 "{}{}",
@@ -180,8 +181,9 @@ impl TreePrinter<'_> {
         }
         lines.push("# Errors".to_string());
         for (name, doc) in error_list_docs(errors, err_ty, self.bundle) {
+            let name = escape(&name);
             lines.push(match doc {
-                Some(doc) => format!("- `{name}`: {doc}"),
+                Some(doc) => format!("- `{name}`: {}", escape(&doc)),
                 None => format!("- `{name}`"),
             });
         }
@@ -195,7 +197,9 @@ impl TreePrinter<'_> {
             self.out,
             "{} {}",
             style("trait").true_color(0xCF, 0x8E, 0x6D),
-            style(&root.trait_name).true_color(0x8D, 0x91, 0xDC).bold()
+            style(escape(&root.trait_name))
+                .true_color(0x8D, 0x91, 0xDC)
+                .bold()
         );
         if let Ok(version) = self.bundle.crate_version(root.crate_idx.0) {
             _ = write!(self.out, " {}", style(format!("{version:?}")).dim());
@@ -207,7 +211,7 @@ impl TreePrinter<'_> {
         _ = write!(self.out, "{} ", style(item.id.0).dim());
         if let Some(optional) = &item.optional {
             let attr = match &optional.group {
-                Some(group) => format!("#[optional({group})] "),
+                Some(group) => format!("#[optional({})] ", escape(group)),
                 None => "#[optional] ".to_string(),
             };
             _ = write!(self.out, "{}", style(attr).dim());
@@ -226,12 +230,12 @@ impl TreePrinter<'_> {
                     args.push(format!("index = {}", index.0));
                 }
                 if !shares.pins.is_empty() {
-                    args.push(format!("pins = \"{}\"", shares.pins.join(", ")));
+                    args.push(format!("pins = \"{}\"", escape(&shares.pins.join(", "))));
                 }
                 if !shares.peripherals.is_empty() {
                     args.push(format!(
                         "peripherals = \"{}\"",
-                        shares.peripherals.join(", ")
+                        escape(&shares.peripherals.join(", "))
                     ));
                 }
                 let attr = format!("#[shares({})] ", args.join(", "));
@@ -244,7 +248,7 @@ impl TreePrinter<'_> {
             }
         }
         if let Some(errors) = item.kind.error_list() {
-            let attr = format!("#[errors({})] ", fmt_error_list(errors));
+            let attr = format!("#[errors({})] ", escape(&fmt_error_list(errors)));
             _ = write!(self.out, "{}", style(attr).dim());
         }
         match &item.kind {
@@ -359,7 +363,7 @@ impl TreePrinter<'_> {
 
     /// Resource name, followed by `[]` or `[IndexType]` for arrays of resources.
     fn ident(&mut self, item: &ApiItemOwned) {
-        _ = write!(self.out, "{}", style(&item.ident).bold());
+        _ = write!(self.out, "{}", style(escape(&item.ident)).bold());
         if let Multiplicity::Array { index_type_idx } = &item.multiplicity {
             let index_ty = match index_type_idx {
                 Some(type_idx) => self.ty(&TypeOwned::OutOfLine {
@@ -373,7 +377,9 @@ impl TreePrinter<'_> {
 
     fn ty(&self, ty: &TypeOwned) -> String {
         match ty.human_name_in(false, self.bundle, self.params) {
-            Ok(name) => style(name).true_color(0xA6, 0xBB, 0x77).to_string(),
+            Ok(name) => style(escape(&name))
+                .true_color(0xA6, 0xBB, 0x77)
+                .to_string(),
             Err(e) => style(format!("<{e}>")).red().to_string(),
         }
     }
@@ -383,7 +389,11 @@ impl TreePrinter<'_> {
         let crate_name = |crate_idx: u32| self.bundle.crate_name(crate_idx).unwrap_or("?");
         let name = match self.bundle.traits.get(trait_idx as usize) {
             Some(ApiLevelLocationOwned::InLine { level, .. }) => {
-                format!("{}::{}", crate_name(level.crate_idx.0), level.trait_name)
+                format!(
+                    "{}::{}",
+                    escape(crate_name(level.crate_idx.0)),
+                    escape(&level.trait_name)
+                )
             }
             Some(ApiLevelLocationOwned::SkippedFullVersion {
                 crate_idx,
@@ -391,7 +401,11 @@ impl TreePrinter<'_> {
                 ..
             }) => {
                 let skipped = style("(definition not included)").dim();
-                format!("{}::{trait_name} {skipped}", crate_name(crate_idx.0))
+                format!(
+                    "{}::{} {skipped}",
+                    escape(crate_name(crate_idx.0)),
+                    escape(trait_name)
+                )
             }
             Some(ApiLevelLocationOwned::SkippedCompactVersion {
                 version, trait_id, ..
@@ -445,7 +459,8 @@ impl<'a> TreePrinter<'a> {
                     _ = writeln!(
                         self.out,
                         "{} {}",
-                        style(format!("{crate_name}::{type_name}")).true_color(0xA6, 0xBB, 0x77),
+                        style(format!("{}::{}", escape(crate_name), escape(type_name)))
+                            .true_color(0xA6, 0xBB, 0x77),
                         style("(definition not included)").dim()
                     );
                 }
@@ -469,7 +484,13 @@ impl<'a> TreePrinter<'a> {
     /// `<T, const N: u64>` of a generic definition.
     fn generics(&mut self) {
         match wire_weaver_client::ww_self::generics::params_human_name(self.params, self.bundle) {
-            Ok(params) => _ = write!(self.out, "{}", style(params).true_color(0xA6, 0xBB, 0x77)),
+            Ok(params) => {
+                _ = write!(
+                    self.out,
+                    "{}",
+                    style(escape(&params)).true_color(0xA6, 0xBB, 0x77)
+                )
+            }
             Err(e) => _ = write!(self.out, "{}", style(format!("<{e}>")).red()),
         }
     }
@@ -503,7 +524,7 @@ impl<'a> TreePrinter<'a> {
                 self.out,
                 "{} {}",
                 style(variant.discriminant.0).dim(),
-                style(&variant.ident).bold()
+                style(escape(&variant.ident)).bold()
             );
             self.unnamed_fields(&variant.fields);
             if matches!(&variant.fields, FieldsOwned::Unnamed(f) if f.len() == 1 && f[0].ty.is_common_error(self.bundle))
@@ -545,7 +566,12 @@ impl<'a> TreePrinter<'a> {
             let is_last = idx + 1 == fields.len();
             self.guide(is_last);
             let ident = field.ident.as_deref().unwrap_or("?");
-            _ = write!(self.out, "{}: {}", style(ident).bold(), self.ty(&field.ty));
+            _ = write!(
+                self.out,
+                "{}: {}",
+                style(escape(ident)).bold(),
+                self.ty(&field.ty)
+            );
             if field.default.is_some() {
                 _ = write!(self.out, " {}", style("has default").dim());
             }
@@ -566,8 +592,8 @@ impl<'a> TreePrinter<'a> {
         _ = write!(
             self.out,
             "{}{}",
-            style(format!("{crate_name}::")).dim(),
-            style(ident).true_color(0xA6, 0xBB, 0x77).bold()
+            style(format!("{}::", escape(crate_name))).dim(),
+            style(escape(ident)).true_color(0xA6, 0xBB, 0x77).bold()
         );
     }
 

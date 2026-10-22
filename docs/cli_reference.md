@@ -860,3 +860,13 @@ directory or its closest parent, otherwise creates `ww.toml` in the current dire
 line are saved, never environment variables, so a `WW_*` variable exported in a shell profile does not end up in
 project files.
 
+## Untrusted device and hub strings
+
+A connected device, or another program through the hub, can put anything in a string it hands over: a USB
+product/manufacturer/serial descriptor, an introspection doc line or resource name, a `UserStr` error, a pin name,
+or a holder's program/label/user/host. `ww` shows every such string with its control characters made visible (TOOL-19):
+a C0 control (including ESC), DEL, a C1 control, or a Unicode bidi override/isolate comes out as a `\u{..}` escape
+(`\n`, `\r` and `\t` as their short two-character form), so a device can no longer move the cursor, start a colour
+or title-change escape sequence, or make a line read back out of order. Printable text, ASCII or not, is shown as
+is. `--json` output is not affected: JSON's own string escaping already covers control characters.
+

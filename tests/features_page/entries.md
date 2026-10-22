@@ -268,6 +268,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-4 | Python | Any device from Python, its API taken from the device itself. | python.md
 - TOOL-3 | Server scaffold | `ww api scaffold` prints a stub for every handler a server needs. | cli_reference.md#ww-api
 - CLT-25 | Device info and reports | `ww info` for any device; `ww report` adds counters, logs and crash data in one file. | cli_reference.md#ww-info
+- TOOL-19 | Safe to look at | A device or another program can't write terminal escape sequences into what `ww` prints: control characters and bidi tricks in a product string, name or label always show up as plain text. | cli_reference.md#untrusted-device-and-hub-strings
 
 ## Advanced
 

@@ -1,6 +1,7 @@
 //! Short, Rust-like text of a dynamically decoded value, for const values in `ww introspect` and updates in
 //! `ww observe`. With the type known it is a Rust expression `ww_self::expr` reads back (quantities aside).
 
+use crate::untrusted::escape;
 use wire_weaver_client::quantity::DynQuantity;
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
@@ -70,15 +71,16 @@ impl Fmt<'_> {
             ValueOwned::Struct { fields } => match ty {
                 Some(TypeOwned::Struct(s)) => {
                     let fields = self.fields(fields, Some(&s.fields));
+                    let ident = escape(&s.ident);
                     match fields.starts_with('{') {
-                        true => format!("{} {fields}", s.ident),
-                        false => format!("{}{fields}", s.ident),
+                        true => format!("{ident} {fields}"),
+                        false => format!("{ident}{fields}"),
                     }
                 }
                 _ => self.fields(fields, None),
             },
             ValueOwned::Enum { variant, fields } => match fields {
-                FieldsValueOwned::Unit => variant.clone(),
+                FieldsValueOwned::Unit => escape(variant).into_owned(),
                 fields => {
                     let defs = match ty {
                         Some(TypeOwned::Enum(e)) => e
@@ -88,7 +90,7 @@ impl Fmt<'_> {
                             .map(|v| &v.fields),
                         _ => None,
                     };
-                    format!("{variant}{}", self.fields(fields, defs))
+                    format!("{}{}", escape(variant), self.fields(fields, defs))
                 }
             },
             ValueOwned::Option(None) => "None".into(),
@@ -149,7 +151,7 @@ impl Fmt<'_> {
                 let fields: Vec<String> = named
                     .iter()
                     .enumerate()
-                    .map(|(idx, (name, v))| format!("{name}: {}", self.value(v, ty(idx))))
+                    .map(|(idx, (name, v))| format!("{}: {}", escape(name), self.value(v, ty(idx))))
                     .collect();
                 format!("{{ {} }}", fields.join(", "))
             }
@@ -240,5 +242,23 @@ mod tests {
             fmt_value(&value, None, &quantities_bundle()),
             r#"{ name: "b200", id: 0xa102, kind: Chip, rev: None }"#
         );
+    }
+
+    /// A field name or enum variant is a name from the type definition (TOOL-19): a device sending its own
+    /// introspection data could make one carry a terminal escape, so it goes through the same escaping as a
+    /// `String` value (which `{:?}` already covers).
+    #[test]
+    fn escapes_field_names_and_enum_variants() {
+        let value = ValueOwned::Struct {
+            fields: FieldsValueOwned::Named(vec![(
+                "evil\x1b]0;x\x07".into(),
+                ValueOwned::Enum {
+                    variant: "Also\x1bEvil".into(),
+                    fields: FieldsValueOwned::Unit,
+                },
+            )]),
+        };
+        let text = fmt_value(&value, None, &quantities_bundle());
+        assert_eq!(text, "{ evil\\u{1b}]0;x\\u{7}: Also\\u{1b}Evil }");
     }
 }

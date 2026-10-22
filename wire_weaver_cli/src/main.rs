@@ -12,6 +12,7 @@ mod cli;
 pub(crate) mod cmd;
 mod complete;
 mod device;
+mod untrusted;
 mod util;
 mod value_fmt;
 

@@ -3,6 +3,7 @@
 
 use crate::complete;
 use crate::device::Selection;
+use crate::untrusted::escape;
 use crate::util::StopSignal;
 use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
@@ -176,7 +177,9 @@ impl View {
                 Err("the hub paused steering: a program has it to itself".into())
             }
             SyncPhaseOwned::Unsupported => Err("no ww_timebase::Clock with host sync".into()),
-            SyncPhaseOwned::Failed { why } => Err(format!("the hub can't steer it: {why}")),
+            SyncPhaseOwned::Failed { why } => {
+                Err(format!("the hub can't steer it: {}", escape(why)))
+            }
             SyncPhaseOwned::Unknown(n) => Err(format!("hub phase <unknown {n}>")),
         }
     }
@@ -186,8 +189,13 @@ impl View {
 fn steerer_name(s: &SteererOwned) -> String {
     let this_host = wire_weaver_client::ClientMeta::new().resolve().host;
     match s.host == this_host {
-        true => format!("{} pid {}", s.program, s.pid),
-        false => format!("{} pid {} on {}", s.program, s.pid, s.host),
+        true => format!("{} pid {}", escape(&s.program), s.pid),
+        false => format!(
+            "{} pid {} on {}",
+            escape(&s.program),
+            s.pid,
+            escape(&s.host)
+        ),
     }
 }
 
@@ -405,7 +413,9 @@ fn name(d: &DeviceInfo) -> String {
     } else {
         d.user_label.clone()
     };
-    format!("{} {id}", d.product).trim().to_string()
+    format!("{} {}", escape(&d.product), escape(&id))
+        .trim()
+        .to_string()
 }
 
 /// One table row: device, state, source, steerer, residual, error, rate, slew left, round trip, samples, note.

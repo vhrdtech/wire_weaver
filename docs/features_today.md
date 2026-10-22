@@ -285,6 +285,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Python](python.md)**: Any device from Python, its API taken from the device itself.
 - **[Server scaffold](cli_reference.md#ww-api)**: `ww api scaffold` prints a stub for every handler a server needs.
 - **[Device info and reports](cli_reference.md#ww-info)**: `ww info` for any device; `ww report` adds counters, logs and crash data in one file.
+- **[Safe to look at](cli_reference.md#untrusted-device-and-hub-strings)**: A device or another program can't write terminal escape sequences into what `ww` prints: control characters and bidi tricks in a product string, name or label always show up as plain text.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 

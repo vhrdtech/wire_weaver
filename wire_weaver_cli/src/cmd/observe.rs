@@ -2,6 +2,7 @@
 //! code, printing each update's present values, the update rate and the link bytes/s it costs. With `--samples`,
 //! `+batched` properties come sample by sample, one line each with its device time (API-39).
 
+use crate::untrusted::escape;
 use crate::util::{display_path, resolve};
 use anyhow::{Context, Result, anyhow, bail};
 use clap::Args;
@@ -56,7 +57,7 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         },
         props
             .iter()
-            .map(|(_, name, _)| name.as_str())
+            .map(|(_, name, _)| escape(name))
             .collect::<Vec<_>>()
             .join(", "),
     );
@@ -116,7 +117,7 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
             for (value, t) in &samples.items {
                 let value = crate::value_fmt::fmt_value(value, ty, level.bundle());
                 let t = t.map_or("-".to_string(), |t| format!("{:.6}", seconds(&t)));
-                println!("  {} {}: {value}", style(t).dim(), samples.name);
+                println!("  {} {}: {value}", style(t).dim(), escape(&samples.name));
             }
         }
         let values = update
@@ -126,7 +127,7 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
             .map(|(name, value)| {
                 let ty = types.get(name.as_str()).copied();
                 let value = crate::value_fmt::fmt_value(value, ty, level.bundle());
-                format!("{name}: {value}")
+                format!("{}: {value}", escape(name))
             })
             .collect::<Vec<_>>()
             .join(", ");

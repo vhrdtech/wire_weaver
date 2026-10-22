@@ -2,6 +2,7 @@
 //! device side are `ww_pin_probe`; this is the command line and the table.
 
 use crate::complete;
+use crate::untrusted::escape;
 use anyhow::{Context, Result, bail};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use clap_complete::ArgValueCandidates;
@@ -161,8 +162,8 @@ fn list_table(points: &[Point]) -> String {
             let c = p.caps;
             vec![
                 format!("P{}", p.id),
-                p.name.clone(),
-                p.group.clone(),
+                escape(&p.name).into_owned(),
+                escape(&p.group).into_owned(),
                 yes(c.read),
                 yes(c.pull_up),
                 yes(c.pull_down),
@@ -258,7 +259,7 @@ fn name(points: &[Point], id: u16) -> String {
     points
         .iter()
         .find(|p| p.id == id)
-        .map_or_else(|| format!("P{id}"), |p| p.name.clone())
+        .map_or_else(|| format!("P{id}"), |p| escape(&p.name).into_owned())
 }
 
 fn not_checked() -> String {
@@ -356,13 +357,13 @@ fn test_table(points: &[Point], report: &Report) -> String {
         why.extend(p.notes.iter().map(String::as_str));
         rows.push(vec![
             format!("P{id}"),
-            t.point.name.clone(),
-            t.point.group.clone(),
+            escape(&t.point.name).into_owned(),
+            escape(&t.point.group).into_owned(),
             pulls,
             gnd,
             vdd,
             between,
-            style(notes(&why)).dim().to_string(),
+            style(escape(&notes(&why)).into_owned()).dim().to_string(),
         ]);
     }
     table(

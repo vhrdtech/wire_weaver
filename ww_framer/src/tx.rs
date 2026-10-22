@@ -110,6 +110,14 @@ where
         self.frame
     }
 
+    /// Go on with another framer's sequence: the next frame carries `frame` (from that framer's [Self::frame_ctx]
+    /// once it was flushed), so a receiver with a counting [prefix](crate::prefix) sees no gap. For a host taking
+    /// over a medium mid-stream (CLT-44). Drops what is in the current frame, as [Self::reset].
+    pub fn continue_at(&mut self, frame: FrameCtx) {
+        self.reset();
+        self.frame = frame;
+    }
+
     /// Write the prefix if nothing is in the frame yet. Must come after a write saved its `at_gap` state, so that
     /// restoring it takes the prefix out again when nothing else fits.
     #[inline(always)]

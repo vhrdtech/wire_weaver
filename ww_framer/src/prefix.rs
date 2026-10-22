@@ -145,6 +145,13 @@ pub trait FramePrefix {
     fn resync(rx: &mut Self::Rx);
     /// Counters so far.
     fn stats(rx: &Self::Rx) -> PrefixStats;
+    /// The frame expected next, once a frame was received; None without a counter. With [Self::continue_at], a
+    /// receiver in another process goes on where this one stopped (a host taking over a medium mid-stream, CLT-44).
+    fn expected(_rx: &Self::Rx) -> Option<FrameCtx> {
+        None
+    }
+    /// Take `next` as the frame expected next, as if every frame before it was received. No-op without a counter.
+    fn continue_at(_rx: &mut Self::Rx, _next: FrameCtx) {}
 }
 
 /// No prefix: frames start with the first head.
@@ -213,6 +220,18 @@ impl FramePrefix for SeqPrefix {
 
     fn stats(rx: &SeqRx) -> PrefixStats {
         rx.stats
+    }
+
+    fn expected(rx: &SeqRx) -> Option<FrameCtx> {
+        rx.synced.then(|| rx.expected())
+    }
+
+    fn continue_at(rx: &mut SeqRx, next: FrameCtx) {
+        rx.synced = true;
+        rx.next = next.seq;
+        rx.epoch = next.epoch;
+        rx.seen = u16::MAX;
+        rx.dup_back = 0;
     }
 }
 

@@ -16,7 +16,7 @@ mod tests;
 pub mod traits;
 pub mod tx;
 
-pub use framed_rx::FramedRx;
+pub use framed_rx::{Carry, FramedRx};
 #[cfg(feature = "std")]
 pub use owned::{FramedRxOwned, TxOwned};
 pub use pieces::{Piece, Pieces, pieces};

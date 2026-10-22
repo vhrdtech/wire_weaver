@@ -8,7 +8,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Range;
 
-use crate::framed_rx::{FramedRx, FramedRxState};
+use crate::framed_rx::{Carry, FramedRx, FramedRxState};
 use crate::prefix::{FrameCtx, FramePrefix, FrameReport, NopPrefix, PrefixStats};
 use crate::traits::{Checksum, Head, Tail};
 use crate::tx::{Tx, TxState};
@@ -77,6 +77,11 @@ where
     /// See [Tx::frame_ctx].
     pub fn frame_ctx(&mut self) -> FrameCtx {
         self.with(|tx| tx.frame_ctx())
+    }
+
+    /// See [Tx::continue_at].
+    pub fn continue_at(&mut self, frame: FrameCtx) {
+        self.with(|tx| tx.continue_at(frame))
     }
 
     /// See [Tx::is_empty].
@@ -164,5 +169,15 @@ where
     /// See [FramedRx::message_range].
     pub fn message_range(&self) -> Option<(H::UserKind, Range<usize>)> {
         self.state.message_range()
+    }
+
+    /// See [FramedRx::carry].
+    pub fn carry(&self) -> Carry<'_, H::UserKind> {
+        self.state.carry::<P>(&self.buf)
+    }
+
+    /// See [FramedRx::continue_from].
+    pub fn continue_from(&mut self, carry: &Carry<'_, H::UserKind>) -> Result<(), ()> {
+        self.with(|rx| rx.continue_from(carry))
     }
 }

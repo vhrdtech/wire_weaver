@@ -414,6 +414,51 @@ mod prefixed {
         assert_eq!(&tx.buf()[..n], &[0b0001_0000, FULL_1, 7]);
     }
 
+    /// A receiver and a sender taken over mid-stream (CLT-44): the new tx continues the frame counter, the new rx
+    /// goes on with the split message the old one had half assembled, and nothing is reported as a gap or resync.
+    #[test]
+    fn carried_over_mid_message() {
+        let msg = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let mut tbuf = [0u8; 6];
+        let mut tx = STx::new(&mut tbuf);
+        let f = frames(&mut tx, &[(0, &[0xAA]), (0, &msg)]);
+        assert_eq!(f.len(), 4);
+        let mut rbuf = [0u8; 32];
+        let mut rx = SRx::new(&mut rbuf);
+        let (_, got) = feed(&mut rx, &f[0]);
+        assert_eq!(got, [(0, std::vec![0xAA])]);
+        assert_eq!(feed(&mut rx, &f[1]).0, FrameReport::InOrder);
+        let carry = rx.carry();
+        assert_eq!(carry.next_frame, Some(FrameCtx { seq: 2, epoch: 0 }));
+        assert_eq!(carry.partial, Some((0, 10, &[1u8, 2, 3, 4][..])));
+        let mut rbuf2 = [0u8; 32];
+        let mut rx2 = SRx::new(&mut rbuf2);
+        rx2.continue_from(&carry).unwrap();
+        assert_eq!(feed(&mut rx2, &f[2]), (FrameReport::InOrder, std::vec![]));
+        assert_eq!(
+            feed(&mut rx2, &f[3]),
+            (FrameReport::InOrder, std::vec![(0, msg.to_vec())])
+        );
+        // a frame from before the carry is a duplicate to the new receiver
+        assert_eq!(feed(&mut rx2, &f[1]).0, FrameReport::Duplicate);
+
+        // the sender's side: a new tx goes on at the old one's counter
+        let mut tbuf2 = [0u8; 6];
+        let mut tx2 = STx::new(&mut tbuf2);
+        tx2.continue_at(tx.frame_ctx());
+        let f2 = frames(&mut tx2, &[(0, &[0xBB])]);
+        assert_eq!(
+            feed(&mut rx2, &f2[0]),
+            (FrameReport::InOrder, std::vec![(0, std::vec![0xBB])])
+        );
+
+        // a carry that can't fit is refused
+        let mut small = [0u8; 4];
+        let mut rx3 = SRx::new(&mut small);
+        assert_eq!(rx3.continue_from(&carry), Err(()));
+        assert_eq!(rx3.carry().partial, None);
+    }
+
     #[test]
     fn frame_too_small_for_prefix_and_head() {
         // prefix + 1 byte head + 1 byte: smallest frame

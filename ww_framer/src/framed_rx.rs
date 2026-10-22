@@ -4,7 +4,7 @@ use core::ops::Range;
 use shrink_wrap::BufReader;
 
 use crate::pieces::{Extent, ReadHead, read_head};
-use crate::prefix::{FramePrefix, FrameReport, MAX_PREFIX_LEN, NopPrefix, PrefixStats};
+use crate::prefix::{FrameCtx, FramePrefix, FrameReport, MAX_PREFIX_LEN, NopPrefix, PrefixStats};
 use crate::traits::{Checksum, Head, Header, MAX_COVERED_HEAD, MessageKind, RdError, Tail};
 
 /// Reassembles messages from frames, see the crate docs. `P` is the [frame prefix](crate::prefix) every frame
@@ -66,6 +66,39 @@ impl<U: Copy, R> FramedRxState<U, R> {
     pub fn staged_end(&self) -> usize {
         self.staging_end
     }
+
+    /// Same as [FramedRx::carry], with the assembly buffer it belongs to.
+    pub fn carry<'b, P: FramePrefix<Rx = R>>(&self, assembly_buf: &'b [u8]) -> Carry<'b, U> {
+        let (partial, from) = match self.state {
+            State::Assembling {
+                user_kind,
+                assembled,
+                total,
+            } => (
+                Some((user_kind, total, &assembly_buf[..assembled])),
+                assembled,
+            ),
+            State::Gap | State::Ready { .. } => (None, 0),
+        };
+        Carry {
+            partial,
+            staged: &assembly_buf[self.staging_pos.max(from)..self.staging_end],
+            next_frame: P::expected(&self.prefix.rx),
+        }
+    }
+}
+
+/// What a [FramedRx] holds between frames that another one can go on from, e.g. in another process taking over the
+/// medium mid-stream (CLT-44): the split message assembled so far and the frame its sender's counter is at. Taken
+/// with [FramedRx::carry] once every ready message was taken out (reassemble until [FramedRx::message] is None).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct Carry<'a, U> {
+    /// A split message being assembled: its user kind, its total length and the bytes received so far
+    pub partial: Option<(U, usize, &'a [u8])>,
+    /// Staged bytes not processed yet (empty after a frame was reassembled to the end)
+    pub staged: &'a [u8],
+    /// The frame expected next, with a counting [prefix](crate::prefix) that has seen a frame
+    pub next_frame: Option<FrameCtx>,
 }
 
 #[derive(Copy, Clone)]
@@ -147,6 +180,48 @@ where
             state: self.state,
             prefix: self.prefix,
         }
+    }
+
+    /// What another framer needs to go on from here, see [Carry].
+    pub fn carry(&self) -> Carry<'_, H::UserKind> {
+        let state = FramedRxState {
+            staging_pos: self.staging_pos,
+            staging_end: self.staging_end,
+            state: self.state,
+            prefix: self.prefix,
+        };
+        state.carry::<P>(self.assembly_buf)
+    }
+
+    /// Go on from another framer's [Carry]: what it had assembled and staged is taken in, its next frame is the one
+    /// expected. Drops what this one had. Err(()) when it doesn't fit into the assembly buffer (the framer is reset
+    /// then).
+    pub fn continue_from(&mut self, carry: &Carry<'_, H::UserKind>) -> Result<(), ()> {
+        self.reset();
+        let assembled = carry.partial.map_or(0, |(_, _, bytes)| bytes.len());
+        let end = assembled + carry.staged.len();
+        if end > self.assembly_buf.len()
+            || carry
+                .partial
+                .is_some_and(|(_, total, _)| total > self.assembly_buf.len() || total <= assembled)
+        {
+            return Err(());
+        }
+        if let Some((user_kind, total, bytes)) = carry.partial {
+            self.assembly_buf[..assembled].copy_from_slice(bytes);
+            self.state = State::Assembling {
+                user_kind,
+                assembled,
+                total,
+            };
+        }
+        self.assembly_buf[assembled..end].copy_from_slice(carry.staged);
+        self.staging_pos = assembled;
+        self.staging_end = end;
+        if let Some(next) = carry.next_frame {
+            P::continue_at(&mut self.prefix.rx, next);
+        }
+        Ok(())
     }
 
     /// Drop everything staged and any partially assembled or ready message,

@@ -524,7 +524,7 @@ On the holder's side, the event loop has one transport slot, which holds the hal
 its own steps (pause, let go, take back, switch away, the device's claim), called on whatever is in the slot, and
 relinking puts another medium's halves in its place, from any medium to any other: the device's USB halves for the
 tunnel's here. The slot is an enum over the crate's media rather than a trait object: a message is one match, with
-no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, gpd-omarchy, 22 Oct 2026), and the handover took the same (6.7 ms median with it, 6.9 ms before, 12 runs each, alternating).
+no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, gpd-omarchy, 22 Oct 2026), and the handover took the same: 6.7 ms median with it and 6.9 ms before on `usb_sim` (12 runs each, alternating), 14.1 ms and 14.5 ms on the rePort below (`live_bench`, omarchy-m1, 20 runs each, alternating, no call failed, no `ConnectionEvent`).
 
 ### When something fails
 

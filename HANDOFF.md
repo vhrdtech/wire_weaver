@@ -14,9 +14,11 @@ Taken up 22 Oct: SRV-29 tunnels (hub-tunnels; benchmark: throughput as direct, 1
 
 Taken up 22 Oct ~02:00: CLT-40 + SRV-30 (hub-reconnect), SRV-32 (hub-exclusive), TOOL-18 (hub-python), SRV-31 (hub-clock-sync, incl. bedrock-steer's PeerMeta flash fix). Integration commit a1fae657: steering pauses under a root claim (Hub::claims_changed pokes Steering), connect_blocking IPC on the runtime handle, Lent numbers pinned by a test. Gate: just test (1977 + Python), just lint, just build-docs clean. Merged sessions closed (branches kept); stray local branch tmp-reconnect (= hub-reconnect's tip) left, the guard won't let me delete it.
 
-Running: hub-handover (CLT-43, opus, here), auto-clock-sync (CLT-46, opus, here), hub-clock-sync (parked on omarchy-m1 for the hardware check: the bench USB hub dropped all boards, the person replugs it; its child bedrock-steer does the firmware side in embedded_bedrock).
+Taken up: CLT-46 auto clock sync (auto-clock-sync, closed); fix: no unit Route without the hub feature (clippy -p wire_weaver_client). rustdoc without --all-features fails on master's ww_defmt_logger/ww_device/ww_stream links (just lint uses --all-features: clean).
 
-Next: take up CLT-43 and CLT-46; then CLT-44 (top, after CLT-43); hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
+Running: hub-handover (CLT-43, opus, here), hub-clock-sync (parked on omarchy-m1 for the hardware check: the bench USB hub dropped all boards, the person replugs it; its child bedrock-steer does the firmware side in embedded_bedrock).
+
+Next: take up CLT-43; then CLT-44 (top, after CLT-43); hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
 
 Decisions: frozen WWHB preamble; std File::try_lock lock files; readiness = starter polls connect + preamble answer; hub API served with ww_device::Server per connection; handover answers Unimplemented until SRV-30.
 

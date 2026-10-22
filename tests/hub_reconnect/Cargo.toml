@@ -9,6 +9,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 hub_reconnect_api.workspace = true
 interprocess.workspace = true
 tests_common = { workspace = true, features = ["local_socket"] }
@@ -19,5 +20,6 @@ wire_weaver_client = { workspace = true, features = ["local_socket", "in_process
 ww_client_server.workspace = true
 ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
+ww_link = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
 ww_stream = { workspace = true, features = ["std"] }

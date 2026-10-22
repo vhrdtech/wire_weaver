@@ -71,6 +71,8 @@ struct Bus {
     /// [UsbSimControl::hold_claims]
     claims_held: watch::Sender<bool>,
     claims_waiting: std::sync::atomic::AtomicUsize,
+    /// [UsbSimControl::claims_dropped]
+    claims_dropped: std::sync::atomic::AtomicUsize,
 }
 
 /// Holder id of the program of [UsbSimControl::grab], hosts count from 1.
@@ -91,6 +93,13 @@ impl UsbSimControl {
     pub fn claims_waiting(&self) -> usize {
         self.0
             .claims_waiting
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Claims that ended unanswered because their host went while they waited.
+    pub fn claims_dropped(&self) -> usize {
+        self.0
+            .claims_dropped
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
@@ -153,6 +162,7 @@ pub fn device_framed<F: UsbFramingProtocol>(
         configured: watch::channel(false).0,
         claims_held: watch::channel(false).0,
         claims_waiting: Default::default(),
+        claims_dropped: Default::default(),
     });
     let (out_tx, out_rx) = mpsc::unbounded_channel();
     let accepting = tokio::spawn(accept(
@@ -272,6 +282,8 @@ async fn serve_host(
                     bus.claims_waiting
                         .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
                     if gone {
+                        bus.claims_dropped
+                            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         debug!("usb sim: host {id} closed the device waiting for its claim");
                         break;
                     }
@@ -933,11 +945,15 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
         waiting.abort();
-        while control.claims_waiting() != 0 {
+        while control.claims_dropped() != 1 {
             tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
+        assert_eq!(control.claims_waiting(), 0);
         control.hold_claims(false);
-        assert!(!control.held(), "a host gone while waiting got the interface");
+        assert!(
+            !control.held(),
+            "a host gone while waiting got the interface"
+        );
 
         assert!(control.grab());
         assert_eq!(

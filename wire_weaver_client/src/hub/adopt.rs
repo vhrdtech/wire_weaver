@@ -57,7 +57,8 @@ pub(crate) async fn connect() -> Result<HubSide, Refused> {
 fn connect_hub(
     at: String,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<HubClient>> + Send>> {
-    Box::pin(HubClient::config(move |c| c.hub_api_at(at.clone())).connect())
+    // a hub that goes takes the adoption with it: never connect again (or start another one)
+    Box::pin(HubClient::config(move |c| c.hub_api_at(at.clone()).hub_reconnect(None)).connect())
 }
 
 fn refused(e: CallError<AdoptErrorOwned>) -> Refused {

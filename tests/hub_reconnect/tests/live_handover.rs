@@ -29,6 +29,8 @@ fn setup(name: &str) -> PathBuf {
         std::env::set_var(wire_weaver_client::hub::EXE_ENV, HUB_DEV);
         // a hub a failed test leaves behind goes soon
         std::env::set_var(ww_hub::IDLE_EXIT_ENV, "5");
+        // an adopted link whose program died goes soon
+        std::env::set_var(ww_hub::ADOPT_ATTACH_ENV, "300");
     }
     dir
 }
@@ -166,7 +168,7 @@ async fn a_holder_hands_its_live_link_to_the_hub() {
     let key = wire_weaver_client::usb_sim::key_for(&socket);
     let mut holder = Holder::start(&socket);
     let (before, _) = holder.state();
-    let (before, _) = holder.advance(before, 100, 10);
+    holder.advance(before, 100, 10);
     assert_eq!(device.link_events(), (1, 0), "the holder's link");
     // a busy device: the holder has requests in flight all the time
     device.slow_requests(Duration::from_millis(1));
@@ -242,6 +244,281 @@ async fn a_holder_hands_its_live_link_to_the_hub() {
          batch of 20 calls (1 ms each on the device) {:?}",
         Duration::from_micros(after.slowest_us)
     );
+
+    drop(client);
+    stop_hub().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Polls `ok` until it holds, panics with `what` after 3 s.
+async fn wait_until(what: &str, mut ok: impl FnMut() -> bool) {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while !ok() {
+        assert!(Instant::now() < deadline, "timed out waiting for {what}");
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}
+
+/// The asker connecting through the hub on a task of its own: it waits while the handover runs.
+fn ask(socket: &Path) -> tokio::task::JoinHandle<anyhow::Result<Client>> {
+    let path = socket.display().to_string();
+    tokio::spawn(async move {
+        Client::config(|c| asker()(c.usb_sim_path(path.clone())))
+            .connect()
+            .await
+    })
+}
+
+async fn hub_api() -> HubClient {
+    HubClient::config(|c| c.hub_api().hub_reconnect(None))
+        .connect()
+        .await
+        .expect("the hub API")
+}
+
+/// The holder has a busy link to the device, the hub's open of the device waits in the commit (claims held).
+async fn holder_in_commit(
+    socket: &Path,
+    device: &tests_common::TestDevice,
+) -> (
+    Holder,
+    State,
+    tokio::task::JoinHandle<anyhow::Result<Client>>,
+) {
+    let mut holder = Holder::start(socket);
+    let (before, _) = holder.state();
+    let (_, _) = holder.advance(before, 60, 6);
+    device.slow_requests(Duration::from_millis(1));
+    let usb = device.usb_sim().unwrap();
+    usb.hold_claims(true);
+    let (before, _) = holder.state();
+    let asker = ask(socket);
+    wait_until("the hub's claim", || usb.claims_waiting() == 1).await;
+    assert!(!usb.held(), "the holder let go of the interface");
+    (holder, before, asker)
+}
+
+/// The hub dies in the commit, before it holds the device: the holder takes the device back and goes on directly.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_hub_dying_in_the_commit_leaves_the_holder_going_on() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let dir = setup("hub-dies");
+    let socket = dir.join("dev.sock");
+    let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
+    let key = wire_weaver_client::usb_sim::key_for(&socket);
+    let (mut holder, before, asker) = holder_in_commit(&socket, &device).await;
+    let usb = device.usb_sim().unwrap();
+
+    let pid = hub_api().await.info().call().await.unwrap().pid;
+    let killed = Command::new("kill")
+        .args(["-9", &pid.to_string()])
+        .status()
+        .unwrap();
+    assert!(killed.success());
+    // the asker would start another hub and ask again
+    asker.abort();
+    // the killed hub's claim went with its connection, the holder's comes to take the device back
+    wait_until("the hub's claim to go", || usb.claims_dropped() == 1).await;
+    wait_until("the holder's claim", || usb.claims_waiting() == 1).await;
+    usb.hold_claims(false);
+
+    let (after, lines) = holder.advance(before, 100, 10);
+    assert!(
+        lines.iter().any(|l| l.contains("keeping the device")),
+        "the holder kept the device: {lines:?}"
+    );
+    for line in &lines {
+        assert!(
+            !line.starts_with("disconnected") && !line.starts_with("reconnected"),
+            "the holder's link went on: {line}"
+        );
+    }
+    assert_eq!(after.failed, 0, "no call failed: {after:?}");
+    assert_eq!(
+        after.out_of_order, 0,
+        "no tick lost, doubled or out of order"
+    );
+    assert_eq!(device.link_events(), (1, 0), "the device's link went on");
+    assert!(usb.held(), "the holder holds the interface again");
+    let held = wire_weaver_client::holders::holder_of(&key).expect("the holder holds it");
+    assert_eq!(held.mode, wire_weaver_client::holders::Mode::Direct);
+
+    drop(holder);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The holder dies in the commit: the hub has the device with its link, the asker goes on through it, and the dead
+/// holder's tunnel goes after the attach timeout.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_holder_dying_in_the_commit_leaves_the_device_with_the_hub() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let dir = setup("holder-dies");
+    let socket = dir.join("dev.sock");
+    let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
+    let key = wire_weaver_client::usb_sim::key_for(&socket);
+    let (holder, _, asker) = holder_in_commit(&socket, &device).await;
+    let usb = device.usb_sim().unwrap();
+
+    drop(holder);
+    usb.hold_claims(false);
+    let mut client = tokio::time::timeout(Duration::from_secs(2), asker)
+        .await
+        .expect("the asker connects")
+        .unwrap()
+        .expect("connect through the hub");
+    assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
+    assert_eq!(device.link_events(), (1, 0), "the device's link went on");
+
+    let hub = hub_api().await;
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let devices = hub.registry().devices().call().await.unwrap();
+        let entry = devices
+            .iter()
+            .find(|d| d.key == key)
+            .expect("the hub has it");
+        assert_eq!(entry.state, DeviceStateOwned::Open);
+        if entry.tunnels == 1 {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the dead holder's tunnel stays: {entry:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
+    assert_eq!(device.link_events(), (1, 0));
+
+    drop(client);
+    drop(hub);
+    stop_hub().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Another program grabs the interface in the gap: the hub can't open the device and the holder can't take it back.
+/// The holder's link ends as handed to the hub and comes back through it once the interface is free.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_interface_grabbed_in_the_gap_ends_in_a_reconnect_through_the_hub() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let dir = setup("grabbed");
+    let socket = dir.join("dev.sock");
+    let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
+    let (mut holder, _, asker) = holder_in_commit(&socket, &device).await;
+    let usb = device.usb_sim().unwrap();
+
+    assert!(usb.grab(), "nobody holds the interface in the gap");
+    usb.hold_claims(false);
+    assert_eq!(
+        holder.wait_for("disconnected", |_| {}),
+        "disconnected HandedToHub"
+    );
+    usb.ungrab();
+    holder.wait_for("reconnected", |_| {});
+    let (before, _) = holder.state();
+    let (after, _) = holder.state();
+    let (after, _) = holder.advance(after, 40, 3);
+    assert!(after.ok > before.ok, "the holder's calls work again");
+
+    asker.abort();
+    drop(holder);
+    stop_hub().await;
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// An adoption prepared on a hub API connection that then goes keeps nothing: the hub opens the device as usual.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_prepared_adoption_goes_with_its_connection() {
+    use wire_weaver::shrink_wrap::SerializeShrinkWrapOwned as _;
+    use wire_weaver::ww_version::{
+        ApiHashPair, CompactVersion, FullVersion, GlobalTypeId, Version,
+    };
+    use wire_weaver_client::adopt::{LinkSnapshotOwned, MediumOwned};
+
+    let _ = tracing_subscriber::fmt::try_init();
+    let dir = setup("prepared");
+    let socket = dir.join("dev.sock");
+    let (device, _seen) = hub_reconnect::start_device_usb_sim(&socket);
+    let key = wire_weaver_client::usb_sim::key_for(&socket);
+
+    // this test plays a holder that prepared and died
+    let hub = HubClient::config(|c| {
+        c.hub_api()
+            .hub_reconnect(None)
+            .client_meta(ClientMeta::new().kind(ClientKind::Test).program("holder"))
+    })
+    .connect()
+    .await;
+    let hub = match hub {
+        Ok(hub) => hub,
+        Err(_) => {
+            wire_weaver_client::hub::ensure_running(true).await.unwrap();
+            hub_api().await
+        }
+    };
+    let info = ww_link::DeviceInfo {
+        dev_link_version: ww_link::LINK_VERSION,
+        api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
+        user_api_version: FullVersion::new("test", Version::new(0, 1, 3)),
+        hash: ApiHashPair::empty(),
+        dev_max_message_len: 512,
+        packet_accumulation_time_us: 500,
+        token: 7,
+    };
+    let snapshot = LinkSnapshotOwned {
+        client_version: wire_weaver_client::adopt::CLIENT_VERSION.into(),
+        key: key.clone(),
+        medium: MediumOwned::UsbSim {
+            max_packet: 64,
+            seq_prefix: true,
+        },
+        tx_frame: None,
+        rx_partial: None,
+        rx_staged: vec![],
+        rx_next_frame: None,
+        token: 7,
+        device_info: info.make_owned().to_ww_bytes_owned().unwrap(),
+        ping_in_ms: 1000,
+        last_rx_ms_ago: 3,
+        next_seq: 5,
+        max_seq: 1024,
+        in_flight: vec![],
+        full_only: vec![],
+        streams: vec![],
+        observed: vec![],
+    };
+    let id = hub
+        .adopt()
+        .prepare(snapshot.encode().unwrap())
+        .call()
+        .await
+        .expect("prepared");
+    assert_ne!(id, 0);
+
+    // the slot is kept for the commit: a program asking for the device waits
+    let connecting = tokio::spawn(async move {
+        Client::config(|c| {
+            asker()(c.usb_sim_path(socket.display().to_string()))
+                .hub(wire_weaver_client::hub::HubMode::Required)
+        })
+        .connect()
+        .await
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(!connecting.is_finished(), "the device's slot is kept");
+    assert_eq!(device.link_events(), (0, 0));
+
+    // the holder dies before its commit
+    tokio::task::spawn_blocking(move || drop(hub))
+        .await
+        .unwrap();
+    let mut client = tokio::time::timeout(Duration::from_secs(2), connecting)
+        .await
+        .expect("the hub opens the device once the adoption went")
+        .unwrap()
+        .expect("connect through the hub");
+    assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
+    assert_eq!(device.link_events(), (1, 0));
 
     drop(client);
     stop_hub().await;

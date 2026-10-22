@@ -235,20 +235,23 @@ fn hub_key(di: &DeviceInfo) -> String {
 
 /// Without the `hub` feature every connection is direct; one that requires the hub fails.
 #[cfg(not(feature = "hub"))]
-fn no_hub(c: &ValidatedConfig) -> anyhow::Result<()> {
+fn no_hub(c: &ValidatedConfig) -> anyhow::Result<Route> {
     if c.hub_mode == crate::hub::HubMode::Required {
         bail!(
             "the ww hub is required (WW_HUB=required or HubMode::Required), but wire_weaver_client is built \
              without the `hub` feature"
         );
     }
-    Ok(())
+    Ok(Direct)
 }
 
 #[cfg(feature = "hub")]
 type Route = crate::hub::Route;
+/// Without the `hub` feature every device is opened directly.
 #[cfg(not(feature = "hub"))]
-type Route = ();
+struct Direct;
+#[cfg(not(feature = "hub"))]
+type Route = Direct;
 
 fn start_event_loop(
     c: &ValidatedConfig,
@@ -272,7 +275,7 @@ fn start_event_loop(
         });
     }
     #[cfg(not(feature = "hub"))]
-    let () = route;
+    let Direct = route;
     tokio::spawn(async move {
         super::event_loop::usb_worker(cmd_rx).await;
     });

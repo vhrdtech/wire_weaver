@@ -1,5 +1,5 @@
-//! `ww sync`: several devices kept on the host's UTC at once (TOOL-16), with `ww_clock_sync`. With a ww hub running
-//! the hub steers (SRV-31) and `ww sync` only shows what the hub does, never a second steerer.
+//! `ww sync`: several devices kept on the host's UTC at once (TOOL-16), with `wire_weaver_client::clock_sync`. With a
+//! ww hub running the hub steers (SRV-31) and `ww sync` only shows what the hub does, never a second steerer.
 
 use crate::complete;
 use crate::device::Selection;
@@ -11,9 +11,9 @@ use console::{Term, measure_text_width, style};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use wire_weaver_client::clock_sync::{ClockSync, Options, RateCache, Status};
 use wire_weaver_client::hub::{HubClient, HubMode};
 use wire_weaver_client::{ClientConfig, Commander, DeviceInfo, DynClient};
-use ww_clock_sync::{ClockSync, Options, RateCache, Status};
 use ww_hub_api::{SyncEntryOwned, SyncPhaseOwned};
 use ww_si::Prefix;
 use ww_timebase::{SteererOwned, SyncSource, SyncState};
@@ -263,10 +263,12 @@ pub(crate) async fn sync(
             });
             continue;
         }
+        // steered by a sync of its own with --poll-ms and --steer-ms, not the connection's (CLT-46)
         let config = config
             .clone()
             .traits_only()
             .hub(HubMode::Direct)
+            .clock_sync(false)
             .usb_port_chain(usb.bus_id.clone(), usb.port_chain.clone());
         let client = DynClient::from_config(config)
             .connect()

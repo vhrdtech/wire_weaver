@@ -131,11 +131,13 @@ fn config_for(key: &str) -> Option<ClientConfig> {
         _ => return None,
     };
     // what the hub forwards was checked by its clients, and it never calls the device's API itself; it opens its
-    // devices itself, never through a hub (CLT-39 would route it to itself)
+    // devices itself, never through a hub (CLT-39 would route it to itself); it steers their clocks with a sync of
+    // its own (SRV-31), so the connection's own steering (CLT-46) stays off
     Some(
         config
             .traits_only()
             .hub(wire_weaver_client::hub::HubMode::Direct)
+            .clock_sync(false)
             .holder_mode(wire_weaver_client::holders::Mode::Hub)
             .client_meta(ClientMeta::new().kind(ClientKind::Hub).program("ww hub")),
     )

@@ -8,7 +8,7 @@ repository.workspace = true
 license.workspace = true
 
 [features]
-default = ["usb"]
+default = ["usb", "clock_sync"]
 usb = [] # USB (using nusb)
 picoboot = [
     "usb",
@@ -36,6 +36,11 @@ local_socket = [
     "dep:ww_device",
     "tokio/io-util",
 ] # device served by another process (or the ww hub): Unix socket, named pipe on Windows
+clock_sync = [
+    "dep:ww_timebase",
+    "dep:ww_date_time",
+    "ww_si/time",
+] # keeps a device's clock on the PC's UTC (ww_timebase::Clock, CLT-46): every direct connection steers by itself
 hub = [
     "local_socket",
     "dep:ww_hub_api",
@@ -67,6 +72,7 @@ tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_snapshots.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
+ww_date_time = { workspace = true, features = ["std"], optional = true } # used by codegen of the Clock client, not by name
 ww_device = { workspace = true, optional = true }
 ww_framer = { workspace = true, features = ["std", "large"] }
 ww_global.workspace = true
@@ -82,6 +88,7 @@ ww_stm32_dfu.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }
 ww_tape = { workspace = true, features = ["std"] }
+ww_timebase = { workspace = true, features = ["std"], optional = true }
 ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

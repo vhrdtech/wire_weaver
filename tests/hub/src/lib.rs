@@ -265,7 +265,7 @@ mod tests {
             version: ww_hub::HUB_VERSION.into(),
             sync: true,
             sync_linger: Some(Duration::from_secs(30 * 60)),
-            sync_options: ww_clock_sync::Options::default(),
+            sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: None,
         })
         .unwrap()

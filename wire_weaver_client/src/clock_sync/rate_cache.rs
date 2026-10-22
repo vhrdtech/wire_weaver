@@ -10,12 +10,12 @@ pub const STATE_DIR_ENV: &str = "WW_STATE_DIR";
 /// A rate older than this is not used: the clock drifted with the seasons, a fresh fit is as quick.
 const MAX_AGE: Duration = Duration::from_secs(90 * 24 * 3600);
 
-/// One device's clock rate against this PC's monotonic clock, as the last [ClockSync](crate::ClockSync) of it
-/// measured: the slope of its fit ([Fit::slope](crate::Fit::slope)). Shared by every program that steers on this
+/// One device's clock rate against this PC's monotonic clock, as the last [ClockSync](super::ClockSync) of it
+/// measured: the slope of its fit ([Fit::slope](super::Fit::slope)). Shared by every program that steers on this
 /// PC (the hub, `ww sync`, an app in direct mode): the file is per user and per device serial, written whole to a
 /// temporary file and renamed into place, so a reader never sees half of it.
 ///
-/// With it a new connection fits from its first reading ([Estimator::set_prior](crate::Estimator::set_prior)) and
+/// With it a new connection fits from its first reading ([Estimator::set_prior](super::Estimator::set_prior)) and
 /// sends its first steer point a round trip after connecting, instead of after a second of readings.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RateCache {

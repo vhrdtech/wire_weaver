@@ -2,6 +2,9 @@
 
 ### 🚀 Features
 
+- Every `ww` command holding a device directly steers its clock onto UTC while it runs (CLT-46, `WW_CLOCK_SYNC=off`
+  to leave it alone); `ww dfu reboot | flash | confirm | revert` pause it while they change the device, `ww sync`
+  steers with its own sync as before. `ww` no longer depends on `ww_clock_sync` (it is in `wire_weaver_client`).
 - `ww hub lend DEVICE -- CMD` (SRV-32): the hub closes the device, `CMD` runs with the terminal (Ctrl+C reaches it), the device is given back after; `ww` exits with `CMD`'s code. Without a hub `CMD` just runs.
 - `ww dfu reboot | flash | confirm | revert` take the device whole while a ww hub serves it to other programs too (SRV-32): their calls and writes are refused naming `ww dfu`, and `flash` keeps it across the reset into the trial. All of a `ww` run's connections share one `ClientMeta`.
 - `ww sync` with a ww hub running shows the hub's clock steering (SRV-31) from its `sync().stats()` stream and opens each device through the hub, never steering itself; without a hub (or `WW_HUB=off`) it steers directly as before. New STEERED BY column (program, pid, host of the steerer the device follows) and a note naming a second steerer the device only notes. Direct steering starts from the per-device rate cache (`ww_clock_sync::RateCache`).

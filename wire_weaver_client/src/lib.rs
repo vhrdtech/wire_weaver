@@ -1,11 +1,13 @@
 use std::time::Duration;
 
-// generated clients (the hub's, in `hub`) name this crate by its name
-#[cfg(feature = "hub")]
+// generated clients (the hub's, in `hub`; the clock's, in `clock_sync`) name this crate by its name
+#[cfg(any(feature = "hub", feature = "clock_sync"))]
 extern crate self as wire_weaver_client;
 
 mod client;
 pub mod client_meta;
+#[cfg(feature = "clock_sync")]
+pub mod clock_sync;
 mod compat;
 mod config;
 mod connection_event;

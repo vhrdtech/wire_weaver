@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+- The code moved into `wire_weaver_client::clock_sync` (CLT-46), where every direct connection steers by itself;
+  this crate re-exports it, so `ClockSync`, `Options`, `RateCache` and the rest are the same items as before.
+
 ### ⚠️ Breaking
 
 - `Options` is `Clone`, no longer `Copy` (it holds a `SteererOwned` and a `RateCache` now); `Status::device` is a

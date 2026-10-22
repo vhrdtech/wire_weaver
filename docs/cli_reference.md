@@ -542,7 +542,7 @@ or `target/` of the cargo project in the current directory. See [ww_counters](st
 
 ## `ww sync`
 
-Keeps several devices' clocks on the host's UTC at once (TOOL-16), with the `ww_clock_sync` crate: each device's
+Keeps several devices' clocks on the host's UTC at once (TOOL-16), with `wire_weaver_client::clock_sync`: each device's
 `ww_timebase::Clock::now()` is read a few times a second, fitted against the host's monotonic clock (offset and
 rate, from the readings with the shortest round trips) and steered with `Clock::steer`, ten times a second while the
 device is acquiring and once a second once it says locked, see
@@ -576,6 +576,10 @@ pace; after Ctrl+C the hub keeps steering the devices for its sync linger (30 mi
 `WW_HUB=off`, `ww sync` steers directly as above. Either way it starts from the
 [rate cache](std_library/ww_timebase.md#the-rate-cache), so a device this PC has seen before is steered after its
 first reading.
+
+Every other `ww` command that holds a device directly steers it too while it runs, as any program's connection does
+([steering in every direct connection](std_library/ww_timebase.md#steering-in-every-direct-connection), CLT-46;
+`WW_CLOCK_SYNC=off` to leave the clock alone); `ww sync` is for watching it and for keeping devices steered.
 
 | Column     | What it is                                                                                          |
 |------------|-----------------------------------------------------------------------------------------------------|

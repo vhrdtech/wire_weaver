@@ -8,6 +8,10 @@
 
 ### 🚀 Features
 
+- The hub's own connections to its devices don't steer by themselves (`ClientConfig::clock_sync(false)`, CLT-46):
+  the hub steers them with its sync (SRV-31). Clients reaching a device through the hub leave the steering to it
+  (`Phase::ThroughHub`). The hub uses `wire_weaver_client::clock_sync` (`serves_host_sync`, `rate_key` moved there)
+  instead of the `ww_clock_sync` crate; `HubConfig::sync_options` is the same type.
 - Device key `ipc:<socket path>`: a device another process serves on a local socket (`wire_weaver_client::local_socket::device`: a simulator, host-emulated firmware), opened with `ClientConfig::ipc_path`; it outlives the hub.
 - Handover to a newer hub (SRV-30): `Hub::handover(socket)` is served (was `Unimplemented`): the hub checks the version the hub on `socket` answers its preamble with, refuses one that isn't strictly newer (`HandoverError::NotNewer`; `Unreachable` when nothing answers), then stops accepting (its socket goes at once), sends `Event::Handover` to the registry's listeners, closes every tunnel and API connection with `DisconnectReason::HubHandover`, closes its devices and exits with `Exit::Handover`, releasing `hub.lock`. `Bound::take_over(config)` is the other side: listens on a socket of its own, asks the running hub to hand over, takes `hub.lock` and moves its socket into place (rename on Unix, the pipe created anew on Windows), `TakeOverError` when it can't; `serve()` does it when started with `HANDOVER_ENV`. An exiting hub waits up to 500 ms for its connections to send what they still have. `strictly_newer(a, b)`.
 - Version window (SRV-30): a connection whose preamble names `ww_link` or `ww_client_server` versions the hub's build doesn't serve (compatible by SemVer with its own, or in the window it keeps after a breaking release) is answered `Status::Versions` (4) and closed; a client that doesn't say (preamble version 1) is served as before.

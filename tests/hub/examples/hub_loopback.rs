@@ -190,7 +190,7 @@ async fn main() {
         // the clock's readings would share the link with what is measured
         sync: false,
         sync_linger: None,
-        sync_options: ww_clock_sync::Options::default(),
+        sync_options: wire_weaver_client::clock_sync::Options::default(),
         state_dir: None,
     };
     // the hub on a runtime of its own, one thread as `ww_hub::run_blocking` (`HUB_RT=multi`: a multi-thread one)

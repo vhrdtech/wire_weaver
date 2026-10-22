@@ -13,7 +13,7 @@ use crate::{
 use anyhow::{Error, Result};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot, watch};
 use tracing::{debug, info, warn};
 
 pub struct PreparedConnection<T> {
@@ -37,11 +37,15 @@ impl<T: WwClient> PreparedConnection<T> {
         let (device_api_info, residual_rx) = attempt.result?;
         let reconnect = Reconnect::new(config.clone(), residual_rx, attempt.via_hub);
         let supervise = config.hub_reconnect.is_some();
+        #[cfg(feature = "clock_sync")]
+        let clock = ClockStart::new(&config, attempt.key, reconnect.via_hub.clone());
         let mut commander = create_commander(config, cmd_tx, device_api_info).await;
         if supervise {
             reconnect.supervise(commander.downgrade());
         }
         commander.set_reconnect(reconnect);
+        #[cfg(feature = "clock_sync")]
+        clock.start(&mut commander);
         Ok(T::from_cmd(commander))
     }
 
@@ -52,98 +56,47 @@ impl<T: WwClient> PreparedConnection<T> {
         let mut unmatched = vec![];
 
         for iface_kind in check_interfaces(&config)? {
-            #[cfg(feature = "usb")]
-            if iface_kind == InterfaceKind::Usb {
-                match crate::usb::try_connect_blocking(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
+            let selected = match iface_kind {
+                #[cfg(feature = "usb")]
+                InterfaceKind::Usb => crate::usb::try_connect_blocking(&config, &mut cmd_rx)?,
+                #[cfg(not(feature = "usb"))]
+                InterfaceKind::Usb => continue,
+                InterfaceKind::InProcess => try_select_in_process(&config, &mut cmd_rx)?,
+                InterfaceKind::Rtt => try_select_rtt(&config, &mut cmd_rx)?,
+                InterfaceKind::WebSocket => try_select_ws(&config, &mut cmd_rx)?,
+                InterfaceKind::Udp => try_select_udp(&config, &mut cmd_rx)?,
+                InterfaceKind::Ipc => {
+                    // the tunnel is opened before the event loop runs (CLT-40), on the runtime the event loop runs
+                    // on, which a multi-thread one drives while this thread waits
+                    let rt = tokio::runtime::Handle::current();
+                    if rt.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
+                        return Err(anyhow::anyhow!(
+                            "connect_blocking() reaches a local socket (the ww hub, IPC) on a multi-thread tokio runtime only"
+                        ));
                     }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+                    rt.block_on(try_select_local_socket(&config, &mut cmd_rx))?
                 }
-            }
-            if iface_kind == InterfaceKind::InProcess {
-                match try_select_in_process(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
+            };
+            match selected {
+                Selected::Device {
+                    handle,
+                    info,
+                    via_hub,
+                } => {
+                    let key = device_key(&iface_kind, &info, &config);
+                    let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
+                        .map_err(|e| connect_failed(info, e))?;
+                    #[cfg(feature = "clock_sync")]
+                    let clock = ClockStart::new(&config, key, watch::channel(via_hub).1);
+                    #[cfg(not(feature = "clock_sync"))]
+                    let _ = (key, via_hub);
+                    #[allow(unused_mut)]
+                    let mut commander = create_commander_blocking(config, cmd_tx, device_api_info);
+                    #[cfg(feature = "clock_sync")]
+                    clock.start(&mut commander);
+                    return Ok(T::from_cmd(commander));
                 }
-            }
-            if iface_kind == InterfaceKind::Rtt {
-                match try_select_rtt(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::WebSocket {
-                match try_select_ws(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::Udp {
-                match try_select_udp(&config, &mut cmd_rx)? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
-            }
-            if iface_kind == InterfaceKind::Ipc {
-                // the tunnel is opened before the event loop runs (CLT-40), on the runtime the event loop runs on,
-                // which a multi-thread one drives while this thread waits
-                let rt = tokio::runtime::Handle::current();
-                if rt.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
-                    return Err(anyhow::anyhow!(
-                        "connect_blocking() reaches a local socket (the ww hub, IPC) on a multi-thread tokio runtime only"
-                    ));
-                }
-                match rt.block_on(try_select_local_socket(&config, &mut cmd_rx))? {
-                    Selected::Device { handle, info, .. } => {
-                        let device_api_info = try_connect_blocking(&cmd_tx, handle, &config)
-                            .map_err(|e| connect_failed(info, e))?;
-                        return Ok(T::from_cmd(create_commander_blocking(
-                            config,
-                            cmd_tx,
-                            device_api_info,
-                        )));
-                    }
-                    Selected::NotFound { unmatched: u } => unmatched.extend(u),
-                }
+                Selected::NotFound { unmatched: u } => unmatched.extend(u),
             }
         }
 
@@ -165,6 +118,42 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 }
 
+/// What a new connection's own clock steering needs (CLT-46), taken from its config before the Commander is made.
+#[cfg(feature = "clock_sync")]
+struct ClockStart {
+    options: Option<crate::clock_sync::Options>,
+    meta: Option<Box<ww_link::ClientMetaOwned>>,
+    key: Option<String>,
+    via_hub: watch::Receiver<bool>,
+}
+
+#[cfg(feature = "clock_sync")]
+impl ClockStart {
+    fn new(config: &ValidatedConfig, key: Option<String>, via_hub: watch::Receiver<bool>) -> Self {
+        ClockStart {
+            options: config.clock_sync.clone(),
+            meta: config.client_meta.clone(),
+            key,
+            via_hub,
+        }
+    }
+
+    /// Starts the steering on `commander` when the config has it on.
+    fn start(self, commander: &mut Commander) {
+        let Some(options) = self.options else {
+            return;
+        };
+        let bundle = commander.device_introspect().map(|b| b.api_bundle.clone());
+        commander.start_clock_sync(crate::clock_sync::Start {
+            options,
+            bundle,
+            key: self.key,
+            meta: self.meta,
+            via_hub: self.via_hub,
+        });
+    }
+}
+
 /// What a connection attempt left behind, see [connect_to].
 pub(crate) struct Attempt {
     /// The device's API and the receiver of the event loop's residual, or why the attempt failed.
@@ -173,6 +162,9 @@ pub(crate) struct Attempt {
     pub(crate) started: Option<oneshot::Receiver<EventLoopResidual>>,
     /// The device was reached through the ww hub
     pub(crate) via_hub: bool,
+    /// The device's key as the holders registry and the hub name it (`usb:..`, `rtt:..`), `None` on other transports
+    #[cfg_attr(not(feature = "clock_sync"), allow(dead_code))]
+    pub(crate) key: Option<String>,
 }
 
 impl Attempt {
@@ -181,7 +173,31 @@ impl Attempt {
             result: Err(e),
             started: None,
             via_hub: false,
+            key: None,
         }
+    }
+}
+
+/// The key of a device `kind` selected (see [Attempt::key]).
+fn device_key(
+    kind: &InterfaceKind,
+    info: &crate::DeviceInfo,
+    config: &ValidatedConfig,
+) -> Option<String> {
+    use crate::config::ConfigPiece;
+    match kind {
+        InterfaceKind::Usb => crate::hub::key_of(info),
+        InterfaceKind::Rtt => {
+            let chip = config.pieces.iter().rev().find_map(|p| match p {
+                ConfigPiece::Rtt { target, .. } => Some(target.as_str()),
+                _ => None,
+            })?;
+            Some(crate::holders::key_for(crate::holders::DeviceRef::Rtt {
+                probe_serial: info.serials.first().map(String::as_str).unwrap_or(""),
+                chip,
+            }))
+        }
+        _ => None,
     }
 }
 
@@ -219,16 +235,19 @@ pub(crate) async fn connect_to(
                 let (residual_tx, residual_rx) = oneshot::channel();
                 // a link through the hub that goes is reconnected by the keeper, its streams wait for it (CLT-40)
                 let keep = via_hub && config.hub_reconnect.is_some();
+                let key = device_key(&iface_kind, &info, config);
                 return match try_connect(cmd_tx, handle, config, residual_tx, keep).await {
                     Ok(device_api_info) => Attempt {
                         result: Ok((device_api_info, residual_rx)),
                         started: None,
                         via_hub,
+                        key,
                     },
                     Err(e) => Attempt {
                         result: Err(connect_failed(info, e)),
                         started: Some(residual_rx),
                         via_hub,
+                        key,
                     },
                 };
             }
@@ -246,6 +265,9 @@ pub(crate) struct Reconnect {
     ctl: mpsc::UnboundedSender<Ctl>,
     /// [Commander::connection_events]
     pub(crate) events: broadcast::Sender<ConnectionEvent>,
+    /// The link (the last one, while none runs) goes through the ww hub; changes with a reconnect
+    #[cfg_attr(not(feature = "clock_sync"), allow(dead_code))]
+    pub(crate) via_hub: watch::Receiver<bool>,
 }
 
 /// From [Reconnect] to its [Keeper].
@@ -299,6 +321,7 @@ impl Reconnect {
     ) -> Arc<Self> {
         let (ctl, ctl_rx) = mpsc::unbounded_channel();
         let (events, _) = broadcast::channel(64);
+        let (via_hub, via_hub_rx) = watch::channel(via_hub);
         let keeper = Keeper {
             ctl: ctl_rx,
             config: config.clone(),
@@ -312,6 +335,7 @@ impl Reconnect {
             config,
             ctl,
             events,
+            via_hub: via_hub_rx,
         })
     }
 
@@ -337,6 +361,7 @@ impl Reconnect {
             result,
             started,
             via_hub,
+            ..
         } = connect_to(&self.config, cmd_tx, &mut cmd_rx).await;
         let (next, answer) = match result {
             Ok((info, residual)) => (Ctl::Running { residual, via_hub }, Ok(info)),
@@ -364,8 +389,8 @@ struct Keeper {
     config: ValidatedConfig,
     events: broadcast::Sender<ConnectionEvent>,
     commander: Option<Box<WeakCommander>>,
-    /// The running (or last) event loop's link goes through the hub
-    via_hub: bool,
+    /// The running (or last) event loop's link goes through the hub, see [Reconnect::via_hub]
+    via_hub: watch::Sender<bool>,
     gap: Option<Gap>,
 }
 
@@ -445,7 +470,7 @@ impl Keeper {
                         Keeping::Taken
                     }
                     Some(Ctl::Running { residual, via_hub }) => {
-                        self.via_hub = via_hub;
+                        self.via_hub.send_replace(via_hub);
                         Keeping::Running(residual)
                     }
                     Some(Ctl::Back(cmd_rx)) => Keeping::Stopped(cmd_rx),
@@ -488,7 +513,8 @@ impl Keeper {
             }
             return;
         }
-        let reconnecting = self.via_hub
+        let via_hub = *self.via_hub.borrow();
+        let reconnecting = via_hub
             && self.commander.is_some()
             && !matches!(
                 reason,
@@ -496,11 +522,7 @@ impl Keeper {
             );
         info!(
             "link {}went: {reason}{}",
-            if self.via_hub {
-                "through the ww hub "
-            } else {
-                ""
-            },
+            if via_hub { "through the ww hub " } else { "" },
             if reconnecting { ", reconnecting" } else { "" }
         );
         if reconnecting && let Some(give_up) = self.config.hub_reconnect {
@@ -556,10 +578,11 @@ impl Keeper {
             result,
             started,
             via_hub,
+            ..
         } = connect_to(&config, commander.cmd_tx(), &mut cmd_rx).await;
         let e = match result {
             Ok((info, residual)) => {
-                self.via_hub = via_hub;
+                self.via_hub.send_replace(via_hub);
                 let (since, attempts) = (gap.since, gap.attempts);
                 if info.user_api_hash.no_docs != commander.connected_device.user_api_hash.no_docs {
                     self.give_up(

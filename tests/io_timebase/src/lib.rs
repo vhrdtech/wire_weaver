@@ -512,17 +512,31 @@ mod tests {
         (device, m)
     }
 
+    /// Without the connection's own steering (CLT-46): the tests steer, or don't, themselves.
     async fn connect(device: &TestDevice) -> Client {
-        Client::config(|c| c.in_process_path(device.path()))
+        Client::config(|c| c.in_process_path(device.path()).clock_sync(false))
             .connect()
             .await
             .expect("connect")
+    }
+
+    /// With the connection's own steering (CLT-46), at the tests' pace.
+    async fn connect_steering(device: &TestDevice) -> Client {
+        Client::config(|c| {
+            c.in_process_path(device.path())
+                .clock_sync(true)
+                .clock_sync_options(fast_options())
+        })
+        .connect()
+        .await
+        .expect("connect")
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn now_increases_monotonically() {
         let (device, _m) = start("timebase/now");
         let client = connect(&device).await;
+        assert!(client.cmd.clock_sync().is_none(), "switched off");
         let first = client.clock().now().call().await.unwrap();
         tokio::time::sleep(Duration::from_millis(5)).await;
         let second = client.clock().now().call().await.unwrap();
@@ -707,6 +721,87 @@ mod tests {
         .expect("the second steerer takes over")
         .unwrap();
         second.stop();
+    }
+
+    /// CLT-46: a direct connection steers the device by itself, as this program, and pauses when asked.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_direct_connection_steers_by_itself() {
+        use wire_weaver_client::clock_sync::Phase;
+        let (device, m) = start("timebase/own_steering");
+        let client = connect_steering(&device).await;
+        let steering = client.cmd.clock_sync().expect("on");
+        let mut watch = steering.watch();
+        let s = tokio::time::timeout(
+            Duration::from_secs(2),
+            watch.wait_for(|s| {
+                s.followed == Some(true)
+                    && s.device
+                        .as_ref()
+                        .is_some_and(|d| d.state == SyncState::Locked)
+            }),
+        )
+        .await
+        .expect("followed and locked within 2 s")
+        .unwrap()
+        .clone();
+        assert_eq!(steering.phase(), Phase::Steering);
+        assert_eq!(s.source, Some(SyncSource::Host));
+        let steerer = s
+            .device
+            .unwrap()
+            .steerer
+            .expect("the device names its steerer");
+        assert_eq!(steerer.pid, std::process::id());
+        assert_ne!(steerer.id, 0);
+
+        // paused: no steer points, the device coasts
+        steering.set_paused(true);
+        assert_eq!(steering.phase(), Phase::Paused);
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let steers = m.lock().unwrap().steers;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(
+            m.lock().unwrap().steers,
+            steers,
+            "no steer points while paused"
+        );
+        assert!(steering.status().paused);
+        steering.set_paused(false);
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while m.lock().unwrap().steers == steers {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("steered again");
+    }
+
+    /// CLT-46: the connection's steering never keeps it open: it closes with the program's last Commander, and the
+    /// steering stops with it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn own_steering_never_keeps_the_connection_open() {
+        let (device, m) = start("timebase/own_steering_weak");
+        let client = connect_steering(&device).await;
+        let steering = client.cmd.clock_sync().expect("on");
+        let mut watch = steering.watch();
+        tokio::time::timeout(Duration::from_secs(2), watch.wait_for(|s| s.steers > 0))
+            .await
+            .expect("steered within 2 s")
+            .unwrap();
+        drop(client);
+        // a round in flight may still finish
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let steers = m.lock().unwrap().steers;
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(
+            m.lock().unwrap().steers,
+            steers,
+            "no steer points after the client is gone"
+        );
+        // the device is free for the next connection, although the steering handle is still around
+        let again = connect(&device).await;
+        again.clock().now().call().await.unwrap();
+        drop(steering);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

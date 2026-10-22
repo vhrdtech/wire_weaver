@@ -1,6 +1,6 @@
 //! Device timestamps in nanoseconds and back, and the [SteerPointOwned] for a fit.
 
-use crate::Fit;
+use super::Fit;
 use ww_si::ww_numeric::{NumericBaseType, NumericValue};
 use ww_si::{Prefix, Second, Unwrapper};
 use ww_timebase::SteerPointOwned;
@@ -75,7 +75,7 @@ impl DeviceTime {
 
     /// The steer point for `fit` at device time `local` (ns): `local` rounded down to the device's prefix, and the
     /// shared time of exactly that value. The fit is over the host's monotonic clock, `utc_offset` (ns, from
-    /// [HostClock::utc_offset](crate::HostClock::utc_offset)) turns it into UTC; `error_us` is the host's estimate
+    /// [HostClock::utc_offset](super::HostClock::utc_offset)) turns it into UTC; `error_us` is the host's estimate
     /// of its error ([Fit::error_us]).
     pub fn steer_point(
         &self,

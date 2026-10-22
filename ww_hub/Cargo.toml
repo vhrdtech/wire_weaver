@@ -15,9 +15,8 @@ semver.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "time", "io-util"] }
 tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
-wire_weaver_client = { workspace = true, features = ["hub", "in_process"] }
+wire_weaver_client = { workspace = true, features = ["clock_sync", "hub", "in_process"] }
 ww_client_server = { workspace = true, features = ["std"] }
-ww_clock_sync.workspace = true
 ww_device.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket = { workspace = true, features = ["socket"] }

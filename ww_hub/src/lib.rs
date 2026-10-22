@@ -78,17 +78,17 @@ pub struct HubConfig {
     /// A steered device stays open this long after its last tunnel left (30 min; `None` forever), so it doesn't
     /// coast between short commands; at least [HubConfig::linger].
     pub sync_linger: Option<Duration>,
-    /// How the hub polls and steers each device ([ww_clock_sync::Options]; its `steerer` and `rate_cache` are the
+    /// How the hub polls and steers each device ([wire_weaver_client::clock_sync::Options]; its `steerer` and `rate_cache` are the
     /// hub's own).
-    pub sync_options: ww_clock_sync::Options,
-    /// Where the clock rates of devices are kept between connections (`ww_clock_sync::RateCache`), shared with
+    pub sync_options: wire_weaver_client::clock_sync::Options,
+    /// Where the clock rates of devices are kept between connections (`wire_weaver_client::clock_sync::RateCache`), shared with
     /// programs that steer in direct mode; `None`: not kept.
     pub state_dir: Option<PathBuf>,
 }
 
 impl HubConfig {
     /// The user's runtime dir, idle exit 5 min or [IDLE_EXIT_ENV], linger 30 s or [LINGER_ENV], clock sync on unless
-    /// [SYNC_ENV] is `off`, sync linger 30 min or [SYNC_LINGER_ENV], the user's state dir (`ww_clock_sync::state_dir`).
+    /// [SYNC_ENV] is `off`, sync linger 30 min or [SYNC_LINGER_ENV], the user's state dir (`wire_weaver_client::clock_sync::state_dir`).
     pub fn from_env() -> io::Result<Self> {
         let seconds = |name: &str, default: u64| match std::env::var(name) {
             Ok(s) => s.parse().map(Duration::from_secs).map_err(|_| {
@@ -120,8 +120,8 @@ impl HubConfig {
             version: HUB_VERSION.to_string(),
             sync,
             sync_linger,
-            sync_options: ww_clock_sync::Options::default(),
-            state_dir: ww_clock_sync::state_dir().ok(),
+            sync_options: wire_weaver_client::clock_sync::Options::default(),
+            state_dir: wire_weaver_client::clock_sync::state_dir().ok(),
         })
     }
 }
@@ -358,7 +358,7 @@ impl Bound {
             linger: config.linger,
             steering: Mutex::new(sync::Steering::new(config.sync, config.sync_linger)),
             sync_stats: tokio::sync::broadcast::channel(256).0,
-            steerer: ww_clock_sync::steerer(Some(
+            steerer: wire_weaver_client::clock_sync::steerer(Some(
                 &wire_weaver_client::ClientMeta::new().program("ww hub"),
             )),
             state_dir: config.state_dir.clone(),
@@ -531,7 +531,7 @@ pub(crate) struct Hub {
     /// See [HubConfig::state_dir]
     pub(crate) state_dir: Option<PathBuf>,
     /// See [HubConfig::sync_options]
-    pub(crate) sync_options: ww_clock_sync::Options,
+    pub(crate) sync_options: wire_weaver_client::clock_sync::Options,
 }
 
 pub(crate) struct State {

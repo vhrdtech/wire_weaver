@@ -2,6 +2,11 @@
 
 ### ⚠️ Breaking
 
+- A direct connection steers its device's clock onto the PC's UTC by default (CLT-46), when the device serves
+  `ww_timebase::Clock` with `host_sync`: a task of the connection reads `now()` a few times a second and sends steer
+  points. `ClientConfig::clock_sync(false)` (or `WW_CLOCK_SYNC=off`) keeps the old behaviour; a program that steers
+  with a `ClockSync` of its own should turn it off. A connection without introspection data (`traits_only`) tries
+  `Clock::now()` once to find out. New default feature `clock_sync` (dependencies `ww_timebase`, `ww_date_time`).
 - `EventLoopExitReason::DisconnectFromDevice` carries the `DisconnectReason` the device (or the ww hub) sent.
 - `Command::Connect` has the new field `keep_streams_on_loss`: when the link goes rather than being disconnected on
   request, counted and reliable streams, observed levels and sinks stay for a resume as after
@@ -23,6 +28,15 @@
 
 ### 🚀 Features
 
+- `clock_sync` module (feature `clock_sync`, default; CLT-46): the code of `ww_clock_sync` (`ClockSync`, `Estimator`,
+  `DeviceTime`, `HostClock`, `RateCache`, `Options`, `Status`, `steerer`) moved here, with `serves_host_sync(bundle)`
+  and `rate_key(key)` from the hub. Every direct connection steers by itself: `ClientConfig::clock_sync(on)`,
+  `ClientConfig::clock_sync_options(Options)`, `clock_sync::ENV` (`WW_CLOCK_SYNC`); `Commander::clock_sync()` gives a
+  `ClockSteering` (`phase()`: `Starting`, `Steering`, `Paused`, `ThroughHub`, `Unsupported`, `Failed`; `status()`,
+  `watch()`, `set_paused()`). Off while the connection goes through the ww hub (the hub steers), on again after a
+  reconnect that reaches the device directly. The task holds the connection weakly, one round of calls at a time,
+  so it never keeps it open. The rate cache is picked by the device's serial (USB, RTT), the steerer is the
+  connection's `ClientMeta`.
 - `hub::ensure_running(true)` replaces a running hub that is older than this program's own (registered by `ww_hub::main_if_hub()`, no process spawned to find out) under `hub.start.lock`: it starts itself with `hub::HANDOVER_ENV`, and the new hub takes over (SRV-30); a failure leaves the running hub in place. Only strictly newer replaces older, so it converges on the newest hub.
 - The local socket preamble carries this program's `ww_link` and `ww_client_server` versions (SRV-30), and is sent again in the first layout to a hub that answers it doesn't read the second. A hub that doesn't serve them fails `connect()` with `Error::HubRefused { status: 4, .. }` naming both versions and the fix (rebuild with the hub's WireWeaver, or update the hub, or `WW_HUB=off` while it is stopped); routing doesn't fall back to a direct open then, and a reconnect gives up.
 - Reconnect after a hub restart (CLT-40): a connection through the ww hub (routed by `connect()` or

@@ -565,7 +565,7 @@ runs. Reconnecting clients wait while the device is lent and come back when it i
 
 Every device the hub holds open that serves [`ww_timebase::Clock`](../std_library/ww_timebase.md) with its
 `host_sync` group, anywhere in its API (found in the device's introspection data, which the hub fetches once when it
-opens the device), is steered onto the PC's UTC by the hub itself: a `ww_clock_sync::ClockSync` on the hub's own
+opens the device), is steered onto the PC's UTC by the hub itself: a `wire_weaver_client::clock_sync::ClockSync` on the hub's own
 connection to the device, so the local socket hop of the clients isn't in its round trips. The hub is the one
 steerer for the devices of its user; programs see its steering through the API instead of steering themselves, and
 `ww sync` with a hub running only shows it ([CLI](../cli_reference.md#ww-sync)).
@@ -584,7 +584,7 @@ steerer for the devices of its user; programs see its steering through the API i
 - **Switching it off.** `WW_HUB_SYNC=off` (`HubConfig::sync`) starts the hub with steering off for every device;
   `sync().set_enabled(key, on)` switches it per device, or for all with `key = None`. A device whose steering goes
   off coasts in holdover and lingers like any other.
-- **Pace.** `HubConfig::sync_options` (`ww_clock_sync::Options`): readings and steer points ten times a second until
+- **Pace.** `HubConfig::sync_options` (`wire_weaver_client::clock_sync::Options`): readings and steer points ten times a second until
   the device says `Locked`, then five readings and one steer point a second.
 
 The API (`ww_hub_api::ClockSync` at `sync`):
@@ -605,8 +605,9 @@ the rate in ppb (and whether it still is the cached one), the shortest round tri
 the PC's UTC measured with `shared_now` (good to half the check's round trip), the device's error bound and slew
 left, samples, steer points answered, restarts and the last error.
 
-A program that holds a device directly (no hub) steers it only if it runs `ww_clock_sync::ClockSync` itself, as
-`ww sync` does; steering in every direct connection by default is planned (CLT-46).
+A program that holds a device directly (no hub) steers it the same way on its own connection, by default
+([steering in every direct connection](../std_library/ww_timebase.md#steering-in-every-direct-connection), CLT-46);
+a connection through the hub leaves it to the hub.
 
 While one program has the whole device to itself (a claim on its root or a lend, SRV-32: `ww dfu` takes one), the
 hub's steering is `Paused`: the device is still read, so the fit stays current, but no steer point is sent and the

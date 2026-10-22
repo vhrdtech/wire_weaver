@@ -26,7 +26,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 
 /// One reading of a device's clock: host time when the request left and when the answer came back, and the
-/// device's time in between, all in nanoseconds (the device's after [DeviceTime::to_ns](crate::DeviceTime::to_ns)).
+/// device's time in between, all in nanoseconds (the device's after [DeviceTime::to_ns](super::DeviceTime::to_ns)).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Sample {
     /// Host monotonic time the `now()` request was sent at.
@@ -115,7 +115,7 @@ impl Estimator {
     }
 
     /// A slope known from before (host ns per device ns, [Fit::slope] of an earlier fit of the same device, e.g. from
-    /// the [RateCache](crate::RateCache)): fits use it from the first sample on, until the samples cover
+    /// the [RateCache](super::RateCache)): fits use it from the first sample on, until the samples cover
     /// [EstimatorConfig::prior_span]. `None` forgets it.
     pub fn set_prior(&mut self, slope: Option<f64>) {
         self.prior = slope.filter(|s| s.is_finite() && *s > 0.0);

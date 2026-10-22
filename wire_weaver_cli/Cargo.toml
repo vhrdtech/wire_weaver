@@ -41,7 +41,6 @@ ww_hub_api = { workspace = true, features = ["std"] }
 ww_local_socket.workspace = true
 
 wire_weaver_core.workspace = true
-ww_clock_sync.workspace = true
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_indication = { workspace = true, features = ["std"] }

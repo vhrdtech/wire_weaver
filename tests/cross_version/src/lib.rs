@@ -226,8 +226,9 @@ mod tests {
         (calls, device)
     }
 
+    /// Without the connection's own clock steering (CLT-46): its `Clock::now()` try would be in the recorded calls.
     async fn connect_traits_only(device: &tests_common::TestDevice) -> DynClient {
-        DynClient::traits_only(|c| c.in_process_path(device.path()))
+        DynClient::traits_only(|c| c.in_process_path(device.path()).clock_sync(false))
             .connect()
             .await
             .expect("connect")

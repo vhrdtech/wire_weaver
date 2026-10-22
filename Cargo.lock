@@ -2360,7 +2360,6 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_clock_sync",
  "ww_date_time",
  "ww_device",
  "ww_hub",
@@ -5903,7 +5902,6 @@ dependencies = [
  "wire_weaver_client",
  "wire_weaver_core",
  "ww_client_server",
- "ww_clock_sync",
  "ww_counters",
  "ww_dfu",
  "ww_hub",
@@ -5948,6 +5946,7 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_snapshots",
  "ww_client_server",
+ "ww_date_time",
  "ww_device",
  "ww_framer",
  "ww_global",
@@ -5961,6 +5960,7 @@ dependencies = [
  "ww_stream",
  "ww_tap",
  "ww_tape",
+ "ww_timebase",
  "ww_version",
 ]
 
@@ -6093,12 +6093,7 @@ dependencies = [
 name = "ww_clock_sync"
 version = "0.5.0"
 dependencies = [
- "tokio",
- "wire_weaver",
  "wire_weaver_client",
- "ww_date_time",
- "ww_si",
- "ww_timebase",
 ]
 
 [[package]]
@@ -6238,7 +6233,6 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "ww_client_server",
- "ww_clock_sync",
  "ww_device",
  "ww_hub_api",
  "ww_local_socket",

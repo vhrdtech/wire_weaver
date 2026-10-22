@@ -160,10 +160,18 @@ pub(crate) async fn dfu(
         DfuCommand::Confirm => Some("ww dfu confirm".to_string()),
         DfuCommand::Revert => Some("ww dfu revert".to_string()),
     };
-    let exclusive = match purpose {
-        Some(purpose) => take_exclusive(selection, meta, &purpose).await?,
+    let exclusive = match &purpose {
+        Some(purpose) => take_exclusive(selection, meta, purpose).await?,
         None => None,
     };
+    // held directly: this connection's own clock steering (CLT-46) leaves the device alone meanwhile, as the hub's
+    // does under the exclusive claim
+    if purpose.is_some()
+        && exclusive.is_none()
+        && let Some(steering) = device.cmd().clock_sync()
+    {
+        steering.set_paused(true);
+    }
     let r = run(cmd, device, selection, meta).await;
     if let Some(exclusive) = exclusive
         && let Err(e) = exclusive.release().await
@@ -608,9 +616,11 @@ impl UsbReconnect {
             _ => None,
         };
         Self {
+            // the rest of the command runs on this connection: no clock steering on it (CLT-46)
             config: selection
                 .client_config()
                 .traits_only()
+                .clock_sync(false)
                 .client_meta(meta.clone()),
             follow,
         }

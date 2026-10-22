@@ -891,18 +891,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `tests/hub_reconnect` (`versions.rs`, `handover.rs` with clients connected, `replace.rs` across processes); check
   on macOS and Windows open (compiles for both).
 - 🧪 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `ww_timebase::Clock` with
-  `host_sync` (found in its introspection data at any path) onto the PC's UTC with `ww_clock_sync` on its own
+  `host_sync` (found in its introspection data at any path) onto the PC's UTC with `clock_sync::ClockSync` on its own
   connection, and keeps it open for a sync linger (30 min, `WW_HUB_SYNC_LINGER`, `forever`) so boards stay steered
   between short-lived commands; `WW_HUB_SYNC=off` / `sync().set_enabled` per device or all. `ww_hub_api::ClockSync` at
   `sync`: `devices` (`SyncEntry`: phase, state, source, the steerer the device follows and one it only notes, rate,
   shortest RTT, residual via `shared_now`, error, slew, samples), `linger`, the `stats` stream. Rate cache per device
-  serial in the state dir (`ww_clock_sync::RateCache`, atomic writes, shared with direct-mode programs): a known device
+  serial in the state dir (`clock_sync::RateCache`, atomic writes, shared with direct-mode programs): a known device
   is steered after its first reading. Steer points say who steers (`ww_timebase::Steerer`, STD-49 follow-up); the device
   follows one and notes the others (embedded_bedrock `bedrock_sync`). `ww sync` shows the hub's steering with a hub,
   steers directly without one, STEERED BY column. `docs/transport/hub.md#clock-sync-in-the-hub-srv-31`,
   `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E in `tests/hub` (`clock_sync`), `tests/io_timebase`.
   Paused (`SyncPhase::Paused`, readings go on, no steer points) while a program holds the whole device (SRV-32);
-  programs holding a device directly steer with `ww_clock_sync` (opt-in) until CLT-46 does it in every connection.
+  programs holding a device directly steer on their own connection by default (CLT-46).
   Hardware check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on
   one board.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
@@ -1161,6 +1161,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   counted, no hub started while lent). Tested on Linux in `tests/hub_reconnect` (`restart.rs`; `kill.rs`: `SIGKILL`
   twice under load, back in ~90 ms, stream resumed, nothing sent twice); check on macOS and Windows open. Plain
   streams end with the link, as on an unplug.
+- 🧪 **CLT-46 Clock steering in every direct connection** · `v0.5.x` — a program that holds a device directly steers
+  its clock onto the PC's UTC without code of its own, as the hub does for the devices it holds (SRV-31): on by
+  default, `ClientConfig::clock_sync(false)` or `WW_CLOCK_SYNC=off` to turn it off, `clock_sync_options` for the pace;
+  `Phase::ThroughHub` (no steering) while the connection goes through a hub, again after a reconnect that reaches it
+  directly. The code of `ww_clock_sync` moved into `wire_weaver_client::clock_sync` (feature `clock_sync`, default;
+  `ww_clock_sync` re-exports it), `Clock` with `host_sync` found by introspection (`serves_host_sync`, `now()` tried
+  without introspection data), rate cache by the device's serial and the connection's `ClientMeta` as steerer, as in
+  SRV-31. The task holds a weak `Commander` for one round of calls at a time, so the connection closes with the
+  program's last `Commander`. `Commander::clock_sync()` (`ClockSteering`: phase, status, `set_paused`); `ww dfu`
+  pauses it while it holds the device directly, `ww sync` and the hub turn it off (they steer with their own sync).
+  `docs/std_library/ww_timebase.md#steering-in-every-direct-connection`; tests `tests/io_timebase`
+  (`a_direct_connection_steers_by_itself`, `own_steering_never_keeps_the_connection_open`), `tests/hub`
+  (`ThroughHub`). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct `ww` command or
+  app, `ww sync` with a hub showing it followed, no second steerer with the hub.
 - 📋 **CLT-43 Polite handover to the hub** · `v0.5.x` — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
   through the hub after a short gap; one that doesn't is named in the other's error.
@@ -1170,14 +1184,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **CLT-45 Lock file names one per device key** — `holders` maps every character outside `[A-Za-z0-9._-]` to
   `_`, so two keys can share a lock file (`...:a:b` and `...:a_b`): a USB device with a crafted serial can make
   another one look held. Needs an injective file name.
-
-- 📋 **CLT-46 auto-clock-sync-direct Clock steering in every direct connection** · `v0.5.x` — a program that holds a
-  device directly steers its clock without code of its own, as the hub does for the devices it holds (SRV-31): on by
-  default, `ClientConfig` switch to turn it off, off when the connection goes through a hub (the hub steers).
-  `ww_clock_sync`'s code moves into `wire_weaver_client` behind a feature (`ww_clock_sync` stays as a re-export, so
-  nothing is lost), `Clock` with `host_sync` found in the device's introspection data, the rate cache and steerer as
-  in SRV-31, and the steering task never keeps a connection alive (a weak `Commander`, or a task the event loop
-  owns). Remaining part of P2401#21oct-2039, task P2401#22oct-0111.
 
 ## Transports and protocols (`TR`)
 

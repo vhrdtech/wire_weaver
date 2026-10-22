@@ -49,6 +49,12 @@ pub struct ClientConfig {
     holder_mode: Option<crate::holders::Mode>,
     /// [ClientConfig::hub_reconnect]; None: the default
     hub_reconnect: Option<Option<Duration>>,
+    /// [ClientConfig::clock_sync]; None: [crate::clock_sync::ENV], else on
+    #[cfg(feature = "clock_sync")]
+    clock_sync: Option<bool>,
+    /// [ClientConfig::clock_sync_options]
+    #[cfg(feature = "clock_sync")]
+    clock_sync_options: Option<Box<crate::clock_sync::Options>>,
 }
 
 #[derive(Clone)]
@@ -81,6 +87,9 @@ pub(crate) struct ValidatedConfig {
     pub(crate) holder_mode: crate::holders::Mode,
     /// [ClientConfig::hub_reconnect]: give up after this long without a link, None: don't reconnect
     pub(crate) hub_reconnect: Option<Duration>,
+    /// [ClientConfig::clock_sync]: the connection steers the device's clock, with these options
+    #[cfg(feature = "clock_sync")]
+    pub(crate) clock_sync: Option<crate::clock_sync::Options>,
 }
 
 #[derive(Clone, Debug)]
@@ -298,6 +307,11 @@ impl ClientConfig {
             hub_opens: s.hub_opens.unwrap_or_else(OpenCounter::from_env),
             holder_mode: s.holder_mode.unwrap_or(crate::holders::Mode::Direct),
             hub_reconnect: s.hub_reconnect.unwrap_or(Some(DEFAULT_HUB_GIVE_UP)),
+            #[cfg(feature = "clock_sync")]
+            clock_sync: s
+                .clock_sync
+                .unwrap_or_else(crate::clock_sync::enabled_from_env)
+                .then(|| s.clock_sync_options.map(|o| *o).unwrap_or_default()),
         })
     }
 
@@ -418,6 +432,31 @@ impl ClientConfig {
     pub fn hub_reconnect(self, give_up: Option<Duration>) -> Self {
         let mut c = self;
         c.hub_reconnect = Some(give_up);
+        c
+    }
+
+    /// Whether the connection keeps the device's clock on the PC's UTC (CLT-46): a device serving
+    /// `ww_timebase::Clock` with its `host_sync` group (found in its introspection data, `now()` tried without
+    /// them) is steered by a task of the connection, as the ww hub does for the devices it holds (SRV-31). Not while
+    /// the connection goes through the hub, which steers; never keeping the connection open; paused with
+    /// [ClockSteering::set_paused](crate::clock_sync::ClockSteering::set_paused) from
+    /// [Commander::clock_sync](crate::Commander::clock_sync). Not set: the `WW_CLOCK_SYNC` environment variable
+    /// (`off` turns it off, [crate::clock_sync::ENV]), else on. Turn it off for a program that steers with a
+    /// [ClockSync](crate::clock_sync::ClockSync) of its own (`ww sync`) or must not touch the device's clock.
+    #[cfg(feature = "clock_sync")]
+    pub fn clock_sync(self, on: bool) -> Self {
+        let mut c = self;
+        c.clock_sync = Some(on);
+        c
+    }
+
+    /// How the connection's own steering polls and steers ([ClientConfig::clock_sync]), default
+    /// [Options::default](crate::clock_sync::Options::default); without a `rate_cache` the device's serial picks
+    /// one in the user's state dir, without a `steerer` the connection's [ClientMeta] names it.
+    #[cfg(feature = "clock_sync")]
+    pub fn clock_sync_options(self, options: crate::clock_sync::Options) -> Self {
+        let mut c = self;
+        c.clock_sync_options = Some(Box::new(options));
         c
     }
 

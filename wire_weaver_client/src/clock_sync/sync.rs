@@ -1,10 +1,11 @@
 //! [ClockSync]: one device kept on UTC, in a task of its own.
 
-use crate::{DeviceTime, Estimator, EstimatorConfig, Fit, HostClock, RateCache, Sample};
+use super::{DeviceTime, Estimator, EstimatorConfig, Fit, HostClock, RateCache, Sample};
+use crate::Commander;
+use crate::event_loop::commander::WeakCommander;
 use std::time::Duration;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
-use wire_weaver_client::Commander;
 use ww_timebase::{SteererOwned, SyncSource, SyncState, SyncStatusOwned};
 
 /// Client of `ww_timebase::Clock` wherever the device implements it (a global trait path, API-20).
@@ -47,7 +48,7 @@ pub struct Options {
     /// The fit's window and filter.
     pub estimator: EstimatorConfig,
     /// Who the steer points say they are from (SRV-31); `None`: this program, from
-    /// [ClientMeta](wire_weaver_client::ClientMeta)'s defaults with an id of its own ([steerer]).
+    /// [ClientMeta](crate::ClientMeta)'s defaults with an id of its own ([steerer]).
     pub steerer: Option<SteererOwned>,
     /// Where the device's rate is kept between connections: read at the start (the first steer point goes out after
     /// the first reading), written every [Options::save_rate_every] once the fit has its own rate. `None`: none.
@@ -85,9 +86,9 @@ impl Default for Options {
     }
 }
 
-/// This program as a steerer: program, host and pid as [ClientMeta](wire_weaver_client::ClientMeta) finds them, and
+/// This program as a steerer: program, host and pid as [ClientMeta](crate::ClientMeta) finds them, and
 /// the id of `meta` (one per client object), or of a new one.
-pub fn steerer(meta: Option<&wire_weaver_client::ClientMeta>) -> SteererOwned {
+pub fn steerer(meta: Option<&crate::ClientMeta>) -> SteererOwned {
     let meta = meta.cloned().unwrap_or_default();
     let resolved = meta.resolve();
     SteererOwned {
@@ -166,20 +167,20 @@ pub struct ClockSync {
 impl ClockSync {
     /// Starts on the connection of `cmd`: reads `now()` once to learn the device's time format, then runs in a
     /// tokio task. Fails when the device doesn't implement `Clock` or its time is not an integer.
-    pub async fn start(
-        cmd: &Commander,
-        options: Options,
-    ) -> Result<Self, wire_weaver_client::Error> {
-        let client = ClockClient::new(cmd);
-        let first = client.now().call().await?;
-        let device_time = DeviceTime::new(&first).map_err(|e| {
-            wire_weaver_client::Error::Other(format!("device time not usable: {e}"))
-        })?;
+    ///
+    /// The sync keeps a clone of `cmd`, so the connection stays open while it runs (a connection's own steering,
+    /// [Commander::clock_sync], doesn't).
+    pub async fn start(cmd: &Commander, options: Options) -> Result<Self, crate::Error> {
+        let device_time = first_reading(cmd).await?;
         let mut options = options;
         let steerer = options.steerer.take().unwrap_or_else(|| steerer(None));
         let (tx, status) = watch::channel(Status::default());
         let (paused, paused_rx) = watch::channel(false);
-        let task = tokio::spawn(run(client, device_time, options, steerer, paused_rx, tx));
+        let conn = Conn::Strong(cmd.clone());
+        let task =
+            tokio::spawn(
+                async move { run(conn, device_time, options, steerer, paused_rx, &tx).await },
+            );
         Ok(ClockSync {
             status,
             paused,
@@ -214,13 +215,39 @@ impl Drop for ClockSync {
     }
 }
 
-async fn run(
-    mut client: ClockClient,
+/// The device's time format, from a first `now()` reading.
+pub(crate) async fn first_reading(cmd: &Commander) -> Result<DeviceTime, crate::Error> {
+    let client = ClockClient::new(cmd);
+    let first = client.now().call().await?;
+    DeviceTime::new(&first).map_err(|e| crate::Error::Other(format!("device time not usable: {e}")))
+}
+
+/// The connection a sync's calls go through.
+pub(crate) enum Conn {
+    /// Kept open by the sync ([ClockSync::start])
+    Strong(Commander),
+    /// Not kept open: the sync ends when the program's last Commander of it is gone (CLT-46)
+    Weak(WeakCommander),
+}
+
+impl Conn {
+    /// A Commander for the next calls, dropped again before the sync waits; `None` once the connection is gone.
+    fn get(&self) -> Option<Commander> {
+        match self {
+            Conn::Strong(cmd) => Some(cmd.clone()),
+            Conn::Weak(weak) => weak.upgrade(),
+        }
+    }
+}
+
+/// Polls, steers and checks until the connection or the status receivers are gone.
+pub(crate) async fn run(
+    conn: Conn,
     mut device_time: DeviceTime,
     options: Options,
     steerer: SteererOwned,
     paused: watch::Receiver<bool>,
-    tx: watch::Sender<Status>,
+    tx: &watch::Sender<Status>,
 ) {
     let host = HostClock::new();
     let mut estimator = Estimator::new(options.estimator);
@@ -239,6 +266,11 @@ async fn run(
         tokio::time::sleep_until(next_poll).await;
         // a slow answer delays the next reading rather than bunching them up
         next_poll = (next_poll + pace.poll).max(tokio::time::Instant::now());
+        // held for this round's calls only
+        let Some(cmd) = conn.get() else {
+            return;
+        };
+        let mut client = ClockClient { cmd };
         let sent = host.monotonic_ns();
         let now = client.now().call().await;
         let received = host.monotonic_ns();
@@ -253,7 +285,7 @@ async fn run(
                     device,
                     received,
                 };
-                if estimator.add(sample) == crate::Added::Restarted {
+                if estimator.add(sample) == super::Added::Restarted {
                     status.restarts += 1;
                 }
             }

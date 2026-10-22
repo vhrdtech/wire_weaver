@@ -73,6 +73,9 @@ pub struct Commander {
     reconnect: Option<Arc<Reconnect>>,
     /// Shared by all clones, the one that drops last disconnects, see the `Drop` impl.
     last_clone: Arc<()>,
+    /// The connection's own clock steering (CLT-46), see [Commander::clock_sync]
+    #[cfg(feature = "clock_sync")]
+    clock_sync: Option<Arc<crate::clock_sync::auto::Shared>>,
 }
 
 #[derive(Clone)]
@@ -92,6 +95,7 @@ pub struct TransportCommander {
 }
 
 /// A [Commander] that doesn't keep the connection or the Commander's clones alive, see [Commander::downgrade].
+#[derive(Clone)]
 pub(crate) struct WeakCommander {
     cmd_tx: mpsc::WeakSender<Command>,
     last_clone: Weak<()>,
@@ -108,6 +112,8 @@ pub(crate) struct WeakCommander {
     sinks: SinkRegistry,
     consts: ConstCache,
     observes: ObserveRegistry,
+    #[cfg(feature = "clock_sync")]
+    clock_sync: Option<Weak<crate::clock_sync::auto::Shared>>,
 }
 
 impl WeakCommander {
@@ -131,6 +137,11 @@ impl WeakCommander {
             observes: self.observes.clone(),
             // the keeper holds the Reconnect itself
             reconnect: None,
+            #[cfg(feature = "clock_sync")]
+            clock_sync: match &self.clock_sync {
+                Some(weak) => Some(weak.upgrade()?),
+                None => None,
+            },
         })
     }
 }
@@ -164,6 +175,8 @@ impl Commander {
             observes: ObserveRegistry::default(),
             reconnect: None,
             last_clone: Arc::new(()),
+            #[cfg(feature = "clock_sync")]
+            clock_sync: None,
         }
     }
 
@@ -799,7 +812,33 @@ impl Commander {
             sinks: self.sinks.clone(),
             consts: self.consts.clone(),
             observes: self.observes.clone(),
+            #[cfg(feature = "clock_sync")]
+            clock_sync: self.clock_sync.as_ref().map(Arc::downgrade),
         }
+    }
+
+    /// This connection's own steering of the device's clock onto the PC's UTC (CLT-46): `None` when it is off
+    /// ([ClientConfig::clock_sync](crate::ClientConfig::clock_sync)) or the Commander was made by hand; otherwise
+    /// also for a device without the clock ([Phase::Unsupported](crate::clock_sync::Phase::Unsupported)), and while
+    /// the connection goes through the ww hub, which steers ([Phase::ThroughHub](crate::clock_sync::Phase::ThroughHub)).
+    #[cfg(feature = "clock_sync")]
+    pub fn clock_sync(&self) -> Option<crate::clock_sync::ClockSteering> {
+        self.clock_sync
+            .clone()
+            .map(crate::clock_sync::ClockSteering::from_shared)
+    }
+
+    /// Starts the connection's own clock steering (CLT-46), see [crate::clock_sync::Start]; not without a tokio
+    /// runtime to run it on (a blocking connect from a plain thread).
+    #[cfg(feature = "clock_sync")]
+    pub(crate) fn start_clock_sync(&mut self, start: crate::clock_sync::Start) {
+        let Ok(rt) = tokio::runtime::Handle::try_current() else {
+            debug!("no tokio runtime: the connection doesn't steer the device's clock");
+            return;
+        };
+        let (shared, senders) = crate::clock_sync::prepare();
+        self.clock_sync = Some(shared.clone());
+        crate::clock_sync::start(&rt, &shared, senders, self.downgrade(), start);
     }
 
     pub(crate) fn cmd_tx(&self) -> &mpsc::Sender<Command> {

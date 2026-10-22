@@ -141,7 +141,7 @@ The tolerance is the device's: `slew_us` (what is left to slew in) plus the sour
 enter `Locked`, and a new point that finds the clock more than twice that far off (or steps it) goes back to
 `Acquiring`. bedrock boards (`bedrock_sync`) use 2 ms (a full-speed USB board's own error bound is about 1 ms), plenty for LEDs, and slew 5 % while acquiring (250 ms gone in
 5 s) and 1 % once locked; shared time never jumps or goes back except for a step beyond 1 s. A host steers more often
-while a device is acquiring (`ww_clock_sync` 10 Hz, then 1 Hz once locked). `Locked` only says the device agrees
+while a device is acquiring (`clock_sync` 10 Hz, then 1 Hz once locked). `Locked` only says the device agrees
 with its source: how close the source is to UTC is `error`, and what the host measures is the residual of
 `shared_now()` against its own clock (`ww sync` shows both).
 
@@ -196,8 +196,11 @@ correlates the device through `time_map` instead of steering it).
   Cortex-M0+ answering `U32` µs) gets 32 bits, wrapping as its `now()` does, and the host unwraps its readings
   ([`ww_si::Unwrapper`](ww_si.md)). `shared_us` is a plain `u64`, since UTC needs all 64 bits and a `Second` in a
   `U64` would make such a device enable 64-bit numbers for one field.
-* The host side is the `ww_clock_sync` crate, for any process holding a device connection (the `ww` CLI, a device's
-  own CLI or GUI): `ClockSync::start(&cmd, Options::default())` polls, fits and steers in a tokio task, and its
+* The host side is `wire_weaver_client::clock_sync` (its `clock_sync` feature, on by default; the `ww_clock_sync`
+  crate re-exports it), for any process holding a device connection (the `ww` CLI, a device's own CLI or GUI). Every
+  direct connection steers its device by itself ([below](#steering-in-every-direct-connection)), and
+  `ClockSync::start(&cmd, Options::default())` does it with options of a program's own: it polls, fits and steers in
+  a tokio task, and its
   `Status` has the fit, the followed source, the residual offset it measures with `shared_now()` and whether the
   device follows it (`followed`). Every process steers its devices onto the same UTC; on a PC with a
   [ww hub](../transport/hub.md#clock-sync-in-the-hub-srv-31) the hub is the one steerer for the devices it holds.
@@ -209,6 +212,34 @@ correlates the device through `time_map` instead of steering it).
 * On the device, embedded_bedrock's `bedrock_sync` crate keeps the shared clock (with an optional backend that
   steers the oscillator itself where a chip has a fractional PLL).
 
+### Steering in every direct connection
+
+A program that connects to a device directly (not through the [ww hub](../transport/hub.md#clock-sync-in-the-hub-srv-31))
+keeps its clock on the PC's UTC without code of its own (CLT-46): when the device serves `Clock` with `host_sync`
+(found in its introspection data; a connection without them, `traits_only`, tries `now()` once), the connection runs
+a sync in a task of its own, with the [rate cache](#the-rate-cache) of the device's serial and the connection's
+`ClientMeta` as its [steerer](#one-steerer-at-a-time).
+
+```rust
+let device = MyDevice::connect().await?; // steers, if the device has the clock
+if let Some(steering) = device.cmd.clock_sync() {
+    println!("{:?}", steering.phase()); // Starting, Steering, Paused, ThroughHub, Unsupported, Failed(..)
+    let status = steering.status(); // the same Status as ClockSync's
+    steering.set_paused(true); // no steer points meanwhile, the device coasts in holdover
+}
+```
+
+* **Off** with `ClientConfig::clock_sync(false)`, or `WW_CLOCK_SYNC=off` for every connection that doesn't say;
+  `ClientConfig::clock_sync_options` sets the pace. `ww sync` steers with a `ClockSync` of its own and switches it off;
+  the hub does for the connections it opens, since it steers them itself.
+* **Through the hub** the connection doesn't steer (`Phase::ThroughHub`): the hub does. A reconnect that reaches the
+  device directly again starts steering again, and the other way round.
+* **Never keeps the connection open.** The task holds the connection weakly, for one round of calls at a time: the
+  connection closes with the program's last `Commander`, and the steering stops with it; the device goes on in
+  holdover.
+* **Paused** while the program changes the device: `ww dfu` pauses its connection's steering when it holds the device
+  directly, as the hub pauses under a device-wide claim.
+
 ### One steerer at a time
 
 Steer points say who sends them (`SteerPoint::steerer`: a random id per steering program, its host, program name and
@@ -218,13 +249,13 @@ boards: within 3 s, their holdover time), another one's points are only noted, a
 follows (`Host`) and reported in `SyncStatus::noted`; once the followed one has been quiet that long, the next
 steerer's point takes over, slewed like any switch of source. Points without a steerer (hosts built before the
 field) count as one steerer of their own. `SyncStatus::steerer` names the one followed, so a host sees whether it is
-(`ww_clock_sync::Status::followed`) and who is instead; `ww sync` shows it in its STEERED BY column.
+(`clock_sync::Status::followed`) and who is instead; `ww sync` shows it in its STEERED BY column.
 
 ### The rate cache
 
 A fit needs about a second of readings before its rate is worth anything, and a young fit's rate is off by the
 jitter over its span (100 µs over 1 s is 100 ppm). A device's rate against a PC's clock changes slowly (temperature,
-ageing), so `ww_clock_sync::RateCache` keeps the last one each PC measured per device serial, in the user's state
+ageing), so `clock_sync::RateCache` keeps the last one each PC measured per device serial, in the user's state
 dir (`$XDG_STATE_HOME/ww/clock_rates/<serial>.toml`, `~/Library/Application Support/ww` on macOS,
 `%LOCALAPPDATA%\ww\state` on Windows, `WW_STATE_DIR` to move it), written to a temporary file and renamed, shared
 by the hub and every program that steers directly. With `Options::rate_cache` set, the fit takes the cached rate and

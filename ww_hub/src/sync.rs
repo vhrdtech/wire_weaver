@@ -1,5 +1,5 @@
 //! Clock sync in the hub (SRV-31): every device the hub holds open that serves `ww_timebase::Clock` with the
-//! `host_sync` group is steered onto this PC's UTC by a `ww_clock_sync::ClockSync` on the hub's own connection to it,
+//! `host_sync` group is steered onto this PC's UTC by a `wire_weaver_client::clock_sync::ClockSync` on the hub's own connection to it,
 //! and kept open for [Steering::linger] after its last client left, so short-lived commands don't leave it coasting.
 //!
 //! One task per open device ([start]): it looks the clock up in the device's introspection data, starts and stops
@@ -14,10 +14,9 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tracing::{debug, info};
-use wire_weaver_client::ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiLevelLocationOwned, ApiLevelOwned,
+use wire_weaver_client::clock_sync::{
+    ClockSync, Options, RateCache, Status, rate_key, serves_host_sync,
 };
-use ww_clock_sync::{ClockSync, Options, RateCache, Status};
 use ww_hub_api::{SyncEntryOwned, SyncPhaseOwned};
 
 use crate::Hub;
@@ -315,82 +314,9 @@ fn fill(e: &mut SyncEntryOwned, s: &Status) {
     e.error = s.error.clone();
 }
 
-/// What the rate cache knows the device behind `key` by: the serial a direct-mode program sees too (`ww sync`),
-/// `None` for a device without one.
-fn rate_key(key: &str) -> Option<String> {
-    let (scheme, rest) = key.split_once(':')?;
-    match scheme {
-        // usb:<vid>:<pid>:<serial>[:<iface>]
-        "usb" => rest
-            .split(':')
-            .nth(2)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string),
-        // rtt:<probe serial>:<chip>
-        "rtt" => Some(rest.replace(':', "-")),
-        _ => None,
-    }
-}
-
-/// The device's API has `ww_timebase::Clock` somewhere with its `host_sync` group (the trait's only optional items,
-/// so a `Clock` that leaves out none has it).
-fn serves_host_sync(bundle: &ApiBundleOwned) -> bool {
-    fn search(bundle: &ApiBundleOwned, level: &ApiLevelOwned, depth: usize) -> bool {
-        if depth > 16 {
-            return false;
-        }
-        level.items.iter().any(|item| {
-            let ApiItemKindOwned::Trait { trait_idx, omitted } = &item.kind else {
-                return false;
-            };
-            let none_omitted = omitted.as_ref().is_none_or(|o| o.is_empty());
-            match bundle.traits.get(trait_idx.0 as usize) {
-                Some(ApiLevelLocationOwned::InLine { level, crate_idx }) => {
-                    match is_clock(bundle, crate_idx.0, &level.trait_name) {
-                        true => none_omitted,
-                        false => search(bundle, level, depth + 1),
-                    }
-                }
-                Some(ApiLevelLocationOwned::SkippedFullVersion {
-                    crate_idx,
-                    trait_name,
-                    ..
-                }) => none_omitted && is_clock(bundle, crate_idx.0, trait_name),
-                _ => false,
-            }
-        })
-    }
-    fn is_clock(bundle: &ApiBundleOwned, crate_idx: u32, name: &str) -> bool {
-        name == "Clock"
-            && bundle
-                .ext_crates
-                .get(crate_idx as usize)
-                .is_some_and(|c| c.crate_id == "ww_timebase")
-    }
-    search(bundle, &bundle.root, 0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn rate_keys() {
-        assert_eq!(
-            rate_key("usb:c0de:cafe:B135-0042").as_deref(),
-            Some("B135-0042")
-        );
-        assert_eq!(
-            rate_key("usb:c0de:cafe:B135-0042:2").as_deref(),
-            Some("B135-0042")
-        );
-        assert_eq!(rate_key("usb:c0de:cafe:"), None);
-        assert_eq!(
-            rate_key("rtt:0670FF:STM32H725").as_deref(),
-            Some("0670FF-STM32H725")
-        );
-        assert_eq!(rate_key("inproc:hub/x"), None);
-    }
 
     #[test]
     fn enabled_per_device_and_globally() {

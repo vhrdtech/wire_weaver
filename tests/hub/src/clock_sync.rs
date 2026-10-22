@@ -296,16 +296,16 @@ fn start(name: &str, linger: Duration, sync_linger: Option<Duration>) -> Bench {
         sync: true,
         sync_linger,
         // fast, for the test: in-process round trips are tens of µs
-        sync_options: ww_clock_sync::Options {
+        sync_options: wire_weaver_client::clock_sync::Options {
             poll: Duration::from_millis(5),
             steer_every: Duration::from_millis(20),
             check_every: Some(Duration::from_millis(20)),
-            acquire: ww_clock_sync::Pace {
+            acquire: wire_weaver_client::clock_sync::Pace {
                 poll: Duration::from_millis(5),
                 steer_every: Duration::from_millis(20),
                 check_every: Some(Duration::from_millis(20)),
             },
-            estimator: ww_clock_sync::EstimatorConfig {
+            estimator: wire_weaver_client::clock_sync::EstimatorConfig {
                 min_span: Duration::from_millis(50),
                 ..Default::default()
             },
@@ -377,6 +377,13 @@ async fn the_hub_steers_and_keeps_the_device_open() {
     assert_eq!(steerer.program, "ww hub");
     assert_eq!(steerer.pid, std::process::id());
     assert_eq!(e.state, Some(SyncState::Locked));
+    // the client's own steering (CLT-46) leaves it to the hub
+    let own = client.cmd.clock_sync().expect("on by default");
+    assert_eq!(
+        own.phase(),
+        wire_weaver_client::clock_sync::Phase::ThroughHub
+    );
+    assert_eq!(own.status().steers, 0);
     assert!(bench.clock.lock().unwrap().steers > 0);
     // the stream has them too
     let streamed = tokio::time::timeout(Duration::from_secs(2), stats.recv())

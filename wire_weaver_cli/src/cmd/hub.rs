@@ -302,6 +302,7 @@ fn device_state(d: &DeviceEntryOwned) -> String {
         DeviceStateOwned::Faulted { why } => {
             style(format!("faulted: {}", escape(why))).red().to_string()
         }
+        DeviceStateOwned::Lent { claim } => style(super::list::lent_text(claim)).cyan().to_string(),
         // a state a newer hub knows
         DeviceStateOwned::Unknown(_) => "unknown".to_string(),
     }

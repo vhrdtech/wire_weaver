@@ -21,6 +21,7 @@
 
 ### 🐛 Fixes
 
+- `ww hub status` and `ww list` show a device lent with `ww hub lend` as `lent by <program> (pid N): <purpose>`, not as free (SRV-32).
 - Strings a device, or another program through the hub, hands over (USB product/manufacturer/serial, introspection
   docs and resource/type names, `UserStr` text, pin names, holder program/label/user/host) are escaped before
   printing (TOOL-19): a C0/C1 control character, DEL or a Unicode bidi override/isolate shows as a visible

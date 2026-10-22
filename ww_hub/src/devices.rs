@@ -113,6 +113,40 @@ pub(crate) async fn entries(hub: &Hub) -> Vec<DeviceEntryOwned> {
             }
         }
     }
+    // lent out (SRV-32): closed by the hub, maybe held by a tool that writes no lock file
+    let lent: Vec<_> = {
+        let state = hub.state.lock().unwrap();
+        state
+            .claims
+            .lent_out()
+            .map(|c| (c.key.clone(), c.entry()))
+            .collect()
+    };
+    for (key, claim) in lent {
+        let state = DeviceStateOwned::Lent { claim };
+        match entries
+            .iter_mut()
+            .find(|(k, _)| key == **k || key.starts_with(&format!("{k}:")))
+        {
+            Some((_, e)) => e.state = state,
+            None => {
+                entries.insert(
+                    key.clone(),
+                    DeviceEntryOwned {
+                        key,
+                        product: String::new(),
+                        serial: String::new(),
+                        api: None,
+                        state,
+                        tunnels: 0,
+                        location: None,
+                        label: None,
+                        api_hash: None,
+                    },
+                );
+            }
+        }
+    }
     entries.into_values().collect()
 }
 

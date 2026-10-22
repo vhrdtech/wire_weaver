@@ -979,8 +979,17 @@ mod tests {
             .call()
             .await
             .unwrap();
-        // closed when lend answers (a's tunnel got `Disconnect(Other(DISCONNECT_LENT))`), not held by the hub
-        assert_eq!(hub_state(&lender, &bench.key).await, None);
+        // closed when lend answers (a's tunnel got `Disconnect(Other(DISCONNECT_LENT))`), listed as lent, naming the
+        // claim (not as free: a borrower like probe-rs writes no lock file)
+        match hub_state(&lender, &bench.key).await {
+            Some(ww_hub_api::DeviceStateOwned::Lent { claim }) => {
+                assert_eq!(
+                    (claim.id, claim.purpose.as_str(), claim.lent),
+                    (id, "probe-rs", true)
+                )
+            }
+            s => panic!("expected Lent, got {s:?}"),
+        }
         let claims = lender
             .claims()
             .claims(bench.key.clone())
@@ -1083,7 +1092,10 @@ mod tests {
             rt.shutdown_background();
         });
         lent_rx.recv().unwrap();
-        assert_eq!(hub_state(&watcher, &bench.key).await, None);
+        assert!(matches!(
+            hub_state(&watcher, &bench.key).await,
+            Some(ww_hub_api::DeviceStateOwned::Lent { .. })
+        ));
         kill_tx.send(()).unwrap();
         borrower.join().unwrap();
         next_event(&mut events, |e| {

@@ -115,6 +115,19 @@ fn hub_list_row(e: &DeviceEntryOwned) -> Vec<String> {
     ]
 }
 
+/// `lent by ww (pid 7): probe-rs reset`: who lent the device out of the hub (SRV-32) and what for.
+pub(crate) fn lent_text(claim: &ww_hub_api::ClaimEntryOwned) -> String {
+    let mut text = format!(
+        "lent by {} (pid {})",
+        escape(&claim.holder.program),
+        claim.holder.pid
+    );
+    if !claim.purpose.is_empty() {
+        text.push_str(&format!(": {}", escape(&claim.purpose)));
+    }
+    text
+}
+
 fn state_text(state: &DeviceStateOwned) -> String {
     match state {
         DeviceStateOwned::Absent => "absent".into(),
@@ -124,6 +137,7 @@ fn state_text(state: &DeviceStateOwned) -> String {
             format!("held by {} (pid {})", escape(&holder.program), holder.pid)
         }
         DeviceStateOwned::Faulted { why } => format!("faulted: {}", escape(why)),
+        DeviceStateOwned::Lent { claim } => lent_text(claim),
         DeviceStateOwned::Unknown(_) => "unknown".into(),
     }
 }

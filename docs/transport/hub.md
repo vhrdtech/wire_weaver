@@ -124,7 +124,7 @@ let mut events = hub.registry().events().call().await?;
   newer one ([Handover](#handover-to-a-newer-hub)).
 - `registry().devices()`: the WireWeaver USB devices plugged in (enumerated, not opened: the hub opens a device only
   when a program asks for it) and every device a program holds, from the lock files above, as `HeldElsewhere` with
-  the holder; the devices the hub holds itself as `Open`, with their tunnels. `take(key)` opens a device and keeps it
+  the holder; the devices the hub holds itself as `Open`, with their tunnels; a device lent out ([lending](#the-whole-device-exclusive-access-and-lending-srv-32)) as `Lent`, with the claim naming who borrowed it and what for. `take(key)` opens a device and keeps it
   open without clients (`Opened` / `Closed` events).
 - `registry().clients()`: the programs connected to the hub's API, with what their link setup said about them
   (program, kind, user, host, instance id) and the pid the OS reports.

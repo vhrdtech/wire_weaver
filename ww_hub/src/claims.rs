@@ -556,6 +556,11 @@ impl Claims {
         self.list.iter().find(|c| c.key == key && c.lend.is_some())
     }
 
+    /// Every claim a device is lent out with.
+    pub(crate) fn lent_out(&self) -> impl Iterator<Item = &Claim> {
+        self.list.iter().filter(|c| c.lend.is_some())
+    }
+
     /// How the hub held the device before it lent it with claim `id`.
     pub(crate) fn set_lend(&mut self, id: u32, lend: Lend) {
         if let Some(c) = self

@@ -288,6 +288,9 @@ pub enum DeviceState<'i> {
     HeldElsewhere { holder: Holder<'i> },
     /// The hub's task for it failed
     Faulted { why: &'i str },
+    /// Lent out to another program with a claim on its root ([Claims::lend], `ww hub lend`): closed by the hub until
+    /// it is returned. The claim names who borrowed it, what for and since when.
+    Lent { claim: ClaimEntry<'i> },
 }
 
 /// A program holding a device, from its lock file (CLT-38).

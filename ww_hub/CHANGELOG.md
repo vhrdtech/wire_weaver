@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- `registry().devices()` lists a lent device as `DeviceState::Lent` with its claim (SRV-32), not as free: a borrower such as probe-rs writes no lock file.
+
 ### ⚠️ Breaking
 
 - `HubConfig` has the new field `adopt_attach` (CLT-44, `ADOPT_ATTACH_ENV`, 5 s by default): struct literals need it.

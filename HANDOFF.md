@@ -18,7 +18,7 @@ Taken up: CLT-46 auto clock sync (auto-clock-sync, closed); fix: no unit Route w
 
 Taken up: CLT-43 polite handover (hub-handover, closed); gate incl. build-docs clean at b81d53c5.
 
-Running: hub-live-handover (CLT-44, top, omarchy-m1; simulated parts first, real-board measurement when the bench hub is back), hub-clock-sync (parked on omarchy-m1 for the hardware check: the bench USB hub dropped all boards, the person replugs it; its child bedrock-steer does the firmware side in embedded_bedrock).
+Running: hub-live-handover (CLT-44, top, omarchy-m1; simulated parts first, real-board measurement when the bench hub is back; plan prj/P2401-wireweaver/design/ww-hub-live-handover.md: no fd passing (nusb 0.2 can't), holder releases at alt 0, hub opens via sysfs + claims, LinkSnapshot over the hub API adopt_prepare/commit; I asked for usbmon proof on a board, fallback to CLT-43 if the interface is grabbed in the gap, bounded snapshot validation, FEATURES CLT-44 text updated), hub-clock-sync (parked on omarchy-m1 for the hardware check: the bench USB hub dropped all boards, the person replugs it; its child bedrock-steer does the firmware side in embedded_bedrock).
 
 Next: take up CLT-44; hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
 

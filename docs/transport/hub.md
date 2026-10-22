@@ -694,6 +694,15 @@ the hub holds it. `ww hub lend DEVICE -- CMD` asks the hub to let it go for one 
 
 `hub::Lend::take(key, purpose)` is the same from a program; without a running hub it is `None` and the command just
 runs. Reconnecting clients wait while the device is lent and come back when it is returned (CLT-40).
+
+On omarchy-m1 (22 Oct 2026), Donguru lent to a J-Link reset while `ww sync` watched it through the hub:
+
+```sh
+ww hub lend 204B319B5431 -- probe-rs reset --probe 1366:0105 --chip STM32G0B1RETx
+```
+
+The hub paused its steering and closed the device 7 ms after the ask, had it open again 3 ms after the return (the
+whole lend 1.4 s, most of it the command), and `ww sync` was back with the board `Locked` 1.8 s later.
 ## Clock sync in the hub (SRV-31)
 
 Every device the hub holds open that serves [`ww_timebase::Clock`](../std_library/ww_timebase.md) with its

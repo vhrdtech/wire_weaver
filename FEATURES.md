@@ -918,8 +918,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   refuses tunnels with `Status::Lent` and others' claims naming it until released, then opens it again if the hub
   held it; `Lent` / `Returned` events; a crashed borrower or a ttl returns it. `ww hub lend DEVICE -- CMD` (Ctrl+C
   reaches the command, its exit code is ww's), `hub::Lend`. `docs/transport/hub.md`; tests `ww_hub` (`claims`),
-  `tests/hub` (`exclusive*`, `lend*`). Open: a hardware check (probe-rs and `ww dfu flash` on a board while another
-  program uses it through the hub); no `ww settings` command writes to a device yet (`dump` reads a file), one that
+  `tests/hub` (`exclusive*`, `lend*`). Lending checked on omarchy-m1 (22 Oct 2026): `ww hub lend 204B319B5431 --
+  sh -c '...; probe-rs reset --probe <J-Link> ...'` on Donguru while `ww sync` watched it through the hub: the hub
+  paused its steering and closed the device 7 ms after the ask, the command ran, the device was back open in the hub
+  3 ms after the return (1.4 s for the whole lend), and `ww sync`'s connection came back and the board was `Locked`
+  again 1.8 s later. Open: `ww dfu flash` through the hub on hardware, as no free bench board has chunky A/B (Donguru
+  and B135 run in place without it, rePort was busy; B135 could be provisioned with vb135's `just
+  provision-ab-dfu`, which erases its settings: the person's call); no `ww settings` command writes to a device yet (`dump` reads a file), one that
   does takes `Exclusive` the same way. Clients reconnect after a lend with the `Lent` reason (CLT-40), and the hub's
   steering pauses while the root is held (SRV-31, `tests/hub` `a_root_claim_pauses_steering`).
 - 📋 **SRV-33 Hub federation between PCs** · `v0.5.x` — remote devices through another PC's hub, as `HOST/<key>`,

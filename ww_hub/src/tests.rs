@@ -168,8 +168,9 @@ mod api {
         let devices = client.registry().devices().call().await.unwrap();
         assert!(devices.iter().all(|d| !d.key.is_empty()), "{devices:?}");
 
-        // keep holds the hub up after the client leaves, past the idle timeout
-        client.keep(1).call().await.unwrap();
+        // keep holds the hub up after the client leaves, past the idle timeout; 5 s, as disconnect, sleep and the
+        // next connect take ~0.8 s and longer on a loaded PC (keep(1) left the hub gone before the reconnect)
+        client.keep(5).call().await.unwrap();
         client.disconnect().asynch().await.unwrap();
         tokio::time::sleep(Duration::from_millis(600)).await;
         assert!(!hub.is_finished(), "kept");

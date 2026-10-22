@@ -48,12 +48,10 @@ pub(crate) async fn prepare(hub: &Arc<Hub>, bytes: &[u8]) -> Result<Prepared, Ad
         });
     }
     let key = snapshot.key.as_str();
-    let scheme_fits = match (&snapshot.medium, key.split_once(':').map(|(s, _)| s)) {
-        (MediumOwned::Usb { .. }, Some("usb")) | (MediumOwned::UsbSim { .. }, Some("usbsim")) => {
-            true
-        }
-        _ => false,
-    };
+    let scheme_fits = matches!(
+        (&snapshot.medium, key.split_once(':').map(|(s, _)| s)),
+        (MediumOwned::Usb { .. }, Some("usb")) | (MediumOwned::UsbSim { .. }, Some("usbsim"))
+    );
     if !scheme_fits || !device::has_transport(key) {
         return Err(AdoptErrorOwned::Snapshot {
             why: format!("the hub can't adopt {key} on this medium"),

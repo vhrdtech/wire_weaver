@@ -410,7 +410,7 @@ enum Media {
 }
 
 /// Like [start_device_async], but a simulated USB device on a local socket at `socket` (feature `local_socket`,
-/// `wire_weaver_client::usb_sim`, [ww_link::UsbSeqFraming], packets of `packet` bytes): programs in other processes
+/// `wire_weaver_client::usb_sim`, `ww_link::UsbSeqFraming`, packets of `packet` bytes): programs in other processes
 /// reach it as `usbsim:<socket>`, one holding it at a time, and it outlives them, as a real USB device does.
 #[cfg(feature = "local_socket")]
 pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(

@@ -5372,10 +5372,10 @@ properties, asks any device what it is and what it counted, and tests the link.<
 <p>Install from git with cargo (the binary ends up in <code>~/.cargo/bin</code>):</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>cargo<span class="w"> </span>install<span class="w"> </span>--git<span class="w"> </span>https://github.com/vhrdtech/wire_weaver<span class="w"> </span>wire_weaver_cli
 </span></code></pre></div>
-<p>From a local checkout of the repository, on a PC with <code>tpm</code>, <code>just install</code> builds <code>ww</code> with the <code>deploy</code> profile and installs
-it into the kept-releases stack in <code>~/.local/bin</code> (the only <code>ww</code> on <code>PATH</code>); <code>just deploy</code> pulls main first and checks
-<code>ww --version</code>. Without <code>tpm</code>, use <code>cargo install --path wire_weaver_cli</code> from the checkout, and re-run it with <code>--force</code>
-to update an existing installation.</p>
+<p>From a local checkout of the repository, <code>just install</code> builds <code>ww</code> with the <code>deploy</code> profile and installs
+it. It works anywhere: with <code>tpm</code> it goes into the kept-releases stack in <code>~/.local/bin</code> (the only <code>ww</code> on <code>PATH</code>),
+otherwise through <code>cargo install --locked --path wire_weaver_cli</code>. <code>just deploy</code> pulls main first and checks
+<code>ww --version</code>.</p>
 <p>Inside the repository it can also be run without installing, with <code>cargo ww &lt;args&gt;</code> (alias from
 <code>.cargo/config.toml</code>). <code>just install</code> (also <code>just install-cli</code>) installs the current checkout as above, which is handy when testing changes to the tool itself.</p>
 <div class="admonition note">

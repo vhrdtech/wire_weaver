@@ -255,6 +255,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Changed
 
+- Denser `ww` help: a subcommand shows only the global flags it uses (device selection, link tap), and its `--help` sums them up in one line per group instead of spreading them over ~60 lines; `-h` and `ww --help` keep them in full. See `wire_weaver_cli/CHANGELOG.md`.
 - Credit sinks on the stream protocol (API-34): the same `Ack`, `Resend` and `Query` as reliable streams, positions in units the host names per item (one per value, the payload's bytes on a byte sink, `send_units`), grants in bytes, sessions named by the host in `StreamOpen` so a repeated or late open no longer resets a running session and a device that lost its session is reported (`StreamError::SinkSessionLost`). State machines in `ww_stream::sink` (`SinkCredit` on the device, `SinkTx` on the host), a read on a sink returns its `StreamStatus`. Wire-breaking: the old `Credit` / `CreditQuery` / `Resend` sideband, `CreditWrite` and `ww_client_server::credit` are gone, `ResendFrom` is `Resend`, and `StreamSideband`'s discriminants moved, so devices and hosts with reliable or counted streams or credit sinks are rebuilt together. See the CHANGELOGs of `ww_client_server`, `ww_stream`, `wire_weaver_core`, `wire_weaver_client` and `wire_weaver_py`.
 - `ww` shows struct values with their name when the type is known (`Version { major: 0, .. }`), so a value printed
   by `ww introspect` or `ww observe` reads back as a Rust expression (TOOL-9).

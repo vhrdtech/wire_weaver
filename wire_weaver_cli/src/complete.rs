@@ -173,7 +173,6 @@ pub(crate) fn usb_paths() -> Vec<CompletionCandidate> {
 /// Point names of the device `ww pins` would open (selection from env variables and ww.toml, flags aren't seen
 /// here), with `group.*` for each group; empty when there's no single PinDiag to ask.
 pub(crate) fn pin_points() -> Vec<CompletionCandidate> {
-    use clap::CommandFactory;
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -181,7 +180,7 @@ pub(crate) fn pin_points() -> Vec<CompletionCandidate> {
         return vec![];
     };
     let points = rt.block_on(async {
-        let matches = crate::cli::Cli::command()
+        let matches = crate::cli::Cli::command_fitted()
             .try_get_matches_from(["ww", "list"])
             .ok()?;
         let selection = crate::device::Selection::resolve(&matches, false).ok()?;

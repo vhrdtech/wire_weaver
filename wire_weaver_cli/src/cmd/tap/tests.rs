@@ -632,9 +632,9 @@ async fn sigterm_finishes_the_capture_file() {
 /// A WHAT written like a file that is none is an error before any device is asked.
 #[test]
 fn explain_of_a_missing_capture_is_an_error_not_a_connect() {
-    use clap::{CommandFactory, FromArgMatches};
+    use clap::FromArgMatches;
     let explain = |args: &[&str]| {
-        let matches = crate::cli::Cli::command()
+        let matches = crate::cli::Cli::command_fitted()
             .try_get_matches_from(std::iter::once(&"ww").chain(args))
             .unwrap();
         match crate::cli::Cli::from_arg_matches(&matches).unwrap().command {
@@ -657,8 +657,8 @@ fn explain_of_a_missing_capture_is_an_error_not_a_connect() {
 
 /// What the command line says, parsed and checked the way `run` does.
 fn check(args: &[&str]) -> Result<(), String> {
-    use clap::{CommandFactory, FromArgMatches};
-    let matches = crate::cli::Cli::command()
+    use clap::FromArgMatches;
+    let matches = crate::cli::Cli::command_fitted()
         .try_get_matches_from(std::iter::once(&"ww").chain(args))
         .map_err(|e| e.to_string())?;
     let cli = crate::cli::Cli::from_arg_matches(&matches).map_err(|e| e.to_string())?;

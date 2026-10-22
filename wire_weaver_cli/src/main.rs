@@ -4,7 +4,7 @@ use crate::cmd::hub::HubCommand;
 use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result, anyhow};
-use clap::{CommandFactory, FromArgMatches};
+use clap::FromArgMatches;
 use wire_weaver_client::{ClientMeta, DynClient};
 
 mod api_tree;
@@ -20,7 +20,7 @@ fn main() -> Result<()> {
     // started by a client as the user's hub (WW_HUB_SERVE set): serves until idle and exits, otherwise does nothing
     ww_hub::main_if_hub();
     // answers shell completion requests (COMPLETE=<shell> set) and exits, otherwise does nothing
-    complete::complete(Cli::command);
+    complete::complete(Cli::command_fitted);
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
@@ -29,7 +29,7 @@ fn main() -> Result<()> {
 }
 
 async fn run() -> Result<()> {
-    let matches = Cli::command().get_matches();
+    let matches = Cli::command_fitted().get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     // keep connection progress logs out of the printed tree
     let max_level: tracing::level_filters::LevelFilter = match cli.command {

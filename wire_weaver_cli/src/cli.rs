@@ -17,7 +17,7 @@ use crate::cmd::sync::SyncArgs;
 use crate::cmd::tap::{CaptureArgs, MonitorArgs, StatsArgs, TapFlags};
 use crate::complete;
 use crate::device::DeviceArgs;
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, CommandFactory, Parser, Subcommand};
 use clap_complete::ArgValueCandidates;
 use wire_weaver_client::internal::LoopbackParams;
 
@@ -254,7 +254,125 @@ impl LoopbackTuning {
     }
 }
 
+/// Which of the global flags (device selection, link tap) a subcommand shows in its help. All of them are
+/// accepted everywhere, a hidden one is only left out of the help and completion.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum GlobalFlags {
+    /// The command opens a device connection: device selection and the link tap
+    DeviceAndTap,
+    /// The command finds devices, or connects without being tappable: device selection only
+    Device,
+    /// The command doesn't look at devices
+    Neither,
+}
+
+/// Adds the fitted copies of the global flags to a subcommand and its own subcommands: hidden where not `shown`,
+/// out of the long help where shown, `summary` standing in for them there. A subcommand's own flag of the same name
+/// (`ww dfu flash --product`) wins, as in clap's own propagation.
+fn fit_globals(
+    cmd: clap::Command,
+    globals: &[(clap::Arg, bool)],
+    header: clap::builder::styling::Style,
+) -> clap::Command {
+    let added: Vec<_> = globals
+        .iter()
+        .filter(|(a, _)| !cmd.get_arguments().any(|own| own.get_id() == a.get_id()))
+        .cloned()
+        .collect();
+    let summary = global_summary(&added, header);
+    let cmd = added.iter().fold(cmd, |cmd, (a, shown)| {
+        cmd.arg(match shown {
+            true => a.clone().hide_long_help(true),
+            false => a.clone().hide(true),
+        })
+    });
+    let cmd = match summary.is_empty() {
+        true => cmd,
+        false => cmd.after_long_help(summary),
+    };
+    cmd.mut_subcommands(|sc| fit_globals(sc, globals, header))
+}
+
+/// One line per help heading of the shown global flags, `-s/--serial, --api, ...`, and where their help is.
+fn global_summary(globals: &[(clap::Arg, bool)], header: clap::builder::styling::Style) -> String {
+    let mut groups: Vec<(&str, Vec<String>)> = Vec::new();
+    for (a, _) in globals.iter().filter(|(_, shown)| *shown) {
+        let heading = a.get_help_heading().unwrap_or("Options");
+        let flag = match (a.get_short(), a.get_long()) {
+            (Some(s), Some(l)) => format!("-{s}/--{l}"),
+            (None, Some(l)) => format!("--{l}"),
+            (Some(s), None) => format!("-{s}"),
+            (None, None) => continue,
+        };
+        match groups.iter_mut().find(|(h, _)| *h == heading) {
+            Some((_, flags)) => flags.push(flag),
+            None => groups.push((heading, vec![flag])),
+        }
+    }
+    if groups.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    for (heading, flags) in groups {
+        out += &format!("{header}{heading}:{header:#} {}\n", flags.join(", "));
+    }
+    out + "Global flags: `-h` shows them with their help, `ww --help` in full."
+}
+
+impl GlobalFlags {
+    fn of(subcommand: &str) -> Option<Self> {
+        use GlobalFlags::*;
+        Some(match subcommand {
+            "usb-loopback" | "introspect" | "observe" | "stream" | "dfu" | "counters" | "info"
+            | "report" | "pins" => DeviceAndTap,
+            "list" | "sync" | "config" | "bootsel" | "stm32dfu" | "explain" | "monitor"
+            | "stats" | "capture" => Device,
+            "api" | "elf" | "settings" | "hub" | "udev" => Neither,
+            _ => return None,
+        })
+    }
+}
+
 impl Cli {
+    /// The command line, with the global flags fitted to each subcommand's help. A subcommand shows only the groups
+    /// it uses; in its `--help` they are one summary line per group, with their help in `-h` and in `ww --help`.
+    /// Clap's long layout gives every flag two lines or more plus a blank one, so the 15 global flags took ~60 lines
+    /// of every subcommand's `--help`, even `ww udev --help`.
+    ///
+    /// Clap copies a global flag into a subcommand only when the subcommand doesn't have it yet, so the fitted
+    /// copies added here are what the subcommands (and theirs) get; they stay global and parse as before.
+    pub(crate) fn command_fitted() -> clap::Command {
+        let root = Cli::command();
+        let tap = TapFlags::augment_args(clap::Command::new("tap"));
+        let globals: Vec<(clap::Arg, bool)> = root
+            .get_arguments()
+            .filter(|a| a.is_global_set())
+            .map(|a| {
+                (
+                    a.clone(),
+                    tap.get_arguments().any(|t| t.get_id() == a.get_id()),
+                )
+            })
+            .collect();
+        let header = *root.get_styles().get_header();
+        root.mut_subcommands(|sc| {
+            // a subcommand added without a line in `GlobalFlags::of` shows everything (a test points it out)
+            let flags = GlobalFlags::of(sc.get_name()).unwrap_or(GlobalFlags::DeviceAndTap);
+            let shown: Vec<_> = globals
+                .iter()
+                .map(|(a, is_tap)| {
+                    let shown = match flags {
+                        GlobalFlags::DeviceAndTap => true,
+                        GlobalFlags::Device => !is_tap,
+                        GlobalFlags::Neither => false,
+                    };
+                    (a.clone(), shown)
+                })
+                .collect();
+            fit_globals(sc, &shown, header)
+        })
+    }
+
     /// Commands that only call global traits connect to any device, whatever its API and version. `report` reads
     /// the device's introspection data as well: the stored log is a stream, opened on the trait's absolute path.
     pub fn traits_only(&self) -> bool {
@@ -315,6 +433,71 @@ impl Cli {
             Commands::Hub(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::FromArgMatches;
+
+    fn help(args: &[&str]) -> String {
+        let err = Cli::command_fitted()
+            .try_get_matches_from(std::iter::once(&"ww").chain(args))
+            .expect_err("help is an early exit");
+        assert_eq!(err.kind(), clap::error::ErrorKind::DisplayHelp);
+        err.render().to_string()
+    }
+
+    #[test]
+    fn fitted_command_is_valid() {
+        Cli::command_fitted().debug_assert();
+    }
+
+    #[test]
+    fn every_subcommand_says_which_global_flags_it_shows() {
+        for sc in Cli::command().get_subcommands() {
+            assert!(
+                GlobalFlags::of(sc.get_name()).is_some(),
+                "`ww {}` is missing in GlobalFlags::of",
+                sc.get_name()
+            );
+        }
+    }
+
+    #[test]
+    fn global_flags_shown_only_where_used() {
+        assert!(!help(&["elf", "--help"]).contains("--serial"));
+        assert!(!help(&["elf", "-h"]).contains("--serial"));
+        let list = help(&["list", "-h"]);
+        assert!(list.contains("--serial") && !list.contains("--monitor"));
+        let info = help(&["info", "-h"]);
+        assert!(info.contains("[env: WW_SERIAL=]") && info.contains("--monitor"));
+        // a subcommand's own flag of the same name stays its own
+        assert!(help(&["dfu", "flash", "-h"]).contains("--product <PRODUCT>        Product id"));
+    }
+
+    #[test]
+    fn long_help_sums_global_flags_up() {
+        let info = help(&["info", "--help"]);
+        assert!(!info.contains("[env: WW_SERIAL=]"), "{info}");
+        assert!(info.contains("-s/--serial, -l/--label"), "{info}");
+        assert!(info.contains("--monitor, --monitor-bytes"), "{info}");
+        assert!(!help(&["list", "--help"]).contains("--monitor"));
+        assert!(!help(&["dfu", "flash", "--help"]).contains("-p/--product"));
+        // in full where they are defined
+        assert!(help(&["--help"]).contains("[env: WW_SERIAL=]"));
+    }
+
+    #[test]
+    fn hidden_global_flags_still_parse() {
+        for args in [
+            &["ww", "-s", "x", "elf", "id", "f.elf"][..],
+            &["ww", "elf", "id", "f.elf", "-s", "x"],
+        ] {
+            let matches = Cli::command_fitted().try_get_matches_from(args).unwrap();
+            assert!(Cli::from_arg_matches(&matches).is_ok());
         }
     }
 }

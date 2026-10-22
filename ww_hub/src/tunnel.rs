@@ -188,6 +188,9 @@ pub(crate) async fn serve(
     let mut writer = MessageWriter::new(tx);
     let mut scratch = vec![0u8; 512];
     let mut device_gone = false;
+    // what the device's task queued waits for the client's link: an adopted link's tunnel (CLT-44) has answers queued
+    // before it connects
+    let mut up = false;
     loop {
         let deadline = link.poll_timeout();
         let timer = async {
@@ -227,7 +230,7 @@ pub(crate) async fn serve(
                     break;
                 }
             },
-            _ = queue.notify.notified() => {
+            _ = queue.notify.notified(), if up => {
                 let (items, closed) = queue.take();
                 for (kind, bytes, _) in items {
                     if kind == Kind::Data0 as u8 && link.check_send(bytes.len()).is_err() {
@@ -249,7 +252,12 @@ pub(crate) async fn serve(
             _ = timer => link.handle_timeout(clock.now()),
         }
         match link.poll_event() {
-            Some(LinkEvent::Up) => hub.client_up(id, link.peer_meta().cloned()),
+            Some(LinkEvent::Up) => {
+                up = true;
+                // whatever was queued before goes out now
+                queue.notify.notify_one();
+                hub.client_up(id, link.peer_meta().cloned());
+            }
             Some(LinkEvent::Down(reason)) => {
                 debug!("ww hub: tunnel {id} link down: {reason:?}");
                 // the Disconnect, if any, still goes out below

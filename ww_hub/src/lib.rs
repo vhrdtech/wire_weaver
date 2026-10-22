@@ -13,6 +13,7 @@
 //! [HubConfig::linger] after the last tunnel left. Clock sync (SRV-31): the hub steers every open device serving
 //! `ww_timebase::Clock` with host sync onto this PC's UTC and keeps it open for [HubConfig::sync_linger].
 
+mod adopt;
 mod api;
 mod claims;
 pub mod client;
@@ -371,6 +372,7 @@ impl Bound {
             socket: socket.clone(),
             version: config.version.clone(),
             handing_over: std::sync::atomic::AtomicBool::new(false),
+            adoptions: Mutex::new(Default::default()),
         });
         Bound {
             config,
@@ -532,6 +534,8 @@ pub(crate) struct Hub {
     pub(crate) state_dir: Option<PathBuf>,
     /// See [HubConfig::sync_options]
     pub(crate) sync_options: wire_weaver_client::clock_sync::Options,
+    /// Adopted links whose program's tunnel hasn't connected yet (CLT-44), by adoption id
+    pub(crate) adoptions: Mutex<std::collections::HashMap<u64, adopt::Waiting>>,
 }
 
 pub(crate) struct State {
@@ -648,6 +652,26 @@ impl Hub {
                 self.client_left(id);
                 debug!("ww hub: client {id} left");
             }
+            Target::Device(key) if preamble.adopt.is_some() => {
+                let adoption = preamble.adopt.unwrap_or_default();
+                let Some(w) = adopt::attach(&self, adoption, &key) else {
+                    debug!(
+                        "ww hub: {peer:?} came for adoption {adoption:#x} of {key}, which isn't waiting"
+                    );
+                    let _ = answer(&mut tx, &self.version, Status::UnknownDevice).await;
+                    return;
+                };
+                if answer(&mut tx, &self.version, Status::Ok).await.is_ok() {
+                    debug!(
+                        "ww hub: client {} ({peer:?}) goes on with its adopted link to {key}",
+                        w.tunnel
+                    );
+                    tunnel::serve(self.clone(), w.tunnel, w.device, w.queue, rx, tx, peer).await;
+                } else {
+                    let _ = w.device.tx.send(device::ToDevice::Leave { id: w.tunnel });
+                }
+                self.client_left(w.tunnel);
+            }
             Target::Device(key) => {
                 let id = self.client_joined(peer);
                 let queue = tunnel::TunnelQueue::new();
@@ -685,7 +709,24 @@ impl Hub {
         id
     }
 
-    fn client_left(self: &Arc<Self>, id: u32) {
+    /// A new client id for another connection of the program behind client `like` (an adopted link's tunnel, CLT-44).
+    pub(crate) fn client_like(&self, like: u32) -> u32 {
+        let mut state = self.state.lock().unwrap();
+        let id = state.next_client;
+        state.next_client += 1;
+        let peer_pid = state.clients.get(&like).and_then(|c| c.peer_pid);
+        state.clients.insert(
+            id,
+            Client {
+                peer_pid,
+                meta: None,
+                since_ms: unix_ms(),
+            },
+        );
+        id
+    }
+
+    pub(crate) fn client_left(self: &Arc<Self>, id: u32) {
         let mut state = self.state.lock().unwrap();
         let owner = owner_of(&state, id);
         state.clients.remove(&id);
@@ -943,7 +984,7 @@ impl Hub {
     }
 
     /// The slot of the device behind `key`, made on first use.
-    fn device_slot(&self, key: &str) -> device::Slot {
+    pub(crate) fn device_slot(&self, key: &str) -> device::Slot {
         self.devices
             .lock()
             .unwrap()

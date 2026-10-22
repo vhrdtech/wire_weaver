@@ -490,6 +490,14 @@ impl TxCore {
                 }
                 self.recorder = Some(recorder);
                 self.events.set(link.clone());
+                // an adopted link: the transport's framers go on where the other program's stopped
+                let handle = match self.adopt.as_mut() {
+                    Some(a) => Box::new(crate::event_loop::transport::Adopting {
+                        handle,
+                        carried: std::mem::take(&mut a.carried),
+                    }),
+                    None => handle,
+                };
                 self.output
                     .push_back(TxOutput::Connect(handle, link.clone()));
                 // rx needs these to check DeviceInfo and to report the connection

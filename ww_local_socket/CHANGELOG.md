@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `Preamble` has the new public field `adopt` (CLT-44): struct literals and exhaustive patterns need it (`..`).
+
 ### 🚀 Features
 
+- Preamble trailer entry `TAG_ADOPT` (`Preamble::adopt`, `with_adopt`): the tunnel of a program whose live link the hub adopted (CLT-44) names the adoption's id. A hub before it skips the entry.
 - `HandoverRequest` / `HandoverAnswer` (CLT-43): what a program asks a direct holder of a device on the holder's socket,
   frozen like the preamble: `"WWHO"`, version (1), op (`Op::HandToHub`) or status (`HandoverStatus::Released`,
   `Refused`, `Failed`), and the preamble's skippable trailer, whose `TAG_META` entries carry the sender's client

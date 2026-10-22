@@ -34,6 +34,26 @@ pub trait Hub {
 
     /// How the hub keeps its devices' clocks on UTC (SRV-31).
     ww_impl!(sync: ClockSync);
+
+    /// Live link handover from a program holding a device directly (CLT-44).
+    ww_impl!(adopt: Adopt);
+}
+
+/// A program holding a device directly hands its live link to the hub (CLT-44, `docs/transport/hub.md`): the hub goes
+/// on with the same link, so the device never sees a reconnect, and the program goes on through the hub. In two steps,
+/// so that either side dying on the way leaves one working holder: until the commit the program still has the device.
+#[ww_trait]
+pub trait Adopt {
+    /// Prepares to adopt the link `snapshot` describes (`wire_weaver_client::adopt::LinkSnapshotOwned`, internal state
+    /// of the same `wire_weaver_client` major.minor): checks it, keeps others from opening the device meanwhile and
+    /// reserves the program's tunnel. Answers the id for [Adopt::commit] and the tunnel's preamble. Forgotten when
+    /// this connection closes before the commit.
+    fn prepare(snapshot: RefVec<'i, u8>) -> Result<u64, AdoptError<'i>>;
+
+    /// The program let go of the device: the hub opens it and goes on with the link. The program's tunnel (preamble
+    /// `Device(key)` with the id, `ww_local_socket::TAG_ADOPT`) must come within 5 s, or the hub takes the program as
+    /// gone.
+    fn commit(id: u64) -> Result<(), AdoptError<'i>>;
 }
 
 /// Devices the hub knows and the programs connected to it.
@@ -168,6 +188,22 @@ pub enum SyncPhase<'i> {
     Unsupported,
     /// Steering failed to start
     Failed { why: &'i str },
+}
+
+/// Why [Adopt::prepare] or [Adopt::commit] failed: the program goes on with the device itself, or hands it over by
+/// releasing it (CLT-43).
+#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum AdoptError<'i> {
+    /// The hub is built with another `wire_weaver_client` minor (its version)
+    Versions { hub: &'i str },
+    /// The snapshot can't be adopted
+    Snapshot { why: &'i str },
+    /// The hub holds the device already, it is lent, or another adoption of it is under way
+    Busy,
+    /// No adoption with this id was prepared on this connection
+    UnknownId,
+    /// The hub couldn't open the device
+    Open { why: &'i str },
 }
 
 /// See [Hub::info].

@@ -16,7 +16,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver::shrink_wrap::UNib32;
-use wire_weaver_client::internal::{Command, ForwardSink, Forwarded};
+use wire_weaver_client::adopt::LinkSnapshotOwned;
+use wire_weaver_client::internal::{Adopted, Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRequestOwned,
 };
@@ -198,44 +199,108 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
             });
         }
     };
+    start(hub, key, slot, cmd, |_| {})
+        .await
+        .ok_or(Status::UnknownDevice)
+}
+
+/// Opens the device going on with a direct holder's live link (CLT-44): the holder's tunnel `tunnel` is joined
+/// already, with its streams, observed levels and requests in flight, whose answers go into `queue`.
+pub(crate) async fn adopt(
+    hub: &Arc<Hub>,
+    snapshot: &LinkSnapshotOwned,
+    slot: Slot,
+    tunnel: u32,
+    queue: Arc<TunnelQueue>,
+) -> Result<DeviceHandle, String> {
+    let key = snapshot.key.as_str();
+    let config = config_for(key).ok_or_else(|| format!("no transport for {key}"))?;
+    let adopted = Adopted::new(snapshot, |seq| direct_tag(tunnel, seq), FORWARD_TIMEOUT)?;
+    let cmd = match wire_weaver_client::PreparedConnection::<Raw>::new(config)
+        .adopt(adopted)
+        .await
+    {
+        Ok(Raw(cmd)) => cmd,
+        Err(e) => {
+            let e = format!("{e:#}");
+            warn!("ww hub: adopting {key} failed: {e}");
+            return Err(e);
+        }
+    };
+    let streams = snapshot.streams.clone();
+    let observed = snapshot.observed.clone();
+    start(hub, key, slot, cmd, move |state| {
+        state.tunnels.insert(tunnel, queue.clone());
+        state.routes.tunnels.lock().unwrap().insert(tunnel, queue);
+        for path in streams {
+            state.streams.insert(
+                path,
+                Stream {
+                    subs: vec![tunnel],
+                    ..Default::default()
+                },
+            );
+        }
+        for request in observed {
+            if let Op::Observe(path, cfg) = envelope::classify(&request) {
+                state.stamp += 1;
+                let stamp = state.stamp;
+                state
+                    .observed
+                    .entry(path)
+                    .or_default()
+                    .apply(tunnel, &cfg, stamp);
+            }
+        }
+    })
+    .await
+    .ok_or_else(|| "the device's event loop is gone".to_string())
+}
+
+/// Starts the task of a device opened with `cmd`, its state set up by `init`.
+async fn start(
+    hub: &Arc<Hub>,
+    key: &str,
+    slot: Slot,
+    cmd: Commander,
+    init: impl FnOnce(&mut State),
+) -> Option<DeviceHandle> {
     let (sink_tx, sink) = mpsc::unbounded_channel();
     let routes = Arc::new(Routes::default());
     let router = Router {
         routes: routes.clone(),
         task: sink_tx,
     };
-    if cmd
-        .send(Command::ForwardSink {
-            sink: Box::new(router),
-        })
-        .await
-        .is_err()
-    {
-        return Err(Status::UnknownDevice);
-    }
+    cmd.send(Command::ForwardSink {
+        sink: Box::new(router),
+    })
+    .await
+    .ok()?;
     info!(
         "ww hub: opened {key}: {:?}",
         cmd.device_api_info().user_api_version
     );
     let info = Arc::new(DeviceLinkInfo::new(cmd.device_api_info().clone()));
     let (tx, rx) = mpsc::unbounded_channel();
+    let mut state = State {
+        tunnels: BTreeMap::new(),
+        next_tag: 1,
+        pending: HashMap::new(),
+        streams: HashMap::new(),
+        observed: HashMap::new(),
+        introspect: Introspect::None,
+        bundle: None,
+        bundle_waiters: vec![],
+        key: key.to_string(),
+        loopback_owner: None,
+        keep: false,
+        stamp: 0,
+        routes,
+        out: vec![],
+    };
+    init(&mut state);
     let device = Arc::new(Device {
-        state: tokio::sync::Mutex::new(State {
-            tunnels: BTreeMap::new(),
-            next_tag: 1,
-            pending: HashMap::new(),
-            streams: HashMap::new(),
-            observed: HashMap::new(),
-            introspect: Introspect::None,
-            bundle: None,
-            bundle_waiters: vec![],
-            key: key.to_string(),
-            loopback_owner: None,
-            keep: false,
-            stamp: 0,
-            routes,
-            out: vec![],
-        }),
+        state: tokio::sync::Mutex::new(state),
         cmd,
         key: key.to_string(),
         hub: hub.clone(),
@@ -248,7 +313,7 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
     hub.device_opened(key);
     crate::sync::start(hub, key, device.clone(), &tx);
     tokio::spawn(task.run(rx, sink, slot, tx.clone()));
-    Ok(DeviceHandle { tx, info, device })
+    Some(DeviceHandle { tx, info, device })
 }
 
 /// Tags of plain requests carry whose they are: this bit, the tunnel (31 bits) and the client's seq. Their answers go

@@ -1037,6 +1037,7 @@ mod tests {
                     full_only: vec![],
                     forwards: vec![(1, 77), (2, 78)],
                     forward_timeout: Duration::from_secs(60),
+                    carried: Default::default(),
                 }),
             },
         );

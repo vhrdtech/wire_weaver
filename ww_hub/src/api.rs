@@ -11,8 +11,8 @@ use wire_weaver_client::in_process::TokioClock;
 use wire_weaver_client::local_socket::device::connection_medium;
 use ww_device::LinkEvent;
 use ww_hub_api::{
-    ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned, HandoverError,
-    HubInfoOwned, HubStatusOwned, ReleaseError, SyncEntryOwned, TakeErrorOwned,
+    AdoptErrorOwned, ClaimEntryOwned, ClaimErrorOwned, ClientEntryOwned, DeviceEntryOwned,
+    HandoverError, HubInfoOwned, HubStatusOwned, ReleaseError, SyncEntryOwned, TakeErrorOwned,
 };
 
 use crate::Hub;
@@ -43,6 +43,7 @@ pub(crate) async fn serve_connection(hub: Arc<Hub>, id: u32, rx: RecvHalf, tx: S
         id,
         events_open: false,
         stats_open: false,
+        adopting: None,
     };
     let mut events = hub.events.subscribe();
     let mut stats = hub.sync_stats.subscribe();
@@ -104,6 +105,8 @@ mod server {
         pub events_open: bool,
         /// The client opened `ClockSync::stats`
         pub stats_open: bool,
+        /// `Adopt::prepare` (CLT-44), until the commit; dropped with the connection
+        pub adopting: Option<crate::adopt::Prepared>,
     }
 
     impl Server {
@@ -325,6 +328,43 @@ mod server {
             _sideband: ww_client_server::StreamSideband,
         ) -> Option<ww_client_server::StreamSideband> {
             None
+        }
+    }
+
+    /// `Adopt` (CLT-44).
+    impl Server {
+        async fn adopt_prepare(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            snapshot: Vec<u8>,
+        ) -> RpcResult<Result<u64, AdoptErrorOwned>> {
+            if self.adopting.is_some() {
+                return RpcResult::Ready(Err(AdoptErrorOwned::Busy));
+            }
+            RpcResult::Ready(match crate::adopt::prepare(&self.hub, &snapshot).await {
+                Ok(prepared) => {
+                    let id = prepared.id;
+                    self.adopting = Some(prepared);
+                    Ok(id)
+                }
+                Err(e) => Err(e),
+            })
+        }
+
+        async fn adopt_commit(
+            &mut self,
+            _cx: &mut Context<'_, impl EventOut>,
+            id: u64,
+        ) -> RpcResult<Result<(), AdoptErrorOwned>> {
+            RpcResult::Ready(match self.adopting.take() {
+                Some(prepared) if prepared.id == id => {
+                    crate::adopt::commit(&self.hub, self.id, prepared).await
+                }
+                other => {
+                    self.adopting = other;
+                    Err(AdoptErrorOwned::UnknownId)
+                }
+            })
         }
     }
 

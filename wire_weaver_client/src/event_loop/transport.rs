@@ -147,6 +147,139 @@ pub(crate) trait Transport {
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
     ) -> impl Future<Output = Result<Opened<Self::Tx, Self::Rx>, String>> + Send;
+
+    /// Whether the medium can be handed over live (CLT-44): the methods below do something.
+    const LIVE: bool = false;
+
+    /// Pauses the medium for a live handover (CLT-44), given both halves: every OUT transfer has gone out, IN is
+    /// stopped and everything received so far was taken in, the messages it completed returned, nothing lost. The
+    /// device may still hold IN data, which waits for the next host (NAKed). The interface may still be held.
+    fn pause(
+        _tx: &mut Self::Tx,
+        _rx: &mut Self::Rx,
+    ) -> impl Future<Output = Result<Paused, String>> + Send {
+        async { Err("this medium can't be handed over live".to_string()) }
+    }
+
+    /// Lets go of the paused device (releases the interface), keeping what [Self::take_back] needs.
+    fn let_go(
+        _tx: &mut Self::Tx,
+        _rx: &mut Self::Rx,
+    ) -> impl Future<Output = Result<(), String>> + Send {
+        async { Ok(()) }
+    }
+
+    /// The handover didn't happen: holds the device again (if it let go) and goes on where [Self::pause] stopped.
+    fn take_back(
+        _tx: &mut Self::Tx,
+        _rx: &mut Self::Rx,
+    ) -> impl Future<Output = Result<(), String>> + Send {
+        async { Err("this medium can't be handed over live".to_string()) }
+    }
+
+    /// Both halves go on over the tunnel to the hub that adopted the device. The device's halves are dropped (it
+    /// was let go of before).
+    #[cfg(feature = "local_socket")]
+    fn switch(
+        _tx: &mut Self::Tx,
+        _rx: &mut Self::Rx,
+        _tunnel: crate::local_socket::Tunnel,
+    ) -> Result<(), String> {
+        Err("this medium can't be handed over live".to_string())
+    }
+
+    /// The holders registry claim of the device, taken out of both halves: dropping it releases the device's lock
+    /// file (and tells a waiting asker of a polite handover, CLT-43).
+    fn take_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> SharedClaim {
+        None
+    }
+}
+
+/// A medium paused for a live handover (CLT-44, [Transport::pause]).
+#[derive(Debug)]
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+pub(crate) struct Paused {
+    pub medium: crate::adopt::MediumOwned,
+    /// The tx framer's next frame, None without a frame prefix
+    pub tx_frame: Option<ww_framer::prefix::FrameCtx>,
+    pub rx: RxCarryOf,
+    /// Messages the received data completed, in order
+    pub messages: Vec<(u8, Vec<u8>)>,
+}
+
+#[cfg(any(feature = "usb", feature = "local_socket"))]
+pub(crate) type RxCarryOf = crate::framing::RxCarry;
+#[cfg(not(any(feature = "usb", feature = "local_socket")))]
+pub(crate) type RxCarryOf = ();
+
+/// How the framers of an adopted medium go on (CLT-44): wraps the transport's own handle in
+/// [TxOutput::Connect](super::core::TxOutput::Connect).
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+pub(crate) struct Carried {
+    pub tx_frame: Option<ww_framer::prefix::FrameCtx>,
+    pub rx: RxCarryOf,
+}
+
+/// A transport handle with [Carried] framer state.
+pub(crate) struct Adopting {
+    pub handle: DeviceHandle,
+    #[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+    pub carried: Carried,
+}
+
+/// A medium's halves, on the device or, after a live handover (CLT-44), on the tunnel to the hub.
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+pub(crate) enum Live<D, H> {
+    Device(D),
+    Hub(H),
+}
+
+impl<D: MessageTx, H: MessageTx> MessageTx for Live<D, H> {
+    async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
+        match self {
+            Live::Device(d) => d.write_message(kind, message).await,
+            Live::Hub(h) => h.write_message(kind, message).await,
+        }
+    }
+
+    async fn flush(&mut self) -> Result<(), String> {
+        match self {
+            Live::Device(d) => d.flush().await,
+            Live::Hub(h) => h.flush().await,
+        }
+    }
+
+    async fn handover_requested(&mut self) {
+        match self {
+            Live::Device(d) => d.handover_requested().await,
+            // through the hub already
+            Live::Hub(_) => std::future::pending().await,
+        }
+    }
+
+    async fn close(self) {
+        match self {
+            Live::Device(d) => d.close().await,
+            Live::Hub(h) => h.close().await,
+        }
+    }
+}
+
+impl<D: MessageRx, H: MessageRx> MessageRx for Live<D, H> {
+    async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
+        match self {
+            Live::Device(d) => d.read_message().await,
+            Live::Hub(h) => h.read_message().await,
+        }
+    }
+
+    async fn close(self) {
+        match self {
+            Live::Device(d) => d.close().await,
+            Live::Hub(h) => h.close().await,
+        }
+    }
 }
 
 /// Outcome of selecting a device for a transport.

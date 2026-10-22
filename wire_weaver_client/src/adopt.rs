@@ -5,6 +5,9 @@
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 
+/// This crate's version: a snapshot is adopted by the same major.minor ([same_minor]).
+pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Longest snapshot accepted: far above a real one (a few kB with every seq in flight).
 pub const MAX_SNAPSHOT_LEN: usize = 256 * 1024;
 const MAX_PATH_LEN: usize = 64;
@@ -106,6 +109,11 @@ pub struct TraitIdOwned {
     pub id: u32,
     pub major: u32,
     pub minor: u32,
+}
+
+/// A random non-zero-most-of-the-time id (an adoption's), from the same sources as a link setup token.
+pub fn random_id() -> u64 {
+    crate::event_loop::core::new_setup_token()
 }
 
 /// Whether a hub built with `wire_weaver_client` `hub_version` may adopt a link of `holder_version`: the same

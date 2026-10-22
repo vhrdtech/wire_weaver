@@ -209,15 +209,28 @@ impl Transport for LocalSocketTransport {
                 &tunnel.shown,
             ),
         );
-        Ok(Opened {
-            tx: LocalTx(MessageWriter::new(tunnel.tx), claim.clone()),
-            // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-            rx: LocalRx(
-                MessageReader::new(tunnel.rx, crate::DEFAULT_MAX_MESSAGE_SIZE),
-                claim,
-            ),
-        })
+        let (tx, rx) = halves((tunnel.rx, tunnel.tx), claim);
+        Ok(Opened { tx, rx })
     }
+}
+
+impl Tunnel {
+    /// Its message halves, sharing `claim`.
+    pub(crate) fn into_halves(self, claim: SharedClaim) -> (LocalTx, LocalRx) {
+        halves((self.rx, self.tx), claim)
+    }
+}
+
+/// The message halves of an opened connection, sharing `claim`.
+fn halves((rx, tx): (RecvHalf, SendHalf), claim: SharedClaim) -> (LocalTx, LocalRx) {
+    (
+        LocalTx(MessageWriter::new(tx), claim.clone()),
+        // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
+        LocalRx(
+            MessageReader::new(rx, crate::DEFAULT_MAX_MESSAGE_SIZE),
+            claim,
+        ),
+    )
 }
 
 /// A connection whose preamble was answered `Ok`: ready to carry the link.

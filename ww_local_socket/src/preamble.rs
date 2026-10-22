@@ -9,7 +9,8 @@
 //! A reader takes the entries it knows and skips the others, a missing entry is unknown; later fields only ever come
 //! as new entries, the layout before them never changes. Entries: [TAG_LINK_VERSION] and [TAG_API_MODEL_VERSION], the
 //! client's `ww_link` and `ww_client_server` versions, each `| major: u32 LE | minor: u32 LE | patch: u32 LE |`. A
-//! hub that doesn't serve them answers [Status::Versions]. A version 1 preamble (a client from before SRV-30) has no
+//! hub that doesn't serve them answers [Status::Versions]. [TAG_ADOPT] (CLT-44): `| id: u64 LE |`, the tunnel of a
+//! program whose live link the hub adopted ([Preamble::adopt]). A version 1 preamble (a client from before SRV-30) has no
 //! trailer: its versions are unknown. A hub that only reads version 1 answers [Status::PreambleVersion] to version 2,
 //! and the client connects again with version 1.
 //!
@@ -28,6 +29,8 @@ pub const PREAMBLE_VERSION: u8 = 2;
 pub const TAG_LINK_VERSION: u8 = 1;
 /// Trailer entry: the client's API model (`ww_client_server`) version.
 pub const TAG_API_MODEL_VERSION: u8 = 2;
+/// Trailer entry: the id of an adopted link (CLT-44), the tunnel goes on with it.
+pub const TAG_ADOPT: u8 = 3;
 /// Longest trailer accepted.
 pub const MAX_TRAILER_LEN: usize = 1024;
 /// Longest device key accepted, so that a peer can't make the other side allocate much.
@@ -97,6 +100,8 @@ pub struct Preamble {
     pub link_version: Option<Version>,
     /// The client's `ww_client_server` version, None when it didn't say (version 1)
     pub api_model_version: Option<Version>,
+    /// The tunnel of a program whose live link the hub adopted (CLT-44): the id `Adopt::prepare` answered
+    pub adopt: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -119,6 +124,15 @@ impl Preamble {
             target,
             link_version: None,
             api_model_version: None,
+            adopt: None,
+        }
+    }
+
+    /// The tunnel of an adopted link (CLT-44), see [Self::adopt].
+    pub fn with_adopt(self, id: u64) -> Self {
+        Preamble {
+            adopt: Some(id),
+            ..self
         }
     }
 
@@ -137,6 +151,7 @@ impl Preamble {
             version: 1,
             link_version: None,
             api_model_version: None,
+            adopt: None,
             ..self
         }
     }
@@ -163,6 +178,10 @@ impl Preamble {
                     trailer.extend_from_slice(&[tag, 12]);
                     v.encode(&mut trailer);
                 }
+            }
+            if let Some(id) = self.adopt {
+                trailer.extend_from_slice(&[TAG_ADOPT, 8]);
+                trailer.extend_from_slice(&id.to_le_bytes());
             }
             bytes.extend_from_slice(&(trailer.len() as u16).to_le_bytes());
             bytes.extend_from_slice(&trailer);
@@ -201,6 +220,7 @@ impl Preamble {
             target,
             link_version: None,
             api_model_version: None,
+            adopt: None,
         };
         if version >= 2 {
             let mut len = [0u8; 2];
@@ -221,6 +241,9 @@ impl Preamble {
                 match *tag {
                     TAG_LINK_VERSION => preamble.link_version = Version::decode(value),
                     TAG_API_MODEL_VERSION => preamble.api_model_version = Version::decode(value),
+                    TAG_ADOPT => {
+                        preamble.adopt = value.try_into().ok().map(u64::from_le_bytes);
+                    }
                     // from a later client: skipped
                     _ => {}
                 }
@@ -410,6 +433,18 @@ mod tests {
         assert_eq!(v1, b"WWHB\x01\x00\x00\x00");
         let read = Preamble::read(&mut &v1[..]).await.unwrap();
         assert_eq!((read.version, read.link_version), (1, None));
+    }
+
+    /// An adopted link's tunnel (CLT-44) says its id in the trailer; a hub before it skips the entry.
+    #[tokio::test]
+    async fn adopt_entry() {
+        let p = Preamble::new(Target::Device("k".into())).with_adopt(0x0102_0304_0506_0708);
+        let bytes = p.encode();
+        assert_eq!(
+            bytes,
+            b"WWHB\x02\x01\x01\x00k\x0a\x00\x03\x08\x08\x07\x06\x05\x04\x03\x02\x01"
+        );
+        assert_eq!(Preamble::read(&mut &bytes[..]).await.unwrap(), p);
     }
 
     /// Entries a reader doesn't know are skipped, a missing one is unknown, and what follows the preamble stays.

@@ -30,8 +30,27 @@ impl<T: WwClient> PreparedConnection<T> {
     }
 
     pub async fn connect(self) -> Result<T> {
+        self.connect_with(None).await
+    }
+
+    /// Connects going on with another program's live link (CLT-44, the ww hub adopting a direct holder's link): no
+    /// link setup, the link is up as soon as the device is open. The config must name the same device.
+    pub async fn adopt(self, adopted: crate::event_loop::command::Adopted) -> Result<T> {
+        self.connect_with(Some(Command::Adopt {
+            adopted: Box::new(adopted),
+        }))
+        .await
+    }
+
+    async fn connect_with(self, first: Option<Command>) -> Result<T> {
         let config = self.config.validate()?;
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.cmd_queue_size);
+        if let Some(cmd) = first {
+            // queued: the event loop takes it before the Connect
+            cmd_tx
+                .try_send(cmd)
+                .map_err(|_| crate::Error::EventLoopNotRunning)?;
+        }
         let mut cmd_rx = Some(cmd_rx);
         let attempt = connect_to(&config, &cmd_tx, &mut cmd_rx).await;
         let (device_api_info, residual_rx) = attempt.result?;

@@ -203,6 +203,8 @@ pub struct Adopted {
     pub(crate) forwards: Vec<(SeqTy, u64)>,
     /// How long those wait for their answer at most
     pub(crate) forward_timeout: Duration,
+    /// Where the framers go on
+    pub(crate) carried: crate::event_loop::transport::Carried,
 }
 
 impl Adopted {
@@ -227,9 +229,35 @@ impl Adopted {
                 .collect(),
             forwards: snapshot.in_flight.iter().map(|s| (*s, tag(*s))).collect(),
             forward_timeout,
+            carried: crate::event_loop::transport::Carried {
+                tx_frame: snapshot.tx_frame.map(frame_ctx),
+                rx: rx_carry(snapshot),
+            },
         })
     }
 }
+
+fn frame_ctx(f: crate::adopt::FrameAtOwned) -> ww_framer::prefix::FrameCtx {
+    ww_framer::prefix::FrameCtx {
+        seq: f.seq,
+        epoch: f.epoch,
+    }
+}
+
+#[cfg(any(feature = "usb", feature = "local_socket"))]
+fn rx_carry(s: &crate::adopt::LinkSnapshotOwned) -> crate::framing::RxCarry {
+    crate::framing::RxCarry {
+        partial: s
+            .rx_partial
+            .as_ref()
+            .map(|p| (p.user_kind, p.total as usize, p.bytes.clone())),
+        staged: s.rx_staged.clone(),
+        next_frame: s.rx_next_frame.map(frame_ctx),
+    }
+}
+
+#[cfg(not(any(feature = "usb", feature = "local_socket")))]
+fn rx_carry(_: &crate::adopt::LinkSnapshotOwned) {}
 
 /// Takes what the event loop forwards ([Command::ForwardSink]). Called on the event loop's receive task as each
 /// message comes in, so it must not block: route the message, or hand it to a channel (`UnboundedSender<Forwarded>`

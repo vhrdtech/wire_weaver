@@ -6035,7 +6035,7 @@ snapshot, e.g. an unpublished crate version that changed after its snapshot was 
 calculated over the data as sent. Generated clients embed their own API in the same form. A client puts the left out
 definitions back from its own snapshots after download or loading from cache, checking signatures; one it doesn't know (e.g. from a newer <code>ww_stdlib</code> crate) stays skipped, and resources using it
 are only checked by crate version and signature. In this repo, <code>just save-snapshots</code> saves the snapshots and copies
-them into <code>wire_weaver_snapshots/api_snapshots/</code>; a <code>wire_weaver_core</code> test fails if any of them is out of date.</p>
+them into <code>wire_weaver_snapshots/api_snapshots/</code>; a <code>wire_weaver_core</code> test fails if any of them is out of date. A snapshot is RON for people to read, its header holds the SHA-256 of the shrink_wrap bytes it stands for (<code>// shrink_wrap sha256: ..</code>); <code>wire_weaver_snapshots</code> encodes the RON at build time, fails on a mismatch, and embeds only the bytes.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>$ ww api save ww_stdlib/ww_uart
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
 </span></code></pre></div>

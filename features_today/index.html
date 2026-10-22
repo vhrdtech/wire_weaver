@@ -1798,6 +1798,8 @@
       
         
       
+        
+      
     
     
     
@@ -1911,6 +1913,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -4273,6 +4302,8 @@
       
         
       
+        
+      
     
     
     
@@ -4440,6 +4471,33 @@
     
   
   The link tap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local sockets and the hub
 
     
   </span>
@@ -5472,6 +5530,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../types/#worst-case-size-at-compile-time">Size analysis</a></strong>: Worst-case request and reply sizes as constants, checked at compile time; properties and streams are next. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../api/traits/#in-rustdoc">API docs in rustdoc</a></strong>: <code>#[ww_trait]</code> also leaves a plain Rust trait, so methods, properties and streams show up on docs.rs. <span class="ww-status">in progress</span></li>
 <li><strong>Code generation from <code>build.rs</code></strong>: <code>gen_server</code> / <code>gen_client</code> as an alternative to the macros.</li>
+<li><strong><a href="../transport/hub/#servers-on-std-no_alloc-false">Servers on std with owned types</a></strong>: A server running on a PC returns <code>String</code>, <code>Vec</code> and owned types from its handlers, the same bytes on the wire as a firmware's.</li>
 <li><strong><a href="../c/">Generated C</a></strong>: The C runtime is there; generated C for an API's types and server is next. <span class="ww-status">in progress</span></li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -5512,6 +5571,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <li><strong><a href="../api/ecc_flash/">ECC-safe STM32 flash</a></strong>: Reads a flash word broken by a power cut as zeros (stores) or as an ECC error (bootloaders) instead of crashing. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../api/bus_slave/">I2C and SPI slave engine</a></strong>: Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts.</li>
 <li><strong>Streaming LZ4</strong>: <code>ww_lz4</code> compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes.</li>
+<li><strong><a href="../api/metadata/">Claims, pins and labels</a></strong>: Mark a bus or port <code>#[claim(..)]</code>, the pins it <code>#[shares]</code> and a <code>#[label]</code> a person recognises: in introspection for the hub, <code>ww</code> and GUIs, so one program can have a resource to itself through the hub while others keep reading.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
 
@@ -5545,7 +5605,16 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../std_library/ww_si/#in-ww-python-and-dynamic-clients">Quantities without generated code</a></strong>: <code>ww</code> and Python show a <code>ww_si</code> value with its unit (<code>3300 mV</code>), Python as a quantity object with <code>to_si()</code>.</li>
 <li><strong><a href="../cli/">Link setup timeout</a></strong>: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.</li>
 <li><strong><a href="../std_library/device_contract/">Calls that work on any device</a></strong>: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../transport/hub/#reconnect-after-a-hub-restart-clt-40">Calls fail fast while disconnected</a></strong>: A call made while the link is down fails at once with <code>Disconnected</code> instead of waiting for a reconnect.</li>
 <li><strong><a href="../transport/ww_link/">Low call latency</a></strong>: A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond.</li>
+<li><strong><a href="../transport/hub/#who-holds-a-device-clt-38">Who holds a device</a></strong>: A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away.</li>
+<li><strong><a href="../transport/hub/#reaching-devices-through-the-hub-clt-39">Hub routing in connect</a></strong>: A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; <code>WW_HUB</code> says when. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../transport/hub/#reconnect-after-a-hub-restart-clt-40">Back after a hub restart</a></strong>: A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../std_library/ww_timebase/#steering-in-every-direct-connection">Clocks steered by every program</a></strong>: A program connected to a board directly keeps the board's clock on the PC's UTC by itself, and leaves it to the ww hub when it goes through one. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/#polite-handover-from-a-direct-holder-clt-43">Polite handover to the hub</a></strong>: A command-line tool or notebook holding a device lets the hub take it when another program asks, and goes on through the hub after a few milliseconds; a GUI says no and is named in the other's error. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/#device-keys">One lock file per device</a></strong>: A USB device with a crafted serial number can't make another device look held: every device key gets a lock file of its own.</li>
+<li><strong><a href="../transport/hub/#live-link-handover-clt-44">Live link handover on Linux</a></strong>: A program holding a USB device hands its open link to the hub without a reconnect: its calls in flight are answered, its streams go on, the device notices nothing. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/">Who connects</a></strong>: Every client tells the device its program, user, host, pid and kind in link setup; a device can log it, a hub or a lock file shows it.</li>
 <li><strong><a href="../transport/follow_reboot/#stm32-system-bootloader-rom-dfu">STM32 ROM DFU</a></strong>: Flash an STM32 over USB through its built-in bootloader (<code>ww stm32dfu flash</code>), also straight after the app rebooted into it.</li>
 <li><strong><a href="../transport/follow_reboot/">Following a reboot</a></strong>: Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). <span class="ww-status">in progress</span></li>
 <li><strong><a href="../cli_reference/#ww-dfu-flash">Updating a chunky device</a></strong>: <code>ww dfu flash app.elf</code>: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. <span class="ww-status">in progress</span></li>
@@ -5572,10 +5641,18 @@ layer checks on connect that both ends speak the same protocol.</p>
 <li><strong><a href="../transport/ww_framer/">Framer</a></strong>: Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames.</li>
 <li><strong><a href="../transport/ww_link/">Link layer</a></strong>: Link setup, device info and protocol version exchange.</li>
 <li><strong><a href="../transport/ww_link/#setup-token">Frame counter and setup token</a></strong>: Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need.</li>
+<li><strong><a href="../transport/hub/#the-hub-process-srv-28">The ww hub</a></strong>: One small process per user that knows the devices, who holds them and which programs are connected, with its own API. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../cli_reference/#ww-hub"><code>ww hub</code></a></strong>: See and steer the hub from the shell: its status and who started it, who holds each of your devices (the hub, another ww program, or any program on Linux), keep it up for a bench, stop it; <code>ww list</code> shows what it holds. <span class="ww-status">in progress</span></li>
+<li><strong><a href="../transport/hub/#python-and-notebooks-tool-18">The hub from Python</a></strong>: <code>python -m wire_weaver.hub</code> starts it from the wheel, <code>connect()</code> reaches a device through it, and <code>wire_weaver.hub()</code> talks to the hub itself; a notebook kernel restart reconnects in no time with the device still open.</li>
+<li><strong><a href="../transport/hub/#clock-sync-in-the-hub-srv-31">Clocks steered by the hub</a></strong>: Boards with a shared clock stay on the PC's UTC between short commands: the hub steers them, <code>ww sync</code> shows how, and a board the PC knows is steered right after it opens.</li>
+<li><strong><a href="../transport/hub/#device-tunnels-srv-29">Many programs, one device</a></strong>: Several programs use one device at once through the hub, each with its own calls, streams and observed properties. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/#version-skew-and-handover-srv-30">Hub version skew</a></strong>: Programs built with different WireWeaver releases share one hub; a newer program replaces an older hub without losing anyone, and a hub that can't serve a program says which versions and what to do. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/#the-whole-device-exclusive-access-and-lending-srv-32">The whole device, or lent out</a></strong>: A firmware update has the device to itself while other programs keep reading, and <code>ww hub lend</code> hands it to probe-rs or dfu-util for one command and takes it back. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../transport/hub/">Local sockets</a></strong>: A device served by another process on the same PC (a simulator, later the ww hub), reachable by your own user only. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../transport/tap/">Link tap</a></strong>: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.</li>
 <li><strong><a href="../transport/usb_internals/">USB throughput on small MCUs</a></strong>: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#transports-and-protocols-tr">Transports and protocols</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#transports-and-protocols-tr">Transports and protocols</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a> in the feature tracker.</p>
 <h2 id="introspection">Introspection<a class="headerlink" href="#introspection" title="Permanent link">&para;</a></h2>
 <p>A device can send a description of its own API, so tools and scripts work with it without its source code.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>
@@ -5621,6 +5698,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../python/">Python</a></strong>: Any device from Python, its API taken from the device itself.</li>
 <li><strong><a href="../cli_reference/#ww-api">Server scaffold</a></strong>: <code>ww api scaffold</code> prints a stub for every handler a server needs.</li>
 <li><strong><a href="../cli_reference/#ww-info">Device info and reports</a></strong>: <code>ww info</code> for any device; <code>ww report</code> adds counters, logs and crash data in one file.</li>
+<li><strong><a href="../cli_reference/#untrusted-device-and-hub-strings">Safe to look at</a></strong>: A device or another program can't write terminal escape sequences into what <code>ww</code> prints: control characters and bidi tricks in a product string, name or label always show up as plain text.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
@@ -5666,7 +5744,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_adc/">ADC</a></strong>: Single reads, sample streams and triggered captures.</li>
 <li><strong><a href="../std_library/ww_pwm/">PWM</a></strong>: Outputs and input capture.</li>
 <li><strong><a href="../std_library/ww_timebase/">Device time</a></strong>: A clock with sync to a shared time source.</li>
-<li><strong><a href="../std_library/ww_timebase/#host-sync-std-49">Host clock sync</a></strong>: Devices without a sync line follow the host's clock: the host fits offset and rate from round trips and steers each device. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../std_library/ww_timebase/#host-sync-std-49">Host clock sync</a></strong>: Devices without a sync line follow the host's clock: the host fits offset and rate from round trips and steers each device.</li>
 <li><strong><a href="../std_library/ww_i2c/#slave-mode">I2C and SPI slave</a></strong>: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../std_library/ww_logic_analyzer/">Logic analyzer</a></strong>: Triggered captures, transitions compressed. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../std_library/ww_pin_diag/">Pin tests</a></strong>: Shorts, pulls and floating pins on any board through one trait, the board's safety rules kept in its firmware. <span class="ww-status">in progress</span></li>

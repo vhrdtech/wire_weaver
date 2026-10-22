@@ -1628,6 +1628,8 @@
       
         
       
+        
+      
     
     
     
@@ -1741,6 +1743,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -4103,6 +4132,8 @@
       
         
       
+        
+      
     
     
     
@@ -4270,6 +4301,33 @@
     
   
   The link tap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local sockets and the hub
 
     
   </span>
@@ -5375,6 +5433,10 @@ is given:</p>
 <td>firmware ELF to take the RTT control block address from, probe speed</td>
 </tr>
 <tr>
+<td><code>hub_device="usb:c0de:cafe:0042"</code></td>
+<td>a device key straight through the ww hub, skipping enumeration and the filters above</td>
+</tr>
+<tr>
 <td><code>timeout</code></td>
 <td>default request timeout in seconds</td>
 </tr>
@@ -5389,6 +5451,10 @@ Definitions the device leaves out are put back from the snapshots, or from the
 <a href="../std_library/ww_self/#the-definition-cache">definition cache</a> for a device built from another revision of an
 unpublished crate, so its values decode without <code>load_api</code>.
 Without <code>rtt_elf</code>, RTT attaching scans the target RAM for the control block, see <a href="../transport/rtt/#host-side">RTT</a>.</p>
+<p><code>connect()</code> goes through the ww hub when it already holds the device or <code>WW_HUB</code>/the open counter say so, the
+wheel's <code>python -m wire_weaver.hub</code> serving it when no other one is found; <code>wire_weaver.hub()</code> is a client of the
+hub itself. A notebook kernel restart then reconnects in no time with the device still open — see
+<a href="../transport/hub/#python-and-notebooks-tool-18">Python and notebooks</a>.</p>
 <h2 id="using-the-api">Using the API<a class="headerlink" href="#using-the-api" title="Permanent link">&para;</a></h2>
 <p>Resources are attributes, their <code>repr()</code> shows the tree with signatures and the first doc line, and <code>dir()</code> lists
 them for tab completion. For the <code>Dynamic</code> trait from <code>tests/dynamic_api</code>:</p>

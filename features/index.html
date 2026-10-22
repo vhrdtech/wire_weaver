@@ -1626,6 +1626,8 @@
       
         
       
+        
+      
     
     
     
@@ -1739,6 +1741,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Metadata: claims, pins, labels
 
     
   </span>
@@ -4101,6 +4130,8 @@
       
         
       
+        
+      
     
     
     
@@ -4268,6 +4299,33 @@
     
   
   The link tap
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transport/hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local sockets and the hub
 
     
   </span>
@@ -5913,6 +5971,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
   done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
   docs.rs (DOC-6).</li>
+<li>📋 <strong>API-56 care-marker Care marker on switching writes</strong> — a typed attribute (the <code>ww_self::Meta</code> of SRV-34) on
+    a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
+    introspection: GUIs ask to confirm, <code>ww call</code> / <code>ww set</code> want <code>--yes</code>, the hub can log who did it. Wire
+    compatible, nothing on the device.</li>
+<li>📋 <strong>API-57 device-metadata Device-level metadata</strong> — typed attributes on the API root or in a stdlib trait for what
+    a device is: product, board revision, connectors (with the resources behind each, so a label like "J4" points at
+    pins and buses), supported clock sync (<code>ww_timebase</code> host sync and its sources); in introspection next to
+    SRV-34's per-item <code>Meta</code>, shown by <code>ww info</code>, the hub's registry and GUIs. Design first: which part is fixed in
+    the API (connectors, sync support) and which is per unit at run time (<code>ww_board_info</code>, serial, revision).</li>
 <li>💡 <strong>API-33 Narrow error types per method</strong> — generated per-method error enums with the crate enum's
   discriminants, as server handler return types only (<code>narrow_errors = true</code>), for a compile-time contract on the
   device. Explored and not recommended for clients: friction in every driver crate.</li>
@@ -6015,6 +6082,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   78 %, 1 MHz 181 %, 2 values at 2 MHz 313 %): their polls are the codec and each column's framing now
   (<code>docs/articles/series.md#high-rates-a-few-values-at-400-khz-to-2-mhz</code>, <code>examples_mcu</code> <code>foc_observe</code>,
   <code>high_rate</code>, <code>ww_stream</code> <code>cells_tests</code>).</li>
+<li>✅ <strong>API-21 <code>no_alloc = false</code> servers</strong> — servers generated for <code>std</code> whose handlers take and give owned types
+  (<code>String</code>, <code>Vec&lt;T&gt;</code>, <code>FooOwned</code>): method arguments and returns, property values and write errors, sink items,
+  stream function results, stream items, deferred returns; written into the reply buffer with the bytes a <code>no_alloc</code>
+  server sends (shrink_wrap <code>BufWriter::ser_owned</code> / <code>write_owned</code>, <code>OwnedSer</code>). The <code>methods</code>, <code>properties</code> and
+  <code>streams</code> suites run against such servers with a <code>no_alloc</code> one as the byte reference (<code>tests_common::Twin</code>);
+  <code>ww api scaffold --alloc</code> prints the owned signatures. Prerequisite of the hub API (SRV-28)
+  (<code>docs/transport/hub.md#servers-on-std-no_alloc-false</code>).</li>
 <li>📋 <strong>API-17 Methods arguments to a user struct</strong> · <code>v0.5.x</code>.</li>
 <li>🚧 <strong>API-18 Size analysis</strong> · <code>v0.5.x</code> — maximum buffer usage in the worst case, auto-calculated buffer sizes for events,
   arguments and outputs. Done: <code>MAX_SIZE</code> of types (SW-19) and per-method <code>&lt;METHOD&gt;_REQUEST_MAX_LEN</code> /
@@ -6031,7 +6105,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   compact paths and falls back to <code>GlobalFull</code> for devices built before an id existed, the tap decoder and
   <code>ww explain</code> name compact calls; 64 B of flash on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> <code>qemu-global-paths</code>).
   Missing: traits under a resource array.</li>
-<li>📋 <strong>API-21 <code>no_alloc = false</code> servers</strong> — don't compile today.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
 <li>⛔ <strong>API-23 Index chain array → named arguments</strong> · <code>v0.5.x</code> — stalled. Generating ad-hoc structs with named index
@@ -6105,6 +6178,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>#[stream(T, codec = auto)]</code>), in the introspection data so dynamic clients and Python decode it; keyframes on
   open, after a gap and every N items. It is how a string or a frame, which a <code>Series</code> batch can't take (no size
   bound), would get cheaper per item. Prior art: Gorilla, Sprintz, Chimp, ALP.
+- 📋 <strong>API-58 <code>#[read_only]</code> methods</strong> · <code>v0.5.x</code> — a typed attribute in <code>ww_self::Meta</code> (next to SRV-34's <code>claim</code>)
+  for methods without effects, carried in introspection: the hub lets peers with only the <code>observe</code> right call them
+  (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
+  federation (SRV-33).
 - ✅ <strong>SRV-1 <code>no_std</code>, no-alloc server</strong>, IO-free generated code.
 - ✅ <strong>SRV-2 Sans-IO <code>DeviceLink</code></strong>, async <code>Server</code> with <code>wait()</code>/<code>handle()</code> for a user-owned event loop, and
   <code>blocking::Server</code>.
@@ -6186,6 +6263,22 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
   <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ <strong>SRV-34 per-resource-claims Per-resource claims through the hub</strong> · <code>v0.5.x</code> — typed metadata attributes,
+    carried in introspection as data (<code>ww_self::Meta</code> on <code>ApiItem</code> and <code>ApiLevel</code>), checked when the API is loaded:
+    <code>#[claim(exclusive | shared | observe)]</code> on a <code>ww_impl!</code> or trait definition (the root is always claimable),
+    <code>#[shares(pins = "PA9, PA10", peripherals = "USART1", index = N)]</code> (pin ranges <code>PA0-PA15</code>) so overlapping
+    resources conflict, <code>#[label("CAN1, DB-9 on the front")]</code> (one per array element) on any item;
+    <code>ApiItemOwned::claim_mode</code> / <code>label</code>, <code>ww api tree</code>, rustdoc notes, <code>ww api check</code> reports changes as compatible;
+    stdlib IO traits claimable (<code>ww_can_bus</code>, <code>ww_uart</code>, <code>ww_i2c</code>, <code>ww_spi</code>, <code>ww_gpio::Bank</code>, <code>ww_dfu</code>,
+    <code>ww_pin_diag</code>). The hub's <code>claims</code> group (<code>claim(key, path, purpose, ttl_s) -&gt; Result&lt;u32, ClaimError {
+    UnknownDevice, ApiUnknown, BadPath, NotClaimable, InUse, Overlap }&gt;</code>, <code>release</code>, <code>claims(key)</code>, <code>Claimed</code> /
+    <code>Released</code> events): calls and writes of other client instances at or under a claimed path are answered by the hub
+    with <code>Common(InUse { by })</code> in the item's own error type (an error event naming the holder without one), without
+    reaching the device; reads, streams and observe stay open (taken too for <code>observe</code>); a claim belongs to the
+    client instance (CLT-41) as its principal and drops with its last connection or at the ttl; overlap by path and by
+    <code>#[shares]</code>, nesting within one instance. <code>docs/api/metadata.md</code>, <code>docs/transport/hub.md</code> (with how hub and
+    device-side claims combine); tests <code>tests/traits</code> (<code>meta_in_introspection</code>), <code>wire_weaver_core</code> (<code>meta_*</code>),
+    <code>ww_hub</code> (<code>claims</code>), <code>tests/hub</code> (<code>claim*</code>). Later attributes: API-56, API-57.
 - 🧪 <strong>SRV-19 ECC-safe STM32 flash for stores</strong> — <code>mcu/ww_ecc_flash</code>: <code>EccSafeFlash</code> wraps any <code>NorFlash</code> (embassy-stm32's
   <code>Flash</code>) and reads it one ECC word at a time; a word with an uncorrectable ECC error (power cut while programming
   or erasing) reads as zeros instead of an NMI (STM32G0, <code>FLASH_ECCR.ECCD</code>, through <code>on_nmi()</code> or feature
@@ -6216,7 +6309,108 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
 <li>💡 <strong>SRV-12 std server on Tower</strong> · <code>v0.5</code>.</li>
-<li>💡 <strong>SRV-13 IPC over USB / multi-app devices / USB multiplexer</strong> · <code>v0.5.x</code>.</li>
+<li>📋 <strong>SRV-13 ww hub: one device, many programs</strong> · <code>v0.5.x</code> — a per-user hub that starts itself on first use and
+  exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
+  devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
+  wire_weaver device with its own API (<code>ww_hub_api</code>). Today a second program gets "busy". Pieces: SRV-28 process and
+  API, SRV-29 device multiplexing, SRV-30 version skew, SRV-31 clock sync, SRV-32 exclusive locks, SRV-33 federation (SRV-36..40),
+  SRV-34 per-resource claims, TR-16, CLT-38..41, CLT-43, CLT-44, TOOL-17, TOOL-18; prerequisite API-21 (done). Later API groups: logs to several viewers, shared
+  captures (TR-14's <code>ClientMap</code>), labels and settings, fault notifications, published (virtual) devices.</li>
+<li>🧪 <strong>SRV-28 Hub process and its API</strong> · <code>v0.5.x</code> — crates <code>ww_hub_api</code> (<code>Hub</code>: <code>info</code>, <code>handover</code>, <code>shutdown</code>,
+  <code>keep</code>; <code>Registry</code>: <code>devices</code>, <code>clients</code>, <code>take</code>, <code>events</code>) and <code>ww_hub</code> (<code>docs/transport/hub.md</code>): one hub per
+  user (<code>hub.lock</code>), the socket with the preamble picking the hub API or a device, the API served with generated
+  <code>no_alloc = false</code> code on <code>ww_device::Server</code> per connection, devices enumerated without opening plus the
+  CLT-38 holders, plug / unplug / holder / client events, idle exit, <code>keep</code>, <code>shutdown</code>; <code>ww hub serve</code>,
+  <code>ww_hub::main_if_hub()</code>, the typed <code>ww_hub::client::HubClient</code>. Starting it detached is CLT-39's, <code>handover</code>
+  SRV-30's; <code>take</code> came with SRV-29. Tested on Linux; check open on macOS and
+  Windows (compiles for both).</li>
+<li>🧪 <strong>SRV-29 Hub device multiplexing</strong> · <code>v0.5.x</code> — device tunnels in <code>ww_hub</code>
+  (<code>docs/transport/hub.md#device-tunnels-srv-29</code>, <code>ClientConfig::hub_device</code>): one client event loop per open device
+  (<code>Command::Forward</code> / <code>ForwardSink</code>), a <code>ww_device::DeviceLink</code> per client tunnel answering like the device, seq
+  remap, stream opens counted per path and fanned out, observe settings merged per level, introspection from cache,
+  bounded per-client queues (stream data dropped and counted, replies never), devices opened on demand and closed after
+  a linger (30 s), lock file mode <code>hub</code>, <code>registry().take</code>. The hub reads only seq, path and kind, never a user API. E2E
+  in <code>tests/hub</code>; measured against direct USB on three boards (<code>tests/hub/examples/hub_loopback.rs</code>: throughput as
+  direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
+  wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
+  first client's, streams on trait paths are not counted per client.</li>
+<li>💡 <strong>SRV-41 Fewer wakes on the hub path</strong> — the tunnel's cost is two extra process wakes per message (client →
+  hub → client): 16 B round trips over USB FS are 15 % (donguru) and 23 % (b200) fewer than direct on an idle PC
+  (median of 7 rounds), 3.5 % and 12.6 % under load; the hub's own USB round trip equals direct (480 µs against
+  510-600 µs), throughput and max-size transfers are as direct. Ideas if it matters: busy-poll the socket for a short
+  window after a request (spends a core), or a shared-memory ring between client and hub with a futex / event for
+  the wake. Kept as is for now (person, 22 Oct 2026); measure with <code>tests/hub/examples/hub_loopback.rs</code> first.</li>
+<li>🧪 <strong>SRV-30 Hub version skew and handover</strong> · <code>v0.5.x</code> — a hub serves every client whose link and API model
+  versions its build can serve; a client that can start a newer hub asks the running one to hand over (only strictly
+  newer replaces older, so it converges); a refusal names both versions and the fix. Built
+  (<code>docs/transport/hub.md#version-skew-and-handover-srv-30</code>, <code>docs/evolution/rules.md#the-ww-hub-and-version-skew</code>):
+  preamble version 2 with a skippable trailer carrying the client's <code>ww_link</code> and <code>ww_client_server</code> versions (version
+  1 still read: versions unknown; a client asks a v1-only hub again in v1), the hub's window (<code>ww_hub/src/window.rs</code>:
+  SemVer-compatible with its build, plus earlier majors it keeps after a break, none yet) and status 4 with
+  <code>Error::HubRefused</code> naming both sides and the fix; <code>Hub::handover(socket)</code> (strictly newer only, <code>Event::Handover</code>,
+  links closed with <code>DisconnectReason::HubHandover</code>, <code>Exit::Handover</code>), <code>ww_hub::Bound::take_over</code> (own socket, then
+  <code>hub.lock</code>, rename into place on Unix, the pipe anew on Windows), and <code>hub::ensure_running</code> replacing an older
+  running hub with the program's own (<code>main_if_hub</code>, <code>WW_HUB_HANDOVER</code>, under <code>hub.start.lock</code>). Tested on Linux in
+  <code>tests/hub_reconnect</code> (<code>versions.rs</code>, <code>handover.rs</code> with clients connected, <code>replace.rs</code> across processes); check
+  on macOS and Windows open (compiles for both).</li>
+<li>✅ <strong>SRV-31 Clock sync in the hub</strong> · <code>v0.5.x</code> — the hub steers every open device serving <code>ww_timebase::Clock</code> with
+  <code>host_sync</code> (found in its introspection data at any path) onto the PC's UTC with <code>clock_sync::ClockSync</code> on its own
+  connection, and keeps it open for a sync linger (30 min, <code>WW_HUB_SYNC_LINGER</code>, <code>forever</code>) so boards stay steered
+  between short-lived commands; <code>WW_HUB_SYNC=off</code> / <code>sync().set_enabled</code> per device or all. <code>ww_hub_api::ClockSync</code> at
+  <code>sync</code>: <code>devices</code> (<code>SyncEntry</code>: phase, state, source, the steerer the device follows and one it only notes, rate,
+  shortest RTT, residual via <code>shared_now</code>, error, slew, samples), <code>linger</code>, the <code>stats</code> stream. Rate cache per device
+  serial in the state dir (<code>clock_sync::RateCache</code>, atomic writes, shared with direct-mode programs): a known device
+  is steered after its first reading. Steer points say who steers (<code>ww_timebase::Steerer</code>, STD-49 follow-up); the device
+  follows one and notes the others (embedded_bedrock <code>bedrock_sync</code>). <code>ww sync</code> shows the hub's steering with a hub,
+  steers directly without one, STEERED BY column. <code>docs/transport/hub.md#clock-sync-in-the-hub-srv-31</code>,
+  <code>docs/std_library/ww_timebase.md#one-steerer-at-a-time</code>; E2E in <code>tests/hub</code> (<code>clock_sync</code>), <code>tests/io_timebase</code>.
+  Paused (<code>SyncPhase::Paused</code>, readings go on, no steer points) while a program holds the whole device (SRV-32);
+  programs holding a device directly steer on their own connection by default (CLT-46).
+  Checked on omarchy-m1 (22 Oct 2026, Donguru and B135 through the hub, <code>ww sync</code> as its view): <code>Locked</code> 1.4-2.6 s
+  after the hub opened them with no cached rate, 0.4 s with one, also after a hub restart and after 60 s closed in
+  holdover; a loop of short <code>ww info</code> calls goes through the hub from its third call and the board stays steered
+  without clients for the sync linger, then closes; residual against UTC B135 -5..-16 µs (±55 µs, RTT 120 µs),
+  Donguru within ±1.2 ms (RTT 1.4-1.6 ms). Two steerers on one board (follow one, note the other, take over) checked
+  on Donguru and B135 by <code>bedrock_sync</code>'s side.</li>
+<li>🧪 <strong>SRV-32 Device-wide exclusive and lending</strong> · <code>v0.5.x</code> — exclusive access to a whole device (DFU, settings
+  writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
+  holder, and <code>Hub::steering_paused</code> for the hub's clock steering (SRV-31 skips the device while it holds);
+  <code>wire_weaver_client::hub::Exclusive</code> takes it when a hub holds the device (<code>None</code> otherwise: the program holds it
+  directly), and <code>ww dfu reboot | flash | confirm | revert</code> do, <code>flash</code> across the device's reset. Lending:
+  <code>Claims::lend</code> (a root claim marked lent) closes the device (tunnels get <code>Disconnect(Other(DISCONNECT_LENT))</code>),
+  refuses tunnels with <code>Status::Lent</code> and others' claims naming it until released, then opens it again if the hub
+  held it; <code>Lent</code> / <code>Returned</code> events; a crashed borrower or a ttl returns it. <code>ww hub lend DEVICE -- CMD</code> (Ctrl+C
+  reaches the command, its exit code is ww's), <code>hub::Lend</code>. <code>docs/transport/hub.md</code>; tests <code>ww_hub</code> (<code>claims</code>),
+  <code>tests/hub</code> (<code>exclusive*</code>, <code>lend*</code>). Lending checked on omarchy-m1 (22 Oct 2026): <code>ww hub lend 204B319B5431 --
+  sh -c '...; probe-rs reset --probe &lt;J-Link&gt; ...'</code> on Donguru while <code>ww sync</code> watched it through the hub: the hub
+  paused its steering and closed the device 7 ms after the ask, the command ran, the device was back open in the hub
+  3 ms after the return (1.4 s for the whole lend), and <code>ww sync</code>'s connection came back and the board was <code>Locked</code>
+  again 1.8 s later. Open: <code>ww dfu flash</code> through the hub on hardware, as no free bench board has chunky A/B (Donguru
+  and B135 run in place without it, rePort was busy; B135 could be provisioned with vb135's <code>just
+  provision-ab-dfu</code>, which erases its settings: the person's call); no <code>ww settings</code> command writes to a device yet (<code>dump</code> reads a file), one that
+  does takes <code>Exclusive</code> the same way. Clients reconnect after a lend with the <code>Lent</code> reason (CLT-40), and the hub's
+  steering pauses while the root is held (SRV-31, <code>tests/hub</code> <code>a_root_claim_pauses_steering</code>).</li>
+<li>📋 <strong>SRV-33 Hub federation between PCs</strong> · <code>v0.5.x</code> — remote devices through another PC's hub, as <code>HOST/&lt;key&gt;</code>,
+  with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
+  SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser
+  on localhost (TOOL-6), SRV-40 native hub-to-hub with pinned keys (Noise IK). No UDP, no transitive federation.</li>
+<li>📋 <strong>SRV-36 <code>ww hub attach</code> over ssh</strong> · <code>v0.5.x</code> — <code>ww hub attach HOST</code> logs in once in the terminal (an ssh
+  ControlMaster), the local hub then opens one <code>ssh HOST ww hub stdio</code> channel per tunnel and lists the remote
+  devices as <code>HOST/&lt;key&gt;</code>; ssh authenticates, the remote hub serves the channel as its own user. Byte-spliced
+  tunnels (the remote hub multiplexes), host names and remote keys validated, <code>ww hub detach</code>.</li>
+<li>📋 <strong>SRV-37 Hub principals and per-device rights</strong> · <code>v0.5.x</code> — who is connected, from what the OS, ssh or a key
+  says (never the client's own metadata), and what it may do per device: <code>observe</code>, <code>control</code>, <code>dfu</code>, from glob
+  rules in <code>~/.config/ww/hub_peers.toml</code>; the hub answers refused requests with <code>Forbidden</code> itself, filters the
+  registry, keeps hub API methods local unless classified, and owns claims per principal.</li>
+<li>📋 <strong>SRV-38 Restricted ssh keys for the hub</strong> · <code>v0.5.x</code> — <code>authorized_keys</code> lines with
+  <code>restrict,command="ww hub stdio --peer NAME"</code> give a key only the rights of <code>[peer.NAME]</code>; <code>ww hub allow --ssh</code>
+  prints the line.</li>
+<li>📋 <strong>SRV-39 The hub for a browser on localhost</strong> · <code>v0.5.x</code> — an HTTP + WebSocket listener on loopback only that
+  serves the TOOL-6 web GUI: <code>Host</code> and <code>Origin</code> checked, a single-use launch token from <code>ww gui</code> in the URL
+  fragment exchanged for a per-tab session token, the peer's user checked on Linux and Windows.</li>
+<li>💡 <strong>SRV-40 Native hub-to-hub with pinned keys</strong> — for PCs without ssh: TCP with Noise IK (<code>snow</code>, pure Rust),
+  a static key per PC (<code>ww hub key</code>), peers allowlisted by key and source address with SRV-37 rules. Built when a
+  box without ssh needs it.</li>
 <li>💡 <strong>SRV-14 FPGA server</strong> · <code>v0.5.x</code>.</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
@@ -6380,16 +6574,120 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   that takes updates itself says it goes to the boot ROM (<code>ww stm32dfu</code>, CLT-34). Tested end to end in
   chunky_mcu_updater (<code>chunky_ww_host/tests/e2e.rs</code>: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.</li>
+<li>✅ <strong>CLT-41 client-metadata</strong> · <code>v0.5.x</code> — who connects: <code>ww_link::ClientMeta</code> (program, app version, label, kind
+  <code>Cli|Gui|Notebook|Service|Hub|Test</code>, pid, user, host, purpose, random instance id) in an appended
+  <code>#[default = None]</code> field of <code>LinkSetup</code> (wire-compatible, conformance cases <code>link_setup.*</code>).
+  <code>ClientConfig::client_meta(ClientMeta)</code> overrides; defaults are found by the library (executable name, pid, login
+  and host name, kind <code>Cli</code> when the parent process is a shell; no new C dependencies: <code>/proc</code>, <code>libc</code> on macOS,
+  <code>windows-sys</code> Toolhelp on Windows), <code>no_client_meta()</code> sends nothing, a device that can't receive it gets a
+  shortened form or none. <code>DeviceLink::peer_meta()</code> on the device; <code>wire_weaver_py</code> sets <code>Notebook</code>. Docs:
+  <code>docs/transport/hub.md</code>. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
+  only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).</li>
 <li>✅ <strong>CLT-37 No millisecond per request from the accumulation window</strong> · <code>v0.5.x</code> — the host slept out the device's
   frame accumulation window (250 µs on USB HS) with <code>tokio::time::sleep_until</code>, which rounds up to whole
   milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has
   nothing else waiting (after one yield, so requests queued together still share a frame; <code>TxInput::Idle</code>,
   <code>TxCore::wants_idle_flush</code>). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
   1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.</li>
-<li>🐛 <strong>CLT-36 A call on a link that went down waits for a reconnect</strong> — after the device resets (its event loop
-  exits), a call's request goes into the command channel the residual keeps for <code>Commander::reconnect</code> and its
-  timeout never starts: <code>call()</code> hangs until someone reconnects. <code>chunky_ww_host</code> polls with its own deadline for
-  now. Fix: fail calls with <code>Error::Disconnected</code> while no event loop runs (or start the timeout at the send).</li>
+<li>✅ <strong>CLT-38 Who holds a device</strong> · <code>v0.5.x</code> — <code>wire_weaver_client::holders</code> (<code>key_for</code>, <code>holder_of</code>, <code>list</code>),
+  always on, not gated by a feature: before claiming a USB interface or RTT probe, <code>claim()</code> takes an exclusive
+  <code>std::fs::File::try_lock</code> on <code>&lt;runtime dir&gt;/ww/holders/&lt;key&gt;.lock</code> (<code>$XDG_RUNTIME_DIR/ww</code> on Linux, <code>$TMPDIR/ww</code>
+  on macOS, <code>%LOCALAPPDATA%\ww\run</code> on Windows, created 0700 and refused if not owned by us) and writes <code>key = value</code>
+  lines (pid, program, exe, <code>mode = direct</code> for now, since, ww version; unknown keys ignored by the reader, so later
+  fields — CLT-41's client metadata — add without a format change). A crash releases the OS lock immediately, even
+  with stale content left on disk: <code>holder_of</code>/<code>list</code> only ever trust a lock file while its lock is actually held.
+  Device keys <code>usb:&lt;vid&gt;:&lt;pid&gt;:&lt;serial&gt;[:&lt;iface&gt;]</code>, <code>rtt:&lt;probe serial&gt;:&lt;chip&gt;</code>. A busy error from another
+  WireWeaver holder names it (<code>usb/connect.rs</code>'s <code>with_claim_hint</code>, <code>rtt/event_loop.rs</code>'s <code>with_claim_hint</code>): "held
+  by dg, pid 4711, direct, since 14:02:03 UTC"; without a lock file (a non-ww program: probe-rs CLI, minicom,
+  dfu-util), Linux scans <code>/proc/*/fd</code> for the device node and names the process, elsewhere it just says "another
+  program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
+  stale content never reported as held.</li>
+<li>✅ <strong>CLT-36 A call on a link that went down fails at once</strong> — after the device resets or the link goes (its event
+  loop exits), a call fails with <code>Error::Disconnected</code> until <code>Commander::reconnect</code> connects again, instead of waiting
+  in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
+  command that comes in (<code>prepared_connection.rs</code>'s <code>keep</code>). Tested in <code>tests/methods</code>
+  (<code>call_while_disconnected_fails_at_once</code>).</li>
+<li>🚧 <strong>CLT-39 Hub routing in <code>connect</code></strong> · <code>v0.5.x</code> — direct by default, the hub when it pays off: a device the hub
+  holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
+  move a device into the hub, so a loop of <code>ww</code> calls doesn't re-open it every time. <code>HubMode</code> <code>Auto</code>, <code>Prefer</code>,
+  <code>Required</code>, <code>Direct</code> (<code>WW_HUB</code>); hub found or started (start lock, readiness, newest hub executable: <code>WW_HUB_EXE</code>,
+  the app itself, <code>ww</code>); user code doesn't change. Built (feature <code>hub</code> of <code>wire_weaver_client</code>, on in <code>ww</code>): the
+  mode (<code>ClientConfig::hub</code>, <code>WW_HUB</code>), the open counter in <code>&lt;runtime&gt;/ww/opens/&lt;key&gt;</code> (3 in 60 s,
+  <code>ClientConfig::hub_opens</code>, <code>WW_HUB_OPENS</code>; kind <code>Cli</code> counts 1, others &frac14;), the registry asked whether the hub
+  holds the device, the tunnel opened before the event loop starts (so a refusal falls back to direct in <code>Auto</code> and
+  <code>Prefer</code>), <code>hub::ensure_running</code> (start lock, stale socket removal, the newest of <code>WW_HUB_EXE</code> / the app itself via
+  <code>ww_hub::main_if_hub()</code> / <code>ww</code> next to the exe / on <code>PATH</code> by <code>--hub-version</code>, started detached, readiness by
+  polling the socket with the preamble for 2 s), lock files with the holder's client metadata, busy errors that say
+  how to get a hub, <code>ww hub take</code> (<code>hub::take</code>). See <code>docs/transport/hub.md#reaching-devices-through-the-hub-clt-39</code>.
+  Tested on Linux (<code>tests/hub_routing</code>: two programs starting a hub at once get one, stale socket, no executable;
+  unit tests for the modes). Missing: the open counter counts USB only (RTT and <code>ipc_exclusive</code> local sockets go through the hub when it holds them,
+  their holder hands them over (CLT-43) or in <code>Prefer</code> / <code>Required</code>; the rest connect directly); a routed USB connection through the
+  SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
+  can't fake); a check on macOS and Windows (compiles for both).</li>
+<li>🧪 <strong>CLT-40 Reconnect after a hub restart</strong> · <code>v0.5.x</code> — the client reconnects by itself, re-opens its streams and
+  observe subscriptions and tells the app (<code>Reconnected</code>); requests in flight fail, never replayed. Built
+  (<code>docs/transport/hub.md#reconnect-after-a-hub-restart-clt-40</code>): a connection through the hub that loses its link
+  (hub exited, crashed, killed, handed over, device lent) is reconnected by the keeper of its command channel
+  (CLT-36) with backoff, through a hub again (one started if none runs), and resumes counted and reliable streams,
+  observed levels and sinks (<code>resume_streams</code>); calls fail with <code>Disconnected</code> meanwhile; <code>ConnectionEvent</code> /
+  <code>GapReason</code> from <code>Commander::connection_events()</code>; <code>ClientConfig::hub_reconnect(give_up)</code> (60 s, lent time not
+  counted, no hub started while lent). Tested on Linux in <code>tests/hub_reconnect</code> (<code>restart.rs</code>; <code>kill.rs</code>: <code>SIGKILL</code>
+  twice under load, back in ~90 ms, stream resumed, nothing sent twice); check on macOS and Windows open. Plain
+  streams end with the link, as on an unplug.</li>
+<li>🧪 <strong>CLT-46 Clock steering in every direct connection</strong> · <code>v0.5.x</code> — a program that holds a device directly steers
+  its clock onto the PC's UTC without code of its own, as the hub does for the devices it holds (SRV-31): on by
+  default, <code>ClientConfig::clock_sync(false)</code> or <code>WW_CLOCK_SYNC=off</code> to turn it off, <code>clock_sync_options</code> for the pace;
+  <code>Phase::ThroughHub</code> (no steering) while the connection goes through a hub, again after a reconnect that reaches it
+  directly. The code of <code>ww_clock_sync</code> moved into <code>wire_weaver_client::clock_sync</code> (feature <code>clock_sync</code>, default;
+  <code>ww_clock_sync</code> re-exports it), <code>Clock</code> with <code>host_sync</code> found by introspection (<code>serves_host_sync</code>, <code>now()</code> tried
+  without introspection data), rate cache by the device's serial and the connection's <code>ClientMeta</code> as steerer, as in
+  SRV-31. The task holds a weak <code>Commander</code> for one round of calls at a time, so the connection closes with the
+  program's last <code>Commander</code>. <code>Commander::clock_sync()</code> (<code>ClockSteering</code>: phase, status, <code>set_paused</code>); <code>ww dfu</code>
+  pauses it while it holds the device directly, <code>ww sync</code> and the hub turn it off (they steer with their own sync).
+  <code>docs/std_library/ww_timebase.md#steering-in-every-direct-connection</code>; tests <code>tests/io_timebase</code>
+  (<code>a_direct_connection_steers_by_itself</code>, <code>own_steering_never_keeps_the_connection_open</code>), <code>tests/hub</code>
+  (<code>ThroughHub</code>). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct <code>ww</code> command or
+  app, <code>ww sync</code> with a hub showing it followed, no second steerer with the hub.</li>
+<li>🧪 <strong>CLT-43 Polite handover to the hub</strong> · <code>v0.5.x</code> — a direct holder that allows it (by default command-line tools,
+  notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
+  through the hub after a short gap; one that doesn't is named in the other's error. Built
+  (<code>docs/transport/hub.md#polite-handover-from-a-direct-holder-clt-43</code>): <code>ClientConfig::allow_handover</code> (default by
+  client kind, only where the holder can reconnect through the hub); a direct holder listens on
+  <code>&lt;runtime&gt;/ww/holders/&lt;key&gt;.sock</code> (user-only, peer checked, named in its lock file as <code>handover = &lt;path&gt;</code>) for the
+  frozen <code>WWHO</code> request (<code>ww_local_socket::HandoverRequest</code> / <code>HandoverAnswer</code>, TLV trailer with the client metadata);
+  its event loop lets go of the device (<code>HandedToHub</code>, streams kept), the claim is shared by both link halves so
+  <code>Released</code> comes only once the medium is closed, and it reconnects through the hub on CLT-40's path
+  (<code>GapReason::HandedToHub</code>, <code>Reconnected</code>). <code>connect()</code> (USB, RTT, <code>ClientConfig::ipc_exclusive</code> local sockets) and
+  <code>ww hub take</code> ask a direct holder before opening when a hub runs or can start; a refusal fails with the holder's
+  name and kind. Release and reopen on every OS. Tested on Linux between two processes on a simulated device
+  (<code>tests/hub_reconnect</code> <code>polite_handover.rs</code>: a <code>Cli</code> holder hands over with a counted stream resumed, gap 4.6 ms
+  median; a <code>Gui</code> holder refuses and is named). Real USB (rePort, omarchy-m1, <code>WW_LIVE_HANDOVER=off</code>): link gap 9.7 ms
+  median, the calls in flight and in the gap failing (104-2068 per run of 20 calls in flight). Open: an RTT probe's
+  gap; a check on macOS and Windows (compiles by inspection only).</li>
+<li>🧪 <strong>CLT-44 Live link handover on Linux</strong> · <code>v0.5.x</code> — the hub adopts a direct holder's live link (link, requests
+  in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
+  without a gap; elsewhere CLT-43's release and reopen. Built (<code>docs/transport/hub.md#live-link-handover-clt-44</code>): the
+  holder pauses (OUT drained, IN cancelled and reaped into the framer), sends a <code>LinkSnapshot</code>
+  (<code>wire_weaver_client::adopt</code>) to <code>ww_hub_api::Adopt::prepare</code>, releases the interface keeping the device open (no
+  bus traffic at alternate setting 0, toggles kept), <code>commit</code> has the hub open the device itself and go on with the
+  link (<code>PreparedConnection::adopt</code>), the holder's tunnel attaches by adoption id (<code>TAG_ADOPT</code>) and its event loop
+  swaps both halves to it keeping seqs and waiters. No fd passing: nusb 0.2 can't give one out, and a shared open
+  file's claim goes with the holder's <code>Interface</code>. Needs the same <code>wire_weaver_client</code> minor in the hub. Rollback when
+  the hub dies before it holds the device, cleanup after <code>HubConfig::adopt_attach</code> when the holder dies. Real USB on
+  Linux (nusb) and the simulated USB device (<code>usb_sim</code>). Tested between processes on <code>usb_sim</code>
+  (<code>tests/hub_reconnect</code> <code>live_handover.rs</code>: handed over in 8.5 ms median with 21 requests in flight, nothing lost or
+  doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
+  adoption whose connection went, answers waiting in the device). On a real board (rePort, omarchy-m1, <code>live_bench</code>):
+  20/20 handovers in 16.7 ms median with 20-21 requests in flight, no failed call, no connection event, no link setup
+  or control transfer from the hub (its trace); CLT-43 on the same board: 104-2068 failed calls per run.
+  <code>WW_LIVE_HANDOVER=off</code> falls back to CLT-43. Open: a usbmon trace of one handover showing nothing at all on the bus
+  (root on omarchy-m1: <code>sudo modprobe usbmon</code>, <code>sudo cat /sys/kernel/debug/usb/usbmon/1u &gt; /tmp/usbmon-1u.txt</code> while
+  <code>live_bench</code> hands over the rePort on bus 1; no <code>Ci</code>/<code>Co</code> control transfers in the window).</li>
+<li>✅ <strong>CLT-45 Lock file names one per device key</strong> — <code>holders</code> used to map every character outside
+  <code>[A-Za-z0-9._-]</code> to <code>_</code>, so two keys could share a lock file (<code>...:a:b</code> and <code>...:a_b</code>) and a USB device with a
+  crafted serial could make another one look held. Now lower-case letters, digits and <code>-</code> stay and every other byte
+  is <code>_xx</code>, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
+  socket's too, was FNV), and the key inside the file is checked on read.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6435,6 +6733,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>LinkSetup</code> (<code>examples_mcu/nucleo_g0b1re</code> <code>ww_rtt</code> and an embedded_bedrock template firmware on Donguru, 16 Oct
   2026). Fixed: the check polls once with the calling task's waker (<code>ww_device</code> <code>server.rs</code> <code>poll_once_here</code>);
   checked on Donguru over RTT through a J-Link. USB was not affected (no timer in its read).</li>
+<li>🧪 <strong>TR-16 Local socket transport</strong> · <code>v0.5.x</code> — client feature <code>local_socket</code>: a device served by another process
+  on the same PC (<code>ClientConfig::ipc_path</code>), over a Unix socket (Linux, macOS) or a named pipe (Windows) through
+  <code>interprocess</code> (crate <code>ww_local_socket</code>): user-only (0700 runtime dir, 0600 socket, owner-only pipe DACL, the peer's
+  user checked on both ends), the frozen <code>WWHB</code> preamble that picks the hub or a device, then <code>len | kind | payload</code>
+  messages. Device side <code>local_socket::device::device_medium()</code> for <code>ww_device::Server</code>
+  (<code>docs/transport/hub.md</code>). Tested on Linux, end to end with the device e2e suite; check open on macOS and Windows
+  (compiles for both).</li>
 <li>💡 <strong>TR-10 One-shot connect</strong> — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
@@ -6553,10 +6858,31 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   that connects print (to stderr) or save that command's own connection, with the same <code>Monitor</code>, <code>LiveFeed</code> and
   <code>TapeWriter</code>; the tap decoder orders a block's records by time so a reply is paired with its request
   (<code>docs/cli_reference.md#ww-monitor</code>).</li>
+<li>✅ <strong>TOOL-18 The hub from Python and notebooks</strong> · <code>v0.5.x</code> — the wheel (<code>wire_weaver_py</code>) carries
+  <code>wire_weaver_client</code> with its <code>hub</code> feature and <code>ww_hub</code>; <code>python -m wire_weaver.hub</code> serves the hub, found by
+  <code>wire_weaver_client::hub::ensure_running</code> the same way as a Rust <code>ww_hub::main_if_hub()</code> program (<code>wire_weaver</code>
+  registers <code>sys.executable</code>, <code>["-m", "wire_weaver.hub"]</code>, at import). <code>connect()</code> takes <code>hub_device</code> (straight to
+  a device key through the hub) in addition to the usual filters, and follows <code>WW_HUB</code> / <code>WW_HUB_OPENS</code> the same
+  as a Rust client. <code>wire_weaver.hub()</code> connects to the hub's own API (<code>ww_hub_api</code>) through the dynamic client,
+  starting the hub if none runs (devices, clients, <code>for e in hub().registry.events: ...</code>). Fixed on the way:
+  <code>connect_blocking()</code> had no <code>InterfaceKind::Ipc</code> branch, so every blocking connect through a local socket or the
+  hub silently failed. Tested without hardware (<code>tests/hub_pytest_device</code> hosts the hub and an in-process device
+  in one binary): a kernel restart reconnects well under a second with the device still open and steered, two
+  Python processes share one device through the hub's tunnel (<code>wire_weaver_py/tests/test_hub.py</code>).
+  <code>docs/transport/hub.md#python-and-notebooks-tool-18</code>.</li>
+<li>✅ <strong>TOOL-19 Escape device strings in <code>ww</code> output</strong> — <code>Untrusted</code>/<code>escape</code> (<code>wire_weaver_cli/src/untrusted.rs</code>)
+  turn a C0/C1 control character, DEL or a Unicode bidi override/isolate in a device- or hub-supplied string into a
+  visible <code>\u{..}</code> escape (<code>\n</code>/<code>\r</code>/<code>\t</code> as their short two-character form) before it reaches the terminal, so a
+  device can no longer write terminal escape sequences through its USB product/manufacturer/serial strings,
+  introspection docs/idents, <code>UserStr</code> text, pin names or hub/holder program/label/user/host fields; <code>--json</code> is
+  untouched (JSON's own escaping already covers it), and the CLI's own ANSI colour codes stay outside the escaped
+  text. <code>docs/cli_reference.md#untrusted-device-and-hub-strings</code>.</li>
 <li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the
   <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; Ctrl+C leaves the devices in holdover.
+  With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
+  (checked through the hub on Donguru and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
   when each device and then all are within <code>--within-us</code> (locked by their word, residual by the host's), the LED
   phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, <code>ww sync</code> with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
@@ -6581,6 +6907,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>examples/blinky_py</code> is a hand-written pyo3 wrapper around the Rust client, and <code>wire_weaver_py</code> is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the <code>TODO</code> in
   <code>docs/api/folder_structure.md</code>).</li>
+<li>🚧 <strong>TOOL-17 <code>ww hub</code></strong> · <code>v0.5.x</code> — <code>ww hub serve | status | stop | who | keep</code> (<code>docs/cli_reference.md#ww-hub</code>,
+  <code>docs/transport/hub.md</code>), <code>Hub::status()</code> and the location, label and API hash in <code>Registry::devices()</code>; <code>who</code>
+  names the hub, direct ww programs (lock files) and, on Linux, other programs (<code>/proc</code>) per device, with or without
+  a hub; <code>ww list</code> asks a running hub through the registry (with a <code>STATE</code> column, <code>--direct</code> to enumerate USB
+  anyway); completions of the subcommands, <code>keep</code> durations and device keys with help texts; colour off without a
+  TTY or with <code>NO_COLOR</code>; <code>lend DEVICE -- CMD</code> (SRV-32). Open: <code>ww list</code> asks a running hub and doesn't start one; the skill tree entry
+  (P2618#21oct-2209).</li>
 <li>📋 <strong>TOOL-13 <code>Some(None)</code> in Python values</strong> — Python (and the conformance corpus, which uses its form) writes
   <code>None</code> for both <code>None</code> and <code>Some(None)</code> of an <code>Option&lt;Option&lt;T&gt;&gt;</code>, so the inner <code>None</code> can't be written or told
   apart when read. Needs a marker for a present <code>None</code> (e.g. <code>ww.Some(None)</code>). Conformance case
@@ -6623,7 +6956,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>STD-17 <code>ww_timebase</code></strong> — <code>Clock</code>: device time as <code>ww_si::Second</code> (full width via <code>now()</code>, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), <code>sync_status</code>, a <code>time_map</code> stream mapping device time to
   shared time, <code>set_time_of_day</code> for a master. <code>tests/io_timebase</code>, <code>docs/std_library/ww_timebase.md</code>.</li>
-<li>🧪 <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
+<li>✅ <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
   clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
   <code>Clock</code> gets the optional <code>host_sync</code> group (<code>steer(SteerPoint) -&gt; SyncSource</code>: offset in UTC µs, rate in ppb and
   the host's error estimate; a line-locked device only notes the point; <code>shared_now()</code>; <code>set_sources</code> / <code>sources</code>: an
@@ -6635,8 +6968,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   window against the monotonic clock; <code>DeviceTime</code>; <code>HostClock</code>; <code>ClockSync</code> for any process holding a connection),
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   <code>tests/io_timebase</code>; <code>docs/std_library/ww_timebase.md#host-sync-std-49</code>. Device side: embedded_bedrock
-  <code>bedrock_sync</code>. Hardware check open: Donguru and rePort steered by <code>ww sync</code> on omarchy-m1, <code>sync_status</code>
-  <code>Locked</code>, the residual offset measured with <code>shared_now</code>.</li>
+  <code>bedrock_sync</code>. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
+  the PC (SRV-31). Checked on omarchy-m1 (21-22 Oct 2026): Donguru, rePort and B135 steered by <code>ww sync</code>,
+  <code>sync_status</code> <code>Locked</code> in 1.2-1.6 s, the residual measured with <code>shared_now</code> B135 -5..-16 µs (±55 µs), Donguru
+  within ±1.2 ms (its 1.4-1.6 ms round trips).</li>
 <li>✅ <strong>STD-18 <code>ww_adc</code></strong> — <code>Adc</code>, <code>AdcStream</code> (sideband <code>Open</code> / <code>Close</code>), <code>AdcCapture</code>. Fill-in done:
   full rustdoc, <code>tests/io_adc</code> mock server (one test per trait), <code>docs/std_library/ww_adc.md</code>, API snapshot
   (STD-13).</li>

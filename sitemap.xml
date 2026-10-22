@@ -34,6 +34,9 @@
         <loc>https://ww.vhrd.tech/api/handlers/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/metadata/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/methods/</loc>
       </url>
       <url>
@@ -281,6 +284,9 @@
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/follow_reboot/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/transport/hub/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/transport/overview/</loc>

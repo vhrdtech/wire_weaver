@@ -603,21 +603,28 @@ for illustration, not a measurement):
 
 ```
 $ ww sync --mode normal
-✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
-✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
-✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
-✓ all 3 within 2.00 ms after 6.3 s, phase 704 µs apart (±700 µs)
+Steered by ww sync (no ww hub runs): they go on in holdover once it stops
 DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
 B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
 rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
 Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+✓ all 3 within 2.00 ms for 4.1 s
 Phase: 704 µs apart across 3 devices (±700 µs)
+q or Ctrl+C to stop
 ```
 
-On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
-when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
-Until `q`, Ctrl+C or `--duration`. Without a hub nothing steers the devices after that: they go on in holdover from
-their last steer point (`ww sync` says so when it starts and when it stops).
+On a terminal this one view is all there is, from the start, redrawn every second: who steers the devices, the table,
+how far they converged (`2 of 3 within 2.00 ms, waiting for Donguru A1B2C3` until all are within, then since when)
+and the phase spread. Into a pipe it prints lines instead (no colour): who steers, a line each time a device converges
+or falls out and when all of them are within, and the table once at the end:
+
+```
+✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
+✓ all 3 within 2.00 ms after 6.3 s, phase 704 µs apart (±700 µs)
+```
+
+Until `q`, Ctrl+C or `--duration`; the last view stays on screen. Without a hub nothing steers the devices after
+that: they go on in holdover from their last steer point (`ww sync` says so when it starts and when it stops).
 
 With a [ww hub](transport/hub.md#clock-sync-in-the-hub-srv-31) running, the hub is the steerer: `ww sync` opens each
 device through the hub (which then steers it), shows the hub's steering from its `sync().stats()` stream, and never

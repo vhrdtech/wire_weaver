@@ -226,18 +226,32 @@ pub(crate) async fn sync(
         ),
         false => None,
     };
-    let entries = HubEntries::default();
-    if hub.is_none() {
-        eprintln!(
-            "No ww hub runs: ww sync steers the devices itself, and nothing steers them once it stops \
-             (a ww hub keeps them steered: ww hub take DEVICE)"
-        );
+    // on a terminal one live view from the start: who steers, the table, how far they converged; into a pipe the
+    // same as lines (who steers, a line per convergence change) and the table at the end
+    let term = Term::stdout();
+    let live = term.is_term();
+    // short for the live view's header, a terminal line wide
+    let (steering, more) = match hub {
+        Some(_) => (
+            "Steered by the ww hub: it keeps steering them after ww sync stops",
+            "--poll-ms and --steer-ms are the hub's own, WW_HUB=off steers from here",
+        ),
+        None => (
+            "Steered by ww sync (no ww hub runs): they go on in holdover once it stops",
+            "a ww hub keeps them steered: ww hub take DEVICE",
+        ),
+    };
+    let mut shown = 0;
+    match live {
+        true => {
+            let connecting = format!("Connecting to {} device(s)…", picked.len());
+            _ = term.write_line(&style(connecting).dim().to_string());
+            shown = 1;
+        }
+        false => eprintln!("{steering} ({more})"),
     }
+    let entries = HubEntries::default();
     if let Some(hub) = &hub {
-        eprintln!(
-            "The ww hub steers the devices, ww sync shows how (--poll-ms and --steer-ms are the hub's own); \
-             WW_HUB=off to steer from here"
-        );
         let mut stats = hub.sync().stats().call().await.context(
             "the running ww hub doesn't steer clocks (SRV-31): update it, or WW_HUB=off",
         )?;
@@ -317,13 +331,30 @@ pub(crate) async fn sync(
         }
     }
 
-    // on a terminal a live table with the events above it; into a pipe only the events, and the table at the end
-    let term = Term::stdout();
-    let live = term.is_term();
     let names: Vec<_> = devices.iter().map(|d| d.name.clone()).collect();
     let mut convergence = Convergence::new(args.within_us as i64 * 1000, devices.len());
     let started = Instant::now();
-    let mut shown = 0;
+    let quit_key = live.then(|| QuitKey::listen(&stop)).flatten();
+    let footer = match quit_key {
+        Some(_) => "q or Ctrl+C to stop",
+        None => "Ctrl+C to stop",
+    };
+    let frame = |convergence: &Convergence, footer: Option<&str>| {
+        let views = views(&devices, &entries);
+        let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
+        let now = started.elapsed().as_nanos() as u64;
+        let mut out = match live {
+            true => format!("{}\n", style(steering).dim()),
+            false => String::new(),
+        };
+        out += &render(&rows(&devices, &views));
+        out += &convergence.status_line(&names, args.within_us, now);
+        out += &phase_line(&statuses);
+        if let Some(footer) = footer {
+            out += &format!("{}\n", style(footer).dim());
+        }
+        out
+    };
     let mut every = tokio::time::interval(Duration::from_millis(if live { 1000 } else { 200 }));
     let run = async {
         loop {
@@ -331,24 +362,21 @@ pub(crate) async fn sync(
             let views = views(&devices, &entries);
             let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
             let events = convergence.update(started.elapsed().as_nanos() as u64, &statuses);
-            if live && shown > 0 {
-                _ = term.clear_last_lines(shown);
-                shown = 0;
-            }
-            for e in &events {
-                println!("{}", e.line(&names, args.within_us));
-            }
-            if live {
-                let table = render(&rows(&devices, &views)) + &phase_line(&statuses);
-                print!("{table}");
-                shown = table.lines().count();
+            match live {
+                true => {
+                    let frame = frame(&convergence, Some(footer));
+                    _ = term.clear_last_lines(shown);
+                    print!("{frame}");
+                    shown = frame.lines().count();
+                }
+                false => {
+                    for e in &events {
+                        println!("{}", e.line(&names, args.within_us));
+                    }
+                }
             }
         }
     };
-    let quit_key = live.then(|| QuitKey::listen(&stop)).flatten();
-    if quit_key.is_some() {
-        eprintln!("q or Ctrl+C to stop");
-    }
     match args.duration {
         Some(s) => {
             _ = stop
@@ -358,15 +386,11 @@ pub(crate) async fn sync(
         None => _ = stop.guard(run).await,
     }
     drop(quit_key);
-    if !live {
-        let views = views(&devices, &entries);
-        let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
-        print!(
-            "{}{}",
-            render(&rows(&devices, &views)),
-            phase_line(&statuses)
-        );
+    // the last state stays on screen, without the footer
+    if live {
+        _ = term.clear_last_lines(shown);
     }
+    print!("{}", frame(&convergence, None));
     for device in devices {
         drop(device.sync);
         _ = device.client.disconnect().asynch().await;
@@ -607,6 +631,8 @@ fn spread(statuses: &[Option<View>]) -> Option<(i64, i64, usize)> {
 struct Convergence {
     within_ns: i64,
     since: Vec<Option<u64>>,
+    /// Which devices had a status at the last update.
+    synced: Vec<bool>,
     all_since: Option<u64>,
 }
 
@@ -639,6 +665,7 @@ impl Convergence {
         Convergence {
             within_ns,
             since: vec![None; devices],
+            synced: vec![false; devices],
             all_since: None,
         }
     }
@@ -675,6 +702,7 @@ impl Convergence {
                 _ => {}
             }
         }
+        self.synced = statuses.iter().map(Option::is_some).collect();
         let synced = statuses.iter().filter(|s| s.is_some()).count();
         let all = synced > 0
             && self
@@ -695,6 +723,43 @@ impl Convergence {
             _ => {}
         }
         events
+    }
+}
+
+impl Convergence {
+    /// How far the devices converged, for the live view: `2 of 3 within 2.00 ms, waiting for Donguru`, or `all 3
+    /// within 2.00 ms for 4.1 s` (`now` ns since the start). Empty before any device has a status.
+    fn status_line(&self, names: &[String], within_us: u64, now: u64) -> String {
+        let synced: Vec<_> = self
+            .synced
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| **s)
+            .map(|(i, _)| i)
+            .collect();
+        if synced.is_empty() {
+            return String::new();
+        }
+        let within = us(within_us as i64);
+        if let Some(since) = self.all_since {
+            return format!(
+                "{} all {} within {within} for {:.1} s\n",
+                style("✓").green().bold(),
+                synced.len(),
+                now.saturating_sub(since) as f64 / 1e9
+            );
+        }
+        let waiting: Vec<_> = synced
+            .iter()
+            .filter(|i| self.since[**i].is_none())
+            .map(|i| names[*i].as_str())
+            .collect();
+        format!(
+            "{} of {} within {within}, waiting for {}\n",
+            synced.len() - waiting.len(),
+            synced.len(),
+            waiting.join(", ")
+        )
     }
 }
 
@@ -911,6 +976,9 @@ mod tests {
         console::set_colors_enabled(false);
         let s = 1_000_000_000;
         let mut c = Convergence::new(2_000_000, 3);
+        let names = ["Donguru".to_string(), "rePort".into(), "x".into()];
+        // the live view's status line: nothing before any status
+        assert_eq!(c.status_line(&names, 2000, 0), "");
         // the third device has no clock: it doesn't hold up "all"
         let mut now = vec![
             status(SyncState::Acquiring, 40_000),
@@ -926,6 +994,10 @@ mod tests {
             }]
         );
         assert_eq!(c.update(2 * s, &now), []);
+        assert_eq!(
+            c.status_line(&names, 2000, 2 * s),
+            "1 of 2 within 2.00 ms, waiting for Donguru\n"
+        );
         // locked but the host still sees it 3 ms off: not yet
         now[0] = status(SyncState::Locked, 3_000);
         assert_eq!(c.update(3 * s, &now), []);
@@ -946,7 +1018,10 @@ mod tests {
                 }
             ]
         );
-        let names = ["Donguru".to_string(), "rePort".into(), "x".into()];
+        assert_eq!(
+            c.status_line(&names, 2000, 7 * s),
+            "✓ all 2 within 2.00 ms for 2.0 s\n"
+        );
         assert_eq!(
             events[1].line(&names, 2000),
             "✓ all 2 within 2.00 ms after 5.0 s, phase 1.20 ms apart (±100 µs)"

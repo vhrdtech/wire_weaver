@@ -42,8 +42,8 @@ a short line on what it gives a user, a docs link); the test names what is missi
 just check          # cargo check for repo-root workspace (+ ww_device with defmt/embassy-time), mcu/ and examples_mcu/
 just check-mcu       # cargo check the separate `mcu/` workspace (embassy-based, embedded)
 just check-examples-mcu   # cargo check every board in examples_mcu/ (excluded from root workspace)
-just install        # build ww (--profile deploy) and install it on this PC through `tpm install`: the only ww on PATH
-just deploy         # pull --ff-only (refuses on local changes), install, check ww --version against main
+just install        # build ww (--profile deploy) and install it; works anywhere: with `tpm` it uses the release stack (the only ww on PATH), else `cargo install`
+just deploy         # pull --ff-only (refuses on local changes), deps-pull, install, check ww --version against main
 just test            # cargo nextest run --workspace --no-fail-fast
 just serve-docs       # local docs preview (uv run zensical serve)
 just build-docs        # build docs site

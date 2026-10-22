@@ -2,7 +2,7 @@
 
 ### 🚀 Features
 
-- `just install` builds `ww` with the new `[profile.deploy]` and installs it through `tpm install` (kept-releases stack, exactly one `ww` on PATH); `just deploy` pulls main with `--ff-only`, refuses on local changes, installs and checks `ww --version` against main's commit. `just install-cli` is now an alias of `install`; it no longer copies with `install -D`.
+- `just install` builds `ww` with the new `[profile.deploy]` and installs it through `tpm install` when `tpm` is on PATH (kept-releases stack, exactly one `ww`), else with `cargo install --locked --path wire_weaver_cli`; `just deploy` pulls main with `--ff-only`, refuses on local changes, runs the new `just deps-pull` (`../chunky_mcu_updater`), installs and checks `ww --version` against main's commit. `just install-cli` is now an alias of `install`; it no longer copies with `install -D`.
 - `ww api save` writes the SHA-256 of the snapshot's shrink_wrap bytes into the RON header (`// shrink_wrap sha256: ..`), which the build of `wire_weaver_snapshots` checks; a snapshot without it is saved again.
 - Every `ww` command holding a device directly steers its clock onto UTC while it runs (CLT-46, `WW_CLOCK_SYNC=off`
   to leave it alone); `ww dfu reboot | flash | confirm | revert` pause it while they change the device, `ww sync`

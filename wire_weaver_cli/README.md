@@ -16,7 +16,7 @@ From a local checkout of this repository, on a PC with `tpm`:
 just install
 ```
 
-It builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. Without `tpm`, use `cargo install --path wire_weaver_cli` from the checkout; re-run it with `--force` to update.
+It builds `ww` with the `deploy` profile and installs it into the kept-releases stack in `~/.local/bin`, the only `ww` on `PATH` (a stale `~/.cargo/bin/ww` is moved to the trash). `just deploy` pulls main first and checks that `ww --version` shows its commit. `just install` works anywhere: without `tpm` it runs `cargo install --locked --path wire_weaver_cli` instead.
 
 ### Shell completions
 

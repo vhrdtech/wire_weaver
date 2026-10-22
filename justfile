@@ -194,21 +194,27 @@ check-examples-mcu-rp2:
 upload-examples-mcu-usb-stm32h725ig:
     mx3 fw upload --bin uart --release --rename usb_b135_uart
 
-# Build ww and install it on this PC (kept-releases stack in ~/.local/bin, the only ww on PATH)
+# Build ww and install it
 install:
     cargo build --profile deploy --locked -p wire_weaver_cli
-    tpm install target/deploy/ww
+    # With tpm on PATH: tpm install (kept-releases stack, one copy on PATH); otherwise: cargo install
+    if command -v tpm >/dev/null; then tpm install target/deploy/ww; else cargo install --locked --path wire_weaver_cli; fi
 
 # Old name of install, kept for people and docs
 install-cli: install
 
-# Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
+# Pull the sibling checkout the build takes by path (wire_weaver_cli depends on ../chunky_mcu_updater)
+deps-pull:
+    git -C ../chunky_mcu_updater pull --ff-only
+
+# Bring this PC up to main: pull --ff-only, refuse on local changes, pull deps, install, check ww --version against main
 deploy:
     #!/usr/bin/env bash
     set -eu
     dirty=$(git status --porcelain)
     if [ -n "$dirty" ]; then echo "local changes, not deploying:"; echo "$dirty"; exit 1; fi
     git pull --ff-only
+    just deps-pull
     just install
     ww --version | grep -q "($(git rev-parse --short HEAD)" || { echo "ww --version does not show $(git rev-parse --short HEAD):"; ww --version; exit 1; }
     ww --version

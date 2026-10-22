@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use crate::event_loop::DeviceHandle;
+use crate::event_loop::medium::{MediumRx, MediumTx};
 
 /// Message tx half.
 pub(crate) trait MessageTx: Send + 'static {
@@ -128,9 +129,14 @@ pub(crate) struct Opened<Tx, Rx> {
 /// Opens a connection for a handle from [Command](super::command::Command)`::Connect` and provides
 /// message tx and rx halves. Called once per event loop: to re-connect, tear the loop down and start
 /// a new one with the residual, possibly with a different transport.
+///
+/// The halves go into the event loop's one transport slot ([MediumTx], [MediumRx]), which a live handover swaps for
+/// another medium's ([relink](super::medium::relink)); the steps below are this medium's part in that, called on
+/// whichever medium is in the slot.
 pub(crate) trait Transport {
-    type Tx: MessageTx;
-    type Rx: MessageRx;
+    /// Goes into the event loop's slot ([MediumTx]): a medium of this crate has a variant of its own
+    type Tx: MessageTx + Into<MediumTx>;
+    type Rx: MessageRx + Into<MediumRx>;
 
     /// How long link setup may take after [connect](Self::connect) returned, before the connection fails with
     /// [Error::LinkSetupTimeout](crate::Error::LinkSetupTimeout). Default for this transport, a user can override it
@@ -180,15 +186,10 @@ pub(crate) trait Transport {
         async { Err("this medium can't be handed over live".to_string()) }
     }
 
-    /// Both halves go on over the tunnel to the hub that adopted the device. The device's halves are dropped (it
-    /// was let go of before).
-    #[cfg(feature = "local_socket")]
+    /// The link leaves this medium for another one ([relink](super::medium::relink)), after [Self::let_go]: what the
+    /// halves still have to do before they are dropped. An error keeps them in the slot.
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
-    fn switch(
-        _tx: &mut Self::Tx,
-        _rx: &mut Self::Rx,
-        _tunnel: crate::local_socket::Tunnel,
-    ) -> Result<(), String> {
+    fn switch(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> Result<(), String> {
         Err("this medium can't be handed over live".to_string())
     }
 
@@ -216,87 +217,18 @@ pub(crate) trait Transport {
 pub(crate) struct Paused {
     /// The device's key in the hub (`usb:<vid>:<pid>:<serial>`), which may differ from its holders registry key
     pub key: String,
-    pub medium: crate::adopt::MediumOwned,
-    /// The tx framer's next frame, None without a frame prefix
-    pub tx_frame: Option<ww_framer::prefix::FrameCtx>,
-    pub rx: RxCarryOf,
+    /// What the medium that takes the link over goes on from (its endpoints, the framers' state)
+    pub medium: crate::adopt::MediumResidualOwned,
     /// Messages the received data completed, in order
     pub messages: Vec<(u8, Vec<u8>)>,
 }
 
-#[cfg(any(feature = "usb", feature = "local_socket"))]
-pub(crate) type RxCarryOf = crate::framing::RxCarry;
-#[cfg(not(any(feature = "usb", feature = "local_socket")))]
-pub(crate) type RxCarryOf = ();
-
-/// How the framers of an adopted medium go on (CLT-44): wraps the transport's own handle in
-/// [TxOutput::Connect](super::core::TxOutput::Connect).
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
-pub(crate) struct Carried {
-    pub tx_frame: Option<ww_framer::prefix::FrameCtx>,
-    pub rx: RxCarryOf,
-}
-
-/// A transport handle with [Carried] framer state.
+/// A transport handle for a link adopted from another program (CLT-44): the medium goes on from `medium`, which it
+/// decodes itself, see [TxOutput::Connect](super::core::TxOutput::Connect).
+#[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
 pub(crate) struct Adopting {
     pub handle: DeviceHandle,
-    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
-    pub carried: Carried,
-}
-
-/// A medium's halves, on the device or, after a live handover (CLT-44), on the tunnel to the hub.
-#[cfg_attr(not(feature = "hub"), allow(dead_code))]
-pub(crate) enum Live<D, H> {
-    Device(D),
-    Hub(H),
-}
-
-impl<D: MessageTx, H: MessageTx> MessageTx for Live<D, H> {
-    async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
-        match self {
-            Live::Device(d) => d.write_message(kind, message).await,
-            Live::Hub(h) => h.write_message(kind, message).await,
-        }
-    }
-
-    async fn flush(&mut self) -> Result<(), String> {
-        match self {
-            Live::Device(d) => d.flush().await,
-            Live::Hub(h) => h.flush().await,
-        }
-    }
-
-    async fn handover_requested(&mut self) {
-        match self {
-            Live::Device(d) => d.handover_requested().await,
-            // through the hub already
-            Live::Hub(_) => std::future::pending().await,
-        }
-    }
-
-    async fn close(self) {
-        match self {
-            Live::Device(d) => d.close().await,
-            Live::Hub(h) => h.close().await,
-        }
-    }
-}
-
-impl<D: MessageRx, H: MessageRx> MessageRx for Live<D, H> {
-    async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
-        match self {
-            Live::Device(d) => d.read_message().await,
-            Live::Hub(h) => h.read_message().await,
-        }
-    }
-
-    async fn close(self) {
-        match self {
-            Live::Device(d) => d.close().await,
-            Live::Hub(h) => h.close().await,
-        }
-    }
+    pub medium: crate::adopt::MediumResidualOwned,
 }
 
 /// Outcome of selecting a device for a transport.

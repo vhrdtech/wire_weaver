@@ -1204,11 +1204,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🧪 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (link, requests
   in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
   without a gap; elsewhere CLT-43's release and reopen. Built (`docs/transport/hub.md#live-link-handover-clt-44`): the
-  holder pauses (OUT drained, IN cancelled and reaped into the framer), sends a `LinkSnapshot`
-  (`wire_weaver_client::adopt`) to `ww_hub_api::Adopt::prepare`, releases the interface keeping the device open (no
+  holder pauses (OUT drained, IN cancelled and reaped into the framer), sends its residual
+  (`wire_weaver_client::adopt::HandoverOwned`: the link residual, the same on every medium, and a medium residual only
+  the taking medium decodes) to `ww_hub_api::Adopt::prepare`, releases the interface keeping the device open (no
   bus traffic at alternate setting 0, toggles kept), `commit` has the hub open the device itself and go on with the
   link (`PreparedConnection::adopt`), the holder's tunnel attaches by adoption id (`TAG_ADOPT`) and its event loop
-  swaps both halves to it keeping seqs and waiters. No fd passing: nusb 0.2 can't give one out, and a shared open
+  puts the tunnel in its one transport slot (a relink from any medium to any other) keeping seqs and waiters. No fd passing: nusb 0.2 can't give one out, and a shared open
   file's claim goes with the holder's `Interface`. Needs the same `wire_weaver_client` minor in the hub. Rollback when
   the hub dies before it holds the device, cleanup after `HubConfig::adopt_attach` when the holder dies. Real USB on
   Linux (nusb) and the simulated USB device (`usb_sim`). Tested between processes on `usb_sim`

@@ -66,7 +66,7 @@ fn device_info(url: &str) -> crate::DeviceInfo {
     }
 }
 
-struct WsTransport;
+pub(crate) struct WsTransport;
 
 impl Transport for WsTransport {
     fn link_setup_timeout(&self) -> std::time::Duration {
@@ -123,7 +123,7 @@ async fn connect(
     tokio_tungstenite::connect_async_with_config(url, Some(config), true).await
 }
 
-struct WsTx(SplitSink<Ws, Message>);
+pub(crate) struct WsTx(SplitSink<Ws, Message>);
 
 impl MessageTx for WsTx {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
@@ -151,7 +151,7 @@ impl MessageTx for WsTx {
     }
 }
 
-struct WsRx {
+pub(crate) struct WsRx {
     rx: SplitStream<Ws>,
     /// Last received message, returned borrowed
     message: Bytes,

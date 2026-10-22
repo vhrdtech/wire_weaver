@@ -429,7 +429,7 @@ fn device_info(path: String) -> crate::DeviceInfo {
     }
 }
 
-struct InProcessTransport;
+pub(crate) struct InProcessTransport;
 
 impl Transport for InProcessTransport {
     fn link_setup_timeout(&self) -> std::time::Duration {
@@ -490,7 +490,7 @@ impl Transport for InProcessTransport {
 
 use crate::framing::{UsbRx as UsbRxFramer, UsbTx as UsbTxFramer};
 
-struct HostTx {
+pub(crate) struct HostTx {
     to_device: mpsc::UnboundedSender<Message>,
     /// Some for a simulated USB device: messages are packed into packets
     framer: Option<UsbTxFramer>,
@@ -546,7 +546,7 @@ impl MessageTx for HostTx {
     }
 }
 
-struct HostRx {
+pub(crate) struct HostRx {
     from_device: mpsc::UnboundedReceiver<Message>,
     /// Last received message, returned borrowed
     message: Option<Message>,

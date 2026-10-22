@@ -44,10 +44,10 @@ pub trait Hub {
 /// so that either side dying on the way leaves one working holder: until the commit the program still has the device.
 #[ww_trait]
 pub trait Adopt {
-    /// Prepares to adopt the link `snapshot` describes (`wire_weaver_client::adopt::LinkSnapshotOwned`, internal state
-    /// of the same `wire_weaver_client` major.minor): checks it, keeps others from opening the device meanwhile and
-    /// reserves the program's tunnel. Answers the id for [Adopt::commit] and the tunnel's preamble. Forgotten when
-    /// this connection closes before the commit.
+    /// Prepares to adopt the link `snapshot` describes (`wire_weaver_client::adopt::HandoverOwned`: the link residual and
+    /// the medium residual, internal state of the same `wire_weaver_client` major.minor): checks it, keeps others from
+    /// opening the device meanwhile and reserves the program's tunnel. Answers the id for [Adopt::commit] and the
+    /// tunnel's preamble. Forgotten when this connection closes before the commit.
     fn prepare(snapshot: RefVec<'i, u8>) -> Result<u64, AdoptError<'i>>;
 
     /// The program let go of the device: the hub opens it and goes on with the link. The program's tunnel (preamble

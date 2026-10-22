@@ -6,12 +6,23 @@
 //! Two-phase, so that either side dying leaves one working holder:
 //! 1. connect to the hub API on a task of its own ([Connecting]), the link running on meanwhile;
 //! 2. pause: the tx core holds new requests and pings; the medium sends every OUT transfer and reaps IN
-//!    ([Transport::pause]); what came in is dispatched; the state of both cores and framers is the snapshot;
-//! 3. `Adopt::prepare(snapshot)`: the hub checks it and keeps the device for us;
+//!    ([Transport::pause]); what came in is dispatched; the state of both cores is the link residual, what the medium
+//!    leaves (its framers' state, endpoints) the medium residual ([HandoverOwned](crate::adopt::HandoverOwned));
+//! 3. `Adopt::prepare(handover)`: the hub checks it and keeps the device for us;
 //! 4. let go of the device ([Transport::let_go]) and of its lock file (a waiting asker hears `Released`), then
 //!    `Adopt::commit`: the hub opens the device going on with the link;
-//! 5. open the tunnel (preamble with the adoption id), switch both halves to it ([Transport::switch]) and relink
-//!    the cores over it ([TxCore::relink]).
+//! 5. open the tunnel (preamble with the adoption id) and relink over it ([relink]): the slot's halves leave the
+//!    device ([Transport::switch]), the tunnel's take their place, and the cores link up with the hub with the same
+//!    seqs ([TxCore::relink]).
+//!
+//! Every step is the medium's in the event loop's slot ([MediumTx](super::medium::MediumTx)), whichever it is: this
+//! module knows nothing of USB.
+//!
+//! [Transport::pause]: super::transport::Transport::pause
+//! [Transport::let_go]: super::transport::Transport::let_go
+//! [Transport::switch]: super::transport::Transport::switch
+//! [TxCore::relink]: super::core::TxCore::relink
+//! [relink]: super::medium::relink
 //!
 //! The hub refusing before the commit: back to the medium, then CLT-43's release and reopen. The hub gone before the
 //! commit: back to the medium, holding the device again (the asker hears `Failed`). After the commit the device is
@@ -21,19 +32,20 @@
 use tokio::sync::oneshot;
 
 use super::core::RxPart;
+use super::medium::MediumRx;
 #[cfg(feature = "hub")]
 pub(crate) use with_hub::hand_over;
 
 /// What the tx task asks of the rx task while it hands the link over.
 #[cfg_attr(not(feature = "hub"), allow(dead_code))]
-pub(crate) enum RxCtl<R> {
+pub(crate) enum RxCtl {
     /// Give the rx half to the tx task (dropped if there is none)
-    Lend(oneshot::Sender<R>),
+    Lend(oneshot::Sender<MediumRx>),
     /// Take it back, maybe another medium's now
-    Return(R),
+    Return(MediumRx),
     /// Messages the medium completed while it was paused, in order
     Feed(Vec<(u8, Vec<u8>)>),
-    /// The rx core's part of the snapshot, after everything fed before
+    /// The rx core's part of the link residual, after everything fed before
     Part(oneshot::Sender<RxPart>),
 }
 
@@ -113,21 +125,22 @@ mod with_hub {
     use ww_tap::{Dir, RecorderLink, Tap};
 
     use super::{Outcome, RxCtl};
-    use crate::adopt::{FrameAtOwned, LinkSnapshotOwned, PartialOwned, TraitIdOwned};
-    use crate::event_loop::core::{ToRx, TxCore, TxOutput, now};
-    use crate::event_loop::transport::{MessageTx, Transport};
+    use crate::adopt::{HandoverOwned, LinkResidualOwned, TraitIdOwned};
+    use crate::event_loop::core::{RxPart, ToRx, TxCore, TxOutput, TxPart, now};
+    use crate::event_loop::medium::{self, MediumRx, MediumTx};
+    use crate::event_loop::transport::MessageTx;
     use crate::hub::adopt::{HubSide, Refused};
 
     /// Hands the link over, see the [module docs](super).
-    pub(crate) async fn hand_over<T: Transport>(
+    pub(crate) async fn hand_over(
         core: &mut TxCore,
-        tx: &mut T::Tx,
+        tx: &mut MediumTx,
         to_rx: &mpsc::UnboundedSender<ToRx>,
-        rx_ctl: &mpsc::UnboundedSender<RxCtl<T::Rx>>,
+        rx_ctl: &mpsc::UnboundedSender<RxCtl>,
         tap: &mut Option<RecorderLink>,
         hub: Result<HubSide, Refused>,
     ) -> Outcome {
-        let Some(claim) = T::claim_of(tx) else {
+        let Some(claim) = tx.claim() else {
             return Outcome::Release;
         };
         let key = claim.key().to_string();
@@ -156,8 +169,8 @@ mod with_hub {
             core.resume(now());
             return Outcome::Release;
         };
-        let give_back = |rx| _ = rx_ctl.send(RxCtl::Return(rx));
-        let paused = match T::pause(tx, &mut rx).await {
+        let give_back = |rx: MediumRx| _ = rx_ctl.send(RxCtl::Return(rx));
+        let paused = match medium::pause(tx, &mut rx).await {
             Ok(paused) => paused,
             Err(e) => {
                 // the medium broke on the way: whatever the next read says ends the link
@@ -175,44 +188,15 @@ mod with_hub {
             core.resume(now());
             return Outcome::Release;
         };
-        let tx_part = core.link_part();
-        let frame = |f: ww_framer::prefix::FrameCtx| FrameAtOwned {
-            seq: f.seq,
-            epoch: f.epoch,
-        };
-        let snapshot = LinkSnapshotOwned {
+        let handover = HandoverOwned {
             client_version: crate::adopt::CLIENT_VERSION.into(),
-            key: paused.key.clone(),
+            key: paused.key,
+            link: link_residual(core.link_part(), rx_part),
             medium: paused.medium,
-            tx_frame: paused.tx_frame.map(frame),
-            rx_partial: paused
-                .rx
-                .partial
-                .map(|(user_kind, total, bytes)| PartialOwned {
-                    user_kind,
-                    total: total as u32,
-                    bytes,
-                }),
-            rx_staged: paused.rx.staged,
-            rx_next_frame: paused.rx.next_frame.map(frame),
-            token: tx_part.token,
-            device_info: tx_part.device_info,
-            ping_in_ms: tx_part.ping_in.as_millis().min(u32::MAX as u128) as u32,
-            last_rx_ms_ago: rx_part.last_rx_ago.as_millis().min(u32::MAX as u128) as u32,
-            next_seq: tx_part.next_seq,
-            max_seq: tx_part.max_seq,
-            in_flight: tx_part.in_flight,
-            full_only: tx_part
-                .full_only
-                .into_iter()
-                .map(|(id, major, minor)| TraitIdOwned { id, major, minor })
-                .collect(),
-            streams: rx_part.streams,
-            observed: rx_part.observed,
         };
-        let in_flight = snapshot.in_flight.len();
-        let hub_key = snapshot.key.clone();
-        let id = match hub.prepare(&snapshot).await {
+        let in_flight = handover.link.in_flight.len();
+        let hub_key = handover.key.clone();
+        let id = match hub.prepare(&handover).await {
             Ok(id) => id,
             Err(e) => {
                 let outcome = match e {
@@ -226,7 +210,7 @@ mod with_hub {
                         Outcome::Kept
                     }
                 };
-                return match T::take_back(tx, &mut rx).await {
+                return match medium::take_back(tx, &mut rx).await {
                     Ok(()) => {
                         give_back(rx);
                         core.resume(now());
@@ -241,20 +225,20 @@ mod with_hub {
                 };
             }
         };
-        if let Err(e) = T::let_go(tx, &mut rx).await {
+        if let Err(e) = medium::let_go(tx, &mut rx).await {
             warn!("{key}: letting go of the device: {e}");
         }
         // the lock file goes: the hub takes it, a waiting asker hears Released
         let again = claim.again();
         drop(claim);
-        drop(T::take_claim(tx, &mut rx));
+        drop(medium::take_claim(tx, &mut rx));
         if let Err(e) = hub.commit(id).await {
             warn!("{key}: {e} taking the live link: keeping the device");
             match again.claim() {
-                Ok(c) => T::put_claim(tx, &mut rx, Some(std::sync::Arc::new(c))),
+                Ok(c) => medium::put_claim(tx, &mut rx, Some(std::sync::Arc::new(c))),
                 Err(e) => warn!("{key}: holding it in the holders registry again: {e}"),
             }
-            return match T::take_back(tx, &mut rx).await {
+            return match medium::take_back(tx, &mut rx).await {
                 Ok(()) => {
                     give_back(rx);
                     core.resume(now());
@@ -275,13 +259,13 @@ mod with_hub {
                 return Outcome::HandedOff;
             }
         };
-        if let Err(e) = T::switch(tx, &mut rx, tunnel) {
+        let (htx, hrx) = tunnel.into_halves(None);
+        if let Err(e) = medium::relink(core, tx, &mut rx, (htx.into(), hrx.into())) {
             warn!("{key}: {e}");
             give_back(rx);
             return Outcome::HandedOff;
         }
         give_back(rx);
-        core.relink(now());
         // the hub API connection is done; a Commander's drop sleeps a moment for its Disconnect, not on this task
         tokio::task::spawn_blocking(move || drop(hub));
         info!(
@@ -289,6 +273,27 @@ mod with_hub {
             started.elapsed()
         );
         Outcome::Switched
+    }
+
+    /// The link's residual, from the parts of the paused cores: nothing of the medium.
+    fn link_residual(tx: TxPart, rx: RxPart) -> LinkResidualOwned {
+        let ms = |d: std::time::Duration| d.as_millis().min(u32::MAX as u128) as u32;
+        LinkResidualOwned {
+            token: tx.token,
+            device_info: tx.device_info,
+            ping_in_ms: ms(tx.ping_in),
+            last_rx_ms_ago: ms(rx.last_rx_ago),
+            next_seq: tx.next_seq,
+            max_seq: tx.max_seq,
+            in_flight: tx.in_flight,
+            full_only: tx
+                .full_only
+                .into_iter()
+                .map(|(id, major, minor)| TraitIdOwned { id, major, minor })
+                .collect(),
+            streams: rx.streams,
+            observed: rx.observed,
+        }
     }
 
     /// Writes what the paused core still had for the medium.

@@ -4,20 +4,22 @@
 //! see [core](crate::event_loop::core).
 //!
 //! Live link handover (CLT-44, Linux): [Transport::pause] sends every OUT transfer and cancels and reaps the IN ones
-//! into the framer, [Transport::let_go] releases the interface keeping the device open, [Transport::take_back]
-//! claims it again. Releasing an interface at alternate setting 0 sends nothing on the bus and keeps the endpoints'
+//! into the framer and leaves a [UsbResidualOwned], [Transport::let_go] releases the interface keeping the device
+//! open, [Transport::take_back] claims it again. Releasing an interface at alternate setting 0 sends nothing on the bus and keeps the endpoints'
 //! data toggles, so the program that claims it next goes on where this one stopped.
 
 use nusb::descriptors::TransferType;
 use nusb::transfer::TransferError;
 use tokio::sync::mpsc;
 use tracing::{debug, trace};
+use wire_weaver::prelude::*;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 
 use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 #[cfg(feature = "local_socket")]
-use crate::event_loop::transport::{Live, Paused};
+use crate::event_loop::transport::Paused;
 use crate::event_loop::transport::{
     MessageRx, MessageTx, Opened, SharedClaim, Transport, handover_requested,
 };
@@ -32,7 +34,7 @@ pub async fn usb_worker(cmd_rx: mpsc::Receiver<Command>) {
     debug!("usb worker exited");
 }
 
-struct NusbTransport;
+pub(crate) struct NusbTransport;
 
 pub(crate) struct NusbTx {
     framer: TxFramer,
@@ -80,24 +82,72 @@ struct Eps {
 #[cfg(feature = "local_socket")]
 const PAUSE_OUT_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
-#[cfg(feature = "local_socket")]
-type Tx = Live<NusbTx, crate::local_socket::LocalTx>;
-#[cfg(feature = "local_socket")]
-type Rx = Live<NusbRx, crate::local_socket::LocalRx>;
-#[cfg(not(feature = "local_socket"))]
 type Tx = NusbTx;
-#[cfg(not(feature = "local_socket"))]
 type Rx = NusbRx;
 
-/// Both halves on the device, for the live handover steps.
-#[cfg(feature = "local_socket")]
-fn on_device<'a>(
-    tx: &'a mut Tx,
-    rx: &'a mut Rx,
-) -> Result<(&'a mut NusbTx, &'a mut NusbRx), String> {
-    match (tx, rx) {
-        (Live::Device(tx), Live::Device(rx)) => Ok((tx, rx)),
-        _ => Err("the link goes through the hub already".into()),
+/// What a USB link leaves for the medium that takes it over (CLT-44), the bytes of its
+/// [MediumResidualOwned](crate::adopt::MediumResidualOwned): the interface it is on, and what the framers hold.
+#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq))]
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+pub(crate) struct UsbResidualOwned {
+    pub interface: u8,
+    pub ep_in: u8,
+    pub ep_out: u8,
+    pub max_packet: u16,
+    pub bulk: bool,
+    pub seq_prefix: bool,
+    pub framers: crate::framing::FramerCarryOwned,
+}
+
+/// Largest USB packet.
+const MAX_PACKET: u16 = 1024;
+
+#[cfg_attr(not(feature = "local_socket"), allow(dead_code))]
+impl UsbResidualOwned {
+    const KIND: crate::adopt::MediumKindOwned = crate::adopt::MediumKindOwned::Usb;
+
+    pub fn encode(&self) -> Result<crate::adopt::MediumResidualOwned, String> {
+        Ok(crate::adopt::MediumResidualOwned {
+            kind: Self::KIND,
+            bytes: self.to_ww_bytes_owned().map_err(|e| format!("{e:?}"))?,
+        })
+    }
+
+    /// Decodes the residual of a USB link and bounds its sizes.
+    pub fn decode(medium: &crate::adopt::MediumResidualOwned) -> Result<Self, String> {
+        let r = Self::from_ww_bytes_owned(medium.of(Self::KIND)?).map_err(|e| format!("{e:?}"))?;
+        if !(8..=MAX_PACKET).contains(&r.max_packet) {
+            return Err(format!("max packet {}", r.max_packet));
+        }
+        r.framers.check(r.max_packet as usize)?;
+        Ok(r)
+    }
+
+    /// The link was on this interface, with these endpoints: the adopting medium opens the same.
+    fn fits(&self, eps: Eps) -> Result<(), String> {
+        let theirs = (
+            self.interface,
+            self.ep_in,
+            self.ep_out,
+            self.max_packet as usize,
+            self.bulk,
+            self.seq_prefix,
+        );
+        let ours = (
+            eps.interface,
+            eps.ep_in,
+            eps.ep_out,
+            eps.max_packet,
+            eps.bulk,
+            eps.seq_prefix,
+        );
+        if theirs == ours {
+            Ok(())
+        } else {
+            Err(format!(
+                "the adopted link was on another interface: {theirs:?}, opened {ours:?}"
+            ))
+        }
     }
 }
 
@@ -124,8 +174,8 @@ impl Transport for NusbTransport {
         tap: ww_tap::RecorderLink,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
-        let (handle, carried) = match handle.downcast::<crate::event_loop::transport::Adopting>() {
-            Ok(a) => (a.handle, Some(a.carried)),
+        let (handle, adopted) = match handle.downcast::<crate::event_loop::transport::Adopting>() {
+            Ok(a) => (a.handle, Some(UsbResidualOwned::decode(&a.medium)?)),
             Err(handle) => (handle, None),
         };
         let target = handle
@@ -149,13 +199,9 @@ impl Transport for NusbTransport {
             dev.seq_prefix,
             crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size,
         );
-        if let Some(carried) = carried {
-            if let Some(frame) = carried.tx_frame {
-                tx_framer.continue_at(frame);
-            }
-            rx_framer
-                .continue_from(&carried.rx)
-                .map_err(|_| "the adopted link's partial message doesn't fit".to_string())?;
+        if let Some(adopted) = adopted {
+            adopted.fits(eps)?;
+            adopted.framers.apply(&mut tx_framer, &mut rx_framer)?;
         }
         let (sink, source) = endpoints(&dev.interface, eps)?;
         let mut tap = tap;
@@ -183,8 +229,6 @@ impl Transport for NusbTransport {
             tap,
             claim,
         };
-        #[cfg(feature = "local_socket")]
-        let (tx, rx) = (Live::Device(tx), Live::Device(rx));
         Ok(Opened { tx, rx })
     }
 
@@ -194,7 +238,6 @@ impl Transport for NusbTransport {
 
     #[cfg(feature = "local_socket")]
     async fn pause(tx: &mut Tx, rx: &mut Rx) -> Result<Paused, String> {
-        let (tx, rx) = on_device(tx, rx)?;
         // OUT: everything queued goes out and is taken by the device
         tx.send_frame().await?;
         let mut sink = tx.sink.take().ok_or("paused already")?;
@@ -223,39 +266,43 @@ impl Transport for NusbTransport {
                 framer.take_complete(&mut messages);
             })
             .await;
-        let failed = drained
-            .and(reaped)
-            .and(staged.map_err(|_| "out of staging area, this is a bug".to_string()));
-        if let Err(e) = failed {
-            // the link goes on as well as it can: endpoints again, whatever ends it ends it
-            if let Some(interface) = &tx.interface
-                && let Ok((sink, source)) = endpoints(interface, tx.eps)
-            {
-                tx.sink = Some(sink);
-                rx.source = Some(source);
-            }
-            return Err(e);
-        }
         let eps = tx.eps;
-        Ok(Paused {
-            key: tx.hub_key.clone(),
-            medium: crate::adopt::MediumOwned::Usb {
-                interface: eps.interface,
-                ep_in: eps.ep_in,
-                ep_out: eps.ep_out,
-                max_packet: eps.max_packet as u16,
-                bulk: eps.bulk,
-                seq_prefix: eps.seq_prefix,
-            },
-            tx_frame: tx.framer.frame_ctx(),
-            rx: rx.framer.carry(),
-            messages,
-        })
+        let medium = drained
+            .and(reaped)
+            .and(staged.map_err(|_| "out of staging area, this is a bug".to_string()))
+            .and_then(|()| {
+                UsbResidualOwned {
+                    interface: eps.interface,
+                    ep_in: eps.ep_in,
+                    ep_out: eps.ep_out,
+                    max_packet: eps.max_packet as u16,
+                    bulk: eps.bulk,
+                    seq_prefix: eps.seq_prefix,
+                    framers: crate::framing::FramerCarryOwned::take(&mut tx.framer, &rx.framer),
+                }
+                .encode()
+            });
+        match medium {
+            Ok(medium) => Ok(Paused {
+                key: tx.hub_key.clone(),
+                medium,
+                messages,
+            }),
+            Err(e) => {
+                // the link goes on as well as it can: endpoints again, whatever ends it ends it
+                if let Some(interface) = &tx.interface
+                    && let Ok((sink, source)) = endpoints(interface, tx.eps)
+                {
+                    tx.sink = Some(sink);
+                    rx.source = Some(source);
+                }
+                Err(e)
+            }
+        }
     }
 
     #[cfg(feature = "local_socket")]
-    async fn let_go(tx: &mut Tx, rx: &mut Rx) -> Result<(), String> {
-        let (tx, _) = on_device(tx, rx)?;
+    async fn let_go(tx: &mut Tx, _rx: &mut Rx) -> Result<(), String> {
         // the endpoints went in the pause: this releases the interface, the device stays open
         tx.interface = None;
         Ok(())
@@ -263,7 +310,6 @@ impl Transport for NusbTransport {
 
     #[cfg(feature = "local_socket")]
     async fn take_back(tx: &mut Tx, rx: &mut Rx) -> Result<(), String> {
-        let (tx, rx) = on_device(tx, rx)?;
         let interface = match tx.interface.take() {
             Some(interface) => interface,
             None => tx
@@ -280,40 +326,29 @@ impl Transport for NusbTransport {
     }
 
     #[cfg(feature = "local_socket")]
-    fn switch(tx: &mut Tx, rx: &mut Rx, tunnel: crate::local_socket::Tunnel) -> Result<(), String> {
-        let (htx, hrx) = tunnel.into_halves(None);
-        *tx = Live::Hub(htx);
-        *rx = Live::Hub(hrx);
-        Ok(())
+    fn switch(tx: &mut Tx, _rx: &mut Rx) -> Result<(), String> {
+        // the device file goes with the halves; the interface must be let go of, or the next medium can't claim it
+        match tx.interface {
+            None => Ok(()),
+            Some(_) => Err("the interface is still held".into()),
+        }
     }
 
     #[cfg(feature = "local_socket")]
     fn take_claim(tx: &mut Tx, rx: &mut Rx) -> SharedClaim {
-        let rx_claim = match rx {
-            Live::Device(rx) => rx.claim.take(),
-            Live::Hub(_) => None,
-        };
-        let tx_claim = match tx {
-            Live::Device(tx) => tx.claim.take(),
-            Live::Hub(_) => None,
-        };
-        tx_claim.or(rx_claim)
+        let rx_claim = rx.claim.take();
+        tx.claim.take().or(rx_claim)
     }
 
     #[cfg(feature = "local_socket")]
     fn claim_of(tx: &Tx) -> SharedClaim {
-        match tx {
-            Live::Device(tx) => tx.claim.clone(),
-            Live::Hub(_) => None,
-        }
+        tx.claim.clone()
     }
 
     #[cfg(feature = "local_socket")]
     fn put_claim(tx: &mut Tx, rx: &mut Rx, claim: SharedClaim) {
-        if let (Live::Device(tx), Live::Device(rx)) = (tx, rx) {
-            tx.claim = claim.clone();
-            rx.claim = claim;
-        }
+        tx.claim = claim.clone();
+        rx.claim = claim;
     }
 }
 
@@ -461,6 +496,8 @@ mod tests {
             self.0.fetch_add(1, Ordering::SeqCst);
         }
     }
+
+    crate::event_loop::medium::other_medium!(tx: MockTx; rx: MockRx;);
 
     struct MockTx(mpsc::Sender<Msg>, Closed);
 

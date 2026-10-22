@@ -244,7 +244,7 @@ impl RxDispatcher {
         true
     }
 
-    /// Paths of the streams with a listener or open as counted / reliable ones, sorted (CLT-44 snapshot).
+    /// Paths of the streams with a listener or open as counted / reliable ones, sorted (CLT-44 link residual).
     pub fn open_stream_paths(&self) -> Vec<Vec<u32>> {
         let mut paths: Vec<Vec<u32>> = self
             .stream_handlers
@@ -259,7 +259,7 @@ impl RxDispatcher {
         paths
     }
 
-    /// The `Observe` request each observed level last sent (CLT-44 snapshot).
+    /// The `Observe` request each observed level last sent (CLT-44 link residual).
     pub fn observe_requests(&self) -> Vec<Vec<u8>> {
         self.observe_routes
             .values()

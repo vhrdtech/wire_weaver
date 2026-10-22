@@ -16,7 +16,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 use tracing::{debug, info, warn};
 use wire_weaver::shrink_wrap::UNib32;
-use wire_weaver_client::adopt::LinkSnapshotOwned;
+use wire_weaver_client::adopt::{HandoverOwned, LinkResidualOwned};
 use wire_weaver_client::internal::{Adopted, Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRequestOwned,
@@ -214,14 +214,23 @@ pub(crate) async fn open(hub: &Arc<Hub>, key: &str, slot: Slot) -> Result<Device
 /// already, with its streams, observed levels and requests in flight, whose answers go into `queue`.
 pub(crate) async fn adopt(
     hub: &Arc<Hub>,
-    snapshot: &LinkSnapshotOwned,
+    handover: HandoverOwned,
     slot: Slot,
     tunnel: u32,
     queue: Arc<TunnelQueue>,
 ) -> Result<DeviceHandle, String> {
-    let key = snapshot.key.as_str();
+    let HandoverOwned {
+        key, link, medium, ..
+    } = handover;
+    let key = key.as_str();
     let config = config_for(key).ok_or_else(|| format!("no transport for {key}"))?;
-    let adopted = Adopted::new(snapshot, |seq| direct_tag(tunnel, seq), FORWARD_TIMEOUT)?;
+    // the event loop goes on with the link; the medium that opens the device by its key reads what its kind left
+    let adopted = Adopted::new(
+        &link,
+        medium,
+        |seq| direct_tag(tunnel, seq),
+        FORWARD_TIMEOUT,
+    )?;
     // the device answers the program's requests in flight in the first frames: their tunnel and the router are in
     // place before the event loop reads
     let (router, routes, sink) = wiring();
@@ -237,8 +246,9 @@ pub(crate) async fn adopt(
             return Err(e);
         }
     };
-    let streams = snapshot.streams.clone();
-    let observed = snapshot.observed.clone();
+    let LinkResidualOwned {
+        streams, observed, ..
+    } = link;
     start(hub, key, slot, cmd, routes, sink, move |state| {
         state.tunnels.insert(tunnel, queue);
         for path in streams {

@@ -1,5 +1,5 @@
 //! Live link handover (CLT-44): a program holding a device directly hands the hub its live link, in two steps on its
-//! hub API connection. `prepare` checks the snapshot and keeps the device's slot, so nobody opens the device meanwhile;
+//! hub API connection. `prepare` checks the handover (the link's residual and the medium's) and keeps the device's slot, so nobody opens the device meanwhile;
 //! `commit` (the program let go of the device) opens it going on with the link, with the program's tunnel joined, and
 //! waits [ATTACH_TIMEOUT] for that tunnel to connect.
 
@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tracing::{debug, info};
-use wire_weaver_client::adopt::{LinkSnapshotOwned, MediumOwned};
+use wire_weaver_client::adopt::HandoverOwned;
 use ww_hub_api::AdoptErrorOwned;
 
 use crate::Hub;
@@ -23,7 +23,7 @@ use wire_weaver_client::adopt::CLIENT_VERSION;
 /// An adoption prepared on a hub API connection, dropped with it.
 pub(crate) struct Prepared {
     pub(crate) id: u64,
-    snapshot: LinkSnapshotOwned,
+    handover: HandoverOwned,
     slot: Slot,
     /// The device's slot, held: a tunnel asking for the device meanwhile waits for the commit (or this to go)
     guard: tokio::sync::OwnedMutexGuard<Option<DeviceHandle>>,
@@ -38,20 +38,19 @@ pub(crate) struct Waiting {
 }
 
 pub(crate) async fn prepare(hub: &Arc<Hub>, bytes: &[u8]) -> Result<Prepared, AdoptErrorOwned> {
-    let snapshot = LinkSnapshotOwned::decode(bytes).map_err(|why| {
-        debug!("ww hub: adopt: bad snapshot: {why}");
+    let handover = HandoverOwned::decode(bytes).map_err(|why| {
+        debug!("ww hub: adopt: bad handover: {why}");
         AdoptErrorOwned::Snapshot { why }
     })?;
-    if !wire_weaver_client::adopt::same_minor(&snapshot.client_version, CLIENT_VERSION) {
+    if !wire_weaver_client::adopt::same_minor(&handover.client_version, CLIENT_VERSION) {
         return Err(AdoptErrorOwned::Versions {
             hub: CLIENT_VERSION.into(),
         });
     }
-    let key = snapshot.key.as_str();
-    let scheme_fits = matches!(
-        (&snapshot.medium, key.split_once(':').map(|(s, _)| s)),
-        (MediumOwned::Usb { .. }, Some("usb")) | (MediumOwned::UsbSim { .. }, Some("usbsim"))
-    );
+    let key = handover.key.as_str();
+    // the medium that opens the device by its key takes the medium residual: the same kind
+    let scheme_fits = handover.medium.kind.scheme().is_some()
+        && handover.medium.kind.scheme() == key.split_once(':').map(|(s, _)| s);
     if !scheme_fits || !device::has_transport(key) {
         return Err(AdoptErrorOwned::Snapshot {
             why: format!("the hub can't adopt {key} on this medium"),
@@ -66,7 +65,7 @@ pub(crate) async fn prepare(hub: &Arc<Hub>, bytes: &[u8]) -> Result<Prepared, Ad
         .try_lock_owned()
         .map_err(|_| AdoptErrorOwned::Busy)?;
     if guard.is_some() {
-        // the hub holds it: whoever holds it directly can't (a stale snapshot)
+        // the hub holds it: whoever holds it directly can't (a stale handover)
         return Err(AdoptErrorOwned::Busy);
     }
     let id = loop {
@@ -78,7 +77,7 @@ pub(crate) async fn prepare(hub: &Arc<Hub>, bytes: &[u8]) -> Result<Prepared, Ad
     debug!("ww hub: adoption {id:#x} of {key} prepared");
     Ok(Prepared {
         id,
-        snapshot,
+        handover,
         slot,
         guard,
     })
@@ -92,14 +91,15 @@ pub(crate) async fn commit(
 ) -> Result<(), AdoptErrorOwned> {
     let Prepared {
         id,
-        snapshot,
+        handover,
         slot,
         mut guard,
     } = prepared;
-    let key = snapshot.key.clone();
+    let key = handover.key.clone();
     let tunnel = hub.client_like(client);
     let queue = TunnelQueue::new();
-    let handle = match device::adopt(hub, &snapshot, slot, tunnel, queue.clone()).await {
+    let (in_flight, streams) = (handover.link.in_flight.len(), handover.link.streams.len());
+    let handle = match device::adopt(hub, handover, slot, tunnel, queue.clone()).await {
         Ok(handle) => handle,
         Err(why) => {
             hub.client_left(tunnel);
@@ -109,9 +109,7 @@ pub(crate) async fn commit(
     *guard = Some(handle.clone());
     drop(guard);
     info!(
-        "ww hub: adopted the live link to {key} ({} requests in flight, {} streams)",
-        snapshot.in_flight.len(),
-        snapshot.streams.len()
+        "ww hub: adopted the live link to {key} ({in_flight} requests in flight, {streams} streams)"
     );
     hub.adoptions.lock().unwrap().insert(
         id,

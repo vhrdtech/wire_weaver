@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `adopt::LinkSnapshotOwned` is split into a medium-independent and a medium part (CLT-44): `adopt::HandoverOwned { client_version, key, link, medium }` with `link: LinkResidualOwned` (token, `DeviceInfo`, seqs, requests in flight, streams, observed levels, `full_only`, ping timers) and `medium: MediumResidualOwned { kind: MediumKindOwned, bytes }`, bytes that only the medium of that kind decodes (for USB its endpoints and the framers' carry, which were `MediumOwned`, `tx_frame`, `rx_partial`, `rx_staged`, `rx_next_frame`). `MediumOwned`, `FrameAtOwned` and `PartialOwned` are gone from `adopt`. `internal::Adopted::new(link, medium, tag, forward_timeout)` takes the two residuals instead of a snapshot. A hub and a holder of different minors never adopted each other's links, so deployed hubs are not affected beyond that.
 - A direct connection steers its device's clock onto the PC's UTC by default (CLT-46), when the device serves
   `ww_timebase::Clock` with `host_sync`: a task of the connection reads `now()` a few times a second and sends steer
   points. `ClientConfig::clock_sync(false)` (or `WW_CLOCK_SYNC=off`) keeps the old behaviour; a program that steers
@@ -37,6 +38,7 @@
 
 ### 🚀 Features
 
+- The event loop has one transport slot (`event_loop::medium`, an enum over this crate's media, boxed for others) instead of each live medium's `Live<Device, Hub>` halves: a live handover's steps are the medium's in the slot (`Transport::pause`, `let_go`, `take_back`, `switch`, the claim), and `medium::relink` puts another medium's halves in its place, from any medium to any other (CLT-44's tunnel to the hub now; the foundation for handing WS and UDP links over). The USB medium checks that an adopted link was on the interface and endpoints it opened.
 - Live link handover to the ww hub on Linux (CLT-44): a direct holder asked to hand its device over (CLT-43's
   request) hands the hub its live link instead of releasing the device, when the hub's `wire_weaver_client` has the
   same minor version. The event loop pauses the link (OUT transfers sent, IN cancelled and reaped into the framer),

@@ -1,41 +1,48 @@
 //! Live link handover (CLT-44): what a direct holder's event loop hands to the ww hub so the hub goes on with the
-//! same link, the device never seeing a reconnect. [LinkSnapshotOwned] is internal state between two builds of the
-//! same `wire_weaver_client` minor ([same_minor]), not a stable wire contract: it may change in any release.
+//! same link, the device never seeing a reconnect. A [HandoverOwned] is the link's residual in two parts:
+//!
+//! - [LinkResidualOwned]: everything about the link itself (token, `DeviceInfo`, seqs, requests in flight, streams,
+//!   observed levels, ping timers), the same on every medium: any event loop goes on from it, whichever medium it
+//!   runs on;
+//! - [MediumResidualOwned]: a kind tag and bytes only the medium of that kind reads (for USB its endpoints and what
+//!   its framers hold between frames): the medium that takes the link over decodes them, nothing else looks inside.
+//!
+//! Both are internal state between two builds of the same `wire_weaver_client` minor ([same_minor]), not a stable
+//! wire contract: they may change in any release.
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 
-/// This crate's version: a snapshot is adopted by the same major.minor ([same_minor]).
+/// This crate's version: a handover is adopted by the same major.minor ([same_minor]).
 pub const CLIENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Longest snapshot accepted: far above a real one (a few kB with every seq in flight).
+/// Longest handover accepted: far above a real one (a few kB with every seq in flight).
 pub const MAX_SNAPSHOT_LEN: usize = 256 * 1024;
 const MAX_PATH_LEN: usize = 64;
 const MAX_STREAMS: usize = 4096;
 const MAX_LEVELS: usize = 4096;
 const MAX_FULL_ONLY: usize = 1024;
-/// Largest seq number a snapshot may carry, as [ClientConfig::max_seq](crate::ClientConfig::max_seq) allows (a seq
+/// Largest seq number a residual may carry, as [ClientConfig::max_seq](crate::ClientConfig::max_seq) allows (a seq
 /// takes up to 5 bytes on the wire).
 const MAX_SEQ: u32 = u32::MAX >> 4;
-/// Most requests in flight a snapshot may carry.
+/// Most requests in flight a residual may carry.
 const MAX_IN_FLIGHT: usize = 1 << 16;
-/// Largest USB packet.
-const MAX_PACKET: u16 = 1024;
 
-/// The holder's link to its device, taken while the link is paused (nothing goes out, nothing is being received).
+/// The holder's link to its device, taken while the link is paused (nothing goes out, nothing is being received):
+/// what `Adopt::prepare` takes.
 #[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq))]
-pub struct LinkSnapshotOwned {
+pub struct HandoverOwned {
     /// `wire_weaver_client` version of the holder: adopted only by a hub of the same major.minor
     pub client_version: String,
-    /// The device's holders registry key
+    /// The device's key in the hub (`usb:<vid>:<pid>:<serial>`, `usbsim:<path>`)
     pub key: String,
-    pub medium: MediumOwned,
-    /// The holder's next OUT frame: the hub's tx framer goes on from it
-    pub tx_frame: Option<FrameAtOwned>,
-    /// What the holder's rx framer has between frames
-    pub rx_partial: Option<PartialOwned>,
-    pub rx_staged: Vec<u8>,
-    pub rx_next_frame: Option<FrameAtOwned>,
+    pub link: LinkResidualOwned,
+    pub medium: MediumResidualOwned,
+}
+
+/// The link, without anything of the medium it runs on: any event loop goes on from it.
+#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq))]
+pub struct LinkResidualOwned {
     /// Link setup token of the link
     pub token: u64,
     /// The device's `DeviceInfo` message, as received at link setup
@@ -56,55 +63,32 @@ pub struct LinkSnapshotOwned {
     pub observed: Vec<Vec<u8>>,
 }
 
-/// Which medium the link is on, and what of it the hub needs to open it the same way.
-#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
-pub enum MediumOwned {
-    /// A real USB device (Linux)
-    Usb {
-        interface: u8,
-        ep_in: u8,
-        ep_out: u8,
-        max_packet: u16,
-        bulk: bool,
-        seq_prefix: bool,
-    },
-    /// A simulated one on a local socket ([crate::usb_sim])
-    UsbSim { max_packet: u16, seq_prefix: bool },
-}
-
-impl MediumOwned {
-    pub fn max_packet(&self) -> u16 {
-        match self {
-            MediumOwned::Usb { max_packet, .. } | MediumOwned::UsbSim { max_packet, .. } => {
-                *max_packet
-            }
-            // a medium of a later build: check() refuses it
-            MediumOwned::Unknown(_) => 0,
-        }
-    }
-
-    pub fn seq_prefix(&self) -> bool {
-        match self {
-            MediumOwned::Usb { seq_prefix, .. } | MediumOwned::UsbSim { seq_prefix, .. } => {
-                *seq_prefix
-            }
-            MediumOwned::Unknown(_) => false,
-        }
-    }
-}
-
-#[derive_shrink_wrap(owned, derive(Copy, Clone, Debug, PartialEq, Eq))]
-pub struct FrameAtOwned {
-    pub seq: u32,
-    pub epoch: u8,
-}
-
-/// A split message the holder's rx framer had half assembled.
+/// What the medium the link ran on leaves for the medium that takes it over: only a medium of `kind` reads `bytes`.
 #[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq))]
-pub struct PartialOwned {
-    pub user_kind: u8,
-    pub total: u32,
+pub struct MediumResidualOwned {
+    pub kind: MediumKindOwned,
     pub bytes: Vec<u8>,
+}
+
+/// The medium a [MediumResidualOwned] is of.
+#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq), ww_repr = unib32)]
+pub enum MediumKindOwned {
+    /// A real USB device (Linux): its interface and endpoints, and what the framers hold between frames
+    Usb,
+    /// A simulated one on a local socket ([crate::usb_sim]): the same, without endpoints
+    UsbSim,
+}
+
+impl MediumKindOwned {
+    /// The scheme of the device keys of this medium in the hub.
+    pub fn scheme(&self) -> Option<&'static str> {
+        match self {
+            MediumKindOwned::Usb => Some("usb"),
+            MediumKindOwned::UsbSim => Some("usbsim"),
+            // a medium of a later build
+            MediumKindOwned::Unknown(_) => None,
+        }
+    }
 }
 
 #[derive_shrink_wrap(owned, derive(Copy, Clone, Debug, PartialEq, Eq))]
@@ -120,7 +104,7 @@ pub fn random_id() -> u64 {
 }
 
 /// Whether a hub built with `wire_weaver_client` `hub_version` may adopt a link of `holder_version`: the same
-/// major.minor (the snapshot is internal state, see the module docs).
+/// major.minor (the residual is internal state, see the module docs).
 pub fn same_minor(holder_version: &str, hub_version: &str) -> bool {
     match (
         semver::Version::parse(holder_version),
@@ -131,51 +115,41 @@ pub fn same_minor(holder_version: &str, hub_version: &str) -> bool {
     }
 }
 
-impl LinkSnapshotOwned {
+impl HandoverOwned {
     pub fn encode(&self) -> Result<Vec<u8>, crate::Error> {
         Ok(self.to_ww_bytes_owned()?)
     }
 
-    /// Decodes a snapshot another process sent and checks every size and count in it ([Self::check]).
-    pub fn decode(bytes: &[u8]) -> Result<LinkSnapshotOwned, String> {
+    /// Decodes a handover another process sent and checks every size and count in it ([Self::check]).
+    pub fn decode(bytes: &[u8]) -> Result<HandoverOwned, String> {
         if bytes.len() > MAX_SNAPSHOT_LEN {
-            return Err(format!("snapshot of {} bytes", bytes.len()));
+            return Err(format!("handover of {} bytes", bytes.len()));
         }
-        let s = LinkSnapshotOwned::from_ww_bytes_owned(bytes).map_err(|e| format!("{e:?}"))?;
-        s.check()?;
-        Ok(s)
+        let h = HandoverOwned::from_ww_bytes_owned(bytes).map_err(|e| format!("{e:?}"))?;
+        h.check()?;
+        Ok(h)
     }
 
+    /// Bounds both residuals, see [LinkResidualOwned::check] and [MediumResidualOwned::check].
+    pub fn check(&self) -> Result<(), String> {
+        self.link.check()?;
+        self.medium.check()
+    }
+}
+
+impl LinkResidualOwned {
     /// The device's `DeviceInfo`.
     pub fn device_info(&self) -> Result<ww_link::DeviceInfoOwned, String> {
         ww_link::DeviceInfoOwned::from_ww_bytes_owned(&self.device_info)
             .map_err(|e| format!("device info: {e:?}"))
     }
 
-    /// Bounds every size and count against the medium and the device's `DeviceInfo`, so that a snapshot from another
-    /// process can't make the hub allocate much or hold state the link can't have.
+    /// Bounds every size and count against the device's `DeviceInfo`, so that a residual from another process can't
+    /// make the hub allocate much or hold state the link can't have.
     pub fn check(&self) -> Result<(), String> {
-        let max_packet = self.medium.max_packet();
-        if !(8..=MAX_PACKET).contains(&max_packet) {
-            return Err(format!("max packet {max_packet}"));
-        }
         let info = self.device_info()?;
         if info.token != self.token || self.token == 0 {
             return Err("token doesn't match the device info".into());
-        }
-        let host_max = crate::DEFAULT_MAX_MESSAGE_SIZE;
-        if let Some(p) = &self.rx_partial {
-            let total = p.total as usize;
-            if total > host_max || p.bytes.len() >= total {
-                return Err(format!(
-                    "partial message of {} / {} bytes",
-                    p.bytes.len(),
-                    p.total
-                ));
-            }
-        }
-        if self.rx_staged.len() > max_packet as usize {
-            return Err(format!("{} staged bytes", self.rx_staged.len()));
         }
         if self.max_seq == 0 || self.max_seq > MAX_SEQ {
             return Err(format!("max seq {}", self.max_seq));
@@ -212,12 +186,38 @@ impl LinkSnapshotOwned {
     }
 }
 
+impl MediumResidualOwned {
+    /// Has the medium of [Self::kind] decode and bound its bytes: an error for a medium this build doesn't have.
+    pub fn check(&self) -> Result<(), String> {
+        match self.kind {
+            #[cfg(feature = "usb")]
+            MediumKindOwned::Usb => crate::usb::UsbResidualOwned::decode(self).map(drop),
+            #[cfg(feature = "local_socket")]
+            MediumKindOwned::UsbSim => crate::usb_sim::UsbSimResidualOwned::decode(self).map(drop),
+            ref kind => Err(format!("a medium this build doesn't have: {kind:?}")),
+        }
+    }
+
+    /// The bytes, if they are of `kind`.
+    #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
+    pub(crate) fn of(&self, kind: MediumKindOwned) -> Result<&[u8], String> {
+        if self.kind == kind {
+            Ok(&self.bytes)
+        } else {
+            Err(format!(
+                "a {:?} medium can't take the link of a {:?} one",
+                kind, self.kind
+            ))
+        }
+    }
+}
+
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use ww_version::{ApiHashPair, CompactVersion, FullVersion, GlobalTypeId, Version};
 
-    pub(crate) fn snapshot() -> LinkSnapshotOwned {
+    pub(crate) fn link() -> LinkResidualOwned {
         let info = ww_link::DeviceInfo {
             dev_link_version: ww_link::LINK_VERSION,
             api_model_version: CompactVersion::new(GlobalTypeId::new(513), 0, 2, 0),
@@ -227,21 +227,7 @@ mod tests {
             packet_accumulation_time_us: 500,
             token: 7,
         };
-        LinkSnapshotOwned {
-            client_version: env!("CARGO_PKG_VERSION").into(),
-            key: "usbsim:/tmp/x".into(),
-            medium: MediumOwned::UsbSim {
-                max_packet: 64,
-                seq_prefix: true,
-            },
-            tx_frame: Some(FrameAtOwned { seq: 9, epoch: 1 }),
-            rx_partial: Some(PartialOwned {
-                user_kind: 0,
-                total: 100,
-                bytes: vec![1; 60],
-            }),
-            rx_staged: vec![],
-            rx_next_frame: Some(FrameAtOwned { seq: 3, epoch: 0 }),
+        LinkResidualOwned {
             token: 7,
             device_info: info.make_owned().to_ww_bytes_owned().unwrap(),
             ping_in_ms: 1000,
@@ -256,28 +242,43 @@ mod tests {
     }
 
     #[test]
-    fn round_trip_and_bounds() {
-        let s = snapshot();
-        let bytes = s.encode().unwrap();
-        assert_eq!(LinkSnapshotOwned::decode(&bytes).unwrap(), s);
-        let bad = |f: &dyn Fn(&mut LinkSnapshotOwned)| {
-            let mut s = snapshot();
-            f(&mut s);
-            LinkSnapshotOwned::decode(&s.encode().unwrap()).unwrap_err()
+    fn link_round_trip_and_bounds() {
+        let l = link();
+        assert_eq!(
+            LinkResidualOwned::from_ww_bytes_owned(&l.to_ww_bytes_owned().unwrap()).unwrap(),
+            l
+        );
+        l.check().unwrap();
+        let bad = |f: &dyn Fn(&mut LinkResidualOwned)| {
+            let mut l = link();
+            f(&mut l);
+            l.check().unwrap_err()
         };
-        bad(&|s| s.in_flight.push(3));
-        bad(&|s| s.in_flight.push(2000));
-        bad(&|s| s.next_seq = 0);
-        bad(&|s| s.token = 8);
-        bad(&|s| s.rx_partial.as_mut().unwrap().total = 1 << 20);
-        bad(&|s| s.rx_partial.as_mut().unwrap().bytes = vec![0; 100]);
-        bad(&|s| s.rx_staged = vec![0; 65]);
-        bad(&|s| s.streams.push(vec![0; 65]));
-        bad(&|s| s.device_info.truncate(3));
-        bad(&|s| s.max_seq = u32::MAX);
-        assert!(LinkSnapshotOwned::decode(&[0; 3]).is_err());
+        bad(&|l| l.in_flight.push(3));
+        bad(&|l| l.in_flight.push(2000));
+        bad(&|l| l.next_seq = 0);
+        bad(&|l| l.token = 8);
+        bad(&|l| l.streams.push(vec![0; 65]));
+        bad(&|l| l.device_info.truncate(3));
+        bad(&|l| l.max_seq = u32::MAX);
         assert!(same_minor("0.5.1", "0.5.7"));
         assert!(!same_minor("0.5.1", "0.6.0"));
         assert!(!same_minor("x", "0.5.0"));
+    }
+
+    #[test]
+    fn a_medium_reads_only_its_own_bytes() {
+        let m = MediumResidualOwned {
+            kind: MediumKindOwned::Usb,
+            bytes: vec![1, 2, 3],
+        };
+        assert_eq!(m.of(MediumKindOwned::Usb).unwrap(), &[1, 2, 3]);
+        assert!(m.of(MediumKindOwned::UsbSim).is_err());
+        let later = MediumResidualOwned {
+            kind: MediumKindOwned::Unknown(9),
+            bytes: vec![],
+        };
+        assert!(later.check().is_err());
+        assert!(HandoverOwned::decode(&[0; 3]).is_err());
     }
 }

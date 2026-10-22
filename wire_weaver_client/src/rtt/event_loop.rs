@@ -36,6 +36,9 @@ const CONFIG: StreamConfig = StreamConfig {
 
 type RttTx = stream::StreamTx<RttHead, RttChecksum, RttTail>;
 type RttRx = stream::StreamRx<RttHead, RttChecksum, RttTail>;
+/// The halves in the event loop's slot: the stream IO, and the device's claim
+pub(crate) type Tx = HeldTx<RttTx>;
+pub(crate) type Rx = HeldRx<RttRx>;
 
 pub(crate) struct RttHandle {
     pub(crate) probe: DebugProbeInfo,
@@ -57,15 +60,15 @@ pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
     debug!("rtt worker exited");
 }
 
-struct RttTransport;
+pub(crate) struct RttTransport;
 
 impl Transport for RttTransport {
     fn link_setup_timeout(&self) -> std::time::Duration {
         crate::event_loop::transport::link_setup_timeout::RTT
     }
 
-    type Tx = HeldTx<RttTx>;
-    type Rx = HeldRx<RttRx>;
+    type Tx = Tx;
+    type Rx = Rx;
 
     /// Attaching is slow (RAM is scanned for the RTT control block) and blocking, so it happens on the IO thread.
     async fn connect(

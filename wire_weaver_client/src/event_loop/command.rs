@@ -203,61 +203,37 @@ pub struct Adopted {
     pub(crate) forwards: Vec<(SeqTy, u64)>,
     /// How long those wait for their answer at most
     pub(crate) forward_timeout: Duration,
-    /// Where the framers go on
-    pub(crate) carried: crate::event_loop::transport::Carried,
+    /// What the medium goes on from, read by the medium alone
+    pub(crate) medium: crate::adopt::MediumResidualOwned,
 }
 
 impl Adopted {
-    /// From a snapshot [checked](crate::adopt::LinkSnapshotOwned::check) before; `tag` says where the answer to each
-    /// request in flight goes.
+    /// The event loop goes on with `link` (a residual [checked](crate::adopt::LinkResidualOwned::check) before) over a
+    /// medium that goes on from `medium`; `tag` says where the answer to each request in flight goes.
     pub fn new(
-        snapshot: &crate::adopt::LinkSnapshotOwned,
+        link: &crate::adopt::LinkResidualOwned,
+        medium: crate::adopt::MediumResidualOwned,
         tag: impl Fn(SeqTy) -> u64,
         forward_timeout: Duration,
     ) -> Result<Adopted, String> {
         Ok(Adopted {
-            token: snapshot.token,
-            device_info: snapshot.device_info()?,
-            ping_in: Duration::from_millis(snapshot.ping_in_ms.into()),
-            last_rx_ago: Duration::from_millis(snapshot.last_rx_ms_ago.into()),
-            next_seq: snapshot.next_seq,
-            in_flight: snapshot.in_flight.clone(),
-            full_only: snapshot
+            token: link.token,
+            device_info: link.device_info()?,
+            ping_in: Duration::from_millis(link.ping_in_ms.into()),
+            last_rx_ago: Duration::from_millis(link.last_rx_ms_ago.into()),
+            next_seq: link.next_seq,
+            in_flight: link.in_flight.clone(),
+            full_only: link
                 .full_only
                 .iter()
                 .map(|t| (t.id, t.major, t.minor))
                 .collect(),
-            forwards: snapshot.in_flight.iter().map(|s| (*s, tag(*s))).collect(),
+            forwards: link.in_flight.iter().map(|s| (*s, tag(*s))).collect(),
             forward_timeout,
-            carried: crate::event_loop::transport::Carried {
-                tx_frame: snapshot.tx_frame.map(frame_ctx),
-                rx: rx_carry(snapshot),
-            },
+            medium,
         })
     }
 }
-
-fn frame_ctx(f: crate::adopt::FrameAtOwned) -> ww_framer::prefix::FrameCtx {
-    ww_framer::prefix::FrameCtx {
-        seq: f.seq,
-        epoch: f.epoch,
-    }
-}
-
-#[cfg(any(feature = "usb", feature = "local_socket"))]
-fn rx_carry(s: &crate::adopt::LinkSnapshotOwned) -> crate::framing::RxCarry {
-    crate::framing::RxCarry {
-        partial: s
-            .rx_partial
-            .as_ref()
-            .map(|p| (p.user_kind, p.total as usize, p.bytes.clone())),
-        staged: s.rx_staged.clone(),
-        next_frame: s.rx_next_frame.map(frame_ctx),
-    }
-}
-
-#[cfg(not(any(feature = "usb", feature = "local_socket")))]
-fn rx_carry(_: &crate::adopt::LinkSnapshotOwned) {}
 
 /// Takes what the event loop forwards ([Command::ForwardSink]). Called on the event loop's receive task as each
 /// message comes in, so it must not block: route the message, or hand it to a channel (`UnboundedSender<Forwarded>`

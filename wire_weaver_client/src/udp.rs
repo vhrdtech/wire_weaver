@@ -67,7 +67,7 @@ fn device_info(addr: &str) -> crate::DeviceInfo {
     }
 }
 
-struct UdpTransport;
+pub(crate) struct UdpTransport;
 
 impl Transport for UdpTransport {
     fn link_setup_timeout(&self) -> std::time::Duration {
@@ -128,7 +128,7 @@ async fn connect(addr: &str) -> std::io::Result<UdpSocket> {
     Ok(socket)
 }
 
-struct UdpTx {
+pub(crate) struct UdpTx {
     framer: TxFramer,
     socket: std::sync::Arc<UdpSocket>,
     tap: ww_tap::RecorderLink,
@@ -176,7 +176,7 @@ impl MessageTx for UdpTx {
     }
 }
 
-struct UdpRx {
+pub(crate) struct UdpRx {
     framer: RxFramer,
     /// Receive buffer, a datagram is staged into the framer right away
     datagram: Vec<u8>,

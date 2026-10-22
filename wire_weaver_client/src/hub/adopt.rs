@@ -9,7 +9,7 @@ use ww_local_socket::{Preamble, Target};
 
 use super::{HubClient, ensure_running};
 use crate::CallError;
-use crate::adopt::LinkSnapshotOwned;
+use crate::adopt::HandoverOwned;
 use crate::local_socket::{OpenError, Tunnel};
 
 /// Why a step with the hub didn't go through.
@@ -73,10 +73,10 @@ fn refused(e: CallError<AdoptErrorOwned>) -> Refused {
 
 impl HubSide {
     /// `Adopt::prepare`: the id for [Self::commit] and [Self::tunnel].
-    pub(crate) async fn prepare(&self, snapshot: &LinkSnapshotOwned) -> Result<u64, Refused> {
-        let bytes = snapshot
+    pub(crate) async fn prepare(&self, handover: &HandoverOwned) -> Result<u64, Refused> {
+        let bytes = handover
             .encode()
-            .map_err(|e| Refused::ByHub(format!("snapshot: {e}")))?;
+            .map_err(|e| Refused::ByHub(format!("handover: {e}")))?;
         self.hub
             .adopt()
             .prepare(bytes)

@@ -80,7 +80,7 @@ pub(crate) struct RxCore {
     relinking: bool,
 }
 
-/// What [RxCore::link_part] gives for a link snapshot (CLT-44).
+/// What [RxCore::link_part] gives for the link residual (CLT-44).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RxPart {
     pub last_rx_ago: Duration,
@@ -116,7 +116,7 @@ impl RxCore {
         }
     }
 
-    /// The link's state, for a snapshot (CLT-44).
+    /// The link's state, for the link residual (CLT-44).
     pub fn link_part(&self, now: Instant) -> RxPart {
         RxPart {
             last_rx_ago: self

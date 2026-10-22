@@ -213,7 +213,7 @@ pub(crate) struct TxCore {
     via_hub: bool,
 }
 
-/// What [TxCore::link_part] gives for a link snapshot (CLT-44).
+/// What [TxCore::link_part] gives for the link residual (CLT-44).
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(not(feature = "hub"), allow(dead_code))]
 pub(crate) struct TxPart {
@@ -322,7 +322,7 @@ impl TxCore {
         _ = self.on_transport_up(now);
     }
 
-    /// The paused link's state, for a snapshot (CLT-44).
+    /// The paused link's state, for the link residual (CLT-44).
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
     pub fn link_part(&self) -> TxPart {
         let mut in_flight: Vec<SeqTy> = self.in_flight.iter().copied().collect();
@@ -515,11 +515,14 @@ impl TxCore {
                 }
                 self.recorder = Some(recorder);
                 self.events.set(link.clone());
-                // an adopted link: the transport's framers go on where the other program's stopped
+                // an adopted link: the medium goes on where the other program's stopped, from what it left
                 let handle = match self.adopt.as_mut() {
                     Some(a) => Box::new(crate::event_loop::transport::Adopting {
                         handle,
-                        carried: std::mem::take(&mut a.carried),
+                        medium: crate::adopt::MediumResidualOwned {
+                            kind: a.medium.kind.clone(),
+                            bytes: std::mem::take(&mut a.medium.bytes),
+                        },
                     }),
                     None => handle,
                 };

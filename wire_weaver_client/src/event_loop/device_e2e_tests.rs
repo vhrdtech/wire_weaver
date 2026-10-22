@@ -34,6 +34,12 @@ pub(crate) type RxFramer = ww_link::FramingRxOwned<ww_link::UsbFraming>;
 
 // Host side: same framing as NusbTx / NusbRx, over channels
 
+crate::event_loop::medium::other_medium!(tx: HostTx; rx: HostRx;);
+crate::event_loop::medium::other_medium!(
+    tx: StreamTx<RttHead, RttChecksum, RttTail>;
+    rx: StreamRx<RttHead, RttChecksum, RttTail>;
+);
+
 pub(crate) struct HostTx {
     pub(crate) framer: TxFramer,
     pub(crate) packets: mpsc::Sender<Packet>,

@@ -4,6 +4,7 @@
 
 ### 🐛 Fixes
 
+- `Adopt::prepare` takes `wire_weaver_client::adopt::HandoverOwned` (the link residual and the medium residual, CLT-44): the medium residual's kind must be the device key's medium, and its bytes are checked by that medium before the slot is kept.
 - `registry().devices()` lists a lent device as `DeviceState::Lent` with its claim (SRV-32), not as free: a borrower such as probe-rs writes no lock file.
 
 ### ⚠️ Breaking

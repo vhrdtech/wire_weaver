@@ -475,7 +475,7 @@ hands the hub its live link instead of closing it: the hub goes on with the same
 calls in flight are answered, its streams and observed levels go on, and the app sees no `ConnectionEvent` at all,
 only a pause of a few milliseconds.
 
-It needs the hub to run the same minor version of `wire_weaver_client` as the holder (the link snapshot is that
+It needs the hub to run the same minor version of `wire_weaver_client` as the holder (the link's residual is that
 crate's internal state); otherwise, on other OSes, and for media other than USB (RTT), the handover is the release
 and reopen above. `WW_LIVE_HANDOVER=off` in the holder's environment makes it release and reopen too, should the
 live handover misbehave with a USB controller.
@@ -486,23 +486,45 @@ live handover misbehave with a USB controller.
 2. **Pause.** Its event loop holds new requests and pings, sends what it has (every OUT transfer completes, the
    device has 500 ms to take them), cancels the IN transfers and reaps them into its framer. What the device sends
    after that waits in the device (its IN endpoint is NAKed until a host polls it).
-3. **Prepare.** The holder sends a `LinkSnapshot` to `Adopt::prepare`: the framers' state both ways (the frame
-   counter, a message split across packets, bytes staged), the link's token, device info and ping schedule, the next
-   seq and the requests in flight, the open streams and observed levels. The hub checks it (versions, the medium
-   fits the device key, nobody holds the device through the hub) and keeps the device's slot, so no other program
-   opens it meanwhile.
+3. **Prepare.** The holder sends the link's residual to `Adopt::prepare` ([below](#the-residual-link-and-medium)):
+   the link's token, device info and ping schedule, the next seq and the requests in flight, the open streams and
+   observed levels, and what the USB medium leaves (its interface and endpoints, the framers' state both ways: the
+   frame counter, a message split across packets, bytes staged). The hub checks it (versions, the medium fits the
+   device key, nobody holds the device through the hub) and keeps the device's slot, so no other program opens it
+   meanwhile.
 4. **Let go.** The holder releases the interface, keeping the device file open, and drops its lock file (the asker
    hears `Released`). Releasing an interface at alternate setting 0 sends nothing on the bus and keeps the endpoints'
    data toggles.
 5. **Commit.** `Adopt::commit`: the hub opens the device (sysfs, no bus traffic), claims the interface and starts
-   its event loop with the snapshot's link, without a link setup. The holder's requests in flight are mapped to its
+   its event loop with the residual's link, without a link setup; its USB medium goes on from the medium residual. The holder's requests in flight are mapped to its
    tunnel, so their answers go there.
-6. **Switch.** The holder opens its tunnel naming the adoption (preamble entry `TAG_ADOPT`), swaps both halves of its
-   link to it and goes on. Nothing is sent again: what was in flight is answered once.
+6. **Switch.** The holder opens its tunnel naming the adoption (preamble entry `TAG_ADOPT`), puts the tunnel's halves
+   in its event loop's transport slot in place of the device's and links up with the hub, keeping its seqs and what
+   waits for answers. Nothing is sent again: what was in flight is answered once.
 
 The file descriptor isn't passed between the processes: nusb 0.2 can't give out an opened device's fd, its
 `from_fd` sends a `GET_CONFIGURATION`, and a claim on a shared open file would be released with the holder's
 `Interface`. The hub opening the device itself costs nothing on the bus.
+
+### The residual: link and medium
+
+What the holder hands over is in two parts (`wire_weaver_client::adopt::HandoverOwned`), so that nothing about the
+link depends on the medium it ran on:
+
+- **The link residual** (`LinkResidualOwned`): the link setup token and the device's `DeviceInfo`, the next seq and
+  the largest one, the seqs in flight, traits that take only a `GlobalFull` path, the open streams, the `Observe`
+  request of each observed level, when the next ping is due and how long ago the device last sent something. It is
+  the same on every medium: any event loop goes on from it, whichever medium it runs on.
+- **The medium residual** (`MediumResidualOwned`): a kind tag and bytes only a medium of that kind decodes. USB puts
+  in its interface, endpoints, packet size and frame prefix, and what its framers hold between frames; the hub's USB
+  medium checks they fit the interface it opened and goes on from them. A simulated USB device (`usb_sim`) leaves the
+  same without endpoints. The hub refuses a kind it can't open the device key with, or one its build doesn't have.
+
+On the holder's side, the event loop has one transport slot, which holds the halves of any medium. Each medium keeps
+its own steps (pause, let go, take back, switch away, the device's claim), called on whatever is in the slot, and
+relinking puts another medium's halves in its place, from any medium to any other: the device's USB halves for the
+tunnel's here. The slot is an enum over the crate's media rather than a trait object: a message is one match, with
+no allocation, as before: calls over `usb_sim` with 32 in flight ran at 14.4k to 15.1k calls/s with it and 14.8k to 15.1k before (release build, gpd-omarchy, 22 Oct 2026), and the handover took the same (6.7 ms median with it, 6.9 ms before, 12 runs each, alternating).
 
 ### When something fails
 

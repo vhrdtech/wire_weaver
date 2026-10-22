@@ -1,6 +1,7 @@
 mod connect;
 
 mod event_loop;
+pub(crate) use event_loop::{NusbRx, NusbTransport, NusbTx, UsbResidualOwned};
 mod ww_nusb;
 
 // pub mod util;

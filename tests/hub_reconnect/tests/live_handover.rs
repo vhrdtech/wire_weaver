@@ -460,7 +460,8 @@ async fn a_prepared_adoption_goes_with_its_connection() {
     use wire_weaver::ww_version::{
         ApiHashPair, CompactVersion, FullVersion, GlobalTypeId, Version,
     };
-    use wire_weaver_client::adopt::{LinkSnapshotOwned, MediumOwned};
+    use wire_weaver_client::adopt::{HandoverOwned, LinkResidualOwned};
+    use wire_weaver_client::usb_sim::UsbSimResidualOwned;
 
     let _ = tracing_subscriber::fmt::try_init();
     let dir = setup("prepared");
@@ -492,31 +493,28 @@ async fn a_prepared_adoption_goes_with_its_connection() {
         packet_accumulation_time_us: 500,
         token: 7,
     };
-    let snapshot = LinkSnapshotOwned {
+    let handover = HandoverOwned {
         client_version: wire_weaver_client::adopt::CLIENT_VERSION.into(),
         key: key.clone(),
-        medium: MediumOwned::UsbSim {
-            max_packet: 64,
-            seq_prefix: true,
+        link: LinkResidualOwned {
+            token: 7,
+            device_info: info.make_owned().to_ww_bytes_owned().unwrap(),
+            ping_in_ms: 1000,
+            last_rx_ms_ago: 3,
+            next_seq: 5,
+            max_seq: 1024,
+            in_flight: vec![],
+            full_only: vec![],
+            streams: vec![],
+            observed: vec![],
         },
-        tx_frame: None,
-        rx_partial: None,
-        rx_staged: vec![],
-        rx_next_frame: None,
-        token: 7,
-        device_info: info.make_owned().to_ww_bytes_owned().unwrap(),
-        ping_in_ms: 1000,
-        last_rx_ms_ago: 3,
-        next_seq: 5,
-        max_seq: 1024,
-        in_flight: vec![],
-        full_only: vec![],
-        streams: vec![],
-        observed: vec![],
+        medium: UsbSimResidualOwned::between_frames(64, true)
+            .encode()
+            .unwrap(),
     };
     let id = hub
         .adopt()
-        .prepare(snapshot.encode().unwrap())
+        .prepare(handover.encode().unwrap())
         .call()
         .await
         .expect("prepared");

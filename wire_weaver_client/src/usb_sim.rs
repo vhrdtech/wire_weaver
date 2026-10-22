@@ -32,10 +32,12 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::{
-    Adopting, Live, MessageRx, MessageTx, Opened, Paused, Selected, SharedClaim, Transport,
+    Adopting, MessageRx, MessageTx, Opened, Paused, Selected, SharedClaim, Transport,
     handover_requested,
 };
 use crate::framing::{UsbRx as RxFramer, UsbTx as TxFramer};
+use wire_weaver::prelude::*;
+use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
 
 /// An OUT packet (host to device) or an IN packet (device to host).
 pub const PACKET: u8 = 0;
@@ -564,17 +566,47 @@ async fn release(
     }
 }
 
-type Tx = Live<UsbSimTx, crate::local_socket::LocalTx>;
-type Rx = Live<UsbSimRx, crate::local_socket::LocalRx>;
+type Tx = UsbSimTx;
+type Rx = UsbSimRx;
 
-/// Both halves on the device, for the live handover steps.
-fn on_device<'a>(
-    tx: &'a mut Tx,
-    rx: &'a mut Rx,
-) -> Result<(&'a mut UsbSimTx, &'a mut UsbSimRx), String> {
-    match (tx, rx) {
-        (Live::Device(tx), Live::Device(rx)) => Ok((tx, rx)),
-        _ => Err("the link goes through the hub already".into()),
+/// What a simulated USB link leaves for the medium that takes it over (CLT-44), the bytes of its
+/// [MediumResidualOwned](crate::adopt::MediumResidualOwned): its packets, and what the framers hold.
+#[derive_shrink_wrap(owned, derive(Clone, Debug, PartialEq, Eq))]
+#[doc(hidden)]
+pub struct UsbSimResidualOwned {
+    pub max_packet: u16,
+    pub seq_prefix: bool,
+    framers: crate::framing::FramerCarryOwned,
+}
+
+impl UsbSimResidualOwned {
+    const KIND: crate::adopt::MediumKindOwned = crate::adopt::MediumKindOwned::UsbSim;
+
+    /// A link between frames, nothing carried (tests of the hub's adoption).
+    #[doc(hidden)]
+    pub fn between_frames(max_packet: u16, seq_prefix: bool) -> Self {
+        UsbSimResidualOwned {
+            max_packet,
+            seq_prefix,
+            framers: Default::default(),
+        }
+    }
+
+    pub fn encode(&self) -> Result<crate::adopt::MediumResidualOwned, String> {
+        Ok(crate::adopt::MediumResidualOwned {
+            kind: Self::KIND,
+            bytes: self.to_ww_bytes_owned().map_err(|e| format!("{e:?}"))?,
+        })
+    }
+
+    /// Decodes the residual of a simulated USB link and bounds its sizes.
+    pub fn decode(medium: &crate::adopt::MediumResidualOwned) -> Result<Self, String> {
+        let r = Self::from_ww_bytes_owned(medium.of(Self::KIND)?).map_err(|e| format!("{e:?}"))?;
+        if !(8..=1024).contains(&r.max_packet) {
+            return Err(format!("max packet {}", r.max_packet));
+        }
+        r.framers.check(r.max_packet as usize)?;
+        Ok(r)
     }
 }
 
@@ -592,8 +624,8 @@ impl Transport for UsbSimTransport {
         tap: ww_tap::RecorderLink,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
-        let (handle, carried) = match handle.downcast::<Adopting>() {
-            Ok(a) => (a.handle, Some(a.carried)),
+        let (handle, adopted) = match handle.downcast::<Adopting>() {
+            Ok(a) => (a.handle, Some(UsbSimResidualOwned::decode(&a.medium)?)),
             Err(handle) => (handle, None),
         };
         let target = handle
@@ -619,36 +651,36 @@ impl Transport for UsbSimTransport {
         let mut tx_framer = TxFramer::new(seq_prefix, max_packet);
         // one maximum message plus one more packet, see FramedRx docs
         let mut rx_framer = RxFramer::new(seq_prefix, crate::DEFAULT_MAX_MESSAGE_SIZE + max_packet);
-        if let Some(carried) = carried {
-            if let Some(frame) = carried.tx_frame {
-                tx_framer.continue_at(frame);
+        if let Some(adopted) = adopted {
+            if (adopted.max_packet as usize, adopted.seq_prefix) != (max_packet, seq_prefix) {
+                return Err(format!(
+                    "the adopted link had {} byte packets, seq prefix {}; the device has {max_packet}, {seq_prefix}",
+                    adopted.max_packet, adopted.seq_prefix
+                ));
             }
-            rx_framer
-                .continue_from(&carried.rx)
-                .map_err(|_| "the adopted link's partial message doesn't fit".to_string())?;
+            adopted.framers.apply(&mut tx_framer, &mut rx_framer)?;
         }
         Ok(Opened {
-            tx: Live::Device(UsbSimTx {
+            tx: UsbSimTx {
                 framer: tx_framer,
                 writer: tx,
                 tap: tap.clone(),
                 claim: claim.clone(),
                 max_packet,
                 seq_prefix,
-            }),
-            rx: Live::Device(UsbSimRx {
+            },
+            rx: UsbSimRx {
                 framer: rx_framer,
                 reader: rx,
                 tap,
                 claim,
-            }),
+            },
         })
     }
 
     const LIVE: bool = true;
 
     async fn pause(tx: &mut Tx, rx: &mut Rx) -> Result<Paused, String> {
-        let (tx, rx) = on_device(tx, rx)?;
         // OUT: everything queued goes out
         tx.push_frame();
         tx.writer.flush().await.map_err(|e| e.to_string())?;
@@ -676,52 +708,37 @@ impl Transport for UsbSimTransport {
                 .as_ref()
                 .map(|c| c.key().to_string())
                 .unwrap_or_default(),
-            medium: crate::adopt::MediumOwned::UsbSim {
+            medium: UsbSimResidualOwned {
                 max_packet: tx.max_packet as u16,
                 seq_prefix: tx.seq_prefix,
-            },
-            tx_frame: tx.framer.frame_ctx(),
-            rx: rx.framer.carry(),
+                framers: crate::framing::FramerCarryOwned::take(&mut tx.framer, &rx.framer),
+            }
+            .encode()?,
             messages,
         })
     }
 
     async fn take_back(tx: &mut Tx, rx: &mut Rx) -> Result<(), String> {
-        let (tx, rx) = on_device(tx, rx)?;
         claim(&mut tx.writer, &mut rx.reader).await
     }
 
-    fn switch(tx: &mut Tx, rx: &mut Rx, tunnel: crate::local_socket::Tunnel) -> Result<(), String> {
-        let (htx, hrx) = tunnel.into_halves(None);
-        *tx = Live::Hub(htx);
-        *rx = Live::Hub(hrx);
+    fn switch(_tx: &mut Tx, _rx: &mut Rx) -> Result<(), String> {
+        // the interface went with the pause's release, the socket goes with the halves
         Ok(())
     }
 
     fn take_claim(tx: &mut Tx, rx: &mut Rx) -> SharedClaim {
-        let rx_claim = match rx {
-            Live::Device(rx) => rx.claim.take(),
-            Live::Hub(_) => None,
-        };
-        let tx_claim = match tx {
-            Live::Device(tx) => tx.claim.take(),
-            Live::Hub(_) => None,
-        };
-        tx_claim.or(rx_claim)
+        let rx_claim = rx.claim.take();
+        tx.claim.take().or(rx_claim)
     }
 
     fn claim_of(tx: &Tx) -> SharedClaim {
-        match tx {
-            Live::Device(tx) => tx.claim.clone(),
-            Live::Hub(_) => None,
-        }
+        tx.claim.clone()
     }
 
     fn put_claim(tx: &mut Tx, rx: &mut Rx, claim: SharedClaim) {
-        if let (Live::Device(tx), Live::Device(rx)) = (tx, rx) {
-            tx.claim = claim.clone();
-            rx.claim = claim;
-        }
+        tx.claim = claim.clone();
+        rx.claim = claim;
     }
 }
 

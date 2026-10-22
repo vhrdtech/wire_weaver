@@ -5822,8 +5822,8 @@ anything, so boards can't hold an election over the line. Two masters on one lin
 breaks a tie), needs a two-way link between the boards (CAN, Ethernet, USB through one host); it is an idea for later
 (STD-51), not built.</p>
 <h3 id="steering-from-the-host">Steering from the host<a class="headerlink" href="#steering-from-the-host" title="Permanent link">&para;</a></h3>
-<p>It works like Klipper's clock sync. The host reads the device's <code>now()</code> a few times a second and timestamps every
-request and answer with its own monotonic clock. It keeps the readings with the shortest round trips (their midpoint
+<p>The host reads the device's <code>now()</code> a few times a second and timestamps every request and answer with its own
+monotonic clock. It keeps the readings with the shortest round trips (their midpoint
 is closest to when the device read its clock) and fits a line through them over a sliding window: an offset and a
 rate. About once a second it sends the fit as a <code>SteerPoint</code> (the device's <code>local</code> time, the UTC <code>shared_us</code> of it in
 µs, <code>rate_ppb</code>, and its own error estimate <code>error_us</code>), adding the wall clock's offset from the monotonic clock as it
@@ -5831,6 +5831,8 @@ sends, so a step of the wall clock moves the points without disturbing the fit. 
 <code>shared(t) = shared_us + (t - local) * (1 + rate_ppb * 1e-9)</code> on its own and answers with the source it follows:
 <code>Host</code> when it took the point, a <code>Line</code> when it is locked to something better and only noted it (then the host
 correlates the device through <code>time_map</code> instead of steering it).</p>
+<p>The fit from the readings with the shortest round trips comes from Klipper's clock sync. Around it this adds one UTC
+timescale shared by every host, sources ranked against sync lines, holdover, and steering shared through the ww hub.</p>
 <ul>
 <li><code>SteerPoint::local</code> is in the prefix and storage of the device's <code>now()</code>: a device without 64-bit numbers (a
   Cortex-M0+ answering <code>U32</code> µs) gets 32 bits, wrapping as its <code>now()</code> does, and the host unwraps its readings

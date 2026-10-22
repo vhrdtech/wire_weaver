@@ -5463,6 +5463,16 @@ implements. With one device connected, every other command uses it; with several
 <td>Firmware updates through <code>ww_dfu</code> traits: <code>reboot</code>, <code>status</code>, <code>confirm</code>, <code>revert</code>; <code>flash</code> a chunky device</td>
 </tr>
 <tr>
+<td><a href="../cli_reference/#ww-dfu-rp"><code>ww dfu rp</code></a></td>
+<td>a boot ROM</td>
+<td>RP2040 / RP2350 in BOOTSEL mode: list, flash, reboot, follow back</td>
+</tr>
+<tr>
+<td><a href="../cli_reference/#ww-dfu-stm32"><code>ww dfu stm32</code></a></td>
+<td>a boot ROM</td>
+<td>STM32 system bootloader in DFU mode: list, layout, flash, read, erase, follow back</td>
+</tr>
+<tr>
 <td><a href="../cli_reference/#ww-counters"><code>ww counters</code></a></td>
 <td>yes, any API</td>
 <td>The device's <code>cnt</code> counters, decoded with its ELF: read, watch, TUI, reset</td>
@@ -5491,11 +5501,6 @@ implements. With one device connected, every other command uses it; with several
 <td><a href="../cli_reference/#ww-settings"><code>ww settings</code></a></td>
 <td>no</td>
 <td>Decodes a <code>ww_settings::Store</code> flash dump</td>
-</tr>
-<tr>
-<td><a href="../cli_reference/#ww-bootsel"><code>ww bootsel</code></a></td>
-<td>a boot ROM</td>
-<td>RP2040 / RP2350 in BOOTSEL mode: list, flash, reboot, follow back</td>
 </tr>
 <tr>
 <td><a href="../cli_reference/#ww-config"><code>ww config</code></a></td>

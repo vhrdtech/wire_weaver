@@ -5046,6 +5046,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ww-dfu-rp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww dfu rp</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ww-dfu-stm32" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww dfu stm32</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5133,17 +5155,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>ww settings</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ww-bootsel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww bootsel</code>
       </span>
     </span>
   </a>
@@ -5560,6 +5571,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#ww-dfu-rp" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww dfu rp</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ww-dfu-stm32" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww dfu stm32</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5647,17 +5680,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>ww settings</code>
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ww-bootsel" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        <code>ww bootsel</code>
       </span>
     </span>
   </a>
@@ -6347,7 +6369,7 @@ take it whole while they run (<a href="../transport/hub/#the-whole-device-exclus
 other programs' calls and writes are refused naming <code>ww dfu</code>, and the hub doesn't steer the device's clock. <code>flash</code>
 keeps it across the device's reset into the trial.</p>
 <p>A device without <code>ww_dfu::BootControl</code>, or with an incompatible version of <code>ww_dfu</code>, answers that it doesn't implement
-the trait. On an RP2350 whose updater is the boot ROM, <a href="#ww-bootsel"><code>ww bootsel flash --wait --follow</code></a> then
+the trait. On an RP2350 whose updater is the boot ROM, <a href="#ww-dfu-rp"><code>ww dfu rp flash --wait --follow</code></a> then
 writes the new image and waits for the app to come back; a single command that follows any device through its
 updater is not done yet (CLT-21). An A/B device whose app takes updates itself has no updater of its own: <code>reboot
 --into updater</code> there goes to the chip's boot ROM (the B135's STM32 ROM DFU), and <code>ww dfu reboot</code> says so.</p>
@@ -6423,15 +6445,81 @@ product or scheme is refused before anything is sent.</p>
 single-bank part doesn't answer), the reboot for the bootloader's swap. When the device finds DFU changed under the
 plan (<code>Error::Custom(1)</code>, chunky's <code>CUSTOM_NOT_BLANK</code>), the host reads it again and plans again; a lost reply is
 resumed from <code>Stage::progress</code>.</p>
+<h3 id="ww-dfu-rp"><code>ww dfu rp</code><a class="headerlink" href="#ww-dfu-rp" title="Permanent link">&para;</a></h3>
+<p>RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
+the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<code>ww_dfu::BootControl::reboot</code>, see
+<a href="#ww-dfu"><code>ww dfu reboot</code></a>), and to follow it back into the new firmware.</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>target/thumbv8m.main-none-eabihf/release/app<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">  </span><span class="c1"># an ELF works too, no objcopy needed</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>flash</code> option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--addr &lt;ADDR&gt;</code></td>
+<td><code>0x10000000</code></td>
+<td>Flash address of a raw binary (any file that isn't <code>.uf2</code> or an ELF)</td>
+</tr>
+<tr>
+<td><code>--family &lt;F&gt;</code></td>
+<td><code>rp2350</code></td>
+<td>UF2 family to take blocks of: <code>rp2350</code>, <code>rp2040</code> or <code>any</code></td>
+</tr>
+<tr>
+<td><code>--wait &lt;SECONDS&gt;</code></td>
+<td></td>
+<td>Wait this long for the BOOTSEL device with the <code>--serial</code> to appear</td>
+</tr>
+<tr>
+<td><code>--follow</code></td>
+<td></td>
+<td>After the reboot, wait for a WireWeaver device with the same serial and show it</td>
+</tr>
+<tr>
+<td><code>--no-reboot</code></td>
+<td></td>
+<td>Don't reboot after writing</td>
+</tr>
+</tbody>
+</table>
+<p>The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — <code>target/.../release/app</code>
+works straight from <code>cargo build</code>, no <code>objcopy</code>/<code>elf2uf2</code>), or otherwise a raw binary written at <code>--addr</code>. An ELF
+is taken by its <code>PT_LOAD</code> segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
+an error.</p>
+<p><code>--serial</code> selects the device as for other commands; part of it is enough when only one matches, <code>--wait</code> and
+<code>--follow</code> need the full one. See <a href="../transport/follow_reboot/">following a reboot</a>.</p>
+<h3 id="ww-dfu-stm32"><code>ww dfu stm32</code><a class="headerlink" href="#ww-dfu-stm32" title="Permanent link">&para;</a></h3>
+<p>The STM32 system bootloader in DFU mode (ROM DFU with the DfuSe extension, <code>0483:df11</code>), from <code>stm32_dfu_host</code>: no
+WireWeaver on the device, no dfu-util on the host. Used to flash an STM32 whose app rebooted itself into the ROM
+bootloader, and to follow it back into the new firmware.</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>list<span class="w">                                 </span><span class="c1"># bootloaders in DFU mode with their serial numbers</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">                         </span><span class="c1"># the alt settings and their memory layout</span>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>bootloader.elf<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">         </span><span class="c1"># erase, write, verify, jump to the start of flash</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>bootloader.elf<span class="w"> </span>-s<span class="w"> </span>3A0B1C2D4E5F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span><span class="nb">read</span><span class="w"> </span>0x08060000<span class="w"> </span>0x80<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">         </span><span class="c1"># hexdump; -o FILE writes the raw bytes</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>erase<span class="w"> </span>--sectors<span class="w"> </span><span class="m">3</span>..<span class="o">=</span><span class="m">5</span><span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">        </span><span class="c1"># sectors by index (A..B excludes B, A..=B includes it)</span>
+</span></code></pre></div>
+<p>All options, and what the firmware does before the reboot:
+<a href="../transport/follow_reboot/#stm32-system-bootloader-rom-dfu">STM32 system bootloader</a>.</p>
 <h2 id="ww-counters"><code>ww counters</code><a class="headerlink" href="#ww-counters" title="Permanent link">&para;</a></h2>
 <p>The <code>cnt</code> counters of any device implementing <a href="../std_library/ww_counters/"><code>ww_counters::Counters</code></a> anywhere in its
 API (a global trait, like <code>ww dfu</code>), decoded with the firmware's ELF found by the build id the device reports, and
 shown with the same views as <code>cnt</code> over a debug probe.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ ww counters --serial 4B333720
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>📍 RAM counters at 0x20000000, 64 B
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>INFO  boots         3
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ ww counters --serial 4B333720
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>Using ELF target/thumbv8m.main-none-eabihf/release/usb_io_fw
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>📍 RAM counters at 0x20000000, 64 B
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>INFO  boots         3
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>...
 </span></code></pre></div>
 <table>
 <thead>
@@ -6493,23 +6581,28 @@ rate, from the readings with the shortest round trips) and steered with <code>Cl
 device is acquiring and once a second once it says locked, see
 <a href="../std_library/ww_timebase/#host-sync-std-49">host sync</a> and its <a href="../std_library/ww_timebase/#states">states</a>. Works
 with any device serving <code>Clock</code> with the <code>host_sync</code> group anywhere in its API; a device locked to a sync line only
-takes note (source <code>line</code>). Devices with a shared clock align their animations to UTC, so their LEDs breathe in
+takes note (source <code>line</code>). Devices with a shared clock align their animations to UTC, so they run in
 phase (<a href="../std_library/ww_indication/#animations-in-phase-std-50"><code>ww_indication</code></a>). What it looks like (the values are
 for illustration, not a measurement):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$ ww sync --mode normal
-</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
-</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
-</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
-</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>✓ all 3 within 2.00 ms after 6.3 s, LED phase 704 µs apart (±700 µs)
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
-</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
-</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
-</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
-</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a>LED phase: 704 µs apart across 3 devices (±700 µs), 0.023 % of a 3 s breath
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>$ ww sync --mode normal
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>Steered by ww sync (no ww hub runs): they go on in holdover once it stops
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>✓ all 3 within 2.00 ms for 4.1 s
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>Phase: 704 µs apart across 3 devices (±700 µs)
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>q or Ctrl+C to stop
 </span></code></pre></div>
-<p>On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
-when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
-Until Ctrl+C or <code>--duration</code>; then the devices go on in holdover on their last steer point.</p>
+<p>On a terminal this one view is all there is, from the start, redrawn every second: who steers the devices, the table,
+how far they converged (<code>2 of 3 within 2.00 ms, waiting for Donguru A1B2C3</code> until all are within, then since when)
+and the phase spread. Into a pipe it prints lines instead (no colour): who steers, a line each time a device converges
+or falls out and when all of them are within, and the table once at the end:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>✓ all 3 within 2.00 ms after 6.3 s, phase 704 µs apart (±700 µs)
+</span></code></pre></div>
+<p>Until <code>q</code>, Ctrl+C or <code>--duration</code>; the last view stays on screen. Without a hub nothing steers the devices after
+that: they go on in holdover from their last steer point (<code>ww sync</code> says so when it starts and when it stops).</p>
 <p>With a <a href="../transport/hub/#clock-sync-in-the-hub-srv-31">ww hub</a> running, the hub is the steerer: <code>ww sync</code> opens each
 device through the hub (which then steers it), shows the hub's steering from its <code>sync().stats()</code> stream, and never
 steers itself, so there is never a second steerer on the PC. <code>--poll-ms</code> and <code>--steer-ms</code> are then the hub's own
@@ -6534,7 +6627,7 @@ first reading.</p>
 </tr>
 <tr>
 <td><code>RESIDUAL</code></td>
-<td>the device's shared time minus the host's UTC at the middle of a <code>shared_now()</code> round trip, ± half that round trip: what the sync achieves, and the device's LED lead on UTC</td>
+<td>the device's shared time minus the host's UTC at the middle of a <code>shared_now()</code> round trip, ± half that round trip: what the sync achieves, and the device's lead on UTC</td>
 </tr>
 <tr>
 <td><code>ERROR</code></td>
@@ -6560,8 +6653,8 @@ first reading.</p>
 </table>
 <p>A device has converged once it says <code>locked</code> and its residual is within <code>--within-us</code>; all have converged once every
 device that serves a clock has. A check whose half round trip is beyond <code>--within-us</code> (a USB hiccup) can't tell
-either way and changes nothing. The LED phase is the spread of the residuals: every device starts its LED cycles on
-UTC multiples of the period, so two devices' breaths are apart by the difference of their residuals.</p>
+either way and changes nothing. The phase is the spread of the residuals: anything the devices start on UTC multiples of a
+period (an animation, a sample, a frame) is apart by the difference of their residuals.</p>
 <table>
 <thead>
 <tr>
@@ -6583,7 +6676,7 @@ UTC multiples of the period, so two devices' breaths are apart by the difference
 </tr>
 <tr>
 <td><code>--duration S</code></td>
-<td>Ctrl+C</td>
+<td><code>q</code>, Ctrl+C</td>
 <td>Stop after this many seconds</td>
 </tr>
 <tr>
@@ -6607,21 +6700,21 @@ UTC multiples of the period, so two devices' breaths are apart by the difference
 <h2 id="ww-hub"><code>ww hub</code><a class="headerlink" href="#ww-hub" title="Permanent link">&para;</a></h2>
 <p>Looks at and steers the per-user <a href="../transport/hub/#the-ww-hub-command-tool-17">ww hub</a> (TOOL-17): the process that
 holds devices and serves every program, and the question "who has my device?" for any device, hub or not.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ ww hub status
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>ww hub 0.5.0 running
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>built with wire_weaver 0.5.0
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>pid        4711
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>exe        /home/me/.cargo/bin/ww
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>socket     /run/user/1000/ww/hub.sock
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>started by dg (pid 4690), up 12m 31s
-</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>clients    2 programs, 2 connections
-</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>devices    3 known, 1 open through the hub
-</span><span id="__span-20-10"><a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a>idle exit  after 5m 00s without connections, counted from the last program leaving
-</span><span id="__span-20-11"><a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a>
-</span><span id="__span-20-12"><a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a>KEY                             PRODUCT         STATE        CONNECTIONS
-</span><span id="__span-20-13"><a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a>usb:c0de:cafe:18AC50C211FFB7C1  b200_usb_io     open (hub)   1
-</span><span id="__span-20-14"><a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a>usb:c0de:cafe:204B319B5431      donguru         free         0
-</span><span id="__span-20-15"><a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a>usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>$ ww hub status
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>ww hub 0.5.0 running
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>built with wire_weaver 0.5.0
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>pid        4711
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>exe        /home/me/.cargo/bin/ww
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>socket     /run/user/1000/ww/hub.sock
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>started by dg (pid 4690), up 12m 31s
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>clients    2 programs, 2 connections
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>devices    3 known, 1 open through the hub
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>idle exit  after 5m 00s without connections, counted from the last program leaving
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>KEY                             PRODUCT         STATE        CONNECTIONS
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>usb:c0de:cafe:18AC50C211FFB7C1  b200_usb_io     open (hub)   1
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>usb:c0de:cafe:204B319B5431      donguru         free         0
+</span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>usb:c0de:cafe:344533413431      B135 USB-FDCAN  held by dg (pid 4690, direct)  0
 </span></code></pre></div>
 <table>
 <thead>
@@ -6660,10 +6753,10 @@ holds devices and serves every program, and the question "who has my device?" fo
 <p><code>ww list</code> asks a running hub instead of USB: the same columns plus <code>STATE</code> (<code>free</code>, <code>open (hub)</code>, <code>held by &lt;program&gt;
 (pid ..)</code>), so a device somebody holds shows up too. <code>--direct</code> enumerates USB anyway; device selection flags and
 <code>--all</code> always do.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>$ ww hub lend 0B135A01 -- probe-rs reset --chip STM32H725
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>ww hub usb:c0de:cafe:0B135A01 lent to `probe-rs reset --chip STM32H725`, the hub opens it again after
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>...
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>ww hub usb:c0de:cafe:0B135A01 returned to the hub
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$ ww hub lend 0B135A01 -- probe-rs reset --chip STM32H725
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>ww hub usb:c0de:cafe:0B135A01 lent to `probe-rs reset --chip STM32H725`, the hub opens it again after
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>...
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>ww hub usb:c0de:cafe:0B135A01 returned to the hub
 </span></code></pre></div>
 <p>Colour is off when the output isn't a terminal or <code>NO_COLOR</code> is set. Shell completion gives the subcommands, the
 <code>keep</code> durations and, for <code>who</code>, the keys of the plugged-in devices, each with its product and label as help text.</p>
@@ -6671,14 +6764,14 @@ holds devices and serves every program, and the question "who has my device?" fo
 <p>Firmware, board, ids, user label and last reset of any device, through the <a href="../std_library/device_contract/">device
 contract</a> traits (global trait paths, like <code>ww dfu</code>: whatever the device's API and
 version, no ELF needed).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>$ ww info --serial 4B333720
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>API        usb_io_api@0.5.0
-</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
-</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
-</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
-</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
-</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
-</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>$ ww info --serial 4B333720
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>API        usb_io_api@0.5.0
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>Firmware   b200_usb_io 0.5.0 (a1b2c3d-dirty, built 2026-10-03 18:20), release
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>Build id   28a4e144e867138da2cccccd14e3e6baa2c78fbc
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>Board      rePort rev B (strap 2), BOM std, serial RP-0042
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>Ids        chip e6613871235b1c2d (internal, primary)
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>Label      &quot;bench 2&quot; (kept over power cycles)
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 </span></code></pre></div>
 <table>
 <thead>
@@ -6702,7 +6795,7 @@ version, no ELF needed).</p>
 with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
 (<a href="../std_library/device_contract/#where-ww-looks-for-the-elf">where</a>); a part whose ELF isn't found says so and
 names the places searched.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md
 </span></code></pre></div>
 <table>
 <thead>
@@ -6740,14 +6833,14 @@ names the places searched.</p>
 <p>Pin tests on any device serving <a href="../std_library/ww_pin_diag/"><code>ww_pin_diag::PinDiag</code></a>, wherever in its API: found
 through the device's introspection data (<code>--at diag.pins</code> picks one when there are several). <code>ww pins list</code> shows
 the points and what each can do, <code>ww pins test</code> tests them:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>$ ww pins test GPIO0..=GPIO2,DET,LED --plan b200a.toml
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>ID  NAME   GROUP  PULLS                    GND          SUPPLY       SHORTED TO  NOTES
-</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>P0  GPIO0  mcu    floating ✗ want pull-up  ok           ok           GPIO1
-</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>P1  GPIO1  mcu    floating                 ok           ok           GPIO0
-</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>P2  GPIO2  mcu    held low                 SHORT        ok           ok
-</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>P3  DET    mcu    not checked              not checked  not checked  ok          no internal pulls; can&#39;t drive high; can&#39;t drive low
-</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>P4  LED    mcu    refused                  refused      refused      refused     in use by indication
-</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>5 points: 1 short(s) to GND or the supply, 1 short(s) between points, 1 expectation(s) not met
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>$ ww pins test GPIO0..=GPIO2,DET,LED --plan b200a.toml
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>ID  NAME   GROUP  PULLS                    GND          SUPPLY       SHORTED TO  NOTES
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>P0  GPIO0  mcu    floating ✗ want pull-up  ok           ok           GPIO1
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>P1  GPIO1  mcu    floating                 ok           ok           GPIO0
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>P2  GPIO2  mcu    held low                 SHORT        ok           ok
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>P3  DET    mcu    not checked              not checked  not checked  ok          no internal pulls; can&#39;t drive high; can&#39;t drive low
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>P4  LED    mcu    refused                  refused      refused      refused     in use by indication
+</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>5 points: 1 short(s) to GND or the supply, 1 short(s) between points, 1 expectation(s) not met
 </span></code></pre></div>
 <p>Per point, only with what its caps allow: <strong>pulls</strong> (input with the pull-up, then the pull-down, each after driving
 the opposite level: external pull-up, pull-down, floating, or held high / low when the point also is shorted to that
@@ -6793,21 +6886,21 @@ errors. The exit code is 0 when nothing is shorted and, with a plan, every expec
 </tbody>
 </table>
 <p>A plan file lives in the firmware repo, one per board revision:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;diag.pins&quot;</span>
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="k">[[point]]</span>
-</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="n">names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GPIO3..=GPIO7&quot;</span><span class="p">]</span><span class="w">      </span><span class="c1"># names, ids, ranges and globs, as on the command line</span>
-</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="n">expect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;pull_up&quot;</span><span class="w">             </span><span class="c1"># pull_up, pull_down, floating, held_high, held_low</span>
-</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="k">[[point]]</span>
-</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;GPIO2&quot;</span>
-</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="n">expect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;floating&quot;</span>
-</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="k">[[point]]</span>
-</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;GPIO0&quot;</span>
-</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="n">allow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]</span><span class="w">               </span><span class="c1"># read, pull_up, pull_down, drive_low, drive_high: only narrows</span>
-</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>
-</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="k">[shorts]</span>
-</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="n">among</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GPIO0..=GPIO8&quot;</span><span class="p">]</span><span class="w">      </span><span class="c1"># the points tested against each other (default: all tested points)</span>
-</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="n">same_net</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;GPIO26&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;GPIO34&quot;</span><span class="p">]]</span><span class="w">  </span><span class="c1"># one net: connected is right, not connected is a fault</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;diag.pins&quot;</span>
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a><span class="k">[[point]]</span>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a><span class="n">names</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GPIO3..=GPIO7&quot;</span><span class="p">]</span><span class="w">      </span><span class="c1"># names, ids, ranges and globs, as on the command line</span>
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a><span class="n">expect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;pull_up&quot;</span><span class="w">             </span><span class="c1"># pull_up, pull_down, floating, held_high, held_low</span>
+</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="k">[[point]]</span>
+</span><span id="__span-28-7"><a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;GPIO2&quot;</span>
+</span><span id="__span-28-8"><a id="__codelineno-28-8" name="__codelineno-28-8" href="#__codelineno-28-8"></a><span class="n">expect</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;floating&quot;</span>
+</span><span id="__span-28-9"><a id="__codelineno-28-9" name="__codelineno-28-9" href="#__codelineno-28-9"></a><span class="k">[[point]]</span>
+</span><span id="__span-28-10"><a id="__codelineno-28-10" name="__codelineno-28-10" href="#__codelineno-28-10"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;GPIO0&quot;</span>
+</span><span id="__span-28-11"><a id="__codelineno-28-11" name="__codelineno-28-11" href="#__codelineno-28-11"></a><span class="n">allow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">]</span><span class="w">               </span><span class="c1"># read, pull_up, pull_down, drive_low, drive_high: only narrows</span>
+</span><span id="__span-28-12"><a id="__codelineno-28-12" name="__codelineno-28-12" href="#__codelineno-28-12"></a>
+</span><span id="__span-28-13"><a id="__codelineno-28-13" name="__codelineno-28-13" href="#__codelineno-28-13"></a><span class="k">[shorts]</span>
+</span><span id="__span-28-14"><a id="__codelineno-28-14" name="__codelineno-28-14" href="#__codelineno-28-14"></a><span class="n">among</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;GPIO0..=GPIO8&quot;</span><span class="p">]</span><span class="w">      </span><span class="c1"># the points tested against each other (default: all tested points)</span>
+</span><span id="__span-28-15"><a id="__codelineno-28-15" name="__codelineno-28-15" href="#__codelineno-28-15"></a><span class="n">same_net</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[[</span><span class="s2">&quot;GPIO26&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;GPIO34&quot;</span><span class="p">]]</span><span class="w">  </span><span class="c1"># one net: connected is right, not connected is a fault</span>
 </span></code></pre></div>
 <p>An entry naming a point exactly wins over a range or glob for <code>expect</code>, a later entry over an earlier one; the
 <code>allow</code> lists of all matching entries apply. <code>--save</code> on a known good board fills <code>expect</code> (an existing file keeps
@@ -6820,9 +6913,9 @@ them up in the firmware's ELF is pending (STD-48).</p>
 <h2 id="ww-elf"><code>ww elf</code><a class="headerlink" href="#ww-elf" title="Permanent link">&para;</a></h2>
 <p>The ELF directory (<code>~/.cache/ww/elf</code>, or the ones in <code>WW_ELF_PATH</code>), where firmware ELFs are found by build id for
 <code>ww counters</code>, <code>ww report</code> and <code>cnt</code>.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
-</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
-</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
 </span></code></pre></div>
 <p><code>--dir DIR</code> adds to another directory. A file without a build id is listed as skipped. See the <a href="../std_library/device_contract/#the-release-archive">release
 archive</a>.</p>
@@ -6831,90 +6924,37 @@ archive</a>.</p>
 flash range (read off the chip, from a <code>.bin</code> or a debug probe dump). The word and page size aren't in the dump
 itself, so they are given on the command line (completion suggests the sizes <code>Store</code> supports, with a chip example
 each):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
-</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
-</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>page 0 @ 0x08078000: page_seq 1
-</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
-</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>  ...
-</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>  0x080787f0 +16     erased
-</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
-</span><span id="__span-27-8"><a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
-</span><span id="__span-27-9"><a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a>  ...
-</span><span id="__span-27-10"><a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
-</span><span id="__span-27-11"><a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
-</span><span id="__span-27-12"><a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a>  0x08078b88 +1144   erased
-</span><span id="__span-27-13"><a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a>
-</span><span id="__span-27-14"><a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a>current record per key:
-</span><span id="__span-27-15"><a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
-</span><span id="__span-27-16"><a id="__codelineno-27-16" name="__codelineno-27-16" href="#__codelineno-27-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>page 0 @ 0x08078000: page_seq 1
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>  ...
+</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>  0x080787f0 +16     erased
+</span><span id="__span-30-7"><a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
+</span><span id="__span-30-8"><a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
+</span><span id="__span-30-9"><a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>  ...
+</span><span id="__span-30-10"><a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
+</span><span id="__span-30-11"><a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
+</span><span id="__span-30-12"><a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>  0x08078b88 +1144   erased
+</span><span id="__span-30-13"><a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>
+</span><span id="__span-30-14"><a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>current record per key:
+</span><span id="__span-30-15"><a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
+</span><span id="__span-30-16"><a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
 </span></code></pre></div>
 <p>Every item slot is shown, valid or not (<code>cut</code>: a write a power loss interrupted; <code>garbage</code>: neither a valid item
 nor erased), including on a page whose header is itself invalid, which a device's own <code>Store</code> never looks at. The
 "current record per key" section is cross-checked against a real <code>Store</code> run over the same bytes, so it is exactly
 what the device would read; a mismatch is a bug in the decoder, not a sign of a bad dump, and is reported as an
 error. <code>--format json</code> gives the same information as JSON instead.</p>
-<h2 id="ww-bootsel"><code>ww bootsel</code><a class="headerlink" href="#ww-bootsel" title="Permanent link">&para;</a></h2>
-<p>RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
-the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<code>ww_dfu::BootControl::reboot</code>, see
-<a href="#ww-dfu"><code>ww dfu</code></a>), and to follow it back into the new firmware.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>list<span class="w">                                   </span><span class="c1"># boot ROMs in BOOTSEL mode with their serial numbers</span>
-</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                           </span><span class="c1"># chip id (RP2350)</span>
-</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
-</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>target/thumbv8m.main-none-eabihf/release/app<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">  </span><span class="c1"># an ELF works too, no objcopy needed</span>
-</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-28-6"><a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a>ww<span class="w"> </span>bootsel<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
-</span></code></pre></div>
-<table>
-<thead>
-<tr>
-<th><code>flash</code> option</th>
-<th>Default</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>--addr &lt;ADDR&gt;</code></td>
-<td><code>0x10000000</code></td>
-<td>Flash address of a raw binary (any file that isn't <code>.uf2</code> or an ELF)</td>
-</tr>
-<tr>
-<td><code>--family &lt;F&gt;</code></td>
-<td><code>rp2350</code></td>
-<td>UF2 family to take blocks of: <code>rp2350</code>, <code>rp2040</code> or <code>any</code></td>
-</tr>
-<tr>
-<td><code>--wait &lt;SECONDS&gt;</code></td>
-<td></td>
-<td>Wait this long for the BOOTSEL device with the <code>--serial</code> to appear</td>
-</tr>
-<tr>
-<td><code>--follow</code></td>
-<td></td>
-<td>After the reboot, wait for a WireWeaver device with the same serial and show it</td>
-</tr>
-<tr>
-<td><code>--no-reboot</code></td>
-<td></td>
-<td>Don't reboot after writing</td>
-</tr>
-</tbody>
-</table>
-<p>The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — <code>target/.../release/app</code>
-works straight from <code>cargo build</code>, no <code>objcopy</code>/<code>elf2uf2</code>), or otherwise a raw binary written at <code>--addr</code>. An ELF
-is taken by its <code>PT_LOAD</code> segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
-an error.</p>
-<p><code>--serial</code> selects the device as for other commands; part of it is enough when only one matches, <code>--wait</code> and
-<code>--follow</code> need the full one. See <a href="../transport/follow_reboot/">following a reboot</a>.</p>
 <h2 id="ww-udev"><code>ww udev</code><a class="headerlink" href="#ww-udev" title="Permanent link">&para;</a></h2>
 <p>Linux only. Meant to print a udev rule giving your user access to WireWeaver USB devices
 (<code>ww udev | sudo tee /etc/udev/rules.d/70-ww_device.rules</code>), but not implemented yet: the command stops with a
 <code>todo!()</code> panic. Until then write the rule by hand, see <a href="../transport/usb/">USB</a>.</p>
 <h2 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h2>
 <p>Manages the <a href="../cli/#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command

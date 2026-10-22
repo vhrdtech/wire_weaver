@@ -6515,7 +6515,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (no read-back verify), no sans-IO boundary for a simulated device and no say over the seconds a 128 KB erase takes.
   <code>follow::stm32_dfu_update()</code> / <code>stm32_dfu_update_with()</code> (<code>wire_weaver_client</code>, feature <code>stm32_dfu</code>, the <code>_with</code>
   one needs neither it nor <code>usb</code>) wait for the bootloader under the app's serial number, flash, jump and wait for the
-  app, tested end to end on <code>SimStm32Dfu</code> (<code>tests/follow_reboot</code>); <code>ww stm32dfu list/info/flash</code> with a progress bar,
+  app, tested end to end on <code>SimStm32Dfu</code> (<code>tests/follow_reboot</code>); <code>ww dfu stm32 list/info/flash</code> with a progress bar,
   <code>--wait</code>, <code>--follow</code>. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
   start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. On a real H725 (B135 rev B, 21 Oct 2026): the
   ROM serial is <code>rom_serial</code> (UID 000F0009 34315102 34363338, serial 344533413431), the version byte at 0x1FF1E7FE
@@ -6537,7 +6537,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>CLT-21 Follow a device across a reboot into other firmware</strong> — for DFU (<code>ww_dfu</code> <code>BootControl::reboot(Updater)</code>):
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   <code>wire_weaver_client::follow</code> (<code>Follow</code>, <code>Bus</code>, <code>Found</code>), and the RP2350 / RP2040 boot ROM as the updater:
-  <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww bootsel</code>, tested end to end
+  <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww dfu rp</code>, tested end to end
   on a simulated device (<code>tests/follow_reboot</code>, <code>docs/transport/follow_reboot.md</code>). The PICOBOOT host moved to its
   own repo, <a href="https://github.com/vhrdtech/picoboot_host">picoboot_host</a> (evaluated the crates.io <code>picoboot</code> 0.3.0
   crate first: no sans-IO boundary to put <code>SimRp2350</code> behind, no <code>Image</code>/UF2 handling, no orchestrated flash+verify,
@@ -6545,8 +6545,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   depends on it as <code>ww_picoboot</code> (a path dependency on <code>../picoboot_host</code> while its ELF support, IMG-4, is unlanded;
   a git dependency on github.com/vhrdtech/picoboot_host once it lands, until it is on crates.io). <code>wire_weaver_client</code>'s
   <code>picoboot</code> feature (off by default) gates <code>follow::rp2_update()</code> and the <code>ww_picoboot</code> re-export, so a host app
-  that only talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww bootsel</code> turns it on, and <code>follow::rp2_update_with()</code>
-  (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww bootsel flash</code> takes a
+  that only talks WireWeaver over USB doesn't pull in PICOBOOT; <code>ww dfu rp</code> turns it on, and <code>follow::rp2_update_with()</code>
+  (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww dfu rp flash</code> takes a
   UF2, an ELF (detected by magic bytes, taken by its <code>PT_LOAD</code> segments' flash physical address — no <code>objcopy</code>/
   <code>elf2uf2</code> needed) or a raw binary. Missing: a run against a Pico 2 / rePort; RTT (another control block: a second
   ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.</li>
@@ -6571,7 +6571,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   STD-12), plans a delta, sends the steps pipelined up to <code>StageLimits::in_flight</code> (<code>PreparedCall::send</code> →
   <code>PendingCall</code>: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
   follows the device by serial number and waits for its confirm or revert. <code>reboot --into updater</code> on an A/B app
-  that takes updates itself says it goes to the boot ROM (<code>ww stm32dfu</code>, CLT-34). Tested end to end in
+  that takes updates itself says it goes to the boot ROM (<code>ww dfu stm32</code>, CLT-34). Tested end to end in
   chunky_mcu_updater (<code>chunky_ww_host/tests/e2e.rs</code>: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.</li>
 <li>✅ <strong>CLT-41 client-metadata</strong> · <code>v0.5.x</code> — who connects: <code>ww_link::ClientMeta</code> (program, app version, label, kind
@@ -6881,12 +6881,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the
-  <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; Ctrl+C leaves the devices in holdover.
+  <code>ww_indication</code> mode on all, <code>--duration</code>, <code>--poll-ms</code> / <code>--steer-ms</code>; <code>q</code> or Ctrl+C stops, saying who steers the devices after (the hub, or nobody: holdover).
   With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
   (checked through the hub on Donguru and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
-  when each device and then all are within <code>--within-us</code> (locked by their word, residual by the host's), the LED
-  phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, <code>ww sync</code> with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  when each device and then all are within <code>--within-us</code> (locked by their word, residual by the host's), the
+  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, <code>ww sync</code> with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. <code>docs/cli_reference.md#ww-sync</code>. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
   tpm P2618#21oct-1707.</li>
 <li>🧪 <strong>TOOL-15 <code>ww pins test</code> / <code>ww pins list</code></strong> · <code>v0.5.x</code> — pin tests on any device serving <code>ww_pin_diag::PinDiag</code>
   (STD-47) at any path, found by introspection (<code>docs/cli_reference.md#ww-pins</code>): pulls, shorts to GND, to the
@@ -6958,7 +6958,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   elsewhere), sync master / slave (IRIG-B, PPS), <code>sync_status</code>, a <code>time_map</code> stream mapping device time to
   shared time, <code>set_time_of_day</code> for a master. <code>tests/io_timebase</code>, <code>docs/std_library/ww_timebase.md</code>.</li>
 <li>✅ <strong>STD-49 <code>ww_timebase</code> host sync, one UTC timescale</strong> — devices without a sync line follow the host's wall
-  clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
+  clock (UTC), and every source is ranked: a locked line (IRIG-B, PPS) &gt; host &gt; holdover &gt; free.
   <code>Clock</code> gets the optional <code>host_sync</code> group (<code>steer(SteerPoint) -&gt; SyncSource</code>: offset in UTC µs, rate in ppb and
   the host's error estimate; a line-locked device only notes the point; <code>shared_now()</code>; <code>set_sources</code> / <code>sources</code>: an
   explicit ordered list of allowed sources, <code>None</code> keeps the fixed ranking), <code>SyncSource</code> (<code>Host</code>,

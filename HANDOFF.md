@@ -22,7 +22,10 @@ Running: hub-live-handover (CLT-44, top, omarchy-m1; simulated parts first, real
 
 Taken up 22 Oct 03:55: CLT-44 simulated parts (hub-live-handover up to 66cd4091: framer carry-over, usb_sim, LinkSnapshot pause/relink/adopt, hub Adopt API, failure tests, Linux nusb hooks, docs). Gate green after the cherry-pick (just test 2000, just lint). hub-live-handover stays parked for its real-board check (usbmon proof on omarchy-m1); take up its later commits when it is ready.
 
-Next: hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
+22 Oct ~11:00: the person decided R5 stays fixed and no federation now (SRV-36..40, API-58 stay in Later; review rules folded into their task texts; scope noted in the federation design). Done here: CLT-45 one lock file per device key (holders::file_name, _xx escaping, SHA-256 for long names, key checked on read), TOOL-19 escape device and hub strings in ww output (wire_weaver_cli/src/untrusted.rs, by a subagent). Taken up from hub-clock-sync (ready, checked on Donguru + B135): e2221cdc (SRV-31 and STD-49 done with the hardware numbers, FEATURES merged by hand) and bf595b60. Gate: just lint green; just test green except hub_reconnect live_handover a_holder_hands_its_live_link_to_the_hub, flaky at load avg ~25 (9 calls failed after 1 s), passed to hub-live-handover to find the cause.
+
+Next: take up hub-live-handover when ready (board check of CLT-44 + the flaky test fix), rerun the gate, then tpm work ready. SRV-29 and SRV-32 hardware items: hub-clock-sync only checked SRV-31; check whether SRV-29/SRV-32 are still 🧪 and say so in the report.
+ hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
 
 Decisions: frozen WWHB preamble; std File::try_lock lock files; readiness = starter polls connect + preamble answer; hub API served with ww_device::Server per connection; handover answers Unimplemented until SRV-30.
 

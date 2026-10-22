@@ -56,6 +56,70 @@ pub(crate) trait MessageRx: Send + 'static {
     }
 }
 
+/// A device's claim in the holders registry (CLT-38), shared by both halves of its link: released once both closed
+/// the medium, so that whoever takes the device next (the hub after a handover, CLT-43) finds it free.
+pub(crate) type SharedClaim = Option<std::sync::Arc<crate::holders::Claim>>;
+
+/// Waits for a handover request on a shared claim, see [MessageTx::handover_requested].
+#[cfg_attr(
+    not(any(feature = "usb", feature = "rtt", feature = "local_socket")),
+    allow(dead_code)
+)]
+pub(crate) async fn handover_requested(claim: &SharedClaim) {
+    match claim {
+        Some(claim) => claim.handover_requested().await,
+        None => std::future::pending().await,
+    }
+}
+
+/// A tx half of a medium that keeps the device's claim, for transports whose halves don't (RTT's stream IO).
+#[cfg_attr(not(feature = "rtt"), allow(dead_code))]
+pub(crate) struct HeldTx<T> {
+    pub(crate) inner: T,
+    pub(crate) claim: SharedClaim,
+}
+
+impl<T: MessageTx + Send> MessageTx for HeldTx<T> {
+    fn write_message(
+        &mut self,
+        kind: u8,
+        message: &[u8],
+    ) -> impl Future<Output = Result<(), String>> + Send {
+        self.inner.write_message(kind, message)
+    }
+
+    fn flush(&mut self) -> impl Future<Output = Result<(), String>> + Send {
+        self.inner.flush()
+    }
+
+    fn handover_requested(&mut self) -> impl Future<Output = ()> + Send {
+        handover_requested(&self.claim)
+    }
+
+    async fn close(self) {
+        self.inner.close().await;
+        drop(self.claim);
+    }
+}
+
+/// The rx half of [HeldTx].
+#[cfg_attr(not(feature = "rtt"), allow(dead_code))]
+pub(crate) struct HeldRx<R> {
+    pub(crate) inner: R,
+    pub(crate) claim: SharedClaim,
+}
+
+impl<R: MessageRx + Send> MessageRx for HeldRx<R> {
+    fn read_message(&mut self) -> impl Future<Output = Result<(u8, &[u8]), String>> + Send {
+        self.inner.read_message()
+    }
+
+    async fn close(self) {
+        self.inner.close().await;
+        drop(self.claim);
+    }
+}
+
 pub(crate) struct Opened<Tx, Rx> {
     pub tx: Tx,
     pub rx: Rx,

@@ -221,7 +221,7 @@ pub(crate) async fn connect_to(
             #[cfg(not(feature = "usb"))]
             InterfaceKind::Usb => continue,
             InterfaceKind::InProcess => try_select_in_process(config, cmd_rx),
-            InterfaceKind::Rtt => try_select_rtt(config, cmd_rx),
+            InterfaceKind::Rtt => try_select_rtt_routed(config, cmd_rx).await,
             InterfaceKind::WebSocket => try_select_ws(config, cmd_rx),
             InterfaceKind::Udp => try_select_udp(config, cmd_rx),
             InterfaceKind::Ipc => try_select_local_socket(config, cmd_rx, true).await,
@@ -664,12 +664,22 @@ impl Keeper {
     }
 }
 
+async fn try_select_rtt_routed(
+    config: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+) -> Result<Selected> {
+    #[cfg(feature = "rtt")]
+    return crate::rtt::try_connect_routed(config, cmd_rx).await;
+    #[cfg(not(feature = "rtt"))]
+    try_select_rtt(config, cmd_rx)
+}
+
 fn try_select_rtt(
     config: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected> {
     #[cfg(feature = "rtt")]
-    return crate::rtt::try_connect(config, cmd_rx);
+    return crate::rtt::try_connect(config, cmd_rx, false);
     #[cfg(not(feature = "rtt"))]
     {
         _ = (config, cmd_rx);

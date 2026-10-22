@@ -15,7 +15,7 @@ use crate::config::RttControlBlock;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
 use crate::event_loop::stream::{self, BlockingStreamIo, StreamConfig};
-use crate::event_loop::transport::{Opened, Transport};
+use crate::event_loop::transport::{HeldRx, HeldTx, Opened, SharedClaim, Transport};
 
 /// Channel names the device creates with `rtt_init!`, see `ww_device::rtt`
 const UP_CHANNEL: &str = "ww_up";
@@ -47,6 +47,8 @@ pub(crate) struct RttHandle {
     pub(crate) meta: Option<Box<crate::client_meta::ClientMetaOwned>>,
     /// [ClientConfig::holder_mode](crate::ClientConfig::holder_mode)
     pub(crate) holder_mode: crate::holders::Mode,
+    /// How the holder answers a polite handover to the hub (CLT-43), see `ValidatedConfig::handover_offer`
+    pub(crate) handover: Option<bool>,
 }
 
 pub async fn rtt_worker(cmd_rx: mpsc::Receiver<Command>) {
@@ -62,18 +64,22 @@ impl Transport for RttTransport {
         crate::event_loop::transport::link_setup_timeout::RTT
     }
 
-    type Tx = RttTx;
-    type Rx = RttRx;
+    type Tx = HeldTx<RttTx>;
+    type Rx = HeldRx<RttRx>;
 
     /// Attaching is slow (RAM is scanned for the RTT control block) and blocking, so it happens on the IO thread.
     async fn connect(
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
-    ) -> Result<Opened<RttTx, RttRx>, String> {
+    ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let handle = handle
             .downcast::<RttHandle>()
             .map_err(|_| "expected RttHandle".to_string())?;
+        // Claim our own lock before opening the probe (CLT-38): a busy error from another WireWeaver holder then
+        // names who, instead of probe-rs's generic one. Taken here, on the event loop's runtime, so that the claim
+        // can listen for a handover to the hub (CLT-43); both halves keep it, the probe goes with the IO thread.
+        let claim = claim(&handle).map_err(|e| format!("RTT: {e:#}"))?;
         let mut tap = tap;
         let peer = format!("{} via {}", handle.target, handle.probe.identifier);
         ww_tap::Tap::session(
@@ -85,10 +91,39 @@ impl Transport for RttTransport {
                 &peer,
             ),
         );
-        stream::open(CONFIG, tap, move || {
-            ProbeRtt::attach(*handle).map_err(|e| format!("RTT: {e:#}"))
+        let opened: stream::StreamOpened<RttHead, RttChecksum, RttTail> =
+            stream::open(CONFIG, tap, move || {
+                ProbeRtt::attach(*handle).map_err(|e| format!("RTT: {e:#}"))
+            })
+            .await?;
+        Ok(Opened {
+            tx: HeldTx {
+                inner: opened.tx,
+                claim: claim.clone(),
+            },
+            rx: HeldRx {
+                inner: opened.rx,
+                claim,
+            },
         })
-        .await
+    }
+}
+
+fn claim(h: &RttHandle) -> anyhow::Result<SharedClaim> {
+    let key = crate::holders::key_for(crate::holders::DeviceRef::Rtt {
+        probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
+        chip: &h.target,
+    });
+    match crate::holders::claim_offering(&key, h.holder_mode, h.meta.as_deref(), h.handover) {
+        Ok(claim) => Ok(Some(std::sync::Arc::new(claim))),
+        Err(crate::holders::ClaimError::HeldBy(holder)) => bail!(
+            "probe is already open by another WireWeaver program or connection; {holder}{}",
+            crate::hub::busy_hint(&holder)
+        ),
+        Err(crate::holders::ClaimError::Io(e)) => {
+            warn!("could not record holding {key} ({e:#}), continuing without it");
+            Ok(None)
+        }
     }
 }
 
@@ -97,8 +132,6 @@ struct ProbeRtt {
     rtt: Rtt,
     up: usize,
     down: usize,
-    /// Keeps the holders registry claim (CLT-38) for as long as the probe is attached
-    _claim: Option<crate::holders::Claim>,
 }
 
 impl ProbeRtt {
@@ -106,26 +139,6 @@ impl ProbeRtt {
         // before touching the probe, a wrong path fails right away
         let control_block = control_block_address(h.control_block)?;
         debug!("attaching to {} through {}", h.target, h.probe);
-
-        // Claim our own lock before opening the probe (CLT-38): a busy error from another WireWeaver holder
-        // then names who, instead of probe-rs's generic one.
-        let key = crate::holders::key_for(crate::holders::DeviceRef::Rtt {
-            probe_serial: h.probe.serial_number.as_deref().unwrap_or_default(),
-            chip: &h.target,
-        });
-        let claim = match crate::holders::claim_with(&key, h.holder_mode, h.meta.as_deref()) {
-            Ok(claim) => Some(claim),
-            Err(crate::holders::ClaimError::HeldBy(holder)) => {
-                bail!(
-                    "probe is already open by another WireWeaver program or connection; {holder}{}",
-                    crate::hub::busy_hint(&holder)
-                );
-            }
-            Err(crate::holders::ClaimError::Io(e)) => {
-                warn!("could not record holding {key} ({e:#}), continuing without it");
-                None
-            }
-        };
 
         let mut probe = h.probe.open().map_err(|e| with_claim_hint(e, &h.probe))?;
         if let Some(speed_hz) = h.speed_hz {
@@ -168,7 +181,6 @@ impl ProbeRtt {
             rtt,
             up,
             down,
-            _claim: claim,
         })
     }
 }

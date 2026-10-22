@@ -836,6 +836,51 @@ impl ClientConfig {
     // }
 }
 
+#[cfg(test)]
+mod handover_tests {
+    use super::*;
+    use crate::{ClientKind, ClientMeta};
+
+    fn offer(kind: ClientKind, f: impl FnOnce(ClientConfig) -> ClientConfig) -> Option<bool> {
+        f(ClientConfig::new()
+            .hub(HubMode::Auto)
+            .client_meta(ClientMeta::new().kind(kind)))
+        .validate()
+        .unwrap()
+        .handover_offer(true)
+    }
+
+    #[test]
+    fn handover_by_kind_and_setting() {
+        let on = cfg!(feature = "hub");
+        for kind in [ClientKind::Cli, ClientKind::Notebook, ClientKind::Test] {
+            assert_eq!(offer(kind, |c| c), Some(on), "{kind:?}");
+        }
+        for kind in [ClientKind::Gui, ClientKind::Service] {
+            assert_eq!(offer(kind, |c| c), Some(false), "{kind:?}");
+            assert_eq!(offer(kind, |c| c.allow_handover(true)), Some(on));
+        }
+        assert_eq!(
+            offer(ClientKind::Cli, |c| c.allow_handover(false)),
+            Some(false)
+        );
+        // nothing to reconnect through, or the hub's own connection
+        assert_eq!(
+            offer(ClientKind::Cli, |c| c.hub(HubMode::Direct)),
+            Some(false)
+        );
+        assert_eq!(
+            offer(ClientKind::Cli, |c| c.hub_reconnect(None)),
+            Some(false)
+        );
+        assert_eq!(
+            offer(ClientKind::Cli, |c| c
+                .holder_mode(crate::holders::Mode::Hub)),
+            None
+        );
+    }
+}
+
 impl ValidatedConfig {
     /// How a direct holder with this config answers a polite handover (CLT-43), for
     /// [holders::claim_offering](crate::holders::claim_offering): `None` listens on no holder socket (the hub's own

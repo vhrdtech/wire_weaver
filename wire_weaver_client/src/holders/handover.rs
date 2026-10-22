@@ -74,12 +74,13 @@ impl Offer {
 
     /// Returns once an asker wants the device handed to the hub (and this holder allows it); never otherwise.
     /// Cancel-safe.
-    pub(crate) async fn requested(&mut self) {
+    pub(crate) async fn requested(&self) {
+        let mut requested = self.requested.clone();
         loop {
-            if *self.requested.borrow_and_update() {
+            if *requested.borrow_and_update() {
                 return;
             }
-            if self.requested.changed().await.is_err() {
+            if requested.changed().await.is_err() {
                 // the listener is gone: nobody asks any more
                 std::future::pending::<()>().await;
             }

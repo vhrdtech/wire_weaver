@@ -325,10 +325,13 @@ impl Claim {
 
     /// Returns once another program asked this holder to hand the device to the hub and it allows it (CLT-43):
     /// the event loop then lets go of the device. Never for a claim that offers no handover. Cancel-safe.
+    ///
+    /// Both halves of a link share the claim (an `Arc`): it goes, and a waiting asker hears `Released`, once the
+    /// last of them closed the medium.
     #[cfg_attr(not(any(feature = "usb", feature = "local_socket")), allow(dead_code))]
-    pub(crate) async fn handover_requested(&mut self) {
+    pub(crate) async fn handover_requested(&self) {
         #[cfg(feature = "local_socket")]
-        if let Some(offer) = self.offer.as_mut() {
+        if let Some(offer) = self.offer.as_ref() {
             return offer.requested().await;
         }
         std::future::pending::<()>().await
@@ -596,7 +599,8 @@ mod tests {
             .label("bench\n2")
             .purpose("calibration")
             .resolve();
-        let holder = Holder::current(Mode::Direct, Some(&meta));
+        let mut holder = Holder::current(Mode::Direct, Some(&meta));
+        holder.handover = "/run/user/1000/ww/holders/usb_1_2_s.sock".into();
         let content = Holder::serialize("usb:1:2:s", &holder);
         let (key, parsed) = Holder::parse_with_key(&content).unwrap();
         assert_eq!(key, "usb:1:2:s");
@@ -610,6 +614,7 @@ mod tests {
         );
         assert_eq!(parsed.purpose, "calibration");
         assert_eq!(parsed.instance_id, meta.instance_id);
+        assert_eq!(parsed.handover, holder.handover);
         assert!(parsed.to_string().contains("Gui"), "{parsed}");
     }
 

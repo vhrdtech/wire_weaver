@@ -7,27 +7,87 @@ use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::command::Command;
 use crate::event_loop::transport::Selected;
 
-/// Probe listing is quick and synchronous, used from both async and blocking connect.
-pub(crate) fn try_connect(
+/// [try_connect] for `connect()`: through the ww hub when the hub holds the probe's device, or its direct holder
+/// hands it over (CLT-43; [HubMode](crate::hub::HubMode), without the open counter).
+pub(crate) async fn try_connect_routed(
     c: &ValidatedConfig,
     cmd_rx: &mut Option<mpsc::Receiver<Command>>,
 ) -> Result<Selected, anyhow::Error> {
-    let Some((target, speed_hz)) = c.pieces.iter().rev().find_map(|p| match p {
+    #[cfg(feature = "hub")]
+    {
+        let (probe, info) = match select(c)? {
+            Ok(matched) => matched,
+            Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
+        };
+        let key = crate::holders::key_for(crate::holders::DeviceRef::Rtt {
+            probe_serial: probe.serial_number.as_deref().unwrap_or_default(),
+            chip: &rtt_target(c)?.0,
+        });
+        if let crate::hub::Route::Hub(tunnel) = crate::hub::route(c, &key, false).await? {
+            let Some(cmd_rx) = cmd_rx.take() else {
+                bail!("Internal error: cmd_rx is None");
+            };
+            tokio::spawn(crate::local_socket::worker(cmd_rx));
+            let mut info = info;
+            info.location = format!("{} through the ww hub", info.location);
+            return Ok(Selected::Device {
+                handle: tunnel,
+                info: Box::new(info),
+                via_hub: true,
+            });
+        }
+        start(c, probe, info, cmd_rx, true)
+    }
+    #[cfg(not(feature = "hub"))]
+    try_connect(c, cmd_rx, true)
+}
+
+fn rtt_target(c: &ValidatedConfig) -> Result<(String, Option<u32>), anyhow::Error> {
+    match c.pieces.iter().rev().find_map(|p| match p {
         ConfigPiece::Rtt {
             target, speed_hz, ..
         } => Some((target.clone(), *speed_hz)),
         _ => None,
-    }) else {
-        bail!("Internal error: RTT selected without a target");
+    }) {
+        Some(t) => Ok(t),
+        None => bail!("Internal error: RTT selected without a target"),
+    }
+}
+
+#[allow(clippy::type_complexity)]
+fn select(
+    c: &ValidatedConfig,
+) -> Result<Result<(DebugProbeInfo, crate::DeviceInfo), Vec<crate::DeviceInfo>>, anyhow::Error> {
+    rtt_target(c)?;
+    Ok(select_matching(c, Lister::new().list_all())?)
+}
+
+/// Probe listing is quick and synchronous, used from both async and blocking connect. `supervised`: the connection
+/// reconnects by itself (`connect()`), so it may hand the probe to the hub when asked (CLT-43).
+pub(crate) fn try_connect(
+    c: &ValidatedConfig,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    supervised: bool,
+) -> Result<Selected, anyhow::Error> {
+    let (probe, info) = match select(c)? {
+        Ok(matched) => matched,
+        Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
     };
+    start(c, probe, info, cmd_rx, supervised)
+}
+
+fn start(
+    c: &ValidatedConfig,
+    probe: DebugProbeInfo,
+    info: crate::DeviceInfo,
+    cmd_rx: &mut Option<mpsc::Receiver<Command>>,
+    supervised: bool,
+) -> Result<Selected, anyhow::Error> {
+    let (target, speed_hz) = rtt_target(c)?;
     let control_block = c.pieces.iter().rev().find_map(|p| match p {
         ConfigPiece::RttControlBlock(cb) => Some(cb.clone()),
         _ => None,
     });
-    let (probe, info) = match select_matching(c, Lister::new().list_all())? {
-        Ok(matched) => matched,
-        Err(unmatched) => return Ok(Selected::NotFound { unmatched }),
-    };
     let Some(cmd_rx) = cmd_rx.take() else {
         bail!("Internal error: cmd_rx is None");
     };
@@ -42,6 +102,7 @@ pub(crate) fn try_connect(
             control_block,
             meta: c.client_meta.clone(),
             holder_mode: c.holder_mode,
+            handover: c.handover_offer(supervised),
         }),
         info: Box::new(info),
         via_hub: false,

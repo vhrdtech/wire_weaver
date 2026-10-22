@@ -21,7 +21,9 @@ use ww_local_socket::{Answer, MessageReader, MessageWriter, Preamble, Status, Ta
 use crate::config::{ConfigPiece, ValidatedConfig};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
-use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Transport};
+use crate::event_loop::transport::{
+    MessageRx, MessageTx, Opened, Selected, SharedClaim, Transport, handover_requested,
+};
 
 /// The other process must answer the preamble within this time, a socket nobody serves fails fast.
 const ANSWER_TIMEOUT: Duration = Duration::from_secs(2);
@@ -183,6 +185,7 @@ impl Transport for LocalSocketTransport {
                 .downcast::<Tunnel>()
                 .map_err(|_| "expected a local socket target".to_string())?,
         };
+        let claim = tunnel.claim.map(std::sync::Arc::new);
         let mut tap = tap;
         ww_tap::Tap::session(
             &mut tap,
@@ -194,12 +197,12 @@ impl Transport for LocalSocketTransport {
             ),
         );
         Ok(Opened {
-            tx: LocalTx(MessageWriter::new(tunnel.tx), tunnel.claim),
+            tx: LocalTx(MessageWriter::new(tunnel.tx), claim.clone()),
             // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-            rx: LocalRx(MessageReader::new(
-                tunnel.rx,
-                crate::DEFAULT_MAX_MESSAGE_SIZE,
-            )),
+            rx: LocalRx(
+                MessageReader::new(tunnel.rx, crate::DEFAULT_MAX_MESSAGE_SIZE),
+                claim,
+            ),
         })
     }
 }
@@ -336,7 +339,8 @@ async fn open_with(path: &std::path::Path, preamble: &Preamble) -> Result<Tunnel
     })
 }
 
-pub(crate) struct LocalTx(MessageWriter<SendHalf>, Option<crate::holders::Claim>);
+/// The claim is shared by both halves: released once both closed the socket.
+pub(crate) struct LocalTx(MessageWriter<SendHalf>, SharedClaim);
 
 impl MessageTx for LocalTx {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
@@ -349,10 +353,7 @@ impl MessageTx for LocalTx {
     }
 
     async fn handover_requested(&mut self) {
-        match self.1.as_mut() {
-            Some(claim) => claim.handover_requested().await,
-            None => std::future::pending().await,
-        }
+        handover_requested(&self.1).await
     }
 
     async fn close(mut self) {
@@ -361,7 +362,11 @@ impl MessageTx for LocalTx {
     }
 }
 
-pub(crate) struct LocalRx(MessageReader<RecvHalf>);
+pub(crate) struct LocalRx(
+    MessageReader<RecvHalf>,
+    // held, never read: the claim goes with the last half
+    #[allow(dead_code)] SharedClaim,
+);
 
 impl MessageRx for LocalRx {
     async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {

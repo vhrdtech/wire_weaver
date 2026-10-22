@@ -11,7 +11,9 @@ use tracing::{debug, trace};
 use super::ww_nusb::{Sink, Source};
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::Command;
-use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Transport};
+use crate::event_loop::transport::{
+    MessageRx, MessageTx, Opened, SharedClaim, Transport, handover_requested,
+};
 use ww_framer::prefix::FrameReport;
 use ww_tap::{Dir, RecorderLink, Tap};
 
@@ -32,13 +34,15 @@ pub(crate) struct NusbTx {
     /// Keeps the device open while endpoints are in use
     _device: nusb::Device,
     /// Keeps the holders registry claim (CLT-38) for as long as the interface is held
-    claim: Option<crate::holders::Claim>,
+    claim: SharedClaim,
 }
 
 pub(crate) struct NusbRx {
     framer: RxFramer,
     source: Source,
     tap: RecorderLink,
+    /// Shared with [NusbTx]: released once both halves let go of the interface
+    _claim: SharedClaim,
 }
 
 impl Transport for NusbTransport {
@@ -58,6 +62,7 @@ impl Transport for NusbTransport {
             .downcast::<super::connect::UsbTarget>()
             .map_err(|_| "expected a USB device handle".to_string())?;
         let dev = super::connect::connect(&target).map_err(|e| format!("{e:#}"))?;
+        let claim = dev.claim.map(std::sync::Arc::new);
         let di = &target.info;
         trace!("max_packet_size: {}", dev.max_packet_size);
         let is_bulk = dev.transfer_type == TransferType::Bulk;
@@ -79,7 +84,7 @@ impl Transport for NusbTransport {
                 sink,
                 tap: tap.clone(),
                 _device: dev.device,
-                claim: dev.claim,
+                claim: claim.clone(),
             },
             rx: NusbRx {
                 // must hold one maximum message plus one more packet, see FramedRx docs
@@ -89,6 +94,7 @@ impl Transport for NusbTransport {
                 ),
                 source,
                 tap,
+                _claim: claim,
             },
         })
     }
@@ -139,10 +145,7 @@ impl MessageTx for NusbTx {
     }
 
     async fn handover_requested(&mut self) {
-        match self.claim.as_mut() {
-            Some(claim) => claim.handover_requested().await,
-            None => std::future::pending().await,
-        }
+        handover_requested(&self.claim).await
     }
 
     async fn close(self) {

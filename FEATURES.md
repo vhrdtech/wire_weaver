@@ -890,7 +890,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   running hub with the program's own (`main_if_hub`, `WW_HUB_HANDOVER`, under `hub.start.lock`). Tested on Linux in
   `tests/hub_reconnect` (`versions.rs`, `handover.rs` with clients connected, `replace.rs` across processes); check
   on macOS and Windows open (compiles for both).
-- 🧪 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `ww_timebase::Clock` with
+- ✅ **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `ww_timebase::Clock` with
   `host_sync` (found in its introspection data at any path) onto the PC's UTC with `clock_sync::ClockSync` on its own
   connection, and keeps it open for a sync linger (30 min, `WW_HUB_SYNC_LINGER`, `forever`) so boards stay steered
   between short-lived commands; `WW_HUB_SYNC=off` / `sync().set_enabled` per device or all. `ww_hub_api::ClockSync` at
@@ -903,8 +903,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E in `tests/hub` (`clock_sync`), `tests/io_timebase`.
   Paused (`SyncPhase::Paused`, readings go on, no steer points) while a program holds the whole device (SRV-32);
   programs holding a device directly steer on their own connection by default (CLT-46).
-  Hardware check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on
-  one board.
+  Checked on omarchy-m1 (22 Oct 2026, Donguru and B135 through the hub, `ww sync` as its view): `Locked` 1.4-2.6 s
+  after the hub opened them with no cached rate, 0.4 s with one, also after a hub restart and after 60 s closed in
+  holdover; a loop of short `ww info` calls goes through the hub from its third call and the board stays steered
+  without clients for the sync linger, then closes; residual against UTC B135 -5..-16 µs (±55 µs, RTT 120 µs),
+  Donguru within ±1.2 ms (RTT 1.4-1.6 ms). Two steerers on one board (follow one, note the other, take over) checked
+  on Donguru and B135 by `bedrock_sync`'s side.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
   holder, and `Hub::steering_paused` for the hub's clock steering (SRV-31 skips the device while it holds);
@@ -1404,7 +1408,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
   `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; Ctrl+C leaves the devices in holdover.
-  With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column.
+  With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
+  (checked through the hub on Donguru and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
   when each device and then all are within `--within-us` (locked by their word, residual by the host's), the LED
   phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
@@ -1478,7 +1483,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-17 `ww_timebase`** — `Clock`: device time as `ww_si::Second` (full width via `now()`, truncated
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
-- 🧪 **STD-49 `ww_timebase` host sync, one UTC timescale** — devices without a sync line follow the host's wall
+- ✅ **STD-49 `ww_timebase` host sync, one UTC timescale** — devices without a sync line follow the host's wall
   clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) > host > holdover > free.
   `Clock` gets the optional `host_sync` group (`steer(SteerPoint) -> SyncSource`: offset in UTC µs, rate in ppb and
   the host's error estimate; a line-locked device only notes the point; `shared_now()`; `set_sources` / `sources`: an
@@ -1491,8 +1496,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   deterministic tests with simulated device clocks (HSI 1 % fast, a drifting crystal, USB FS jitter), end to end in
   `tests/io_timebase`; `docs/std_library/ww_timebase.md#host-sync-std-49`. Device side: embedded_bedrock
   `bedrock_sync`. Steer points name their steerer and a device follows one at a time, with a per-device rate cache on
-  the PC (SRV-31). Hardware check open: Donguru and rePort steered by `ww sync` on omarchy-m1, `sync_status`
-  `Locked`, the residual offset measured with `shared_now`.
+  the PC (SRV-31). Checked on omarchy-m1 (21-22 Oct 2026): Donguru, rePort and B135 steered by `ww sync`,
+  `sync_status` `Locked` in 1.2-1.6 s, the residual measured with `shared_now` B135 -5..-16 µs (±55 µs), Donguru
+  within ±1.2 ms (its 1.4-1.6 ms round trips).
 - ✅ **STD-18 `ww_adc`** — `Adc`, `AdcStream` (sideband `Open` / `Close`), `AdcCapture`. Fill-in done:
   full rustdoc, `tests/io_adc` mock server (one test per trait), `docs/std_library/ww_adc.md`, API snapshot
   (STD-13).

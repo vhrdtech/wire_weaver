@@ -720,6 +720,20 @@ steerer for the devices of its user; programs see its steering through the API i
 - **Pace.** `HubConfig::sync_options` (`wire_weaver_client::clock_sync::Options`): readings and steer points ten times a second until
   the device says `Locked`, then five readings and one steer point a second.
 
+Measured on omarchy-m1 (22 Oct 2026, Donguru and B135 on USB full speed, `ww sync` as the view):
+
+| | Donguru | B135 |
+|---|---|---|
+| `Locked` after the hub opened it, no cached rate | 2.6 s | 1.4 s |
+| the same with a cached rate, also after a hub restart or 60 s closed in holdover | 0.4-1.4 s | 0.4 s |
+| residual against the PC's UTC (`shared_now`), locked | within ±1.2 ms | -5 to -16 µs (±55 µs) |
+| shortest round trip | 1.4-1.6 ms | 120-160 µs |
+
+A loop of short `ww` calls (`ww -s 3445 info` three times) goes through the hub from its third call (the
+[open counter](#repeated-opens)); the board then stays open and steered without clients until the sync linger runs
+out, and is closed after it. A single command with no hub holding the device opens it directly and isn't steered
+(CLT-46).
+
 The API (`ww_hub_api::ClockSync` at `sync`):
 
 ```rust

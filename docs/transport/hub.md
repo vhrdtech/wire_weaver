@@ -457,7 +457,7 @@ when it wasn't within 5 s.
 
 This is release and reopen: the holder closes the device, the hub opens it again (USB: open, claim the interface, link
 setup; RTT: attach the probe again, which can take a second or more), and the holder sets up its link through the hub.
-On Linux, CLT-44 is to replace it with a live handover of the open link, measured against this baseline.
+On Linux, a USB link is handed over live instead, see [below](#live-link-handover-clt-44).
 
 Measured on Linux (`tests/hub_reconnect`, `polite_handover.rs`, debug build, gpd-omarchy, 22 Oct 2026), with a
 simulated device that takes one host at a time on a local socket and the holder in another process with a counted
@@ -465,6 +465,63 @@ stream open, 30 runs: the holder let go of the device within about 4.5 ms of the
 to the stream resumed through the hub, was 4.6 ms median (3.5 to 12 ms); the asker's whole `connect()`, starting the
 hub process included, took 34 ms median. A real USB device adds its open and link setup to the gap, an RTT probe its
 attach; those are to be measured on hardware.
+
+## Live link handover (CLT-44)
+
+On Linux, a direct holder asked to hand its USB device to the hub (the [request above](#polite-handover-from-a-direct-holder-clt-43))
+hands the hub its live link instead of closing it: the hub goes on with the same link, the device sees no reconnect
+(no new link setup, no `Disconnect`), and the holder goes on through a tunnel to the hub with the same seqs, so its
+calls in flight are answered, its streams and observed levels go on, and the app sees no `ConnectionEvent` at all,
+only a pause of a few milliseconds.
+
+It needs the hub to run the same minor version of `wire_weaver_client` as the holder (the link snapshot is that
+crate's internal state); otherwise, on other OSes, and for media other than USB (RTT), the handover is the release
+and reopen above.
+
+### The steps
+
+1. **Connect.** The holder connects to the hub's API on a task of its own; its link runs on meanwhile.
+2. **Pause.** Its event loop holds new requests and pings, sends what it has (every OUT transfer completes, the
+   device has 500 ms to take them), cancels the IN transfers and reaps them into its framer. What the device sends
+   after that waits in the device (its IN endpoint is NAKed until a host polls it).
+3. **Prepare.** The holder sends a `LinkSnapshot` to `Adopt::prepare`: the framers' state both ways (the frame
+   counter, a message split across packets, bytes staged), the link's token, device info and ping schedule, the next
+   seq and the requests in flight, the open streams and observed levels. The hub checks it (versions, the medium
+   fits the device key, nobody holds the device through the hub) and keeps the device's slot, so no other program
+   opens it meanwhile.
+4. **Let go.** The holder releases the interface, keeping the device file open, and drops its lock file (the asker
+   hears `Released`). Releasing an interface at alternate setting 0 sends nothing on the bus and keeps the endpoints'
+   data toggles.
+5. **Commit.** `Adopt::commit`: the hub opens the device (sysfs, no bus traffic), claims the interface and starts
+   its event loop with the snapshot's link, without a link setup. The holder's requests in flight are mapped to its
+   tunnel, so their answers go there.
+6. **Switch.** The holder opens its tunnel naming the adoption (preamble entry `TAG_ADOPT`), swaps both halves of its
+   link to it and goes on. Nothing is sent again: what was in flight is answered once.
+
+The file descriptor isn't passed between the processes: nusb 0.2 can't give out an opened device's fd, its
+`from_fd` sends a `GET_CONFIGURATION`, and a claim on a shared open file would be released with the holder's
+`Interface`. The hub opening the device itself costs nothing on the bus.
+
+### When something fails
+
+| What happens | Result |
+|---|---|
+| The hub refuses (another version, the device busy, a hub before CLT-44) | The holder takes the device back and hands it over by release and reopen |
+| The hub goes before it answered `prepare` | The holder goes on directly, nothing lost; the asker hears `Failed` |
+| The hub goes in the commit, before it holds the interface | The holder takes its lock file and the interface back and goes on directly, nothing lost |
+| The holder goes after `prepare` | The prepared adoption goes with its API connection, the slot is free again |
+| The holder goes during or after the commit | The hub has the device with the link; after 5 s (`HubConfig::adopt_attach`, `WW_HUB_ADOPT_ATTACH_MS`) without its tunnel the holder's requests are dropped and its streams closed unless another program has them |
+| Another program claims the interface in the gap | The hub can't open it and the holder can't take it back: the holder's link ends as `GapReason::HandedToHub` and reconnects through the hub once the interface is free |
+
+### What it costs
+
+Measured on Linux (`tests/hub_reconnect`, `live_handover.rs`, debug build, omarchy-m1, 22 Oct 2026), with a
+simulated USB device in the test process (`usb_sim`: one host holds the interface at a time, IN packets wait while
+nobody does) and the holder in another process, 20 calls of 1 ms each on the device in flight all the time and a
+counted stream open, 10 runs: the holder handed over in 8.5 ms median (5 to 15 ms) with 21 requests in flight; no
+call failed, no stream item was lost, doubled or out of order, every call reached the device once, and the device's
+link went up once and never down. The failure cases above are tested the same way (`live_handover.rs`). A real USB
+device is still to be measured.
 
 ## Version skew and handover (SRV-30)
 

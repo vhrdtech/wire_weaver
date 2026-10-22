@@ -7,6 +7,7 @@
   points. `ClientConfig::clock_sync(false)` (or `WW_CLOCK_SYNC=off`) keeps the old behaviour; a program that steers
   with a `ClockSync` of its own should turn it off. A connection without introspection data (`traits_only`) tries
   `Clock::now()` once to find out. New default feature `clock_sync` (dependencies `ww_timebase`, `ww_date_time`).
+- `internal::Command::Adopt { adopted }` is new (CLT-44): an exhaustive match needs the arm.
 - `EventLoopExitReason::HandedToHub` is new (CLT-43): an exhaustive match needs the arm. `holders::Holder` has the new
   public field `handover` (the holder's socket for a polite handover, empty if none): code building a `Holder` sets it.
 - RTT takes its lock-file claim in the event loop's `connect` (on the tokio runtime) instead of on the probe's IO thread,
@@ -34,6 +35,20 @@
 
 ### 🚀 Features
 
+- Live link handover to the ww hub on Linux (CLT-44): a direct holder asked to hand its device over (CLT-43's
+  request) hands the hub its live link instead of releasing the device, when the hub's `wire_weaver_client` has the
+  same minor version. The event loop pauses the link (OUT transfers sent, IN cancelled and reaped into the framer),
+  sends a `LinkSnapshot` to `Adopt::prepare`, releases the interface keeping the device open, has the hub open it
+  with `Adopt::commit` and goes on through a tunnel with the same seqs, requests in flight, streams and observed
+  levels: no call fails, no `ConnectionEvent`, the device sees no reconnect. The hub refusing falls back to CLT-43;
+  the hub going before it holds the device leaves the holder going on directly; the interface taken by another
+  program in the gap ends the link as `HandedToHub` and reconnects through the hub. USB through nusb (Linux) and the
+  simulated USB device; other media and OSes hand over by release and reopen.
+- `adopt` module (CLT-44): `LinkSnapshotOwned` (`encode`, `decode`, `check`, `MAX_SNAPSHOT_LEN`), `MediumOwned`,
+  `FrameAtOwned`, `PartialOwned`, `TraitIdOwned`, `CLIENT_VERSION`, `same_minor`, `random_id`;
+  `PreparedConnection::adopt(internal::Adopted)` opens a device going on with an adopted link (the hub's side).
+- `usb_sim::UsbSimControl` for tests: `hold_claims`, `claims_waiting`, `claims_dropped` (a claim whose host went
+  while it waited is never granted), `grab` / `ungrab` (another program holds the interface), `held`.
 - Simulated USB device on a local socket (`usb_sim`, feature `local_socket`): `usb_sim::device` / `device_framed`
   serve one on a `ww_local_socket::Listener` for `ww_device::FramedTx` / `FramedRx` (`UsbSink`, `UsbSource`), hosts
   reach it with `ClientConfig::usb_sim_path` (holders key `usbsim:<path>`, the ww hub opens it under the same key).

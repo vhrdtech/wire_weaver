@@ -4,10 +4,17 @@
 
 ### ⚠️ Breaking
 
+- `HubConfig` has the new field `adopt_attach` (CLT-44, `ADOPT_ATTACH_ENV`, 5 s by default): struct literals need it.
 - `HubConfig` has the new field `version` (the version the hub answers with and compares in a handover; `HUB_VERSION` from `from_env()`), `Exit` the variant `Handover`. Struct literals and exhaustive matches need them.
 
 ### 🚀 Features
 
+- Live link handover (CLT-44): `ww_hub_api::Adopt` is served. `prepare(snapshot)` checks a direct holder's link
+  snapshot (the same `wire_weaver_client` minor, a medium that fits the device key, the device not open in the hub
+  nor lent) and keeps the device's slot, so nobody opens it meanwhile; it goes with the API connection. `commit(id)`
+  opens the device going on with the link (no link setup), the holder's tunnel joined with its requests in flight,
+  streams and observed levels, and waits `HubConfig::adopt_attach` for that tunnel (preamble `adopt` id) before
+  taking the holder as gone. A tunnel sends its queued events only once its client's link is up.
 - Device key `usbsim:<socket path>`: a simulated USB device on a local socket (`wire_weaver_client::usb_sim`).
 - The hub's own connections to its devices don't steer by themselves (`ClientConfig::clock_sync(false)`, CLT-46):
   the hub steers them with its sync (SRV-31). Clients reaching a device through the hub leave the steering to it

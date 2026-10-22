@@ -1191,9 +1191,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`tests/hub_reconnect` `polite_handover.rs`: a `Cli` holder hands over with a counted stream resumed, gap 4.6 ms
   median; a `Gui` holder refuses and is named). Open: the gap with a real USB device and an RTT probe (omarchy-m1),
   the CLT-44 baseline; a check on macOS and Windows (compiles by inspection only).
-- 📋 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (the USB
-  handle passed between the processes, link, requests in flight, streams and subscriptions), so the device never
-  sees a reconnect and the holder goes on through the hub without a gap; elsewhere CLT-43's release and reopen.
+- 🧪 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (link, requests
+  in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
+  without a gap; elsewhere CLT-43's release and reopen. Built (`docs/transport/hub.md#live-link-handover-clt-44`): the
+  holder pauses (OUT drained, IN cancelled and reaped into the framer), sends a `LinkSnapshot`
+  (`wire_weaver_client::adopt`) to `ww_hub_api::Adopt::prepare`, releases the interface keeping the device open (no
+  bus traffic at alternate setting 0, toggles kept), `commit` has the hub open the device itself and go on with the
+  link (`PreparedConnection::adopt`), the holder's tunnel attaches by adoption id (`TAG_ADOPT`) and its event loop
+  swaps both halves to it keeping seqs and waiters. No fd passing: nusb 0.2 can't give one out, and a shared open
+  file's claim goes with the holder's `Interface`. Needs the same `wire_weaver_client` minor in the hub. Rollback when
+  the hub dies before it holds the device, cleanup after `HubConfig::adopt_attach` when the holder dies. Real USB on
+  Linux (nusb) and the simulated USB device (`usb_sim`). Tested between processes on `usb_sim`
+  (`tests/hub_reconnect` `live_handover.rs`: handed over in 8.5 ms median with 21 requests in flight, nothing lost or
+  doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
+  adoption whose connection went). Open: a real board on omarchy-m1 (the gap against CLT-43's, usbmon showing no bus
+  traffic, the device's link events).
 - 📋 **CLT-45 Lock file names one per device key** — `holders` maps every character outside `[A-Za-z0-9._-]` to
   `_`, so two keys can share a lock file (`...:a:b` and `...:a_b`): a USB device with a crafted serial can make
   another one look held. Needs an injective file name.

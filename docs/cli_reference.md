@@ -469,7 +469,7 @@ other programs' calls and writes are refused naming `ww dfu`, and the hub doesn'
 keeps it across the device's reset into the trial.
 
 A device without `ww_dfu::BootControl`, or with an incompatible version of `ww_dfu`, answers that it doesn't implement
-the trait. On an RP2350 whose updater is the boot ROM, [`ww bootsel flash --wait --follow`](#ww-bootsel) then
+the trait. On an RP2350 whose updater is the boot ROM, [`ww dfu rp flash --wait --follow`](#ww-dfu-rp) then
 writes the new image and waits for the app to come back; a single command that follows any device through its
 updater is not done yet (CLT-21). An A/B device whose app takes updates itself has no updater of its own: `reboot
 --into updater` there goes to the chip's boot ROM (the B135's STM32 ROM DFU), and `ww dfu reboot` says so.
@@ -511,6 +511,55 @@ Each ERASE step waits for the slowest erase of one block of the part (an STM32H7
 single-bank part doesn't answer), the reboot for the bootloader's swap. When the device finds DFU changed under the
 plan (`Error::Custom(1)`, chunky's `CUSTOM_NOT_BLANK`), the host reads it again and plans again; a lost reply is
 resumed from `Stage::progress`.
+
+### `ww dfu rp`
+
+RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
+the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (`ww_dfu::BootControl::reboot`, see
+[`ww dfu reboot`](#ww-dfu)), and to follow it back into the new firmware.
+
+```sh
+ww dfu rp list                                   # boot ROMs in BOOTSEL mode with their serial numbers
+ww dfu rp info -s E661                           # chip id (RP2350)
+ww dfu rp flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
+ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app -s E661  # an ELF works too, no objcopy needed
+ww dfu rp flash app.uf2 -s E661640843522C2F --wait 10 --follow
+ww dfu rp reboot -s E661 [--bootsel]             # reboot (RP2350), into BOOTSEL again with --bootsel
+```
+
+| `flash` option        | Default      | Description                                                                 |
+|-----------------------|--------------|-----------------------------------------------------------------------------|
+| `--addr <ADDR>`       | `0x10000000` | Flash address of a raw binary (any file that isn't `.uf2` or an ELF)        |
+| `--family <F>`        | `rp2350`     | UF2 family to take blocks of: `rp2350`, `rp2040` or `any`                   |
+| `--wait <SECONDS>`    |              | Wait this long for the BOOTSEL device with the `--serial` to appear         |
+| `--follow`            |              | After the reboot, wait for a WireWeaver device with the same serial and show it |
+| `--no-reboot`         |              | Don't reboot after writing                                                  |
+
+The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — `target/.../release/app`
+works straight from `cargo build`, no `objcopy`/`elf2uf2`), or otherwise a raw binary written at `--addr`. An ELF
+is taken by its `PT_LOAD` segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
+an error.
+
+`--serial` selects the device as for other commands; part of it is enough when only one matches, `--wait` and
+`--follow` need the full one. See [following a reboot](transport/follow_reboot.md).
+
+### `ww dfu stm32`
+
+The STM32 system bootloader in DFU mode (ROM DFU with the DfuSe extension, `0483:df11`), from `stm32_dfu_host`: no
+WireWeaver on the device, no dfu-util on the host. Used to flash an STM32 whose app rebooted itself into the ROM
+bootloader, and to follow it back into the new firmware.
+
+```sh
+ww dfu stm32 list                                 # bootloaders in DFU mode with their serial numbers
+ww dfu stm32 info -s 3A0B                         # the alt settings and their memory layout
+ww dfu stm32 flash bootloader.elf -s 3A0B         # erase, write, verify, jump to the start of flash
+ww dfu stm32 flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
+ww dfu stm32 read 0x08060000 0x80 -s 3A0B         # hexdump; -o FILE writes the raw bytes
+ww dfu stm32 erase --sectors 3..=5 -s 3A0B        # sectors by index (A..B excludes B, A..=B includes it)
+```
+
+All options, and what the firmware does before the reboot:
+[STM32 system bootloader](transport/follow_reboot.md#stm32-system-bootloader-rom-dfu).
 
 ## `ww counters`
 
@@ -808,37 +857,6 @@ nor erased), including on a page whose header is itself invalid, which a device'
 "current record per key" section is cross-checked against a real `Store` run over the same bytes, so it is exactly
 what the device would read; a mismatch is a bug in the decoder, not a sign of a bad dump, and is reported as an
 error. `--format json` gives the same information as JSON instead.
-
-## `ww bootsel`
-
-RP2040 and RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT: no WireWeaver on the device, no picotool or libusb on
-the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (`ww_dfu::BootControl::reboot`, see
-[`ww dfu`](#ww-dfu)), and to follow it back into the new firmware.
-
-```sh
-ww bootsel list                                   # boot ROMs in BOOTSEL mode with their serial numbers
-ww bootsel info -s E661                           # chip id (RP2350)
-ww bootsel flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
-ww bootsel flash target/thumbv8m.main-none-eabihf/release/app -s E661  # an ELF works too, no objcopy needed
-ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
-ww bootsel reboot -s E661 [--bootsel]             # reboot (RP2350), into BOOTSEL again with --bootsel
-```
-
-| `flash` option        | Default      | Description                                                                 |
-|-----------------------|--------------|-----------------------------------------------------------------------------|
-| `--addr <ADDR>`       | `0x10000000` | Flash address of a raw binary (any file that isn't `.uf2` or an ELF)        |
-| `--family <F>`        | `rp2350`     | UF2 family to take blocks of: `rp2350`, `rp2040` or `any`                   |
-| `--wait <SECONDS>`    |              | Wait this long for the BOOTSEL device with the `--serial` to appear         |
-| `--follow`            |              | After the reboot, wait for a WireWeaver device with the same serial and show it |
-| `--no-reboot`         |              | Don't reboot after writing                                                  |
-
-The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — `target/.../release/app`
-works straight from `cargo build`, no `objcopy`/`elf2uf2`), or otherwise a raw binary written at `--addr`. An ELF
-is taken by its `PT_LOAD` segments' physical (flash) address; a segment that isn't in flash (a RAM-only image) is
-an error.
-
-`--serial` selects the device as for other commands; part of it is enough when only one matches, `--wait` and
-`--follow` need the full one. See [following a reboot](transport/follow_reboot.md).
 
 ## `ww udev`
 

@@ -1,4 +1,4 @@
-//! `ww bootsel`: RP2040 / RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT (`ww_picoboot`), and following a device
+//! `ww dfu rp`: RP2040 / RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT (`ww_picoboot`), and following a device
 //! into BOOTSEL and back (CLT-21).
 
 use crate::device::Selection;
@@ -29,7 +29,7 @@ pub(crate) enum BootselCommand {
     /// To update a WireWeaver device that rebooted itself into BOOTSEL (ww_dfu BootControl::reboot(Updater)), give
     /// its full serial number with --wait to wait for the boot ROM and --follow to wait for the firmware to come back.
     ///
-    /// Example: ww bootsel flash target/thumbv8m.main-none-eabihf/release/app --wait 10 --follow -s E661640843522C2F
+    /// Example: ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app --wait 10 --follow -s E661640843522C2F
     Flash(FlashArgs),
 
     /// Reboot a BOOTSEL device (RP2350)
@@ -151,7 +151,7 @@ async fn find(serial: Option<&str>) -> Result<nusb::DeviceInfo> {
     match matching.len() {
         1 => Ok(matching.into_iter().next().unwrap()),
         0 => Err(anyhow!(
-            "no BOOTSEL device{} found, run 'ww bootsel list'",
+            "no BOOTSEL device{} found, run 'ww dfu rp list'",
             serial
                 .map(|s| format!(" with serial {s}"))
                 .unwrap_or_default()

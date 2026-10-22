@@ -1,4 +1,4 @@
-//! `ww stm32dfu`: the STM32 system bootloader in DFU mode (ROM DFU, DfuSe), over `ww_stm32_dfu`, and following a device
+//! `ww dfu stm32`: the STM32 system bootloader in DFU mode (ROM DFU, DfuSe), over `ww_stm32_dfu`, and following a device
 //! into it and back (CLT-34).
 
 use crate::device::Selection;
@@ -30,18 +30,18 @@ pub(crate) enum Stm32DfuCommand {
     /// give its full serial number with --wait to wait for the bootloader and --follow to wait for the firmware to
     /// come back. Only the sectors the image touches are erased.
     ///
-    /// Example: ww stm32dfu flash target/thumbv7em-none-eabihf/release/bootloader --wait 10 --follow -s 3A0B1C2D4E5F
+    /// Example: ww dfu stm32 flash target/thumbv7em-none-eabihf/release/bootloader --wait 10 --follow -s 3A0B1C2D4E5F
     Flash(FlashArgs),
 
     /// Read memory: a hexdump to the terminal, or raw bytes into a file with -o
     ///
-    /// Example: ww stm32dfu read 0x08060000 0x80 -s 3A0B
+    /// Example: ww dfu stm32 read 0x08060000 0x80 -s 3A0B
     Read(ReadArgs),
 
-    /// Erase the flash sector containing ADDR, or sectors by index (see 'ww stm32dfu info' for the layout)
+    /// Erase the flash sector containing ADDR, or sectors by index (see 'ww dfu stm32 info' for the layout)
     ///
     /// Sector indices count from the start of the first memory region; A..B is A up to but not including B, A..=B
-    /// includes B. Example: ww stm32dfu erase --sectors 3..=5 -s 3A0B
+    /// includes B. Example: ww dfu stm32 erase --sectors 3..=5 -s 3A0B
     Erase(EraseArgs),
 }
 

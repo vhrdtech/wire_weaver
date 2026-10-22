@@ -1052,7 +1052,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (no read-back verify), no sans-IO boundary for a simulated device and no say over the seconds a 128 KB erase takes.
   `follow::stm32_dfu_update()` / `stm32_dfu_update_with()` (`wire_weaver_client`, feature `stm32_dfu`, the `_with`
   one needs neither it nor `usb`) wait for the bootloader under the app's serial number, flash, jump and wait for the
-  app, tested end to end on `SimStm32Dfu` (`tests/follow_reboot`); `ww stm32dfu list/info/flash` with a progress bar,
+  app, tested end to end on `SimStm32Dfu` (`tests/follow_reboot`); `ww dfu stm32 list/info/flash` with a progress bar,
   `--wait`, `--follow`. Facts: AN2606 Rev 70 §59: H72x ROM DFU on PA11/PA12 USB FS, HSI48+CRS (no HSE), BL ID 0x93,
   start 0x1FF09800; ES0491 2.2.5: USB DFU is dead under RDP level 1. On a real H725 (B135 rev B, 21 Oct 2026): the
   ROM serial is `rom_serial` (UID 000F0009 34315102 34363338, serial 344533413431), the version byte at 0x1FF1E7FE
@@ -1074,7 +1074,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **CLT-21 Follow a device across a reboot into other firmware** — for DFU (`ww_dfu` `BootControl::reboot(Updater)`):
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   `wire_weaver_client::follow` (`Follow`, `Bus`, `Found`), and the RP2350 / RP2040 boot ROM as the updater:
-  `ww_picoboot` (PICOBOOT host on nusb, `SimRp2350` for tests), `follow::rp2_update()`, `ww bootsel`, tested end to end
+  `ww_picoboot` (PICOBOOT host on nusb, `SimRp2350` for tests), `follow::rp2_update()`, `ww dfu rp`, tested end to end
   on a simulated device (`tests/follow_reboot`, `docs/transport/follow_reboot.md`). The PICOBOOT host moved to its
   own repo, [picoboot_host](https://github.com/vhrdtech/picoboot_host) (evaluated the crates.io `picoboot` 0.3.0
   crate first: no sans-IO boundary to put `SimRp2350` behind, no `Image`/UF2 handling, no orchestrated flash+verify,
@@ -1082,8 +1082,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   depends on it as `ww_picoboot` (a path dependency on `../picoboot_host` while its ELF support, IMG-4, is unlanded;
   a git dependency on github.com/vhrdtech/picoboot_host once it lands, until it is on crates.io). `wire_weaver_client`'s
   `picoboot` feature (off by default) gates `follow::rp2_update()` and the `ww_picoboot` re-export, so a host app
-  that only talks WireWeaver over USB doesn't pull in PICOBOOT; `ww bootsel` turns it on, and `follow::rp2_update_with()`
-  (what `tests/follow_reboot` runs against a simulated device) needs neither it nor `usb`. `ww bootsel flash` takes a
+  that only talks WireWeaver over USB doesn't pull in PICOBOOT; `ww dfu rp` turns it on, and `follow::rp2_update_with()`
+  (what `tests/follow_reboot` runs against a simulated device) needs neither it nor `usb`. `ww dfu rp flash` takes a
   UF2, an ELF (detected by magic bytes, taken by its `PT_LOAD` segments' flash physical address — no `objcopy`/
   `elf2uf2` needed) or a raw binary. Missing: a run against a Pico 2 / rePort; RTT (another control block: a second
   ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.
@@ -1108,7 +1108,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   STD-12), plans a delta, sends the steps pipelined up to `StageLimits::in_flight` (`PreparedCall::send` →
   `PendingCall`: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,
   follows the device by serial number and waits for its confirm or revert. `reboot --into updater` on an A/B app
-  that takes updates itself says it goes to the boot ROM (`ww stm32dfu`, CLT-34). Tested end to end in
+  that takes updates itself says it goes to the boot ROM (`ww dfu stm32`, CLT-34). Tested end to end in
   chunky_mcu_updater (`chunky_ww_host/tests/e2e.rs`: simulated USB HS, delta, full image, lost reply, re-plan,
   revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.
 - ✅ **CLT-41 client-metadata** · `v0.5.x` — who connects: `ww_link::ClientMeta` (program, app version, label, kind

@@ -1,5 +1,6 @@
 use crate::cli::{Cli, Commands};
 use crate::cmd::config::ConfigCommand;
+use crate::cmd::dfu::DfuCommand;
 use crate::cmd::hub::HubCommand;
 use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
@@ -30,7 +31,8 @@ fn main() -> Result<()> {
 
 async fn run() -> Result<()> {
     let matches = Cli::command_fitted().get_matches();
-    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    let mut cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    cli.command = cli.command.renamed();
     // keep connection progress logs out of the printed tree
     let max_level: tracing::level_filters::LevelFilter = match cli.command {
         // the hub closes the connection on us by design
@@ -60,8 +62,7 @@ async fn run() -> Result<()> {
         Commands::List(_)
         | Commands::Sync(_)
         | Commands::Config(_)
-        | Commands::Bootsel(_)
-        | Commands::Stm32dfu(_) => Some(Selection::resolve(
+        | Commands::Dfu(DfuCommand::Rp(_) | DfuCommand::Stm32(_)) => Some(Selection::resolve(
             &matches,
             matches!(cli.command, Commands::Config(ConfigCommand::Save)),
         )?),
@@ -233,7 +234,14 @@ async fn run_command(
             let (device, tap) = (device.take().unwrap(), tap.unwrap());
             cmd::tap::capture(args, device, tap, stop.unwrap()).await?
         }
-        Commands::Dfu(dfu_cmd) => {
+        // the old names are mapped to these by `Commands::renamed`
+        Commands::Dfu(DfuCommand::Rp(rp_cmd)) | Commands::Bootsel(rp_cmd) => {
+            cmd::bootsel::bootsel(rp_cmd, selection.as_ref().unwrap()).await?
+        }
+        Commands::Dfu(DfuCommand::Stm32(stm32_cmd)) | Commands::Stm32dfu(stm32_cmd) => {
+            cmd::stm32dfu::stm32dfu(stm32_cmd, selection.as_ref().unwrap()).await?
+        }
+        Commands::Dfu(DfuCommand::Device(dfu_cmd)) => {
             let resets_device = dfu_cmd.resets_device();
             cmd::dfu::dfu(
                 dfu_cmd,
@@ -262,12 +270,6 @@ async fn run_command(
         }
         Commands::Settings(settings_cmd) => cmd::settings::settings(settings_cmd)?,
         Commands::Hub(hub_cmd) => cmd::hub::hub(hub_cmd).await?,
-        Commands::Bootsel(bootsel_cmd) => {
-            cmd::bootsel::bootsel(bootsel_cmd, selection.as_ref().unwrap()).await?
-        }
-        Commands::Stm32dfu(dfu_cmd) => {
-            cmd::stm32dfu::stm32dfu(dfu_cmd, selection.as_ref().unwrap()).await?
-        }
 
         #[cfg(target_os = "linux")]
         Commands::Udev => {

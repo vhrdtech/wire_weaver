@@ -73,13 +73,13 @@ The pieces work on their own too:
 ## From the command line
 
 ```sh
-ww bootsel list                                   # boot ROMs in BOOTSEL mode with their serial numbers
-ww bootsel info -s E661                           # chip id over PICOBOOT
-ww bootsel flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
-ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
+ww dfu rp list                                   # boot ROMs in BOOTSEL mode with their serial numbers
+ww dfu rp info -s E661                           # chip id over PICOBOOT
+ww dfu rp flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
+ww dfu rp flash app.uf2 -s E661640843522C2F --wait 10 --follow
                                                   # after the app was asked to reboot(Updater): wait for the
                                                   # boot ROM, flash, wait for the app to come back
-ww bootsel reboot -s E661 [--bootsel]
+ww dfu rp reboot -s E661 [--bootsel]
 ```
 
 `-s` / `--serial` selects the device as for every other command (flag, `WW_SERIAL`, `ww.toml`), a part of the serial
@@ -94,7 +94,7 @@ CLT-10):
 
 ```sh
 ww dfu reboot -s E661640843522C2F                 # app -> BOOTSEL
-ww bootsel flash app.uf2 -s E661640843522C2F --wait 10 --follow
+ww dfu rp flash app.uf2 -s E661640843522C2F --wait 10 --follow
 ```
 
 ## STM32 system bootloader (ROM DFU)
@@ -107,7 +107,7 @@ speaks DFU with the DfuSe extension (AN3156). It doesn't work under RDP level 1.
 
 - **Report the serial number the bootloader reports**, so the host can follow the unit. The ROM forms it from the
   chip's unique id; `follow::stm32_serial([uid0, uid1, uid2])` makes the string ST's USB library uses (UID0 + UID2 as
-  8 hex digits, the top 16 bits of UID1 as 4) and has not been compared with a real H72x yet: `ww stm32dfu list` shows
+  8 hex digits, the top 16 bits of UID1 as 4) and has not been compared with a real H72x yet: `ww dfu stm32 list` shows
   the real one.
 - **Implement `reboot(Updater)`** as above.
 
@@ -130,18 +130,18 @@ host on its own (`stm32_dfu_host`, no WireWeaver dependency): `usb::open(Some(se
 `layout()`; the sector sizes come from the device's own layout string, so one tool fits all STM32 families.
 
 ```sh
-ww stm32dfu list                                  # bootloaders in DFU mode with their serial numbers
-ww stm32dfu info -s 3A0B                          # the alt settings and their memory layout
-ww stm32dfu flash bootloader.elf -s 3A0B          # erase, write, verify, jump to the start of flash
-ww stm32dfu flash app.bin --addr 0x08060000 --leave-addr 0x08000000 -s 3A0B
-ww stm32dfu flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
+ww dfu stm32 list                                  # bootloaders in DFU mode with their serial numbers
+ww dfu stm32 info -s 3A0B                          # the alt settings and their memory layout
+ww dfu stm32 flash bootloader.elf -s 3A0B          # erase, write, verify, jump to the start of flash
+ww dfu stm32 flash app.bin --addr 0x08060000 --leave-addr 0x08000000 -s 3A0B
+ww dfu stm32 flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
                                                   # after the app was asked to reboot(Updater)
 ```
 
 ```sh
-ww stm32dfu read 0x08060000 0x80 -s 3A0B          # hexdump; -o FILE writes the raw bytes
-ww stm32dfu erase 0x08060000 -s 3A0B              # the sector containing the address
-ww stm32dfu erase --sectors 3..=5 -s 3A0B         # sectors by index (A..B excludes B, A..=B includes it)
+ww dfu stm32 read 0x08060000 0x80 -s 3A0B          # hexdump; -o FILE writes the raw bytes
+ww dfu stm32 erase 0x08060000 -s 3A0B              # the sector containing the address
+ww dfu stm32 erase --sectors 3..=5 -s 3A0B         # sectors by index (A..B excludes B, A..=B includes it)
 ```
 
 `--no-leave` stays in DFU, `--no-verify` skips the read-back. On Linux the bootloader needs a udev rule for access

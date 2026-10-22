@@ -81,7 +81,7 @@ impl<F: FnMut(Stage, u64, u64)> Progress for F {
 /// (`UID[31:0]`, `UID[63:32]`, `UID[95:64]`), as ST's USB device library and the ROM form it: the sum of the first
 /// and third word as 8 hex digits, then the upper 16 bits of the second word as 4 hex digits.
 ///
-/// NOT yet checked against a real H72x ROM (AN3156 doesn't spell it out): compare with `ww stm32dfu list` on
+/// NOT yet checked against a real H72x ROM (AN3156 doesn't spell it out): compare with `ww dfu stm32 list` on
 /// hardware, and pass the serial from the list when they differ.
 pub fn rom_serial(uid: [u32; 3]) -> String {
     format!("{:08X}{:04X}", uid[0].wrapping_add(uid[2]), uid[1] >> 16)

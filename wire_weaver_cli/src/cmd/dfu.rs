@@ -22,17 +22,46 @@ use wire_weaver_client::ww_client_server::ErrorKindOwned;
 use wire_weaver_client::{CallError, ClientConfig, ClientMeta, DynClient, Error};
 use ww_dfu::{BootState, BootTarget, NodeInfoOwned, Outcome, Profile, Seal};
 
+use crate::cmd::bootsel::BootselCommand;
+use crate::cmd::stm32dfu::Stm32DfuCommand;
 use crate::device::Selection;
 use crate::untrusted::escape;
 
 #[derive(Subcommand)]
 pub(crate) enum DfuCommand {
+    #[command(flatten)]
+    Device(DeviceDfu),
+
+    /// RP2040 / RP2350 boot ROM in BOOTSEL mode: list, flash over PICOBOOT, reboot
+    ///
+    /// --serial selects the device, as for other commands (the RP2350 boot ROM reports the chip id).
+    #[command(subcommand)]
+    Rp(BootselCommand),
+
+    /// STM32 system bootloader in DFU mode (ROM DFU, DfuSe): list, show the memory layout, flash
+    ///
+    /// --serial selects the device, as for other commands (the bootloader reports a serial number made from the chip's
+    /// unique id, see 'ww dfu stm32 list').
+    #[command(subcommand)]
+    Stm32(Stm32DfuCommand),
+}
+
+impl DfuCommand {
+    /// The steps on a running device connect to it; the boot ROMs are found by their own USB ids.
+    pub(crate) fn needs_device(&self) -> bool {
+        matches!(self, DfuCommand::Device(_))
+    }
+}
+
+/// Update steps on a running device, through `ww_dfu` global traits.
+#[derive(Subcommand)]
+pub(crate) enum DeviceDfu {
     /// Reboot the device into its updater (default) or its app, through `ww_dfu::BootControl`
     ///
     /// Works with any device implementing `ww_dfu::BootControl` anywhere in its API, whatever the API and its
     /// version: the call carries a global trait path the device resolves itself. An A/B device whose app takes
     /// updates itself (Profile::AB) has no updater of its own: it reboots into the chip's boot ROM (STM32 ROM DFU,
-    /// RP2350 BOOTSEL), which `ww stm32dfu flash` or `ww bootsel flash` write.
+    /// RP2350 BOOTSEL), which `ww dfu stm32 flash` or `ww dfu rp flash` write.
     Reboot {
         /// What to reboot into
         #[arg(long, value_enum, default_value_t = Into::Updater)]
@@ -99,10 +128,10 @@ pub(crate) struct FlashArgs {
     no_reboot: bool,
 }
 
-impl DfuCommand {
+impl DeviceDfu {
     /// Commands that reset the device, the connection drops right after
     pub(crate) fn resets_device(&self) -> bool {
-        matches!(self, DfuCommand::Reboot { .. } | DfuCommand::Flash(_))
+        matches!(self, DeviceDfu::Reboot { .. } | DeviceDfu::Flash(_))
     }
 }
 
@@ -149,17 +178,17 @@ fn preset_name(id: u32) -> Option<&'static str> {
 /// `meta` is what `device` was connected with: a command that changes the device takes it whole while a ww hub serves
 /// it to other programs too (SRV-32), and the claim is this client instance's.
 pub(crate) async fn dfu(
-    cmd: DfuCommand,
+    cmd: DeviceDfu,
     device: DynClient,
     selection: &Selection,
     meta: &ClientMeta,
 ) -> Result<()> {
     let purpose = match &cmd {
-        DfuCommand::Status => None,
-        DfuCommand::Reboot { .. } => Some("ww dfu reboot".to_string()),
-        DfuCommand::Flash(args) => Some(format!("ww dfu flash {}", args.file.display())),
-        DfuCommand::Confirm => Some("ww dfu confirm".to_string()),
-        DfuCommand::Revert => Some("ww dfu revert".to_string()),
+        DeviceDfu::Status => None,
+        DeviceDfu::Reboot { .. } => Some("ww dfu reboot".to_string()),
+        DeviceDfu::Flash(args) => Some(format!("ww dfu flash {}", args.file.display())),
+        DeviceDfu::Confirm => Some("ww dfu confirm".to_string()),
+        DeviceDfu::Revert => Some("ww dfu revert".to_string()),
     };
     let exclusive = match &purpose {
         Some(purpose) => take_exclusive(selection, meta, purpose).await?,
@@ -216,23 +245,23 @@ async fn take_exclusive(
 }
 
 async fn run(
-    cmd: DfuCommand,
+    cmd: DeviceDfu,
     device: DynClient,
     selection: &Selection,
     meta: &ClientMeta,
 ) -> Result<()> {
     match cmd {
-        DfuCommand::Reboot { into } => reboot(into, &device).await,
-        DfuCommand::Flash(args) => flash(args, device, selection, meta).await,
-        DfuCommand::Status => status(&device).await,
-        DfuCommand::Confirm => {
+        DeviceDfu::Reboot { into } => reboot(into, &device).await,
+        DeviceDfu::Flash(args) => flash(args, device, selection, meta).await,
+        DeviceDfu::Status => status(&device).await,
+        DeviceDfu::Confirm => {
             let dfu = Dfu::new(&device);
             dfu.boot.confirm().call().await.map_err(call_error)?;
             let state = dfu.boot.boot_state().call().await.map_err(not_found)?;
             println!("{} boot state {}", style("✔").green(), state_style(state));
             Ok(())
         }
-        DfuCommand::Revert => {
+        DeviceDfu::Revert => {
             let dfu = Dfu::new(&device);
             dfu.boot.revert().call().await.map_err(call_error)?;
             let state = dfu.boot.boot_state().call().await.map_err(not_found)?;
@@ -268,7 +297,7 @@ async fn reboot(into: Into, device: &DynClient) -> Result<()> {
     let api = &device.device_api_info().user_api_version;
     if rom {
         println!(
-            "{api:?} reboots into its boot ROM (an A/B device has no updater of its own): write it with `ww stm32dfu flash` (STM32 ROM DFU) or `ww bootsel flash` (RP2350); the app itself updates with `ww dfu flash`"
+            "{api:?} reboots into its boot ROM (an A/B device has no updater of its own): write it with `ww dfu stm32 flash` (STM32 ROM DFU) or `ww dfu rp flash` (RP2350); the app itself updates with `ww dfu flash`"
         );
     } else {
         println!("{api:?} reboots into the {name}");

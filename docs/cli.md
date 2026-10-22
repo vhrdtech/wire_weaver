@@ -90,13 +90,14 @@ From there:
 | [`ww observe`](cli_reference.md#ww-observe)          | yes            | Observes a trait level's `+observe` properties: values, rate, link bytes/s |
 | [`ww usb-loopback`](cli_reference.md#ww-usb-loopback) | yes, any API  | Runs link loopback and throughput tests                            |
 | [`ww dfu`](cli_reference.md#ww-dfu)                  | yes, any API   | Firmware updates through `ww_dfu` traits: `reboot`, `status`, `confirm`, `revert`; `flash` a chunky device |
+| [`ww dfu rp`](cli_reference.md#ww-dfu-rp)            | a boot ROM     | RP2040 / RP2350 in BOOTSEL mode: list, flash, reboot, follow back  |
+| [`ww dfu stm32`](cli_reference.md#ww-dfu-stm32)      | a boot ROM     | STM32 system bootloader in DFU mode: list, layout, flash, read, erase, follow back |
 | [`ww counters`](cli_reference.md#ww-counters)        | yes, any API   | The device's `cnt` counters, decoded with its ELF: read, watch, TUI, reset |
 | [`ww info`](cli_reference.md#ww-info)                | yes, any API   | What the device is: firmware, board, ids, label, last reset        |
 | [`ww report`](cli_reference.md#ww-report)            | yes, any API   | A bug report in one file: info, counters, stored log, crash, decoded with the ELF |
 | [`ww pins`](cli_reference.md#ww-pins)                | yes, with `PinDiag` | Pin tests: shorts to GND, the supply and each other, pulls; plan files |
 | [`ww elf`](cli_reference.md#ww-elf)                  | no             | The ELF directory: `ww elf add` a release archive, `ww elf id`     |
 | [`ww settings`](cli_reference.md#ww-settings)        | no             | Decodes a `ww_settings::Store` flash dump                          |
-| [`ww bootsel`](cli_reference.md#ww-bootsel)          | a boot ROM     | RP2040 / RP2350 in BOOTSEL mode: list, flash, reboot, follow back  |
 | [`ww config`](cli_reference.md#ww-config)            | no             | Shows or saves the device selection in a project `ww.toml`         |
 
 `ww help <command>` or `ww <command> --help` prints all options of a command; the

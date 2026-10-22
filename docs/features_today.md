@@ -199,7 +199,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[One lock file per device](transport/hub.md#device-keys)**: A USB device with a crafted serial number can't make another device look held: every device key gets a lock file of its own.
 - **[Live link handover on Linux](transport/hub.md#live-link-handover-clt-44)**: A program holding a USB device hands its open link to the hub without a reconnect: its calls in flight are answered, its streams go on, the device notices nothing. <span class="ww-status">hardware check open</span>
 - **[Who connects](transport/hub.md)**: Every client tells the device its program, user, host, pid and kind in link setup; a device can log it, a hub or a lock file shows it.
-- **[STM32 ROM DFU](transport/follow_reboot.md#stm32-system-bootloader-rom-dfu)**: Flash an STM32 over USB through its built-in bootloader (`ww stm32dfu flash`), also straight after the app rebooted into it.
+- **[STM32 ROM DFU](transport/follow_reboot.md#stm32-system-bootloader-rom-dfu)**: Flash an STM32 over USB through its built-in bootloader (`ww dfu stm32 flash`), also straight after the app rebooted into it.
 - **[Following a reboot](transport/follow_reboot.md)**: Stay with a device while it reboots into its updater (RP2040 / RP2350 boot ROM so far). <span class="ww-status">in progress</span>
 - **[Updating a chunky device](cli_reference.md#ww-dfu-flash)**: `ww dfu flash app.elf`: only what changed goes over the wire, then a trial boot that the new firmware confirms or the device reverts. <span class="ww-status">in progress</span>
 

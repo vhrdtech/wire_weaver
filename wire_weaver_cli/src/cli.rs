@@ -142,7 +142,7 @@ pub(crate) enum Commands {
     #[command(verbatim_doc_comment)]
     Sync(SyncArgs),
 
-    /// Firmware update steps (ww_dfu), on any device whatever its API version
+    /// Firmware updates: ww_dfu steps on any device whatever its API version, and the RP and STM32 boot ROMs
     #[command(subcommand)]
     Dfu(DfuCommand),
 
@@ -187,17 +187,12 @@ pub(crate) enum Commands {
     #[command(subcommand)]
     Settings(SettingsCommand),
 
-    /// RP2040 / RP2350 boot ROM in BOOTSEL mode: list, flash over PICOBOOT, reboot
-    ///
-    /// --serial selects the device, as for other commands (the RP2350 boot ROM reports the chip id).
-    #[command(subcommand)]
+    /// Old name of `ww dfu rp`, kept for scripts: says the new name and runs it
+    #[command(subcommand, hide = true)]
     Bootsel(BootselCommand),
 
-    /// STM32 system bootloader in DFU mode (ROM DFU, DfuSe): list, show the memory layout, flash
-    ///
-    /// --serial selects the device, as for other commands (the bootloader reports a serial number made from the chip's
-    /// unique id, see 'ww stm32dfu list').
-    #[command(subcommand)]
+    /// Old name of `ww dfu stm32`, kept for scripts: says the new name and runs it
+    #[command(subcommand, hide = true)]
     Stm32dfu(Stm32DfuCommand),
 
     /// Print udev rule to the stdout, run 'ww udev --help' for more information
@@ -267,31 +262,45 @@ enum GlobalFlags {
     Neither,
 }
 
-/// Adds the fitted copies of the global flags to a subcommand and its own subcommands: hidden where not `shown`,
-/// out of the long help where shown, `summary` standing in for them there. A subcommand's own flag of the same name
+/// Adds the fitted copies of the global flags (`(flag, is a tap flag)`) to a subcommand at `path` (`dfu rp`) and its
+/// own subcommands: hidden where it doesn't use them (by [GlobalFlags::of], else as its parent), out of the long help
+/// where it does, a summary standing in for them there. A subcommand's own flag of the same name
 /// (`ww dfu flash --product`) wins, as in clap's own propagation.
 fn fit_globals(
     cmd: clap::Command,
+    path: &str,
+    parent: GlobalFlags,
     globals: &[(clap::Arg, bool)],
     header: clap::builder::styling::Style,
 ) -> clap::Command {
+    let flags = GlobalFlags::of(path).unwrap_or(parent);
     let added: Vec<_> = globals
         .iter()
         .filter(|(a, _)| !cmd.get_arguments().any(|own| own.get_id() == a.get_id()))
-        .cloned()
+        .map(|(a, is_tap)| {
+            let shown = match flags {
+                GlobalFlags::DeviceAndTap => true,
+                GlobalFlags::Device => !is_tap,
+                GlobalFlags::Neither => false,
+            };
+            (a.clone(), shown)
+        })
         .collect();
     let summary = global_summary(&added, header);
-    let cmd = added.iter().fold(cmd, |cmd, (a, shown)| {
+    let cmd = added.into_iter().fold(cmd, |cmd, (a, shown)| {
         cmd.arg(match shown {
-            true => a.clone().hide_long_help(true),
-            false => a.clone().hide(true),
+            true => a.hide_long_help(true),
+            false => a.hide(true),
         })
     });
     let cmd = match summary.is_empty() {
         true => cmd,
         false => cmd.after_long_help(summary),
     };
-    cmd.mut_subcommands(|sc| fit_globals(sc, globals, header))
+    cmd.mut_subcommands(|sc| {
+        let path = format!("{path} {}", sc.get_name());
+        fit_globals(sc, &path, flags, globals, header)
+    })
 }
 
 /// One line per help heading of the shown global flags, `-s/--serial, --api, ...`, and where their help is.
@@ -321,16 +330,34 @@ fn global_summary(globals: &[(clap::Arg, bool)], header: clap::builder::styling:
 }
 
 impl GlobalFlags {
-    fn of(subcommand: &str) -> Option<Self> {
+    /// By the subcommand's path (`dfu rp`); `None` leaves it to the parent's.
+    fn of(path: &str) -> Option<Self> {
         use GlobalFlags::*;
-        Some(match subcommand {
+        Some(match path {
             "usb-loopback" | "introspect" | "observe" | "stream" | "dfu" | "counters" | "info"
             | "report" | "pins" => DeviceAndTap,
-            "list" | "sync" | "config" | "bootsel" | "stm32dfu" | "explain" | "monitor"
-            | "stats" | "capture" => Device,
+            "list" | "sync" | "config" | "dfu rp" | "dfu stm32" | "bootsel" | "stm32dfu"
+            | "explain" | "monitor" | "stats" | "capture" => Device,
             "api" | "elf" | "settings" | "hub" | "udev" => Neither,
             _ => return None,
         })
+    }
+}
+
+impl Commands {
+    /// The command an old name stands for, saying its new name on stderr.
+    pub(crate) fn renamed(self) -> Self {
+        match self {
+            Commands::Bootsel(cmd) => {
+                eprintln!("`ww bootsel` is `ww dfu rp` now");
+                Commands::Dfu(DfuCommand::Rp(cmd))
+            }
+            Commands::Stm32dfu(cmd) => {
+                eprintln!("`ww stm32dfu` is `ww dfu stm32` now");
+                Commands::Dfu(DfuCommand::Stm32(cmd))
+            }
+            cmd => cmd,
+        }
     }
 }
 
@@ -356,21 +383,10 @@ impl Cli {
             })
             .collect();
         let header = *root.get_styles().get_header();
+        // a subcommand added without a line in `GlobalFlags::of` shows everything (a test points it out)
         root.mut_subcommands(|sc| {
-            // a subcommand added without a line in `GlobalFlags::of` shows everything (a test points it out)
-            let flags = GlobalFlags::of(sc.get_name()).unwrap_or(GlobalFlags::DeviceAndTap);
-            let shown: Vec<_> = globals
-                .iter()
-                .map(|(a, is_tap)| {
-                    let shown = match flags {
-                        GlobalFlags::DeviceAndTap => true,
-                        GlobalFlags::Device => !is_tap,
-                        GlobalFlags::Neither => false,
-                    };
-                    (a.clone(), shown)
-                })
-                .collect();
-            fit_globals(sc, &shown, header)
+            let path = sc.get_name().to_string();
+            fit_globals(sc, &path, GlobalFlags::DeviceAndTap, &globals, header)
         })
     }
 
@@ -380,7 +396,7 @@ impl Cli {
         // the loopback test does not call the API at all, the link layer answers
         matches!(
             &self.command,
-            Commands::Dfu(_)
+            Commands::Dfu(DfuCommand::Device(_))
                 | Commands::Counters(_)
                 | Commands::Info(_)
                 | Commands::USBLoopback { .. }
@@ -425,8 +441,8 @@ impl Cli {
             Commands::Monitor(_) | Commands::Capture(_) => true,
             Commands::Stats(args) => args.file.is_none(),
             Commands::Config(_) => false,
+            Commands::Dfu(dfu) => dfu.needs_device(),
             Commands::Bootsel(_) | Commands::Stm32dfu(_) => false,
-            Commands::Dfu(_) => true,
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
             Commands::Pins(_) => true,
             Commands::Elf(_) => false,
@@ -475,6 +491,12 @@ mod tests {
         assert!(list.contains("--serial") && !list.contains("--monitor"));
         let info = help(&["info", "-h"]);
         assert!(info.contains("[env: WW_SERIAL=]") && info.contains("--monitor"));
+        // the boot ROMs are found by device selection, without a connection to tap
+        let rp = help(&["dfu", "rp", "list", "-h"]);
+        assert!(rp.contains("--serial") && !rp.contains("--monitor"), "{rp}");
+        assert!(help(&["dfu", "stm32", "flash", "--help"]).contains("-s/--serial"));
+        assert!(!help(&["dfu", "stm32", "flash", "--help"]).contains("--monitor"));
+        assert!(help(&["dfu", "status", "-h"]).contains("--monitor"));
         // a subcommand's own flag of the same name stays its own
         assert!(help(&["dfu", "flash", "-h"]).contains("--product <PRODUCT>        Product id"));
     }
@@ -489,6 +511,25 @@ mod tests {
         assert!(!help(&["dfu", "flash", "--help"]).contains("-p/--product"));
         // in full where they are defined
         assert!(help(&["--help"]).contains("[env: WW_SERIAL=]"));
+    }
+
+    #[test]
+    fn old_boot_rom_names_still_run() {
+        let parse = |args: &[&str]| {
+            let matches = Cli::command_fitted()
+                .try_get_matches_from(std::iter::once(&"ww").chain(args))
+                .unwrap();
+            Cli::from_arg_matches(&matches).unwrap().command.renamed()
+        };
+        assert!(matches!(
+            parse(&["bootsel", "list"]),
+            Commands::Dfu(DfuCommand::Rp(_))
+        ));
+        assert!(matches!(
+            parse(&["stm32dfu", "list"]),
+            Commands::Dfu(DfuCommand::Stm32(_))
+        ));
+        assert!(!help(&["--help"]).contains("bootsel"));
     }
 
     #[test]

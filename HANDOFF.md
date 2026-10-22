@@ -12,9 +12,11 @@ Taken up (cherry-picked) since: CLT-39 hub routing (hub-routing), TOOL-17 ww hub
 
 Taken up 22 Oct: SRV-29 tunnels (hub-tunnels; benchmark: throughput as direct, 16 B USB FS round trips -15..-23 % idle, -3..-13 % loaded, from two extra process wakes; busy-poll / shared memory left to the person), SRV-34 claims part A+B (resource-claims; claim owner = (principal, instance id)). Fix: the hub opens its devices with HubMode::Direct. Branch rebased onto master (has sync-converge STD-49/TOOL-16) with tpm work rebase. hub-tunnels, resource-claims ready; the person closes them.
 
-Running children (spawned 22 Oct): see `tpm work ls`; hub-reconnect (CLT-40+SRV-30, top), hub-clock-sync (SRV-31, opus, omarchy-m1), hub-python (TOOL-18, sonnet), hub-exclusive (SRV-32, opus, omarchy-m1). Each starts from this branch's HEAD.
+Taken up 22 Oct ~02:00: CLT-40 + SRV-30 (hub-reconnect), SRV-32 (hub-exclusive), TOOL-18 (hub-python), SRV-31 (hub-clock-sync, incl. bedrock-steer's PeerMeta flash fix). Integration commit a1fae657: steering pauses under a root claim (Hub::claims_changed pokes Steering), connect_blocking IPC on the runtime handle, Lent numbers pinned by a test. Gate: just test (1977 + Python), just lint, just build-docs clean. Merged sessions closed (branches kept); stray local branch tmp-reconnect (= hub-reconnect's tip) left, the guard won't let me delete it.
 
-Next for this session: take their work up as they get ready, then CLT-43 (after CLT-40), CLT-44 (top, after CLT-43), hardware check P2401#21oct-2103e (sonnet, omarchy-m1) last. SRV-33 federation pieces wait for the person's review.
+Running: hub-handover (CLT-43, opus, here), auto-clock-sync (CLT-46, opus, here), hub-clock-sync (parked on omarchy-m1 for the hardware check: the bench USB hub dropped all boards, the person replugs it; its child bedrock-steer does the firmware side in embedded_bedrock).
+
+Next: take up CLT-43 and CLT-46; then CLT-44 (top, after CLT-43); hardware check P2401#21oct-2103e on omarchy-m1 once the boards are back (SRV-29/31/32 🧪 items); flaky io_timebase test filed as P2401#22oct-0211 (sonnet). SRV-33 federation pieces (SRV-36..40, API-58) wait for the person's review (morning of 22 Oct).
 
 Decisions: frozen WWHB preamble; std File::try_lock lock files; readiness = starter polls connect + preamble answer; hub API served with ww_device::Server per connection; handover answers Unimplemented until SRV-30.
 

@@ -453,7 +453,8 @@ mod prefixed {
         );
 
         // a carry that can't fit is refused
-        let mut small = [0u8; 4];
+        // big enough for any head (MIN_FRAME_SIZE is 6 with the widest one), too small for the 10 byte message
+        let mut small = [0u8; 8];
         let mut rx3 = SRx::new(&mut small);
         assert_eq!(rx3.continue_from(&carry), Err(()));
         assert_eq!(rx3.carry().partial, None);

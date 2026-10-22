@@ -1,4 +1,4 @@
-//! The fit: a device's clock as a line over host monotonic time, from `Clock::now()` samples (Klipper's clock sync).
+//! The fit: a device's clock as a line over host monotonic time, from `Clock::now()` samples.
 //!
 //! [Estimator] keeps the samples with the shortest round trips (their midpoint is closest to when the device read
 //! its clock) and fits a line over a sliding window: host time as a function of device time, an offset and a rate.

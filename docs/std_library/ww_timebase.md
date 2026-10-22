@@ -182,8 +182,8 @@ breaks a tie), needs a two-way link between the boards (CAN, Ethernet, USB throu
 
 ### Steering from the host
 
-It works like Klipper's clock sync. The host reads the device's `now()` a few times a second and timestamps every
-request and answer with its own monotonic clock. It keeps the readings with the shortest round trips (their midpoint
+The host reads the device's `now()` a few times a second and timestamps every request and answer with its own
+monotonic clock. It keeps the readings with the shortest round trips (their midpoint
 is closest to when the device read its clock) and fits a line through them over a sliding window: an offset and a
 rate. About once a second it sends the fit as a `SteerPoint` (the device's `local` time, the UTC `shared_us` of it in
 µs, `rate_ppb`, and its own error estimate `error_us`), adding the wall clock's offset from the monotonic clock as it
@@ -191,6 +191,9 @@ sends, so a step of the wall clock moves the points without disturbing the fit. 
 `shared(t) = shared_us + (t - local) * (1 + rate_ppb * 1e-9)` on its own and answers with the source it follows:
 `Host` when it took the point, a `Line` when it is locked to something better and only noted it (then the host
 correlates the device through `time_map` instead of steering it).
+
+The fit from the readings with the shortest round trips comes from Klipper's clock sync. Around it this adds one UTC
+timescale shared by every host, sources ranked against sync lines, holdover, and steering shared through the ww hub.
 
 * `SteerPoint::local` is in the prefix and storage of the device's `now()`: a device without 64-bit numbers (a
   Cortex-M0+ answering `U32` µs) gets 32 bits, wrapping as its `now()` does, and the host unwraps its readings

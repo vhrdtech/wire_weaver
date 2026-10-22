@@ -125,14 +125,15 @@ pub(crate) enum Commands {
     #[command(verbatim_doc_comment)]
     Capture(CaptureArgs),
 
-    /// Keep several devices' clocks on the host's UTC, Klipper-style, and show how well they follow (TOOL-16)
+    /// Keep several devices' clocks on the host's UTC and show how well they follow (TOOL-16)
     ///
     /// Works with any device serving ww_timebase::Clock with host sync, anywhere in its API: each device's clock is
     /// read a few times a second, fitted against the host's (offset and rate) and steered, ten times a second while
     /// it is acquiring and once a second once locked. A device locked to a sync line only takes note. Devices with a
-    /// shared clock breathe and blink in phase (ww_indication). Shows per device the state, the residual against the
-    /// host's UTC, error, rate and slew left, a line when each and then all of them have converged, and the LED
-    /// phase spread. Until Ctrl+C, then the devices go on in holdover. Examples:
+    /// shared clock run their animations in phase (ww_indication). Shows per device the state, the residual against
+    /// the host's UTC, error, rate and slew left, a line when each and then all of them have converged, and the
+    /// phase spread between them. Until q or Ctrl+C; with a ww hub running the hub steers and keeps steering after
+    /// that, without one ww sync steers and the devices go on in holdover. Examples:
     ///
     ///   ww sync                          every connected device the selection matches
     ///   ww sync A1B2 bench-left          two devices by serial or label

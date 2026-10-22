@@ -277,7 +277,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-9 | Explaining bytes | `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. | cli_reference.md#ww-explain
 - TOOL-10 | Link test | `ww usb-loopback` measures round trips, losses and speed both ways. | cli_reference.md#ww-usb-loopback
 - TOOL-14 | Watching the link | `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back; `--monitor` and `--capture` do it for any command's own connection. | cli_reference.md#ww-monitor
-- TOOL-16 | Devices on one clock | `ww sync` keeps several devices on the host's UTC and shows how closely each follows; their LEDs breathe in phase. | cli_reference.md#ww-sync
+- TOOL-16 | Devices on one clock | `ww sync` keeps several devices on the host's UTC and shows how closely each follows and how far apart in phase they are. | cli_reference.md#ww-sync
 - TOOL-15 | Pin tests from the command line | `ww pins test` finds shorts and pulls on any board serving `PinDiag`; plan files make it a pass/fail test. | cli_reference.md#ww-pins
 - TOOL-12 | Settings from a flash dump | `ww settings dump` decodes a settings store without the device. | cli_reference.md#ww-settings
 - TOOL-5 | Values from text | Typed values written as text and turned into bytes at runtime. | python_advanced.md

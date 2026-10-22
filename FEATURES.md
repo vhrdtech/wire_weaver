@@ -1418,12 +1418,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
-  `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; Ctrl+C leaves the devices in holdover.
+  `ww_indication` mode on all, `--duration`, `--poll-ms` / `--steer-ms`; `q` or Ctrl+C stops, saying who steers the devices after (the hub, or nobody: holdover).
   With a ww hub running it shows the hub's steering (SRV-31) and never steers itself; a STEERED BY column
   (checked through the hub on Donguru and B135, 22 Oct 2026).
   Convergence (21 Oct 2026): residual ± half the check's round trip, the device's error bound and slew left, a line
-  when each device and then all are within `--within-us` (locked by their word, residual by the host's), the LED
-  phase spread; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; LED phase as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
+  when each device and then all are within `--within-us` (locked by their word, residual by the host's), the
+  phase spread between them; steered at 10 Hz until locked; quiet into a pipe. Hardware (omarchy-m1, 21 Oct 2026, `ww sync` with Donguru B153A, rePort B200 and B135B): all three locked within 2 ms after 1.2 s from a fresh start and 2.4 s after 45 s in holdover; phase spread as ww sync estimates it 30 µs to 1.0 ms apart (±1.5-2.5 ms, rePort's and Donguru's ~1.4-1.8 ms round trips); over 5 min Donguru left once on a -2.0 ms residual (±1.2 ms) and was back in 37 s. No logic analyser on this PC: the phase is not measured on the pins. `docs/cli_reference.md#ww-sync`. Hardware check open: Donguru and rePort on omarchy-m1. Skill tree signal and skill:
   tpm P2618#21oct-1707.
 - 🧪 **TOOL-15 `ww pins test` / `ww pins list`** · `v0.5.x` — pin tests on any device serving `ww_pin_diag::PinDiag`
   (STD-47) at any path, found by introspection (`docs/cli_reference.md#ww-pins`): pulls, shorts to GND, to the
@@ -1495,7 +1495,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   elsewhere), sync master / slave (IRIG-B, PPS), `sync_status`, a `time_map` stream mapping device time to
   shared time, `set_time_of_day` for a master. `tests/io_timebase`, `docs/std_library/ww_timebase.md`.
 - ✅ **STD-49 `ww_timebase` host sync, one UTC timescale** — devices without a sync line follow the host's wall
-  clock (UTC), Klipper-style, and every source is ranked: a locked line (IRIG-B, PPS) > host > holdover > free.
+  clock (UTC), and every source is ranked: a locked line (IRIG-B, PPS) > host > holdover > free.
   `Clock` gets the optional `host_sync` group (`steer(SteerPoint) -> SyncSource`: offset in UTC µs, rate in ppb and
   the host's error estimate; a line-locked device only notes the point; `shared_now()`; `set_sources` / `sources`: an
   explicit ordered list of allowed sources, `None` keeps the fixed ranking), `SyncSource` (`Host`,

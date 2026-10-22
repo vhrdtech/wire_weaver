@@ -1,4 +1,4 @@
-//! Host clock sync for WireWeaver devices (STD-49): every device on UTC, Klipper-style.
+//! Host clock sync for WireWeaver devices (STD-49): every device on the host's UTC.
 //!
 //! A device serving `ww_timebase::Clock` with the `host_sync` group keeps a shared clock steered by its host. This
 //! module is the host side, for any process holding a device connection: every direct connection steers its device
@@ -8,7 +8,7 @@
 //! so devices agree without a central daemon, and devices steered by different PCs agree to those PCs' NTP.
 //!
 //! - [Estimator] fits the device's clock as a line over the host's monotonic clock, from `now()` readings with the
-//!   shortest round trips (Klipper's clock sync).
+//!   shortest round trips.
 //! - [DeviceTime] turns device timestamps into nanoseconds and back into the device's own prefix and storage, and
 //!   builds the `SteerPoint` of a fit.
 //! - [HostClock] reads the monotonic clock and the wall clock's offset from it.

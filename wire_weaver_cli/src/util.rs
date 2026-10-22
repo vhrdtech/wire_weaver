@@ -2,6 +2,10 @@
 
 use anyhow::{Context, Result, anyhow, bail};
 use std::future::Future;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::JoinHandle;
+use std::time::Duration;
 use tokio::sync::watch;
 use wire_weaver_client::DynResource;
 
@@ -44,23 +48,30 @@ pub(crate) fn resolve(root: DynResource, path: &str) -> Result<DynResource> {
 /// `kill`). Installed before connecting so no signal is lost on the way, and so the default action (dying at once,
 /// with a `--capture` file still `.partial`) is off: whoever holds it ends what it does and cleans up.
 #[derive(Clone)]
-pub(crate) struct StopSignal(watch::Receiver<bool>);
+pub(crate) struct StopSignal(watch::Receiver<bool>, Arc<watch::Sender<bool>>);
 
 impl StopSignal {
     /// Must be called inside the tokio runtime.
     pub(crate) fn install() -> Self {
         let (tx, rx) = watch::channel(false);
+        let tx = Arc::new(tx);
         let signals = Signals::register();
+        let on_signal = tx.clone();
         tokio::spawn(async move {
             signals.wait().await;
-            _ = tx.send(true);
+            _ = on_signal.send(true);
         });
-        StopSignal(rx)
+        StopSignal(rx, tx)
+    }
+
+    /// Asks for a stop, as a signal does: `q` typed in a live view ([QuitKey]).
+    pub(crate) fn stop(&self) {
+        _ = self.1.send(true);
     }
 
     /// Resolves once a stop was asked for (at once when it already was).
     pub(crate) async fn wait(&mut self) {
-        // the sender lives in the task above until it has sent: an error would mean the runtime is going away
+        // every clone holds a sender: an error would mean the runtime is going away
         _ = self.0.wait_for(|stopped| *stopped).await;
     }
 
@@ -123,4 +134,113 @@ pub(crate) async fn guard<T>(stop: Option<StopSignal>, fut: impl Future<Output =
         Some(mut stop) => stop.guard(fut).await,
         None => Some(fut.await),
     }
+}
+
+/// `q` typed in the terminal asks the [StopSignal] for a stop, beside Ctrl+C: for live views that run until stopped
+/// (`ww sync`). Keys are read on a thread of their own, without echo or waiting for Enter; output, Ctrl+C and the
+/// other control keys work as before, and the terminal is put back as it was on drop.
+pub(crate) struct QuitKey {
+    done: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+    #[cfg(unix)]
+    saved: rustix::termios::Termios,
+}
+
+impl QuitKey {
+    /// Listens while it lives; `None` when stdin is not a terminal (or on a platform without it).
+    pub(crate) fn listen(stop: &StopSignal) -> Option<Self> {
+        use std::io::IsTerminal;
+        if !std::io::stdin().is_terminal() {
+            return None;
+        }
+        let done = Arc::new(AtomicBool::new(false));
+        #[cfg(unix)]
+        let saved = {
+            use rustix::termios::{
+                LocalModes, OptionalActions, SpecialCodeIndex, tcgetattr, tcsetattr,
+            };
+            let stdin = std::io::stdin();
+            let saved = tcgetattr(&stdin).ok()?;
+            let mut keys = saved.clone();
+            keys.local_modes -= LocalModes::ICANON | LocalModes::ECHO;
+            // a read returns after a key or 100 ms without one, so the thread sees `done`
+            keys.special_codes[SpecialCodeIndex::VMIN] = 0;
+            keys.special_codes[SpecialCodeIndex::VTIME] = 1;
+            tcsetattr(&stdin, OptionalActions::Now, &keys).ok()?;
+            saved
+        };
+        let thread = {
+            let (done, stop) = (done.clone(), stop.clone());
+            std::thread::spawn(move || {
+                while !done.load(Ordering::Relaxed) {
+                    if matches!(read_key(), Some('q' | 'Q')) {
+                        stop.stop();
+                        return;
+                    }
+                }
+            })
+        };
+        Some(QuitKey {
+            done,
+            thread: Some(thread),
+            #[cfg(unix)]
+            saved,
+        })
+    }
+}
+
+impl Drop for QuitKey {
+    fn drop(&mut self) {
+        self.done.store(true, Ordering::Relaxed);
+        if let Some(thread) = self.thread.take() {
+            _ = thread.join();
+        }
+        #[cfg(unix)]
+        {
+            use rustix::termios::{OptionalActions, tcsetattr};
+            _ = tcsetattr(std::io::stdin(), OptionalActions::Now, &self.saved);
+        }
+    }
+}
+
+/// A key typed, or `None` after about 100 ms without one.
+#[cfg(unix)]
+fn read_key() -> Option<char> {
+    let mut byte = [0u8];
+    match rustix::io::read(std::io::stdin(), &mut byte) {
+        Ok(1) => Some(byte[0] as char),
+        // no key: VTIME ran out; an error (stdin closed): don't spin
+        Ok(_) => None,
+        Err(_) => {
+            std::thread::sleep(Duration::from_millis(100));
+            None
+        }
+    }
+}
+
+/// A key typed, or `None` after about 100 ms without one.
+#[cfg(windows)]
+fn read_key() -> Option<char> {
+    use crossterm::event::{Event, KeyCode, KeyEventKind, poll, read};
+    match poll(Duration::from_millis(100)) {
+        Ok(true) => match read() {
+            Ok(Event::Key(k)) if k.kind == KeyEventKind::Press => match k.code {
+                KeyCode::Char(c) => Some(c),
+                _ => None,
+            },
+            _ => None,
+        },
+        Ok(false) => None,
+        Err(_) => {
+            std::thread::sleep(Duration::from_millis(100));
+            None
+        }
+    }
+}
+
+/// A key typed, or `None` after about 100 ms without one.
+#[cfg(not(any(unix, windows)))]
+fn read_key() -> Option<char> {
+    std::thread::sleep(Duration::from_millis(100));
+    None
 }

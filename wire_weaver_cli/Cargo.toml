@@ -7,6 +7,13 @@ edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
+# `q` quits a live view (util::QuitKey)
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+crossterm.workspace = true
+
 [[bin]]
 name = "ww"
 path = "src/main.rs"

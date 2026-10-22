@@ -4,7 +4,7 @@
 use crate::complete;
 use crate::device::Selection;
 use crate::untrusted::escape;
-use crate::util::StopSignal;
+use crate::util::{QuitKey, StopSignal};
 use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
 use clap_complete::ArgValueCandidates;
@@ -30,7 +30,7 @@ pub(crate) struct SyncArgs {
     #[arg(long, value_enum)]
     mode: Option<IndicationMode>,
 
-    /// Stop after this many seconds (default: until Ctrl+C); the devices go on in holdover
+    /// Stop after this many seconds (default: until Ctrl+C or q)
     #[arg(long, value_name = "S")]
     duration: Option<u64>,
 
@@ -46,9 +46,6 @@ pub(crate) struct SyncArgs {
     #[arg(long, value_name = "US", default_value_t = 2000)]
     within_us: u64,
 }
-
-/// LED cycle the phase spread is shown against: the bedrock breath (bedrock_led::look::CYCLE_MS).
-const LED_CYCLE_MS: f64 = 3000.0;
 
 #[derive(Copy, Clone, ValueEnum)]
 pub(crate) enum IndicationMode {
@@ -230,6 +227,12 @@ pub(crate) async fn sync(
         false => None,
     };
     let entries = HubEntries::default();
+    if hub.is_none() {
+        eprintln!(
+            "No ww hub runs: ww sync steers the devices itself, and nothing steers them once it stops \
+             (a ww hub keeps them steered: ww hub take DEVICE)"
+        );
+    }
     if let Some(hub) = &hub {
         eprintln!(
             "The ww hub steers the devices, ww sync shows how (--poll-ms and --steer-ms are the hub's own); \
@@ -342,6 +345,10 @@ pub(crate) async fn sync(
             }
         }
     };
+    let quit_key = live.then(|| QuitKey::listen(&stop)).flatten();
+    if quit_key.is_some() {
+        eprintln!("q or Ctrl+C to stop");
+    }
     match args.duration {
         Some(s) => {
             _ = stop
@@ -350,6 +357,7 @@ pub(crate) async fn sync(
         }
         None => _ = stop.guard(run).await,
     }
+    drop(quit_key);
     if !live {
         let views = views(&devices, &entries);
         let statuses: Vec<_> = views.iter().map(|(v, _)| v.clone()).collect();
@@ -367,7 +375,14 @@ pub(crate) async fn sync(
         Some(_) => {
             eprintln!("Stopped: the ww hub keeps steering them for its sync linger (ww hub status)")
         }
-        None => eprintln!("Stopped: the devices go on in holdover on their last steer point"),
+        // a hub started while ww sync ran (by another program) steers what it holds now
+        None if wire_weaver_client::hub::hub_running() => eprintln!(
+            "Stopped: a ww hub runs now and steers the devices it holds (ww hub status); \
+             the others go on in holdover from their last steer point"
+        ),
+        None => eprintln!(
+            "Stopped: nothing steers the devices now, they go on in holdover from their last steer point"
+        ),
     }
     Ok(())
 }
@@ -556,19 +571,17 @@ fn signed_us(v: i64) -> String {
     if v >= 0 { format!("+{}", us(v)) } else { us(v) }
 }
 
-/// The estimated LED phase difference between the devices: the spread of their residuals (each LED cycle starts on
-/// a UTC multiple of its period, so a device's residual is its cycle's lead on UTC), good to half the longest
-/// check's round trip. Empty below two devices with a residual.
+/// The estimated phase difference between the devices: the spread of their residuals, good to half the longest
+/// check's round trip. Anything a device starts on a UTC multiple of a period (an animation, a sample, a frame) is
+/// that far apart between them. Empty below two devices with a residual.
 fn phase_line(statuses: &[Option<View>]) -> String {
     let Some((spread, uncertainty, n)) = spread(statuses) else {
         return String::new();
     };
     format!(
-        "LED phase: {} apart across {n} devices (±{}), {:.3} % of a {} s breath\n",
+        "Phase: {} apart across {n} devices (±{})\n",
         us(spread / 1000),
-        us(uncertainty / 1000),
-        spread as f64 / 1e4 / LED_CYCLE_MS,
-        LED_CYCLE_MS / 1000.0
+        us(uncertainty / 1000)
     )
 }
 
@@ -723,7 +736,7 @@ impl Event {
                 spread,
             } => {
                 let phase = spread.map_or(String::new(), |(s, u)| {
-                    format!(", LED phase {} apart (±{})", us(s / 1000), us(u / 1000))
+                    format!(", phase {} apart (±{})", us(s / 1000), us(u / 1000))
                 });
                 format!(
                     "{} all {count} within {} after {}{phase}",
@@ -936,7 +949,7 @@ mod tests {
         let names = ["Donguru".to_string(), "rePort".into(), "x".into()];
         assert_eq!(
             events[1].line(&names, 2000),
-            "✓ all 2 within 2.00 ms after 5.0 s, LED phase 1.20 ms apart (±100 µs)"
+            "✓ all 2 within 2.00 ms after 5.0 s, phase 1.20 ms apart (±100 µs)"
         );
         assert_eq!(
             events[0].line(&names, 2000),
@@ -958,7 +971,7 @@ mod tests {
         assert_eq!(c.update(8 * s, &[now[0].clone(), slow, None]), []);
         assert_eq!(
             phase_line(&now),
-            "LED phase: 1.00 ms apart across 2 devices (±100 µs), 0.033 % of a 3 s breath\n"
+            "Phase: 1.00 ms apart across 2 devices (±100 µs)\n"
         );
     }
 }

@@ -548,7 +548,7 @@ rate, from the readings with the shortest round trips) and steered with `Clock::
 device is acquiring and once a second once it says locked, see
 [host sync](std_library/ww_timebase.md#host-sync-std-49) and its [states](std_library/ww_timebase.md#states). Works
 with any device serving `Clock` with the `host_sync` group anywhere in its API; a device locked to a sync line only
-takes note (source `line`). Devices with a shared clock align their animations to UTC, so their LEDs breathe in
+takes note (source `line`). Devices with a shared clock align their animations to UTC, so they run in
 phase ([`ww_indication`](std_library/ww_indication.md#animations-in-phase-std-50)). What it looks like (the values are
 for illustration, not a measurement):
 
@@ -557,17 +557,18 @@ $ ww sync --mode normal
 ✓ B135 USB-FDCAN 3445 converged after 1.2 s: locked, residual -31 µs (within 2.00 ms)
 ✓ rePort bench-2 converged after 2.4 s: locked, residual +84 µs (within 2.00 ms)
 ✓ Donguru A1B2C3 converged after 6.3 s: locked, residual -620 µs (within 2.00 ms)
-✓ all 3 within 2.00 ms after 6.3 s, LED phase 704 µs apart (±700 µs)
+✓ all 3 within 2.00 ms after 6.3 s, phase 704 µs apart (±700 µs)
 DEVICE                STATE   SOURCE  STEERED BY      RESIDUAL          ERROR    RATE            SLEW     RTT     SAMPLES  NOTE
 B135 USB-FDCAN 3445   locked  host    ww pid 81234    -31 µs ±75 µs     95 µs    +4.612 ppm      +0 µs    150 µs  240
 rePort bench-2        locked  host    ww pid 81234    +84 µs ±400 µs    480 µs   +12.880 ppm     +3 µs    800 µs  240
 Donguru A1B2C3        locked  host    ww pid 81234    -620 µs ±700 µs   1.10 ms  -2003.204 ppm   -41 µs   1.40 ms 240
-LED phase: 704 µs apart across 3 devices (±700 µs), 0.023 % of a 3 s breath
+Phase: 704 µs apart across 3 devices (±700 µs)
 ```
 
 On a terminal the table is redrawn every second, with a line above it each time a device converges or falls out and
 when all of them are within; into a pipe only those lines are printed (no colour), and the table once at the end.
-Until Ctrl+C or `--duration`; then the devices go on in holdover on their last steer point.
+Until `q`, Ctrl+C or `--duration`. Without a hub nothing steers the devices after that: they go on in holdover from
+their last steer point (`ww sync` says so when it starts and when it stops).
 
 With a [ww hub](transport/hub.md#clock-sync-in-the-hub-srv-31) running, the hub is the steerer: `ww sync` opens each
 device through the hub (which then steers it), shows the hub's steering from its `sync().stats()` stream, and never
@@ -584,7 +585,7 @@ Every other `ww` command that holds a device directly steers it too while it run
 | Column     | What it is                                                                                          |
 |------------|-----------------------------------------------------------------------------------------------------|
 | `STATE`    | the device's own `sync_status`: `acquiring` until it is within its lock tolerance, then `locked`     |
-| `RESIDUAL` | the device's shared time minus the host's UTC at the middle of a `shared_now()` round trip, ± half that round trip: what the sync achieves, and the device's LED lead on UTC |
+| `RESIDUAL` | the device's shared time minus the host's UTC at the middle of a `shared_now()` round trip, ± half that round trip: what the sync achieves, and the device's lead on UTC |
 | `ERROR`    | the device's own error bound: the host's error estimate in the last point, plus slew left and holdover |
 | `RATE`     | how much faster shared time runs than the device's clock (an HSI running 1 % fast is about -9900 ppm) |
 | `SLEW`     | offset the device still slews in (5 % of its clock while acquiring, 1 % once locked)                |
@@ -593,14 +594,14 @@ Every other `ww` command that holds a device directly steers it too while it run
 
 A device has converged once it says `locked` and its residual is within `--within-us`; all have converged once every
 device that serves a clock has. A check whose half round trip is beyond `--within-us` (a USB hiccup) can't tell
-either way and changes nothing. The LED phase is the spread of the residuals: every device starts its LED cycles on
-UTC multiples of the period, so two devices' breaths are apart by the difference of their residuals.
+either way and changes nothing. The phase is the spread of the residuals: anything the devices start on UTC multiples of a
+period (an animation, a sample, a frame) is apart by the difference of their residuals.
 
 | Option / argument | Default | Description                                                                          |
 |-------------------|---------|--------------------------------------------------------------------------------------|
 | `DEVICE...`       | all     | Serial numbers or user labels, or parts of them, each matching exactly one device    |
 | `--mode MODE`     |         | Also write the indication mode: `all-off`, `only-essential`, `normal`               |
-| `--duration S`    | Ctrl+C  | Stop after this many seconds                                                         |
+| `--duration S`    | `q`, Ctrl+C | Stop after this many seconds                                                     |
 | `--poll-ms MS`    | `200`   | Time between two readings of each device's clock once locked (100 ms before)        |
 | `--steer-ms MS`   | `1000`  | Time between two steer points once locked (100 ms before)                            |
 | `--within-us US`  | `2000`  | Residual within which a locked device counts as converged                            |

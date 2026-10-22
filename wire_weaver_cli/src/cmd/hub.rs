@@ -343,6 +343,8 @@ async fn stop() -> Result<()> {
     };
     // the hub may close the connection before it answers
     let _ = hub.shutdown().call().await;
+    // the hub waits for its connections to close before it lets go of hub.lock (500 ms at most): this one too
+    drop(hub);
     for _ in 0..60 {
         if !hub_running() {
             println!("{}", style("hub stopped").green());

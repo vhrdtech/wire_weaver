@@ -21,6 +21,7 @@
 
 ### 🐛 Fixes
 
+- `ww hub stop` closes its own connection after asking the hub to stop: the hub waited up to 500 ms for it before letting go of `hub.lock` (0.5 s down to 0.1 s). Every `ww hub` command is about ten times quicker with the client fixes (TOOL-17).
 - `ww hub status` and `ww list` show a device lent with `ww hub lend` as `lent by <program> (pid N): <purpose>`, not as free (SRV-32).
 - Strings a device, or another program through the hub, hands over (USB product/manufacturer/serial, introspection
   docs and resource/type names, `UserStr` text, pin names, holder program/label/user/host) are escaped before

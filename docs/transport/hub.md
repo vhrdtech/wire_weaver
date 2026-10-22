@@ -608,8 +608,10 @@ left, samples, steer points answered, restarts and the last error.
 A program that holds a device directly (no hub) steers it only if it runs `ww_clock_sync::ClockSync` itself, as
 `ww sync` does; steering in every direct connection by default is planned (CLT-46).
 
-Planned with SRV-32 (device-wide claims for DFU and settings writes): steering pauses (`Paused`) while one program
-has the whole device to itself, so the device coasts in holdover meanwhile.
+While one program has the whole device to itself (a claim on its root or a lend, SRV-32: `ww dfu` takes one), the
+hub's steering is `Paused`: the device is still read, so the fit stays current, but no steer point is sent and the
+device coasts in holdover; steering goes on as soon as the claim goes. A lent device is closed, so its steering
+stops and starts again when it is opened after the lend.
 
 ## Who holds a device (CLT-38)
 

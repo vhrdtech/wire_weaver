@@ -86,6 +86,11 @@ impl Steering {
         self.changed.send_modify(|n| *n += 1);
     }
 
+    /// Something the tasks look at changed elsewhere (a device-wide claim came or went, SRV-32): they look again.
+    pub(crate) fn poke(&self) {
+        self.changed.send_modify(|n| *n += 1);
+    }
+
     /// The device `key` is being steered now: it stays open for [Steering::linger].
     pub(crate) fn steering(&self, key: &str) -> bool {
         self.entries
@@ -208,14 +213,37 @@ async fn run(
         publish(SyncPhaseOwned::Steering, Some(&status.borrow_and_update()));
         recheck();
         let mut last_sent = Instant::now();
-        // TODO(SRV-32): pause while hub.steering_paused(&key) (sync.set_paused), phase Paused
+        // a program with the whole device to itself (a root claim, a lend; SRV-32): readings go on, steer points
+        // don't, the device coasts in holdover
+        let mut paused = false;
+        let pause = |paused: &mut bool, status: &Status| {
+            let now = hub.steering_paused(&key);
+            if now != *paused {
+                *paused = now;
+                sync.set_paused(now);
+                info!(
+                    "ww hub: steering {key} {}",
+                    if now { "paused" } else { "resumed" }
+                );
+                let phase = match now {
+                    true => SyncPhaseOwned::Paused,
+                    false => SyncPhaseOwned::Steering,
+                };
+                publish(phase, Some(status));
+            }
+        };
+        pause(&mut paused, &status.borrow());
         loop {
             tokio::select! {
                 r = status.changed() => {
                     if r.is_err() {
                         return;
                     }
-                    let mut e = entry(&key, SyncPhaseOwned::Steering);
+                    let phase = match paused {
+                        true => SyncPhaseOwned::Paused,
+                        false => SyncPhaseOwned::Steering,
+                    };
+                    let mut e = entry(&key, phase);
                     fill(&mut e, &status.borrow_and_update());
                     hub.steering.lock().unwrap().entries.insert(key.clone(), e.clone());
                     if last_sent.elapsed() >= STATS_EVERY {
@@ -231,6 +259,7 @@ async fn run(
                         info!("ww hub: steering {key} switched off");
                         break;
                     }
+                    pause(&mut paused, &status.borrow());
                 }
             }
         }

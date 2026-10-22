@@ -130,8 +130,7 @@ impl<T: WwClient> PreparedConnection<T> {
                 if rt.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
                     return Err(anyhow::anyhow!(
                         "connect_blocking() reaches a local socket (the ww hub, IPC) on a multi-thread tokio runtime only"
-                    )
-                    .into());
+                    ));
                 }
                 match rt.block_on(try_select_local_socket(&config, &mut cmd_rx))? {
                     Selected::Device { handle, info, .. } => {

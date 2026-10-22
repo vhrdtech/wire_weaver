@@ -462,3 +462,52 @@ async fn steering_switched_off_and_on() {
     drop(hub);
     bench.stop().await;
 }
+
+/// A program holding the whole device (a root claim, SRV-32) pauses the hub's steering: the device is still read,
+/// no steer point reaches it until the claim goes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_root_claim_pauses_steering() {
+    let bench = start("paused", Duration::from_millis(100), None);
+    let hub = bench.hub().await;
+    let mut client = bench.client().await;
+    assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
+    sync_entry(&hub, &bench.key, "steered", |e| e.steers > 0).await;
+
+    let claim = hub
+        .claims()
+        .claim(bench.key.clone(), vec![], "firmware update".into(), None)
+        .call()
+        .await
+        .expect("root claimed");
+    let e = sync_entry(&hub, &bench.key, "paused", |e| {
+        e.phase == SyncPhaseOwned::Paused
+    })
+    .await;
+    let steers = bench.clock.lock().unwrap().steers;
+    // still read while paused
+    sync_entry(&hub, &bench.key, "read on", |p| p.samples > e.samples).await;
+    assert_eq!(
+        bench.clock.lock().unwrap().steers,
+        steers,
+        "no steer points while the root is claimed"
+    );
+
+    hub.claims().release(claim).call().await.unwrap();
+    sync_entry(&hub, &bench.key, "steered again", |e| {
+        e.phase == SyncPhaseOwned::Steering
+    })
+    .await;
+    for _ in 0..300 {
+        if bench.clock.lock().unwrap().steers > steers {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(
+        bench.clock.lock().unwrap().steers > steers,
+        "steered after the release"
+    );
+    drop(client);
+    drop(hub);
+    bench.stop().await;
+}

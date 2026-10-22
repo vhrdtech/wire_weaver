@@ -79,3 +79,13 @@ pub enum ConnectionEvent {
     /// doesn't serve. The waiting streams end; connect a new client to go on.
     GaveUp { error: String },
 }
+
+/// The numbers above are `ww_local_socket`'s, which the client links only with the `local_socket` feature.
+#[cfg(all(test, feature = "local_socket"))]
+mod same_numbers {
+    #[test]
+    fn lent_numbers_are_the_hubs() {
+        assert_eq!(super::DISCONNECT_LENT, ww_local_socket::DISCONNECT_LENT);
+        assert_eq!(super::STATUS_LENT, ww_local_socket::Status::Lent.to_u8());
+    }
+}

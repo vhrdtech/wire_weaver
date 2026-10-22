@@ -890,21 +890,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   running hub with the program's own (`main_if_hub`, `WW_HUB_HANDOVER`, under `hub.start.lock`). Tested on Linux in
   `tests/hub_reconnect` (`versions.rs`, `handover.rs` with clients connected, `replace.rs` across processes); check
   on macOS and Windows open (compiles for both).
-- 🧪 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving
-  `ww_timebase::Clock` with `host_sync` (found in its introspection data at any path) onto the PC's UTC with
-  `ww_clock_sync` on its own connection, and keeps it open for a sync linger (30 min, `WW_HUB_SYNC_LINGER`, `forever`)
-  so boards stay steered between short-lived commands; `WW_HUB_SYNC=off` / `sync().set_enabled` per device or all.
-  `ww_hub_api::ClockSync` at `sync`: `devices` (`SyncEntry`: phase, state, source, the steerer the device follows and
-  one it only notes, rate, shortest RTT, residual via `shared_now`, error, slew, samples), `linger`, the `stats`
-  stream. Rate cache per device serial in the state dir (`ww_clock_sync::RateCache`, atomic writes, shared with
-  direct-mode programs): a known device is steered after its first reading. Steer points say who steers
-  (`ww_timebase::Steerer`, STD-49 follow-up); the device follows one and notes the others (embedded_bedrock
-  `bedrock_sync`). `ww sync` shows the hub's steering with a hub, steers directly without one, STEERED BY column.
-  `docs/transport/hub.md#clock-sync-in-the-hub-srv-31`, `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E
-  in `tests/hub` (`clock_sync`), `tests/io_timebase`. Pausing under a device-wide claim comes with SRV-32; programs holding a device directly steer with `ww_clock_sync`
-  (opt-in) until CLT-46 does it in every connection. Hardware
-  check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on one
-  board.
+- 🧪 **SRV-31 Clock sync in the hub** · `v0.5.x` — the hub steers every open device serving `ww_timebase::Clock` with
+  `host_sync` (found in its introspection data at any path) onto the PC's UTC with `ww_clock_sync` on its own
+  connection, and keeps it open for a sync linger (30 min, `WW_HUB_SYNC_LINGER`, `forever`) so boards stay steered
+  between short-lived commands; `WW_HUB_SYNC=off` / `sync().set_enabled` per device or all. `ww_hub_api::ClockSync` at
+  `sync`: `devices` (`SyncEntry`: phase, state, source, the steerer the device follows and one it only notes, rate,
+  shortest RTT, residual via `shared_now`, error, slew, samples), `linger`, the `stats` stream. Rate cache per device
+  serial in the state dir (`ww_clock_sync::RateCache`, atomic writes, shared with direct-mode programs): a known device
+  is steered after its first reading. Steer points say who steers (`ww_timebase::Steerer`, STD-49 follow-up); the device
+  follows one and notes the others (embedded_bedrock `bedrock_sync`). `ww sync` shows the hub's steering with a hub,
+  steers directly without one, STEERED BY column. `docs/transport/hub.md#clock-sync-in-the-hub-srv-31`,
+  `docs/std_library/ww_timebase.md#one-steerer-at-a-time`; E2E in `tests/hub` (`clock_sync`), `tests/io_timebase`.
+  Paused (`SyncPhase::Paused`, readings go on, no steer points) while a program holds the whole device (SRV-32);
+  programs holding a device directly steer with `ww_clock_sync` (opt-in) until CLT-46 does it in every connection.
+  Hardware check open: the hub steering rePort, Donguru and B135 on omarchy-m1, `ww sync` as its view, two steerers on
+  one board.
 - 🧪 **SRV-32 Device-wide exclusive and lending** · `v0.5.x` — exclusive access to a whole device (DFU, settings
   writes) is a claim on its root path (SRV-34): other programs' calls and writes anywhere on it refused naming the
   holder, and `Hub::steering_paused` for the hub's clock steering (SRV-31 skips the device while it holds);
@@ -915,9 +915,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   held it; `Lent` / `Returned` events; a crashed borrower or a ttl returns it. `ww hub lend DEVICE -- CMD` (Ctrl+C
   reaches the command, its exit code is ww's), `hub::Lend`. `docs/transport/hub.md`; tests `ww_hub` (`claims`),
   `tests/hub` (`exclusive*`, `lend*`). Open: a hardware check (probe-rs and `ww dfu flash` on a board while another
-  program uses it through the hub), clients waiting while lent and the `Lent` reason in their reconnect event
-  (CLT-40), the steering loop asking `steering_paused` (SRV-31); no `ww settings` command writes to a device yet
-  (`dump` reads a file), one that does takes `Exclusive` the same way.
+  program uses it through the hub); no `ww settings` command writes to a device yet (`dump` reads a file), one that
+  does takes `Exclusive` the same way. Clients reconnect after a lend with the `Lent` reason (CLT-40), and the hub's
+  steering pauses while the root is held (SRV-31, `tests/hub` `a_root_claim_pauses_steering`).
 - 📋 **SRV-33 Hub federation between PCs** · `v0.5.x` — remote devices through another PC's hub, as `HOST/<key>`,
   with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
   SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser

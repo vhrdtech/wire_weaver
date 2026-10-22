@@ -702,6 +702,9 @@ impl Hub {
     /// Tells the registry's listeners that claims went; a lent device is returned, and opened again if the hub held
     /// it before.
     pub(crate) fn claims_released(self: &Arc<Self>, gone: &[claims::Claim]) {
+        if !gone.is_empty() {
+            self.claims_changed();
+        }
         for c in gone {
             debug!("ww hub: claim {} on {} released", c.id, c.key);
             let _ = self.events.send(ww_hub_api::EventOwned::Released {
@@ -727,6 +730,11 @@ impl Hub {
                 }
             }
         }
+    }
+
+    /// A claim came or went: the clock steering looks whether a device is held whole now (SRV-32).
+    fn claims_changed(&self) {
+        self.steering.lock().unwrap().poke();
     }
 
     /// Drops the claims whose ttl ran out (checked as the hub goes, so a lent device is returned on time).
@@ -768,6 +776,7 @@ impl Hub {
         };
         self.claims_released(&expired);
         let claim_id = claimed?;
+        self.claims_changed();
         // tunnels that come now are answered `Lent`: the claim is in
         let slot = self.device_slot(&key);
         let handle = slot.lock().await.take();
@@ -816,8 +825,7 @@ impl Hub {
 
     /// Whether the hub leaves the clock of device `key` alone: a program holds the whole device (a root claim, a lend),
     /// e.g. for a firmware update (SRV-32).
-    // TODO(SRV-31): the hub's steering asks this before each steer point and skips the device while it is true.
-    #[allow(dead_code)]
+    /// The hub's steering (SRV-31) asks it whenever claims change ([Hub::claims_changed]).
     pub(crate) fn steering_paused(&self, key: &str) -> bool {
         self.state.lock().unwrap().claims.root_held(key)
     }
@@ -883,6 +891,7 @@ impl Hub {
         drop(state);
         self.claims_released(&expired);
         if let Ok(claim_id) = claimed {
+            self.claims_changed();
             debug!("ww hub: client {id} claimed {claim_id} on {key}");
             let _ = self
                 .events

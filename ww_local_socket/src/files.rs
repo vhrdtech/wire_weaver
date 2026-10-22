@@ -5,7 +5,8 @@ pub const HUB_SOCKET: &str = "hub.sock";
 /// Held exclusively by the running hub for its whole life (an OS file lock, released on a crash): one hub per user,
 /// and a socket file without it held is stale.
 pub const HUB_LOCK: &str = "hub.lock";
-/// Lock files of the devices' holders (CLT-38), one per device key.
+/// Lock files of the devices' holders (CLT-38), one per device key, and the sockets of direct holders that hand
+/// their device to the hub when asked (CLT-43).
 pub const HOLDERS_DIR: &str = "holders";
 /// Held by whoever starts a hub, so two programs starting one at once end up with one.
 pub const HUB_START_LOCK: &str = "hub.start.lock";

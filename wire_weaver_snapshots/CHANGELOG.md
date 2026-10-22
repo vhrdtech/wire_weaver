@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `all()` returns `&HashMap<FullVersionOwned, &ApiBundleOwned>` (was owned bundles): `get(version)` parses only the snapshot asked for, on its first use, instead of all of them (820 KB of RON). A client connecting to a device paid for parsing every snapshot on its first connect: 150 ms and more in a debug build under load, on every short `ww` command.
 - Snapshots saved again with definitions' module paths (API-46, ww_self `ItemStruct::path`): the definitions are
   the same, their signatures changed with the format, so a host with these snapshots finds the stdlib definitions of
   a device built before only through the definition cache.

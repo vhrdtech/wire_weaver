@@ -14,24 +14,36 @@ use ww_version::FullVersionOwned;
 /// (file name, contents)
 const EMBEDDED: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/api_snapshots.rs"));
 
-/// Snapshot of exactly this crate version, if embedded.
+/// Parsed snapshots, one slot per [EMBEDDED] entry, filled on first use of that entry.
+static PARSED: [OnceLock<ApiBundleOwned>; EMBEDDED.len()] =
+    [const { OnceLock::new() }; EMBEDDED.len()];
+
+/// Snapshot of exactly this crate version, if embedded. Only this one is parsed (on its first use): a client
+/// connecting to a device whose API uses one or two of these crates doesn't pay for parsing all of them.
 pub fn get(version: &FullVersionOwned) -> Option<&'static ApiBundleOwned> {
-    all().get(version)
+    let file_name = format!("{}.ron", version.filename_friendly());
+    let index = EMBEDDED.iter().position(|(name, _)| *name == file_name)?;
+    Some(parsed(index))
 }
 
-/// All embedded snapshots, by crate name and version. Parsed on first use.
-pub fn all() -> &'static HashMap<FullVersionOwned, ApiBundleOwned> {
-    static SNAPSHOTS: OnceLock<HashMap<FullVersionOwned, ApiBundleOwned>> = OnceLock::new();
-    SNAPSHOTS.get_or_init(|| {
-        EMBEDDED
-            .iter()
-            .map(|(file_name, contents)| {
-                // all of them are checked to load by tests
-                let bundle = parse(contents)
-                    .unwrap_or_else(|e| panic!("embedded API snapshot {file_name}: {e:?}"));
+/// All embedded snapshots, by crate name and version. Parses every one not parsed yet.
+pub fn all() -> &'static HashMap<FullVersionOwned, &'static ApiBundleOwned> {
+    static ALL: OnceLock<HashMap<FullVersionOwned, &'static ApiBundleOwned>> = OnceLock::new();
+    ALL.get_or_init(|| {
+        (0..EMBEDDED.len())
+            .map(|index| {
+                let bundle = parsed(index);
                 (bundle.ext_crates[0].clone(), bundle)
             })
             .collect()
+    })
+}
+
+fn parsed(index: usize) -> &'static ApiBundleOwned {
+    PARSED[index].get_or_init(|| {
+        let (file_name, contents) = EMBEDDED[index];
+        // all of them are checked to load, and to be named after their crate and version, by tests
+        parse(contents).unwrap_or_else(|e| panic!("embedded API snapshot {file_name}: {e:?}"))
     })
 }
 
@@ -78,13 +90,16 @@ mod tests {
             );
         }
         assert_eq!(all().len(), EMBEDDED.len());
+        for (version, bundle) in all() {
+            assert!(std::ptr::eq(get(version).unwrap(), *bundle), "{version:?}");
+        }
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.
     #[test]
     fn snapshots_can_be_inlined() {
         for (version, snapshot) in all() {
-            let mut bundle = snapshot.clone();
+            let mut bundle = (*snapshot).clone();
             let not_inlined = inline_skipped(&mut bundle);
             assert!(
                 not_inlined.is_empty(),

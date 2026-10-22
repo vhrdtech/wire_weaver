@@ -133,6 +133,20 @@ impl UsbRx {
         each!(self, f => f.message())
     }
 
+    /// For a live handover's pause (CLT-44): done with the message a read returned last (if any), then every message
+    /// complete in what is staged goes to `messages`, in order. Nothing is ready afterwards, so calling it again after
+    /// staging another frame takes only what that frame completed; what is left over is [Self::carry].
+    #[cfg(feature = "local_socket")]
+    pub fn take_complete(&mut self, messages: &mut Vec<(u8, Vec<u8>)>) {
+        loop {
+            self.reassemble();
+            match self.message() {
+                Some((kind, m)) => messages.push((kind, m.to_vec())),
+                None => break,
+            }
+        }
+    }
+
     pub fn reset(&mut self) {
         each!(self, f => f.reset())
     }
@@ -148,5 +162,40 @@ pub(crate) fn usb_tap_framer(seq_prefix: bool) -> ww_tap::Framer {
         crate::tap::FRAMED_USB_SEQ
     } else {
         crate::tap::FRAMED_USB
+    }
+}
+
+#[cfg(all(test, feature = "local_socket"))]
+mod tests {
+    use super::*;
+
+    /// A read returned the first message of a frame holding three: the pause takes the other two, then what each
+    /// frame reaped after completes, nothing twice and nothing lost.
+    #[test]
+    fn take_complete_after_a_read() {
+        let mut tx = UsbTx::new(true, 64);
+        let mut rx = UsbRx::new(true, 1024 + 64);
+        for m in [&[1u8][..], &[2, 2], &[3, 3, 3]] {
+            assert_eq!(tx.write(0, m), Ok(true));
+        }
+        let frame = tx.flush_to_vec().unwrap();
+        rx.stage(&frame).unwrap();
+        rx.reassemble();
+        assert_eq!(
+            rx.message(),
+            Some((0, &[1u8][..])),
+            "what the read returned"
+        );
+        let mut messages = vec![];
+        rx.take_complete(&mut messages);
+        assert_eq!(messages, [(0, vec![2, 2]), (0, vec![3, 3, 3])]);
+        // a frame reaped after: only what it completes
+        assert_eq!(tx.write(0, &[4]), Ok(true));
+        rx.stage(&tx.flush_to_vec().unwrap()).unwrap();
+        messages.clear();
+        rx.take_complete(&mut messages);
+        assert_eq!(messages, [(0, vec![4])]);
+        rx.take_complete(&mut messages);
+        assert_eq!(messages, [(0, vec![4])], "nothing twice");
     }
 }

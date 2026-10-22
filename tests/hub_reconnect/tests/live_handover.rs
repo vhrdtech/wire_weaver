@@ -97,6 +97,25 @@ impl Holder {
         }
     }
 
+    /// Lines up to the first containing `text` (a log line), that one last.
+    fn until_containing(&mut self, text: &str) -> Vec<String> {
+        let mut seen = vec![];
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now());
+            match self.lines.recv_timeout(left) {
+                Ok(line) => {
+                    let found = line.contains(text);
+                    seen.push(line);
+                    if found {
+                        return seen;
+                    }
+                }
+                Err(e) => panic!("the holder said no {text:?}: {e}"),
+            }
+        }
+    }
+
     /// The next state line, with the lines before it.
     fn state(&mut self) -> (State, Vec<String>) {
         let mut before = vec![];
@@ -183,7 +202,9 @@ async fn a_holder_hands_its_live_link_to_the_hub() {
     let connect = started.elapsed();
     assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
 
-    let (after, lines) = holder.advance(before, 200, 20);
+    let mut lines = holder.until_containing("handed the live link to the ww hub in ");
+    let (after, more) = holder.advance(before, 200, 20);
+    lines.extend(more);
     let handed = lines
         .iter()
         .find_map(|l| {
@@ -309,24 +330,29 @@ async fn the_hub_dying_in_the_commit_leaves_the_holder_going_on() {
     let (mut holder, before, asker) = holder_in_commit(&socket, &device).await;
     let usb = device.usb_sim().unwrap();
 
+    // the asker goes first: it would connect directly once the hub is gone, or start another one and ask again
+    asker.abort();
+    let _ = asker.await;
     let pid = hub_api().await.info().call().await.unwrap().pid;
     let killed = Command::new("kill")
         .args(["-9", &pid.to_string()])
         .status()
         .unwrap();
     assert!(killed.success());
-    // the asker would start another hub and ask again
-    asker.abort();
     // the killed hub's claim went with its connection, the holder's comes to take the device back
     wait_until("the hub's claim to go", || usb.claims_dropped() == 1).await;
     wait_until("the holder's claim", || usb.claims_waiting() == 1).await;
     usb.hold_claims(false);
 
-    let (after, lines) = holder.advance(before, 100, 10);
-    assert!(
-        lines.iter().any(|l| l.contains("keeping the device")),
-        "the holder kept the device: {lines:?}"
-    );
+    // the holder kept the device
+    let mut lines = holder.until_containing("keeping the device");
+    wait_until("the holder holds the interface again", || usb.held()).await;
+    // its calls go on from there
+    let (resumed, more) = holder.state();
+    lines.extend(more);
+    let (after, more) = holder.advance(resumed, 100, 10);
+    lines.extend(more);
+    assert!(after.ok > before.ok);
     for line in &lines {
         assert!(
             !line.starts_with("disconnected") && !line.starts_with("reconnected"),
@@ -339,7 +365,6 @@ async fn the_hub_dying_in_the_commit_leaves_the_holder_going_on() {
         "no tick lost, doubled or out of order"
     );
     assert_eq!(device.link_events(), (1, 0), "the device's link went on");
-    assert!(usb.held(), "the holder holds the interface again");
     let held = wire_weaver_client::holders::holder_of(&key).expect("the holder holds it");
     assert_eq!(held.mode, wire_weaver_client::holders::Mode::Direct);
 
@@ -408,6 +433,9 @@ async fn an_interface_grabbed_in_the_gap_ends_in_a_reconnect_through_the_hub() {
     let usb = device.usb_sim().unwrap();
 
     assert!(usb.grab(), "nobody holds the interface in the gap");
+    // the asker goes first: once the hub can't open the device, it would try it directly
+    asker.abort();
+    let _ = asker.await;
     usb.hold_claims(false);
     assert_eq!(
         holder.wait_for("disconnected", |_| {}),
@@ -420,7 +448,6 @@ async fn an_interface_grabbed_in_the_gap_ends_in_a_reconnect_through_the_hub() {
     let (after, _) = holder.advance(after, 40, 3);
     assert!(after.ok > before.ok, "the holder's calls work again");
 
-    asker.abort();
     drop(holder);
     stop_hub().await;
     let _ = std::fs::remove_dir_all(&dir);
@@ -545,19 +572,22 @@ async fn answers_waiting_in_the_device_reach_the_holder() {
         .expect("the asker connects")
         .unwrap()
         .expect("connect through the hub");
-    let (after, lines) = holder.advance(before, 100, 10);
-    assert!(
-        lines.iter().any(|l| l.contains("handed the live link")),
-        "{lines:?}"
-    );
+    holder.until_containing("handed the live link");
+    let (after, _) = holder.advance(before, 100, 10);
     assert_eq!(after.failed, 0, "no call failed: {after:?}");
-    assert_eq!(after.out_of_order, 0, "no tick lost, doubled or out of order");
+    assert_eq!(
+        after.out_of_order, 0,
+        "no tick lost, doubled or out of order"
+    );
     assert_eq!(device.link_events(), (1, 0));
     assert_eq!(client.add(20, 22).call().await.unwrap(), 42);
     drop(holder);
     let adds = adds_once(&seen);
     let missing: Vec<u32> = (1..=after.ok).filter(|a| !adds.contains(a)).collect();
-    assert!(missing.is_empty(), "calls the device never saw: {missing:?}");
+    assert!(
+        missing.is_empty(),
+        "calls the device never saw: {missing:?}"
+    );
 
     drop(client);
     stop_hub().await;

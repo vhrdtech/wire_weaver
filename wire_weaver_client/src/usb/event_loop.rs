@@ -202,8 +202,9 @@ impl Transport for NusbTransport {
         sink.close().await;
         // IN: cancelled; what the device sent this host is reaped, the rest waits in the device
         let source = rx.source.take().ok_or("paused already")?;
-        rx.framer.reassemble();
+        // done with what the last read returned; messages already complete in the staged data come first
         let mut messages = vec![];
+        rx.framer.take_complete(&mut messages);
         let framer = &mut rx.framer;
         let tap = &mut rx.tap;
         let mut staged = Ok(());
@@ -219,13 +220,7 @@ impl Transport for NusbTransport {
                     Ok(report) => crate::framing::log_report(report),
                     Err(()) => staged = Err(()),
                 }
-                loop {
-                    framer.reassemble();
-                    match framer.message() {
-                        Some((kind, m)) => messages.push((kind, m.to_vec())),
-                        None => break,
-                    }
-                }
+                framer.take_complete(&mut messages);
             })
             .await;
         let failed = drained

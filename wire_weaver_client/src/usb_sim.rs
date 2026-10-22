@@ -653,8 +653,9 @@ impl Transport for UsbSimTransport {
         tx.push_frame();
         tx.writer.flush().await.map_err(|e| e.to_string())?;
         // IN: what the device sent this host is reaped; the rest waits in the device
-        rx.framer.reassemble();
+        // done with what the last read returned; messages already complete in the staged data come first
         let mut messages = vec![];
+        rx.framer.take_complete(&mut messages);
         let framer = &mut rx.framer;
         let mut staged = Ok(());
         release(&mut tx.writer, &mut rx.reader, |packet| {
@@ -665,13 +666,7 @@ impl Transport for UsbSimTransport {
                 Ok(report) => crate::framing::log_report(report),
                 Err(()) => staged = Err(()),
             }
-            loop {
-                framer.reassemble();
-                match framer.message() {
-                    Some((kind, m)) => messages.push((kind, m.to_vec())),
-                    None => break,
-                }
-            }
+            framer.take_complete(&mut messages);
         })
         .await?;
         staged.map_err(|_| "out of staging area, this is a bug".to_string())?;

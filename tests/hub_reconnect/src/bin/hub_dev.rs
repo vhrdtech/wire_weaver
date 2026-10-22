@@ -6,7 +6,7 @@
 //!   of client kind `<kind>` (`Cli`, `Gui`, ...), calling it every 10 ms; prints `holding`, then what happens to the
 //!   connection: `disconnected <reason>`, `reconnected <gap in µs> <streams resumed>`, `ok after reconnect` (CLT-43)
 //! - `hub_dev hold-usb <socket> <kind>`: holds the simulated USB device on `<socket>` directly (`usb_sim_path`) with
-//!   20 calls in flight all the time and a counted stream the device feeds; prints `holding`, the connection events
+//!   20 to 40 calls in flight all the time (a batch of 20 sent while the one before is answered) and a counted stream the device feeds; prints `holding`, the connection events
 //!   as `hold` does, and every 50 ms `state <calls ok> <calls failed> <slowest batch µs> <ticks> <ticks out of
 //!   order>` (CLT-44: a live link handover must show no failed call and no tick out of order)
 
@@ -123,8 +123,12 @@ async fn hold_usb(socket: &str, kind: &str) -> Result<(), String> {
         tokio::spawn(async move {
             // a: one number per call, so the device's record tells a lost or doubled call
             let mut a = 0u32;
+            // the batch before is answered while this one is sent: there are calls in flight all the time
+            let mut before = vec![];
             loop {
                 let started = std::time::Instant::now();
+                // a call waits behind every request before it: first, while the batch before is in flight
+                let _ = client.emit(3).call().await;
                 let mut pending = vec![];
                 for _ in 0..20 {
                     a += 1;
@@ -133,8 +137,7 @@ async fn hold_usb(socket: &str, kind: &str) -> Result<(), String> {
                         Err(_) => _ = failed.fetch_add(1, Ordering::Relaxed),
                     }
                 }
-                let _ = client.emit(3).call().await;
-                for (a, p) in pending {
+                for (a, p) in std::mem::replace(&mut before, pending) {
                     match p.reply().await {
                         Ok(v) if v == a + 1000 => _ = ok.fetch_add(1, Ordering::Relaxed),
                         _ => _ = failed.fetch_add(1, Ordering::Relaxed),

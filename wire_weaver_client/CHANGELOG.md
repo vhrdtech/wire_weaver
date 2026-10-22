@@ -25,6 +25,7 @@
 
 ### 🐛 Fixes
 
+- `holders` lock files are one per device key (CLT-45): lower-case letters, digits and `-` stay, every other byte of the key is `_xx` (was `_` for any of them, so `usb:..:a:b` and `usb:..:a_b` shared a file and a crafted USB serial could make another device look held). A name over 200 bytes, and a handover socket path too long for a Unix socket, is `_h` and the key's SHA-256 (was FNV-1a for the socket). A held lock file whose content names another key reads as an unknown holder. Lock files of programs built before this change aren't seen by programs built after it (holders are unreleased so far).
 - `local_socket::device::device_medium` accepts clients in a task of its own: `wait_connected` was not cancel-safe, and a server waiting on it next to a timer dropped a client in the middle of its preamble (the client saw `Connection reset by peer` or `Broken pipe`). The next client still waits in the backlog until the current one leaves.
 - A request whose bookkeeping reached the receive task after it exited (the link going down while the request was sent) fails with `Error::Disconnected` instead of `RxDispatcherNotRunning`.
 - The other side closing the medium in answer to our `Disconnect` ends the event loop as asked (`DisconnectCommand`) instead of as a lost link: no `rx exiting with: Transport specific error` ERROR log at the end of a short `ww hub ...` call, and streams aren't kept for a reconnect after a plain `disconnect()`.

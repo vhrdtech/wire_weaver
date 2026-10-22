@@ -27,7 +27,7 @@ pub fn record_open(key: &str, weight: f32, counter: OpenCounter) -> io::Result<O
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
         Err(e) => return Err(e),
     }
-    let path = dir.join(crate::holders::sanitize_file_name(key));
+    let path = dir.join(crate::holders::file_name(key));
     let mut file = OpenOptions::new()
         .create(true)
         .truncate(false)

@@ -63,6 +63,7 @@ nusb.workspace = true # TODO: try to use without tokio?
 probe-rs = { version = "0.32", default-features = false, features = ["builtin-targets", "builtin-formats"], optional = true }
 ron.workspace = true
 semver.workspace = true
+sha2.workspace = true
 strum.workspace = true # EnumDiscriminants-generated code refers to it, even though only strum_macros is imported
 strum_macros.workspace = true
 thiserror.workspace = true

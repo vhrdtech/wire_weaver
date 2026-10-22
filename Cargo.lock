@@ -5936,6 +5936,7 @@ dependencies = [
  "probe-rs",
  "ron",
  "semver",
+ "sha2 0.11.0",
  "stm32_dfu_host",
  "strum",
  "strum_macros",

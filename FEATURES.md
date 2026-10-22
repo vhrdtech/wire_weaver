@@ -1206,9 +1206,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
   adoption whose connection went). Open: a real board on omarchy-m1 (the gap against CLT-43's, usbmon showing no bus
   traffic, the device's link events).
-- 📋 **CLT-45 Lock file names one per device key** — `holders` maps every character outside `[A-Za-z0-9._-]` to
-  `_`, so two keys can share a lock file (`...:a:b` and `...:a_b`): a USB device with a crafted serial can make
-  another one look held. Needs an injective file name.
+- ✅ **CLT-45 Lock file names one per device key** — `holders` used to map every character outside
+  `[A-Za-z0-9._-]` to `_`, so two keys could share a lock file (`...:a:b` and `...:a_b`) and a USB device with a
+  crafted serial could make another one look held. Now lower-case letters, digits and `-` stay and every other byte
+  is `_xx`, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
+  socket's too, was FNV), and the key inside the file is checked on read.
 
 ## Transports and protocols (`TR`)
 

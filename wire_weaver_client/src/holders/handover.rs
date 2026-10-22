@@ -104,18 +104,15 @@ impl Offer {
     }
 }
 
-/// `<dir>/<key>.sock`, or `<dir>/h-<hash>.sock` when that would be too long for a Unix socket path. The lock file
+/// `<dir>/<key>.sock`, or `<dir>/_h<hash>.sock` when that would be too long for a Unix socket path. The lock file
 /// names it either way (`handover = <path>`).
 fn socket_path(dir: &Path, key: &str) -> PathBuf {
-    let path = dir.join(format!("{}.sock", super::sanitize_file_name(key)));
+    let path = dir.join(format!("{}.sock", super::file_name(key)));
     if path.as_os_str().len() <= MAX_SOCKET_PATH {
         return path;
     }
-    // FNV-1a: stable across builds, unlike std's hasher
-    let hash = key.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
-        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
-    });
-    dir.join(format!("h-{hash:016x}.sock"))
+    // 128 bits of the key's SHA-256: no crafted key shares another one's socket
+    dir.join(format!("{}.sock", super::hashed_name(key, 32)))
 }
 
 async fn serve(
@@ -208,7 +205,7 @@ mod tests {
         let dir = Path::new("/run/user/1000/ww/holders");
         assert_eq!(
             socket_path(dir, "usb:c0de:cafe:42:0"),
-            dir.join("usb_c0de_cafe_42_0.sock")
+            dir.join("usb_3ac0de_3acafe_3a42_3a0.sock")
         );
         let long = format!("ipc:/tmp/{}", "x".repeat(100));
         let p = socket_path(dir, &long);

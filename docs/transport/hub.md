@@ -768,9 +768,13 @@ Each device gets one lock file, named after a stable key:
   `connect()` has found it)
 - RTT: `rtt:<probe serial>:<chip>`
 
-`wire_weaver_client::holders::key_for` builds one from a `DeviceRef`; the file name on disk escapes everything
-but ASCII letters, digits, `.`, `-` and `_` (a USB serial number is a string the device chose, so it's treated as
-untrusted input, not trusted to be a safe path component).
+`wire_weaver_client::holders::key_for` builds one from a `DeviceRef`. A USB serial number is a string the device
+chose, so the key is treated as untrusted input, not as a safe path component, and the file name on disk is one per
+key (CLT-45): lower-case ASCII letters, digits and `-` stay, every other byte becomes `_xx` (its hex value), so
+`usb:c0de:cafe:42:0` is `usb_3ac0de_3acafe_3a42_3a0.lock`. Two keys never share a file, also on a case-insensitive
+filesystem, so a device with a crafted serial can't make another one look held. A name over 200 bytes is `_h` and the
+key's SHA-256 instead, and the key written in the file is checked on every read: content naming another key reads
+as an unknown holder.
 
 ### Claiming
 

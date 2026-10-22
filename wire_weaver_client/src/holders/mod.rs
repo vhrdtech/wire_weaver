@@ -1,5 +1,5 @@
 //! Who holds a device (CLT-38): a lock-file registry under the user's runtime dir,
-//! `<runtime>/ww/holders/<key>.lock`, written by every holder (a direct-mode program today, the hub later).
+//! `<runtime>/ww/holders/<key>.lock` (the key escaped, one file per key: [`file_name`]), written by every holder (a direct-mode program today, the hub later).
 //!
 //! A holder takes an exclusive [`std::fs::File::try_lock`] on the device's lock file before claiming the USB
 //! interface or RTT probe, and keeps the file open ([`Claim`]) for as long as it holds the device. The OS releases
@@ -458,7 +458,9 @@ pub(crate) fn claim_offering(
             file.flush()?;
             Ok(claim)
         }
-        Err(TryLockError::WouldBlock) => Err(ClaimError::HeldBy(Box::new(read_holder(&mut file)?))),
+        Err(TryLockError::WouldBlock) => {
+            Err(ClaimError::HeldBy(Box::new(read_holder(&mut file, key)?)))
+        }
         Err(TryLockError::Error(e)) => Err(ClaimError::Io(e)),
     }
 }
@@ -474,7 +476,7 @@ pub fn holder_of(key: &str) -> Option<Holder> {
             None
         }
         Err(TryLockError::WouldBlock) => {
-            Some(read_holder(&mut file).unwrap_or_else(|_| Holder::unknown()))
+            Some(read_holder(&mut file, key).unwrap_or_else(|_| Holder::unknown()))
         }
         Err(TryLockError::Error(_)) => None,
     }
@@ -518,11 +520,15 @@ pub fn list() -> Vec<(String, Holder)> {
     held
 }
 
-fn read_holder(file: &mut File) -> io::Result<Holder> {
+/// The holder written in a held lock file for `key`; content naming another key isn't trusted (an unknown holder).
+fn read_holder(file: &mut File, key: &str) -> io::Result<Holder> {
     file.seek(SeekFrom::Start(0))?;
     let mut content = String::new();
     file.read_to_string(&mut content)?;
-    Ok(Holder::parse(&content).unwrap_or_else(Holder::unknown))
+    Ok(match Holder::parse_with_key(&content) {
+        Some((written, holder)) if written == key => holder,
+        _ => Holder::unknown(),
+    })
 }
 
 /// Free text from a device or the user on one line, so it can't add a `key = value` line of its own.
@@ -531,22 +537,41 @@ fn one_line(s: &str) -> String {
 }
 
 fn lock_path(key: &str) -> io::Result<PathBuf> {
-    Ok(holders_dir()?.join(format!("{}.lock", sanitize_file_name(key))))
+    Ok(holders_dir()?.join(format!("{}.lock", file_name(key))))
 }
 
-/// Replaces everything but ASCII letters, digits, `.`, `-` and `_` with `_`: device keys carry `:` (not valid in a
-/// Windows file name) and USB string descriptors are untrusted input (a device could claim any serial number,
-/// including one designed to look like a path), so nothing from a key reaches the filesystem unescaped.
-pub(crate) fn sanitize_file_name(key: &str) -> String {
-    key.chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
+/// The file name (without extension) for `key`, one per key: lower-case ASCII letters, digits and `-` stay, every
+/// other byte of the key (`_`, `.`, `:`, upper-case letters, path separators, UTF-8) becomes `_xx` (its hex value).
+/// Two different keys never share a lock file, also on a case-insensitive filesystem (macOS, Windows): a device
+/// with a crafted serial can't make another one look held (CLT-45). Nothing from a key reaches the filesystem
+/// unescaped. A name longer than [`MAX_FILE_NAME`] is `_h<sha-256 of the key>` instead (`_h` never starts an
+/// escaped name, `h` isn't a hex digit); the key written inside the file is checked on every read as well.
+pub(crate) fn file_name(key: &str) -> String {
+    use std::fmt::Write as _;
+    let mut name = String::with_capacity(key.len());
+    for b in key.bytes() {
+        if b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' {
+            name.push(char::from(b));
+        } else {
+            let _ = write!(name, "_{b:02x}");
+        }
+    }
+    if name.len() <= MAX_FILE_NAME {
+        name
+    } else {
+        hashed_name(key, 64)
+    }
+}
+
+/// Longest escaped name used as is, leaving room for an extension within the usual 255-byte limit.
+const MAX_FILE_NAME: usize = 200;
+
+/// `_h` and the first `hex_len` hex digits of the key's SHA-256.
+pub(crate) fn hashed_name(key: &str, hex_len: usize) -> String {
+    use sha2::Digest;
+    let mut name = String::from("_h");
+    name.push_str(&hex::encode(sha2::Sha256::digest(key.as_bytes()))[..hex_len]);
+    name
 }
 
 fn holders_dir() -> io::Result<PathBuf> {
@@ -670,9 +695,58 @@ mod tests {
     }
 
     #[test]
-    fn sanitizes_path_hostile_serials() {
-        assert_eq!(sanitize_file_name("usb:1:2:../../etc"), "usb_1_2_.._.._etc");
-        assert!(!sanitize_file_name("a/b\\c").contains(['/', '\\']));
+    fn file_names_escape_path_hostile_serials() {
+        assert_eq!(
+            file_name("usb:1:2:../../etc"),
+            "usb_3a1_3a2_3a_2e_2e_2f_2e_2e_2fetc"
+        );
+        assert!(!file_name("a/b\\c").contains(['/', '\\', '.']));
+        assert_eq!(
+            file_name("usb:c0de:cafe:42:0"),
+            "usb_3ac0de_3acafe_3a42_3a0"
+        );
+    }
+
+    #[test]
+    fn file_names_are_one_per_key() {
+        // CLT-45: these shared one lock file when every other character became `_`
+        assert_ne!(
+            file_name("usb:c0de:cafe:a:b"),
+            file_name("usb:c0de:cafe:a_b")
+        );
+        // a case-insensitive filesystem folds these together
+        assert_ne!(
+            file_name("usb:c0de:cafe:AB").to_lowercase(),
+            file_name("usb:c0de:cafe:ab").to_lowercase()
+        );
+        assert_ne!(file_name("é"), file_name("_c3_a9"));
+        let long = "x".repeat(MAX_FILE_NAME + 1);
+        assert_eq!(file_name(&long).len(), 66);
+        assert!(file_name(&long).starts_with("_h"));
+        assert_ne!(file_name(&long), file_name(&format!("{long}y")));
+        assert_eq!(
+            file_name(&"x".repeat(MAX_FILE_NAME)),
+            "x".repeat(MAX_FILE_NAME)
+        );
+    }
+
+    #[test]
+    fn content_naming_another_key_is_an_unknown_holder() {
+        let path =
+            std::env::temp_dir().join(format!("ww_holders_content_{}.lock", std::process::id()));
+        let holder = Holder::current(Mode::Direct, None);
+        std::fs::write(&path, Holder::serialize("usb:1:2:other", &holder)).unwrap();
+        let mut file = File::open(&path).unwrap();
+        assert_eq!(
+            read_holder(&mut file, "usb:1:2:other").unwrap().pid,
+            std::process::id()
+        );
+        assert_eq!(
+            read_holder(&mut file, "usb:1:2:mine").unwrap().pid,
+            0,
+            "unknown holder"
+        );
+        let _ = std::fs::remove_file(&path);
     }
 
     #[cfg(unix)]

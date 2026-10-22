@@ -56,10 +56,13 @@ const MAX_PACKET: usize = 512;
 
 // Device side
 
+/// What goes to one host, in order: kind and payload.
+type ToHost = mpsc::UnboundedSender<(u8, Vec<u8>)>;
+
 /// What the connections and the device's endpoints share.
 struct Bus {
     /// The connection holding the interface and where its IN packets go
-    holder: Mutex<Option<(u64, mpsc::UnboundedSender<(u8, Vec<u8>)>)>>,
+    holder: Mutex<Option<(u64, ToHost)>>,
     /// Bumped on every claim and release
     changed: watch::Sender<u64>,
     /// A host claimed the interface at least once: the device is configured
@@ -86,7 +89,7 @@ pub fn device_framed<F: UsbFramingProtocol>(
     listener: Listener,
     max_packet_size: usize,
 ) -> (UsbSink<F>, UsbSource<F>) {
-    assert!(max_packet_size <= MAX_PACKET && max_packet_size >= 8);
+    assert!((8..=MAX_PACKET).contains(&max_packet_size));
     let seq_prefix = F::INTERFACE_PROTOCOL == ww_link::USB_INTERFACE_PROTOCOL_SEQ;
     let bus = Arc::new(Bus {
         holder: Mutex::new(None),

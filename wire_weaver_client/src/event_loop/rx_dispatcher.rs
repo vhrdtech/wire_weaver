@@ -244,6 +244,29 @@ impl RxDispatcher {
         true
     }
 
+    /// Paths of the streams with a listener or open as counted / reliable ones, sorted (CLT-44 snapshot).
+    pub fn open_stream_paths(&self) -> Vec<Vec<u32>> {
+        let mut paths: Vec<Vec<u32>> = self
+            .stream_handlers
+            .iter()
+            .filter(|(_, l)| !l.is_empty())
+            .map(|(p, _)| p)
+            .chain(self.positioned.keys())
+            .map(|p| p.iter().map(|n| n.0).collect())
+            .collect();
+        paths.sort();
+        paths.dedup();
+        paths
+    }
+
+    /// The `Observe` request each observed level last sent (CLT-44 snapshot).
+    pub fn observe_requests(&self) -> Vec<Vec<u8>> {
+        self.observe_routes
+            .values()
+            .filter_map(|r| r.sent_request())
+            .collect()
+    }
+
     /// Seq numbers that became reusable since the last call.
     pub fn take_freed(&mut self) -> Vec<SeqTy> {
         std::mem::take(&mut self.freed)

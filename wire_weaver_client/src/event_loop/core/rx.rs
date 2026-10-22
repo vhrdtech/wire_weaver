@@ -76,6 +76,18 @@ pub(crate) struct RxCore {
     keep_streams_on_loss: bool,
     /// [ToRx::Disconnecting]: tx sent `Disconnect`
     disconnecting: bool,
+    /// [ToRx::Relink]: link setup with the hub that adopted the device, the dispatcher is connected already
+    relinking: bool,
+}
+
+/// What [RxCore::link_part] gives for a link snapshot (CLT-44).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct RxPart {
+    pub last_rx_ago: Duration,
+    /// Streams open on the device, by path
+    pub streams: Vec<Vec<u32>>,
+    /// The `Observe` request of each observed level, as last sent
+    pub observed: Vec<Vec<u8>>,
 }
 
 impl Default for RxCore {
@@ -100,6 +112,19 @@ impl RxCore {
             malformed_messages_left: MAX_MALFORMED_MESSAGES,
             keep_streams_on_loss: false,
             disconnecting: false,
+            relinking: false,
+        }
+    }
+
+    /// The link's state, for a snapshot (CLT-44).
+    pub fn link_part(&self, now: Instant) -> RxPart {
+        RxPart {
+            last_rx_ago: self
+                .last_rx_at
+                .map(|t| now.saturating_duration_since(t))
+                .unwrap_or_default(),
+            streams: self.dispatcher.open_stream_paths(),
+            observed: self.dispatcher.observe_requests(),
         }
     }
 
@@ -220,6 +245,44 @@ impl RxCore {
                 self.connected_tx = connected_tx;
                 self.last_rx_at = Some(now);
                 self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
+            }
+            ToRx::Relink { token } => {
+                self.phase = Phase::LinkSetup;
+                self.token = token;
+                self.token_seen = false;
+                self.relinking = true;
+                self.last_rx_at = Some(now);
+                self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
+            }
+            ToRx::Adopted {
+                device_info,
+                last_rx_ago,
+                forwards,
+                forward_timeout,
+            } => {
+                let info = DeviceApiInfo {
+                    link_version: compact_to_full(&device_info.dev_link_version),
+                    max_message_size: device_info.dev_max_message_len as usize,
+                    api_model_version: compact_to_full(&device_info.api_model_version),
+                    user_api_version: device_info.user_api_version.clone(),
+                    user_api_hash: device_info.hash.clone(),
+                    accumulation_time: Duration::from_micros(
+                        device_info.packet_accumulation_time_us.into(),
+                    ),
+                };
+                info!("adopted a live link to {:?}", info.user_api_version);
+                self.device_api_info = Some(info.clone());
+                self.token_seen = true;
+                self.phase = Phase::Up;
+                self.last_rx_at = Some(now.checked_sub(last_rx_ago).unwrap_or(now));
+                self.dispatcher.handle_msg(DispatcherMessage::Connected);
+                for (seq, tag) in forwards {
+                    self.dispatcher
+                        .expect_forward(now, seq, tag, forward_timeout);
+                }
+                if let Some(tx) = self.connected_tx.take() {
+                    _ = tx.send(ConnectionInfo { result: Ok(info) });
+                }
             }
             ToRx::Stop(err) => {
                 debug!("tx side is gone, exiting");
@@ -353,16 +416,7 @@ impl RxCore {
                     return Ok(None);
                 }
                 self.token_seen = true;
-                let device_api_info = DeviceApiInfo {
-                    link_version: compact_to_full(&info.dev_link_version),
-                    max_message_size: info.dev_max_message_len as usize,
-                    api_model_version: compact_to_full(&info.api_model_version),
-                    user_api_version: info.user_api_version.make_owned(),
-                    user_api_hash: info.hash.make_owned(),
-                    accumulation_time: Duration::from_micros(
-                        info.packet_accumulation_time_us.into(),
-                    ),
-                };
+                let device_api_info = device_api_info(&info);
                 info!(
                     "connected device: {device_api_info:?}, acc_window = {}us",
                     info.packet_accumulation_time_us
@@ -390,7 +444,11 @@ impl RxCore {
                 }
                 self.phase = Phase::Up;
                 self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
-                self.dispatcher.handle_msg(DispatcherMessage::Connected);
+                if std::mem::take(&mut self.relinking) {
+                    info!("link goes on through the ww hub");
+                } else {
+                    self.dispatcher.handle_msg(DispatcherMessage::Connected);
+                }
                 if let Some(tx) = self.connected_tx.take() {
                     _ = tx.send(ConnectionInfo {
                         result: Ok(self
@@ -486,5 +544,17 @@ impl RxCore {
                 .push_back(RxOutput::ToTx(ToTx::PeerGone(result)));
         }
         self.output.push_back(RxOutput::Exit);
+    }
+}
+
+/// What a device's `DeviceInfo` says, as the client keeps it.
+fn device_api_info(info: &ww_link::DeviceInfo<'_>) -> DeviceApiInfo {
+    DeviceApiInfo {
+        link_version: compact_to_full(&info.dev_link_version),
+        max_message_size: info.dev_max_message_len as usize,
+        api_model_version: compact_to_full(&info.api_model_version),
+        user_api_version: info.user_api_version.make_owned(),
+        user_api_hash: info.hash.make_owned(),
+        accumulation_time: Duration::from_micros(info.packet_accumulation_time_us.into()),
     }
 }

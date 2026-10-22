@@ -130,6 +130,17 @@ pub(crate) enum ToRx {
         /// See [Command::Connect]`::keep_streams_on_loss`
         keep_streams_on_loss: bool,
     },
+    /// The link goes on over a new medium, through the ww hub that adopted the device (CLT-44, [TxCore::relink]):
+    /// expect link setup with this token, keeping the dispatcher (requests in flight, streams) as it is.
+    Relink { token: u64 },
+    /// An adopted link is up ([Command::Adopt]): no link setup, the device's `DeviceInfo` as the other program
+    /// received it; the other program's requests in flight answer to the forward sink with these tags.
+    Adopted {
+        device_info: Box<DeviceInfoOwned>,
+        last_rx_ago: Duration,
+        forwards: Vec<(SeqTy, u64)>,
+        forward_timeout: Duration,
+    },
     /// Tx exits on [Command::DisconnectKeepStreams]: counted and reliable streams stay open for a resume on the next
     /// connection ([crate::Commander::resume_streams]).
     KeepStreams,
@@ -931,6 +942,155 @@ mod tests {
         let bytes =
             wire_weaver::shrink_wrap::SerializeShrinkWrap::to_ww_bytes(&event, &mut buf).unwrap();
         p.feed_from_device(now, &Message::Data { channel: 0, bytes });
+    }
+
+    /// A live handover's holder side (CLT-44): paused, nothing goes out and requests are held; relinked over the
+    /// tunnel, a new link setup with the hub (new token) keeps the request in flight and its waiter, the connection
+    /// isn't reported again, and the held request goes out with the next seq once the link is up.
+    #[test]
+    fn pause_and_relink_keep_requests() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let mut connected = connect(&mut p, now);
+        assert!(connected.try_recv().unwrap().result.is_ok());
+        let (done_tx, mut done_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: request(&[0xAA]),
+                done_tx: Some((done_tx, Duration::from_secs(5))),
+            },
+        );
+        assert_eq!(p.take_sent()[0].payload, [1, 0xAA]);
+        assert!(p.tx.pause(now));
+        p.settle(now);
+        assert_eq!(p.tx.poll_timeout(), None, "no pings while paused");
+        let part = p.tx.link_part();
+        assert_eq!(part.in_flight, [1]);
+        assert_eq!(part.next_seq, 2);
+        let old_token = part.token;
+        let (held_tx, mut held_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::SendMessage {
+                bytes: request(&[0xBB]),
+                done_tx: Some((held_tx, Duration::from_secs(5))),
+            },
+        );
+        assert!(p.take_sent().is_empty(), "held while paused");
+
+        p.tx.relink(now);
+        p.settle(now);
+        assert_ne!(p.tx.token(), old_token);
+        assert_eq!(kinds(&p.take_sent()), [Kind::Nop, Kind::GetDeviceInfo]);
+        p.feed_from_device(now, &device_info(p.tx.token()));
+        assert_eq!(kinds(&p.take_sent()), [Kind::LinkSetup]);
+        p.feed_from_device(
+            now,
+            &Message::LinkReady {
+                token: p.tx.token(),
+            },
+        );
+        let sent = p.take_sent();
+        assert_eq!(sent.len(), 1);
+        assert_eq!(sent[0].payload, [2, 0xBB], "the held request, next seq");
+        // the request from before the handover is answered through the tunnel
+        reply(&mut p, now, 1, &[1]);
+        assert_eq!(done_rx.try_recv().unwrap().unwrap(), [1]);
+        reply(&mut p, now, 2, &[2]);
+        assert_eq!(held_rx.try_recv().unwrap().unwrap(), [2]);
+        assert!(!p.rx_exited && p.tx_exit.is_none());
+
+        // a pause that didn't lead anywhere: resumed on the same medium
+        assert!(p.tx.pause(now));
+        p.tx.resume(now);
+        assert!(p.tx.poll_timeout().is_some(), "pinging again");
+    }
+
+    /// The hub's side (CLT-44): an adopted link is up as soon as the medium is, without link setup, with the other
+    /// program's seqs reserved and their answers going to the forward sink.
+    #[test]
+    fn adopted_link_is_up_at_once() {
+        use crate::event_loop::command::{Adopted, Forwarded};
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let (sink_tx, mut sink) = mpsc::unbounded_channel();
+        p.cmd(
+            now,
+            Command::ForwardSink {
+                sink: Box::new(sink_tx),
+            },
+        );
+        let Message::DeviceInfo(info) = device_info(42) else {
+            unreachable!()
+        };
+        p.cmd(
+            now,
+            Command::Adopt {
+                adopted: Box::new(Adopted {
+                    token: 42,
+                    device_info: info.make_owned(),
+                    ping_in: Duration::from_millis(100),
+                    last_rx_ago: Duration::from_millis(5),
+                    next_seq: 2,
+                    in_flight: vec![1, 2],
+                    full_only: vec![],
+                    forwards: vec![(1, 77), (2, 78)],
+                    forward_timeout: Duration::from_secs(60),
+                }),
+            },
+        );
+        let (connected_tx, mut connected_rx) = oneshot::channel();
+        p.cmd(
+            now,
+            Command::Connect {
+                handle: Box::new(()),
+                max_seq: crate::DEFAULT_MAX_SEQ,
+                link_setup_timeout_ms: None,
+                tap: None,
+                client_meta: None,
+                client_version: Box::new(FullVersionOwned::new(
+                    String::new(),
+                    VersionOwned::new(0, 0, 0),
+                )),
+                keep_streams_on_loss: false,
+                connected_tx: Some(connected_tx),
+                failed_tx: None,
+            },
+        );
+        assert!(
+            connected_rx.try_recv().is_err(),
+            "not before the medium is up"
+        );
+        p.tx.handle(now, TxInput::TransportUp);
+        p.settle(now);
+        assert!(p.take_sent().is_empty(), "no link setup");
+        let info = connected_rx.try_recv().unwrap().result.unwrap();
+        assert_eq!(info.max_message_size, 512);
+        assert_eq!(p.tx.poll_timeout(), Some(now + Duration::from_millis(100)));
+        reply(&mut p, now, 2, &[9]);
+        assert!(matches!(
+            sink.try_recv().unwrap(),
+            Forwarded::Reply {
+                tag: 78,
+                last: true,
+                ..
+            }
+        ));
+        // a new request takes a free seq
+        p.cmd(
+            now,
+            Command::Forward {
+                bytes: request(&[0xAA]),
+                tag: Some(5),
+                timeout: Duration::from_secs(1),
+            },
+        );
+        assert_eq!(
+            p.take_sent()[0].payload,
+            [2, 0xAA],
+            "1 is still in flight, 2 was freed"
+        );
     }
 
     /// Forwarded requests (the hub, SRV-29) go out as they are with a seq of their own, every event answering one

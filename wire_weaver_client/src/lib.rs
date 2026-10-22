@@ -4,6 +4,7 @@ use std::time::Duration;
 #[cfg(any(feature = "hub", feature = "clock_sync"))]
 extern crate self as wire_weaver_client;
 
+pub mod adopt;
 mod client;
 pub mod client_meta;
 #[cfg(feature = "clock_sync")]
@@ -114,7 +115,7 @@ pub use ww_version;
 pub mod internal {
     pub use crate::device_info::ConnectionInfo;
     pub use crate::event_loop::command::{
-        Command, ForwardSink, Forwarded, LoopbackParams, TestProgress,
+        Adopted, Command, ForwardSink, Forwarded, LoopbackParams, TestProgress,
     };
     pub use crate::tracing::TraceEvent;
 }

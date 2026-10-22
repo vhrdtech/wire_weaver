@@ -431,6 +431,8 @@ pub(crate) trait LevelRoute: Send + Sync + 'static {
     fn resume(self: Arc<Self>, timeout: Duration) -> Result<Option<Pending>, Error>;
     /// The answer to a request [Self::resume] built.
     fn resumed(&self, generation: u64, answer: Result<Vec<u8>, Error>) -> Result<(), Error>;
+    /// The `Observe` request (seq 0) with the settings last sent to the device, None if nothing was (CLT-44).
+    fn sent_request(&self) -> Option<Vec<u8>>;
 }
 
 /// Where a level's `PropertyUpdate` events go, see [Command::ObserveRoute].
@@ -556,6 +558,11 @@ impl<U: LevelUpdate> LevelRoute for Level<U> {
 
     fn resumed(&self, generation: u64, answer: Result<Vec<u8>, Error>) -> Result<(), Error> {
         self.answered(generation, answer).map(|_| ())
+    }
+
+    fn sent_request(&self) -> Option<Vec<u8>> {
+        let state = self.lock();
+        request_bytes(&self.path, state.sent.as_ref()?).ok()
     }
 }
 

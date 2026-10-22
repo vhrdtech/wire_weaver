@@ -14,7 +14,8 @@ use super::{FullRetry, ToRx, ToTx, is_due};
 use crate::DEFAULT_MAX_MESSAGE_SIZE;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
-    Command, EventLoopExitReason, EventLoopResidual, LoopbackParams, StreamOpenHook, TestProgress,
+    Adopted, Command, EventLoopExitReason, EventLoopResidual, LoopbackParams, StreamOpenHook,
+    TestProgress,
 };
 use crate::event_loop::rx_dispatcher::ResponseSender;
 use crate::event_loop::transport::LinkSetupPacing;
@@ -82,6 +83,8 @@ enum Phase {
     LinkSetup,
     /// Data can be exchanged
     Up,
+    /// The link stays, nothing goes out (CLT-44: the medium is about to be handed over): requests are held, no pings
+    Paused,
 }
 
 enum Flow {
@@ -196,6 +199,22 @@ pub(crate) struct TxCore {
     /// [Command::LoopbackTest] that came during link setup, started once the link is up (rx reports the connection
     /// to the user before LinkReady reaches tx)
     loopback_held: Option<HeldLoopback>,
+    /// [Command::Adopt]: the next connection goes on with this link
+    adopt: Option<Box<Adopted>>,
+    /// While [Phase::Paused]: how long until the next ping was due
+    paused_ping_in: Option<Duration>,
+}
+
+/// What [TxCore::link_part] gives for a link snapshot (CLT-44).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct TxPart {
+    pub token: u64,
+    pub device_info: Vec<u8>,
+    pub ping_in: Duration,
+    pub next_seq: SeqTy,
+    pub max_seq: SeqTy,
+    pub in_flight: Vec<SeqTy>,
+    pub full_only: Vec<(u32, u32, u32)>,
 }
 
 fn link_setup<'a>(
@@ -244,6 +263,74 @@ impl TxCore {
             waiting_for_seq: VecDeque::new(),
             loopback: None,
             loopback_held: None,
+            adopt: None,
+            paused_ping_in: None,
+        }
+    }
+
+    /// Stops sending (CLT-44): what accumulated goes out first (the wrapper writes and flushes the outputs), then
+    /// requests are held and pings stop until [Self::resume] or [Self::relink]. False when the link isn't up or a
+    /// loopback test runs: it can't be paused then.
+    pub fn pause(&mut self, now: Instant) -> bool {
+        if self.phase != Phase::Up || self.loopback.is_some() {
+            return false;
+        }
+        if self.unflushed_since.is_some() {
+            self.flush(now);
+        }
+        self.paused_ping_in = self.next_ping_at.map(|t| t.saturating_duration_since(now));
+        self.next_ping_at = None;
+        self.phase = Phase::Paused;
+        true
+    }
+
+    /// The paused link goes on over the same medium (a handover that didn't happen): held requests go out.
+    pub fn resume(&mut self, now: Instant) {
+        if self.phase != Phase::Paused {
+            return;
+        }
+        self.phase = Phase::Up;
+        self.next_ping_at = Some(now + self.paused_ping_in.take().unwrap_or(PING_INTERVAL));
+        self.release_held(now);
+    }
+
+    /// The paused link goes on over another medium, to the ww hub that adopted the device (CLT-44): a new link setup
+    /// with the hub, keeping seqs, requests in flight and what waits for them; held requests go out once it is up.
+    pub fn relink(&mut self, now: Instant) {
+        if self.phase != Phase::Paused {
+            return;
+        }
+        self.paused_ping_in = None;
+        self.token = super::new_setup_token();
+        self.output
+            .push_back(TxOutput::ToRx(ToRx::Relink { token: self.token }));
+        self.phase = Phase::Connecting;
+        _ = self.on_transport_up(now);
+    }
+
+    /// The paused link's state, for a snapshot (CLT-44).
+    pub fn link_part(&self) -> TxPart {
+        let mut in_flight: Vec<SeqTy> = self.in_flight.iter().copied().collect();
+        in_flight.sort_unstable();
+        let mut full_only: Vec<_> = self.full_only.iter().copied().collect();
+        full_only.sort_unstable();
+        TxPart {
+            token: self.token,
+            device_info: self.device_info.clone(),
+            ping_in: self.paused_ping_in.unwrap_or(PING_INTERVAL),
+            next_seq: self.next_seq,
+            max_seq: self.max_seq,
+            in_flight,
+            full_only,
+        }
+    }
+
+    fn release_held(&mut self, now: Instant) {
+        if let Some(t) = self.loopback_held.take() {
+            self.start_loopback_test(now, t.duration, t.packet_size, t.params, t.progress_tx);
+        }
+        while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
+            self.on_send_message(now, bytes, done_tx, hook);
         }
     }
 
@@ -304,7 +391,9 @@ impl TxCore {
             .into_iter()
             .flatten()
             .min(),
-            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => None,
+            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup | Phase::Paused => {
+                None
+            }
         }
     }
 
@@ -455,6 +544,13 @@ impl TxCore {
                 // not sent (too long, not up): nothing waits
                 self.forwarding |= self.unflushed_since.is_some();
             }
+            Command::Adopt { adopted } => {
+                if self.phase == Phase::Idle {
+                    self.adopt = Some(adopted);
+                } else {
+                    warn!("ignoring Adopt: already connected");
+                }
+            }
             Command::ForwardSink { sink } => {
                 self.output
                     .push_back(TxOutput::ToRx(ToRx::ForwardSink(sink)));
@@ -523,7 +619,7 @@ impl TxCore {
     ) {
         if matches!(
             self.phase,
-            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup
+            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Paused
         ) || self.loopback.is_some()
         {
             trace!("holding SendMessage until link is up and no loopback test runs");
@@ -664,12 +760,41 @@ impl TxCore {
             return Ok(Flow::Continue);
         }
         debug!("transport up");
+        if let Some(a) = self.adopt.take() {
+            return self.adopted(now, *a);
+        }
         self.phase = Phase::GetDeviceInfo;
         let pacing = LinkSetupPacing::new(self.link_setup_timeout);
         self.link_setup_deadline = Some(now + pacing.timeout);
         self.link_setup_interval = pacing.first_interval();
         self.next_link_setup_retry_at = Some(now + self.link_setup_interval);
         self.send_get_device_info(now)?;
+        Ok(Flow::Continue)
+    }
+
+    /// The medium of an adopted link is up: so is the link, as the other program left it.
+    fn adopted(&mut self, now: Instant, a: Adopted) -> anyhow::Result<Flow> {
+        info!("adopted a live link (token {:#x})", a.token);
+        self.token = a.token;
+        self.device_info =
+            wire_weaver::shrink_wrap::SerializeShrinkWrapOwned::to_ww_bytes_owned(&a.device_info)
+                .unwrap_or_default();
+        self.frame_accumulation_time =
+            Duration::from_micros(a.device_info.packet_accumulation_time_us as u64);
+        self.device_max_message_len = a.device_info.dev_max_message_len as usize;
+        self.next_seq = a.next_seq.clamp(1, self.max_seq.max(1));
+        self.in_flight = a.in_flight.into_iter().collect();
+        self.full_only = a.full_only.into_iter().collect();
+        self.phase = Phase::Up;
+        self.next_ping_at = Some(now + a.ping_in);
+        self.events.link_ready(&self.device_info);
+        self.output.push_back(TxOutput::ToRx(ToRx::Adopted {
+            device_info: Box::new(a.device_info),
+            last_rx_ago: a.last_rx_ago,
+            forwards: a.forwards,
+            forward_timeout: a.forward_timeout,
+        }));
+        self.release_held(now);
         Ok(Flow::Continue)
     }
 
@@ -707,18 +832,7 @@ impl TxCore {
                 self.phase = Phase::Up;
                 self.next_ping_at = Some(now + PING_INTERVAL);
                 self.events.link_ready(&self.device_info);
-                if let Some(t) = self.loopback_held.take() {
-                    self.start_loopback_test(
-                        now,
-                        t.duration,
-                        t.packet_size,
-                        t.params,
-                        t.progress_tx,
-                    );
-                }
-                while let Some((bytes, done_tx, hook)) = self.held_until_up.pop_front() {
-                    self.on_send_message(now, bytes, done_tx, hook);
-                }
+                self.release_held(now);
             }
             ToTx::Send(bytes) => {
                 if self.phase == Phase::Up {
@@ -806,7 +920,7 @@ impl TxCore {
                     self.flush(now);
                 }
             }
-            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup => {}
+            Phase::Idle | Phase::Exited | Phase::Connecting | Phase::LinkSetup | Phase::Paused => {}
         }
         Ok(Flow::Continue)
     }
@@ -844,7 +958,7 @@ impl TxCore {
     ) {
         if matches!(
             self.phase,
-            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup
+            Phase::Connecting | Phase::GetDeviceInfo | Phase::LinkSetup | Phase::Paused
         ) && self.loopback_held.is_none()
         {
             trace!("holding the loopback test until the link is up");

@@ -104,6 +104,9 @@ pub enum Command {
     /// Send what was forwarded so far now, instead of at the end of the device's accumulation window: the clients
     /// whose requests these are flushed (the hub mirrors its clients' flushes).
     ForwardFlush,
+    /// The next [Command::Connect] goes on with another program's live link (CLT-44, the hub adopting a direct
+    /// holder's link): no link setup, the link is up as soon as the medium is, with this state.
+    Adopt { adopted: Box<Adopted> },
 
     /// Close a device connection and stop the worker task. All outstanding requests will return with Error,
     /// and streams will stop. Use when shutting down the whole application.
@@ -180,8 +183,51 @@ impl Command {
             | Command::ForwardSink { .. }
             | Command::ForwardLoopback { .. }
             | Command::ForwardFlush
+            | Command::Adopt { .. }
             | Command::RegisterTracer { .. } => {}
         }
+    }
+}
+
+/// A live link another program held, for [Command::Adopt].
+#[derive(Debug)]
+pub struct Adopted {
+    pub(crate) token: u64,
+    pub(crate) device_info: ww_link::DeviceInfoOwned,
+    pub(crate) ping_in: Duration,
+    pub(crate) last_rx_ago: Duration,
+    pub(crate) next_seq: SeqTy,
+    pub(crate) in_flight: Vec<SeqTy>,
+    pub(crate) full_only: Vec<(u32, u32, u32)>,
+    /// Requests of the other program in flight: their answers go to the forward sink with these tags
+    pub(crate) forwards: Vec<(SeqTy, u64)>,
+    /// How long those wait for their answer at most
+    pub(crate) forward_timeout: Duration,
+}
+
+impl Adopted {
+    /// From a snapshot [checked](crate::adopt::LinkSnapshotOwned::check) before; `tag` says where the answer to each
+    /// request in flight goes.
+    pub fn new(
+        snapshot: &crate::adopt::LinkSnapshotOwned,
+        tag: impl Fn(SeqTy) -> u64,
+        forward_timeout: Duration,
+    ) -> Result<Adopted, String> {
+        Ok(Adopted {
+            token: snapshot.token,
+            device_info: snapshot.device_info()?,
+            ping_in: Duration::from_millis(snapshot.ping_in_ms.into()),
+            last_rx_ago: Duration::from_millis(snapshot.last_rx_ms_ago.into()),
+            next_seq: snapshot.next_seq,
+            in_flight: snapshot.in_flight.clone(),
+            full_only: snapshot
+                .full_only
+                .iter()
+                .map(|t| (t.id, t.major, t.minor))
+                .collect(),
+            forwards: snapshot.in_flight.iter().map(|s| (*s, tag(*s))).collect(),
+            forward_timeout,
+        })
     }
 }
 

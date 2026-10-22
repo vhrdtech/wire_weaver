@@ -44,10 +44,13 @@
   levels: no call fails, no `ConnectionEvent`, the device sees no reconnect. The hub refusing falls back to CLT-43;
   the hub going before it holds the device leaves the holder going on directly; the interface taken by another
   program in the gap ends the link as `HandedToHub` and reconnects through the hub. USB through nusb (Linux) and the
-  simulated USB device; other media and OSes hand over by release and reopen.
+  simulated USB device; other media and OSes hand over by release and reopen, and so does a holder with
+  `WW_LIVE_HANDOVER=off` (`hub::LIVE_HANDOVER_ENV`). On a real board: 17 ms median with 20 requests in flight, no
+  call failed.
 - `adopt` module (CLT-44): `LinkSnapshotOwned` (`encode`, `decode`, `check`, `MAX_SNAPSHOT_LEN`), `MediumOwned`,
   `FrameAtOwned`, `PartialOwned`, `TraitIdOwned`, `CLIENT_VERSION`, `same_minor`, `random_id`;
-  `PreparedConnection::adopt(internal::Adopted)` opens a device going on with an adopted link (the hub's side).
+  `PreparedConnection::adopt(internal::Adopted, sink)` opens a device going on with an adopted link (the hub's side),
+  the answers to the other program's requests in flight going to the forward sink from the first frame on.
 - `usb_sim::UsbSimControl` for tests: `hold_claims`, `claims_waiting`, `claims_dropped` (a claim whose host went
   while it waited is never granted), `grab` / `ungrab` (another program holds the interface), `held`.
 - Simulated USB device on a local socket (`usb_sim`, feature `local_socket`): `usb_sim::device` / `device_framed`

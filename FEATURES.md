@@ -1198,8 +1198,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww hub take` ask a direct holder before opening when a hub runs or can start; a refusal fails with the holder's
   name and kind. Release and reopen on every OS. Tested on Linux between two processes on a simulated device
   (`tests/hub_reconnect` `polite_handover.rs`: a `Cli` holder hands over with a counted stream resumed, gap 4.6 ms
-  median; a `Gui` holder refuses and is named). Open: the gap with a real USB device and an RTT probe (omarchy-m1),
-  the CLT-44 baseline; a check on macOS and Windows (compiles by inspection only).
+  median; a `Gui` holder refuses and is named). Real USB (rePort, omarchy-m1, `WW_LIVE_HANDOVER=off`): link gap 9.7 ms
+  median, the calls in flight and in the gap failing (104-2068 per run of 20 calls in flight). Open: an RTT probe's
+  gap; a check on macOS and Windows (compiles by inspection only).
 - 🧪 **CLT-44 Live link handover on Linux** · `v0.5.x` — the hub adopts a direct holder's live link (link, requests
   in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
   without a gap; elsewhere CLT-43's release and reopen. Built (`docs/transport/hub.md#live-link-handover-clt-44`): the
@@ -1213,8 +1214,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Linux (nusb) and the simulated USB device (`usb_sim`). Tested between processes on `usb_sim`
   (`tests/hub_reconnect` `live_handover.rs`: handed over in 8.5 ms median with 21 requests in flight, nothing lost or
   doubled, the device's link up once; hub or holder killed in the commit, interface grabbed in the gap, a prepared
-  adoption whose connection went). Open: a real board on omarchy-m1 (the gap against CLT-43's, usbmon showing no bus
-  traffic, the device's link events).
+  adoption whose connection went, answers waiting in the device). On a real board (rePort, omarchy-m1, `live_bench`):
+  20/20 handovers in 16.7 ms median with 20-21 requests in flight, no failed call, no connection event, no link setup
+  or control transfer from the hub (its trace); CLT-43 on the same board: 104-2068 failed calls per run.
+  `WW_LIVE_HANDOVER=off` falls back to CLT-43. Open: a usbmon trace of one handover showing nothing at all on the bus
+  (root on omarchy-m1: `sudo modprobe usbmon`, `sudo cat /sys/kernel/debug/usb/usbmon/1u > /tmp/usbmon-1u.txt` while
+  `live_bench` hands over the rePort on bus 1; no `Ci`/`Co` control transfers in the window).
 - ✅ **CLT-45 Lock file names one per device key** — `holders` used to map every character outside
   `[A-Za-z0-9._-]` to `_`, so two keys could share a lock file (`...:a:b` and `...:a_b`) and a USB device with a
   crafted serial could make another one look held. Now lower-case letters, digits and `-` stay and every other byte

@@ -463,8 +463,9 @@ Measured on Linux (`tests/hub_reconnect`, `polite_handover.rs`, debug build, gpd
 simulated device that takes one host at a time on a local socket and the holder in another process with a counted
 stream open, 30 runs: the holder let go of the device within about 4.5 ms of the request; its gap, from the link going
 to the stream resumed through the hub, was 4.6 ms median (3.5 to 12 ms); the asker's whole `connect()`, starting the
-hub process included, took 34 ms median. A real USB device adds its open and link setup to the gap, an RTT probe its
-attach; those are to be measured on hardware.
+hub process included, took 34 ms median. On a real full-speed USB board (rePort, omarchy-m1)
+the gap was 9.7 ms median (6 to 22 ms, 10 runs), with every call in flight or made in the gap failing; an RTT probe
+adds its attach, still to be measured. [Live link handover](#live-link-handover-clt-44) has none of these failures.
 
 ## Live link handover (CLT-44)
 
@@ -476,7 +477,8 @@ only a pause of a few milliseconds.
 
 It needs the hub to run the same minor version of `wire_weaver_client` as the holder (the link snapshot is that
 crate's internal state); otherwise, on other OSes, and for media other than USB (RTT), the handover is the release
-and reopen above.
+and reopen above. `WW_LIVE_HANDOVER=off` in the holder's environment makes it release and reopen too, should the
+live handover misbehave with a USB controller.
 
 ### The steps
 
@@ -520,8 +522,22 @@ simulated USB device in the test process (`usb_sim`: one host holds the interfac
 nobody does) and the holder in another process, 20 calls of 1 ms each on the device in flight all the time and a
 counted stream open, 10 runs: the holder handed over in 8.5 ms median (5 to 15 ms) with 21 requests in flight; no
 call failed, no stream item was lost, doubled or out of order, every call reached the device once, and the device's
-link went up once and never down. The failure cases above are tested the same way (`live_handover.rs`). A real USB
-device is still to be measured.
+link went up once and never down. The failure cases above are tested the same way (`live_handover.rs`).
+
+On a real board (rePort `b200_usb_io`, full-speed USB, the same PC, `tests/hub_reconnect`'s `live_bench`: a holder
+with 20 calls of `clock.now` in flight all the time, another program connecting through the hub), against the release
+and reopen of the same board with `WW_LIVE_HANDOVER=off`:
+
+| | Live (20 runs) | Release and reopen (10 runs) |
+|---|---|---|
+| Handover, or the holder's link gap | 16.7 ms median (12.7 to 41 ms), 20 or 21 requests in flight | 9.7 ms median (6 to 22 ms) |
+| The holder's calls that failed | none | 104 to 2068 per run (in flight, and made in the gap) |
+| `ConnectionEvent`s at the holder | none | `Disconnected`, `Reconnected` |
+| Longest time without an answer | 163 ms median | 140 ms median |
+
+The longest time without an answer is mostly the other program's own introspection fetch (a dynamic client), which
+the device sends before the next answers; it is there either way. The hub's trace shows no `GetDeviceInfo`,
+`LinkSetup` or control transfer to the device at the adoption.
 
 ## Version skew and handover (SRV-30)
 

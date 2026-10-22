@@ -52,6 +52,9 @@ pub const SERVE_ENV: &str = "WW_HUB_SERVE";
 /// Set with [SERVE_ENV] on a hub executable started to replace an older running hub (SRV-30): it takes over from it
 /// (`ww_hub::Bound::take_over`).
 pub const HANDOVER_ENV: &str = "WW_HUB_HANDOVER";
+/// `off`: a direct holder asked to hand its device to the hub releases it and reconnects through the hub (CLT-43)
+/// instead of handing over its live link (CLT-44), e.g. where the live handover misbehaves on a USB controller.
+pub const LIVE_HANDOVER_ENV: &str = "WW_LIVE_HANDOVER";
 /// A hub executable prints its hub version and exits when started with this argument.
 pub const VERSION_ARG: &str = "--hub-version";
 

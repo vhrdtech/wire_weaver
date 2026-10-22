@@ -55,10 +55,16 @@ impl Connecting {
         false
     }
 
-    /// Starts connecting to the hub. False without the `hub` feature: nothing to hand over to live.
+    /// Starts connecting to the hub. False without the `hub` feature or with [LIVE_HANDOVER_ENV] `off`: nothing to
+    /// hand over to live.
+    ///
+    /// [LIVE_HANDOVER_ENV]: crate::hub::LIVE_HANDOVER_ENV
     pub(crate) fn start(&mut self) -> bool {
         #[cfg(feature = "hub")]
         {
+            if std::env::var(crate::hub::LIVE_HANDOVER_ENV).is_ok_and(|v| v == "off") {
+                return false;
+            }
             self.0 = Some(tokio::spawn(crate::hub::adopt::connect()));
             true
         }

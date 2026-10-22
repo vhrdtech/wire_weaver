@@ -252,10 +252,6 @@ impl Holder {
         };
         Some((key?, holder))
     }
-
-    fn parse(content: &str) -> Option<Holder> {
-        Holder::parse_with_key(content).map(|(_, h)| h)
-    }
 }
 
 impl fmt::Display for Holder {

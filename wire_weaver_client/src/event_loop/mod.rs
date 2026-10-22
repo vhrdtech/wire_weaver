@@ -4,6 +4,7 @@ pub(crate) mod command;
 pub(crate) mod commander;
 pub(crate) mod core;
 pub(crate) mod event_queue;
+pub(crate) mod live;
 pub(crate) mod rx_dispatcher;
 #[cfg_attr(not(feature = "rtt"), allow(dead_code))]
 pub(crate) mod stream;

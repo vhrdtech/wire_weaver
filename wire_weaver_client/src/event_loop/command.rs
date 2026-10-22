@@ -331,6 +331,8 @@ pub struct EventLoopResidual {
     /// (Only if not exiting on error)
     pub connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     pub result: anyhow::Result<EventLoopExitReason>,
+    /// The link went on through the ww hub on the way (a live handover, CLT-44): a loss is reconnected through it
+    pub via_hub: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]

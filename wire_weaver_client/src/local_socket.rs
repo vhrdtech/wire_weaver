@@ -328,8 +328,16 @@ fn own_versions() -> (Version, Version) {
 /// Connects to the socket at `path` and asks for `target` with the preamble, which carries this program's versions;
 /// a hub that only reads the first preamble layout is asked again with it.
 pub(crate) async fn open(path: &std::path::Path, target: Target) -> Result<Tunnel, OpenError> {
+    open_preamble(path, Preamble::new(target)).await
+}
+
+/// [open] with `preamble`, to which this program's versions are added.
+pub(crate) async fn open_preamble(
+    path: &std::path::Path,
+    preamble: Preamble,
+) -> Result<Tunnel, OpenError> {
     let (link, api_model) = own_versions();
-    let preamble = Preamble::new(target).with_versions(link, api_model);
+    let preamble = preamble.with_versions(link, api_model);
     match open_with(path, &preamble).await {
         Err(OpenError::Refused { answer, .. }) if answer.status == Status::PreambleVersion => {
             debug!(

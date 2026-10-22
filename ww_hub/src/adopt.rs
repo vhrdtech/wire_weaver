@@ -126,12 +126,12 @@ pub(crate) async fn commit(
     );
     let hub = hub.clone();
     tokio::spawn(async move {
-        tokio::time::sleep(ATTACH_TIMEOUT).await;
+        tokio::time::sleep(hub.adopt_attach).await;
         let gone = hub.adoptions.lock().unwrap().remove(&id);
         if let Some(w) = gone {
             info!(
-                "ww hub: the program whose link to {} was adopted didn't come back within {ATTACH_TIMEOUT:?}",
-                w.key
+                "ww hub: the program whose link to {} was adopted didn't come back within {:?}",
+                w.key, hub.adopt_attach
             );
             let _ = w.device.tx.send(ToDevice::Leave { id: w.tunnel });
             hub.client_left(w.tunnel);

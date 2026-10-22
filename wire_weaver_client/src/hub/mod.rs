@@ -13,6 +13,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 #[cfg(feature = "hub")]
+pub(crate) mod adopt;
+#[cfg(feature = "hub")]
 mod client;
 #[cfg(feature = "hub")]
 mod exclusive;

@@ -68,6 +68,33 @@ struct Bus {
     changed: watch::Sender<u64>,
     /// A host claimed the interface at least once: the device is configured
     configured: watch::Sender<bool>,
+    /// [UsbSimControl::hold_claims]
+    claims_held: watch::Sender<bool>,
+    claims_waiting: std::sync::atomic::AtomicUsize,
+}
+
+/// What a test does to the simulated device from outside ([UsbSource::control]).
+#[derive(Clone)]
+pub struct UsbSimControl(Arc<Bus>);
+
+impl UsbSimControl {
+    /// While on, claims are answered only once it is off again, as by a slow device or a busy bus: lets a test act
+    /// in the moment a host waits to hold the interface.
+    pub fn hold_claims(&self, on: bool) {
+        self.0.claims_held.send_replace(on);
+    }
+
+    /// Claims waiting for their answer, see [Self::hold_claims].
+    pub fn claims_waiting(&self) -> usize {
+        self.0
+            .claims_waiting
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Whether a host holds the interface now.
+    pub fn held(&self) -> bool {
+        self.0.holder.lock().unwrap().is_some()
+    }
 }
 
 impl Bus {
@@ -96,6 +123,8 @@ pub fn device_framed<F: UsbFramingProtocol>(
         holder: Mutex::new(None),
         changed: watch::channel(0).0,
         configured: watch::channel(false).0,
+        claims_held: watch::channel(false).0,
+        claims_waiting: Default::default(),
     });
     let (out_tx, out_rx) = mpsc::unbounded_channel();
     let accepting = tokio::spawn(accept(
@@ -113,6 +142,7 @@ pub fn device_framed<F: UsbFramingProtocol>(
             _framing: std::marker::PhantomData,
         },
         UsbSource {
+            control: UsbSimControl(bus.clone()),
             configured: bus.configured.subscribe(),
             out_rx,
             max_packet_size,
@@ -196,6 +226,14 @@ async fn serve_host(
             }
             PACKET => trace!("usb sim: host {id} sent a packet without holding the interface"),
             CLAIM => {
+                let mut held = bus.claims_held.subscribe();
+                if *held.borrow() {
+                    bus.claims_waiting
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let _ = held.wait_for(|h| !*h).await;
+                    bus.claims_waiting
+                        .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                }
                 let granted = {
                     let mut holder = bus.holder.lock().unwrap();
                     match holder.as_ref() {
@@ -295,6 +333,7 @@ impl<F: UsbFramingProtocol> ww_device::PacketSink for UsbSink<F> {
 
 /// Device OUT endpoint of a simulated USB device, see [device]. Dropping it stops accepting hosts.
 pub struct UsbSource<F = UsbFraming> {
+    control: UsbSimControl,
     configured: watch::Receiver<bool>,
     out_rx: mpsc::UnboundedReceiver<Vec<u8>>,
     max_packet_size: usize,
@@ -323,6 +362,13 @@ impl<F: UsbFramingProtocol> ww_device::PacketSource for UsbSource<F> {
         if self.configured.wait_for(|c| *c).await.is_err() {
             std::future::pending::<()>().await;
         }
+    }
+}
+
+impl<F> UsbSource<F> {
+    /// The device's control from outside, for tests.
+    pub fn control(&self) -> UsbSimControl {
+        self.control.clone()
     }
 }
 
@@ -605,6 +651,20 @@ impl Transport for UsbSimTransport {
             Live::Hub(_) => None,
         };
         tx_claim.or(rx_claim)
+    }
+
+    fn claim_of(tx: &Tx) -> SharedClaim {
+        match tx {
+            Live::Device(tx) => tx.claim.clone(),
+            Live::Hub(_) => None,
+        }
+    }
+
+    fn put_claim(tx: &mut Tx, rx: &mut Rx, claim: SharedClaim) {
+        if let (Live::Device(tx), Live::Device(rx)) = (tx, rx) {
+            tx.claim = claim.clone();
+            rx.claim = claim;
+        }
     }
 }
 

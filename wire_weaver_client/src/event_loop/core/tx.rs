@@ -45,6 +45,9 @@ pub(crate) enum TxInput {
     /// Nothing else is waiting to go out: send the frame being accumulated now. For accumulation windows shorter
     /// than the wrapper's timer can wait (tokio counts whole milliseconds), see [TxCore::wants_idle_flush].
     Idle,
+    /// The device was handed to the ww hub live (CLT-44) but this program couldn't go on through it: exit as
+    /// [TxInput::HandToHub] does, without a `Disconnect` (the device's link is the hub's now).
+    HandedOff,
     /// Another program asked this direct holder to hand the device to the ww hub (CLT-43,
     /// [MessageTx::handover_requested](crate::event_loop::transport::MessageTx::handover_requested)): let go of it
     /// as `disconnect().keep_streams()` does, exiting with [EventLoopExitReason::HandedToHub].
@@ -203,6 +206,8 @@ pub(crate) struct TxCore {
     adopt: Option<Box<Adopted>>,
     /// While [Phase::Paused]: how long until the next ping was due
     paused_ping_in: Option<Duration>,
+    /// [Self::relink]: the link goes through the ww hub now
+    via_hub: bool,
 }
 
 /// What [TxCore::link_part] gives for a link snapshot (CLT-44).
@@ -265,6 +270,7 @@ impl TxCore {
             loopback_held: None,
             adopt: None,
             paused_ping_in: None,
+            via_hub: false,
         }
     }
 
@@ -301,6 +307,7 @@ impl TxCore {
             return;
         }
         self.paused_ping_in = None;
+        self.via_hub = true;
         self.token = super::new_setup_token();
         self.output
             .push_back(TxOutput::ToRx(ToRx::Relink { token: self.token }));
@@ -355,6 +362,15 @@ impl TxCore {
                     self.flush(now);
                 }
                 Ok(Flow::Continue)
+            }
+            TxInput::HandedOff => {
+                warn!(
+                    "the ww hub has the device, but the tunnel to it failed: reconnecting through it"
+                );
+                self.output.push_back(TxOutput::ToRx(ToRx::KeepStreams));
+                self.events.disconnected("handed to the ww hub", true);
+                self.phase = Phase::Exited;
+                Ok(Flow::Exit(EventLoopExitReason::HandedToHub))
             }
             TxInput::HandToHub => {
                 info!(
@@ -441,6 +457,7 @@ impl TxCore {
                 cmd_rx,
                 connected_tx,
                 result,
+                via_hub: self.via_hub,
             },
         )
     }

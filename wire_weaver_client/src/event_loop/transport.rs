@@ -193,6 +193,14 @@ pub(crate) trait Transport {
     fn take_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx) -> SharedClaim {
         None
     }
+
+    /// The holders registry claim of the device, as the halves hold it.
+    fn claim_of(_tx: &Self::Tx) -> SharedClaim {
+        None
+    }
+
+    /// Gives both halves the claim taken again after [Self::take_claim] (a live handover rolled back).
+    fn put_claim(_tx: &mut Self::Tx, _rx: &mut Self::Rx, _claim: SharedClaim) {}
 }
 
 /// A medium paused for a live handover (CLT-44, [Transport::pause]).

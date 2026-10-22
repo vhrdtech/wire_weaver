@@ -316,11 +316,52 @@ pub struct Claim {
     /// Listening for askers of a handover to the hub (CLT-43)
     #[cfg(feature = "local_socket")]
     offer: Option<handover::Offer>,
+    /// How it was taken, to take it again ([Claim::again])
+    mode: Mode,
+    meta: Option<ClientMetaOwned>,
+    handover: Option<bool>,
+}
+
+/// How to take a [Claim] again after letting it go (CLT-44: a live handover that didn't happen).
+#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+pub(crate) struct ClaimAgain {
+    key: String,
+    mode: Mode,
+    meta: Option<ClientMetaOwned>,
+    handover: Option<bool>,
+}
+
+#[cfg_attr(not(feature = "hub"), allow(dead_code))]
+impl ClaimAgain {
+    pub(crate) fn claim(&self) -> Result<Claim, ClaimError> {
+        claim_offering(&self.key, self.mode, self.meta.as_ref(), self.handover)
+    }
 }
 
 impl Claim {
     pub fn key(&self) -> &str {
         &self.key
+    }
+
+    /// What it takes to claim the same device the same way again.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    pub(crate) fn again(&self) -> ClaimAgain {
+        ClaimAgain {
+            key: self.key.clone(),
+            mode: self.mode,
+            meta: self.meta.clone(),
+            handover: self.handover,
+        }
+    }
+
+    /// The handover asked for didn't happen and the device stays here (CLT-44, the hub went away): the asker hears
+    /// `Failed` now instead of after its timeout, and the next asker is listened to.
+    #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    pub(crate) fn handover_failed(&self) {
+        #[cfg(feature = "local_socket")]
+        if let Some(offer) = &self.offer {
+            offer.failed();
+        }
     }
 
     /// Returns once another program asked this holder to hand the device to the hub and it allows it (CLT-43):
@@ -405,6 +446,9 @@ pub(crate) fn claim_offering(
                 key: key.to_string(),
                 #[cfg(feature = "local_socket")]
                 offer,
+                mode,
+                meta: meta.cloned(),
+                handover,
             };
             let file = claim.file.as_ref().expect("just set");
             let mut file: &File = file;

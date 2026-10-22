@@ -5,6 +5,10 @@
 //! - `hub_dev hold <socket> <kind>`: holds the device served on `<socket>` directly (`ipc_exclusive`), as a program
 //!   of client kind `<kind>` (`Cli`, `Gui`, ...), calling it every 10 ms; prints `holding`, then what happens to the
 //!   connection: `disconnected <reason>`, `reconnected <gap in µs> <streams resumed>`, `ok after reconnect` (CLT-43)
+//! - `hub_dev hold-usb <socket> <kind>`: holds the simulated USB device on `<socket>` directly (`usb_sim_path`) with
+//!   20 calls in flight all the time and a counted stream the device feeds; prints `holding`, the connection events
+//!   as `hold` does, and every 50 ms `state <calls ok> <calls failed> <slowest batch µs> <ticks> <ticks out of
+//!   order>` (CLT-44: a live link handover must show no failed call and no tick out of order)
 
 use wire_weaver_client::hub::{HubClient, ensure_running};
 
@@ -20,6 +24,7 @@ fn main() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     match args.as_slice() {
         [hold, socket, kind] if hold == "hold" => rt.block_on(hold_device(socket, kind)),
+        [hold, socket, kind] if hold == "hold-usb" => rt.block_on(hold_usb(socket, kind)),
         _ => rt.block_on(client(args.first().cloned().unwrap_or_default())),
     }
 }
@@ -69,6 +74,103 @@ async fn hold_device(socket: &str, kind: &str) -> Result<(), String> {
             say("ok after reconnect".into());
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
+async fn hold_usb(socket: &str, kind: &str) -> Result<(), String> {
+    use std::io::Write;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+    use wire_weaver_client::{ClientKind, ClientMeta, ConnectionEvent};
+    let kind = match kind {
+        "Cli" => ClientKind::Cli,
+        "Gui" => ClientKind::Gui,
+        other => return Err(format!("unknown kind {other}")),
+    };
+    let client = hub_reconnect::client::Client::config(|c| {
+        c.usb_sim_path(socket.to_string())
+            .client_meta(ClientMeta::new().kind(kind).program("live-holder"))
+    })
+    .connect()
+    .await
+    .map_err(|e| format!("{e:#}"))?;
+    let mut events = client.cmd.connection_events();
+    let mut ticks = client.ticks().call().await.map_err(|e| format!("{e:?}"))?;
+    let (ok, failed, slowest) = (
+        Arc::new(AtomicU32::new(0)),
+        Arc::new(AtomicU32::new(0)),
+        Arc::new(AtomicU64::new(0)),
+    );
+    let (got, out_of_order) = (Arc::new(AtomicU32::new(0)), Arc::new(AtomicU32::new(0)));
+    {
+        let (got, out_of_order) = (got.clone(), out_of_order.clone());
+        tokio::spawn(async move {
+            let mut next = 0;
+            while let Ok(tick) = ticks.recv().await {
+                if tick != next {
+                    out_of_order.fetch_add(1, Ordering::Relaxed);
+                }
+                next = tick + 1;
+                got.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+    }
+    {
+        let (ok, failed, slowest) = (ok.clone(), failed.clone(), slowest.clone());
+        let mut client = hub_reconnect::client::Client {
+            cmd: client.cmd.clone(),
+        };
+        tokio::spawn(async move {
+            // a: one number per call, so the device's record tells a lost or doubled call
+            let mut a = 0u32;
+            loop {
+                let started = std::time::Instant::now();
+                let mut pending = vec![];
+                for _ in 0..20 {
+                    a += 1;
+                    match client.add(a, 1000).send().await {
+                        Ok(p) => pending.push((a, p)),
+                        Err(_) => _ = failed.fetch_add(1, Ordering::Relaxed),
+                    }
+                }
+                let _ = client.emit(3).call().await;
+                for (a, p) in pending {
+                    match p.reply().await {
+                        Ok(v) if v == a + 1000 => _ = ok.fetch_add(1, Ordering::Relaxed),
+                        _ => _ = failed.fetch_add(1, Ordering::Relaxed),
+                    }
+                }
+                slowest.fetch_max(started.elapsed().as_micros() as u64, Ordering::Relaxed);
+                tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+            }
+        });
+    }
+    let say = |line: String| {
+        println!("{line}");
+        let _ = std::io::stdout().flush();
+    };
+    say("holding".into());
+    loop {
+        while let Ok(event) = events.try_recv() {
+            match event {
+                ConnectionEvent::Disconnected { reason, .. } => {
+                    say(format!("disconnected {reason:?}"))
+                }
+                ConnectionEvent::Reconnected { gap, resumed, .. } => {
+                    say(format!("reconnected {} {resumed}", gap.as_micros()))
+                }
+                _ => {}
+            }
+        }
+        say(format!(
+            "state {} {} {} {} {}",
+            ok.load(Ordering::Relaxed),
+            failed.load(Ordering::Relaxed),
+            slowest.load(Ordering::Relaxed),
+            got.load(Ordering::Relaxed),
+            out_of_order.load(Ordering::Relaxed)
+        ));
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 }
 

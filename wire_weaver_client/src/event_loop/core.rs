@@ -45,8 +45,10 @@ use crate::event_loop::transport::{MessageRx, MessageTx, Transport};
 use ww_client_server::PathKindOwned;
 use ww_tap::{Dir, RecorderLink, Tap};
 
-pub(crate) use rx::{RxCore, RxInput, RxOutput};
+pub(crate) use rx::{RxCore, RxInput, RxOutput, RxPart};
 pub(crate) use tx::{TxCore, TxInput, TxOutput};
+
+use super::live::{Connecting, Outcome, RxCtl};
 
 /// Deadlines this close to `now` are considered due, to avoid spinning on tiny sleeps.
 const TIMER_TOLERANCE: Duration = Duration::from_micros(10);
@@ -155,7 +157,7 @@ pub(crate) enum ToRx {
 impl ToRx {
     /// Answers what waits on a message rx will never see (it exited): a request in flight fails with
     /// [Error::Disconnected](crate::Error::Disconnected), as those rx knew of did when the link went.
-    fn fail_undelivered(self) {
+    pub(crate) fn fail_undelivered(self) {
         match self {
             ToRx::Expect { done_tx, .. } => _ = done_tx.send(Err(crate::Error::Disconnected)),
             ToRx::TransportUp {
@@ -221,9 +223,12 @@ pub(crate) async fn worker<T: Transport + 'static>(cmd_rx: mpsc::Receiver<Comman
     let (to_tx_tx, to_tx_rx) = mpsc::unbounded_channel::<ToTx>();
     // rx endpoint is opened by the tx task (it handles Connect) and handed over
     let (msg_rx_tx, msg_rx_rx) = oneshot::channel::<(T::Rx, RecorderLink)>();
+    // a live handover (CLT-44) borrows the rx half
+    let (rx_ctl_tx, rx_ctl_rx) = mpsc::unbounded_channel::<RxCtl<T::Rx>>();
 
-    let rx_task = tokio::spawn(rx_task::<T>(msg_rx_rx, to_rx_rx, to_tx_tx));
-    let (tx_core_result, cmd_rx) = tx_task(cmd_rx, connector, to_tx_rx, to_rx_tx, msg_rx_tx).await;
+    let rx_task = tokio::spawn(rx_task::<T>(msg_rx_rx, to_rx_rx, to_tx_tx, rx_ctl_rx));
+    let (tx_core_result, cmd_rx) =
+        tx_task(cmd_rx, connector, to_tx_rx, to_rx_tx, msg_rx_tx, rx_ctl_tx).await;
     let rx_core = match rx_task.await {
         Ok(rx_core) => rx_core,
         Err(e) => {
@@ -250,6 +255,7 @@ async fn tx_task<T: Transport>(
     mut from_rx: mpsc::UnboundedReceiver<ToTx>,
     to_rx: mpsc::UnboundedSender<ToRx>,
     msg_rx_tx: oneshot::Sender<(T::Rx, RecorderLink)>,
+    rx_ctl: mpsc::UnboundedSender<RxCtl<T::Rx>>,
 ) -> (
     (TxCore, anyhow::Result<EventLoopExitReason>),
     mpsc::Receiver<Command>,
@@ -259,6 +265,7 @@ async fn tx_task<T: Transport>(
     let mut msg_rx_tx = Some(msg_rx_tx);
     // records the messages this task sends
     let mut tap: Option<RecorderLink> = None;
+    let mut connecting = Connecting::default();
 
     let result = loop {
         // Drain outputs first, do not feed new inputs until done.
@@ -350,10 +357,12 @@ async fn tx_task<T: Transport>(
                 None => std::future::pending().await,
             }
         };
+        // a live handover waits for its hub connection (CLT-44): asked once
+        let connecting_hub = connecting.is_pending();
         let handover = async {
             match msg_tx.as_mut() {
-                Some(tx) => tx.handover_requested().await,
-                None => std::future::pending().await,
+                Some(tx) if !connecting_hub => tx.handover_requested().await,
+                _ => std::future::pending().await,
             }
         };
         tokio::select! {
@@ -361,7 +370,28 @@ async fn tx_task<T: Transport>(
                 Some(msg) => core.handle(now(), TxInput::FromRx(msg)),
                 None => core.handle(now(), TxInput::TransportError("rx task is gone".into())),
             },
-            _ = handover => core.handle(now(), TxInput::HandToHub),
+            _ = handover => {
+                // a medium that can go live hands its link over once the hub is connected, the others release
+                if !(T::LIVE && connecting.start()) {
+                    core.handle(now(), TxInput::HandToHub);
+                }
+            },
+            hub = connecting.wait() => {
+                #[cfg(feature = "hub")]
+                let outcome = match msg_tx.as_mut() {
+                    Some(tx) => {
+                        super::live::hand_over::<T>(&mut core, tx, &to_rx, &rx_ctl, &mut tap, hub).await
+                    }
+                    None => Outcome::Release,
+                };
+                #[cfg(not(feature = "hub"))]
+                let outcome: Outcome = match hub {};
+                match outcome {
+                    Outcome::Switched | Outcome::Kept => {}
+                    Outcome::Release => core.handle(now(), TxInput::HandToHub),
+                    Outcome::HandedOff => core.handle(now(), TxInput::HandedOff),
+                }
+            },
             cmd = cmd_rx.recv() => match cmd {
                 Some(cmd) => core.handle(now(), TxInput::Command(cmd)),
                 None => core.handle(now(), TxInput::CommanderDropped),
@@ -389,6 +419,7 @@ async fn rx_task<T: Transport>(
     msg_rx_rx: oneshot::Receiver<(T::Rx, RecorderLink)>,
     mut from_tx: mpsc::UnboundedReceiver<ToRx>,
     to_tx: mpsc::UnboundedSender<ToTx>,
+    mut rx_ctl: mpsc::UnboundedReceiver<RxCtl<T::Rx>>,
 ) -> RxCore {
     let mut core = RxCore::new();
     let mut msg_rx_rx = Some(msg_rx_rx);
@@ -424,10 +455,15 @@ async fn rx_task<T: Transport>(
             // Polled by reference: if another branch wins, the receiver (and the rx half that may
             // already be in it) must not be dropped, otherwise the transport is closed right away.
             let Some(rx_rx) = msg_rx_rx.as_mut() else {
-                // transport failed earlier, nothing to read from anymore; tx will say Stop
-                match from_tx.recv().await {
-                    Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
-                    None => break,
+                // transport failed earlier, nothing to read from anymore (tx will say Stop), or the rx half is lent
+                // to a live handover (CLT-44)
+                tokio::select! {
+                    msg = from_tx.recv() => match msg {
+                        Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
+                        None => break,
+                    },
+                    Some(ctl) = rx_ctl.recv() => on_ctl(ctl, &mut core, &mut msg_rx, &mut from_tx, &mut tap),
+                    _ = timer => core.handle(now(), RxInput::Timer),
                 }
                 continue;
             };
@@ -452,11 +488,13 @@ async fn rx_task<T: Transport>(
             }
             continue;
         };
+        let mut ctl = None;
         tokio::select! {
             msg = from_tx.recv() => match msg {
                 Some(msg) => core.handle(now(), RxInput::FromTx(msg)),
                 None => break,
             },
+            Some(c) = rx_ctl.recv() => ctl = Some(c),
             r = rx.read_message() => {
                 let now = now();
                 match r {
@@ -484,6 +522,9 @@ async fn rx_task<T: Transport>(
             }
             _ = timer => core.handle(now(), RxInput::Timer),
         }
+        if let Some(ctl) = ctl {
+            on_ctl(ctl, &mut core, &mut msg_rx, &mut from_tx, &mut tap);
+        }
     }
     // what tx sent since rx decided to exit is answered, not dropped: a call in flight fails with Disconnected
     from_tx.close();
@@ -498,6 +539,46 @@ async fn rx_task<T: Transport>(
         msg_rx.close().await;
     }
     core
+}
+
+/// What the tx task asks while it hands the link over (CLT-44).
+fn on_ctl<R>(
+    ctl: RxCtl<R>,
+    core: &mut RxCore,
+    msg_rx: &mut Option<R>,
+    from_tx: &mut mpsc::UnboundedReceiver<ToRx>,
+    tap: &mut Option<RecorderLink>,
+) {
+    match ctl {
+        RxCtl::Lend(to) => {
+            if let Some(rx) = msg_rx.take()
+                && let Err(rx) = to.send(rx)
+            {
+                *msg_rx = Some(rx);
+            }
+        }
+        RxCtl::Return(rx) => *msg_rx = Some(rx),
+        RxCtl::Feed(messages) => {
+            let now = now();
+            for (kind, message) in messages {
+                if tap.wants_messages() {
+                    tap.message(Dir::Rx, kind, &message);
+                }
+                // what tx said goes in first, see RxCore docs on ordering
+                while let Ok(msg) = from_tx.try_recv() {
+                    core.handle(now, RxInput::FromTx(msg));
+                }
+                core.handle(
+                    now,
+                    RxInput::Message {
+                        kind,
+                        message: &message,
+                    },
+                );
+            }
+        }
+        RxCtl::Part(to) => _ = to.send(core.link_part(now())),
+    }
 }
 
 #[cfg(test)]
@@ -1747,7 +1828,10 @@ mod tests {
             let (rx_half_tx, rx_half_rx) = oneshot::channel();
             let (to_rx_tx, to_rx_rx) = mpsc::unbounded_channel();
             let (to_tx_tx, mut to_tx_rx) = mpsc::unbounded_channel();
-            let task = tokio::spawn(rx_task::<ChanTransport>(rx_half_rx, to_rx_rx, to_tx_tx));
+            let (_ctl_tx, ctl_rx) = mpsc::unbounded_channel();
+            let task = tokio::spawn(rx_task::<ChanTransport>(
+                rx_half_rx, to_rx_rx, to_tx_tx, ctl_rx,
+            ));
             // let rx park in its select!, then make both branches ready at once, as tx does on Connect
             for _ in 0..4 {
                 tokio::task::yield_now().await;

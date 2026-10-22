@@ -196,15 +196,36 @@ pub type RequestFilter = Box<dyn FnMut(&[u8]) -> bool + Send>;
 /// Device running a test server, stopped when dropped.
 pub struct TestDevice {
     path: String,
+    /// Link setups (`LinkEvent::Up`) and losses (`Down`) the device saw
+    links: Arc<(std::sync::atomic::AtomicU32, std::sync::atomic::AtomicU32)>,
+    /// The simulated USB device's control, for [start_device_async_usb_sim]
+    #[cfg(feature = "local_socket")]
+    usb_sim: Option<wire_weaver_client::usb_sim::UsbSimControl>,
     drop_requests: Arc<AtomicBool>,
     filter: Arc<Mutex<Option<RequestFilter>>>,
     to_device: mpsc::UnboundedSender<Vec<u8>>,
+    /// [TestDevice::slow_requests], µs
+    slow: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl TestDevice {
     /// Path to connect to: `Client::config(|c| c.in_process_path(device.path()))`.
     pub fn path(&self) -> String {
         self.path.clone()
+    }
+
+    /// The simulated USB device's control ([start_device_async_usb_sim] only).
+    #[cfg(feature = "local_socket")]
+    pub fn usb_sim(&self) -> Option<&wire_weaver_client::usb_sim::UsbSimControl> {
+        self.usb_sim.as_ref()
+    }
+
+    /// How many times the device's link came up (a host's link setup) and went down so far.
+    pub fn link_events(&self) -> (u32, u32) {
+        (
+            self.links.0.load(Ordering::Relaxed),
+            self.links.1.load(Ordering::Relaxed),
+        )
     }
 
     /// Ignore all requests from now on, without replying, as if a device was stuck.
@@ -216,6 +237,12 @@ impl TestDevice {
     /// would. Requests are serialized `ww_client_server::Request`s.
     pub fn filter_requests(&self, filter: impl FnMut(&[u8]) -> bool + Send + 'static) {
         *self.filter.lock().unwrap() = Some(Box::new(filter));
+    }
+
+    /// Take this long over every request from now on (the device's loop waits, as a busy device's does), so that
+    /// requests stay in flight on the host. `Duration::ZERO` back to normal.
+    pub fn slow_requests(&self, by: std::time::Duration) {
+        self.slow.store(by.as_micros() as u64, Ordering::Relaxed);
     }
 
     /// Send a serialized `ww_client_server::Event` to the host, e.g., stream data from generated `stream_data_ser()`.
@@ -376,6 +403,31 @@ enum Media {
     /// Whole messages on a local socket at this path, one client at a time (a hub in another process).
     #[cfg(feature = "local_socket")]
     LocalSocket(std::path::PathBuf),
+    /// A simulated USB device with packets of at most this many bytes and the frame counter, on a local socket at
+    /// this path (`wire_weaver_client::usb_sim`): hosts in other processes take turns holding it.
+    #[cfg(feature = "local_socket")]
+    UsbSim(std::path::PathBuf, usize),
+}
+
+/// Like [start_device_async], but a simulated USB device on a local socket at `socket` (feature `local_socket`,
+/// `wire_weaver_client::usb_sim`, [ww_link::UsbSeqFraming], packets of `packet` bytes): programs in other processes
+/// reach it as `usbsim:<socket>`, one holding it at a time, and it outlives them, as a real USB device does.
+#[cfg(feature = "local_socket")]
+pub fn start_device_async_usb_sim<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    socket: &std::path::Path,
+    packet: usize,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_on(
+        &socket.display().to_string(),
+        Media::UsbSim(socket.to_path_buf(), packet),
+        AsyncServer(server),
+        version,
+        api_hash,
+        (),
+    )
 }
 
 /// Like [start_device_async], but served on a local socket at `socket` (feature `local_socket`), one client at a
@@ -421,10 +473,16 @@ fn start_on<S: Process + Send + 'static>(
     // a device returning an error outside a method's #[errors(..)] fails the test (API-32)
     wire_weaver_client::set_strict_error_lists(true);
     let drop_requests = Arc::new(AtomicBool::new(false));
+    let links: Arc<(std::sync::atomic::AtomicU32, std::sync::atomic::AtomicU32)> = Arc::default();
+    let links_out = links.clone();
+    #[cfg(feature = "local_socket")]
+    let mut usb_sim = None;
     let filter = Arc::new(Mutex::new(None));
     let (to_device, from_test) = mpsc::unbounded_channel::<Vec<u8>>();
+    let slow = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let backend = TestBackend {
         server,
+        slow: slow.clone(),
         drop_requests: drop_requests.clone(),
         filter: filter.clone(),
         version,
@@ -434,7 +492,7 @@ fn start_on<S: Process + Send + 'static>(
         Media::Messages => {
             let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
             std::thread::spawn(move || {
-                block_on(serve(config, tx, rx, backend, medium, from_test));
+                block_on(serve(config, tx, rx, backend, medium, from_test, links));
             });
         }
         Media::Usb(packet) => {
@@ -446,7 +504,7 @@ fn start_on<S: Process + Send + 'static>(
                     let mut rx_buf = ww_device::RxBuffer::<MAX_USB_PACKET, MAX_MESSAGE_LEN>::new();
                     let tx = ww_device::FramedTx::new(sink, &mut tx_frame[..packet]);
                     let rx = ww_device::FramedRx::new(source, rx_buf.assembly_buf(packet));
-                    serve(config, tx, rx, backend, medium, from_test).await
+                    serve(config, tx, rx, backend, medium, from_test, links).await
                 })
             });
         }
@@ -464,14 +522,39 @@ fn start_on<S: Process + Send + 'static>(
                         "test device",
                         MAX_MESSAGE_LEN,
                     );
-                    serve(config, tx, rx, backend, medium, from_test).await
+                    serve(config, tx, rx, backend, medium, from_test, links).await
                 })
             });
             ready.recv().expect("the device listens");
         }
+        #[cfg(feature = "local_socket")]
+        Media::UsbSim(socket, packet) => {
+            assert!(packet <= MAX_USB_PACKET, "packets up to {MAX_USB_PACKET} B");
+            let (ready_tx, ready) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                block_on(async move {
+                    let listener = ww_local_socket::listen(&socket, true)
+                        .expect("listen on the device socket");
+                    let (sink, source) = wire_weaver_client::usb_sim::device_framed::<
+                        ww_device::ww_link::UsbSeqFraming,
+                    >(listener, packet);
+                    let _ = ready_tx.send(source.control());
+                    let mut tx_frame = [0u8; MAX_USB_PACKET];
+                    let mut rx_buf = ww_device::RxBuffer::<MAX_USB_PACKET, MAX_MESSAGE_LEN>::new();
+                    let tx = ww_device::FramedTx::new(sink, &mut tx_frame[..packet]);
+                    let rx = ww_device::FramedRx::new(source, rx_buf.assembly_buf(packet));
+                    serve(config, tx, rx, backend, medium, from_test, links).await
+                })
+            });
+            usb_sim = Some(ready.recv().expect("the device listens"));
+        }
     }
     TestDevice {
+        #[cfg(feature = "local_socket")]
+        usb_sim,
         path: path.to_string(),
+        links: links_out,
+        slow,
         drop_requests,
         filter,
         to_device,
@@ -494,6 +577,7 @@ async fn serve<S: Process>(
     mut backend: TestBackend<S>,
     medium: S::Medium,
     mut from_test: mpsc::UnboundedReceiver<Vec<u8>>,
+    links: Arc<(std::sync::atomic::AtomicU32, std::sync::atomic::AtomicU32)>,
 ) {
     let mut scratch = [0u8; MAX_MESSAGE_LEN];
     let mut event_scratch = [0u8; MAX_MESSAGE_LEN];
@@ -521,7 +605,11 @@ async fn serve<S: Process>(
         };
         tokio::select! {
             ready = server.wait() => {
-                _ = server.handle(ready, &mut backend).await;
+                match server.handle(ready, &mut backend).await {
+                    Some(ww_device::LinkEvent::Up) => _ = links.0.fetch_add(1, Ordering::Relaxed),
+                    Some(ww_device::LinkEvent::Down(_)) => _ = links.1.fetch_add(1, Ordering::Relaxed),
+                    None => {}
+                }
             }
             _ = due => {
                 if server.is_up() {
@@ -539,6 +627,7 @@ async fn serve<S: Process>(
 
 struct TestBackend<S> {
     server: S,
+    slow: Arc<std::sync::atomic::AtomicU64>,
     drop_requests: Arc<AtomicBool>,
     filter: Arc<Mutex<Option<RequestFilter>>>,
     version: FullVersion<'static>,
@@ -556,6 +645,10 @@ impl<S: Process> WireWeaverAsyncApiBackend for TestBackend<S> {
     ) -> Result<&'a [u8], ShrinkWrapError> {
         if self.drop_requests.load(Ordering::Relaxed) {
             return Ok(&[]);
+        }
+        let slow = self.slow.load(Ordering::Relaxed);
+        if slow > 0 {
+            tokio::time::sleep(std::time::Duration::from_micros(slow)).await;
         }
         if let Some(filter) = self.filter.lock().unwrap().as_mut()
             && filter(data)

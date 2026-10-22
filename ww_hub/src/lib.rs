@@ -56,6 +56,9 @@ pub const SYNC_ENV: &str = "WW_HUB_SYNC";
 /// Seconds a steered device stays open after its last client, or `forever` ([HubConfig::sync_linger]).
 pub const SYNC_LINGER_ENV: &str = "WW_HUB_SYNC_LINGER";
 
+/// Milliseconds an adopted link's program has to connect its tunnel ([HubConfig::adopt_attach]).
+pub const ADOPT_ATTACH_ENV: &str = "WW_HUB_ADOPT_ATTACH_MS";
+
 /// A client must send its preamble within this time, or it is dropped.
 const PREAMBLE_TIMEOUT: Duration = Duration::from_secs(2);
 /// How often the hub checks whether it is idle.
@@ -85,6 +88,9 @@ pub struct HubConfig {
     /// Where the clock rates of devices are kept between connections (`wire_weaver_client::clock_sync::RateCache`), shared with
     /// programs that steer in direct mode; `None`: not kept.
     pub state_dir: Option<PathBuf>,
+    /// After adopting a program's live link (CLT-44), how long its tunnel has to connect (5 s) before the hub takes
+    /// the program as gone.
+    pub adopt_attach: Duration,
 }
 
 impl HubConfig {
@@ -123,6 +129,15 @@ impl HubConfig {
             sync_linger,
             sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: wire_weaver_client::clock_sync::state_dir().ok(),
+            adopt_attach: match std::env::var(ADOPT_ATTACH_ENV) {
+                Ok(ms) => ms.parse().map(Duration::from_millis).map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        format!("{ADOPT_ATTACH_ENV}={ms}: expected milliseconds"),
+                    )
+                })?,
+                Err(_) => adopt::ATTACH_TIMEOUT,
+            },
         })
     }
 }
@@ -372,6 +387,7 @@ impl Bound {
             socket: socket.clone(),
             version: config.version.clone(),
             handing_over: std::sync::atomic::AtomicBool::new(false),
+            adopt_attach: config.adopt_attach,
             adoptions: Mutex::new(Default::default()),
         });
         Bound {
@@ -534,6 +550,8 @@ pub(crate) struct Hub {
     pub(crate) state_dir: Option<PathBuf>,
     /// See [HubConfig::sync_options]
     pub(crate) sync_options: wire_weaver_client::clock_sync::Options,
+    /// See [HubConfig::adopt_attach]
+    pub(crate) adopt_attach: Duration,
     /// Adopted links whose program's tunnel hasn't connected yet (CLT-44), by adoption id
     pub(crate) adoptions: Mutex<std::collections::HashMap<u64, adopt::Waiting>>,
 }

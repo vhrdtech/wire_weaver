@@ -312,6 +312,7 @@ fn start(name: &str, linger: Duration, sync_linger: Option<Duration>) -> Bench {
             ..Default::default()
         },
         state_dir: None,
+        adopt_attach: std::time::Duration::from_secs(5),
     })
     .unwrap()
     .expect("no other hub in this dir");

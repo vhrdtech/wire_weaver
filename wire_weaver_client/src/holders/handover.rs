@@ -32,6 +32,10 @@ const MAX_SOCKET_PATH: usize = 100;
 pub(crate) struct Offer {
     pub(crate) socket: PathBuf,
     requested: watch::Receiver<bool>,
+    /// The listener's side of `requested`, to reset it at once in [Offer::failed]
+    requested_tx: std::sync::Arc<watch::Sender<bool>>,
+    /// Bumped when a handover asked for didn't happen ([Offer::failed])
+    failed: watch::Sender<u64>,
     /// Dropped with the claim, after its lock: the device is released, the listener answers a waiting asker and ends
     _released: oneshot::Sender<()>,
 }
@@ -56,20 +60,32 @@ impl Offer {
             .and_then(|m| m.to_ww_bytes_owned().ok())
             .unwrap_or_default();
         let (requested_tx, requested) = watch::channel(false);
+        let requested_tx = std::sync::Arc::new(requested_tx);
         let (released, released_rx) = oneshot::channel();
+        let (failed, failed_rx) = watch::channel(0);
         runtime.spawn(serve(
             listener,
             key.to_string(),
             allowed,
             meta,
-            requested_tx,
+            requested_tx.clone(),
             released_rx,
+            failed_rx,
         ));
         Ok(Offer {
             socket,
             requested,
+            requested_tx,
+            failed,
             _released: released,
         })
+    }
+
+    /// The handover asked for didn't happen (CLT-44): the waiting asker hears `Failed`, the next one is listened to.
+    pub(crate) fn failed(&self) {
+        // before the event loop looks again: it must not take the old request for a new one
+        self.requested_tx.send_replace(false);
+        self.failed.send_modify(|n| *n += 1);
     }
 
     /// Returns once an asker wants the device handed to the hub (and this holder allows it); never otherwise.
@@ -107,8 +123,9 @@ async fn serve(
     key: String,
     allowed: bool,
     meta: Vec<u8>,
-    requested: watch::Sender<bool>,
+    requested: std::sync::Arc<watch::Sender<bool>>,
     mut released: oneshot::Receiver<()>,
+    mut failed: watch::Receiver<u64>,
 ) {
     loop {
         let (mut stream, peer) = tokio::select! {
@@ -142,14 +159,24 @@ async fn serve(
             HandoverStatus::Refused
         } else {
             info!("{key}: handing it to the ww hub, asked by {asker}");
+            failed.mark_unchanged();
             requested.send_replace(true);
-            match tokio::time::timeout(RELEASE_TIMEOUT, &mut released).await {
-                Ok(_) => HandoverStatus::Released,
-                Err(_) => {
-                    warn!("{key}: not released within {RELEASE_TIMEOUT:?} for the ww hub");
-                    HandoverStatus::Failed
-                }
+            let status = tokio::select! {
+                r = tokio::time::timeout(RELEASE_TIMEOUT, &mut released) => match r {
+                    Ok(_) => HandoverStatus::Released,
+                    Err(_) => {
+                        warn!("{key}: not released within {RELEASE_TIMEOUT:?} for the ww hub");
+                        HandoverStatus::Failed
+                    }
+                },
+                // an error: the claim (and the sender with it) is gone, the device released
+                Ok(()) = failed.changed() => HandoverStatus::Failed,
+            };
+            if status == HandoverStatus::Failed {
+                // still here: the next asker is listened to
+                requested.send_replace(false);
             }
+            status
         };
         let answer = HandoverAnswer::new(status, meta.clone()).encode();
         if let Err(e) = stream.write_all(&answer).await {

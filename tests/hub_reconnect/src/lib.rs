@@ -148,3 +148,17 @@ pub fn start_device_ipc(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<Seen
     );
     (device, seen)
 }
+
+/// The device as a simulated USB device on a local socket (64 B packets, frame counter): programs in other processes
+/// reach it as `usbsim:<socket>`, one holding it at a time, and it outlives them (a live link handover, CLT-44).
+pub fn start_device_usb_sim(socket: &std::path::Path) -> (TestDevice, Arc<Mutex<Seen>>) {
+    let seen = Arc::new(Mutex::new(Seen::default()));
+    let device = tests_common::start_device_async_usb_sim(
+        socket,
+        64,
+        new_server(&seen),
+        hub_reconnect_api::HUB_RECONNECT_FULL_GID,
+        server::api_impl::api_hash(),
+    );
+    (device, seen)
+}

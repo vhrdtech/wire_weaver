@@ -251,6 +251,8 @@ impl RxCore {
                 self.token = token;
                 self.token_seen = false;
                 self.relinking = true;
+                // through the hub now: a loss is reconnected through it, streams resumed (CLT-40)
+                self.keep_streams_on_loss = true;
                 self.last_rx_at = Some(now);
                 self.malformed_messages_left = MAX_MALFORMED_MESSAGES;
             }

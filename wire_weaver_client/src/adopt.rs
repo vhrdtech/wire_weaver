@@ -14,8 +14,11 @@ const MAX_PATH_LEN: usize = 64;
 const MAX_STREAMS: usize = 4096;
 const MAX_LEVELS: usize = 4096;
 const MAX_FULL_ONLY: usize = 1024;
-/// Largest seq number a snapshot may carry, as [ClientConfig::max_seq](crate::ClientConfig::max_seq) allows.
-const MAX_SEQ: u32 = 1 << 16;
+/// Largest seq number a snapshot may carry, as [ClientConfig::max_seq](crate::ClientConfig::max_seq) allows (a seq
+/// takes up to 5 bytes on the wire).
+const MAX_SEQ: u32 = u32::MAX >> 4;
+/// Most requests in flight a snapshot may carry.
+const MAX_IN_FLIGHT: usize = 1 << 16;
 /// Largest USB packet.
 const MAX_PACKET: u16 = 1024;
 
@@ -180,7 +183,7 @@ impl LinkSnapshotOwned {
         if self.next_seq == 0 || self.next_seq > self.max_seq {
             return Err(format!("next seq {}", self.next_seq));
         }
-        if self.in_flight.len() > self.max_seq as usize {
+        if self.in_flight.len() > (self.max_seq as usize).min(MAX_IN_FLIGHT) {
             return Err(format!("{} seqs in flight", self.in_flight.len()));
         }
         let mut seen = std::collections::HashSet::new();
@@ -271,7 +274,7 @@ mod tests {
         bad(&|s| s.rx_staged = vec![0; 65]);
         bad(&|s| s.streams.push(vec![0; 65]));
         bad(&|s| s.device_info.truncate(3));
-        bad(&|s| s.max_seq = 1 << 20);
+        bad(&|s| s.max_seq = u32::MAX);
         assert!(LinkSnapshotOwned::decode(&[0; 3]).is_err());
         assert!(same_minor("0.5.1", "0.5.7"));
         assert!(!same_minor("0.5.1", "0.6.0"));

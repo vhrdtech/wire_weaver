@@ -424,6 +424,9 @@ impl Keeper {
                     biased;
                     r = &mut residual => match r {
                         Ok(residual) => {
+                            if residual.via_hub {
+                                self.via_hub.send_replace(true);
+                            }
                             self.exited(&residual.result);
                             Keeping::Stopped(residual.cmd_rx)
                         }

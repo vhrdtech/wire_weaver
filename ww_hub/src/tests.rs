@@ -21,6 +21,7 @@ fn config(dir: &Path, idle_ms: u64) -> HubConfig {
         sync: true,
         sync_linger: Some(Duration::from_secs(30 * 60)),
         sync_options: wire_weaver_client::clock_sync::Options::default(),
+        adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
     }
 }

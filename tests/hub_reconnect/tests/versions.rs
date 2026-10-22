@@ -40,6 +40,7 @@ async fn old_client_vs_hub_that_dropped_its_version() {
         sync: false,
         sync_linger: None,
         sync_options: Default::default(),
+        adopt_attach: std::time::Duration::from_secs(5),
         state_dir: None,
     })
     .unwrap()

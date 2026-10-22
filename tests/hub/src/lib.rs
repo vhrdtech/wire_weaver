@@ -267,6 +267,7 @@ mod tests {
             sync_linger: Some(Duration::from_secs(30 * 60)),
             sync_options: wire_weaver_client::clock_sync::Options::default(),
             state_dir: None,
+            adopt_attach: std::time::Duration::from_secs(5),
         })
         .unwrap()
         .expect("no other hub in this dir");

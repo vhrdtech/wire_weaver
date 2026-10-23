@@ -1426,15 +1426,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   introspection docs/idents, `UserStr` text, pin names or hub/holder program/label/user/host fields; `--json` is
   untouched (JSON's own escaping already covers it), and the CLI's own ANSI colour codes stay outside the escaped
   text. `docs/cli_reference.md#untrusted-device-and-hub-strings`.
-- 🧪 **TOOL-20 `ww` over RTT** — every device command reaches a board on a debug probe (probe-rs, `wire_weaver_client`'s
+- ✅ **TOOL-20 `ww` over RTT** — every device command reaches a board on a debug probe (probe-rs, `wire_weaver_client`'s
     `rtt` feature): `--rtt CHIP`, `--probe SERIAL|VID:PID[:SERIAL]`, `--elf ELF` (control block address, no RAM scan),
     `--probe-speed-khz`, as env variables (`WW_RTT`, ...) and `ww.toml` keys; USB filters next to it refused or left
     out by source, `--api` checked once connected; `ww list --probes` with who holds each; `ww sync` and `ww dfu` go
     through the hub with the key `rtt:<probe serial>:<chip>`; completion of chip names and live probe serials; a busy
     probe names its holder (lock file, or `/proc` for probe-rs/OpenOCD). `docs/cli.md#through-a-debug-probe-rtt`.
     Tests: `wire_weaver_cli` `device::tests`, `tests/rtt.rs`; the RTT byte path itself in
-    `wire_weaver_client/src/event_loop/device_e2e_tests.rs`. Hardware check open: `ww info`, `ww counters read`,
-    `ww sync` on the Nucleo G0B1RE (nucleo_g0b1re_template) through its ST-LINK.
+    `wire_weaver_client/src/event_loop/device_e2e_tests.rs`. Hardware (omarchy-m1, 23 Oct 2026, Nucleo G0B1RE with
+    nucleo_g0b1re_template 5bcbba0 through its ST-LINK V2-1): `ww info` in 0.4 s with `--elf`, 1.7 s with the RAM scan;
+    `ww counters read` and `ww sync` reach the device and get `TraitNotFound` (the template serves neither yet);
+    `held by ww, pid ..` and `held by probe-rs (pid ..)`; `ww hub take rtt:..` and two `ww info` at once through the
+    hub. Found and fixed on the way: a stale control block of the previous firmware won the RAM scan, `ww hub take`
+    timed out while the hub scanned.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the

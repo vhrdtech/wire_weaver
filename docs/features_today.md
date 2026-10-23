@@ -296,7 +296,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Explaining bytes](cli_reference.md#ww-explain)**: `ww explain` shows every field of a buffer with its bits, from hex or a value written in Rust. <span class="ww-status">in progress</span>
 - **[Link test](cli_reference.md#ww-usb-loopback)**: `ww usb-loopback` measures round trips, losses and speed both ways.
 - **[Watching the link](cli_reference.md#ww-monitor)**: `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back; `--monitor` and `--capture` do it for any command's own connection.
-- **[`ww` through a debug probe](cli.md#through-a-debug-probe-rtt)**: `ww --rtt CHIP` runs every command against a board with no USB of its own, over RTT through its ST-LINK or other probe, with probe serials and chip names completed in the shell. <span class="ww-status">hardware check open</span>
+- **[`ww` through a debug probe](cli.md#through-a-debug-probe-rtt)**: `ww --rtt CHIP` runs every command against a board with no USB of its own, over RTT through its ST-LINK or other probe, with probe serials and chip names completed in the shell.
 - **[Devices on one clock](cli_reference.md#ww-sync)**: `ww sync` keeps several devices on the host's UTC and shows how closely each follows and how far apart in phase they are. <span class="ww-status">hardware check open</span>
 - **[Pin tests from the command line](cli_reference.md#ww-pins)**: `ww pins test` finds shorts and pulls on any board serving `PinDiag`; plan files make it a pass/fail test. <span class="ww-status">hardware check open</span>
 - **[Settings from a flash dump](cli_reference.md#ww-settings)**: `ww settings dump` decodes a settings store without the device.

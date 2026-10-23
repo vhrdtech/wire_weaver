@@ -1,4 +1,5 @@
 mod api;
+mod cargo_source;
 mod crate_walker;
 mod errors;
 mod meta;

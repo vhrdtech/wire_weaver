@@ -24,8 +24,10 @@ quote = { workspace = true }
 regex = "1.12"
 ron.workspace = true
 semver.workspace = true
+serde = { workspace = true, features = ["std"] }
 shrink_wrap.workspace = true
 syn = { workspace = true }
+toml.workspace = true
 wire_weaver_snapshots.workspace = true
 ww_global.workspace = true
 ww_numeric = { workspace = true, features = ["std", "serde"] }

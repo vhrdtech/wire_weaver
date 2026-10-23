@@ -502,11 +502,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **API-12 Calculate max path depth in server codegen** · `v0.5` — `MAX_DEPTH` is hardcoded to 16 in
   `wire_weaver_core/src/codegen/api_server.rs`.
 - 📋 **API-13 Error system, remove `unwrap`s from codegen** · `v0.5` — report errors with spans instead of panicking.
-- 📋 **API-14 Load API crates from crates.io** · `v0.5` — the crate walker handles path and workspace dependencies;
-  `crate = "version"` dependencies hit a `todo!()` in `wire_weaver_core/src/transform/crate_walker.rs`. Also
-  dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
-  done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
-  docs.rs (DOC-6).
 - 📋 **API-56 care-marker Care marker on switching writes** — a typed attribute (the `ww_self::Meta` of SRV-34) on
     a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
     introspection: GUIs ask to confirm, `ww call` / `ww set` want `--yes`, the hub can log who did it. Wire
@@ -594,6 +589,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shortest `max_age_us`. Against a time column per property (21 FOC properties, n = 32, `DeltaPacked`): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (`docs/api/observing.md#which-rates-fit-an-mcu`, `tests/observe_batched`).
+- ✅ **API-14 API crates with git and crates.io dependencies** · `v0.5` — the crate walker (`#[ww_api_root]`,
+  `#[ww_trait]`, `ww_codegen!`, `ww api`) follows `{ git = .. }` and `"version"` / `{ version = .. }` dependencies
+  (also through `[workspace.dependencies]` and `package = ".."` renames), not only path ones: the exact package from
+  the nearest `Cargo.lock` (the entry in the dependent's own list, so two versions of a crate are told apart), its
+  source where Cargo fetched it (`CARGO_HOME`'s `git/checkouts/<repo>-*/<rev>/`, the member found by package name
+  anywhere in the repository; `registry/src/*/<name>-<version>/`), clear errors naming `cargo fetch` when the lock
+  or the source is missing. In a crate Cargo fetched itself (a published API crate's own `#[ww_trait]`, docs.rs),
+  crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. Tests
+  `wire_weaver_core` `crate_walker::tests` (a real `cargo fetch` of a local git repository), `docs/api/traits.md`.
 - ✅ **API-50 Observe cells: sampling a level from an interrupt in place** — `ww_codegen!(.., observe_cells =
   "root_foc")` puts a level with `+batched` properties on a ring of atomics instead of `<Level>Sampler::sample`: a
   `const fn` `<Level>Cells<R>` (a `static`, or an `Arc`), one `<Level>Writer` with a setter per property (relaxed
@@ -1807,8 +1811,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 🚧 **DOC-6 Docs for `ww_stdlib` crates and resource doc comments** · `v0.5.x` — done: `#[ww_trait]` leaves a Rust
   trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
   sub-traits as `wire_weaver::api_doc` markers, see `api/traits.md`), checked with nightly `--cfg docsrs` on a
-  crates.io-shaped copy of `ww_i2c`. Missing: docs.rs builds of crates whose API uses another crate's types or traits
-  (`ww_uart`, `ww_gpio`, `ww_si` types), the macro panics on their `version = ".."` dependencies, needs API-14.
+  crates.io-shaped copy of `ww_i2c`. Missing: a docs.rs check of crates whose API uses another crate's types or
+  traits (`ww_uart`, `ww_gpio`, `ww_si` types); the macro panicked on their `version = ".."` dependencies until
+  API-14, try one on a crates.io-shaped copy.
 
 ## Testing, CI and performance (`TEST`)
 

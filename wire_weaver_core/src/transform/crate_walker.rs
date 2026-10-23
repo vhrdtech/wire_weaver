@@ -1,4 +1,5 @@
 use super::api::{compact_trait_id, convert_api_items};
+use super::cargo_source::{CargoSources, DepSpec, Dependent};
 use super::meta::{MetaSite, get_meta};
 use super::util::{UseLeaf, collect_docs, use_tree_leaves};
 use anyhow::{Context, Result, anyhow};
@@ -36,7 +37,8 @@ pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "
 ///
 /// Limitations:
 /// * Only ww_trait's defined in `src/lib.rs` are supported, types can also be in modules (`mod ty;` and `use ty::Ty`).
-/// * Only crates.io and path dependencies are supported.
+/// * Path, git and registry dependencies are supported. Git and registry ones are found where Cargo fetched them
+///   (under `CARGO_HOME`), at the exact version the nearest `Cargo.lock` above `crate_path` pins.
 pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
@@ -58,6 +60,7 @@ pub fn load_dep(
     )?;
     let current_crate_path = PathBuf::from(current_crate_path);
     let current_crate_manifest = ManifestContext::load(&current_crate_path)?;
+    scratch.sources.entry_dir = Some(current_crate_manifest.crate_path.clone());
     let dep_manifest =
         current_crate_manifest.load_dependent_manifest(dep_name.as_ref(), &mut scratch)?;
     scratch
@@ -124,6 +127,8 @@ pub(crate) struct Scratch {
     /// Child modules already parsed ([CrateContext::module]), by crate, parent module and name; `None` for a name
     /// that isn't a module. Resolving every path anew re-parsed the same files hundreds of times per API.
     modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
+    /// Cargo.lock and Cargo's fetched sources, for git and registry dependencies.
+    pub(crate) sources: CargoSources,
 }
 
 /// Crate and module-qualified name (`units::Volt`) of a user-defined type.
@@ -234,6 +239,9 @@ impl CrateContext {
         manifest: Rc<ManifestContext>,
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
+        if scratch.sources.entry_dir.is_none() {
+            scratch.sources.entry_dir = Some(manifest.crate_path.clone());
+        }
         let version = manifest.full_version(scratch)?;
         if let Some(crate_cx) = scratch.crates.get(&version) {
             return Ok(crate_cx.clone());
@@ -528,6 +536,19 @@ impl ManifestContext {
     }
 
     fn full_version(&self, scratch: &mut Scratch) -> Result<FullVersionOwned> {
+        let (name, version) = self.package_version(scratch)?;
+        Ok(FullVersionOwned::new(
+            name,
+            VersionOwned::new(
+                version.major as u32,
+                version.minor as u32,
+                version.patch as u32,
+            ),
+        ))
+    }
+
+    /// Package name and its full version (with pre-release and build metadata).
+    fn package_version(&self, scratch: &mut Scratch) -> Result<(String, semver::Version)> {
         let package = self
             .manifest
             .package
@@ -548,14 +569,7 @@ impl ManifestContext {
                         .context(self.err_context())
                 })?,
         };
-        Ok(FullVersionOwned::new(
-            package.name,
-            VersionOwned::new(
-                version.major as u32,
-                version.minor as u32,
-                version.patch as u32,
-            ),
-        ))
+        Ok((package.name, version))
     }
 
     fn load_dependent_manifest(
@@ -568,8 +582,12 @@ impl ManifestContext {
             && WIRE_WEAVER_REEXPORTS.contains(&crate_name)
             && self.manifest.dependencies.contains_key("wire_weaver")
         {
-            let wire_weaver =
-                self.load_dependent_inner(&self.manifest.dependencies, "wire_weaver", scratch)?;
+            let wire_weaver = self.load_dependent_inner(
+                &self.manifest.dependencies,
+                "wire_weaver",
+                self,
+                scratch,
+            )?;
             return wire_weaver.load_dependent_manifest(crate_name, scratch);
         }
         // a `ww_codegen!` in test code (e.g. a test server) sees dev-dependencies too
@@ -580,13 +598,16 @@ impl ManifestContext {
         } else {
             &self.manifest.dependencies
         };
-        self.load_dependent_inner(deps, crate_name, scratch)
+        self.load_dependent_inner(deps, crate_name, self, scratch)
     }
 
+    /// Manifest of `crate_name` from `deps_set`, a dependency table of this manifest; `dependent` is the package
+    /// asking for it (this one, or a member of this workspace for `[workspace.dependencies]`).
     fn load_dependent_inner(
         &self,
         deps_set: &DepsSet,
         crate_name: &str,
+        dependent: &ManifestContext,
         scratch: &mut Scratch,
     ) -> Result<Rc<ManifestContext>> {
         let dep = deps_set.get(crate_name).ok_or(
@@ -595,10 +616,15 @@ impl ManifestContext {
                 .context(self.err_context()),
         )?;
         match dep {
-            Dependency::Simple(_version) => {
-                // crate_name = "version"
-                todo!()
-            }
+            // crate_name = "version"
+            Dependency::Simple(version) => self.load_locked(
+                dependent,
+                crate_name,
+                &DepSpec::Registry {
+                    version_req: Some(version),
+                },
+                scratch,
+            ),
             Dependency::Inherited(_) => {
                 // crate_name.workspace = true
                 let manifest = self.load_parent_manifest(scratch)?;
@@ -612,7 +638,12 @@ impl ManifestContext {
                         manifest.crate_path.display()
                     ))
                     .context(self.err_context())?;
-                manifest.load_dependent_inner(&workspace.dependencies, crate_name, scratch)
+                manifest.load_dependent_inner(
+                    &workspace.dependencies,
+                    crate_name,
+                    dependent,
+                    scratch,
+                )
             }
             Dependency::Detailed(detailed) => {
                 // crate_name = { path = "" }
@@ -625,12 +656,39 @@ impl ManifestContext {
                     };
                     return scratch.get_or_load_manifest(dep_crate_path);
                 }
-                // crate_name = { git = "" }
-                todo!();
-                // crate_name = { version = "" }
-                // todo!();
+                let package = detailed.package.as_deref().unwrap_or(crate_name);
+                let spec = match &detailed.git {
+                    // crate_name = { git = "" }
+                    Some(url) => DepSpec::Git { url },
+                    // crate_name = { version = "" }
+                    None => DepSpec::Registry {
+                        version_req: detailed.version.as_ref(),
+                    },
+                };
+                self.load_locked(dependent, package, &spec, scratch)
             }
         }
+    }
+
+    /// Manifest of `package`, a git or registry dependency of `dependent`, found where Cargo fetched it.
+    fn load_locked(
+        &self,
+        dependent: &ManifestContext,
+        package: &str,
+        spec: &DepSpec,
+        scratch: &mut Scratch,
+    ) -> Result<Rc<ManifestContext>> {
+        let (name, version) = dependent.package_version(scratch)?;
+        let dependent_id = Dependent {
+            name: &name,
+            version: &version,
+            dir: &dependent.crate_path,
+        };
+        let dir = scratch
+            .sources
+            .locate(&dependent_id, package, spec)
+            .context(dependent.err_context())?;
+        scratch.get_or_load_manifest(dir)
     }
 
     fn err_context(&self) -> String {
@@ -688,4 +746,189 @@ fn get_trait<'i>(lib_rs: &'i File, trait_name: &str) -> Result<&'i syn::ItemTrai
         }
     }
     Err(anyhow!("Trait with name {} not found", trait_name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+
+    fn write(path: &Path, contents: &str) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
+    }
+
+    fn scratch_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir()
+            .join("ww_core_crate_walker_tests")
+            .join(format!("{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// `#[ww_api_root]` of crate `api` in `dir` using `Info` from `dep_api`, asked for with `dep`.
+    fn write_api_crate(dir: &Path, dep: &str) {
+        write(
+            &dir.join("Cargo.toml"),
+            &format!(
+                "[package]\nname = \"api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n\n\
+                 [dependencies]\ndep_api = {dep}\n"
+            ),
+        );
+        write(
+            &dir.join("src/lib.rs"),
+            "#[ww_api_root]\npub trait Api {\n    ww_impl!(info: dep_api::Info);\n}\n",
+        );
+    }
+
+    fn write_dep_api(dir: &Path, version: &str) {
+        write(
+            &dir.join("Cargo.toml"),
+            &format!("[package]\nname = \"dep_api\"\nversion = {version}\nedition = \"2024\"\n"),
+        );
+        write(
+            &dir.join("src/lib.rs"),
+            "#[ww_trait]\npub trait Info {\n    fn name() -> u8;\n}\n",
+        );
+    }
+
+    fn load_with_cargo_home(api: &Path, cargo_home: &Path) -> Result<ApiBundleOwned> {
+        let mut scratch = Scratch::default();
+        scratch.sources.cargo_home = Some(cargo_home.to_path_buf());
+        load_inner(api, None, &mut scratch)
+    }
+
+    fn crate_names(bundle: &ApiBundleOwned) -> Vec<(String, u32)> {
+        bundle
+            .ext_crates
+            .iter()
+            .map(|c| (c.crate_id.clone(), c.version.minor.0))
+            .collect()
+    }
+
+    fn run(cmd: &mut Command) {
+        let out = cmd.output().unwrap();
+        assert!(
+            out.status.success(),
+            "{cmd:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    /// `{ git = .. }`: the member crate of a git workspace, from where a real `cargo fetch` put it (a local repository
+    /// and a throwaway `CARGO_HOME`, no network).
+    #[test]
+    fn git_dependency() {
+        let dir = scratch_dir("git");
+        let repo = dir.join("dep_repo");
+        write(
+            &repo.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"dep_api\"]\n\n[workspace.package]\nversion = \"0.3.0\"\n",
+        );
+        write_dep_api(&repo.join("dep_api"), "{ workspace = true }");
+        let git = |args: &[&str]| {
+            run(Command::new("git")
+                .args(["-c", "user.name=t", "-c", "user.email=t@t", "-c"])
+                .args(["commit.gpgsign=false", "-c", "init.defaultBranch=main"])
+                .args(args)
+                .current_dir(&repo)
+                .env("GIT_CONFIG_GLOBAL", "/dev/null")
+                .env("GIT_CONFIG_NOSYSTEM", "1"))
+        };
+        git(&["init", "-q"]);
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "dep_api"]);
+
+        let api = dir.join("api");
+        let url = format!("file://{}", repo.display());
+        write_api_crate(&api, &format!("{{ git = \"{url}\" }}"));
+        let cargo_home = dir.join("cargo_home");
+        let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+        let err = load_with_cargo_home(&api, &cargo_home).unwrap_err();
+        assert!(format!("{err:#}").contains("no Cargo.lock"), "{err:#}");
+        for args in [["generate-lockfile", "-q"], ["fetch", "-q"]] {
+            run(Command::new(&cargo)
+                .args(args)
+                .current_dir(&api)
+                .env("CARGO_HOME", &cargo_home)
+                .env("CARGO_NET_GIT_FETCH_WITH_CLI", "false"));
+        }
+
+        let bundle = load_with_cargo_home(&api, &cargo_home).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("dep_api".into(), 3)]
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `name = "version"`: the exact version Cargo.lock pins, from `registry/src/<index>/`; a clear error when it
+    /// hasn't been fetched.
+    #[test]
+    fn registry_dependency() {
+        let dir = scratch_dir("registry");
+        let api = dir.join("api");
+        write_api_crate(&api, "\"1.2\"");
+        let crates_io = "registry+https://github.com/rust-lang/crates.io-index";
+        // another package uses an older dep_api, so the name alone doesn't say which one
+        write(
+            &api.join("Cargo.lock"),
+            &format!(
+                "version = 4\n\n\
+                 [[package]]\nname = \"api\"\nversion = \"0.1.0\"\ndependencies = [\"dep_api 1.2.3\", \"other\"]\n\n\
+                 [[package]]\nname = \"dep_api\"\nversion = \"0.9.0\"\nsource = \"{crates_io}\"\n\n\
+                 [[package]]\nname = \"dep_api\"\nversion = \"1.2.3\"\nsource = \"{crates_io}\"\n\n\
+                 [[package]]\nname = \"other\"\nversion = \"1.0.0\"\nsource = \"{crates_io}\"\n\
+                 dependencies = [\"dep_api 0.9.0\"]\n"
+            ),
+        );
+        let cargo_home = dir.join("cargo_home");
+        let index = cargo_home.join("registry/src/index.crates.io-1949cf8c6b5b557f");
+        write_dep_api(&index.join("dep_api-0.9.0"), "\"0.9.0\"");
+
+        let err = load_with_cargo_home(&api, &cargo_home).unwrap_err();
+        let err = format!("{err:#}");
+        assert!(
+            err.contains("dep_api 1.2.3 not found") && err.contains("cargo fetch"),
+            "{err}"
+        );
+
+        write_dep_api(&index.join("dep_api-1.2.3"), "\"1.2.3\"");
+        let bundle = load_with_cargo_home(&api, &cargo_home).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("dep_api".into(), 2)]
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// An API crate Cargo fetched itself (`#[ww_trait]` of a dependency): its registry dependencies are the newest
+    /// matching versions Cargo has, the publisher's `Cargo.lock` next to it pins what this build may not use.
+    #[test]
+    fn registry_dependency_of_a_fetched_crate() {
+        let dir = scratch_dir("fetched");
+        let cargo_home = dir.join("cargo_home");
+        let index = cargo_home.join("registry/src/index.crates.io-1949cf8c6b5b557f");
+        let api = index.join("api-0.1.0");
+        write_api_crate(&api, "\"1.2\"");
+        write(
+            &api.join("Cargo.lock"),
+            "version = 4\n\n[[package]]\nname = \"api\"\nversion = \"0.1.0\"\ndependencies = [\"dep_api\"]\n\n\
+             [[package]]\nname = \"dep_api\"\nversion = \"1.2.0\"\n\
+             source = \"registry+https://github.com/rust-lang/crates.io-index\"\n",
+        );
+        for version in ["1.2.3", "1.4.0", "2.0.0"] {
+            write_dep_api(
+                &index.join(format!("dep_api-{version}")),
+                &format!("\"{version}\""),
+            );
+        }
+        let bundle = load_with_cargo_home(&api, &cargo_home).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("dep_api".into(), 4)]
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }

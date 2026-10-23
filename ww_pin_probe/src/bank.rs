@@ -179,7 +179,10 @@ async fn collect_banks(
                 Box::pin(collect_banks(cmd, child, out, depth + 1)).await?
             }
             Ok(DynResourceKind::Array(item))
-                if matches!(item.kind, wire_weaver_client::ww_self::ApiItemKindOwned::Trait { .. }) =>
+                if matches!(
+                    item.kind,
+                    wire_weaver_client::ww_self::ApiItemKindOwned::Trait { .. }
+                ) =>
             {
                 let indices = child
                     .valid_indices(cmd)
@@ -249,13 +252,12 @@ impl Pins for BankPins {
                     .map_err(refused)
             }
             // GPIO has no weaker drive than its normal one: a weak drive is a normal one (weak_drive = false)
-            PointState::Output { level, .. } => {
-                pin.client
-                    .set_mode(Mode::PushPullOutput, Some(level))
-                    .call()
-                    .await
-                    .map_err(refused)
-            }
+            PointState::Output { level, .. } => pin
+                .client
+                .set_mode(Mode::PushPullOutput, Some(level))
+                .call()
+                .await
+                .map_err(refused),
             PointState::Unknown(_) => Err(PinError::Refused(PinDiagErrorOwned::NotCapable)),
         }
     }

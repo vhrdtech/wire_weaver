@@ -19,6 +19,8 @@ hsi = "hsi"
 ot = "ot"
 # SD card status AKE_SEQ_ERROR (authentication key exchange)
 ake = "ake"
+# the ratatui crate (terminal UI)
+ratatui = "ratatui"
 
 [default]
 # golden bytes of the conformance corpus (tests/conformance/corpus.json) are hex

@@ -666,7 +666,9 @@ mod tests {
             .unwrap();
         assert_eq!(banks.lock().unwrap()[1].pins[1].pull, Pull::Up);
 
-        live.command(&mut pins, None, Command::Release).await.unwrap();
+        live.command(&mut pins, None, Command::Release)
+            .await
+            .unwrap();
         let b = banks.lock().unwrap();
         assert_eq!(b[0].pins[2].mode, Mode::Input);
         assert_eq!(b[1].pins[1].pull, Pull::Down);

@@ -137,11 +137,7 @@ impl App {
         }
         let dim = Style::new().fg(Color::DarkGray);
         let held = self.live.held();
-        let mut top = format!(
-            "{} · {} points · ",
-            self.title,
-            self.live.points.len()
-        );
+        let mut top = format!("{} · {} points · ", self.title, self.live.points.len());
         top += &if self.paused {
             "reading paused".to_string()
         } else {
@@ -150,7 +146,14 @@ impl App {
         if self.live.weak {
             top += " · weak drive";
         }
-        put(buf, area, 0, 0, &top, Style::new().add_modifier(Modifier::BOLD));
+        put(
+            buf,
+            area,
+            0,
+            0,
+            &top,
+            Style::new().add_modifier(Modifier::BOLD),
+        );
         if held > 0 {
             let x = top.chars().count() as u16;
             let s = format!(" · {held} set, x releases");
@@ -272,14 +275,30 @@ impl App {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn draw_panel(&self, buf: &mut Buffer, body: Rect, panel: usize, x: u16, y: u16, w: u16, h: u16) {
+    fn draw_panel(
+        &self,
+        buf: &mut Buffer,
+        body: Rect,
+        panel: usize,
+        x: u16,
+        y: u16,
+        w: u16,
+        h: u16,
+    ) {
         let p = &self.layout.panels[panel];
         let border = Style::new().fg(Color::DarkGray);
         let at = |line: u16| line.checked_sub(self.scroll);
         let horizontal = "─".repeat(w.saturating_sub(2) as usize);
         if let Some(l) = at(y) {
             put(buf, body, x, l, &format!("┌{horizontal}┐"), border);
-            put(buf, body, x + 2, l, &format!(" {} ", escape(&p.title)), Style::new().fg(Color::Cyan));
+            put(
+                buf,
+                body,
+                x + 2,
+                l,
+                &format!(" {} ", escape(&p.title)),
+                Style::new().fg(Color::Cyan),
+            );
         }
         if let Some(l) = at(y + h - 1) {
             put(buf, body, x, l, &format!("└{horizontal}┘"), border);
@@ -298,7 +317,12 @@ impl App {
                 // a two-row header: the left row mirrored, so the marks sit next to each other as the pads do
                 let mirrored = cols == 2 && c == 0;
                 let cx = x + 1 + (c * (cw + 2)) as u16;
-                let selected = self.cursor == Some(Cursor { panel, row: r, col: c });
+                let selected = self.cursor
+                    == Some(Cursor {
+                        panel,
+                        row: r,
+                        col: c,
+                    });
                 self.draw_slot(buf, body, cx, l, widths, slot, mirrored, selected);
             }
         }
@@ -417,7 +441,12 @@ impl App {
                     b.connectors.iter().find(|k| &k.label == title)
                 })
                 .map_or("", |k| k.r#ref.as_str());
-            let mut s = format!("{}-{} {}", r#ref, pad.number, pad.name().unwrap_or("not connected"));
+            let mut s = format!(
+                "{}-{} {}",
+                r#ref,
+                pad.number,
+                pad.name().unwrap_or("not connected")
+            );
             if let Some(alias) = self.board.as_ref().and_then(|b| b.alias(pad)) {
                 s += &format!(" ({alias})");
             }
@@ -601,7 +630,10 @@ mod tests {
         // made-up net names show their alias: NetCN11_1 is VDD_TARGET
         assert!(lines[2].contains("│   1 VDD_TARGET │"), "{s}");
         assert!(s.contains("not on a connector"), "{s}");
-        assert!(lines[27].starts_with("CN7-1 PC10 · P0 PC10 [mcu] · reads low"), "{s}");
+        assert!(
+            lines[27].starts_with("CN7-1 PC10 · P0 PC10 [mcu] · reads low"),
+            "{s}"
+        );
 
         // drive PC11 high: PC12 on its net follows
         app.key(&mut b, key(KeyCode::Right)).await.unwrap();
@@ -620,7 +652,10 @@ mod tests {
         app.key(&mut b, key(KeyCode::Char('0'))).await.unwrap();
         let s = screen(&mut app, 200, 30);
         assert!(s.contains("PC13 drive low: in use by button"), "{s}");
-        assert!(s.contains("CN7-23 PC13 · shared B1 · P3 PC13 [mcu] · reads high"), "{s}");
+        assert!(
+            s.contains("CN7-23 PC13 · shared B1 · P3 PC13 [mcu] · reads high"),
+            "{s}"
+        );
 
         app.key(&mut b, key(KeyCode::Char('x'))).await.unwrap();
         assert_eq!(b.releases, 1);
@@ -630,7 +665,12 @@ mod tests {
     #[tokio::test]
     async fn without_a_preset_a_panel_per_group() {
         let mut b = nucleo_mock();
-        let mut app = App::new(b.host_points(), None, "PinDiag".into(), Duration::from_millis(100));
+        let mut app = App::new(
+            b.host_points(),
+            None,
+            "PinDiag".into(),
+            Duration::from_millis(100),
+        );
         app.refresh(&mut b).await.unwrap();
         let s = screen(&mut app, 80, 14);
         let lines: Vec<&str> = s.lines().collect();

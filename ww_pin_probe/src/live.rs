@@ -356,7 +356,7 @@ impl Live {
             Command::Drive(level) => self.output(level),
             Command::Toggle => {
                 let Some(id) = point else {
-                    return Ok(self.no_point());
+                    return self.no_point();
                 };
                 let s = &self.state[id as usize];
                 let now = match s.set {
@@ -371,7 +371,7 @@ impl Live {
             }
         };
         let Some(id) = point else {
-            return Ok(self.no_point());
+            return self.no_point();
         };
         match pins.set(id, state).await {
             Ok(()) => {
@@ -421,8 +421,9 @@ impl Live {
         PointState::Output { level, drive }
     }
 
-    fn no_point(&mut self) {
+    fn no_point(&mut self) -> Result<(), String> {
         self.message = Some((true, "no point of the device here".into()));
+        Ok(())
     }
 }
 

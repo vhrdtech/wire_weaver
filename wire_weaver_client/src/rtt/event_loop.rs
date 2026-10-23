@@ -4,9 +4,10 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, anyhow, bail};
+use probe_rs::config::MemoryRegion;
 use probe_rs::probe::DebugProbeInfo;
 use probe_rs::rtt::{Rtt, ScanRegion};
-use probe_rs::{Core, Permissions, Session};
+use probe_rs::{Core, MemoryInterface, Permissions, Session};
 use tokio::sync::mpsc;
 use tracing::{debug, trace, warn};
 use ww_link::{RttChecksum, RttHead, RttTail};
@@ -194,18 +195,26 @@ impl ProbeRtt {
 /// elsewhere, just the plain error.
 fn with_claim_hint(e: probe_rs::probe::DebugProbeError, info: &DebugProbeInfo) -> anyhow::Error {
     use probe_rs::probe::{DebugProbeError as E, ProbeCreationError as C};
-    let maybe_busy = matches!(e, E::ProbeCouldNotBeCreated(C::CouldNotOpen) | E::Usb(_));
-    if !maybe_busy {
-        return anyhow!("{e}");
+    // an ST-LINK claimed by another program is `ProbeCouldNotBeCreated(Usb(Busy))`
+    let maybe_busy = matches!(
+        e,
+        E::ProbeCouldNotBeCreated(C::CouldNotOpen | C::Usb(_)) | E::Usb(_)
+    );
+    let who = maybe_busy
+        .then(|| {
+            crate::holders::holder_of_usb_device(
+                info.vendor_id,
+                info.product_id,
+                info.serial_number.as_deref(),
+            )
+        })
+        .flatten();
+    // with its source: "The debug probe could not be created" alone doesn't say why
+    let e = anyhow::Error::new(e);
+    match who {
+        Some(who) => e.context(format!("the probe is held by {who}")),
+        None => e,
     }
-    if let Some(who) = crate::holders::holder_of_usb_device(
-        info.vendor_id,
-        info.product_id,
-        info.serial_number.as_deref(),
-    ) {
-        return anyhow!("{e}; held by {who}");
-    }
-    anyhow!("{e}")
 }
 
 fn control_block_address(cb: Option<RttControlBlock>) -> anyhow::Result<Option<u64>> {
@@ -230,13 +239,31 @@ fn control_block_address(cb: Option<RttControlBlock>) -> anyhow::Result<Option<u
     Ok(Some(address))
 }
 
-/// Retried for `retry_window` in case the firmware has just started, see [SCAN_RETRY_WINDOW].
+/// Retried for `retry_window` in case the firmware has just started, see [SCAN_RETRY_WINDOW]: also while the control
+/// block found has no `ww_up` / `ww_down` channels yet (a previous firmware's, left in RAM), the last one found is
+/// returned after that for [find] to name the channels it has.
 fn attach_rtt(core: &mut Core, region: &ScanRegion, retry_window: Duration) -> anyhow::Result<Rtt> {
     let started = Instant::now();
     let mut attempt = 1;
     loop {
-        match Rtt::attach_region(core, region) {
-            Ok(rtt) => return Ok(rtt),
+        let attached = match region {
+            ScanRegion::Ram => scan_ram(core),
+            region => Rtt::attach_region(core, region),
+        };
+        match attached {
+            Ok(mut rtt) => {
+                if has_ww_channels(&mut rtt)
+                    || (attempt >= MIN_ATTACH_ATTEMPTS && started.elapsed() >= retry_window)
+                {
+                    return Ok(rtt);
+                }
+                trace!(
+                    "RTT control block at {:#010x} without WireWeaver channels, attempt {attempt}",
+                    rtt.ptr()
+                );
+                attempt += 1;
+                std::thread::sleep(Duration::from_millis(50));
+            }
             Err(e) => {
                 // RTT is not in the firmware at all, no point in retrying
                 let retry = !matches!(e, probe_rs::rtt::Error::NoControlBlockLocation)
@@ -257,6 +284,56 @@ fn attach_rtt(core: &mut Core, region: &ScanRegion, retry_window: Duration) -> a
             }
         }
     }
+}
+
+/// probe-rs's `ScanRegion::Ram` takes the first control block of each RAM region, but a region may hold several: the
+/// one of the firmware that ran before a flash stays in RAM until overwritten, and can come first. Every one found is
+/// attached to, and the first with WireWeaver's channels wins (else the first that attached).
+fn scan_ram(core: &mut Core) -> Result<Rtt, probe_rs::rtt::Error> {
+    let ranges: Vec<_> = core
+        .memory_regions()
+        .filter_map(MemoryRegion::as_ram_region)
+        .filter(|r| !r.is_alias)
+        .map(|r| r.range.clone())
+        .collect();
+    let mut candidates = vec![];
+    for range in ranges {
+        let Ok(len) = usize::try_from(range.end - range.start) else {
+            continue;
+        };
+        let mut mem = vec![0; len];
+        core.read(range.start, &mut mem)?;
+        candidates.extend(
+            mem.windows(Rtt::RTT_ID.len())
+                .enumerate()
+                .filter(|(_, w)| *w == Rtt::RTT_ID)
+                .map(|(offset, _)| range.start + offset as u64),
+        );
+    }
+    let mut first = None;
+    for ptr in candidates {
+        match Rtt::attach_at(core, ptr) {
+            Ok(mut rtt) => {
+                if has_ww_channels(&mut rtt) {
+                    return Ok(rtt);
+                }
+                debug!("RTT control block at {ptr:#010x} has no WireWeaver channels");
+                first.get_or_insert(rtt);
+            }
+            Err(e) => debug!("no RTT control block at {ptr:#010x}: {}", first_line(&e)),
+        }
+    }
+    first.ok_or(probe_rs::rtt::Error::ControlBlockNotFound)
+}
+
+fn has_ww_channels(rtt: &mut Rtt) -> bool {
+    rtt.up_channels()
+        .iter()
+        .any(|c| c.name() == Some(UP_CHANNEL))
+        && rtt
+            .down_channels()
+            .iter()
+            .any(|c| c.name() == Some(DOWN_CHANNEL))
 }
 
 /// probe-rs appends several lines of hints to some errors, first one is the error itself

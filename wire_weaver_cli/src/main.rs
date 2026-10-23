@@ -6,6 +6,8 @@ use crate::cmd::tap::{Attached, Layer, LiveTap};
 use crate::device::Selection;
 use anyhow::{Context, Result, anyhow};
 use clap::FromArgMatches;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 use wire_weaver_client::{ClientMeta, DynClient};
 
 mod api_tree;
@@ -52,7 +54,16 @@ async fn run() -> Result<()> {
         }
         _ => tracing::Level::INFO.into(),
     };
-    tracing_subscriber::fmt().with_max_level(max_level).init();
+    // probe-rs says what it does with the probe (`Halting core 0...`) at INFO, `--rtt` shows its warnings only
+    let probe_rs_level = max_level.min(tracing::Level::WARN.into());
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::filter::Targets::new()
+                .with_default(max_level)
+                .with_target("probe_rs", probe_rs_level),
+        )
+        .init();
     cli.check_tap()?;
     if let Commands::Explain(args) = &cli.command {
         args.check()?;

@@ -199,7 +199,15 @@ pub async fn take(key: &str) -> anyhow::Result<()> {
         .connect()
         .await
         .context("connecting to the ww hub")?;
-    match hub.registry().take(key.to_string()).call().await {
+    // the hub opens the device before it answers: over RTT a RAM scan and a link setup of up to 10 s
+    let opening = crate::event_loop::transport::link_setup_timeout::RTT + Duration::from_secs(5);
+    match hub
+        .registry()
+        .take(key.to_string())
+        .with_timeout(opening)
+        .call()
+        .await
+    {
         Ok(()) => Ok(()),
         Err(e) if e.is_unimplemented() => anyhow::bail!(
             "the running ww hub can't take devices yet (it doesn't open devices, SRV-29)"

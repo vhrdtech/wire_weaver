@@ -1462,6 +1462,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   are the same text; SIGINT and SIGTERM end a flagged command or `ww monitor` / `capture` / `stats` with the
   capture finished, synced and renamed; `ww explain` of a path-like WHAT that is no file says so without
   connecting.
+- 🧪 **TOOL-21 `ww pins tui`** · `v0.5.x` — every point live, laid out per connector of a board preset
+  (`docs/cli_reference.md#ww-pins-tui`): level and what was set on each pad, keys to drive, toggle, pull, weak
+  drive, read all, release, pause; every point released on quit, signals and errors. The preset is boardmap's board
+  description read as it is (`[[view.connector]]`, `[aliases]`, `[pins]` roles, pads from its geometry JSON, nets
+  joined across fitted solder bridges), no dependency on embedded_bedrock; a preset for ww alone lists nets per
+  connector. Devices with `ww_gpio` banks and no `PinDiag` are shown through the banks (modes and pulls put back on
+  release). Library `ww_pin_probe::board`, `live`, `bank`; tests on `MockBoard` with the NUCLEO-G0B1RE preset
+  (`wire_weaver_cli` `cmd::pins_tui`) and over banks end to end (`tests/io_gpio`). Hardware check open: the Nucleo
+  G0B1RE once its firmware serves `PinDiag`. Skill tree signal and skill: tpm P2618#23oct-1334.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
   server UI. See `docs/dev_tool.md`.

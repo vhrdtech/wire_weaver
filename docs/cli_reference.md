@@ -831,6 +831,76 @@ Point names complete live from the device (selected by env variables and `ww.tom
 string ids ([`ww_interned`](std_library/ww_pin_diag.md#ww_interned)) show as `#17` and are selected that way; looking
 them up in the firmware's ELF is pending (STD-48).
 
+### `ww pins tui`
+
+Every point of the device live, laid out per connector of a board preset: each pad shows the level read
+(`●` high, `○` low, `×` refused) and what was set on it (`▲` `▼` driving high or low, `↑` `↓` pull-up or pull-down,
+`→` input). All points are read every `--interval-ms` (250 by default); the line at the bottom tells the pad, its
+alias and board role, the point, its level, state and caps, and what the last key did or why the firmware refused.
+
+```
+PinDiag at (root) · NUCLEO-G0B1RE · 6 points · read every 250 ms · 1 set, x releases
+┌─ CN7 ST morpho ──────────────────────┐ ┌─ CN11 SWD out ─┐ ┌─ CN6 power ─┐ ...
+│        PC10  1  ○  ●▲  2 PC11        │ │   1 VDD_TARGET │ │   1 NC      │
+│        PC12  3  ●      4 PD2         │ │   2 SWCLK      │ │   2 3V3     │
+│         VDD  5         6 E5V         │ │   3 GND        │ │   3 PF2     │
+```
+
+| Key | What it does |
+|-----|--------------|
+| arrows, `h` `j` `k` `l` | Move; across a connector's edge into the next one on the board |
+| `Tab`, `Shift+Tab` | Next / previous connector |
+| `1`, `0` | Drive high / low (weakly after `w`) |
+| `t`, space | Toggle: drive the opposite of what it drives or reads |
+| `u`, `d`, `n` | Input with pull-up, pull-down, no pull |
+| `w` | Weak drive on / off for the drives that follow |
+| `r` | Read all now |
+| `x` | Release all: every point back to its function |
+| `p` | Pause / resume reading |
+| `q`, `Esc`, `Ctrl+C` | Quit; every point is released, also on a signal or an error |
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--board FILE` | | Board preset, see below; without one a panel per group of points |
+| `--at PATH` | | Where `PinDiag` is in the device's API, when it has more than one |
+| `--interval-ms N` | `250` | How often all points are read |
+| `--gpio` | | The pins of the device's `ww_gpio` banks, also when it serves `PinDiag` |
+
+A device without `PinDiag` but with [`ww_gpio`](std_library/ww_gpio.md) banks is shown through them: every pin of
+every bank (arrays by their valid indices) is a point, named as its capabilities name it or by bank and index
+(`PA3`), with the bank as its group. A pin's mode and pull are saved when it is first set and put back on release;
+the device's GPIO has no board rules, so nothing stops a drive the board can't take: that is what `PinDiag` is for.
+Both work over whatever link `ww` connects through.
+
+The preset is a board description of boardmap (embedded_bedrock's `bedrock_board`), read as it is: from it `ww`
+takes `[board] name` and `geometry`, the connectors of `[[view.connector]]` (`ref`, `label`), `[aliases]` and
+`[pins]` (`role` free, shared, taken or function; `short`; `note`), and leaves the rest to boardmap. The pads, their
+numbers, positions and nets come from the geometry JSON next to it, so each connector is drawn as it sits on the
+board, connectors one above the other in one column; a fitted solder bridge (an `SB*` footprint whose value says
+`ON`) joins two nets, so a header pin on `NetCN7_38` is `PB12` with SB3 on. A pad shows the device's point named like
+its net (or a joined net), else like the net's alias or its first word (`D13` for `PA5 = "D13 SCK"`); points on no
+pad are listed in a panel of their own. Pins the preset marks taken or function are drawn red, shared yellow,
+pads without a point dim.
+
+A preset for `ww` alone may leave the geometry out and list each connector's nets by pin number:
+
+```toml
+[board]
+name = "my board"
+
+[[view.connector]]
+ref = "J1"
+label = "J1 expansion"
+columns = 2                     # pads per row, pin 1 top left
+nets = ["PA0", "PA1", "GND", "3V3", "PB5", ""]   # "" for a pad without a net
+
+[aliases]
+PB5 = "LED"
+
+[pins]
+PA0 = { role = "shared", short = "BTN", note = "Button to GND, 10k pull-up" }
+```
+
 ## `ww elf`
 
 The ELF directory (`~/.cache/ww/elf`, or the ones in `WW_ELF_PATH`), where firmware ELFs are found by build id for

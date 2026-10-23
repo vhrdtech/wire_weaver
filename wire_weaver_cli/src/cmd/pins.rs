@@ -13,7 +13,8 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use wire_weaver_client::DynClient;
 use ww_pin_probe::board::Board;
-use ww_pin_probe::device::{DevicePins, Names, location_name};
+use ww_pin_probe::bank::BankPins;
+use ww_pin_probe::device::{DevicePins, Names, location_name, locations};
 use ww_pin_probe::plan::{self, Plan};
 use ww_pin_probe::probe::{Check, Report, Setup, Stopped, run};
 use ww_pin_probe::select::select;
@@ -42,6 +43,9 @@ pub(crate) enum PinsCommand {
 
     /// Every point live, laid out per connector from a board preset: drive, pull, read, release
     ///
+    /// The points of PinDiag, or the pins of the device's ww_gpio banks when it has no PinDiag (or with --gpio):
+    /// then each pin's mode and pull are saved when it is first set and put back on release.
+    ///
     /// Reads all points every --interval-ms and shows each on its pad: ● high, ○ low, × refused; what was set
     /// next to it: ▲ ▼ driving high or low, ↑ ↓ pull-up or pull-down, → input. Keys: arrows or hjkl move, Tab the
     /// next connector, 1 / 0 drive high / low, t toggle, u / d / n input with pull-up / pull-down / none, w weak
@@ -68,6 +72,10 @@ pub(crate) struct TuiArgs {
     /// How often all points are read, ms
     #[arg(long, default_value_t = 250)]
     interval_ms: u64,
+
+    /// The pins of the device's ww_gpio banks, also when it serves PinDiag (without PinDiag they are used anyway)
+    #[arg(long, conflicts_with = "at")]
+    gpio: bool,
 }
 
 #[derive(Args)]
@@ -132,14 +140,23 @@ async fn tui(args: TuiArgs, device: &DynClient) -> Result<()> {
         bail!("ww pins tui needs a terminal; 'ww pins list' and 'ww pins test' work in a pipe");
     }
     let stop = StopSignal::install();
-    let (mut pins, points) = open(device, args.at.as_deref()).await?;
-    let mut title = format!("PinDiag at {}", location_name(&pins.at));
-    if let Some(b) = &board {
-        title += &format!(" · {}", escape(&b.name));
-    }
     let interval = std::time::Duration::from_millis(args.interval_ms.max(10));
-    let mut app = pins_tui::App::new(points, board, title, interval);
-    pins_tui::run(&mut app, &mut pins, stop).await
+    let with_board = |title: String| match &board {
+        Some(b) => format!("{title} · {}", escape(&b.name)),
+        None => title,
+    };
+    let pin_diag = !args.gpio && (args.at.is_some() || !locations(device)?.is_empty());
+    if pin_diag {
+        let (mut pins, points) = open(device, args.at.as_deref()).await?;
+        let title = with_board(format!("PinDiag at {}", location_name(&pins.at)));
+        let mut app = pins_tui::App::new(points, board, title, interval);
+        pins_tui::run(&mut app, &mut pins, stop).await
+    } else {
+        let (mut pins, points) = BankPins::find(device).await?;
+        let title = with_board("GPIO banks (modes put back on release, no board rules)".into());
+        let mut app = pins_tui::App::new(points, board, title, interval);
+        pins_tui::run(&mut app, &mut pins, stop).await
+    }
 }
 
 async fn open(device: &DynClient, at: Option<&str>) -> Result<(DevicePins, Vec<Point>)> {

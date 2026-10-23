@@ -618,4 +618,57 @@ mod tests {
         }
         events.close().await.unwrap();
     }
+
+    /// What `ww pins tui` does on a device with GPIO banks and no PinDiag: every pin a point, found through the
+    /// introspection data, driven and read through `ww_pin_probe::live`, modes and pulls put back on release.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn pins_view_over_banks() {
+        use wire_weaver_client::{ClientConfig, DynClient};
+        use ww_pin_probe::bank::BankPins;
+        use ww_pin_probe::live::{Command, Live};
+
+        let (device, banks) = start("io_gpio/pins_view_over_banks");
+        banks.lock().unwrap()[1].pins[1].pull = Pull::Down;
+        let client = DynClient::from_config(ClientConfig::new().in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect");
+        let (mut pins, points) = BankPins::find(&client).await.unwrap();
+        // every mock pin calls itself "pin": named by bank and index instead
+        let names: Vec<(&str, &str)> = points
+            .iter()
+            .map(|p| (p.name.as_str(), p.group.as_str()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                ("PA0", "PA"),
+                ("PA1", "PA"),
+                ("PA2", "PA"),
+                ("PA3", "PA"),
+                ("PB0", "PB"),
+                ("PB1", "PB")
+            ]
+        );
+        assert!(points[0].caps.drive_high && points[0].caps.pull_up && !points[0].caps.weak_drive);
+
+        let mut live = Live::new(points);
+        live.read_all(&mut pins).await.unwrap();
+        assert_eq!(live.state[2].level, Some(Level::Low));
+        live.command(&mut pins, Some(2), Command::Drive(Level::High))
+            .await
+            .unwrap();
+        // the mock loops its output back to its input
+        assert_eq!(live.state[2].level, Some(Level::High));
+        assert_eq!(banks.lock().unwrap()[0].pins[2].mode, Mode::PushPullOutput);
+        live.command(&mut pins, Some(5), Command::Input(Pull::Up))
+            .await
+            .unwrap();
+        assert_eq!(banks.lock().unwrap()[1].pins[1].pull, Pull::Up);
+
+        live.command(&mut pins, None, Command::Release).await.unwrap();
+        let b = banks.lock().unwrap();
+        assert_eq!(b[0].pins[2].mode, Mode::Input);
+        assert_eq!(b[1].pins[1].pull, Pull::Down);
+    }
 }

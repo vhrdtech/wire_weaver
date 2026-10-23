@@ -16,5 +16,6 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
+ww_pin_probe.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }

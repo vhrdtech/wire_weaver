@@ -173,7 +173,7 @@ fn load_bundle(args: &ExplainArgs, device: Option<&DynClient>) -> Result<ApiBund
         return wire_weaver_core::load(path, args.trait_name.clone(), false);
     }
     if let Some(path) = &args.bundle {
-        return crate::cmd::api::check::parse(path);
+        return wire_weaver_evolution::snapshot_files::parse(path).map_err(|e| anyhow!(e));
     }
     let device = device.ok_or_else(|| anyhow!("no device, and neither --crate nor --bundle"))?;
     Ok(device

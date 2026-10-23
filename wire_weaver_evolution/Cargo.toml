@@ -1,0 +1,25 @@
+[package]
+name = "wire_weaver_evolution"
+version.workspace = true
+authors.workspace = true
+description = "WireWeaver evolution checker: compares an API crate with its saved snapshots and tells which version position to bump."
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+default = ["source"]
+# parse API crates from source (wire_weaver_core) and check them against their api_snapshots/
+source = ["dep:wire_weaver_core"]
+
+[dependencies]
+ron.workspace = true
+shrink_wrap = { workspace = true, features = ["std"] }
+wire_weaver_core = { workspace = true, optional = true }
+wire_weaver_snapshots.workspace = true
+ww_numeric = { workspace = true, features = ["std"] }
+ww_self = { workspace = true, features = ["std", "serde"] }
+ww_version = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+wire_weaver_core.workspace = true

@@ -129,6 +129,10 @@ pub enum ApiCommand {
         /// Compare with this snapshot instead of the latest one saved in the crate
         #[arg(long, value_hint = ValueHint::FilePath)]
         against: Option<PathBuf>,
+
+        /// Fail if there is no snapshot to compare with, instead of passing unchecked
+        #[arg(long)]
+        strict: bool,
     },
     /// List every change made since the latest saved snapshot, doc comments included
     ///
@@ -204,7 +208,11 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             output,
         ),
         ApiCommand::Save { path, force } => save::save(path, force),
-        ApiCommand::Check { path, against } => check::check(path, against),
+        ApiCommand::Check {
+            path,
+            against,
+            strict,
+        } => check::check(path, against, strict),
         ApiCommand::Diff { path, against } => diff::diff(path, against),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }

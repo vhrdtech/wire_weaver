@@ -71,6 +71,7 @@ tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
 tokio-tungstenite = { version = "0.30", optional = true }
 tracing = "0.1"
 wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_evolution.workspace = true
 wire_weaver_snapshots.workspace = true
 ww_client_server = { workspace = true, features = ["std"] }
 ww_date_time = { workspace = true, features = ["std"], optional = true } # used by codegen of the Clock client, not by name

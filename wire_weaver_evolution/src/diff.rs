@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use wire_weaver::shrink_wrap::ElementSize;
+use shrink_wrap::ElementSize;
 use ww_self::errors::fmt_error_list;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, Delivery,

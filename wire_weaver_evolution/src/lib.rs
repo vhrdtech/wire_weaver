@@ -12,12 +12,24 @@
 //! Resources are matched by id inside each trait, traits and types by name.
 //!
 //! [diff] lists every difference instead, doc comments included, without classifying them.
+//!
+//! With the default `source` feature, [Check] parses an API crate from source and compares it with the snapshots in
+//! its `api_snapshots/`, as `ww api check` does. An API crate runs it from a test of its own, so its lock file pins
+//! the checker and `cargo test`, CI and a pre-commit hook all check the same way:
+//!
+//! ```no_run
+//! // tests/evolution.rs of an API crate
+//! #[test]
+//! fn api_evolution() {
+//!     wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR")).strict(true).assert();
+//! }
+//! ```
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
-use wire_weaver::shrink_wrap::{ElementSize, SerializeShrinkWrapOwned};
+use shrink_wrap::{ElementSize, SerializeShrinkWrapOwned};
 use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
@@ -27,10 +39,19 @@ use ww_self::{
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
 use crate::compat::{Bounds, TypeCheck, compare_items, field_name, fields};
-use crate::layout;
 
+#[cfg(feature = "source")]
+mod check;
+pub mod compat;
 mod diff;
+mod layout;
+mod rule;
+pub mod snapshot_files;
+
+#[cfg(feature = "source")]
+pub use check::{Check, Comparison, NoSnapshot, Outcome};
 pub use diff::{Difference, diff};
+pub use rule::{Finding, Rule};
 
 const OLD: &str = "old version";
 const NEW: &str = "new version";
@@ -95,8 +116,8 @@ pub struct Report {
     pub old: FullVersionOwned,
     pub new: FullVersionOwned,
     pub change: Change,
-    /// Why the change is breaking, empty if it isn't.
-    pub breaking: Vec<String>,
+    /// Why the change is breaking, with the rule each change breaks; empty if it isn't.
+    pub breaking: Vec<Finding>,
     /// Additions and other compatible changes found.
     pub compatible: Vec<String>,
     /// Not affecting the verdict, e.g. an added resource without `#[since]`.
@@ -194,7 +215,7 @@ pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, Str
 struct Checker<'a> {
     old: &'a ApiBundleOwned,
     new: &'a ApiBundleOwned,
-    breaking: Vec<String>,
+    breaking: Vec<Finding>,
     compatible: Vec<String>,
     warnings: Vec<String>,
     old_version: (u32, u32, u32),
@@ -202,13 +223,17 @@ struct Checker<'a> {
 }
 
 impl<'a> Checker<'a> {
+    fn breaks(&mut self, rule: Rule, message: String) {
+        self.breaking.push(Finding::new(rule, message));
+    }
+
     fn compare_traits(&mut self) {
         let old_traits = own_traits(self.old);
         let new_traits = own_traits(self.new);
         for (name, old_level) in &old_traits {
             match new_traits.get(name) {
                 Some(new_level) => self.compare_levels(name, old_level, new_level),
-                None => self.breaking.push(format!("trait {name} removed")),
+                None => self.breaks(Rule::Removed, format!("trait {name} removed")),
             }
         }
         for name in new_traits.keys() {
@@ -221,12 +246,12 @@ impl<'a> Checker<'a> {
     fn compare_levels(&mut self, name: &str, old: &'a ApiLevelOwned, new: &'a ApiLevelOwned) {
         // ww_global ids (API-20): hosts and devices of both versions must mean the same trait by the same number
         match (old.compact_id, new.compact_id) {
-            (Some(old_id), Some(new_id)) if old_id != new_id => self.breaking.push(format!(
+            (Some(old_id), Some(new_id)) if old_id != new_id => self.breaks(Rule::GlobalId, format!(
                 "trait {name}: ww_global id changed from {} to {} (ids never change, a renamed trait keeps its id \
                  through `aliases` in wire_weaver_gid.json)",
                 old_id.0, new_id.0
             )),
-            (Some(old_id), None) => self.breaking.push(format!(
+            (Some(old_id), None) => self.breaks(Rule::GlobalId, format!(
                 "trait {name}: ww_global id {} gone (ids are never removed, a removed trait is marked `retired`)",
                 old_id.0
             )),
@@ -245,27 +270,30 @@ impl<'a> Checker<'a> {
         for old_item in &old.items {
             let path = format!("{name}::{}", old_item.ident);
             let Some(new_item) = new_items.get(&old_item.id.0) else {
-                self.breaking.push(format!("{path} removed"));
+                self.breaks(Rule::Removed, format!("{path} removed"));
                 continue;
             };
             if old_item.ident != new_item.ident {
                 if let Some(moved) = new.items.iter().find(|i| i.ident == old_item.ident) {
-                    self.breaking.push(format!(
+                    self.breaks(Rule::Moved, format!(
                         "{path} moved from id {} to {} (resources are identified by position, add new ones at the end)",
                         old_item.id.0, moved.id.0
                     ));
                     continue;
                 }
-                self.breaking.push(format!(
-                    "{path} renamed to {} (wire-compatible, but breaks Rust code)",
-                    new_item.ident
-                ));
+                self.breaks(
+                    Rule::Renamed,
+                    format!(
+                        "{path} renamed to {} (wire-compatible, but breaks Rust code)",
+                        new_item.ident
+                    ),
+                );
             }
             // both ways: old client with a new server, and new client with an old server; a lowered max length
             // breaks what the old version writes, a raised one is compatible
             let mut bounds = Bounds {
                 strict_writer: Some(self.old),
-                narrower: vec![],
+                ..Bounds::default()
             };
             let result = compare_items(
                 (self.old, old_item, OLD),
@@ -280,7 +308,12 @@ impl<'a> Checker<'a> {
                 )
             });
             if let Err(e) = result {
-                self.breaking.push(format!("{path}: {e}"));
+                let rule = if bounds.lowered {
+                    Rule::MaxLen
+                } else {
+                    Rule::Resource
+                };
+                self.breaks(rule, format!("{path}: {e}"));
             }
             self.bounds_raised(&path, bounds.narrower);
             self.compare_error_lists(&path, old_item, new_item);
@@ -384,7 +417,7 @@ impl<'a> Checker<'a> {
                 "{path}: made {} (a device may leave it out, a client gets Unimplemented)",
                 group(&o.group)
             )),
-            (Some(_), None) => self.breaking.push(format!(
+            (Some(_), None) => self.breaks(Rule::Optional, format!(
                 "{path}: no longer #[optional] (a server leaving it out with omit = [..] no longer compiles)"
             )),
             (Some(o), Some(n)) if o.group == n.group => {}
@@ -392,7 +425,7 @@ impl<'a> Checker<'a> {
                 "{path}: #[optional] became {} (omit by its name still works)",
                 group(&n.group)
             )),
-            (Some(o), Some(n)) => self.breaking.push(format!(
+            (Some(o), Some(n)) => self.breaks(Rule::Optional, format!(
                 "{path}: {} became {} (a server leaving out its group with omit = [..] no longer leaves it out)",
                 group(&o.group),
                 group(&n.group)
@@ -405,17 +438,22 @@ impl<'a> Checker<'a> {
         let new_types = own_types(self.new);
         for (name, old_ty) in &old_types {
             let Some(new_ty) = new_types.get(name) else {
-                self.breaking.push(format!("type {name} removed"));
+                self.breaks(Rule::Removed, format!("type {name} removed"));
                 continue;
             };
             // written by the old version and read by the new one, and the other way around
+            let mut old_to_new = TypeCheck::new(self.old, self.new, OLD, NEW).strict_bounds(true);
             let mut new_to_old = TypeCheck::new(self.new, self.old, NEW, OLD);
-            let result = TypeCheck::new(self.old, self.new, OLD, NEW)
-                .strict_bounds(true)
+            let result = old_to_new
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));
             if let Err(e) = result {
-                self.breaking.push(e);
+                let rule = if old_to_new.lowered {
+                    Rule::MaxLen
+                } else {
+                    Rule::Type
+                };
+                self.breaks(rule, e);
             }
             self.bounds_raised(&format!("type {name}"), new_to_old.narrower);
             self.compare_idents(name, old_ty, new_ty);
@@ -454,7 +492,7 @@ impl<'a> Checker<'a> {
                     {
                         Some(old_variant) => {
                             if old_variant.ident != new_variant.ident {
-                                self.breaking.push(format!(
+                                self.breaks(Rule::Renamed, format!(
                                     "{name}::{} renamed to {} (wire-compatible, but breaks Rust code)",
                                     old_variant.ident, new_variant.ident
                                 ));
@@ -485,9 +523,10 @@ impl<'a> Checker<'a> {
         // Unit -> Named is fine as long as all the new fields have defaults, which is checked for the wire
         let (old_kind, new_kind) = (kind(old), kind(new));
         if old_kind != new_kind && !matches!(old, FieldsOwned::Unit) {
-            self.breaking.push(format!(
-                "{name}: {old_kind} changed to {new_kind} (breaks Rust code)"
-            ));
+            self.breaks(
+                Rule::FieldKind,
+                format!("{name}: {old_kind} changed to {new_kind} (breaks Rust code)"),
+            );
             return;
         }
         let (old, new) = (fields(old), fields(new));
@@ -511,11 +550,14 @@ impl<'a> Checker<'a> {
         }
         for (i, (old_field, new_field)) in old.iter().zip(new).enumerate() {
             if old_field.ident != new_field.ident {
-                self.breaking.push(format!(
-                    "{name}: field {} renamed to {} (wire-compatible, but breaks Rust code)",
-                    field_name(i, old_field),
-                    field_name(i, new_field)
-                ));
+                self.breaks(
+                    Rule::Renamed,
+                    format!(
+                        "{name}: field {} renamed to {} (wire-compatible, but breaks Rust code)",
+                        field_name(i, old_field),
+                        field_name(i, new_field)
+                    ),
+                );
             }
         }
         for (i, new_field) in new.iter().enumerate().skip(old.len()) {
@@ -629,7 +671,7 @@ fn suggest(old: &VersionOwned, required: Bump) -> VersionOwned {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "source"))]
 mod tests {
     use super::*;
     use std::path::PathBuf;
@@ -637,7 +679,7 @@ mod tests {
     /// Load a crate bundle from source, as `ww api save` would, by writing a throwaway crate.
     fn load(version: &str, lib_rs: &str) -> ApiBundleOwned {
         let dir: PathBuf = std::env::temp_dir()
-            .join("ww_client_evolution_tests")
+            .join("ww_evolution_tests")
             .join(format!(
                 "{version}-{}-{:?}",
                 std::process::id(),
@@ -678,7 +720,7 @@ mod tests {
             let mut bundle = load("0.1.0", API);
             for location in &mut bundle.traits {
                 if let ApiLevelLocationOwned::InLine { level, .. } = location {
-                    level.compact_id = id.map(wire_weaver::shrink_wrap::UNib32);
+                    level.compact_id = id.map(shrink_wrap::UNib32);
                 }
             }
             bundle
@@ -915,9 +957,10 @@ mod tests {
         let report = self::report(API, &new);
         assert_eq!(
             report.breaking,
-            [
+            [Finding::new(
+                Rule::Moved,
                 "Api::set moved from id 1 to 2 (resources are identified by position, add new ones at the end)"
-            ]
+            )]
         );
     }
 
@@ -1372,7 +1415,7 @@ mod tests {
     #[test]
     fn embedded_snapshots_evolve_correctly() {
         let mut by_crate: HashMap<&str, Vec<&ApiBundleOwned>> = HashMap::new();
-        for (version, bundle) in crate::snapshots::all() {
+        for (version, bundle) in wire_weaver_snapshots::all() {
             by_crate.entry(&version.crate_id).or_default().push(bundle);
         }
         for bundles in by_crate.values_mut() {

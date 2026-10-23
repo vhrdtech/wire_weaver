@@ -358,6 +358,7 @@ version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
+ "wire_weaver_evolution",
 ]
 
 [[package]]
@@ -5906,6 +5907,7 @@ dependencies = [
  "wire_weaver",
  "wire_weaver_client",
  "wire_weaver_core",
+ "wire_weaver_evolution",
  "wire_weaver_snapshots",
  "ww_client_server",
  "ww_counters",
@@ -5951,6 +5953,7 @@ dependencies = [
  "windows-sys 0.61.2",
  "wire_weaver",
  "wire_weaver_core",
+ "wire_weaver_evolution",
  "wire_weaver_snapshots",
  "ww_client_server",
  "ww_date_time",
@@ -6010,6 +6013,19 @@ dependencies = [
  "syn 3.0.3",
  "wire_weaver_core",
  "ww_global",
+]
+
+[[package]]
+name = "wire_weaver_evolution"
+version = "0.5.0"
+dependencies = [
+ "ron",
+ "shrink_wrap",
+ "wire_weaver_core",
+ "wire_weaver_snapshots",
+ "ww_numeric",
+ "ww_self",
+ "ww_version",
 ]
 
 [[package]]

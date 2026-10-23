@@ -17,14 +17,14 @@ pub mod envelope;
 mod error;
 mod error_list;
 pub(crate) mod event_loop;
-pub mod evolution;
+/// The evolution checker, now its own crate (EVO-11): `wire_weaver_evolution`.
+pub use wire_weaver_evolution as evolution;
 pub mod expr;
 pub mod follow;
 pub mod holders;
 pub mod hub;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;
-mod layout;
 mod local_registry;
 pub mod quantity;
 pub mod tap;

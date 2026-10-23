@@ -1353,13 +1353,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   an error with both signatures and the fix. Rust client, `ww` and Python (`docs/std_library/ww_self.md`,
   `wire_weaver_client` `compat::tests::other_revision`). `#[cfg]` enum variants don't change signatures
   (`tests/cfg_variants`).
+- ✅ **EVO-11 Evolution check at commit time** — the checker is its own light crate, `wire_weaver_evolution` (parses
+  the API crate from source, no client, tokio or probe-rs), which an API crate runs from its own `tests/evolution.rs`
+  (`Check::new(env!("CARGO_MANIFEST_DIR")).strict(true).assert()`), so its lock file pins the checker and
+  `cargo test`, CI and a pre-commit hook check the same way. Strict mode fails a crate without snapshots, naming the
+  `ww api save` to run; every breaking change names the rule it breaks with its docs section, and a failed check the
+  version to bump to. `ww api check --strict` runs the same library. Template setup (test, just recipes, CI step,
+  pre-commit hook) in `docs/evolution/checker_tool.md#checking-at-every-commit`; `examples/blinky_api` does it.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
 - 📋 **EVO-10 Checker knows the `Unknown(u32)` catch-all** — the evolution checker (`ww api save` / `check`,
-  `wire_weaver_client::compat::check_enum`) reports a variant appended to an `Unsized` enum as breaking ("variant
+  `wire_weaver_evolution::compat::check_enum`) reports a variant appended to an `Unsized` enum as breaking ("variant
   Host is unknown to the old version"), although since SW-47 an older reader gets it as `Unknown(n)`, as
   `docs/evolution/rules.md` says. The `ww_self` model doesn't record whether an enum has the catch-all
   (`no_future_version` or not): needs a defaulted field on `ItemEnum` set by codegen, the checker and the

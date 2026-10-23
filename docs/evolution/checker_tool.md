@@ -24,7 +24,8 @@ $ ww api check my_device_api    # after changing the crate and bumping its versi
 
 The snapshot used is the newest one of the same crate with a version not newer than the one in `Cargo.toml`, so it is
 the snapshot of the current version if it was already saved, and of the previous version otherwise. `--against <file>`
-compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet.
+compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet, unless `--strict` is given:
+then a crate without a snapshot fails, naming the `ww api save` to run.
 
 `<path>` can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
 check snapshots that were saved with `--force`.
@@ -32,6 +33,84 @@ check snapshots that were saved with `--force`.
 `ww api save` runs the same check before saving a snapshot of a new version, and refuses to save it if the version
 is not bumped enough (`--force` saves anyway). So in a crate that has snapshots of all of its published versions,
 every new snapshot is checked against the previous one.
+
+A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
+version to put into `Cargo.toml`:
+
+```
+$ ww api check examples/blinky_api
+blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -> 0.1.0 (source): breaking changes
+  breaking: BlinkyApi::led_off removed
+      rule: traits, resources and types are never removed, clients and code using them break (docs/evolution/rules.md#api)
+Error: blinky_api 0.1.0 -> 0.1.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
+blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron), so it is released and never changes: a change needs a new version.
+Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
+```
+
+## Checking at every commit
+
+The checker is a library, `wire_weaver_evolution`, which parses the crate from source like `ww api check` does and
+needs neither the client nor a device. An API crate runs it from a test of its own, so the version of the checker is
+the one its lock file pins, and `cargo test`, CI and a pre-commit hook all check the same way, with nothing to
+install. `examples/blinky_api` is set up like this.
+
+In the API crate, a dev-dependency and `tests/evolution.rs`:
+
+```toml
+[dev-dependencies]
+wire_weaver_evolution = "0.5"
+```
+
+```rust
+#[test]
+fn api_evolution() {
+    wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR"))
+        .strict(true)
+        .assert();
+}
+```
+
+`strict(true)` makes the test fail while the crate has no snapshot at all, so a project can't forget to start: save
+the first one with `ww api save my_device_api` and commit `api_snapshots/`. From then on the test fails when the API
+changed without the version bump the change needs, printing the same report as `ww api check`. Bump the version
+while you work on the next release, and save its snapshot when you release it.
+
+Recipes in the project's `justfile`, `api-check` to run it on its own, `api-save` to record a release, `setup` to turn
+on the hook below:
+
+```just
+# compare the API with its snapshots: fails on a change without the version bump it needs
+api-check:
+    cargo test -p my_device_api --test evolution
+
+# record the released version of the API, commit api_snapshots/ with the release
+api-save:
+    ww api save my_device_api
+
+setup:
+    git config core.hooksPath .githooks
+```
+
+A step in CI, after the toolchain is set up (`--target` with the host's triple when `.cargo/config.toml` builds for
+an MCU by default):
+
+```yaml
+      - name: API evolution check
+        run: just api-check
+```
+
+And a tracked pre-commit hook, `.githooks/pre-commit` (executable), turned on once per clone by `just setup`. It only
+runs when the commit touches the API crate:
+
+```sh
+#!/bin/sh
+# API evolution check (docs/evolution/checker_tool.md), only when the commit touches the API crate
+git diff --cached --quiet -- my_device_api && exit 0
+exec just api-check
+```
+
+The hook checks the working tree, not only what is staged, the same as `cargo test` would. `git commit --no-verify`
+skips it for a work-in-progress commit; CI still checks.
 
 ## Listing all changes
 
@@ -63,7 +142,7 @@ or `#[default]` value, `#[since]` of any of them, and doc comments, shown as a l
 described below, enum variants by discriminant, fields by name and unnamed ones by position. A renamed type is
 removed and added.
 
-`evolution::diff()` in `wire_weaver_client` returns the same list, for use from other tools.
+`diff()` in `wire_weaver_evolution` returns the same list, for use from other tools.
 
 ## What is checked
 
@@ -155,7 +234,7 @@ reading as zero from old data. The client uses the same rules when comparing its
 ## Limitations
 
 * Snapshots of all published versions have to be kept in `api_snapshots/`, the checker can only see what is saved
-  there. A crate without snapshots is not checked.
+  there. A crate without snapshots is not checked, except in strict mode, where it fails.
 * Only traits and types that `ww api save` finds are checked (see [ww api](../cli_reference.md#ww-api)).
 * Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.
 * Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual

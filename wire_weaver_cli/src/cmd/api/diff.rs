@@ -1,15 +1,16 @@
-use super::check::{Versions, triplet};
+use super::check::compared;
 use anyhow::{Result, anyhow};
 use console::style;
 use std::path::PathBuf;
-use wire_weaver_client::evolution::{self, Change, Difference};
+use wire_weaver_evolution::snapshot_files::triplet;
+use wire_weaver_evolution::{self as evolution, Change, Difference};
 
 pub(crate) fn diff(path: PathBuf, against: Option<PathBuf>) -> Result<()> {
-    let Some(versions) = Versions::load(path, against)? else {
+    let Some(versions) = compared(path, against)? else {
         return Ok(());
     };
     let differences = evolution::diff(&versions.old, &versions.new).map_err(|e| anyhow!(e))?;
-    let report = evolution::compare(&versions.old, &versions.new).map_err(|e| anyhow!(e))?;
+    let report = &versions.report;
     println!(
         "{} {} ({}) -> {} ({})",
         report.new.crate_id,

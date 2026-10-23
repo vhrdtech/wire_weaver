@@ -1,10 +1,11 @@
-use super::check::{SNAPSHOTS_DIR, latest_snapshot, print_report, triplet};
+use super::check::print_report;
 use anyhow::{Context, Result, anyhow};
 use console::style;
 use std::fs;
 use std::path::PathBuf;
-use wire_weaver_client::evolution::{self, Change};
 use wire_weaver_client::ww_self::snapshot;
+use wire_weaver_evolution::snapshot_files::{SNAPSHOTS_DIR, latest_snapshot, triplet};
+use wire_weaver_evolution::{self as evolution, Change};
 
 pub(crate) fn save(crate_path: PathBuf, force: bool) -> Result<()> {
     let bundle = wire_weaver_core::load_crate(&crate_path)?;
@@ -18,7 +19,9 @@ pub(crate) fn save(crate_path: PathBuf, force: bool) -> Result<()> {
     let hash = snapshot::saved_hash(&contents).map(str::to_owned);
 
     // compared with the snapshot of this version if there is one, otherwise with the previous version
-    let status = match latest_snapshot(&dir, &bundle, &version.version, true)? {
+    let status = match latest_snapshot(&dir, &bundle, &version.version, true)
+        .map_err(|e| anyhow!(e))?
+    {
         Some((old_path, old)) => {
             let report = evolution::compare(&old, &bundle).map_err(|e| anyhow!(e))?;
             let same_version = old_path == file_path;

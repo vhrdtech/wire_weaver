@@ -1,0 +1,13 @@
+// blinky_api 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: 3873e37ce5b44a657d4c8112f3f0119dadfd344826baf3232ce047ed9d39200e
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "blinky_api", items: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BlinkyApi", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [], traits: [
+    InLine(level: (docs: [], crate_idx: 0, trait_name: "BlinkyApi", items: [
+        (id: 0, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_on", docs: [], optional: None, meta: None),
+        (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "blinky_api", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

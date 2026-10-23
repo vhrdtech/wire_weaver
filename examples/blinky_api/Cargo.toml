@@ -14,3 +14,6 @@ defmt = ["wire_weaver/defmt", "dep:defmt"]
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver = { workspace = true }
+
+[dev-dependencies]
+wire_weaver_evolution = { workspace = true, features = ["source"] }

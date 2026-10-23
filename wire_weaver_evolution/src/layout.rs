@@ -13,7 +13,7 @@
 
 use std::collections::HashMap;
 
-use wire_weaver::shrink_wrap::ElementSize;
+use shrink_wrap::ElementSize;
 use ww_numeric::NumericAnyTypeOwned;
 use ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, Length, NumericBaseType, Repr, TypeLocationOwned,
@@ -433,7 +433,7 @@ fn gcd(a: u32, b: u32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wire_weaver::shrink_wrap::UNib32;
+    use shrink_wrap::UNib32;
     use ww_self::{ApiLevelOwned, ItemStructOwned};
     use ww_version::{FullVersionOwned, VersionOwned};
 

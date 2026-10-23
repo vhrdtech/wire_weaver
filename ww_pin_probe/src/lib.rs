@@ -21,6 +21,7 @@
 use std::fmt::{Display, Formatter};
 pub use ww_pin_diag::{Drive, Level, PinDiagErrorOwned, PointCaps, PointState, Pull};
 
+pub mod board;
 pub mod device;
 pub mod mock;
 pub mod plan;

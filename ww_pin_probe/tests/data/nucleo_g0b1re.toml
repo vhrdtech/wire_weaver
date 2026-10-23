@@ -1,0 +1,395 @@
+# Board description for boardmap (bedrock_board): what to draw of the NUCLEO-G0B1RE and what every pin does.
+# Facts: UM2324 Rev 5 (jumpers, solder bridges, Arduino names), the MB1360 C02 schematic and ST's board file.
+
+[board]
+name = "NUCLEO-G0B1RE"
+pcb = "MB1360 rev C02"
+mcu = "STM32G0B1RET6 (U7)"
+mcu_ref = "U7"
+geometry = "nucleo_g0b1re.geometry.json"
+sources = ["UM2324 Rev 5", "MB1360-G0B1RE-C02 schematic"]
+scale = 9.0
+
+[view]
+# the ST-LINK part breaks off along the slot at 24.6 mm from the top edge
+cut = [25.0]
+
+[[view.connector]]
+ref = "CN7"
+label = "CN7 ST morpho"
+labels = "left"
+numbers = true
+
+[[view.connector]]
+ref = "CN10"
+label = "CN10 ST morpho"
+labels = "right"
+numbers = true
+
+[[view.connector]]
+ref = "CN5"
+label = "CN5 D8–D15"
+labels = "inside_left"
+
+[[view.connector]]
+ref = "CN9"
+label = "CN9 D0–D7"
+labels = "inside_left"
+
+[[view.connector]]
+ref = "CN6"
+label = "CN6 power"
+labels = "inside_right"
+
+[[view.connector]]
+ref = "CN8"
+label = "CN8 A0–A5"
+labels = "inside_right"
+
+[[view.connector]]
+ref = "CN4"
+label = "CN4 SWD jumpers"
+labels = "inside_right"
+
+[[view.connector]]
+ref = "CN11"
+label = "CN11 SWD out"
+labels = "inside_right"
+
+
+[[view.part]]
+ref = "JP2"
+label = "JP2 5V source"
+kind = "jumper"
+dy = -20
+
+[[view.part]]
+ref = "U7"
+label = "U7\nSTM32G0B1RET6"
+kind = "mcu"
+
+[[view.part]]
+ref = "U2"
+label = "U2 ST-LINK/V2-1\nSTM32F103CB"
+kind = "chip"
+
+[[view.part]]
+ref = "CN2"
+label = "CN2 USB micro-B\n(ST-LINK, 5V_USB_STLK)"
+kind = "usb"
+dy = 14
+
+[[view.part]]
+ref = "B1"
+label = "B1 USER\nPC13"
+kind = "button"
+
+[[view.part]]
+ref = "B2"
+label = "B2 RESET\nNRST"
+kind = "button"
+
+[[view.part]]
+ref = "LD4"
+label = "LD4 user\nPA5"
+kind = "led"
+dx = 34
+dy = -8
+
+[[view.part]]
+ref = "LD3"
+label = "LD3 5V\nPWR"
+kind = "led"
+dx = -34
+dy = -8
+
+[[view.part]]
+ref = "LD2"
+label = "LD2\nUSB over-\ncurrent"
+kind = "led"
+dx = 26
+
+[[view.part]]
+ref = "LD1"
+label = "LD1 COM"
+kind = "led"
+dy = -12
+
+[[view.part]]
+ref = "JP1"
+label = "JP1 STLK\nreset"
+kind = "jumper"
+dy = 16
+
+[[view.part]]
+ref = "JP3"
+label = "JP3 IDD"
+kind = "jumper"
+dx = -42
+
+[[view.part]]
+ref = "JP4"
+label = "JP4 GND"
+kind = "jumper"
+dy = -20
+
+[[view.part]]
+ref = "JP5"
+label = "JP5 GND"
+kind = "jumper"
+dy = -20
+
+[[view.part]]
+ref = "JP6"
+label = "JP6 VCP\nloopback"
+kind = "jumper"
+dx = 40
+
+[[view.part]]
+ref = "X2"
+label = "X2 32 kHz"
+kind = "other"
+dy = 14
+
+[[view.part]]
+ref = "X3"
+label = "X3 HSE\n(not fitted)"
+kind = "other"
+dy = 14
+
+[[view.part]]
+ref = "U6"
+label = "U6 3V3\nLDL112"
+kind = "chip"
+dx = -28
+dy = 30
+
+[[view.part]]
+ref = "U5"
+label = "U5 VIN→5V\nLD1117"
+kind = "chip"
+dy = 16
+
+[aliases]
+NetCN5_8 = "VREF+ (SB21)"
+NetCN7_25 = "PC14 (SB23 off)"
+NetCN7_27 = "PC15 (SB24 off)"
+NetCN6_1 = "NC"
+NetCN11_1 = "VDD_TARGET"
+NetCN11_2 = "SWCLK"
+NetCN11_4 = "SWDIO"
+NetCN11_5 = "NRST"
+NetCN11_6 = "SWO"
+PA0 = "A0"
+PA1 = "A1"
+PA4 = "A2"
+PB1 = "A3"
+PB11 = "A4·SB4"
+PB12 = "A5·SB3"
+PC5 = "D0 RX"
+PC4 = "D1 TX"
+PA10 = "D2"
+PB3 = "D3"
+PB5 = "D4"
+PB4 = "D5"
+PB14 = "D6"
+PA8 = "D7"
+PA9 = "D8"
+PC7 = "D9"
+PB0 = "D10 CS"
+PA7 = "D11 MOSI"
+PA6 = "D12 MISO"
+PA5 = "D13 SCK"
+PB9 = "D14 SDA"
+PB8 = "D15 SCL"
+
+[pins]
+PA13 = { role = "taken", short = "SWDIO", note = "ST-LINK SWDIO through SB13 and the CN4 [3-4] jumper. Only free with both CN4 jumpers off, i.e. no on-board debugger." }
+PA14 = { role = "taken", short = "SWCLK", note = "ST-LINK SWCLK through SB9 and the CN4 [1-2] jumper; also BOOT0. Only free with the CN4 jumpers off." }
+PF2 = { role = "taken", short = "NRST", note = "Reset: B2 button, the ST-LINK's T_NRST through SB19, Arduino CN6-3. Not a GPIO on this board." }
+PA2 = { role = "shared", short = "VCP RX", note = "USART2 TX to the ST-LINK virtual COM port (SB18 ON by default). A GPIO on CN10-34 only with SB18 OFF; then JP6 [1-2] keeps the VCP from floating." }
+PA3 = { role = "shared", short = "VCP TX", note = "USART2 RX from the ST-LINK virtual COM port (SB16 ON by default). A GPIO on CN10-6 only with SB16 OFF." }
+PA5 = { role = "shared", short = "LD4", note = "Drives the user LED LD4 through T2 (SB22 ON by default); also Arduino D13 / SPI1 SCK. SB22 OFF isolates the LED." }
+PC13 = { role = "shared", short = "B1", note = "USER button B1 to GND with a pull-up (SB20 ON by default); SB20 OFF frees it. Also on CN7-23." }
+PC14 = { role = "function", short = "LSE", note = "32.768 kHz crystal X2 (OSC32_IN). Not on the headers: SB23 OFF by default; SB23 ON + R31 out puts it on CN7-25 as a GPIO." }
+PC15 = { role = "function", short = "LSE", note = "32.768 kHz crystal X2 (OSC32_OUT). SB24 OFF by default; SB24 ON + R32 out puts it on CN7-27 as a GPIO." }
+PF0 = { role = "shared", short = "MCO 8 MHz", note = "OSC_IN: X3 is not fitted; SB17 ON feeds the ST-LINK's 8 MHz MCO here (an HSE bypass clock), SB25 ON puts it on CN7-29. For a GPIO: SB17 OFF." }
+PF1 = { role = "free", short = "OSC_OUT", note = "OSC_OUT of the unfitted X3; on CN7-31 through SB27 (ON). A GPIO as the board ships." }
+PB8 = { role = "free", short = "", note = "Arduino D15 / I2C1 SCL on CN5-10. SB5 ON (default OFF) also ties it to CN8-6 (A5) for I2C shields." }
+PB9 = { role = "free", short = "", note = "Arduino D14 / I2C1 SDA on CN5-9. SB2 ON (default OFF) also ties it to CN8-5 (A4)." }
+PB11 = { role = "free", short = "", note = "Arduino A4 (ADC IN15) on CN8-5 and CN7-36 through SB4 (ON). SB4 OFF + SB2 ON puts PB9 there instead, for I2C shields." }
+PB12 = { role = "free", short = "", note = "Arduino A5 (ADC IN16) on CN8-6 and CN7-38 through SB3 (ON). SB3 OFF + SB5 ON puts PB8 there instead, for I2C shields." }
+PD8 = { role = "free", short = "", note = "GPIO on CN10-36. SB30 ON (default OFF) ties it to GND, the 'power reserved' option in UM2324." }
+PD9 = { role = "free", short = "", note = "GPIO on CN10-38. SB29 ON (default OFF) ties it to VDD." }
+PA11 = { role = "free", short = "USB DM", note = "The G0B1's USB DM on CN10-14; no USB connector on the board, wire one here for a USB device." }
+PA12 = { role = "free", short = "USB DP", note = "The G0B1's USB DP on CN10-12; no USB connector on the board." }
+
+[sb]
+SB1 = "U6 3V3 out"
+SB2 = "PB9→A4"
+SB3 = "PB12→A5"
+SB4 = "PB11→A4"
+SB5 = "PB8→A5"
+SB6 = "SWCLK ext"
+SB7 = "SWCLK"
+SB8 = "SWCLK ext"
+SB9 = "SWCLK PA14"
+SB10 = "SWDIO ext"
+SB11 = "SWDIO"
+SB12 = "SWDIO ext"
+SB13 = "SWDIO PA13"
+SB14 = "SWO"
+SB15 = "CN2 100 mA"
+SB16 = "VCP TX→PA3"
+SB17 = "MCO→PF0"
+SB18 = "PA2→VCP RX"
+SB19 = "T_NRST"
+SB20 = "B1→PC13"
+SB21 = "AVDD→CN5-8"
+SB22 = "PA5→LD4"
+SB23 = "PC14→CN7-25"
+SB24 = "PC15→CN7-27"
+SB25 = "PF0→CN7-29"
+SB26 = "VDD→VBAT"
+SB27 = "PF1→CN7-31"
+SB28 = "VDD→AVDD"
+SB29 = "PD9→VDD"
+SB30 = "PD8→GND"
+SB31 = "AGND→GND"
+
+[[power.node]]
+id = "usb"
+label = "CN2 USB micro-B\n5V_USB_STLK · 500 mA once enumerated\nST-LINK's own 3V3_STLK comes from here"
+kind = "source"
+col = 0
+row = 0
+
+[[power.node]]
+id = "chg"
+label = "CN2 on a wall charger\n5V_USB_CHG · no enumeration"
+kind = "source"
+col = 0
+row = 1
+
+[[power.node]]
+id = "vin"
+label = "VIN 7–12 V\nCN6-8, CN7-24"
+kind = "source"
+col = 0
+row = 2
+
+[[power.node]]
+id = "e5v"
+label = "E5V 5 V\nCN7-6 · 500 mA"
+kind = "source"
+col = 0
+row = 3
+
+[[power.node]]
+id = "u4"
+label = "U4 STMPS2141 switch\nPWR_ENn from the ST-LINK after\nenumeration · 750 mA limit"
+kind = "switch"
+col = 1
+row = 0
+
+[[power.node]]
+id = "u5"
+label = "U5 LD1117S50\n5 V LDO · 800 mA at 7 V"
+kind = "regulator"
+col = 1
+row = 2
+
+[[power.node]]
+id = "jp2"
+label = "JP2 5V source\n1-2 STLK · 3-4 VIN\n5-6 E5V · 7-8 CHG"
+kind = "switch"
+col = 2
+row = 1
+
+[[power.node]]
+id = "5v"
+label = "5V\nCN6-5, CN7-18 · LD3 green"
+kind = "rail"
+col = 3
+row = 1
+
+[[power.node]]
+id = "u6"
+label = "U6 LDL112PV33\n3.3 V LDO · output through SB1"
+kind = "regulator"
+col = 3
+row = 2
+
+[[power.node]]
+id = "3v3"
+label = "3V3\nCN6-2/4, CN7-12/16"
+kind = "rail"
+col = 4
+row = 2
+
+[[power.node]]
+id = "jp3"
+label = "JP3 IDD\njumper ON by default\nammeter here measures the MCU"
+kind = "switch"
+col = 4
+row = 3
+
+[[power.node]]
+id = "vdd"
+label = "VDD → U7\nCN7-5 · VBAT through SB26\nAVDD through SB28 and L1"
+kind = "load"
+col = 5
+row = 3
+
+[[power.edge]]
+from = "usb"
+to = "u4"
+label = "VBUS"
+
+[[power.edge]]
+from = "u4"
+to = "jp2"
+label = "1-2 (default)"
+
+[[power.edge]]
+from = "chg"
+to = "jp2"
+label = "7-8"
+off = true
+
+[[power.edge]]
+from = "vin"
+to = "u5"
+
+[[power.edge]]
+from = "u5"
+to = "jp2"
+label = "3-4"
+off = true
+
+[[power.edge]]
+from = "e5v"
+to = "jp2"
+label = "5-6"
+off = true
+
+[[power.edge]]
+from = "jp2"
+to = "5v"
+
+[[power.edge]]
+from = "5v"
+to = "u6"
+
+[[power.edge]]
+from = "u6"
+to = "3v3"
+label = "SB1 ON"
+
+[[power.edge]]
+from = "3v3"
+to = "jp3"
+
+[[power.edge]]
+from = "jp3"
+to = "vdd"

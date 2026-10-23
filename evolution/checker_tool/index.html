@@ -2437,6 +2437,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#checking-at-every-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking at every commit
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5188,6 +5199,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#checking-at-every-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Checking at every commit
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#listing-all-changes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5289,30 +5311,88 @@
 </span></code></pre></div>
 <p>The snapshot used is the newest one of the same crate with a version not newer than the one in <code>Cargo.toml</code>, so it is
 the snapshot of the current version if it was already saved, and of the previous version otherwise. <code>--against &lt;file&gt;</code>
-compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet.</p>
+compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet, unless <code>--strict</code> is given:
+then a crate without a snapshot fails, naming the <code>ww api save</code> to run.</p>
 <p><code>&lt;path&gt;</code> can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
 check snapshots that were saved with <code>--force</code>.</p>
 <p><code>ww api save</code> runs the same check before saving a snapshot of a new version, and refuses to save it if the version
 is not bumped enough (<code>--force</code> saves anyway). So in a crate that has snapshots of all of its published versions,
 every new snapshot is checked against the previous one.</p>
+<p>A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
+version to put into <code>Cargo.toml</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww api check examples/blinky_api
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>blinky_api 0.1.0 (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron) -&gt; 0.1.0 (source): breaking changes
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  breaking: BlinkyApi::led_off removed
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      rule: traits, resources and types are never removed, clients and code using them break (docs/evolution/rules.md#api)
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Error: blinky_api 0.1.0 -&gt; 0.1.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.2.0 or later.
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_1_0.ron), so it is released and never changes: a change needs a new version.
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
+</span></code></pre></div>
+<h2 id="checking-at-every-commit">Checking at every commit<a class="headerlink" href="#checking-at-every-commit" title="Permanent link">&para;</a></h2>
+<p>The checker is a library, <code>wire_weaver_evolution</code>, which parses the crate from source like <code>ww api check</code> does and
+needs neither the client nor a device. An API crate runs it from a test of its own, so the version of the checker is
+the one its lock file pins, and <code>cargo test</code>, CI and a pre-commit hook all check the same way, with nothing to
+install. <code>examples/blinky_api</code> is set up like this.</p>
+<p>In the API crate, a dev-dependency and <code>tests/evolution.rs</code>:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[dev-dependencies]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">wire_weaver_evolution</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span>
+</span></code></pre></div>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[test]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">api_evolution</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">wire_weaver_evolution</span><span class="p">::</span><span class="n">Check</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="fm">env!</span><span class="p">(</span><span class="s">&quot;CARGO_MANIFEST_DIR&quot;</span><span class="p">))</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="p">.</span><span class="n">strict</span><span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="p">.</span><span class="n">assert</span><span class="p">();</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>strict(true)</code> makes the test fail while the crate has no snapshot at all, so a project can't forget to start: save
+the first one with <code>ww api save my_device_api</code> and commit <code>api_snapshots/</code>. From then on the test fails when the API
+changed without the version bump the change needs, printing the same report as <code>ww api check</code>. Bump the version
+while you work on the next release, and save its snapshot when you release it.</p>
+<p>Recipes in the project's <code>justfile</code>, <code>api-check</code> to run it on its own, <code>api-save</code> to record a release, <code>setup</code> to turn
+on the hook below:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a># compare the API with its snapshots: fails on a change without the version bump it needs
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>api-check:
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    cargo test -p my_device_api --test evolution
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a># record the released version of the API, commit api_snapshots/ with the release
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>api-save:
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    ww api save my_device_api
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>setup:
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    git config core.hooksPath .githooks
+</span></code></pre></div>
+<p>A step in CI, after the toolchain is set up (<code>--target</code> with the host's triple when <code>.cargo/config.toml</code> builds for
+an MCU by default):</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">API evolution check</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">just api-check</span>
+</span></code></pre></div>
+<p>And a tracked pre-commit hook, <code>.githooks/pre-commit</code> (executable), turned on once per clone by <code>just setup</code>. It only
+runs when the commit touches the API crate:</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="ch">#!/bin/sh</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># API evolution check (docs/evolution/checker_tool.md), only when the commit touches the API crate</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>git<span class="w"> </span>diff<span class="w"> </span>--cached<span class="w"> </span>--quiet<span class="w"> </span>--<span class="w"> </span>my_device_api<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">0</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nb">exec</span><span class="w"> </span>just<span class="w"> </span>api-check
+</span></code></pre></div>
+<p>The hook checks the working tree, not only what is staged, the same as <code>cargo test</code> would. <code>git commit --no-verify</code>
+skips it for a work-in-progress commit; CI still checks.</p>
 <h2 id="listing-all-changes">Listing all changes<a class="headerlink" href="#listing-all-changes" title="Permanent link">&para;</a></h2>
 <p><code>ww api diff &lt;path&gt;</code> compares the same versions as <code>ww api check</code> (and also takes <code>--against</code> or a snapshot file), and
 lists every difference, doc comments included, followed by the verdict. It never fails, and doesn't tell why a change
 is breaking, <code>ww api check</code> does:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ ww api diff ww_stdlib/ww_uart
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  ~ Uart::rx: docs
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      /// Receive stream
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    + /// of chunks
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  ~ Uart::prevent_back_feed: docs
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    - /// Optional, check [Capabilities] if supported.
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    + /// Check [Capabilities] if supported.
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  + Uart::flush: fn flush()
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  ~ RxFlags: field `parity_error`: docs
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    + /// Parity error
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ ww api diff ww_stdlib/ww_uart
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>ww_uart 0.1.0 (ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron) -&gt; 0.1.0 (source)
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  ~ Uart::rx: docs
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>      /// Receive stream
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    + /// of chunks
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>  ~ Uart::prevent_back_feed: docs
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>      /// Detect RX low for more than 1 byte interval and set TX low to avoid powering device in sleep mode through it.
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    - /// Optional, check [Capabilities] if supported.
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    + /// Check [Capabilities] if supported.
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>  + Uart::flush: fn flush()
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>  ~ RxFlags: field `parity_error`: docs
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    + /// Parity error
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>  + RxFlags: field `framing_error`: framing_error: bool
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>breaking changes, version has to be 0.2.0 or later (run `ww api check` for details)
 </span></code></pre></div>
 <p>Each line is an added (<code>+</code>), removed (<code>-</code>) or changed (<code>~</code>) trait, resource, type, struct field, enum variant or
 dependency crate version. Changes are: a resource's signature (kind, arguments, return type, property access, stream
@@ -5320,7 +5400,7 @@ direction, array or not), a resource's or variant's name, a type's kind, size ki
 or <code>#[default]</code> value, <code>#[since]</code> of any of them, and doc comments, shown as a line diff. Items are matched as
 described below, enum variants by discriminant, fields by name and unnamed ones by position. A renamed type is
 removed and added.</p>
-<p><code>evolution::diff()</code> in <code>wire_weaver_client</code> returns the same list, for use from other tools.</p>
+<p><code>diff()</code> in <code>wire_weaver_evolution</code> returns the same list, for use from other tools.</p>
 <h2 id="what-is-checked">What is checked<a class="headerlink" href="#what-is-checked" title="Permanent link">&para;</a></h2>
 <p>Changes are sorted into four kinds, and each kind requires a bump of a version position:</p>
 <table>
@@ -5387,30 +5467,30 @@ reading. A new field of any type, <code>Unsized</code> or not, can take such bit
 </ul>
 <p>Old fields are then matched by name. Where padding is depends on the bit offset the type starts at. An <code>Unsized</code> type
 always starts at a byte boundary, so its padding is always in the same place:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[derive_shrink_wrap]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="cp">#[derive_shrink_wrap]</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">U</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u7</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nb">String</span><span class="p">,</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>An <code>Unsized</code> type can gain fields with <code>#[default]</code> at the end as well, in the same version. Bits after its last field
 are not free though: lengths of variable size fields are written there.</p>
 <p><code>final_structure</code>, <code>self_describing</code> and <code>sized</code> types are packed tightly into their parent, so they can't grow at the
 end, and they can start at any bit inside the parent, so the checker requires that the new field fits for every start
 offset:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="cp">#[derive_shrink_wrap(sized)]</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="c1">// 7 bits of padding before `b`, wherever S starts, as `a` is byte-aligned</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="cp">#[since = </span><span class="s">&quot;0.1.1&quot;</span><span class="cp">]</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">u3</span><span class="p">,</span><span class="w"> </span><span class="c1">// added in 0.1.1, reads as 0 from old data</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Without <code>a</code>, the padding before <code>b</code> is 7 bits if <code>S</code> starts at a byte boundary, but none if it starts at bit offset 7,
 so <code>g</code> can't be added. Padding after the last field is never free: whatever follows the type in its parent starts
@@ -5421,7 +5501,7 @@ reading as zero from old data. The client uses the same rules when comparing its
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Snapshots of all published versions have to be kept in <code>api_snapshots/</code>, the checker can only see what is saved
-  there. A crate without snapshots is not checked.</li>
+  there. A crate without snapshots is not checked, except in strict mode, where it fails.</li>
 <li>Only traits and types that <code>ww api save</code> finds are checked (see <a href="../../cli_reference/#ww-api">ww api</a>).</li>
 <li>Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.</li>
 <li>Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual

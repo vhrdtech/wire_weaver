@@ -6816,13 +6816,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   an error with both signatures and the fix. Rust client, <code>ww</code> and Python (<code>docs/std_library/ww_self.md</code>,
   <code>wire_weaver_client</code> <code>compat::tests::other_revision</code>). <code>#[cfg]</code> enum variants don't change signatures
   (<code>tests/cfg_variants</code>).</li>
+<li>✅ <strong>EVO-11 Evolution check at commit time</strong> — the checker is its own light crate, <code>wire_weaver_evolution</code> (parses
+  the API crate from source, no client, tokio or probe-rs), which an API crate runs from its own <code>tests/evolution.rs</code>
+  (<code>Check::new(env!("CARGO_MANIFEST_DIR")).strict(true).assert()</code>), so its lock file pins the checker and
+  <code>cargo test</code>, CI and a pre-commit hook check the same way. Strict mode fails a crate without snapshots, naming the
+  <code>ww api save</code> to run; every breaking change names the rule it breaks with its docs section, and a failed check the
+  version to bump to. <code>ww api check --strict</code> runs the same library. Template setup (test, just recipes, CI step,
+  pre-commit hook) in <code>docs/evolution/checker_tool.md#checking-at-every-commit</code>; <code>examples/blinky_api</code> does it.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
 <li>📋 <strong>EVO-10 Checker knows the <code>Unknown(u32)</code> catch-all</strong> — the evolution checker (<code>ww api save</code> / <code>check</code>,
-  <code>wire_weaver_client::compat::check_enum</code>) reports a variant appended to an <code>Unsized</code> enum as breaking ("variant
+  <code>wire_weaver_evolution::compat::check_enum</code>) reports a variant appended to an <code>Unsized</code> enum as breaking ("variant
   Host is unknown to the old version"), although since SW-47 an older reader gets it as <code>Unknown(n)</code>, as
   <code>docs/evolution/rules.md</code> says. The <code>ww_self</code> model doesn't record whether an enum has the catch-all
   (<code>no_future_version</code> or not): needs a defaulted field on <code>ItemEnum</code> set by codegen, the checker and the

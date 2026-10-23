@@ -81,14 +81,14 @@ impl Check {
             }
         };
         let report = compare(&old, &new)?;
-        Ok(Outcome::Compared(Comparison {
+        Ok(Outcome::Compared(Box::new(Comparison {
             old_path,
             new_label,
             crate_path: (!is_snapshot).then(|| self.path.clone()),
             report,
             old,
             new,
-        }))
+        })))
     }
 
     /// [run](Self::run) and [verdict](Outcome::verdict), printing what was found; panics with what is wrong and what
@@ -107,7 +107,7 @@ impl Check {
 /// What [Check::run] found.
 #[derive(Debug)]
 pub enum Outcome {
-    Compared(Comparison),
+    Compared(Box<Comparison>),
     /// Nothing to compare with.
     NoSnapshot(NoSnapshot),
 }

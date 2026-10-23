@@ -23,3 +23,7 @@ ww_version = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 wire_weaver_core.workspace = true
+
+[[test]]
+name = "check"
+required-features = ["source"]

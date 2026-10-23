@@ -30,7 +30,7 @@ pub(crate) fn check(path: PathBuf, against: Option<PathBuf>, strict: bool) -> Re
 /// snapshot to compare with.
 pub(crate) fn compared(path: PathBuf, against: Option<PathBuf>) -> Result<Option<Comparison>> {
     match load(path, against)?.run().map_err(|e| anyhow!(e))? {
-        Outcome::Compared(c) => Ok(Some(c)),
+        Outcome::Compared(c) => Ok(Some(*c)),
         outcome @ Outcome::NoSnapshot(_) => {
             println!("{}", outcome.verdict().map_err(|e| anyhow!(e))?);
             Ok(None)

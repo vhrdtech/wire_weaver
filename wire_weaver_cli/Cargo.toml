@@ -42,7 +42,7 @@ toml_edit.workspace = true
 tracing = "0.1"
 tracing-subscriber.workspace = true
 wire_weaver.workspace = true
-wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "hub"] }
+wire_weaver_client = { workspace = true, features = ["picoboot", "stm32_dfu", "hub", "rtt"] }
 wire_weaver_snapshots.workspace = true
 ww_hub.workspace = true
 ww_hub_api = { workspace = true, features = ["std"] }

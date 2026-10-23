@@ -222,16 +222,26 @@ async fn take_exclusive(
     if !wire_weaver_client::hub::hub_running() {
         return Ok(None);
     }
-    let config = selection.client_config();
-    let devices = wire_weaver_client::list_usb_devices()
-        .await
-        .unwrap_or_default();
-    let mut keys = devices
-        .iter()
-        .filter(|d| config.matches(d))
-        .filter_map(wire_weaver_client::hub::key_of);
-    let (Some(key), None) = (keys.next(), keys.next()) else {
-        // several match (connect took one) or none on USB: nothing to tell the hub
+    let key = match selection.rtt() {
+        // the connect before found the probe already
+        Some(_) => selection.rtt_key()?,
+        None => {
+            let config = selection.client_config();
+            let devices = wire_weaver_client::list_usb_devices()
+                .await
+                .unwrap_or_default();
+            let mut keys = devices
+                .iter()
+                .filter(|d| config.matches(d))
+                .filter_map(wire_weaver_client::hub::key_of);
+            match (keys.next(), keys.next()) {
+                (Some(key), None) => Some(key),
+                // several match (connect took one) or none on USB: nothing to tell the hub
+                _ => None,
+            }
+        }
+    };
+    let Some(key) = key else {
         return Ok(None);
     };
     let exclusive = Exclusive::take(&key, meta, purpose).await?;
@@ -616,8 +626,8 @@ impl Ui {
     }
 }
 
-/// Finds the device again after it reset: gone from the bus and back under its serial number, then connected with
-/// the same selection, as the same client instance (its exclusive claim in a hub holds across the reset).
+/// Finds the device again after it reset: gone from the bus and back under its serial number (over RTT: retried
+/// until it answers through the probe), then connected with the same selection, as the same client instance (its exclusive claim in a hub holds across the reset).
 struct UsbReconnect {
     config: ClientConfig,
     follow: Option<Follow>,
@@ -642,7 +652,8 @@ impl UsbReconnect {
             .filter(|s| given.as_ref().is_none_or(|g| s.to_lowercase().contains(g)))
             .collect();
         let follow = match matching[..] {
-            [serial] => Some(Follow::new(serial.clone())),
+            // over RTT the probe stays on the bus while the device resets: connecting again is all there is
+            [serial] if selection.rtt().is_none() => Some(Follow::new(serial.clone())),
             _ => None,
         };
         Self {

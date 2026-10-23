@@ -315,7 +315,8 @@ The hub runs one `wire_weaver_client` event loop per open device and gives each 
   a path the hub didn't see opened go to every client.
 - Loopback test messages are echoed to the client that sent the last ones (`ww usb-loopback` through the hub: one at
   a time).
-- Device keys: `usb:`, `rtt:` (with the `rtt` feature, `ww` has it), `inproc:<path>` (a device served in the
+- Device keys: `usb:`, `rtt:<probe serial>:<chip>` (with the `rtt` feature, `ww` has it since TOOL-20; the hub
+  scans RAM for the control block, the key carries no ELF), `inproc:<path>` (a device served in the
   hub's own process: simulators, tests) and `ipc:<socket path>` (a device another process serves on a local socket,
   [Device side](#device-side): a simulator or host-emulated firmware, which outlives the hub).
 

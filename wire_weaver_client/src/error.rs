@@ -11,12 +11,14 @@ pub enum Error {
     EventLoopNotRunning,
     #[error("RX dispatcher exited due to previous error, cannot operate without it")]
     RxDispatcherNotRunning,
-    #[error("No devices found to connect to{}", describe_not_found(.filters, .unmatched))]
+    #[error("No devices found to connect to{}", describe_not_found(.filters, .unmatched, *.over_rtt))]
     DeviceNotFound {
         /// Human-readable device filters from the config, empty if none
         filters: Vec<String>,
-        /// Connected WireWeaver devices that did not pass the filters
+        /// Connected WireWeaver devices that did not pass the filters (debug probes over RTT)
         unmatched: Vec<DeviceInfo>,
+        /// The config connects over RTT: no matching debug probe was found
+        over_rtt: bool,
     },
     #[error("No transport selected in the client config, use .usb() or another one to select it")]
     NoTransportSelected,
@@ -104,10 +106,21 @@ impl Error {
     }
 }
 
-fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo]) -> String {
+fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo], over_rtt: bool) -> String {
     let mut s = String::new();
     if !filters.is_empty() {
         s += &format!(" matching: {}", filters.join(", "));
+    }
+    if over_rtt {
+        if unmatched.is_empty() {
+            s += "\nNo debug probe found";
+        } else {
+            s += "\nDebug probes that did not match:";
+            for d in unmatched {
+                s += &format!("\n  {d}");
+            }
+        }
+        return s;
     }
     if unmatched.is_empty() {
         if filters.is_empty() {

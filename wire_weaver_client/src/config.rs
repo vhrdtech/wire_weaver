@@ -912,36 +912,51 @@ impl ValidatedConfig {
 
     /// Human-readable device filters (serial, label, product, API, VID:PID, etc.), for error messages.
     pub(crate) fn describe_filters(&self) -> Vec<String> {
+        // filters after RTT pick the probe
+        let mut after_rtt = false;
         self.pieces
             .iter()
             .filter_map(|p| {
-                Some(match p {
-                    ConfigPiece::UsbVidPid { vid, pid } => {
-                        format!("USB VID:PID = {vid:04x}:{pid:04x}")
-                    }
-                    ConfigPiece::UsbPath { bus_id, port_chain } => {
-                        let ports: Vec<String> = port_chain.iter().map(|p| p.to_string()).collect();
-                        format!("USB location = {bus_id}-{}", ports.join("."))
-                    }
-                    ConfigPiece::SerialEq { serial } => format!("serial = \"{serial}\""),
-                    ConfigPiece::SerialContains { substring } => {
-                        format!("serial contains \"{substring}\"")
-                    }
-                    ConfigPiece::UserLabelEq { user_label } => format!("label = \"{user_label}\""),
-                    ConfigPiece::ManufacturerContains { substring } => {
-                        format!("manufacturer contains \"{substring}\"")
-                    }
-                    ConfigPiece::ProductContains { substring } => {
-                        format!("product contains \"{substring}\"")
-                    }
-                    ConfigPiece::ImplementsApi {
-                        api_gid,
-                        version_req,
-                    } => format!("API = {api_gid} {version_req}"),
-                    ConfigPiece::WebSocketUrl { url } => format!("WebSocket URL = {url}"),
-                    ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
-                    _ => return None,
-                })
+                let probe = match after_rtt {
+                    true => "probe ",
+                    false => "",
+                };
+                after_rtt |= matches!(p, ConfigPiece::Rtt { .. });
+                Some(
+                    probe.to_string()
+                        + &match p {
+                            ConfigPiece::UsbVidPid { vid, pid } => {
+                                format!("USB VID:PID = {vid:04x}:{pid:04x}")
+                            }
+                            ConfigPiece::UsbPath { bus_id, port_chain } => {
+                                let ports: Vec<String> =
+                                    port_chain.iter().map(|p| p.to_string()).collect();
+                                format!("USB location = {bus_id}-{}", ports.join("."))
+                            }
+                            ConfigPiece::SerialEq { serial } => format!("serial = \"{serial}\""),
+                            ConfigPiece::SerialContains { substring } => {
+                                format!("serial contains \"{substring}\"")
+                            }
+                            ConfigPiece::UserLabelEq { user_label } => {
+                                format!("label = \"{user_label}\"")
+                            }
+                            ConfigPiece::ManufacturerContains { substring } => {
+                                format!("manufacturer contains \"{substring}\"")
+                            }
+                            ConfigPiece::ProductContains { substring } => {
+                                format!("product contains \"{substring}\"")
+                            }
+                            ConfigPiece::ImplementsApi {
+                                api_gid,
+                                version_req,
+                            } => format!("API = {api_gid} {version_req}"),
+                            ConfigPiece::WebSocketUrl { url } => format!("WebSocket URL = {url}"),
+                            ConfigPiece::UdpAddr { addr } => format!("UDP address = {addr}"),
+                            // the filters after it pick the probe
+                            ConfigPiece::Rtt { target, .. } => format!("RTT to {target}"),
+                            _ => return None,
+                        },
+                )
             })
             .collect()
     }

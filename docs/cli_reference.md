@@ -31,11 +31,21 @@ printed to stderr.
 |---------------|---------------------------------------------------------------------------|
 | `-a`, `--all` | Also list USB devices not reporting a WireWeaver API id                   |
 | `--plain`     | One device per line with `key=value` fields, without table formatting     |
+| `--probes`    | List debug probes for [`--rtt`](cli.md#through-a-debug-probe-rtt) instead, with who holds each (also when `--rtt` is given) |
 
 ```
 $ ww list --plain
 usb 003-1 c0de:cafe "Vhrd.Tech" "WireWeaver Generic" serial=09000F000251313438333634 api=all_gpio_api@0.1.0 hash=5ff989a95162d4d7
 ```
+
+```
+$ ww list --probes
+PROBE        VID:PID    SERIAL                    STATE
+STLink V2-1  0483:374b  066DFF485671664867023837  held by g0b1re (pid 4242) for STM32G0B1RETx
+```
+
+The device behind a probe isn't known before connecting, so this table has no API column; `ww --rtt CHIP info`
+shows it.
 
 ## `ww introspect`
 

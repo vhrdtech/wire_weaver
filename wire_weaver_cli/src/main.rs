@@ -109,7 +109,9 @@ async fn run() -> Result<()> {
                     .await
                     .with_context(|| {
                         format!(
-                            "connecting to device ({selection}), run 'ww list' to see connected devices"
+                            "connecting to device ({selection}), run 'ww list{}' to see connected {}",
+                            if selection.rtt().is_some() { " --probes" } else { "" },
+                            if selection.rtt().is_some() { "debug probes" } else { "devices" },
                         )
                     })
             };
@@ -120,6 +122,15 @@ async fn run() -> Result<()> {
             )
         }
         _ => None,
+    };
+    // over RTT the device behind the probe is only known now
+    let device = match (device, &selection) {
+        (Some(Ok(device)), Some(selection)) => Some(
+            selection
+                .check_connected(&device.device_api_info().user_api_version)
+                .map(|_| device),
+        ),
+        (device, _) => device,
     };
     let mut device = match device {
         Some(Ok(device)) => Some(device),
@@ -256,9 +267,15 @@ async fn run_command(
                 });
             }
         }
-        Commands::Counters(args) => cmd::counters::counters(args, device.as_ref().unwrap()).await?,
+        Commands::Counters(mut args) => {
+            args.elf = selection.as_ref().and_then(Selection::elf_flag);
+            cmd::counters::counters(args, device.as_ref().unwrap()).await?
+        }
         Commands::Info(args) => cmd::info::info(args, device.as_ref().unwrap()).await?,
-        Commands::Report(args) => cmd::info::report(args, device.as_ref().unwrap()).await?,
+        Commands::Report(mut args) => {
+            args.elf = selection.as_ref().and_then(Selection::elf_flag);
+            cmd::info::report(args, device.as_ref().unwrap()).await?
+        }
         Commands::Pins(pins_cmd) => {
             passed = cmd::pins::pins(pins_cmd, device.as_ref().unwrap()).await?
         }

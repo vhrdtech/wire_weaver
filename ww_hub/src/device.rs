@@ -124,7 +124,8 @@ fn config_for(key: &str) -> Option<ClientConfig> {
         }
         "rtt" => {
             // `rtt:<probe serial>:<chip>`; filters after `rtt` pick the probe. Needs `wire_weaver_client`'s `rtt`
-            // feature, which `ww` has: without it the open fails with a message that says so.
+            // feature, which `ww` has since TOOL-20: without it the open fails with a message that says so. The key
+            // carries no ELF, so the hub scans RAM for the control block.
             let (probe, chip) = rest.split_once(':')?;
             ClientConfig::new()
                 .rtt(chip.to_string(), None)

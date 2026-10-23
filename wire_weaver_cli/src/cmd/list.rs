@@ -19,9 +19,16 @@ pub(crate) struct ListArgs {
     /// Enumerate USB here even when a hub runs (which lists from its own cache and shows who holds what)
     #[arg(long)]
     direct: bool,
+
+    /// List debug probes for --rtt (also when --rtt is given), with who holds each
+    #[arg(long)]
+    probes: bool,
 }
 
 pub(crate) async fn list(args: ListArgs, selection: &Selection) -> Result<()> {
+    if args.probes || selection.rtt().is_some() {
+        return list_probes(args.plain);
+    }
     // a running hub has the list already (devices it holds too), without touching USB; filters, `--all` and
     // `--direct` need the real thing
     if !args.all
@@ -80,6 +87,49 @@ fn print_hub_list(entries: &[DeviceEntryOwned], plain: bool) -> Result<()> {
         ],
         rows,
     );
+    Ok(())
+}
+
+/// Debug probes, with the WireWeaver program holding each (from the lock files: `rtt:<probe serial>:<chip>`).
+fn list_probes(plain: bool) -> Result<()> {
+    let probes = wire_weaver_client::list_probes();
+    if probes.is_empty() {
+        eprintln!("No debug probes found");
+        return Ok(());
+    }
+    let held = wire_weaver_client::holders::list();
+    let rows: Vec<Vec<String>> = probes
+        .iter()
+        .map(|p| {
+            let serial = p.serial.as_deref().unwrap_or_default();
+            let prefix = format!("rtt:{serial}:");
+            let state = held
+                .iter()
+                .find(|(key, _)| key.starts_with(&prefix))
+                .map(|(key, h)| {
+                    format!(
+                        "held by {} (pid {}) for {}",
+                        escape(&h.program),
+                        h.pid,
+                        escape(&key[prefix.len()..])
+                    )
+                })
+                .unwrap_or_else(|| "free".into());
+            vec![
+                escape(&p.name).into_owned(),
+                format!("{:04x}:{:04x}", p.vid, p.pid),
+                escape(serial).into_owned(),
+                state,
+            ]
+        })
+        .collect();
+    if plain {
+        for r in rows {
+            println!("{} {} serial={} {}", r[0], r[1], r[2], r[3]);
+        }
+    } else {
+        crate::cmd::hub::print_table(&["PROBE", "VID:PID", "SERIAL", "STATE"], rows);
+    }
     Ok(())
 }
 

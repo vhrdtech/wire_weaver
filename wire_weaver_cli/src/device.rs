@@ -3,12 +3,15 @@
 //! Each setting is taken from the first source that has it: command line flag, environment variable,
 //! project `ww.toml` (current directory or its closest parent), otherwise it is not used.
 //! Settings of different kinds are combined, e.g. `api` from ww.toml and `--serial` narrow the selection together.
+//!
+//! `rtt` connects through a debug probe instead of USB (TOOL-20): `probe` and `probe_speed_khz` go with it, `elf` too,
+//! the USB filters (`serial`, `label`, ..) don't, and `api` is checked once connected.
 
 use crate::complete;
 use anyhow::{Context, Result, anyhow, bail};
 use clap::parser::ValueSource;
 use clap::{ArgMatches, Args, ValueHint};
-use clap_complete::ArgValueCandidates;
+use clap_complete::{ArgValueCandidates, ArgValueCompleter};
 use semver::VersionReq;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
@@ -22,7 +25,7 @@ pub(crate) const DEVICE_TABLE: &str = "device";
 
 /// Setting names, same for command line flags (with '-' instead of '_'), ww.toml keys and environment variables
 /// (upper case with `WW_` prefix).
-pub(crate) const KEYS: [&str; 9] = [
+pub(crate) const KEYS: [&str; 13] = [
     "serial",
     "label",
     "product",
@@ -30,12 +33,30 @@ pub(crate) const KEYS: [&str; 9] = [
     "api",
     "vid_pid",
     "usb_path",
+    "rtt",
+    "probe",
+    "elf",
+    "probe_speed_khz",
     "timeout_ms",
     "link_setup_timeout_ms",
 ];
 
-/// Settings holding a number of milliseconds (integers in ww.toml).
-pub(crate) const NUMERIC_KEYS: [&str; 2] = ["timeout_ms", "link_setup_timeout_ms"];
+/// Settings holding a number (integers in ww.toml).
+pub(crate) const NUMERIC_KEYS: [&str; 3] =
+    ["timeout_ms", "link_setup_timeout_ms", "probe_speed_khz"];
+
+/// Filters describing a USB device, which a device behind a debug probe doesn't have.
+const USB_KEYS: [&str; 6] = [
+    "serial",
+    "label",
+    "product",
+    "manufacturer",
+    "vid_pid",
+    "usb_path",
+];
+
+/// Settings that only mean something with `rtt` (`elf` also names the ELF `counters` and `report` decode with).
+const PROBE_KEYS: [&str; 2] = ["probe", "probe_speed_khz"];
 
 #[derive(Args)]
 #[command(next_help_heading = "Device selection (flags > env variables > ww.toml)")]
@@ -67,6 +88,25 @@ pub(crate) struct DeviceArgs {
     /// USB bus and port chain as shown by 'ww list', e.g. 3-1.2
     #[arg(long, env = "WW_USB_PATH", global = true, add = ArgValueCandidates::new(complete::usb_paths), value_name = "BUS-PORTS")]
     usb_path: Option<String>,
+
+    /// Connect over RTT through a debug probe instead of USB: the probe-rs chip name, e.g. STM32G0B1RETx
+    #[arg(long, env = "WW_RTT", global = true, value_name = "CHIP", add = ArgValueCompleter::new(complete::rtt_chips))]
+    rtt: Option<String>,
+
+    /// Debug probe to use with --rtt, when there are several: its serial number or a part of it, VID:PID in hex or
+    /// VID:PID:SERIAL
+    #[arg(long, env = "WW_PROBE", global = true, value_name = "SERIAL|VID:PID", add = ArgValueCandidates::new(complete::probes))]
+    probe: Option<String>,
+
+    /// Firmware ELF file: with --rtt the RTT control block address is taken from it instead of scanning RAM (~1.5 s on
+    /// an ST-LINK; RAM is still scanned if the running firmware doesn't match it); `counters` and `report` decode
+    /// with it when given here on the command line
+    #[arg(long, env = "WW_ELF", global = true, value_name = "ELF", value_hint = ValueHint::FilePath)]
+    elf: Option<String>,
+
+    /// SWD clock with --rtt in kHz (the probe's default if not given)
+    #[arg(long, env = "WW_PROBE_SPEED_KHZ", global = true, value_name = "KHZ")]
+    probe_speed_khz: Option<String>,
 
     /// Request timeout in milliseconds
     #[arg(long, env = "WW_TIMEOUT_MS", global = true, value_name = "MS")]
@@ -108,6 +148,8 @@ pub(crate) struct Setting {
 /// Resolved device selection.
 pub(crate) struct Selection {
     pub(crate) settings: Vec<Setting>,
+    /// USB filters left out because `rtt` from a source that comes first selects a debug probe.
+    pub(crate) unused: Vec<Setting>,
     /// Project config file, if one was found and loaded.
     pub(crate) file: Option<PathBuf>,
     /// Where `--config`/`WW_CONFIG` points to, even if it does not exist yet.
@@ -155,20 +197,11 @@ impl Selection {
             }
         }
 
-        let mut client_config = ClientConfig::new().usb();
-        for setting in &settings {
-            client_config =
-                apply(client_config, setting.key, &setting.value).with_context(|| {
-                    format!(
-                        "invalid {} '{}' from {}",
-                        setting.key,
-                        setting.value,
-                        setting.source.describe(setting.key)
-                    )
-                })?;
-        }
+        let (used, unused) = split_by_transport(&settings)?;
+        let client_config = client_config(&used)?;
         Ok(Self {
             settings,
+            unused,
             file,
             explicit_file,
             client_config,
@@ -177,6 +210,99 @@ impl Selection {
 
     pub(crate) fn client_config(&self) -> ClientConfig {
         self.client_config.clone()
+    }
+
+    /// `--elf` from the command line: the ELF `counters` and `report` decode with instead of looking for the one
+    /// with the device's build id. From an env variable or ww.toml it's only the RTT control block's.
+    pub(crate) fn elf_flag(&self) -> Option<PathBuf> {
+        self.settings
+            .iter()
+            .find(|s| s.key == "elf" && matches!(s.source, Source::Flag))
+            .map(elf_path)
+    }
+
+    /// The chip, when the device is reached over RTT through a debug probe.
+    pub(crate) fn rtt(&self) -> Option<&str> {
+        self.get("rtt")
+    }
+
+    fn get(&self, key: &str) -> Option<&str> {
+        self.settings
+            .iter()
+            .find(|s| s.key == key)
+            .map(|s| s.value.as_str())
+    }
+
+    /// The single debug probe `--probe` picks for `--rtt` (any one, when it doesn't narrow down to one).
+    pub(crate) fn rtt_probe(&self) -> Result<wire_weaver_client::ProbeInfo> {
+        let probes = wire_weaver_client::list_probes();
+        if probes.is_empty() {
+            bail!(
+                "no debug probe found, is it plugged in? (`probe-rs list` shows what probe-rs sees)"
+            );
+        }
+        let filter = self.get("probe").map(ProbeFilter::parse).transpose()?;
+        let mut matching: Vec<_> = probes
+            .iter()
+            .filter(|p| filter.as_ref().is_none_or(|f| f.matches(p)))
+            .cloned()
+            .collect();
+        match matching.len() {
+            1 => Ok(matching.remove(0)),
+            0 => bail!(
+                "no debug probe matches --probe {}, found: {}",
+                self.get("probe").unwrap_or_default(),
+                probe_names(&probes)
+            ),
+            _ => bail!(
+                "several debug probes found, pick one with --probe SERIAL: {}",
+                probe_names(&matching)
+            ),
+        }
+    }
+
+    /// The hub's and the lock file's name of the device: `rtt:<probe serial>:<chip>` over RTT, see
+    /// [holders::key_for](wire_weaver_client::holders::key_for).
+    pub(crate) fn rtt_key(&self) -> Result<Option<String>> {
+        let Some(chip) = self.rtt() else {
+            return Ok(None);
+        };
+        let probe = self.rtt_probe()?;
+        Ok(Some(wire_weaver_client::holders::key_for(
+            wire_weaver_client::holders::DeviceRef::Rtt {
+                probe_serial: probe.serial.as_deref().unwrap_or_default(),
+                chip,
+            },
+        )))
+    }
+
+    /// Over RTT the device isn't known before connecting: checks `api` on the connected device. Nothing to do over
+    /// USB, where the device was picked by it.
+    pub(crate) fn check_connected(
+        &self,
+        api: &wire_weaver::ww_version::FullVersionOwned,
+    ) -> Result<()> {
+        if self.rtt().is_none() {
+            return Ok(());
+        }
+        let Some(setting) = self.settings.iter().find(|s| s.key == "api") else {
+            return Ok(());
+        };
+        let (gid, req) = parse_api(&setting.value)?;
+        let version = semver::Version::new(
+            api.version.major.0 as u64,
+            api.version.minor.0 as u64,
+            api.version.patch.0 as u64,
+        );
+        if api.crate_id != gid || !req.matches(&version) {
+            bail!(
+                "the device behind the probe serves {} {version}, not api={} ({})",
+                api.crate_id,
+                setting.value,
+                setting.source.describe(setting.key)
+            );
+        }
+        Ok(())
     }
 
     /// Whether any of the settings came from the project config file.
@@ -192,14 +318,192 @@ impl Display for Selection {
         if self.settings.is_empty() {
             return write!(f, "no device selection filters");
         }
-        for (i, s) in self.settings.iter().enumerate() {
+        let used = self
+            .settings
+            .iter()
+            .filter(|s| !self.unused.iter().any(|u| u.key == s.key));
+        for (i, s) in used.enumerate() {
             if i > 0 {
                 write!(f, ", ")?;
             }
             write!(f, "{}={} ({})", s.key, s.value, s.source.describe(s.key))?;
         }
+        if !self.unused.is_empty() {
+            let keys: Vec<_> = self.unused.iter().map(|s| s.key).collect();
+            write!(f, "; not used over RTT: {}", keys.join(", "))?;
+        }
         Ok(())
     }
+}
+
+impl Source {
+    /// Flags win over env variables, which win over ww.toml.
+    fn rank(&self) -> u8 {
+        match self {
+            Source::Flag => 2,
+            Source::Env => 1,
+            Source::File(_) => 0,
+        }
+    }
+}
+
+/// Settings used and left out. With `rtt`, the USB filters from a source that comes after it (ww.toml under
+/// `--rtt`) are left out, the ones from the same or a stronger one are an error: they'd select a USB device.
+/// Without `rtt`, a probe setting is an error.
+fn split_by_transport(settings: &[Setting]) -> Result<(Vec<Setting>, Vec<Setting>)> {
+    let Some(rtt) = settings.iter().find(|s| s.key == "rtt") else {
+        if let Some(s) = settings.iter().find(|s| PROBE_KEYS.contains(&s.key)) {
+            bail!(
+                "{}={} ({}) needs rtt: pass --rtt CHIP to connect through a debug probe",
+                s.key,
+                s.value,
+                s.source.describe(s.key)
+            );
+        }
+        return Ok((settings.to_vec(), vec![]));
+    };
+    let mut used = vec![];
+    let mut unused = vec![];
+    for s in settings {
+        if !USB_KEYS.contains(&s.key) {
+            used.push(s.clone());
+        } else if s.source.rank() < rtt.source.rank() {
+            unused.push(s.clone());
+        } else {
+            bail!(
+                "{}={} ({}) selects a USB device, but rtt={} ({}) connects through a debug probe: pick the probe \
+                 with --probe SERIAL or VID:PID",
+                s.key,
+                s.value,
+                s.source.describe(s.key),
+                rtt.value,
+                rtt.source.describe(rtt.key)
+            );
+        }
+    }
+    Ok((used, unused))
+}
+
+/// USB filters, or the device's filters, then RTT with the probe's (see [ClientConfig::rtt]).
+fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
+    fn with_context<T>(r: Result<T>, s: &Setting) -> Result<T> {
+        r.with_context(|| {
+            format!(
+                "invalid {} '{}' from {}",
+                s.key,
+                s.value,
+                s.source.describe(s.key)
+            )
+        })
+    }
+    let rtt = settings.iter().find(|s| s.key == "rtt");
+    let mut config = match rtt {
+        Some(_) => ClientConfig::new(),
+        None => ClientConfig::new().usb(),
+    };
+    for s in settings
+        .iter()
+        .filter(|s| !["rtt", "elf"].contains(&s.key) && !PROBE_KEYS.contains(&s.key))
+    {
+        config = with_context(apply(config, s.key, &s.value), s)?;
+    }
+    let Some(rtt) = rtt else {
+        return Ok(config);
+    };
+    let speed_hz = match settings.iter().find(|s| s.key == "probe_speed_khz") {
+        Some(s) => {
+            let khz = with_context(
+                s.value.parse::<std::num::NonZeroU32>().map_err(Into::into),
+                s,
+            )?;
+            Some(khz.get().saturating_mul(1000))
+        }
+        None => None,
+    };
+    config = config.rtt(rtt.value.clone(), speed_hz);
+    if let Some(s) = settings.iter().find(|s| s.key == "probe") {
+        config = with_context(ProbeFilter::parse(&s.value), s)?.apply(config);
+    }
+    if let Some(s) = settings.iter().find(|s| s.key == "elf") {
+        config = config.rtt_elf(elf_path(s));
+    }
+    Ok(config)
+}
+
+/// An ELF path from ww.toml is relative to the file's directory, from a flag or env variable to the current one.
+pub(crate) fn elf_path(s: &Setting) -> PathBuf {
+    let path = PathBuf::from(&s.value);
+    match &s.source {
+        Source::File(file) if path.is_relative() => {
+            file.parent().map(|dir| dir.join(&path)).unwrap_or(path)
+        }
+        _ => path,
+    }
+}
+
+/// `--probe`: a serial number or its part, VID:PID, or VID:PID:SERIAL.
+#[derive(Debug, PartialEq)]
+struct ProbeFilter {
+    vid_pid: Option<(u16, u16)>,
+    serial: Option<String>,
+}
+
+impl ProbeFilter {
+    fn parse(s: &str) -> Result<Self> {
+        let parts: Vec<&str> = s.splitn(3, ':').collect();
+        Ok(match parts.as_slice() {
+            [serial] => ProbeFilter {
+                vid_pid: None,
+                serial: Some(serial.to_string()),
+            },
+            [vid, pid] => ProbeFilter {
+                vid_pid: Some(parse_vid_pid(&format!("{vid}:{pid}"))?),
+                serial: None,
+            },
+            [vid, pid, serial] => ProbeFilter {
+                vid_pid: Some(parse_vid_pid(&format!("{vid}:{pid}"))?),
+                serial: Some(serial.to_string()),
+            },
+            _ => unreachable!("splitn gives one to three parts"),
+        })
+    }
+
+    fn matches(&self, p: &wire_weaver_client::ProbeInfo) -> bool {
+        let vid_pid_ok = self.vid_pid.is_none_or(|v| v == (p.vid, p.pid));
+        let serial_ok = self.serial.as_ref().is_none_or(|s| {
+            p.serial
+                .as_ref()
+                .is_some_and(|ps| ps.to_lowercase().contains(&s.to_lowercase()))
+        });
+        vid_pid_ok && serial_ok
+    }
+
+    /// Filters after [ClientConfig::rtt] pick the probe.
+    fn apply(self, mut config: ClientConfig) -> ClientConfig {
+        if let Some((vid, pid)) = self.vid_pid {
+            config = config.usb_vid_pid(vid, pid);
+        }
+        if let Some(serial) = self.serial {
+            config = config.serial_contains(serial);
+        }
+        config
+    }
+}
+
+fn probe_names(probes: &[wire_weaver_client::ProbeInfo]) -> String {
+    let names: Vec<_> = probes
+        .iter()
+        .map(|p| {
+            format!(
+                "{} {:04x}:{:04x}:{}",
+                p.name,
+                p.vid,
+                p.pid,
+                p.serial.as_deref().unwrap_or("<no serial>")
+            )
+        })
+        .collect();
+    names.join(", ")
 }
 
 impl Source {
@@ -317,4 +621,196 @@ fn load_device_table(path: &Path) -> Result<BTreeMap<String, String>> {
         strings.insert(key, value);
     }
     Ok(strings)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn setting(key: &'static str, value: &str, source: Source) -> Setting {
+        Setting {
+            key,
+            value: value.into(),
+            source,
+        }
+    }
+
+    fn file() -> Source {
+        Source::File(PathBuf::from("/work/board/ww.toml"))
+    }
+
+    #[test]
+    fn usb_filters_from_ww_toml_are_left_out_under_rtt() {
+        let settings = [
+            setting("rtt", "STM32G0B1RETx", Source::Flag),
+            setting("serial", "0B1", file()),
+            setting("api", "g0b1re_api", file()),
+        ];
+        let (used, unused) = split_by_transport(&settings).unwrap();
+        let used: Vec<_> = used.iter().map(|s| s.key).collect();
+        let unused: Vec<_> = unused.iter().map(|s| s.key).collect();
+        assert_eq!(used, ["rtt", "api"]);
+        assert_eq!(unused, ["serial"]);
+    }
+
+    #[test]
+    fn usb_filters_as_strong_as_rtt_are_an_error() {
+        for source in [Source::Flag, Source::Env] {
+            let settings = [
+                setting("rtt", "STM32G0B1RETx", Source::Env),
+                setting("label", "bench", source),
+            ];
+            let e = split_by_transport(&settings).unwrap_err().to_string();
+            assert!(e.contains("selects a USB device"), "{e}");
+        }
+        // both in ww.toml: the file contradicts itself
+        let settings = [
+            setting("rtt", "STM32G0B1RETx", file()),
+            setting("vid_pid", "c0de:cafe", file()),
+        ];
+        assert!(split_by_transport(&settings).is_err());
+    }
+
+    #[test]
+    fn probe_settings_need_rtt() {
+        for key in PROBE_KEYS {
+            let e = split_by_transport(&[setting(key, "1", Source::Flag)])
+                .unwrap_err()
+                .to_string();
+            assert!(e.contains("needs rtt"), "{e}");
+        }
+        let usb = [setting("serial", "0B1", Source::Flag)];
+        assert_eq!(split_by_transport(&usb).unwrap().0.len(), 1);
+        // the ELF counters and report decode with
+        let elf = [setting("elf", "fw.elf", Source::Flag)];
+        assert_eq!(split_by_transport(&elf).unwrap().0.len(), 1);
+        let config = format!("{:?}", client_config(&elf).unwrap());
+        assert!(!config.contains("Elf"), "{config}");
+    }
+
+    #[test]
+    fn probe_filter_forms() {
+        let parse = |s| ProbeFilter::parse(s).unwrap();
+        assert_eq!(
+            parse("066DFF"),
+            ProbeFilter {
+                vid_pid: None,
+                serial: Some("066DFF".into())
+            }
+        );
+        assert_eq!(
+            parse("0483:374b"),
+            ProbeFilter {
+                vid_pid: Some((0x0483, 0x374b)),
+                serial: None
+            }
+        );
+        assert_eq!(
+            parse("0483:374b:066DFF"),
+            ProbeFilter {
+                vid_pid: Some((0x0483, 0x374b)),
+                serial: Some("066DFF".into())
+            }
+        );
+        assert!(ProbeFilter::parse("0483:xyz").is_err());
+
+        let stlink = wire_weaver_client::ProbeInfo {
+            vid: 0x0483,
+            pid: 0x374b,
+            serial: Some("066DFF485671".into()),
+            name: "STLink V2-1".into(),
+        };
+        assert!(parse("066dff").matches(&stlink));
+        assert!(parse("0483:374b").matches(&stlink));
+        assert!(!parse("0483:374e").matches(&stlink));
+        assert!(!parse("0483:374b:1234").matches(&stlink));
+    }
+
+    #[test]
+    fn elf_from_ww_toml_is_relative_to_it() {
+        let from_file = setting("elf", "target/fw.elf", file());
+        assert_eq!(
+            elf_path(&from_file),
+            PathBuf::from("/work/board/target/fw.elf")
+        );
+        let from_flag = setting("elf", "target/fw.elf", Source::Flag);
+        assert_eq!(elf_path(&from_flag), PathBuf::from("target/fw.elf"));
+        let absolute = setting("elf", "/fw.elf", file());
+        assert_eq!(elf_path(&absolute), PathBuf::from("/fw.elf"));
+    }
+
+    /// Device filters first, then RTT, then the probe's filters: the order `ClientConfig::rtt` reads them in.
+    #[test]
+    fn rtt_config_order() {
+        let settings = [
+            setting("api", "g0b1re_api", file()),
+            setting("rtt", "STM32G0B1RETx", Source::Flag),
+            setting("probe", "0483:374b:066D", Source::Flag),
+            setting("elf", "fw.elf", Source::Flag),
+            setting("probe_speed_khz", "4000", Source::Env),
+            setting("timeout_ms", "500", Source::Flag),
+        ];
+        let config = format!("{:?}", client_config(&settings).unwrap());
+        let at = |needle: &str| {
+            config
+                .find(needle)
+                .unwrap_or_else(|| panic!("{needle} in {config}"))
+        };
+        assert!(at("ImplementsApi") < at("Rtt {"));
+        assert!(at("speed_hz: Some(4000000)") > at("Rtt {"));
+        assert!(at("UsbVidPid") > at("Rtt {"));
+        assert!(at("SerialContains") > at("UsbVidPid"));
+        assert!(at("Elf(\"fw.elf\")") > at("SerialContains"));
+        assert!(!config.contains("Usb,") && !config.contains("Usb]"));
+
+        let zero = [
+            setting("rtt", "STM32G0B1RETx", Source::Flag),
+            setting("probe_speed_khz", "0", Source::Flag),
+        ];
+        assert!(client_config(&zero).is_err());
+    }
+
+    #[test]
+    fn usb_config_without_rtt() {
+        let config = format!(
+            "{:?}",
+            client_config(&[setting("serial", "0B1", Source::Flag)]).unwrap()
+        );
+        assert!(config.contains("Usb"), "{config}");
+        assert!(!config.contains("Rtt"), "{config}");
+    }
+
+    /// Over RTT `api` is checked on the device once connected, over USB it picked the device already.
+    #[test]
+    fn api_checked_after_connecting_over_rtt() {
+        use wire_weaver::ww_version::{FullVersionOwned, VersionOwned};
+        let selection = |rtt: bool| {
+            let mut settings = vec![setting("api", "g0b1re_api@^0.2", file())];
+            if rtt {
+                settings.push(setting("rtt", "STM32G0B1RETx", Source::Flag));
+            }
+            Selection {
+                client_config: client_config(&settings).unwrap(),
+                settings,
+                unused: vec![],
+                file: None,
+                explicit_file: None,
+            }
+        };
+        let served =
+            |name: &str, minor| FullVersionOwned::new(name.into(), VersionOwned::new(0, minor, 1));
+        let rtt = selection(true);
+        assert!(rtt.check_connected(&served("g0b1re_api", 2)).is_ok());
+        let e = rtt
+            .check_connected(&served("g0b1re_api", 3))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("serves g0b1re_api 0.3.1"), "{e}");
+        assert!(rtt.check_connected(&served("other_api", 2)).is_err());
+        assert!(
+            selection(false)
+                .check_connected(&served("other_api", 2))
+                .is_ok()
+        );
+    }
 }

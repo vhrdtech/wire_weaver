@@ -201,16 +201,7 @@ pub(crate) async fn sync(
     selection: &Selection,
     mut stop: StopSignal,
 ) -> Result<()> {
-    let config = selection.client_config();
-    let listed: Vec<_> = wire_weaver_client::list_usb_devices()
-        .await?
-        .into_iter()
-        .filter(|d| config.matches(d))
-        .collect();
-    let picked = pick(&listed, &args.devices)?;
-    if picked.is_empty() {
-        bail!("no matching devices ({selection}), run 'ww list' to see connected devices");
-    }
+    let targets = targets(selection, &args.devices).await?;
     let options = Options {
         poll: Duration::from_millis(args.poll_ms.max(1)),
         steer_every: Duration::from_millis(args.steer_ms.max(1)),
@@ -244,7 +235,7 @@ pub(crate) async fn sync(
     let mut shown = 0;
     match live {
         true => {
-            let connecting = format!("Connecting to {} device(s)…", picked.len());
+            let connecting = format!("Connecting to {} device(s)…", targets.len());
             _ = term.write_line(&style(connecting).dim().to_string());
             shown = 1;
         }
@@ -264,13 +255,15 @@ pub(crate) async fn sync(
     }
 
     let mut devices = Vec::new();
-    for device in picked {
-        let name = name(device);
-        let Some(usb) = &device.usb else {
-            continue;
-        };
+    for Target {
+        name,
+        config,
+        key,
+        rate,
+    } in targets
+    {
         if hub.is_some() {
-            let Some(key) = wire_weaver_client::hub::key_of(device) else {
+            let Some(key) = key else {
                 continue;
             };
             // a tunnel: the hub opens the device and steers it, and keeps it steered after ww sync exits
@@ -289,22 +282,14 @@ pub(crate) async fn sync(
             continue;
         }
         // steered by a sync of its own with --poll-ms and --steer-ms, not the connection's (CLT-46)
-        let config = config
-            .clone()
-            .traits_only()
-            .hub(HubMode::Direct)
-            .clock_sync(false)
-            .usb_port_chain(usb.bus_id.clone(), usb.port_chain.clone());
+        let config = config.traits_only().hub(HubMode::Direct).clock_sync(false);
         let client = DynClient::from_config(config)
             .connect()
             .await
             .with_context(|| format!("connecting to {name}"))?;
         // the rate this PC measured last time, shared with the hub (SRV-31)
         let options = Options {
-            rate_cache: device
-                .serials
-                .first()
-                .and_then(|serial| RateCache::for_device(serial).ok()),
+            rate_cache: rate.and_then(|rate| RateCache::for_device(&rate).ok()),
             ..options.clone()
         };
         let (sync, note) = match ClockSync::start(client.cmd(), options).await {
@@ -412,6 +397,65 @@ pub(crate) async fn sync(
 }
 
 /// The devices the arguments name, each matching exactly one, or all of them.
+/// A device to sync, before connecting to it.
+struct Target {
+    name: String,
+    /// How to reach it directly
+    config: ClientConfig,
+    /// Its key in the hub, see [hub::key_of](wire_weaver_client::hub::key_of)
+    key: Option<String>,
+    /// Its rate cache name, see [rate_key](wire_weaver_client::clock_sync::rate_key)
+    rate: Option<String>,
+}
+
+/// USB devices the selection matches and `wanted` picks, or the one device behind the debug probe with `--rtt`.
+async fn targets(selection: &Selection, wanted: &[String]) -> Result<Vec<Target>> {
+    let config = selection.client_config();
+    if let Some(chip) = selection.rtt() {
+        if !wanted.is_empty() {
+            bail!(
+                "with --rtt the device is the one behind the probe: pick the probe with --probe, not DEVICE"
+            );
+        }
+        let probe = selection.rtt_probe()?;
+        let key = selection.rtt_key()?;
+        return Ok(vec![Target {
+            name: format!(
+                "{chip} via {}",
+                escape(probe.serial.as_deref().unwrap_or(&probe.name))
+            ),
+            rate: key
+                .as_deref()
+                .and_then(wire_weaver_client::clock_sync::rate_key),
+            key,
+            config,
+        }]);
+    }
+    let listed: Vec<_> = wire_weaver_client::list_usb_devices()
+        .await?
+        .into_iter()
+        .filter(|d| config.matches(d))
+        .collect();
+    let picked = pick(&listed, wanted)?;
+    if picked.is_empty() {
+        bail!("no matching devices ({selection}), run 'ww list' to see connected devices");
+    }
+    Ok(picked
+        .into_iter()
+        .filter_map(|device| {
+            let usb = device.usb.as_ref()?;
+            Some(Target {
+                name: name(device),
+                config: config
+                    .clone()
+                    .usb_port_chain(usb.bus_id.clone(), usb.port_chain.clone()),
+                key: wire_weaver_client::hub::key_of(device),
+                rate: device.serials.first().cloned(),
+            })
+        })
+        .collect())
+}
+
 fn pick<'a>(listed: &'a [DeviceInfo], wanted: &[String]) -> Result<Vec<&'a DeviceInfo>> {
     if wanted.is_empty() {
         return Ok(listed.iter().collect());

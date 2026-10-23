@@ -119,6 +119,10 @@ the selection.
 | `--api`          | `WW_API`          | `api`          | Implemented API: `name[@req]`, e.g. `blinky_api@^0.1`          |
 | `--vid-pid`      | `WW_VID_PID`      | `vid_pid`      | USB VID:PID in hex, e.g. `c0de:cafe`                           |
 | `--usb-path`     | `WW_USB_PATH`     | `usb_path`     | USB bus and port chain as shown by `ww list`, e.g. `003-1.2`   |
+| `--rtt`          | `WW_RTT`          | `rtt`          | Connect over RTT through a debug probe: the probe-rs chip name, e.g. `STM32G0B1RETx`, see [below](#through-a-debug-probe-rtt) |
+| `--probe`        | `WW_PROBE`        | `probe`        | With `--rtt`, the probe: serial containing the value, `VID:PID` in hex or `VID:PID:SERIAL` |
+| `--elf`          | `WW_ELF`          | `elf`          | The firmware ELF file: with `--rtt` the RTT control block address is taken from it instead of scanning RAM; `counters` and `report` decode with it when given on the command line |
+| `--probe-speed-khz` | `WW_PROBE_SPEED_KHZ` | `probe_speed_khz` | With `--rtt`, the SWD clock in kHz, not a filter (the probe's default without it) |
 | `--timeout-ms`   | `WW_TIMEOUT_MS`   | `timeout_ms`   | Request timeout in milliseconds, not a filter                  |
 | `--link-setup-timeout-ms` | `WW_LINK_SETUP_TIMEOUT_MS` | `link_setup_timeout_ms` | How long to wait for the device to answer when connecting, in milliseconds, not a filter. Default: USB 1000, RTT 10000 |
 
@@ -133,6 +137,41 @@ the selection.
 Settings of different kinds are combined, so for example `api` from `ww.toml` and `--serial` on the command line
 narrow the selection together. Each setting is taken from the first place that has it:
 **command line flag > environment variable > `ww.toml`**.
+
+### Through a debug probe (RTT)
+
+A board with no USB of its own (a Nucleo-64 has only its ST-LINK) is reached over RTT through the debug probe, with
+[probe-rs](https://probe.rs): `--rtt CHIP` connects every command (`info`, `counters`, `sync`, `pins`, `dfu reboot`,
+`observe`, `report`, ...) through it instead of USB. The firmware serves WireWeaver on the RTT channels `ww_up` and
+`ww_down` (see [RTT](transport/rtt.md)); a running firmware is attached to as it is, without a reset.
+
+```sh
+ww --rtt STM32G0B1RETx info                                     # the only probe
+ww --rtt STM32G0B1RETx --probe 066D counters read                # one of several, by a part of its serial
+ww --rtt STM32G0B1RETx --elf target/thumbv6m-none-eabi/debug/fw sync   # control block from the ELF, no RAM scan
+ww list --probes                                                 # the probes, and who holds each
+```
+
+- Without `--elf` the RAM is scanned for the RTT control block (about 1.5 s for 144 KiB through an ST-LINK); with it
+  the address is read from the `_SEGGER_RTT` symbol. A firmware that doesn't match the file is still found by a scan,
+  with a warning.
+- The USB filters (`--serial`, `--label`, `--product`, `--manufacturer`, `--vid-pid`, `--usb-path`) describe a USB
+  device and are refused next to `--rtt` from the same or a stronger source; from `ww.toml` under a `--rtt` flag
+  they are left out (`ww` names them in its messages). `--api` is checked on the device once connected.
+- `--probe` and `--probe-speed-khz` without `--rtt` are an error.
+- A probe is held by one program at a time. When another WireWeaver program has it, the error names it (`held by
+  g0b1re, pid 4242, ...` from its lock file); a program that writes no lock file (`probe-rs run`, OpenOCD) is named
+  on Linux from `/proc`. With a [ww hub](transport/hub.md) holding it (`ww hub take rtt:<probe serial>:<chip>`),
+  several programs share the probe.
+- Shell completion offers the chip names (from what is typed so far) and the serials of the connected probes.
+
+A board project keeps it in `ww.toml`; a relative `elf` path there is relative to the file:
+
+```toml
+[device]
+rtt = "STM32G0B1RETx"
+elf = "target/thumbv6m-none-eabi/debug/nucleo_g0b1re_template"
+```
 
 ### Project config: `ww.toml`
 

@@ -128,6 +128,32 @@ pub(crate) fn device_keys() -> Vec<CompletionCandidate> {
         .collect()
 }
 
+/// Debug probes for `--probe`: serial numbers, and VID:PID for a probe without one, with the probe's name as help.
+pub(crate) fn probes() -> Vec<CompletionCandidate> {
+    wire_weaver_client::list_probes()
+        .into_iter()
+        .map(|p| {
+            let vid_pid = format!("{:04x}:{:04x}", p.vid, p.pid);
+            match p.serial {
+                Some(serial) => CompletionCandidate::new(serial)
+                    .help(Some(format!("{} ({vid_pid})", p.name).into())),
+                None => CompletionCandidate::new(vid_pid).help(Some(p.name.into())),
+            }
+        })
+        .collect()
+}
+
+/// probe-rs chip names for `--rtt` starting with what is typed so far (a whole list is several thousand names).
+pub(crate) fn rtt_chips(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return vec![];
+    };
+    wire_weaver_client::rtt_chips(current)
+        .into_iter()
+        .map(CompletionCandidate::new)
+        .collect()
+}
+
 pub(crate) fn labels() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.user_label.clone()])
 }

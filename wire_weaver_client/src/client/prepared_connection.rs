@@ -912,6 +912,7 @@ fn not_found(config: &ValidatedConfig, unmatched: Vec<crate::DeviceInfo>) -> Err
     crate::Error::DeviceNotFound {
         filters: config.describe_filters(),
         unmatched,
+        over_rtt: config.is_rtt(),
     }
     .into()
 }

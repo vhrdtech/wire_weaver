@@ -2,7 +2,7 @@
 //! ELF found by its build id and shown with the same views as `cnt` over a probe (`cnt_view`).
 
 use anyhow::{Context, Result, anyhow, bail};
-use clap::{Args, Subcommand, ValueHint};
+use clap::{Args, Subcommand};
 use cnt_core::{Counters, Storage, elf};
 use cnt_view::{Format, output};
 use console::style;
@@ -20,10 +20,11 @@ pub(crate) struct CountersArgs {
     #[command(subcommand)]
     command: Option<CountersCommand>,
 
-    /// Firmware ELF to decode the counters with. By default the one with the build id the device reports, from
-    /// target/ of the cargo project here, WW_ELF_PATH or ~/.cache/ww/elf (`cnt elf add` fills it)
-    #[arg(long, global = true, value_hint = ValueHint::FilePath)]
-    elf: Option<PathBuf>,
+    /// Firmware ELF to decode the counters with: the global `--elf` given on the command line. By default the one
+    /// with the build id the device reports, from target/ of the cargo project here, WW_ELF_PATH or ~/.cache/ww/elf
+    /// (`cnt elf add` fills it)
+    #[arg(skip)]
+    pub(crate) elf: Option<PathBuf>,
 
     /// Use the ELF although the device runs other firmware (its build id differs), or the newest one under target/
     /// when none matches

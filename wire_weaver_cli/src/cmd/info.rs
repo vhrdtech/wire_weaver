@@ -25,10 +25,11 @@ pub(crate) struct InfoArgs {
 
 #[derive(Args)]
 pub(crate) struct ReportArgs {
-    /// Firmware ELF to decode counters, log and crash with. By default the one with the build id the device
-    /// reports: `target/` of the cargo project here, WW_ELF_PATH or ~/.cache/ww/elf (`ww elf add` fills it)
-    #[arg(long, value_hint = ValueHint::FilePath)]
-    elf: Option<PathBuf>,
+    /// Firmware ELF to decode counters, log and crash with: the global `--elf` given on the command line. By default
+    /// the one with the build id the device reports: `target/` of the cargo project here, WW_ELF_PATH or
+    /// ~/.cache/ww/elf (`ww elf add` fills it)
+    #[arg(skip)]
+    pub(crate) elf: Option<PathBuf>,
 
     /// Use the ELF although the device runs other firmware (its build id differs)
     #[arg(long)]

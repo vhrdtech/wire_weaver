@@ -3,6 +3,7 @@
 ### ⚠️ Breaking
 
 - `evolution` is a re-export of the new `wire_weaver_evolution` crate (EVO-11), where the checker lives now, together with `layout` and the type rules of `compat`; paths like `wire_weaver_client::evolution::compare` keep working. `evolution::Report::breaking` is a `Vec<Finding>` (the rule broken and the message) instead of `Vec<String>`: use `finding.message`, or its `Display`, which adds the rule.
+- `Error::DeviceNotFound` has the new field `over_rtt` (TOOL-20): the message says `No debug probe found` or lists the probes that didn't match instead of talking about WireWeaver USB devices; code building the variant sets it. The filters in the message name the RTT target, and the filters after it as `probe ..`.
 - `clock_sync::Fit` has two more public fields, `max_rtt` (the longest round trip of the samples used) and `rate_sensitivity`: code that builds a `Fit` with a struct literal adds them (`0` / `0.0` for a fit without a measured slope).
 - `adopt::LinkSnapshotOwned` is split into a medium-independent and a medium part (CLT-44): `adopt::HandoverOwned { client_version, key, link, medium }` with `link: LinkResidualOwned` (token, `DeviceInfo`, seqs, requests in flight, streams, observed levels, `full_only`, ping timers) and `medium: MediumResidualOwned { kind: MediumKindOwned, bytes }`, bytes that only the medium of that kind decodes (for USB its endpoints and the framers' carry, which were `MediumOwned`, `tx_frame`, `rx_partial`, `rx_staged`, `rx_next_frame`). `MediumOwned`, `FrameAtOwned` and `PartialOwned` are gone from `adopt`. `internal::Adopted::new(link, medium, tag, forward_timeout)` takes the two residuals instead of a snapshot. A hub and a holder of different minors never adopted each other's links, so deployed hubs are not affected beyond that.
 - A direct connection steers its device's clock onto the PC's UTC by default (CLT-46), when the device serves
@@ -39,6 +40,8 @@
 - `holders` (CLT-38) find the runtime dir with `ww_local_socket::runtime_dir()`, the hub's own: `/tmp/ww-<uid>` on Linux without `XDG_RUNTIME_DIR` (was an error), `WW_RUNTIME_DIR` honoured, a symlinked dir refused; the `rustix` dependency is gone, and the crate builds without warnings on Windows and macOS.
 
 ### 🚀 Features
+
+- With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).
 
 - `clock_sync::Fit::rate_bound_ppb(resolution_ns)`: how far the fitted rate can be from the device's true rate at most, a bound that holds whatever the load (each sample's host time is within half its round trip of the device's reading), `None` for a slope from the rate cache.
 - The event loop has one transport slot (`event_loop::medium`, an enum over this crate's media, boxed for others) instead of each live medium's `Live<Device, Hub>` halves: a live handover's steps are the medium's in the slot (`Transport::pause`, `let_go`, `take_back`, `switch`, the claim), and `medium::relink` puts another medium's halves in its place, from any medium to any other (CLT-44's tunnel to the hub now; the foundation for handing WS and UDP links over). The USB medium checks that an adopted link was on the interface and endpoints it opened.

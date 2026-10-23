@@ -118,7 +118,10 @@ pub fn is_anonymous(net: &str) -> bool {
 /// `PA0`..`PK15`: boardmap's default pattern for MCU pin nets.
 fn is_mcu_pin(net: &str) -> bool {
     let b = net.as_bytes();
-    b.len() >= 3 && b[0] == b'P' && (b'A'..=b'K').contains(&b[1]) && b[2..].iter().all(u8::is_ascii_digit)
+    b.len() >= 3
+        && b[0] == b'P'
+        && (b'A'..=b'K').contains(&b[1])
+        && b[2..].iter().all(u8::is_ascii_digit)
 }
 
 /// A connector, its pads in rows (top of the board first) and columns (left first), as seen from the top.
@@ -269,7 +272,9 @@ impl Board {
 
     /// The alias of a pad's net, of its own or a joined one.
     pub fn alias(&self, pad: &Pad) -> Option<&str> {
-        pad.nets().find_map(|n| self.aliases.get(n)).map(String::as_str)
+        pad.nets()
+            .find_map(|n| self.aliases.get(n))
+            .map(String::as_str)
     }
 
     /// The `[pins]` entry of a pad's net, of its own or a joined one.
@@ -365,7 +370,11 @@ fn from_footprint(r#ref: String, label: String, fp: &Footprint, bridges: &Bridge
         rows[r][c] = Some(Pad {
             number: p.number.clone(),
             net: p.net.clone(),
-            joined: p.net.as_deref().map(|n| bridges.joined(n)).unwrap_or_default(),
+            joined: p
+                .net
+                .as_deref()
+                .map(|n| bridges.joined(n))
+                .unwrap_or_default(),
         });
     }
     if !upright {
@@ -450,10 +459,8 @@ mod tests {
     use crate::mock::ALL;
 
     fn nucleo() -> Board {
-        Board::load(
-            &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/nucleo_g0b1re.toml"),
-        )
-        .unwrap()
+        Board::load(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/nucleo_g0b1re.toml"))
+            .unwrap()
     }
 
     fn net(c: &Connector, r: usize, col: usize) -> (&str, &str) {

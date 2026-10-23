@@ -23,6 +23,7 @@ pub use ww_pin_diag::{Drive, Level, PinDiagErrorOwned, PointCaps, PointState, Pu
 
 pub mod board;
 pub mod device;
+pub mod live;
 pub mod mock;
 pub mod plan;
 pub mod probe;

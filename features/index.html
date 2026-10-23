@@ -5966,11 +5966,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>API-12 Calculate max path depth in server codegen</strong> · <code>v0.5</code> — <code>MAX_DEPTH</code> is hardcoded to 16 in
   <code>wire_weaver_core/src/codegen/api_server.rs</code>.</li>
 <li>📋 <strong>API-13 Error system, remove <code>unwrap</code>s from codegen</strong> · <code>v0.5</code> — report errors with spans instead of panicking.</li>
-<li>📋 <strong>API-14 Load API crates from crates.io</strong> · <code>v0.5</code> — the crate walker handles path and workspace dependencies;
-  <code>crate = "version"</code> dependencies hit a <code>todo!()</code> in <code>wire_weaver_core/src/transform/crate_walker.rs</code>. Also
-  dependencies from git (backlog). Every crate downloaded from crates.io has only such dependencies, so until this is
-  done a published API crate whose API uses another crate's types or traits doesn't compile for its users or on
-  docs.rs (DOC-6).</li>
 <li>📋 <strong>API-56 care-marker Care marker on switching writes</strong> — a typed attribute (the <code>ww_self::Meta</code> of SRV-34) on
     a method or property whose call or write switches power or outputs (a rail, a relay, a motor enable), carried in
     introspection: GUIs ask to confirm, <code>ww call</code> / <code>ww set</code> want <code>--yes</code>, the hub can log who did it. Wire
@@ -6058,6 +6053,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shortest <code>max_age_us</code>. Against a time column per property (21 FOC properties, n = 32, <code>DeltaPacked</code>): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (<code>docs/api/observing.md#which-rates-fit-an-mcu</code>, <code>tests/observe_batched</code>).</li>
+<li>✅ <strong>API-14 API crates with git and crates.io dependencies</strong> · <code>v0.5</code> — the crate walker (<code>#[ww_api_root]</code>,
+  <code>#[ww_trait]</code>, <code>ww_codegen!</code>, <code>ww api</code>) follows <code>{ git = .. }</code> and <code>"version"</code> / <code>{ version = .. }</code> dependencies
+  (also through <code>[workspace.dependencies]</code> and <code>package = ".."</code> renames), not only path ones: the exact package from
+  the nearest <code>Cargo.lock</code> (the entry in the dependent's own list, so two versions of a crate are told apart), its
+  source where Cargo fetched it (<code>CARGO_HOME</code>'s <code>git/checkouts/&lt;repo&gt;-*/&lt;rev&gt;/</code>, the member found by package name
+  anywhere in the repository; <code>registry/src/*/&lt;name&gt;-&lt;version&gt;/</code>), clear errors naming <code>cargo fetch</code> when the lock
+  or the source is missing. In a crate Cargo fetched itself (a published API crate's own <code>#[ww_trait]</code>, docs.rs),
+  crates.io dependencies are the newest matching version on disk, as the lock in use is out of reach. Tests
+  <code>wire_weaver_core</code> <code>crate_walker::tests</code> (a real <code>cargo fetch</code> of a local git repository), <code>docs/api/traits.md</code>.</li>
 <li>✅ <strong>API-50 Observe cells: sampling a level from an interrupt in place</strong> — <code>ww_codegen!(.., observe_cells =
   "root_foc")</code> puts a level with <code>+batched</code> properties on a ring of atomics instead of <code>&lt;Level&gt;Sampler::sample</code>: a
   <code>const fn</code> <code>&lt;Level&gt;Cells&lt;R&gt;</code> (a <code>static</code>, or an <code>Arc</code>), one <code>&lt;Level&gt;Writer</code> with a setter per property (relaxed
@@ -7270,8 +7274,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>DOC-6 Docs for <code>ww_stdlib</code> crates and resource doc comments</strong> · <code>v0.5.x</code> — done: <code>#[ww_trait]</code> leaves a Rust
   trait of the same name for rustdoc, with every resource and its doc comments (properties, streams, sinks and
   sub-traits as <code>wire_weaver::api_doc</code> markers, see <code>api/traits.md</code>), checked with nightly <code>--cfg docsrs</code> on a
-  crates.io-shaped copy of <code>ww_i2c</code>. Missing: docs.rs builds of crates whose API uses another crate's types or traits
-  (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types), the macro panics on their <code>version = ".."</code> dependencies, needs API-14.</li>
+  crates.io-shaped copy of <code>ww_i2c</code>. Missing: a docs.rs check of crates whose API uses another crate's types or
+  traits (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types); the macro panicked on their <code>version = ".."</code> dependencies until
+  API-14, try one on a crates.io-shaped copy.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">

@@ -5348,6 +5348,13 @@ path; the crate providing it (<code>ww_gpio</code> here) is a normal Cargo depen
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="c1">// and device specific items next to the common ones</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
 </span></code></pre></div>
+<p>The dependency can be a path, git or crates.io one (<code>ww_gpio = { git = ".." }</code>, <code>ww_gpio = "0.2"</code>). The macros
+read the trait's source where Cargo put it: a path dependency in place, a git or crates.io one at the exact version
+the <code>Cargo.lock</code> of the crate being built pins, in Cargo's own copy under <code>CARGO_HOME</code> (<code>git/checkouts/</code>,
+<code>registry/src/</code>). Cargo fetches them before it compiles anything, so this just works in a build; a tool reading an
+API crate that was never built (<code>ww api ...</code>) asks for <code>cargo fetch</code> first. Inside an API crate that Cargo fetched
+itself (one your project depends on, or a docs.rs build) only its publisher's <code>Cargo.lock</code> is at hand, so its
+crates.io dependencies are read at the newest matching version Cargo has.</p>
 <p>Host code written for <code>ww_gpio::Bank</code> then works with any device that has a bank somewhere in its API, whatever the
 device, the path or the transport: see <a href="../trait_attachments/">Trait attachments</a>. A host can also call a trait by
 its crate's name and version instead of its path, on a device whose API it doesn't know, for example to reboot any

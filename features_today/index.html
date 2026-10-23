@@ -5510,6 +5510,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/properties/#const-items">Constants</a></strong>: <code>const NAME: T;</code> items, read once per connection and cached.</li>
 <li><strong><a href="../types/#generic-types-in-an-api">Generic types</a></strong>: <code>Timed&lt;Ampere&gt;</code>, <code>Window&lt;4&gt;</code> and your own generic structs and enums anywhere in an API, also in the dynamic client and Python.</li>
 <li><strong><a href="../types/#type-aliases">Type aliases</a></strong>: <code>type Volt = Quantity&lt;VoltUnit&gt;</code> and generic aliases anywhere in an API; tools show what they name.</li>
+<li><strong><a href="../api/traits/#reusing-traits-from-other-crates">Dependencies from anywhere</a></strong>: An API crate can take traits and types from git and crates.io crates, not only from a path next to it.</li>
 <li><strong><a href="../types/#types-in-modules">Types in modules</a></strong>: API types can live in any <code>pub mod</code> or be re-exported under another name; generated code finds them.</li>
 <li><strong><a href="../types/#self-referential-types-refbox">Self-referential types</a></strong>: Trees and expressions (<code>RefBox</code>, a list of the type itself) anywhere in an API, also in the dynamic client and Python.</li>
 </ul>

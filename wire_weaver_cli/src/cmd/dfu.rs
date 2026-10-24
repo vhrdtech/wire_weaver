@@ -72,8 +72,7 @@ pub(crate) enum DeviceDfu {
         #[arg(
             trailing_var_arg = true,
             allow_hyphen_values = true,
-            value_name = "ARGS",
-            add = clap_complete::ArgValueCompleter::new(crate::complete::chunky_flash_words)
+            value_name = "ARGS"
         )]
         args: Vec<OsString>,
     },

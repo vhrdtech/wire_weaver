@@ -14,46 +14,101 @@ use std::io::Write;
 use std::path::Path;
 use wire_weaver_client::DeviceInfo;
 
-/// The command line for completion: `factory`'s, and one subcommand per plugin found on `PATH` (`ww-NAME`), whose
-/// arguments the plugin completes itself.
+/// The command line for completion: `factory`'s, one subcommand per plugin found on `PATH` (`ww-NAME`), and
+/// `dfu flash`, which `ww-chunky flash` answers. A plugin completes its own arguments: it is asked for the words of
+/// the command line being completed, and what it answers is put into the command as its flags and values, which
+/// the completion engine then filters by the word being completed.
 pub fn with_plugins(factory: fn() -> Command) -> Command {
     let mut cmd = factory();
+    // the global flags are the root's: a plugin offering them would be a second flag of the same name
+    let taken: Vec<String> = cmd
+        .get_arguments()
+        .filter_map(|a| a.get_long().map(str::to_string))
+        .chain(["help".into(), "version".into()])
+        .collect();
+    cmd = cmd.mut_subcommand("dfu", |dfu| {
+        dfu.mut_subcommand("flash", |flash| {
+            plugin_stub(flash, &["dfu", "flash"], "chunky", &["flash"], &taken)
+        })
+    });
     for (name, path) in crate::plugin::list() {
         if cmd.find_subcommand(&name).is_some() {
             continue;
         }
-        let plugin = name.clone();
-        let args = clap::Arg::new("args")
-            .num_args(0..)
-            .trailing_var_arg(true)
-            .allow_hyphen_values(true)
-            .add(clap_complete::ArgValueCompleter::new(
-                move |current: &std::ffi::OsStr| forwarded_words(&[&plugin], &plugin, current),
-            ));
-        cmd = cmd.subcommand(
-            // a completion run is short, the name lives until it ends
-            Command::new(&*Box::leak(name.into_boxed_str()))
-                .about(format!("plugin {}", path.display()))
-                .disable_help_flag(true)
-                .arg(args),
-        );
+        // a completion run is short, the name lives until it ends
+        let name: &'static str = Box::leak(name.into_boxed_str());
+        let stub = Command::new(name)
+            .about(format!("plugin {}", path.display()))
+            .disable_help_flag(true);
+        cmd = cmd.subcommand(plugin_stub(stub, &[name], name, &[], &taken));
     }
     cmd
 }
 
-/// Completes the arguments of `ww dfu flash`, which `ww-chunky flash` answers.
-pub fn chunky_flash_words(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
-    forwarded_words(&["dfu", "flash"], "chunky", current)
-}
-
-/// What plugin `plugin` completes for the command line being completed, from the words after `prefix`
-/// (`flash`'s own: `dfu flash`; a plugin's: its name). The command line is in the environment bash's adapter passes
-/// ([Bash]) or after `--` in the arguments of the other shells.
-fn forwarded_words(
+/// `stub` (the command a plugin answers for), with the flags and values `plugin` offers for the command line being
+/// completed, when it is the one that line is in.
+fn plugin_stub(
+    stub: Command,
     prefix: &[&str],
     plugin: &str,
-    current: &std::ffi::OsStr,
-) -> Vec<CompletionCandidate> {
+    lead: &[&str],
+    taken: &[String],
+) -> Command {
+    let mut stub = stub;
+    if stub.get_arguments().all(|a| a.get_id() != "args") {
+        stub = stub.arg(
+            clap::Arg::new("args")
+                .num_args(0..)
+                .trailing_var_arg(true)
+                .allow_hyphen_values(true),
+        );
+    }
+    let Some(words) = words_after(prefix) else {
+        return stub;
+    };
+    // the plugin's own command line starts with the subcommand the stub stands for
+    let words: Vec<std::ffi::OsString> = lead
+        .iter()
+        .map(std::ffi::OsString::from)
+        .chain(words)
+        .collect();
+    let mut values = vec![];
+    for c in crate::plugin::complete_words(plugin, &words) {
+        let value = c.get_value().to_string_lossy().into_owned();
+        let help = c.get_help().cloned();
+        match value.strip_prefix("--") {
+            Some(long) if !long.is_empty() && !taken.iter().any(|t| t == long) => {
+                // names live until the completion run ends
+                let long: &'static str = Box::leak(long.to_string().into_boxed_str());
+                let mut arg = clap::Arg::new(long)
+                    .long(long)
+                    .action(clap::ArgAction::SetTrue);
+                if let Some(help) = help {
+                    arg = arg.help(help);
+                }
+                stub = stub.arg(arg);
+            }
+            Some(_) => {}
+            _ => {
+                let value: &'static str = Box::leak(value.into_boxed_str());
+                let mut possible = clap::builder::PossibleValue::new(value);
+                if let Some(help) = help {
+                    possible = possible.help(help);
+                }
+                values.push(possible);
+            }
+        }
+    }
+    if !values.is_empty() {
+        stub = stub.mut_arg("args", |a| a.value_parser(values));
+    }
+    stub
+}
+
+/// The words of the command line being completed after `prefix` (the word being completed last, empty if there is
+/// none yet), `None` when the command line is not in `prefix`'s command. The command line is in the environment
+/// bash's adapter passes ([Bash]) or after `--` in the arguments of the other shells.
+fn words_after(prefix: &[&str]) -> Option<Vec<std::ffi::OsString>> {
     let words: Vec<String> = match std::env::var("_WW_COMP_LINE") {
         Ok(line) => {
             let wordbreaks = std::env::var("_WW_COMP_WORDBREAKS").unwrap_or_default();
@@ -61,20 +116,17 @@ fn forwarded_words(
         }
         Err(_) => std::env::args().skip_while(|a| a != "--").skip(2).collect(),
     };
-    let Some(at) = words
+    let at = words
         .windows(prefix.len())
-        .position(|w| w.iter().map(String::as_str).eq(prefix.iter().copied()))
-    else {
-        return vec![];
-    };
+        .position(|w| w.iter().map(String::as_str).eq(prefix.iter().copied()))?;
     let mut rest: Vec<std::ffi::OsString> = words[at + prefix.len()..]
         .iter()
         .map(std::ffi::OsString::from)
         .collect();
     if rest.is_empty() {
-        rest.push(current.to_os_string());
+        rest.push(std::ffi::OsString::new());
     }
-    crate::plugin::complete_words(plugin, &rest)
+    Some(rest)
 }
 
 /// Answers a shell completion request and exits if there is one, otherwise does nothing.

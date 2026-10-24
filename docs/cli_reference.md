@@ -870,7 +870,7 @@ A device without `PinDiag` but with [`ww_gpio`](std_library/ww_gpio.md) banks is
 every bank (arrays by their valid indices) is a point, named as its capabilities name it or by bank and index
 (`PA3`), with the bank as its group. A pin's mode and pull are saved when it is first set and put back on release;
 the device's GPIO has no board rules, so nothing stops a drive the board can't take: that is what `PinDiag` is for.
-Both work over whatever link `ww` connects through.
+Both work over whatever link `ww` connects through: USB, UDP, WebSocket, or RTT through a debug probe ([`--rtt CHIP`](cli.md#through-a-debug-probe-rtt)), as on the Nucleo-64 boards, whose only USB is the ST-LINK.
 
 The preset is a board description of boardmap (embedded_bedrock's `bedrock_board`), read as it is: from it `ww`
 takes `[board] name` and `geometry`, the connectors of `[[view.connector]]` (`ref`, `label`), `[aliases]` and

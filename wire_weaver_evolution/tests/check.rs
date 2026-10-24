@@ -333,7 +333,8 @@ fn compatible_bump_with_current_snapshot_passes() {
     Check::new(c.path()).require_current(true).assert();
 
     // a snapshot of a version not bumped enough (saved with force) fails, naming the version to bump to
-    c.write("1.1.1", &API.replace("    fn led_off();\n", "")).save();
+    c.write("1.1.1", &API.replace("    fn led_off();\n", ""))
+        .save();
     let err = check_current(c.path()).1.unwrap_err();
     has_all(
         &err,

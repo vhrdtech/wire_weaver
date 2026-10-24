@@ -860,27 +860,6 @@ mod tests {
             crate_names(&bundle),
             [("api".into(), 1), ("dep_api".into(), 3)]
         );
-
-        // a `[patch]` in the build leaves the locked revision unfetched: the repository's checkout that is there serves
-        let checkouts = cargo_home.join("git/checkouts");
-        let repo_dir = fs::read_dir(&checkouts)
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .path();
-        let rev_dir = fs::read_dir(&repo_dir)
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .path();
-        fs::rename(&rev_dir, repo_dir.join("0000000")).unwrap();
-        let bundle = load_with_cargo_home(&api, &cargo_home).unwrap();
-        assert_eq!(
-            crate_names(&bundle),
-            [("api".into(), 1), ("dep_api".into(), 3)]
-        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

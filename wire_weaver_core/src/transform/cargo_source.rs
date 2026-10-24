@@ -384,16 +384,10 @@ impl CargoSources {
                 return Ok(checkout);
             }
         }
-        // The pinned revision isn't there when a `[patch]` of the build replaces that source (a repository that
-        // depends on its own dependent through git, wire_weaver and chunky): Cargo fetched the revision the patch
-        // points at instead, and the macro can't see patches. The newest checkout of the repository is that one.
-        let newest = repo_dirs_newest_checkout(&checkouts, &prefix);
-        newest.ok_or_else(|| {
-            anyhow!(
-                "no checkout of {url} at {rev} in {}/{repo}-*/: run `cargo fetch` first",
-                checkouts.display()
-            )
-        })
+        Err(anyhow!(
+            "no checkout of {url} at {rev} in {}/{repo}-*/: run `cargo fetch` first",
+            checkouts.display()
+        ))
     }
 
     /// Packages in a git checkout by name: Cargo finds a git dependency by its package name anywhere in the
@@ -409,26 +403,6 @@ impl CargoSources {
             .insert(checkout.to_path_buf(), members.clone());
         Ok(members)
     }
-}
-
-/// The most recently written `git/checkouts/<prefix>*/<rev>/` that holds a `Cargo.toml`.
-fn repo_dirs_newest_checkout(checkouts: &Path, prefix: &str) -> Option<PathBuf> {
-    fs::read_dir(checkouts)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|e| e.file_name().to_string_lossy().starts_with(prefix))
-        .flat_map(|repo_dir| {
-            fs::read_dir(repo_dir.path())
-                .into_iter()
-                .flatten()
-                .flatten()
-        })
-        .map(|rev| rev.path())
-        .filter(|rev| rev.join("Cargo.toml").exists())
-        .filter_map(|rev| Some((fs::metadata(&rev).ok()?.modified().ok()?, rev)))
-        .max()
-        .map(|(_, rev)| rev)
 }
 
 #[derive(Deserialize)]

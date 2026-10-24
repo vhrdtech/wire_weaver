@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.71">
+      <meta name="generator" content="zensical-0.0.72">
     
     
       
@@ -37,7 +37,7 @@
       
         
       
-      <link rel="stylesheet" href="../assets/stylesheets/modern/main.e442bf79.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.4ab2de0c.min.css">
       
         
           
@@ -104,9 +104,10 @@
   <img src="../assets/wire_weaver_icon_small.svg" alt="WireWeaver">
 
     </a>
-    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+    <label class="md-header__button md-icon" for="__drawer">
       
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+      <span class="md-visually-hidden">Navigation</span>
     </label>
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
@@ -168,9 +169,10 @@
     
       
       
-        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+        <label class="md-header__button md-icon" for="__search">
           
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+          <span class="md-visually-hidden">Search</span>
         </label>
         <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
   <button type="button" class="md-search__button">
@@ -4852,6 +4854,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#through-a-debug-probe-rtt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Through a debug probe (RTT)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#project-config-wwtoml" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5295,6 +5308,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#through-a-debug-probe-rtt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Through a debug probe (RTT)
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#project-config-wwtoml" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5569,6 +5593,30 @@ the selection.</p>
 <td>USB bus and port chain as shown by <code>ww list</code>, e.g. <code>003-1.2</code></td>
 </tr>
 <tr>
+<td><code>--rtt</code></td>
+<td><code>WW_RTT</code></td>
+<td><code>rtt</code></td>
+<td>Connect over RTT through a debug probe: the probe-rs chip name, e.g. <code>STM32G0B1RETx</code>, see <a href="#through-a-debug-probe-rtt">below</a></td>
+</tr>
+<tr>
+<td><code>--probe</code></td>
+<td><code>WW_PROBE</code></td>
+<td><code>probe</code></td>
+<td>With <code>--rtt</code>, the probe: serial containing the value, <code>VID:PID</code> in hex or <code>VID:PID:SERIAL</code></td>
+</tr>
+<tr>
+<td><code>--elf</code></td>
+<td><code>WW_ELF</code></td>
+<td><code>elf</code></td>
+<td>The firmware ELF file: with <code>--rtt</code> the RTT control block address is taken from it instead of scanning RAM; <code>counters</code> and <code>report</code> decode with it when given on the command line</td>
+</tr>
+<tr>
+<td><code>--probe-speed-khz</code></td>
+<td><code>WW_PROBE_SPEED_KHZ</code></td>
+<td><code>probe_speed_khz</code></td>
+<td>With <code>--rtt</code>, the SWD clock in kHz, not a filter (the probe's default without it)</td>
+</tr>
+<tr>
 <td><code>--timeout-ms</code></td>
 <td><code>WW_TIMEOUT_MS</code></td>
 <td><code>timeout_ms</code></td>
@@ -5594,14 +5642,43 @@ the selection.</p>
 <p>Settings of different kinds are combined, so for example <code>api</code> from <code>ww.toml</code> and <code>--serial</code> on the command line
 narrow the selection together. Each setting is taken from the first place that has it:
 <strong>command line flag &gt; environment variable &gt; <code>ww.toml</code></strong>.</p>
+<h3 id="through-a-debug-probe-rtt">Through a debug probe (RTT)<a class="headerlink" href="#through-a-debug-probe-rtt" title="Permanent link">&para;</a></h3>
+<p>A board with no USB of its own (a Nucleo-64 has only its ST-LINK) is reached over RTT through the debug probe, with
+<a href="https://probe.rs">probe-rs</a>: <code>--rtt CHIP</code> connects every command (<code>info</code>, <code>counters</code>, <code>sync</code>, <code>pins</code>, <code>dfu reboot</code>,
+<code>observe</code>, <code>report</code>, ...) through it instead of USB. The firmware serves WireWeaver on the RTT channels <code>ww_up</code> and
+<code>ww_down</code> (see <a href="../transport/rtt/">RTT</a>); a running firmware is attached to as it is, without a reset.</p>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ww<span class="w"> </span>--rtt<span class="w"> </span>STM32G0B1RETx<span class="w"> </span>info<span class="w">                                     </span><span class="c1"># the only probe</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ww<span class="w"> </span>--rtt<span class="w"> </span>STM32G0B1RETx<span class="w"> </span>--probe<span class="w"> </span>066D<span class="w"> </span>counters<span class="w"> </span><span class="nb">read</span><span class="w">                </span><span class="c1"># one of several, by a part of its serial</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>ww<span class="w"> </span>--rtt<span class="w"> </span>STM32G0B1RETx<span class="w"> </span>--elf<span class="w"> </span>target/thumbv6m-none-eabi/debug/fw<span class="w"> </span>sync<span class="w">   </span><span class="c1"># control block from the ELF, no RAM scan</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>ww<span class="w"> </span>list<span class="w"> </span>--probes<span class="w">                                                 </span><span class="c1"># the probes, and who holds each</span>
+</span></code></pre></div>
+<ul>
+<li>Without <code>--elf</code> the RAM is scanned for the RTT control block (about 1.5 s for 144 KiB through an ST-LINK); with it
+  the address is read from the <code>_SEGGER_RTT</code> symbol. A firmware that doesn't match the file is still found by a scan,
+  with a warning.</li>
+<li>The USB filters (<code>--serial</code>, <code>--label</code>, <code>--product</code>, <code>--manufacturer</code>, <code>--vid-pid</code>, <code>--usb-path</code>) describe a USB
+  device and are refused next to <code>--rtt</code> from the same or a stronger source; from <code>ww.toml</code> under a <code>--rtt</code> flag
+  they are left out (<code>ww</code> names them in its messages). <code>--api</code> is checked on the device once connected.</li>
+<li><code>--probe</code> and <code>--probe-speed-khz</code> without <code>--rtt</code> are an error.</li>
+<li>A probe is held by one program at a time. When another WireWeaver program has it, the error names it (<code>held by
+  g0b1re, pid 4242, ...</code> from its lock file); a program that writes no lock file (<code>probe-rs run</code>, OpenOCD) is named
+  on Linux from <code>/proc</code>. With a <a href="../transport/hub/">ww hub</a> holding it (<code>ww hub take rtt:&lt;probe serial&gt;:&lt;chip&gt;</code>),
+  several programs share the probe.</li>
+<li>Shell completion offers the chip names (from what is typed so far) and the serials of the connected probes.</li>
+</ul>
+<p>A board project keeps it in <code>ww.toml</code>; a relative <code>elf</code> path there is relative to the file:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">[device]</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">rtt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;STM32G0B1RETx&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">elf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;target/thumbv6m-none-eabi/debug/nucleo_g0b1re_template&quot;</span>
+</span></code></pre></div>
 <h3 id="project-config-wwtoml">Project config: <code>ww.toml</code><a class="headerlink" href="#project-config-wwtoml" title="Permanent link">&para;</a></h3>
 <p>Device selection that stays the same for a project goes into the <code>[device]</code> table of a <code>ww.toml</code>, using the keys
 from the table above:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># ww.toml</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">[device]</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># ww.toml</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">[device]</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">api</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;blinky_api@^0.1&quot;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">serial</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;4B333720&quot;</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">timeout_ms</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2000</span>
 </span></code></pre></div>
 <p><code>ww.toml</code> is looked up in the current directory and then its parents, so one file at the project root covers the
 whole project. <code>--config &lt;path&gt;</code> (or <code>WW_CONFIG</code>) uses another file, <code>--no-config</code> ignores it. Unknown keys are
@@ -5757,7 +5834,7 @@ selected".</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.a2388154.min.js"></script>
+      <script src="../assets/javascripts/bundle.10ee5ab6.min.js"></script>
       
     
   </body>

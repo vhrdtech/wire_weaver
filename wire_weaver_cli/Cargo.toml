@@ -20,8 +20,8 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-# chunky_mcu_updater checked out next to this repository (~/git/chunky_mcu_updater), as chunky uses ../wire_weaver
-chunky_ww_host = { path = "../../chunky_mcu_updater/chunky_ww_host" }
+# chunky takes wire_weaver by git too; the root Cargo.toml [patch] makes both resolve to this checkout
+chunky_ww_host = { git = "https://github.com/romixlab/chunky_mcu_updater" }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true

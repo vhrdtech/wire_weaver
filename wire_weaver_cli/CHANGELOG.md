@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🐛 Fixes
+
+- `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli --locked` works on a PC without sibling checkouts: `chunky_ww_host` is a git dependency on chunky_mcu_updater (pinned by `Cargo.lock`) instead of a path into `../../chunky_mcu_updater`, and the root `Cargo.toml` `[patch]` makes chunky's own wire_weaver git dependencies resolve to this checkout. `just deps-pull` now runs `cargo update -p chunky_ww_host` (commit the lock), `just deploy` no longer pulls a sibling, and `just check-clean-clone` builds `ww` from a fresh clone with no siblings around.
+
 ### 🚀 Features
 
 - `ww dfu` holds every firmware update tool: its steps on a running device (`reboot`, `flash`, `status`, `confirm`, `revert`) and the chip boot ROMs as `ww dfu rp` (was `ww bootsel`) and `ww dfu stm32` (was `ww stm32dfu`), no longer at the root. The old names are gone (`unrecognized subcommand`); the firmware repos' recipes use the new ones. `DfuCommand` is now the group (`Device(DeviceDfu)`, `Rp`, `Stm32`).

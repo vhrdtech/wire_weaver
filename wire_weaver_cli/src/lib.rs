@@ -15,7 +15,7 @@ pub mod complete;
 pub mod device;
 mod dfu_client;
 pub mod plugin;
-mod untrusted;
+pub mod untrusted;
 mod util;
 mod value_fmt;
 

@@ -10,6 +10,7 @@
 //! them for the words after their name.
 
 pub use crate::device::{DeviceArgs, Selection, Setting, Source};
+pub use crate::untrusted::{Untrusted, escape};
 use anyhow::{Result, anyhow};
 use clap_complete::CompletionCandidate;
 use std::ffi::OsString;

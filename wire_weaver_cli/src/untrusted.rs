@@ -25,7 +25,7 @@ use std::fmt::Write as _;
 
 /// Wraps a `&str` that may come from a device, hub or another process, for `{}` instead of printing it directly.
 /// See the module docs for the escaping style and why colour codes must be added outside this wrapper, not inside.
-pub(crate) struct Untrusted<'a>(pub &'a str);
+pub struct Untrusted<'a>(pub &'a str);
 
 impl fmt::Display for Untrusted<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -35,7 +35,7 @@ impl fmt::Display for Untrusted<'_> {
 
 /// `s`, or a copy with every character [needs_escape] marks replaced by a visible `\u{..}` escape (`\n`/`\r`/`\t`
 /// by their two-character short form instead). Borrows `s` unchanged, no allocation, when nothing needs escaping.
-pub(crate) fn escape(s: &str) -> Cow<'_, str> {
+pub fn escape(s: &str) -> Cow<'_, str> {
     if !s.chars().any(needs_escape) {
         return Cow::Borrowed(s);
     }

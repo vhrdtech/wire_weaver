@@ -209,11 +209,7 @@ install:
 # Old name of install, kept for people and docs
 install-cli: install
 
-# Move the Cargo.lock pin of chunky_mcu_updater (git dependency of wire_weaver_cli) to its main; commit the lock
-deps-pull:
-    cargo update -p chunky_ww_host
-
-# Build ww from a fresh clone of HEAD with no sibling checkouts around (what `cargo install --git` sees)
+# Build ww from a fresh clone of HEAD with nothing but this repository around (what `cargo install --git` sees)
 check-clean-clone:
     rm -rf /tmp/ww-clean-clone && git clone -q . /tmp/ww-clean-clone
     cd /tmp/ww-clean-clone && cargo build --locked -p wire_weaver_cli

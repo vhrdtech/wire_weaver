@@ -226,16 +226,6 @@ uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }
 user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
 
-# chunky_ww_host (git dependency of wire_weaver_cli) depends on wire_weaver by git as well: use this checkout for it,
-# so the whole graph has one copy of every crate. Entries are needed for the crates chunky takes.
-[patch."https://github.com/vhrdtech/wire_weaver"]
-shrink_wrap = { path = "./shrink_wrap/shrink_wrap" }
-wire_weaver = { path = "./wire_weaver" }
-wire_weaver_client = { path = "./wire_weaver_client" }
-ww_client_server = { path = "./ww_stdlib/ww_client_server" }
-ww_device = { path = "./ww_device" }
-ww_dfu = { path = "./ww_stdlib/ww_dfu" }
-
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }
 wire_weaver_core = { path = "./wire_weaver_core" }

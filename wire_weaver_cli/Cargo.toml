@@ -14,14 +14,15 @@ rustix.workspace = true
 [target.'cfg(windows)'.dependencies]
 crossterm.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "ww"
 path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-# chunky takes wire_weaver by git too; the root Cargo.toml [patch] makes both resolve to this checkout
-chunky_ww_host = { git = "https://github.com/romixlab/chunky_mcu_updater" }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true

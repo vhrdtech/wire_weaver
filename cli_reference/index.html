@@ -5139,6 +5139,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ww pins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ww-pins-tui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww pins tui</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5663,6 +5680,23 @@
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="ww pins">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ww-pins-tui" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ww pins tui</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -6924,12 +6958,134 @@ which <code>ww pins test --plan FILE</code> is the pass/fail test. Connections b
 <p>Point names complete live from the device (selected by env variables and <code>ww.toml</code>). Names a firmware sends as
 string ids (<a href="../std_library/ww_pin_diag/#ww_interned"><code>ww_interned</code></a>) show as <code>#17</code> and are selected that way; looking
 them up in the firmware's ELF is pending (STD-48).</p>
+<h3 id="ww-pins-tui"><code>ww pins tui</code><a class="headerlink" href="#ww-pins-tui" title="Permanent link">&para;</a></h3>
+<p>Every point of the device live, laid out per connector of a board preset: each pad shows the level read
+(<code>●</code> high, <code>○</code> low, <code>×</code> refused) and what was set on it (<code>▲</code> <code>▼</code> driving high or low, <code>↑</code> <code>↓</code> pull-up or pull-down,
+<code>→</code> input). All points are read every <code>--interval-ms</code> (250 by default); the line at the bottom tells the pad, its
+alias and board role, the point, its level, state and caps, and what the last key did or why the firmware refused.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>PinDiag at (root) · NUCLEO-G0B1RE · 6 points · read every 250 ms · 1 set, x releases
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>┌─ CN7 ST morpho ──────────────────────┐ ┌─ CN11 SWD out ─┐ ┌─ CN6 power ─┐ ...
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>│        PC10  1  ○  ●▲  2 PC11        │ │   1 VDD_TARGET │ │   1 NC      │
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>│        PC12  3  ●      4 PD2         │ │   2 SWCLK      │ │   2 3V3     │
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>│         VDD  5         6 E5V         │ │   3 GND        │ │   3 PF2     │
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>arrows, <code>h</code> <code>j</code> <code>k</code> <code>l</code></td>
+<td>Move; across a connector's edge into the next one on the board</td>
+</tr>
+<tr>
+<td><code>Tab</code>, <code>Shift+Tab</code></td>
+<td>Next / previous connector</td>
+</tr>
+<tr>
+<td><code>1</code>, <code>0</code></td>
+<td>Drive high / low (weakly after <code>w</code>)</td>
+</tr>
+<tr>
+<td><code>t</code>, space</td>
+<td>Toggle: drive the opposite of what it drives or reads</td>
+</tr>
+<tr>
+<td><code>u</code>, <code>d</code>, <code>n</code></td>
+<td>Input with pull-up, pull-down, no pull</td>
+</tr>
+<tr>
+<td><code>w</code></td>
+<td>Weak drive on / off for the drives that follow</td>
+</tr>
+<tr>
+<td><code>r</code></td>
+<td>Read all now</td>
+</tr>
+<tr>
+<td><code>x</code></td>
+<td>Release all: every point back to its function</td>
+</tr>
+<tr>
+<td><code>p</code></td>
+<td>Pause / resume reading</td>
+</tr>
+<tr>
+<td><code>q</code>, <code>Esc</code>, <code>Ctrl+C</code></td>
+<td>Quit; every point is released, also on a signal or an error</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--board FILE</code></td>
+<td></td>
+<td>Board preset, see below (a board's own lives in its firmware repo, e.g. <code>docs/board/nucleo_g0b1re.toml</code> of the NUCLEO-G0B1RE template); without one a panel per group of points</td>
+</tr>
+<tr>
+<td><code>--at PATH</code></td>
+<td></td>
+<td>Where <code>PinDiag</code> is in the device's API, when it has more than one</td>
+</tr>
+<tr>
+<td><code>--interval-ms N</code></td>
+<td><code>250</code></td>
+<td>How often all points are read</td>
+</tr>
+<tr>
+<td><code>--gpio</code></td>
+<td></td>
+<td>The pins of the device's <code>ww_gpio</code> banks, also when it serves <code>PinDiag</code></td>
+</tr>
+</tbody>
+</table>
+<p>A device without <code>PinDiag</code> but with <a href="../std_library/ww_gpio/"><code>ww_gpio</code></a> banks is shown through them: every pin of
+every bank (arrays by their valid indices) is a point, named as its capabilities name it or by bank and index
+(<code>PA3</code>), with the bank as its group. A pin's mode and pull are saved when it is first set and put back on release;
+the device's GPIO has no board rules, so nothing stops a drive the board can't take: that is what <code>PinDiag</code> is for.
+Both work over whatever link <code>ww</code> connects through: USB, UDP, WebSocket, or RTT through a debug probe (<a href="../cli/#through-a-debug-probe-rtt"><code>--rtt CHIP</code></a>), as on the Nucleo-64 boards, whose only USB is the ST-LINK.</p>
+<p>The preset is a board description of boardmap (embedded_bedrock's <code>bedrock_board</code>), read as it is: from it <code>ww</code>
+takes <code>[board] name</code> and <code>geometry</code>, the connectors of <code>[[view.connector]]</code> (<code>ref</code>, <code>label</code>), <code>[aliases]</code> and
+<code>[pins]</code> (<code>role</code> free, shared, taken or function; <code>short</code>; <code>note</code>), and leaves the rest to boardmap. The pads, their
+numbers, positions and nets come from the geometry JSON next to it, so each connector is drawn as it sits on the
+board, connectors one above the other in one column; a fitted solder bridge (an <code>SB*</code> footprint whose value says
+<code>ON</code>) joins two nets, so a header pin on <code>NetCN7_38</code> is <code>PB12</code> with SB3 on. A pad shows the device's point named like
+its net (or a joined net), else like the net's alias or its first word (<code>D13</code> for <code>PA5 = "D13 SCK"</code>); points on no
+pad are listed in a panel of their own. Pins the preset marks taken or function are drawn red, shared yellow,
+pads without a point dim.</p>
+<p>A preset for <code>ww</code> alone may leave the geometry out and list each connector's nets by pin number:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">[board]</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;my board&quot;</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a><span class="k">[[view.connector]]</span>
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="n">ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;J1&quot;</span>
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;J1 expansion&quot;</span>
+</span><span id="__span-31-7"><a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a><span class="n">columns</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w">                     </span><span class="c1"># pads per row, pin 1 top left</span>
+</span><span id="__span-31-8"><a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a><span class="n">nets</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;PA0&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;PA1&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;GND&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;3V3&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;PB5&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">]</span><span class="w">   </span><span class="c1"># &quot;&quot; for a pad without a net</span>
+</span><span id="__span-31-9"><a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a>
+</span><span id="__span-31-10"><a id="__codelineno-31-10" name="__codelineno-31-10" href="#__codelineno-31-10"></a><span class="k">[aliases]</span>
+</span><span id="__span-31-11"><a id="__codelineno-31-11" name="__codelineno-31-11" href="#__codelineno-31-11"></a><span class="n">PB5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;LED&quot;</span>
+</span><span id="__span-31-12"><a id="__codelineno-31-12" name="__codelineno-31-12" href="#__codelineno-31-12"></a>
+</span><span id="__span-31-13"><a id="__codelineno-31-13" name="__codelineno-31-13" href="#__codelineno-31-13"></a><span class="k">[pins]</span>
+</span><span id="__span-31-14"><a id="__codelineno-31-14" name="__codelineno-31-14" href="#__codelineno-31-14"></a><span class="n">PA0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">role</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;shared&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">short</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;BTN&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">note</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;Button to GND, 10k pull-up&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
 <h2 id="ww-elf"><code>ww elf</code><a class="headerlink" href="#ww-elf" title="Permanent link">&para;</a></h2>
 <p>The ELF directory (<code>~/.cache/ww/elf</code>, or the ones in <code>WW_ELF_PATH</code>), where firmware ELFs are found by build id for
 <code>ww counters</code>, <code>ww report</code> and <code>cnt</code>.</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
-</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
-</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>usb_io_fw-0.5.0-elf.tar.zst<span class="w">   </span><span class="c1"># every ELF of a release, stored as &lt;build id&gt;.elf</span>
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>ww<span class="w"> </span>elf<span class="w"> </span>add<span class="w"> </span>target/release/usb_io_fw<span class="w">      </span><span class="c1"># one ELF</span>
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>ww<span class="w"> </span>elf<span class="w"> </span>id<span class="w"> </span>target/release/usb_io_fw<span class="w">       </span><span class="c1"># its build id, and whether it is in the directory</span>
 </span></code></pre></div>
 <p><code>--dir DIR</code> adds to another directory. A file without a build id is listed as skipped. See the <a href="../std_library/device_contract/#the-release-archive">release
 archive</a>.</p>
@@ -6938,22 +7094,22 @@ archive</a>.</p>
 flash range (read off the chip, from a <code>.bin</code> or a debug probe dump). The word and page size aren't in the dump
 itself, so they are given on the command line (completion suggests the sizes <code>Store</code> supports, with a chip example
 each):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
-</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
-</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>page 0 @ 0x08078000: page_seq 1
-</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
-</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a>  ...
-</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>  0x080787f0 +16     erased
-</span><span id="__span-31-7"><a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
-</span><span id="__span-31-8"><a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
-</span><span id="__span-31-9"><a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a>  ...
-</span><span id="__span-31-10"><a id="__codelineno-31-10" name="__codelineno-31-10" href="#__codelineno-31-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
-</span><span id="__span-31-11"><a id="__codelineno-31-11" name="__codelineno-31-11" href="#__codelineno-31-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
-</span><span id="__span-31-12"><a id="__codelineno-31-12" name="__codelineno-31-12" href="#__codelineno-31-12"></a>  0x08078b88 +1144   erased
-</span><span id="__span-31-13"><a id="__codelineno-31-13" name="__codelineno-31-13" href="#__codelineno-31-13"></a>
-</span><span id="__span-31-14"><a id="__codelineno-31-14" name="__codelineno-31-14" href="#__codelineno-31-14"></a>current record per key:
-</span><span id="__span-31-15"><a id="__codelineno-31-15" name="__codelineno-31-15" href="#__codelineno-31-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
-</span><span id="__span-31-16"><a id="__codelineno-31-16" name="__codelineno-31-16" href="#__codelineno-31-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>$ ww settings dump settings.bin --word-size 8 --page-size 2048 --base 0x08078000
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>2 pages, word 8 bytes, page 2048 bytes, base 0x08078000
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>page 0 @ 0x08078000: page_seq 1
+</span><span id="__span-33-4"><a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>  0x08078010 +48     valid, stale key 0 seq 1 len 30
+</span><span id="__span-33-5"><a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a>  ...
+</span><span id="__span-33-6"><a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a>  0x080787f0 +16     erased
+</span><span id="__span-33-7"><a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a>page 1 @ 0x08078800: page_seq 2 (current)
+</span><span id="__span-33-8"><a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a>  0x08078810 +24     valid, stale key 1 seq 28 len 10
+</span><span id="__span-33-9"><a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a>  ...
+</span><span id="__span-33-10"><a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a>  0x08078b40 +48     valid, current key 0 seq 40 len 30
+</span><span id="__span-33-11"><a id="__codelineno-33-11" name="__codelineno-33-11" href="#__codelineno-33-11"></a>  0x08078b70 +24     valid, current key 1 seq 40 len 10
+</span><span id="__span-33-12"><a id="__codelineno-33-12" name="__codelineno-33-12" href="#__codelineno-33-12"></a>  0x08078b88 +1144   erased
+</span><span id="__span-33-13"><a id="__codelineno-33-13" name="__codelineno-33-13" href="#__codelineno-33-13"></a>
+</span><span id="__span-33-14"><a id="__codelineno-33-14" name="__codelineno-33-14" href="#__codelineno-33-14"></a>current record per key:
+</span><span id="__span-33-15"><a id="__codelineno-33-15" name="__codelineno-33-15" href="#__codelineno-33-15"></a>  key 0 @ 0x08078b40 (page 1), seq 40, 30 bytes: 27272727...
+</span><span id="__span-33-16"><a id="__codelineno-33-16" name="__codelineno-33-16" href="#__codelineno-33-16"></a>  key 1 @ 0x08078b70 (page 1), seq 40, 10 bytes: d8d8d8d8...
 </span></code></pre></div>
 <p>Every item slot is shown, valid or not (<code>cut</code>: a write a power loss interrupted; <code>garbage</code>: neither a valid item
 nor erased), including on a page whose header is itself invalid, which a device's own <code>Store</code> never looks at. The
@@ -6966,9 +7122,9 @@ error. <code>--format json</code> gives the same information as JSON instead.</p
 <code>todo!()</code> panic. Until then write the rule by hand, see <a href="../transport/usb/">USB</a>.</p>
 <h2 id="ww-config"><code>ww config</code><a class="headerlink" href="#ww-config" title="Permanent link">&para;</a></h2>
 <p>Manages the <a href="../cli/#project-config-wwtoml">project config file</a>:</p>
-<div class="language-sh highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
-</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
-</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
+<div class="language-sh highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>ww<span class="w"> </span>config<span class="w"> </span>save<span class="w"> </span>--api<span class="w"> </span>blinky_api@^0.1<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w">  </span><span class="c1"># write flags into ww.toml (comments are kept)</span>
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>ww<span class="w"> </span>config<span class="w"> </span>show<span class="w">                                         </span><span class="c1"># resolved selection and where each setting comes from</span>
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>ww<span class="w"> </span>config<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>serial<span class="w">                                 </span><span class="c1"># remove settings from ww.toml</span>
 </span></code></pre></div>
 <p><code>ww config save</code> writes into the <code>--config</code> file if given, otherwise into the <code>ww.toml</code> found in the current
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command

@@ -169,7 +169,8 @@ pub(crate) enum Commands {
     /// Pin tests on any device serving ww_pin_diag::PinDiag: shorts to GND, the supply and each other, pulls (TOOL-15)
     ///
     /// Works wherever the device's API has PinDiag, found through its introspection data. `ww pins list` shows the
-    /// points, `ww pins test` tests them, with a plan file for expectations and rules.
+    /// points, `ww pins test` tests them, with a plan file for expectations and rules, `ww pins tui` shows them live
+    /// per connector of a board preset (TOOL-21).
     #[command(subcommand)]
     Pins(PinsCommand),
 

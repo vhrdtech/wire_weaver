@@ -74,6 +74,7 @@ proc-macro2 = "1.0"
 proptest = "1.11"
 pyo3 = "0.29"
 quote = "1.0"
+ratatui = "0.30"
 ron = "0.12"
 rustix = { version = "1", default-features = false, features = ["std", "termios"] }
 semver = "1.0"

@@ -1,8 +1,10 @@
 //! `ww pins`: pin tests on any device serving `ww_pin_diag::PinDiag` (TOOL-15). The tests, plan files and the
 //! device side are `ww_pin_probe`; this is the command line and the table.
 
+use crate::cmd::pins_tui;
 use crate::complete;
 use crate::untrusted::escape;
+use crate::util::StopSignal;
 use anyhow::{Context, Result, bail};
 use clap::{Args, Subcommand, ValueEnum, ValueHint};
 use clap_complete::ArgValueCandidates;
@@ -10,6 +12,7 @@ use console::{StyledObject, measure_text_width, style};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use wire_weaver_client::DynClient;
+use ww_pin_probe::board::Board;
 use ww_pin_probe::device::{DevicePins, Names, location_name};
 use ww_pin_probe::plan::{self, Plan};
 use ww_pin_probe::probe::{Check, Report, Setup, Stopped, run};
@@ -36,6 +39,35 @@ pub(crate) enum PinsCommand {
     ///   ww pins test GPIO0..=GPIO9 --save b200a.toml   write what this board shows into the plan
     #[command(verbatim_doc_comment)]
     Test(TestArgs),
+
+    /// Every point live, laid out per connector from a board preset: drive, pull, read, release
+    ///
+    /// Reads all points every --interval-ms and shows each on its pad: ● high, ○ low, × refused; what was set
+    /// next to it: ▲ ▼ driving high or low, ↑ ↓ pull-up or pull-down, → input. Keys: arrows or hjkl move, Tab the
+    /// next connector, 1 / 0 drive high / low, t toggle, u / d / n input with pull-up / pull-down / none, w weak
+    /// drive, r read now, x release all, p pause reading, q quit. Every point is released on quit, Ctrl-C and errors.
+    /// The preset is a boardmap board description (with its geometry JSON) or a small preset for ww alone, see
+    /// docs/cli_reference.md#ww-pins-tui. Without one, a panel per group. Examples:
+    ///
+    ///   ww pins tui --board docs/board/nucleo_g0b1re.toml
+    ///   ww pins tui                                 a panel per group of points
+    #[command(verbatim_doc_comment)]
+    Tui(TuiArgs),
+}
+
+#[derive(Args)]
+pub(crate) struct TuiArgs {
+    /// Board preset: a boardmap board description (`[[view.connector]]`, `[aliases]`, `[pins]`, its geometry JSON)
+    #[arg(long, value_hint = ValueHint::FilePath)]
+    board: Option<PathBuf>,
+
+    /// Where PinDiag is in the device's API (`diag.pins`), when it has more than one
+    #[arg(long)]
+    at: Option<String>,
+
+    /// How often all points are read, ms
+    #[arg(long, default_value_t = 250)]
+    interval_ms: u64,
 }
 
 #[derive(Args)]
@@ -88,7 +120,26 @@ pub(crate) async fn pins(cmd: PinsCommand, device: &DynClient) -> Result<bool> {
     match cmd {
         PinsCommand::List(args) => list(args, device).await.map(|()| true),
         PinsCommand::Test(args) => test(args, device).await,
+        PinsCommand::Tui(args) => tui(args, device).await.map(|()| true),
     }
+}
+
+async fn tui(args: TuiArgs, device: &DynClient) -> Result<()> {
+    use std::io::IsTerminal;
+    // the preset first: a typo in it shouldn't wait for the device
+    let board = args.board.as_deref().map(Board::load).transpose()?;
+    if !std::io::stdout().is_terminal() {
+        bail!("ww pins tui needs a terminal; 'ww pins list' and 'ww pins test' work in a pipe");
+    }
+    let stop = StopSignal::install();
+    let (mut pins, points) = open(device, args.at.as_deref()).await?;
+    let mut title = format!("PinDiag at {}", location_name(&pins.at));
+    if let Some(b) = &board {
+        title += &format!(" · {}", escape(&b.name));
+    }
+    let interval = std::time::Duration::from_millis(args.interval_ms.max(10));
+    let mut app = pins_tui::App::new(points, board, title, interval);
+    pins_tui::run(&mut app, &mut pins, stop).await
 }
 
 async fn open(device: &DynClient, at: Option<&str>) -> Result<(DevicePins, Vec<Point>)> {

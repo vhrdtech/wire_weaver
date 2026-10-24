@@ -861,24 +861,36 @@ mod tests {
             [("api".into(), 1), ("dep_api".into(), 3)]
         );
 
-        // a `[patch]` in the build leaves the locked revision unfetched: the repository's checkout that is there serves
-        let checkouts = cargo_home.join("git/checkouts");
-        let repo_dir = fs::read_dir(&checkouts)
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .path();
-        let rev_dir = fs::read_dir(&repo_dir)
-            .unwrap()
-            .next()
-            .unwrap()
-            .unwrap()
-            .path();
-        fs::rename(&rev_dir, repo_dir.join("0000000")).unwrap();
-        let bundle = load_with_cargo_home(&api, &cargo_home).unwrap();
+        // a `[patch."<url>"]` of the build: rustc was given the patch's sources (`--extern`), so those win over the
+        // locked revision's checkout, which stays cached next to it; an `--extern` from that checkout resolves to it
+        let patched = dir.join("patched_repo");
+        run(Command::new("cp").arg("-r").arg(&repo).arg(&patched));
+        write(
+            &patched.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"dep_api\"]\n\n[workspace.package]\nversion = \"0.4.0\"\n",
+        );
+        let load_with_externs = |dep_dir: &Path| {
+            let mut scratch = Scratch::default();
+            scratch.sources.cargo_home = Some(cargo_home.clone());
+            scratch.sources.externs = Some(Rc::new(vec![(
+                "dep_api".into(),
+                dep_dir.join("src/lib.rs"),
+            )]));
+            load_inner(&api, None, &mut scratch).map(|b| crate_names(&b))
+        };
         assert_eq!(
-            crate_names(&bundle),
+            load_with_externs(&patched.join("dep_api")).unwrap(),
+            [("api".into(), 1), ("dep_api".into(), 4)]
+        );
+        let checkout = fs::read_dir(cargo_home.join("git/checkouts"))
+            .unwrap()
+            .flat_map(|d| fs::read_dir(d.unwrap().path()).unwrap())
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        assert_eq!(
+            load_with_externs(&checkout.join("dep_api")).unwrap(),
             [("api".into(), 1), ("dep_api".into(), 3)]
         );
         fs::remove_dir_all(&dir).unwrap();

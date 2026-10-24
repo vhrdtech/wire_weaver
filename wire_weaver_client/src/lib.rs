@@ -76,7 +76,7 @@ pub use usb::{list_all_devices as list_all_usb_devices, list_devices as list_usb
 #[cfg(feature = "rtt")]
 mod rtt;
 #[cfg(feature = "rtt")]
-pub use rtt::{ProbeInfo, chips as rtt_chips, list_probes};
+pub use rtt::{ProbeInfo, chip_known as rtt_chip_known, chips as rtt_chips, list_probes};
 
 #[cfg(feature = "in_process")]
 pub mod in_process;

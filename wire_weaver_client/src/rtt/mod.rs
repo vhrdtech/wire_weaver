@@ -38,3 +38,11 @@ pub fn chips(prefix: &str) -> Vec<String> {
     chips.dedup();
     chips
 }
+
+/// Whether probe-rs knows the chip `name` (a chip or package name, case-insensitive), as
+/// [ClientConfig::rtt](crate::ClientConfig::rtt)'s `target` must be.
+pub fn chip_known(name: &str) -> bool {
+    probe_rs::config::Registry::from_builtin_families()
+        .get_target_by_name(name)
+        .is_ok()
+}

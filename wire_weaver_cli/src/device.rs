@@ -420,6 +420,7 @@ fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
         }
         None => None,
     };
+    with_context(check_chip(&rtt.value), rtt)?;
     config = config.rtt(rtt.value.clone(), speed_hz);
     if let Some(s) = settings.iter().find(|s| s.key == "probe") {
         config = with_context(ProbeFilter::parse(&s.value), s)?.apply(config);
@@ -428,6 +429,31 @@ fn client_config(settings: &[Setting]) -> Result<ClientConfig> {
         config = config.rtt_elf(elf_path(s));
     }
     Ok(config)
+}
+
+/// A chip probe-rs knows, else an error with the names starting like it.
+fn check_chip(chip: &str) -> Result<()> {
+    if wire_weaver_client::rtt_chip_known(chip) {
+        return Ok(());
+    }
+    // shorten until something matches: `STM32G0B1RETX6` still finds the STM32G0B1RE
+    let similar = (1..=chip.len())
+        .rev()
+        .filter(|&n| chip.is_char_boundary(n))
+        .map(|n| wire_weaver_client::rtt_chips(&chip[..n]))
+        .find(|found| !found.is_empty())
+        .unwrap_or_default();
+    match similar.len() {
+        0 => bail!("probe-rs doesn't know the chip '{chip}' (`probe-rs chip list` names them)"),
+        n if n > 12 => bail!(
+            "probe-rs doesn't know the chip '{chip}', {n} start like it: {}, ... (the shell completes --rtt)",
+            similar[..12].join(", ")
+        ),
+        _ => bail!(
+            "probe-rs doesn't know the chip '{chip}', did you mean: {}",
+            similar.join(", ")
+        ),
+    }
 }
 
 /// An ELF path from ww.toml is relative to the file's directory, from a flag or env variable to the current one.
@@ -768,6 +794,18 @@ mod tests {
             setting("probe_speed_khz", "0", Source::Flag),
         ];
         assert!(client_config(&zero).is_err());
+    }
+
+    #[test]
+    fn unknown_chip_names_similar_ones() {
+        assert!(check_chip("STM32G0B1RETx").is_ok());
+        assert!(check_chip("stm32g0b1re").is_ok());
+        let e = check_chip("STM32G0B1REZZ").unwrap_err().to_string();
+        assert!(e.contains("did you mean: STM32G0B1RE"), "{e}");
+        let e = check_chip("STM32").unwrap_err().to_string();
+        assert!(e.contains("start like it"), "{e}");
+        let e = check_chip("nosuchchip").unwrap_err().to_string();
+        assert!(e.contains("doesn't know"), "{e}");
     }
 
     #[test]

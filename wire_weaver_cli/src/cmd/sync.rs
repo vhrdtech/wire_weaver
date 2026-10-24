@@ -396,7 +396,6 @@ pub(crate) async fn sync(
     Ok(())
 }
 
-/// The devices the arguments name, each matching exactly one, or all of them.
 /// A device to sync, before connecting to it.
 struct Target {
     name: String,
@@ -456,6 +455,7 @@ async fn targets(selection: &Selection, wanted: &[String]) -> Result<Vec<Target>
         .collect())
 }
 
+/// The devices the arguments name, each matching exactly one, or all of them.
 fn pick<'a>(listed: &'a [DeviceInfo], wanted: &[String]) -> Result<Vec<&'a DeviceInfo>> {
     if wanted.is_empty() {
         return Ok(listed.iter().collect());

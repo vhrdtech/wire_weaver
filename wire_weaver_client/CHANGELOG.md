@@ -43,7 +43,7 @@
 
 ### 🚀 Features
 
-- With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).
+- With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names, `rtt_chip_known(name)` whether probe-rs knows one, for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).
 
 - `clock_sync::Fit::rate_bound_ppb(resolution_ns)`: how far the fitted rate can be from the device's true rate at most, a bound that holds whatever the load (each sample's host time is within half its round trip of the device's reading), `None` for a slope from the rate cache.
 - The event loop has one transport slot (`event_loop::medium`, an enum over this crate's media, boxed for others) instead of each live medium's `Live<Device, Hub>` halves: a live handover's steps are the medium's in the slot (`Transport::pause`, `let_go`, `take_back`, `switch`, the claim), and `medium::relink` puts another medium's halves in its place, from any medium to any other (CLT-44's tunnel to the hub now; the foundation for handing WS and UDP links over). The USB medium checks that an adopted link was on the interface and endpoints it opened.

@@ -9,3 +9,5 @@ Filed: P2401#24oct-1902 (guard released snapshots in wire_weaver's own `just sav
 Next: `CARGO_BUILD_JOBS=6 NEXTEST_TEST_THREADS=6 just test --changed`, then `just lint`, then `git rm HANDOFF.md`, commit, `tpm work ready --note "..."`.
 
 Gotchas: gpd-omarchy is short on RAM. `just test --changed` was killed twice for low memory (not a test failure), and a third run with CARGO_BUILD_JOBS=6 was still compiling after 60 min when the conversation ended. Run it in the foreground or watch it with Monitor: a background shell gets reaped while the session is idle. If it is killed again, park and tell g0-template-suite (it asks Roman), as g0-gen-suite asked.
+
+A third run may still be going (started from this conversation): its log is /home/roman/.claude-vhrd/jobs/02328bed/tmp/test.log, ending in an `EXIT n` line when done. Check `pgrep -af 'just test --changed'` before starting another.

@@ -36,6 +36,7 @@
 
 ### 🐛 Fixes
 
+- `ww pins test --plan FILE --watch POINTS` tests the plan's points next to the watched ones; it tested only the watched points, the plan's were dropped (TOOL-15). `--watch` without a plan and without points still only reads.
 - `ww hub stop` closes its own connection after asking the hub to stop: the hub waited up to 500 ms for it before letting go of `hub.lock` (0.5 s down to 0.1 s). Every `ww hub` command is about ten times quicker with the client fixes (TOOL-17).
 - `ww hub status` and `ww list` show a device lent with `ww hub lend` as `lent by <program> (pid N): <purpose>`, not as free (SRV-32).
 - Strings a device, or another program through the hub, hands over (USB product/manufacturer/serial, introspection

@@ -58,11 +58,14 @@ impl Setup {
     ) -> Result<Setup> {
         let resolved = plan.map(|p| p.resolve(points)).transpose()?;
         let mut selected = selected.to_vec();
-        if selected.is_empty() && watch.is_empty() {
-            selected = match &resolved {
-                Some(r) if !r.mentioned.is_empty() => r.mentioned.clone(),
-                _ => points.iter().map(|p| p.id).collect(),
-            };
+        // no points given: the plan's, also next to --watch; without a plan all, but only when nothing is
+        // watched (--watch alone reads, it doesn't set every point)
+        if selected.is_empty() {
+            match &resolved {
+                Some(r) if !r.mentioned.is_empty() => selected = r.mentioned.clone(),
+                _ if watch.is_empty() => selected = points.iter().map(|p| p.id).collect(),
+                _ => {}
+            }
         }
         let point = |id: u16| {
             points

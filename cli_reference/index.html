@@ -6913,7 +6913,7 @@ errors. The exit code is 0 when nothing is shorted and, with a plan, every expec
 </tr>
 <tr>
 <td><code>test POINTS</code></td>
-<td>Points to test, comma separated: names (<code>GPIO0</code>), ids (<code>P8</code>), ranges (<code>GPIO2..=GPIO7</code>, <code>GPIO2..GPIO8</code> without the end, <code>P2..=P7</code>), globs on names (<code>GPIO1*</code>) and on groups with names (<code>'chain.*'</code>). A name wins over an id (a point named <code>P8</code> is that point); a part that matches nothing is an error. Without points: the plan's, without a plan all</td>
+<td>Points to test, comma separated: names (<code>GPIO0</code>), ids (<code>P8</code>), ranges (<code>GPIO2..=GPIO7</code>, <code>GPIO2..GPIO8</code> without the end, <code>P2..=P7</code>), globs on names (<code>GPIO1*</code>) and on groups with names (<code>'chain.*'</code>). A name wins over an id (a point named <code>P8</code> is that point); a part that matches nothing is an error. Without points: the plan's (also with <code>--watch</code>), without a plan all (with only <code>--watch</code>: none, the watched points are just read)</td>
 </tr>
 <tr>
 <td><code>--watch POINTS</code></td>

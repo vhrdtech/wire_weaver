@@ -2,7 +2,7 @@
 //! (see [CompleteEnv]).
 //!
 //! Values of device selection flags are taken from connected devices, listed live without opening them.
-//! Bash uses its own adapter ([Bash]), other shells use the clap_complete ones.
+//! Bash uses its own adapter (`Bash`), other shells use the clap_complete ones.
 
 use clap::Command;
 use clap_complete::CompleteEnv;
@@ -107,7 +107,7 @@ fn plugin_stub(
 
 /// The words of the command line being completed after `prefix` (the word being completed last, empty if there is
 /// none yet), `None` when the command line is not in `prefix`'s command. The command line is in the environment
-/// bash's adapter passes ([Bash]) or after `--` in the arguments of the other shells.
+/// bash's adapter passes (`Bash`) or after `--` in the arguments of the other shells.
 fn words_after(prefix: &[&str]) -> Option<Vec<std::ffi::OsString>> {
     let words: Vec<String> = match std::env::var("_WW_COMP_LINE") {
         Ok(line) => {

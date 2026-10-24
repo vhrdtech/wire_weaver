@@ -10,7 +10,7 @@
 //! split into two. Everything else, ASCII or not, prints as is. `--json` and other machine-readable output skip
 //! this: JSON's own string escaping already covers control characters.
 //!
-//! [value_fmt](crate::value_fmt)'s `ValueOwned::String(s) => format!("{s:?}")` already goes through `{:?}`, which
+//! `value_fmt`'s `ValueOwned::String(s) => format!("{s:?}")` already goes through `{:?}`, which
 //! uses [char::escape_debug] and already escapes all of the above (verified by
 //! the test `debug_format_already_escapes_what_escape_does`) — this module exists for the many places that print a
 //! device/hub string with `{}` instead, where that protection doesn't apply.
@@ -33,7 +33,7 @@ impl fmt::Display for Untrusted<'_> {
     }
 }
 
-/// `s`, or a copy with every character [needs_escape] marks replaced by a visible `\u{..}` escape (`\n`/`\r`/`\t`
+/// `s`, or a copy with every character `needs_escape` marks replaced by a visible `\u{..}` escape (`\n`/`\r`/`\t`
 /// by their two-character short form instead). Borrows `s` unchanged, no allocation, when nothing needs escaping.
 pub fn escape(s: &str) -> Cow<'_, str> {
     if !s.chars().any(needs_escape) {

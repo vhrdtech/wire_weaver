@@ -318,7 +318,7 @@ impl CargoSources {
             None => Ok(None),
             Some(Source::Registry) => self.registry_dir(locked).map(Some),
             Some(Source::Git { url, rev }) => {
-                let checkout = match self.patched_root(url, &locked.name, rev)? {
+                let checkout = match self.patched_root(url)? {
                     Some(root) => root,
                     None => self.git_checkout(url, rev)?,
                 };
@@ -354,16 +354,14 @@ impl CargoSources {
             })
     }
 
-    /// Root of the workspace a `[patch."<url>"]` of the build replaced the git dependency `url` with, `None` without
-    /// a patch. The macro can't read the patch table (it is in the manifest or `.cargo/config.toml` of the workspace
-    /// being built, which rustc doesn't tell the macro's crate), so it looks at what Cargo resolved it to:
-    /// - rustc was given `--extern name=lib<name>-<hash>.rmeta` for each dependency, next to which lies the dep-info
-    ///   `<name>-<hash>.d` naming its source files; a dependency of this git source with an absolute source path
-    ///   outside the locked checkout is built from the patch;
-    /// - when the locked revision was never fetched (Cargo doesn't fetch what a patch replaces), the macro itself is
-    ///   the patch's code if it lives in a workspace of its own that has the package: a repository that depends on
-    ///   its own dependent through git (wire_weaver and chunky_mcu_updater).
-    fn patched_root(&mut self, url: &str, package: &str, rev: &str) -> Result<Option<PathBuf>> {
+    /// Root of the repository the build compiles the git dependency `url` from, `None` when the macro's crate has no
+    /// dependency from that source (the walk started elsewhere): the locked checkout then. It differs from the
+    /// locked checkout when a `[patch."<url>"]` replaced the source. The macro can't read the patch table (it is in the manifest or
+    /// `.cargo/config.toml` of the workspace being built, which rustc doesn't tell the macro's crate), but rustc was
+    /// given what Cargo resolved it to: `--extern name=lib<name>-<hash>.rmeta`, next to which lies the dep-info
+    /// `<name>-<hash>.d` naming the dependency's source files. The repository root (the nearest `.git` above a
+    /// dependency of that source) is where to look for the packages of the source, exactly as Cargo resolved it.
+    fn patched_root(&mut self, url: &str) -> Result<Option<PathBuf>> {
         let lock = self.lock()?;
         let names: Vec<String> = lock
             .package
@@ -371,24 +369,76 @@ impl CargoSources {
             .filter(|p| matches!(p.source(), Ok(Some(Source::Git { url: u, .. })) if same_git_url(u, url)))
             .map(|p| p.name.replace('-', "_"))
             .collect();
-        let locked = self.git_checkout(url, rev).ok();
         let externs = self.externs();
         for (name, source) in externs.iter() {
-            if names.contains(name)
-                && source.is_absolute()
-                && locked.as_ref().is_none_or(|l| !source.starts_with(l))
-                && let Some(root) = workspace_root(source)
-            {
+            if !names.contains(name) {
+                continue;
+            }
+            if source.is_absolute() {
+                if let Some(root) = source.ancestors().find(|d| d.join(".git").exists()) {
+                    return Ok(Some(root.to_path_buf()));
+                }
+                continue;
+            }
+            // dep-info of a workspace member names its sources relative to the workspace being built, which
+            // rustc doesn't tell: it is the directory Cargo was started in (`PWD`, or above it), or the
+            // checkout `cargo install --git` builds in
+            let (from_pwd, from_checkouts) = self.build_roots(url);
+            if let Some(root) = from_pwd.into_iter().find(|root| root.join(source).exists()) {
                 return Ok(Some(root));
             }
-        }
-        if locked.is_none()
-            && let Some(root) = workspace_root(Path::new(env!("CARGO_MANIFEST_DIR")))
-            && self.git_members(&root)?.contains_key(package)
-        {
-            return Ok(Some(root));
+            let mut found = from_checkouts
+                .into_iter()
+                .filter(|root| root.join(source).exists());
+            match (found.next(), found.next()) {
+                (Some(root), None) => return Ok(Some(root)),
+                (Some(a), Some(b)) => {
+                    return Err(anyhow!(
+                        "can't tell which checkout of {url} the build uses for {name}: {} and {} both have {}",
+                        a.display(),
+                        b.display(),
+                        source.display()
+                    ));
+                }
+                _ => {}
+            }
         }
         Ok(None)
+    }
+
+    /// Directories a relative source path in dep-info can be relative to: `PWD` and above, and the checkouts of
+    /// the repository under `CARGO_HOME`.
+    fn build_roots(&self, url: &str) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        let from_pwd: Vec<PathBuf> = std::env::var_os("PWD")
+            .map(|pwd| {
+                PathBuf::from(pwd)
+                    .ancestors()
+                    .map(Path::to_path_buf)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut from_checkouts = vec![];
+        if let Ok(home) = self.cargo_home() {
+            let checkouts = home.join("git").join("checkouts");
+            let repo = url
+                .trim_end_matches('/')
+                .rsplit('/')
+                .next()
+                .unwrap_or_default();
+            let prefix = format!("{}-", repo.trim_end_matches(".git"));
+            for repo_dir in fs::read_dir(checkouts).into_iter().flatten().flatten() {
+                if repo_dir.file_name().to_string_lossy().starts_with(&prefix) {
+                    from_checkouts.extend(
+                        fs::read_dir(repo_dir.path())
+                            .into_iter()
+                            .flatten()
+                            .flatten()
+                            .map(|r| r.path()),
+                    );
+                }
+            }
+        }
+        (from_pwd, from_checkouts)
     }
 
     fn externs(&mut self) -> Rc<Vec<(String, PathBuf)>> {
@@ -452,17 +502,6 @@ impl CargoSources {
             .insert(checkout.to_path_buf(), members.clone());
         Ok(members)
     }
-}
-
-/// The nearest directory above `path` whose `Cargo.toml` has a `[workspace]`.
-fn workspace_root(path: &Path) -> Option<PathBuf> {
-    path.ancestors()
-        .find(|dir| {
-            fs::read_to_string(dir.join("Cargo.toml")).is_ok_and(|c| {
-                toml::from_str::<toml::Table>(&c).is_ok_and(|t| t.contains_key("workspace"))
-            })
-        })
-        .map(Path::to_path_buf)
 }
 
 /// `--extern name=<dir>/lib<name>-<hash>.rmeta` of rustc's arguments, as (crate name, crate root source file the

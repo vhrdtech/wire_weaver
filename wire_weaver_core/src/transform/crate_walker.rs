@@ -893,10 +893,6 @@ mod tests {
             load_with_externs(&checkout.join("dep_api")).unwrap(),
             [("api".into(), 1), ("dep_api".into(), 3)]
         );
-        // neither the locked revision nor a patch: the clear error
-        fs::rename(&checkout, checkout.with_file_name("0000000")).unwrap();
-        let err = load_with_cargo_home(&api, &cargo_home).unwrap_err();
-        assert!(format!("{err:#}").contains("no checkout of"), "{err:#}");
         fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -25,14 +25,18 @@ $ ww api check my_device_api    # after changing the crate and bumping its versi
 The snapshot used is the newest one of the same crate with a version not newer than the one in `Cargo.toml`, so it is
 the snapshot of the current version if it was already saved, and of the previous version otherwise. `--against <file>`
 compares with a specific snapshot instead. Nothing is checked if there is no snapshot yet, unless `--strict` is given:
-then a crate without a snapshot fails, naming the `ww api save` to run.
+then a crate without a snapshot fails, naming the `ww api save` to run. `--require-current` requires the snapshot of
+the version in `Cargo.toml` itself, see [below](#the-current-versions-snapshot).
 
 `<path>` can also be a snapshot file, which is then compared with the previous snapshot in the same directory, e.g. to
 check snapshots that were saved with `--force`.
 
-`ww api save` runs the same check before saving a snapshot of a new version, and refuses to save it if the version
-is not bumped enough (`--force` saves anyway). So in a crate that has snapshots of all of its published versions,
-every new snapshot is checked against the previous one.
+`ww api save` only ever writes the snapshot of the version in `Cargo.toml`: it saves it, or refreshes it when the
+source changed since, and never touches an older version's. It runs the same check against the previous version's
+snapshot first, and refuses to save if the version is not bumped enough (`--force` saves anyway). So in a crate that
+has snapshots of all of its published versions, every new snapshot is checked against the previous one. Refreshing is
+for a version still being worked on: once a version is released, its snapshot never changes, bump the version instead
+(the pre-commit hook [below](#a-released-snapshot-never-changes) refuses it).
 
 A breaking change is listed with the rule it breaks and where that rule is explained, and a failed check says which
 version to put into `Cargo.toml`:
@@ -65,27 +69,54 @@ wire_weaver_evolution = "0.5"
 #[test]
 fn api_evolution() {
     wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR"))
-        .strict(true)
+        .require_current(true)
         .assert();
 }
 ```
 
-`strict(true)` makes the test fail while the crate has no snapshot at all, so a project can't forget to start: save
-the first one with `ww api save my_device_api` and commit `api_snapshots/`. From then on the test fails when the API
-changed without the version bump the change needs, printing the same report as `ww api check`. Bump the version
-while you work on the next release, and save its snapshot when you release it.
+### The current version's snapshot
 
-Recipes in the project's `justfile`, `api-check` to run it on its own, `api-save` to record a release, `setup` to turn
-on the hook below:
+`require_current(true)` makes the test fail until the version in `Cargo.toml` has its own snapshot in
+`api_snapshots/`, and whenever the source differs from that snapshot. The snapshot is then compared with the previous
+version's, so the bump is checked as well. A version can't be released without its snapshot this way: with only the
+previous version's snapshot required, a firmware once shipped API 0.2.0 with no `..._0_2_0.ron`, and nothing to tell
+later what 0.2.0 was.
+
+The snapshot is saved by the same test, with `WW_API_SAVE=1`:
+
+```
+$ WW_API_SAVE=1 cargo test -p my_device_api --test evolution
+```
+
+It writes the snapshot of the current version, or refreshes it when the source changed, and refuses (failing the
+test) when the version is not bumped enough since the previous version's snapshot. As the test runs the checker its
+lock file pins, saving needs no `ww` install either, and every clone saves the same bytes. `ww api save my_device_api`
+does the same; `Check::save` is the library call behind both.
+
+So the flow is: bump the version when starting on the next one, change the API, save, commit the snapshot with the
+change. A failing test names what to do:
+
+```
+no snapshot of my_device_api 0.2.0 in my_device_api/api_snapshots (the previous one is my_device_api/api_snapshots/my_device_api_0_1_0.ron), and the current version's snapshot is required.
+Save it with `just api-save` (`WW_API_SAVE=1 cargo test --test evolution` in the crate, or `ww api save my_device_api`) and commit api_snapshots/ (see docs/evolution/checker_tool.md).
+```
+
+`strict(true)` instead of `require_current(true)` only requires some snapshot to compare with: the source is then
+compared with the newest one not newer than its version, which may be the previous version's. That suits a crate that
+saves a snapshot only when it releases.
+
+Recipes in the project's `justfile`, `api-check` to run the test on its own, `api-save` to save the current version's
+snapshot, `setup` to turn on the hook below:
 
 ```just
-# compare the API with its snapshots: fails on a change without the version bump it needs
+# compare the API with its snapshots: fails without the current version's snapshot, or on a change without the
+# version bump it needs
 api-check:
     cargo test -p my_device_api --test evolution
 
-# record the released version of the API, commit api_snapshots/ with the release
+# save the snapshot of the current version of the API, commit api_snapshots/ with the change
 api-save:
-    ww api save my_device_api
+    WW_API_SAVE=1 cargo test -p my_device_api --test evolution -- --nocapture
 
 setup:
     git config core.hooksPath .githooks
@@ -111,6 +142,22 @@ exec just api-check
 
 The hook checks the working tree, not only what is staged, the same as `cargo test` would. `git commit --no-verify`
 skips it for a work-in-progress commit; CI still checks.
+
+### A released snapshot never changes
+
+The checker can't tell whether a version was released, so it lets the current version's snapshot be refreshed. What
+was released is in git: a project tags its releases, and the hook refuses a commit that changes a snapshot already in
+a tag. Before the `exec` line:
+
+```sh
+# a snapshot in a release tag never changes: bump the version instead
+for f in $(git diff --cached --name-only --diff-filter=MD -- my_device_api/api_snapshots); do
+    if [ -n "$(git tag --contains "$(git log -1 --format=%H -- "$f")")" ]; then
+        echo "$f is released and never changes: bump the version in my_device_api/Cargo.toml" >&2
+        exit 1
+    fi
+done
+```
 
 ## Listing all changes
 
@@ -234,7 +281,10 @@ reading as zero from old data. The client uses the same rules when comparing its
 ## Limitations
 
 * Snapshots of all published versions have to be kept in `api_snapshots/`, the checker can only see what is saved
-  there. A crate without snapshots is not checked, except in strict mode, where it fails.
+  there. A crate without snapshots is not checked, except in strict mode, where it fails, and with `require_current`,
+  where the current version's snapshot is required.
+* Whether a version was released is not known to the checker: `ww api save` and `WW_API_SAVE=1` refresh the current
+  version's snapshot whether it was released or not, a hook or review has to keep released ones unchanged.
 * Only traits and types that `ww api save` finds are checked (see [ww api](../cli_reference.md#ww-api)).
 * Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.
 * Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual

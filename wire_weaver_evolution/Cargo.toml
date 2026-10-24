@@ -27,3 +27,7 @@ wire_weaver_core.workspace = true
 [[test]]
 name = "check"
 required-features = ["source"]
+
+[[test]]
+name = "save_env"
+required-features = ["source"]

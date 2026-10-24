@@ -4,9 +4,15 @@ use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::triplet;
 use wire_weaver_evolution::{Change, Check, Comparison, Outcome, Report};
 
-pub(crate) fn check(path: PathBuf, against: Option<PathBuf>, strict: bool) -> Result<()> {
+pub(crate) fn check(
+    path: PathBuf,
+    against: Option<PathBuf>,
+    strict: bool,
+    require_current: bool,
+) -> Result<()> {
     let outcome = load(path, against)?
         .strict(strict)
+        .require_current(require_current)
         .run()
         .map_err(|e| anyhow!(e))?;
     if let Outcome::Compared(c) = &outcome {

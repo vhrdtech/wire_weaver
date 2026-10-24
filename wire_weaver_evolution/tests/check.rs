@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 use wire_weaver_evolution::snapshot_files::SNAPSHOTS_DIR;
-use wire_weaver_evolution::{Change, Check, Outcome, Rule};
+use wire_weaver_evolution::{Change, Check, Outcome, Rule, SaveStatus};
 
 const API: &str = r#"
 #[ww_api_root]
@@ -188,4 +188,158 @@ fn assert_panics_in_strict_mode_without_snapshot() {
     let c = TestCrate::new("assert-missing");
     c.write("0.1.0", API);
     Check::new(c.path()).strict(true).assert();
+}
+
+fn check_current(path: &Path) -> (Outcome, Result<String, String>) {
+    let outcome = Check::new(path).require_current(true).run().unwrap();
+    let verdict = outcome.verdict();
+    (outcome, verdict)
+}
+
+fn has_all(text: &str, expected: &[&str]) {
+    for expected in expected {
+        assert!(text.contains(expected), "'{expected}' not in:\n{text}");
+    }
+}
+
+#[test]
+fn require_current_fails_without_the_current_versions_snapshot() {
+    let c = TestCrate::new("current-missing");
+    c.write("0.1.0", API);
+    let (outcome, verdict) = check_current(c.path());
+    assert!(matches!(outcome, Outcome::NoSnapshot(_)), "{outcome:?}");
+    has_all(
+        &verdict.unwrap_err(),
+        &[
+            "no snapshot of test_api 0.1.0 in",
+            "current version's snapshot is required",
+            "just api-save",
+            "WW_API_SAVE=1 cargo test --test evolution",
+        ],
+    );
+
+    // the previous version's snapshot is not enough: 0.1.1 shipped without one is the gap this closes
+    c.save();
+    c.write("0.1.1", API);
+    let err = check_current(c.path()).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "no snapshot of test_api 0.1.1",
+            "the previous one is",
+            "test_api_0_1_0.ron",
+            "just api-save",
+        ],
+    );
+    // without require_current the same crate passes against 0.1.0
+    assert_eq!(check(c.path(), true).1.unwrap(), "no changes");
+}
+
+#[test]
+fn require_current_fails_when_source_changed_after_save() {
+    let c = TestCrate::new("current-changed");
+    c.write("0.1.0", API).save();
+    c.write("0.1.1", API).save();
+    assert_eq!(check_current(c.path()).1.unwrap(), "no changes");
+
+    let added = API.replace(
+        "    fn led_off();\n",
+        "    fn led_off();\n    #[since = \"0.1.1\"]\n    fn led_toggle();\n",
+    );
+    c.write("0.1.1", &added);
+    let (outcome, verdict) = check_current(c.path());
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_eq!(comparison.new_label, "source");
+    assert!(comparison.old_path.ends_with("test_api_0_1_1.ron"));
+    has_all(
+        &verdict.unwrap_err(),
+        &[
+            "The source differs from",
+            "test_api_0_1_1.ron, the snapshot of test_api 0.1.1",
+            "If test_api 0.1.1 is not released yet, save it again with `just api-save`",
+            "never changes",
+        ],
+    );
+
+    // saved again, the snapshot of 0.1.1 is compared with 0.1.0's
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved.status, SaveStatus::Refreshed);
+    let (outcome, ok) = check_current(c.path());
+    assert_eq!(ok.unwrap(), "version is bumped enough");
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert!(comparison.old_path.ends_with("test_api_0_1_0.ron"));
+    assert!(comparison.new_label.ends_with("test_api_0_1_1.ron"));
+    assert_eq!(comparison.report.change, Change::Compatible);
+}
+
+#[test]
+fn save_writes_only_the_current_version_and_refuses_a_bump_too_small() {
+    let c = TestCrate::new("save");
+    c.write("0.1.0", API);
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved.status, SaveStatus::Saved);
+    assert!(saved.previous.is_none());
+    let released = std::fs::read_to_string(&saved.path).unwrap();
+    assert_eq!(
+        Check::new(c.path()).save(false).unwrap().status,
+        SaveStatus::UpToDate
+    );
+
+    // breaking change with a patch bump: refused, nothing written
+    let removed = API.replace("    fn led_off();\n", "");
+    c.write("0.1.1", &removed);
+    let err = Check::new(c.path()).save(false).unwrap_err();
+    has_all(&err, &["0.2.0 or later", "Not saved", "Cargo.toml"]);
+    let dir = c.path().join(SNAPSHOTS_DIR);
+    assert!(!dir.join("test_api_0_1_1.ron").exists());
+    // --force saves anyway
+    assert_eq!(
+        Check::new(c.path()).save(true).unwrap().status,
+        SaveStatus::Saved
+    );
+
+    c.write("0.2.0", &removed);
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved.status, SaveStatus::Saved);
+    let (previous, report) = saved.previous.as_ref().unwrap();
+    assert!(previous.ends_with("test_api_0_1_1.ron"), "{previous:?}");
+    assert_eq!(report.change, Change::None);
+    // older versions' snapshots are never written
+    assert_eq!(
+        std::fs::read_to_string(dir.join("test_api_0_1_0.ron")).unwrap(),
+        released
+    );
+}
+
+#[test]
+fn compatible_bump_with_current_snapshot_passes() {
+    let c = TestCrate::new("current-compatible");
+    c.write("1.0.0", API).save();
+    let added = API.replace(
+        "    fn led_off();\n",
+        "    fn led_off();\n    #[since = \"1.1.0\"]\n    fn led_toggle();\n",
+    );
+    c.write("1.1.0", &added).save();
+    let (outcome, ok) = check_current(c.path());
+    assert_eq!(ok.unwrap(), "version is bumped enough");
+    let Outcome::Compared(comparison) = outcome else {
+        panic!()
+    };
+    assert_eq!(comparison.report.change, Change::Compatible);
+    Check::new(c.path()).require_current(true).assert();
+
+    // a snapshot of a version not bumped enough (saved with force) fails, naming the version to bump to
+    c.write("1.1.1", &API.replace("    fn led_off();\n", "")).save();
+    let err = check_current(c.path()).1.unwrap_err();
+    has_all(
+        &err,
+        &[
+            "2.0.0 or later",
+            "test_api_1_1_1.ron goes then, as test_api 1.1.1 was never released",
+        ],
+    );
 }

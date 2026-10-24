@@ -102,9 +102,10 @@ pub enum ApiCommand {
     /// can refer to these traits and types by crate name and version only, instead of carrying their definitions.
     /// Traits and types from other crates are only referenced, save a snapshot of each of those crates as well.
     ///
-    /// Saving again is a no-op if nothing changed. Any change is an error, doc comments included:
-    /// bump the crate version instead (compatible position for doc-only changes). A new version is compared with
-    /// the previous snapshot as `ww api check` does, and is only saved if bumped enough.
+    /// Only the snapshot of the crate's current version is written: saved, or refreshed when the source changed since
+    /// (a no-op if nothing changed). A released version's snapshot never changes: bump the crate version instead
+    /// (compatible position for doc-only changes). The version is compared with the previous version's snapshot as
+    /// `ww api check` does, and is only saved if bumped enough.
     Save {
         /// Path to crate which defines ww_trait's and/or data types
         #[arg(value_hint = ValueHint::DirPath)]
@@ -133,6 +134,11 @@ pub enum ApiCommand {
         /// Fail if there is no snapshot to compare with, instead of passing unchecked
         #[arg(long)]
         strict: bool,
+
+        /// Require the snapshot of the crate's current version and the source to match it, and check the bump from
+        /// the previous version's snapshot to it (implies --strict)
+        #[arg(long)]
+        require_current: bool,
     },
     /// List every change made since the latest saved snapshot, doc comments included
     ///
@@ -212,7 +218,8 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             path,
             against,
             strict,
-        } => check::check(path, against, strict),
+            require_current,
+        } => check::check(path, against, strict, require_current),
         ApiCommand::Diff { path, against } => diff::diff(path, against),
         ApiCommand::Ast { path, name } => ast::print_ast(path, name),
     }

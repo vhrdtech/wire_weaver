@@ -189,7 +189,9 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
 - **`wire_weaver_snapshots/`** — API snapshots (`api_snapshots/*.ron`, saved by `ww api save`) of `ww_global` and
   `ww_stdlib/*`, copied in and embedded. Codegen leaves traits and types known from them out of the introspection
   data a device sends, `wire_weaver_client` puts them back. After changing any trait or type in those crates, run
-  `just save-snapshots` (a `wire_weaver_core` test fails otherwise); `--force` only for versions never published.
+  `just save-snapshots` (a `wire_weaver_core` test fails otherwise). It refreshes the snapshot of a crate's current
+  version, which is only right for a version never published (`cargo info --registry crates-io <crate>`): bump a
+  published one first; `--force` (saving a version not bumped enough) only for versions never published.
 - **`examples/`** — paired `<name>_api` (trait + types, no_std-compatible) / `<name>` (server+client wiring, tests)
   crates; this pairing is the intended project shape end users should copy (see `docs/api/folder_structure.md`).
   `examples_mcu/` has real firmware targets per dev board (excluded from root workspace).

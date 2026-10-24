@@ -1369,6 +1369,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww api save` to run; every breaking change names the rule it breaks with its docs section, and a failed check the
   version to bump to. `ww api check --strict` runs the same library. Template setup (test, just recipes, CI step,
   pre-commit hook) in `docs/evolution/checker_tool.md#checking-at-every-commit`; `examples/blinky_api` does it.
+- ✅ **EVO-12 Current version's snapshot required** — `Check::require_current(true)` (and `ww api check
+  --require-current`) fails when the crate's current version has no snapshot or the source differs from it, and checks
+  the bump from the previous version's snapshot to it, so a version can't ship without its snapshot (the
+  `nucleo_g0b1re_template` 0.1.5 shipped API 0.2.0 without one). The snapshot is saved from the API crate's own test
+  (`WW_API_SAVE=1 cargo test --test evolution`, `Check::save`), with the checker the lock file pins; `ww api save`
+  refreshes the current version's snapshot too, never an older one
+  (`docs/evolution/checker_tool.md#checking-at-every-commit`, `wire_weaver_evolution/tests/check.rs`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

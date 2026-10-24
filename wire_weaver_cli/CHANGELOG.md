@@ -2,11 +2,13 @@
 
 ### ⚠️ Breaking
 
+- `ww api save` refreshes the snapshot of the crate's current version when the source changed, instead of refusing without `--force` (EVO-12); `--force` now only saves a version not bumped enough since the previous version's snapshot. An older version's snapshot is never written. A released version's snapshot still never changes: bump the version first.
 - `--elf` is one global flag now (TOOL-20): `ww counters --elf X` and `ww report --elf X` work as before, `--elf` also goes before the subcommand, and with `--rtt` it gives the RTT control block. `WW_ELF` and the `elf` key in `ww.toml` are for the control block only; `counters` and `report` still look up the ELF by build id unless `--elf` is on the command line.
 - `ww dfu flash` is run by the `ww-chunky` plugin (chunky_mcu_updater's `ww_chunky`: `just install` there, or `cargo install --git https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`) and without it on PATH says so; the arguments, `-s`/`--serial` and the other selection options, the environment variables and the output are the same. `ww dfu reboot | status | confirm | revert` stay in `ww` (their `status` shows the flash layout as a number, `ww-chunky status` by chip name). This cuts the dependency of `wire_weaver_cli` on chunky_mcu_updater, which depended on wire_weaver by path: `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli --locked` works on a PC without sibling checkouts.
 
 ### 🚀 Features
 
+- `ww api check --require-current` (EVO-12): fails without a snapshot of the crate's current version or when the source differs from it, and checks the bump from the previous version's snapshot to it, the same as `Check::require_current` in an API crate's test.
 - `ww api check --strict` fails when the crate has no snapshot to compare with, naming the `ww api save` to run, instead of passing unchecked (EVO-11). Each breaking change is followed by the rule it breaks and its docs section, and a failed check says which version to put in `Cargo.toml`. `ww api check`, `diff` and `save` run on `wire_weaver_evolution`, the same checker an API crate runs from its own test.
 - `--rtt` with a chip probe-rs doesn't know fails before touching the probe, naming the chips that start like it (`did you mean: STM32G0B1RE`).
 - probe-rs's INFO lines (`Halting core 0...`) no longer show in `ww` output, its warnings do.

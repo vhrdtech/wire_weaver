@@ -18,10 +18,11 @@
 //! the checker and `cargo test`, CI and a pre-commit hook all check the same way:
 //!
 //! ```no_run
-//! // tests/evolution.rs of an API crate
+//! // tests/evolution.rs of an API crate: `WW_API_SAVE=1 cargo test --test evolution` saves the current version's
+//! // snapshot, plain `cargo test` fails without it
 //! #[test]
 //! fn api_evolution() {
-//!     wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR")).strict(true).assert();
+//!     wire_weaver_evolution::Check::new(env!("CARGO_MANIFEST_DIR")).require_current(true).assert();
 //! }
 //! ```
 
@@ -49,7 +50,7 @@ mod rule;
 pub mod snapshot_files;
 
 #[cfg(feature = "source")]
-pub use check::{Check, Comparison, NoSnapshot, Outcome};
+pub use check::{Check, Comparison, NoSnapshot, Outcome, SAVE_ENV, SaveStatus, Saved};
 pub use diff::{Difference, diff};
 pub use rule::{Finding, Rule};
 

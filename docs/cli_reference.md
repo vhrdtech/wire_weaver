@@ -190,11 +190,12 @@ $ ww api save ww_stdlib/ww_uart
 saved ww_stdlib/ww_uart/api_snapshots/ww_uart_0_1_0.ron, 12 resources, 1 traits, 11 types (0 traits and 2 types not included)
 ```
 
-Running it again does nothing if nothing changed. Any change is an error, including doc comments only:
-bump the crate version (see [evolution rules](evolution/rules.md#doc-comments), doc-only changes bump the compatible
-position, so that tools can tell that improved docs are available) and save a new snapshot. `--force` overwrites anyway, only use it for a
-version that was never published. A snapshot of a new version is only saved if the version is bumped enough since the
-previous snapshot, see below.
+Running it again does nothing if nothing changed. Only the snapshot of the version in `Cargo.toml` is written: when the
+source changed since it was saved, it is refreshed, which is only right for a version that was never published. A
+released version's snapshot never changes, including for doc comments only: bump the crate version instead (see
+[evolution rules](evolution/rules.md#doc-comments), doc-only changes bump the compatible position, so that tools can
+tell that improved docs are available) and save the new version's snapshot. A snapshot is only saved if the version is
+bumped enough since the previous version's snapshot (`--force` saves anyway), see below.
 
 `ww api check <path>` is the [evolution checker](evolution/checker_tool.md): it compares the crate with its latest
 snapshot and fails if the version is not bumped enough for what changed (breaking position for breaking changes,

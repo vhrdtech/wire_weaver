@@ -193,6 +193,23 @@ async fn refusals_are_shown_not_fatal() {
 }
 
 #[tokio::test]
+async fn plan_points_are_tested_next_to_watched_ones() {
+    let mut b = board();
+    let plan = Plan::parse("[[point]]\nname = \"GPIO0\"\nexpect = \"floating\"").unwrap();
+    let r = test_on(&mut b, &[], &["GPIO1"], Some(&plan)).await;
+    let (g0, g1) = (id(&b, "GPIO0"), id(&b, "GPIO1"));
+    assert!(b.was_set(g0) && !b.was_set(g1));
+    assert!(r.point(g0).unwrap().level.is_none());
+    assert!(r.point(g1).unwrap().level.is_some());
+    assert_eq!(r.points.len(), 2);
+    // without a plan, --watch alone only reads
+    let mut b = board();
+    let r = test_on(&mut b, &[], &["GPIO1"], None).await;
+    assert!(b.sets.is_empty());
+    assert_eq!(r.points.len(), 1);
+}
+
+#[tokio::test]
 async fn watched_points_are_only_read() {
     let mut b = board();
     let r = test_on(&mut b, &["GPIO0"], &["GPIO1,DET"], None).await;

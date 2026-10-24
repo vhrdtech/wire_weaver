@@ -795,7 +795,7 @@ errors. The exit code is 0 when nothing is shorted and, with a plan, every expec
 | Command / option | Description                                                                                       |
 |------------------|---------------------------------------------------------------------------------------------------|
 | `list [--format json]` | Points with id, name, group and caps (`read`, `pull_up`, `pull_down`, `drive_low`, `drive_high`, `weak_drive`) |
-| `test POINTS`    | Points to test, comma separated: names (`GPIO0`), ids (`P8`), ranges (`GPIO2..=GPIO7`, `GPIO2..GPIO8` without the end, `P2..=P7`), globs on names (`GPIO1*`) and on groups with names (`'chain.*'`). A name wins over an id (a point named `P8` is that point); a part that matches nothing is an error. Without points: the plan's, without a plan all |
+| `test POINTS`    | Points to test, comma separated: names (`GPIO0`), ids (`P8`), ranges (`GPIO2..=GPIO7`, `GPIO2..GPIO8` without the end, `P2..=P7`), globs on names (`GPIO1*`) and on groups with names (`'chain.*'`). A name wins over an id (a point named `P8` is that point); a part that matches nothing is an error. Without points: the plan's (also with `--watch`), without a plan all (with only `--watch`: none, the watched points are just read) |
 | `--watch POINTS` | Points only read, never set: their level, and whether they follow the tested points             |
 | `--plan FILE`    | Expectations, narrower allow lists and nets, see below; its `target` is the default for `--at`   |
 | `--save FILE`    | Write the pull class each tested point shows into `expect` of FILE (created if missing)          |

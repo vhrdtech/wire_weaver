@@ -101,7 +101,8 @@ pub(crate) enum Format {
 #[derive(Args)]
 pub(crate) struct TestArgs {
     /// Points: names, ids (P8), ranges (GPIO2..=GPIO7), globs on names and groups ('chain.*'), comma separated.
-    /// Without any: the points the plan names, without a plan all points
+    /// Without any: the points the plan names (also with --watch), without a plan all points (with --watch alone:
+    /// none, the watched points are only read)
     #[arg(value_delimiter = ',', add = ArgValueCandidates::new(complete::pin_points))]
     points: Vec<String>,
 

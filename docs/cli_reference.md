@@ -861,7 +861,7 @@ PinDiag at (root) · NUCLEO-G0B1RE · 6 points · read every 250 ms · 1 set, x 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--board FILE` | | Board preset, see below; without one a panel per group of points |
+| `--board FILE` | | Board preset, see below (a board's own lives in its firmware repo, e.g. `docs/board/nucleo_g0b1re.toml` of the NUCLEO-G0B1RE template); without one a panel per group of points |
 | `--at PATH` | | Where `PinDiag` is in the device's API, when it has more than one |
 | `--interval-ms N` | `250` | How often all points are read |
 | `--gpio` | | The pins of the device's `ww_gpio` banks, also when it serves `PinDiag` |

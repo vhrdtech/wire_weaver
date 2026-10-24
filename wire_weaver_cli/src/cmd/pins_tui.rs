@@ -531,7 +531,7 @@ pub(crate) async fn run(app: &mut App, pins: &mut impl Pins, mut stop: StopSigna
             }
         })
     };
-    let result = async {
+    let result: Result<()> = async {
         app.refresh(pins).await?;
         let mut tick = tokio::time::interval(app.interval);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -558,7 +558,9 @@ pub(crate) async fn run(app: &mut App, pins: &mut impl Pins, mut stop: StopSigna
     ratatui::restore();
     let released = app.live.release(pins).await;
     match (result, released) {
-        (Err(e), _) => Err(e),
+        // both said: points left set matter as much as why the view stopped
+        (Err(e), Err(r)) => Err(e.context(format!("and releasing the points failed too: {r}"))),
+        (Err(e), Ok(())) => Err(e),
         (Ok(()), Err(e)) => Err(anyhow!("releasing the points: {e}")),
         (Ok(()), Ok(())) => Ok(()),
     }

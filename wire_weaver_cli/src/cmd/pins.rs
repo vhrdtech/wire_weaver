@@ -53,8 +53,8 @@ pub(crate) enum PinsCommand {
     /// The preset is a boardmap board description (with its geometry JSON) or a small preset for ww alone, see
     /// docs/cli_reference.md#ww-pins-tui. Without one, a panel per group. Examples:
     ///
-    ///   ww pins tui --board docs/board/nucleo_g0b1re.toml
-    ///   ww pins tui                                 a panel per group of points
+    ///   ww pins tui --board docs/board/nucleo_g0b1re.toml   in a nucleo_g0b1re_template checkout
+    ///   ww pins tui                                         a panel per group of points
     #[command(verbatim_doc_comment)]
     Tui(TuiArgs),
 }

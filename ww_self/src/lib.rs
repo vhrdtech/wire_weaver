@@ -734,6 +734,30 @@ pub struct ItemEnum<'i> {
     /// [signatures](crate::signature).
     #[default = None]
     pub instance_of: Option<InstanceOf<'i>>,
+    /// Whether a reader gets a variant from a newer version as the enum's `#[future_version]` catch-all (SW-47,
+    /// EVO-10), which decides whether appending a variant is compatible. `None` in a model written before EVO-10:
+    /// unknown, the evolution checker then treats the enum as one without the catch-all. Left out of
+    /// [signatures](crate::signature): it changes no byte on the wire, and definitions saved before keep their
+    /// signature.
+    #[default = None]
+    pub future_version: Option<FutureVersion<'i>>,
+}
+
+/// An enum's catch-all for discriminants from a newer version (SW-47), see [ItemEnum::future_version].
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = u1,
+    no_future_version
+)]
+pub enum FutureVersion<'i> {
+    /// No catch-all, a reader fails on a newer variant: `no_future_version`, every discriminant of the repr taken,
+    /// or a `final_structure` / `self_describing` / `sized` enum without a written `#[future_version]` variant.
+    Off,
+    /// The catch-all variant, `Unknown(u32)` by default (`future_version = <Name>` or a written
+    /// `#[future_version] <Name>(u32)`). It is not one of [ItemEnum::variants].
+    Variant { ident: &'i str },
 }
 
 #[derive_shrink_wrap(

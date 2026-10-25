@@ -13,8 +13,9 @@ use shrink_wrap::ElementSize;
 use ww_self::signature;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
-    FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
-    ItemEnumOwned, ItemStructOwned, Length, PropertyAccess, TypeLocationOwned, TypeOwned,
+    FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
+    GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, PropertyAccess, TypeLocationOwned,
+    TypeOwned, VariantOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -725,22 +726,73 @@ impl<'a> TypeCheck<'a> {
         if w.repr != r.repr {
             return Err(format!("repr {:?} vs {:?}", w.repr, r.repr));
         }
+        // renaming keeps the discriminant, a variant whose name is at another one on the other side moved
+        // (inserted before it or reordered), its values would be read as another variant
         for variant in &w.variants {
-            // unknown variants can't be read, extra variants on the reader side are never sent
+            if let Some(moved) = r
+                .variants
+                .iter()
+                .find(|v| v.ident == variant.ident && v.discriminant != variant.discriminant)
+            {
+                return Err(format!(
+                    "variant {} moved: discriminant {} on the {}, {} on the {}",
+                    variant.ident,
+                    variant.discriminant.0,
+                    self.writer_name,
+                    moved.discriminant.0,
+                    self.reader_name
+                ));
+            }
+        }
+        for variant in &w.variants {
             let Some(r_variant) = r
                 .variants
                 .iter()
                 .find(|v| v.discriminant == variant.discriminant)
             else {
-                return Err(format!(
-                    "variant {} is unknown to the {}",
-                    variant.ident, self.reader_name
-                ));
+                self.check_unknown_variant(variant, r)?;
+                continue;
             };
             self.check_fields(&w.size, &variant.fields, &r.size, &r_variant.fields)
                 .map_err(|e| format!("variant {}: {e}", r_variant.ident))?;
         }
         Ok(())
+    }
+
+    /// A variant the reader doesn't know is read as its `#[future_version]` catch-all (SW-47, EVO-10), if it has one
+    /// and can skip the variant's fields: an `Unsized` enum skips them with its size slot, any other only reads past
+    /// a unit variant.
+    fn check_unknown_variant(
+        &self,
+        variant: &VariantOwned,
+        r: &ItemEnumOwned,
+    ) -> Result<(), String> {
+        let unknown = format!(
+            "variant {} is unknown to the {}",
+            variant.ident, self.reader_name
+        );
+        match &r.future_version {
+            Some(FutureVersionOwned::Variant { ident }) => {
+                if matches!(r.size, ElementSize::Unsized)
+                    || matches!(variant.fields, FieldsOwned::Unit)
+                {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "{unknown}, its catch-all {ident}(u32) can't skip the variant's fields: only Unsized \
+                         enums can gain variants with fields"
+                    ))
+                }
+            }
+            Some(FutureVersionOwned::Off) => {
+                Err(format!("{unknown}, which has no catch-all for it"))
+            }
+            None => Err(format!(
+                "{unknown}: whether the {} has a catch-all for it is not recorded (the API model is from before \
+                 EVO-10, save its snapshot again)",
+                self.reader_name
+            )),
+        }
     }
 
     fn check_fields(

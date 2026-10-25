@@ -178,6 +178,7 @@ fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
 fn en(ident: &str, size: ElementSize, variants: Vec<VariantOwned>) -> TypeOwned {
     TypeOwned::Enum(ItemEnumOwned {
         instance_of: None,
+        future_version: None,
         size,
         repr: Repr::UNib32,
         crate_idx: UNib32(0),

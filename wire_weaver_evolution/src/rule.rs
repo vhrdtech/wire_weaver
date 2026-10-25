@@ -23,6 +23,8 @@ pub enum Rule {
     FieldKind,
     /// An `#[optional]` item stays optional and in its group.
     Optional,
+    /// An enum's catch-all for variants from a newer version (`#[future_version]`) is part of its Rust type.
+    CatchAll,
 }
 
 impl Rule {
@@ -43,6 +45,10 @@ impl Rule {
             Rule::MaxLen => "a max length is only raised or removed, never lowered or added",
             Rule::FieldKind => "named and unnamed fields are different Rust types",
             Rule::Optional => "an #[optional] item stays optional and in its group",
+            Rule::CatchAll => {
+                "an enum's catch-all for newer variants keeps the wire, but is part of its Rust type: it is \
+                 never added, removed or renamed"
+            }
         }
     }
 
@@ -56,6 +62,7 @@ impl Rule {
             Rule::MaxLen => "docs/evolution/rules.md#maximum-lengths-maxlent-n",
             Rule::FieldKind => "docs/evolution/rules.md#unsized-types",
             Rule::Optional => "docs/evolution/rules.md#optional-items",
+            Rule::CatchAll => "docs/evolution/rules.md#unsized-types",
         }
     }
 }

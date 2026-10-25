@@ -385,13 +385,16 @@ pub(crate) fn derive_shrink_wrap_args(
 /// Trimmed down version of shrink_wrap_derive's `Args`, keeping only the directives relevant to
 /// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`), `ww_repr`, `sparse`
 /// (TOOL-11: the API model needs to know a struct is sparse to decode it dynamically) and `fixed_layout` (same
-/// bytes as without it, but it makes a struct without a size assumption `sized`, as the derive does).
+/// bytes as without it, but it makes a struct without a size assumption `sized`, as the derive does),
+/// `no_future_version` and `future_version = <Name>` (whether an enum has the SW-47 catch-all, EVO-10).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Args {
     pub(crate) size_assumption: Option<ElementSize>,
     pub(crate) ww_repr: Option<Repr>,
     pub(crate) sparse: bool,
     pub(crate) fixed_layout: bool,
+    pub(crate) no_future_version: bool,
+    pub(crate) future_version: Option<String>,
 }
 
 impl Parse for Args {
@@ -400,6 +403,8 @@ impl Parse for Args {
         let mut ww_repr = None;
         let mut sparse = false;
         let mut fixed_layout = false;
+        let mut no_future_version = false;
+        let mut future_version = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -443,7 +448,7 @@ impl Parse for Args {
                 }
                 "borrowed" | "owned" | "derive" | "derive_owned" | "derive_borrowed"
                 | "cfg_attr" | "cfg_attr_owned" | "cfg_attr_borrowed" | "discriminants"
-                | "crate_path" | "non_exhaustive" | "no_future_version" | "display" | "series" => {
+                | "crate_path" | "non_exhaustive" | "display" | "series" => {
                     // Directives irrelevant to wire_weaver_core's introspection (it only cares
                     // about `ww_repr`, the size assumption and `sparse`) - skip their arguments, if any.
                     if input.peek(syn::token::Paren) {
@@ -454,10 +459,12 @@ impl Parse for Args {
                     input.parse::<Token![=]>()?;
                     let _path: syn::Path = input.parse()?;
                 }
+                "no_future_version" => no_future_version = true,
                 "future_version" => {
-                    // the variant is left out of the API model (SW-16, SW-47)
+                    // the variant is left out of the API model's variants (SW-16, SW-47)
                     input.parse::<Token![=]>()?;
-                    let _name: Ident = input.parse()?;
+                    let name: Ident = input.parse()?;
+                    future_version = Some(name.to_string());
                 }
                 u => {
                     return Err(syn::Error::new(
@@ -480,6 +487,8 @@ impl Parse for Args {
             ww_repr,
             sparse,
             fixed_layout,
+            no_future_version,
+            future_version,
         })
     }
 }

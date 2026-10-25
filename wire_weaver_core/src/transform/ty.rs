@@ -1,11 +1,13 @@
 use super::{
     crate_walker::{CrateContext, Scratch, TypeInProgress},
     util::{
-        collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs, use_tree_path_to,
+        Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
+        use_tree_path_to,
     },
 };
 use anyhow::{Context, Result, anyhow};
 use shrink_wrap::{ElementSize, UNib32};
+use std::collections::HashSet;
 use syn::{
     Attribute, Expr, Fields, GenericArgument, Item, ItemEnum, ItemStruct, Lit, Meta, PathArguments,
     PathSegment, Type, TypePath,
@@ -13,9 +15,9 @@ use syn::{
 use ww_numeric::NumericValue;
 use ww_numeric::{IBits, NumericAnyTypeOwned, UBits};
 use ww_self::{
-    FieldOwned, FieldsOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned,
-    ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr, TypeLocationOwned, TypeOwned,
-    ValueOwned, VariantOwned,
+    FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
+    GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, NumericBaseType, Repr,
+    TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
 };
 
 pub(crate) fn convert_ty(
@@ -782,6 +784,7 @@ fn convert_item_enum(
 ) -> Result<TypeOwned> {
     let mut variants = vec![];
     let mut discriminant = 0;
+    let mut written_future_version = None;
     for variant in &item_enum.variants {
         // holds a discriminant from a newer version, it is not a variant on the wire (SW-16)
         if variant
@@ -789,6 +792,7 @@ fn convert_item_enum(
             .iter()
             .any(|a| a.path().is_ident("future_version"))
         {
+            written_future_version = Some(variant.ident.to_string());
             continue;
         }
         let fields = convert_fields(&variant.fields, current_crate, scratch, false)?;
@@ -817,8 +821,16 @@ fn convert_item_enum(
     }
     let repr = get_repr(&item_enum.attrs, current_crate, &ty_name)?;
     let size = get_size_assumption(&item_enum.attrs, current_crate)?;
+    let future_version = future_version(
+        &derive_shrink_wrap_args(&item_enum.attrs, current_crate)?,
+        written_future_version,
+        &size,
+        &repr,
+        &variants,
+    );
     let ty = TypeOwned::Enum(ItemEnumOwned {
         instance_of: None,
+        future_version: Some(future_version),
         size,
         repr,
         crate_idx: scratch.root_bundle.find_crate_or_create(current_crate),
@@ -1134,6 +1146,41 @@ fn get_inner_angle_bracketed_ty<'i>(
         return Err(anyhow!("expected {outer}<T>, got {arg:?}"));
     };
     Ok(inner_ty)
+}
+
+/// The catch-all `shrink_wrap_derive` gives the enum (SW-47, see its `apply_future_version_arg`): the written
+/// `#[future_version]` variant, else `Unknown(u32)` (or `future_version = <Name>`) for an `Unsized` enum with a free
+/// discriminant that doesn't say `no_future_version`.
+fn future_version(
+    args: &Args,
+    written: Option<String>,
+    size: &ElementSize,
+    repr: &Repr,
+    variants: &[VariantOwned],
+) -> FutureVersionOwned {
+    if let Some(ident) = written {
+        return FutureVersionOwned::Variant { ident };
+    }
+    let max_discriminant = match repr {
+        Repr::Nibble => 15,
+        Repr::BitAligned(bits) => u32::MAX >> (32 - u32::from(*bits).clamp(1, 32)),
+        Repr::ByteAlignedU8 => u8::MAX.into(),
+        Repr::ByteAlignedU16 => u16::MAX.into(),
+        Repr::UNib32 | Repr::ByteAlignedU32 => u32::MAX,
+    };
+    let used: HashSet<u32> = variants.iter().map(|v| v.discriminant.0).collect();
+    if args.no_future_version
+        || !matches!(size, ElementSize::Unsized)
+        || used.len() as u64 > u64::from(max_discriminant)
+    {
+        return FutureVersionOwned::Off;
+    }
+    FutureVersionOwned::Variant {
+        ident: args
+            .future_version
+            .clone()
+            .unwrap_or_else(|| "Unknown".into()),
+    }
 }
 
 fn get_repr(attrs: &[Attribute], current_crate: &CrateContext, enum_name: &str) -> Result<Repr> {

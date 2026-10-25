@@ -35,7 +35,7 @@ use ww_self::errors::fmt_error_list;
 use ww_self::visit_mut::VisitMut;
 use ww_self::{
     ApiBundleOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned, ClaimMode,
-    ErrorVariantOwned, FieldsOwned, MetaOwned, TypeLocationOwned, TypeOwned,
+    ErrorVariantOwned, FieldsOwned, FutureVersionOwned, MetaOwned, TypeLocationOwned, TypeOwned,
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
@@ -484,6 +484,24 @@ impl<'a> Checker<'a> {
             }
             (TypeOwned::Enum(old), TypeOwned::Enum(new)) => {
                 let unsized_ = matches!(new.size, ElementSize::Unsized);
+                // not recorded in a model from before EVO-10
+                if let (Some(old_fv), Some(new_fv)) = (&old.future_version, &new.future_version)
+                    && old_fv != new_fv
+                {
+                    let describe = |fv: &FutureVersionOwned| match fv {
+                        FutureVersionOwned::Off => "none".to_string(),
+                        FutureVersionOwned::Variant { ident } => format!("{ident}(u32)"),
+                    };
+                    self.breaks(
+                        Rule::CatchAll,
+                        format!(
+                            "{name}: catch-all for newer variants changed from {} to {} (wire-compatible, but \
+                             breaks Rust code)",
+                            describe(old_fv),
+                            describe(new_fv)
+                        ),
+                    );
+                }
                 for new_variant in &new.variants {
                     let path = format!("{name}::{}", new_variant.ident);
                     match old
@@ -1113,13 +1131,102 @@ mod tests {
 
     #[test]
     fn enum_variants() {
-        let new = API.replace("B(u8),", "B(u8),\nC,");
-        assert_breaking(
-            &report(API, &new),
-            "variant C is unknown to the old version",
-        );
         let new = API.replace("B(u8),", "Bb(u8),");
         assert_breaking(&report(API, &new), "Mode::B renamed to Bb");
+    }
+
+    /// EVO-10: an older reader gets a variant appended to an enum with the catch-all (SW-47) as `Unknown(n)`.
+    #[test]
+    fn enum_variant_appended_to_the_catch_all() {
+        // Mode is Unsized, it has Unknown(u32)
+        for appended in ["C,", "C(u16),", "C { a: u8 },"] {
+            let new = API.replace("B(u8),", &format!("B(u8),\n{appended}"));
+            let report = compare(&load("0.1.0", API), &load("0.1.1", &new)).unwrap();
+            assert_eq!(report.change, Change::Compatible, "{appended}: {report:?}");
+            assert!(report.check_version().is_ok(), "patch before 1.0");
+        }
+        let named =
+            |api: &str| api.replace("ww_repr = u4)", "ww_repr = u4, future_version = Newer)");
+        let new = named(&API.replace("B(u8),", "B(u8),\nC,"));
+        assert_eq!(report(&named(API), &new).change, Change::Compatible);
+        let written = |api: &str| {
+            api.replace("ww_repr = u4)", "ww_repr = u4, self_describing)")
+                .replace("B(u8),", "B(u8),\n#[future_version]\nLater(u32),")
+        };
+        let new = written(&API).replace("B(u8),", "B(u8),\nC,");
+        assert_eq!(report(&written(API), &new).change, Change::Compatible);
+
+        // the old version reads Mode::B as the new C
+        let inserted = API.replace("A,", "A,\nC(u8),");
+        assert_breaking(&report(API, &inserted), "variant B moved");
+        let reordered = API.replace(
+            "A,\n            B(u8),",
+            "B(u8),\n            A,\n            C,",
+        );
+        assert_breaking(&report(API, &reordered), "variant A moved");
+        // a self_describing enum can't skip a newer variant's fields
+        let new = written(&API).replace("B(u8),", "B(u8),\nC(u8),");
+        assert_breaking(
+            &report(&written(API), &new),
+            "its catch-all Later(u32) can't skip the variant's fields",
+        );
+    }
+
+    #[test]
+    fn enum_variant_appended_without_the_catch_all() {
+        let without = [
+            ("ww_repr = u4)", "ww_repr = u4, no_future_version)"),
+            ("ww_repr = u4)", "ww_repr = u4, self_describing)"),
+        ];
+        for (from, to) in without {
+            let old = API.replace(from, to).replace("B(u8),", "B(u8),\nC,");
+            let new = old.replace("C,", "C,\nD,");
+            assert_breaking(
+                &report(&old, &new),
+                "variant D is unknown to the old version, which has no catch-all for it",
+            );
+        }
+        // a model from before EVO-10 doesn't say whether the old version has the catch-all
+        let new = API.replace("B(u8),", "B(u8),\nC,");
+        let mut old = load("0.1.0", API);
+        for location in &mut old.types {
+            if let TypeLocationOwned::InLine {
+                ty: TypeOwned::Enum(e),
+                ..
+            } = location
+            {
+                e.future_version = None;
+            }
+        }
+        let report = compare(&old, &load("0.1.0", &new)).unwrap();
+        assert_breaking(
+            &report,
+            "the API model is from before EVO-10, save its snapshot again",
+        );
+    }
+
+    #[test]
+    fn catch_all_changed_breaks_rust_code() {
+        let off = API.replace("ww_repr = u4)", "ww_repr = u4, no_future_version)");
+        let named = API.replace("ww_repr = u4)", "ww_repr = u4, future_version = Newer)");
+        assert_breaking(
+            &report(API, &off),
+            "Mode: catch-all for newer variants changed from Unknown(u32) to none",
+        );
+        assert_breaking(
+            &report(&off, API),
+            "Mode: catch-all for newer variants changed from none to Unknown(u32)",
+        );
+        assert_breaking(&report(API, &named), "from Unknown(u32) to Newer(u32)");
+        // the fourth variant of a u2 takes the last discriminant, there is none left for Unknown
+        let three = API
+            .replace("ww_repr = u4)", "ww_repr = u2)")
+            .replace("B(u8),", "B(u8),\nC,");
+        let four = three.replace("C,", "C,\nD,");
+        assert_breaking(
+            &report(&three, &four),
+            "Mode: catch-all for newer variants changed from Unknown(u32) to none",
+        );
     }
 
     #[test]

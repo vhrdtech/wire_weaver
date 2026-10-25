@@ -1076,6 +1076,7 @@ pub fn substitute(
                 generics: vec![],
                 variants,
                 instance_of: Some(instance_of),
+                future_version: e.future_version.clone(),
             })
         }
         _ => bail!("type with index {type_idx} is not a struct or an enum"),
@@ -1748,6 +1749,7 @@ mod tests {
         let expr = TypeLocationOwned::InLine {
             ty: TypeOwned::Enum(ItemEnumOwned {
                 instance_of: None,
+                future_version: None,
                 size: ElementSize::Unsized,
                 repr: Repr::Nibble,
                 crate_idx: UNib32(0),
@@ -2035,6 +2037,7 @@ mod tests {
         types.push(TypeLocationOwned::InLine {
             ty: TypeOwned::Enum(ItemEnumOwned {
                 instance_of: None,
+                future_version: None,
                 size: ElementSize::Unsized,
                 repr: Repr::Nibble,
                 crate_idx: UNib32(0),
@@ -2158,6 +2161,7 @@ mod tests {
         // Vec<E>, E with 100 000 variants and a zero-bit discriminant: each element looks through all of them
         let e = TypeOwned::Enum(ItemEnumOwned {
             instance_of: None,
+            future_version: None,
             size: ElementSize::UnsizedFinalStructure,
             repr: Repr::BitAligned(0),
             crate_idx: UNib32(0),

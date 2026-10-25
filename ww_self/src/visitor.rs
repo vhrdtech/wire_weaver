@@ -386,6 +386,7 @@ mod tests {
         });
         let item_enum = TypeOwned::Enum(ItemEnumOwned {
             instance_of: None,
+            future_version: None,
             size: ElementSize::Unsized,
             repr: Repr::UNib32,
             crate_idx: UNib32(0),

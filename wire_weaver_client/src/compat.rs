@@ -708,10 +708,30 @@ mod tests {
                 C,
             }
         "#;
-        // newer device can return a variant the client doesn't know, but can read all the client sends
-        let compat = compat(v1, v2);
-        assert_incompatible(&compat, &[0], "variant C is unknown to the client");
+        // newer device can return a variant the client doesn't know, the client reads it as Mode::Unknown(2)
+        // (EVO-10), and the device can read all the client sends
+        let compat = self::compat(v1, v2);
+        assert_eq!(verdict(&compat, &[0]), Verdict::Compatible);
         assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
+
+        // without the catch-all the client can't read it
+        let off = |api: &str| api.replace("ww_repr = u4)", "ww_repr = u4, no_future_version)");
+        let compat = self::compat(&off(v1), &off(v2));
+        assert_incompatible(
+            &compat,
+            &[0],
+            "variant C is unknown to the client, which has no catch-all for it",
+        );
+        assert_eq!(verdict(&compat, &[1]), Verdict::Compatible);
+
+        // a variant inserted before B: the client would read the device's B as C
+        let inserted = v2.replace(
+            "A,\n                B(u8),\n                C,",
+            "A,\n                C,\n                B(u8),",
+        );
+        let compat = self::compat(v1, &inserted);
+        assert_incompatible(&compat, &[0], "variant B moved");
+        assert_incompatible(&compat, &[1], "variant B moved");
     }
 
     #[test]

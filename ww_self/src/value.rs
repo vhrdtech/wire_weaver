@@ -9,8 +9,8 @@
 
 use crate::explain::{PartKind, Trace};
 use crate::{
-    ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, ItemEnumOwned, Repr, TypeOwned,
-    ValueOwned,
+    ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned, ItemEnumOwned,
+    Repr, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_reader::Cursors;
@@ -645,9 +645,16 @@ fn des_enum(
                 .position(|v| v.discriminant.0 == discriminant);
             b.take(position.unwrap_or(enum_def.variants.len()) / VARIANTS_PER_VALUE)?;
             let Some(variant) = position.map(|idx| &enum_def.variants[idx]) else {
-                // a variant from a newer version: an Unsized enum is bounded by its size slot, its fields are
-                // skipped with it (SW-16)
-                if matches!(enum_def.size, ElementSize::Unsized) {
+                // a variant from a newer version, read as the derive reads it into the catch-all (EVO-10): an
+                // Unsized enum is bounded by its size slot, its fields are skipped with it (SW-16); any other enum
+                // can only be read past a unit variant. Without the catch-all the derive fails on it as well; a model
+                // from before EVO-10 doesn't say, an Unsized enum is read past then.
+                let catch_all = match &enum_def.future_version {
+                    Some(FutureVersionOwned::Variant { .. }) => true,
+                    Some(FutureVersionOwned::Off) => false,
+                    None => matches!(enum_def.size, ElementSize::Unsized),
+                };
+                if catch_all {
                     return Ok(ValueOwned::Enum {
                         variant: format!("<unknown {discriminant}>"),
                         fields: FieldsValueOwned::Unit,
@@ -1437,4 +1444,77 @@ fn check_max_len(len: usize, max_len: u32) -> Result<()> {
             .context(format!("{len} elements, at most {max_len} allowed")));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ItemEnumOwned, VariantOwned};
+
+    fn mode(size: ElementSize, future_version: Option<FutureVersionOwned>, n: u32) -> TypeOwned {
+        let fields = |d| match d {
+            1 => FieldsOwned::Unnamed(vec![FieldOwned {
+                ident: None,
+                default: None,
+                since: None,
+                ty: TypeOwned::Bool,
+                docs: vec![],
+                slot: None,
+                series_opaque: false,
+            }]),
+            _ => FieldsOwned::Unit,
+        };
+        TypeOwned::Enum(ItemEnumOwned {
+            size,
+            repr: Repr::UNib32,
+            crate_idx: UNib32(0),
+            docs: vec![],
+            ident: "Mode".into(),
+            generics: vec![],
+            variants: (0..n)
+                .map(|d| VariantOwned {
+                    docs: vec![],
+                    ident: ["A", "B", "C", "D"][d as usize].into(),
+                    fields: fields(d),
+                    discriminant: UNib32(d),
+                    since: None,
+                })
+                .collect(),
+            path: None,
+            instance_of: None,
+            future_version,
+        })
+    }
+
+    /// EVO-10: a variant from a newer version is read as the derive reads it, into the catch-all when there is one.
+    #[test]
+    fn newer_variant_is_read_as_the_derive_does() {
+        let bundle = crate::fuzz_series::bundle_of(vec![], vec![]);
+        let unknown = |variant: &str| ValueOwned::Enum {
+            variant: variant.into(),
+            fields: FieldsValueOwned::Unit,
+        };
+        let catch_all = Some(FutureVersionOwned::Variant {
+            ident: "Unknown".into(),
+        });
+        for size in [ElementSize::Unsized, ElementSize::SelfDescribing] {
+            let newer = mode(size, catch_all.clone(), 4);
+            let bytes = unknown("D").ser_shrink_wrap_dyn(&newer, &bundle).unwrap();
+            let read = |future_version| {
+                ValueOwned::des_shrink_wrap_dyn(&bytes, &mode(size, future_version, 3), &bundle)
+            };
+            assert_eq!(read(catch_all.clone()).unwrap(), unknown("<unknown 3>"));
+            let err = read(Some(FutureVersionOwned::Off)).unwrap_err().to_string();
+            assert!(
+                err.contains("does not have a variant with discriminant 3"),
+                "{err}"
+            );
+            // a model from before EVO-10: Unsized enums are read past, as before
+            let before = read(None);
+            match size {
+                ElementSize::Unsized => assert_eq!(before.unwrap(), unknown("<unknown 3>")),
+                _ => assert!(before.is_err()),
+            }
+        }
+    }
 }

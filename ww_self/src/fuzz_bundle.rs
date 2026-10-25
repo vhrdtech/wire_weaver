@@ -9,9 +9,9 @@
 
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, FieldOwned, FieldsOwned,
-    GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned,
-    Length, Multiplicity, PropertyAccess, Repr, TypeLocationOwned, TypeOwned, ValueOwned,
-    VariantOwned,
+    FutureVersionOwned, GenericArgOwned, GenericParamKindOwned, GenericParamOwned, ItemEnumOwned,
+    ItemStructOwned, Length, Multiplicity, PropertyAccess, Repr, TypeLocationOwned, TypeOwned,
+    ValueOwned, VariantOwned,
 };
 use shrink_wrap::{DeserializeShrinkWrapOwned, ElementSize, UNib32};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
@@ -242,6 +242,13 @@ impl Gen<'_> {
                 ident: self.name(format!("T{idx}")),
                 path: None,
                 instance_of: None,
+                future_version: match self.byte() % 3 {
+                    0 => None,
+                    1 => Some(FutureVersionOwned::Off),
+                    _ => Some(FutureVersionOwned::Variant {
+                        ident: "Unknown".into(),
+                    }),
+                },
                 generics,
                 variants,
             })

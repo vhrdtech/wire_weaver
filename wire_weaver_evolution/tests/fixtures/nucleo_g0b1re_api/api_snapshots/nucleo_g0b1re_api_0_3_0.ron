@@ -1,0 +1,251 @@
+// nucleo_g0b1re_api 0.3.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: cb8c540586b6801f17c5a95d2185cfae2f9646485fe5e18734100985864e781c
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "WireWeaver API of the nucleo_g0b1re firmware (`../nucleo_g0b1re_api`), served by `../firmware/src/ww.rs`.",
+    "",
+    "The crate name and version identify the API on the wire (`NUCLEO_G_0_B_1_RE_API_FULL_GID`), so bump the version with every",
+    "change and follow the WireWeaver evolution rules to stay compatible with deployed devices and hosts:",
+    "https://github.com/vhrdtech/wire_weaver/blob/master/docs/evolution/rules.md",
+    "Data types used in the API go here too, with `#[derive_shrink_wrap]`.",
+    "",
+    "0.2 puts the device contract under `device` (`Device`, the same tree as Donguru and B135): firmware, last reset,",
+    "board, unique id, label, counters, log, variant, settings, boot control and the update node. Generic host tools",
+    "(`ww info`, `ww counters`, `ww log`, `ww dfu`) find it there.",
+    "",
+    "0.3 adds `pins` (`ww_pin_diag::PinDiag`): the board\'s free pins for pin tests (`ww pins`).",
+], crate_idx: 0, trait_name: "nucleo_g0b1re_api", items: [
+    (id: 0, kind: Trait(trait_idx: 13, omitted: None), multiplicity: Flat, since: None, ident: "NucleoG0b1reApi", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 11, omitted: None), multiplicity: Flat, since: None, ident: "Device", docs: [], optional: None, meta: None),
+    (id: 2, kind: Trait(trait_idx: 10, omitted: None), multiplicity: Flat, since: None, ident: "Dfu", docs: [], optional: None, meta: None),
+    (id: 3, kind: Trait(trait_idx: 7, omitted: None), multiplicity: Flat, since: None, ident: "Settings", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
+    SkippedFullVersion(crate_idx: 5, type_name: "CommonError", signature: [
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
+        "Silicon revision of an STM32G0B1 / G0C1 as ES0548 lists them, see [`Variant::rev_id`]. A host reads one it",
+        "doesn\'t know as [`Other`](SiliconRevision::Other).",
+    ], ident: "SiliconRevision", generics: [], variants: [
+        (docs: [
+            "Revision A, REV_ID 0x1000",
+        ], ident: "A", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A REV_ID this firmware doesn\'t know (a revision newer than it)",
+        ], ident: "Unknown", fields: Unit, discriminant: 1, since: None),
+    ], path: None, instance_of: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The chip a board carries, see [`Device::variant`]: every Nucleo-G0B1RE has an STM32G0B1RET6, what can differ is",
+        "its silicon revision (and a G0C1 fitted by hand).",
+    ], ident: "Variant", generics: [], fields: Named([
+        (ident: Some("dev_id"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "DBGMCU_IDCODE.DEV_ID: 0x467 for STM32G0B1 / G0C1",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rev_id"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "DBGMCU_IDCODE.REV_ID, the raw silicon revision code",
+        ], slot: None, series_opaque: false),
+        (ident: Some("revision"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
+            "The silicon revision `rev_id` stands for (ES0548)",
+        ], slot: None, series_opaque: false),
+        (ident: Some("flash_kib"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
+            "Flash size in KiB (FLASH_SIZE register): 512 on the G0B1RE",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+], traits: [
+    SkippedFullVersion(crate_idx: 1, trait_name: "FirmwareInfo", signature: [
+        6,
+        165,
+        12,
+        214,
+        96,
+        97,
+        121,
+        203,
+    ]),
+    SkippedFullVersion(crate_idx: 1, trait_name: "LastReset", signature: [
+        170,
+        9,
+        161,
+        148,
+        181,
+        136,
+        52,
+        112,
+    ]),
+    SkippedFullVersion(crate_idx: 2, trait_name: "BoardInfo", signature: [
+        4,
+        5,
+        65,
+        102,
+        157,
+        82,
+        16,
+        190,
+    ]),
+    SkippedFullVersion(crate_idx: 3, trait_name: "Uid", signature: [
+        248,
+        15,
+        49,
+        117,
+        183,
+        58,
+        138,
+        75,
+    ]),
+    SkippedFullVersion(crate_idx: 4, trait_name: "UserInfo", signature: [
+        252,
+        88,
+        68,
+        171,
+        127,
+        225,
+        113,
+        53,
+    ]),
+    SkippedFullVersion(crate_idx: 6, trait_name: "Counters", signature: [
+        53,
+        101,
+        138,
+        120,
+        240,
+        43,
+        8,
+        95,
+    ]),
+    SkippedFullVersion(crate_idx: 7, trait_name: "LogDefmt", signature: [
+        129,
+        27,
+        6,
+        172,
+        151,
+        221,
+        102,
+        45,
+    ]),
+    InLine(level: (docs: [
+        "Settings kept in flash across power cycles. A write is in flash before the call answers. The label is",
+        "`device.label`, kept the same way.",
+    ], crate_idx: 0, trait_name: "Settings", items: [
+        (id: 0, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 0)), errors: Some([
+            (ident: "Fault", nested: None),
+        ]), batched: None), multiplicity: Flat, since: None, ident: "led_at_boot", docs: [
+            "The LED after boot: on (`true`) or off, default off",
+        ], optional: None, meta: None),
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 0))), errors: Some([
+            (ident: "Fault", nested: None),
+        ])), multiplicity: Flat, since: None, ident: "reset", docs: [
+            "Every setting back to its default, the label too",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 8, trait_name: "BootControl", signature: [
+        182,
+        176,
+        65,
+        71,
+        15,
+        196,
+        155,
+        14,
+    ]),
+    SkippedFullVersion(crate_idx: 8, trait_name: "UpdateNode", signature: [
+        135,
+        50,
+        57,
+        176,
+        246,
+        87,
+        221,
+        102,
+    ]),
+    InLine(level: (docs: [
+        "Firmware update over the API (`ww_dfu`): here only who the node is. Updates go through the STM32 ROM bootloader",
+        "(`device.boot.reboot(Updater)`, then `ww dfu stm32 flash` over USB on PA11/PA12), or through the debug probe.",
+    ], crate_idx: 0, trait_name: "Dfu", items: [
+        (id: 0, kind: Trait(trait_idx: 9, omitted: None), multiplicity: Flat, since: None, ident: "node", docs: [
+            "Who this node is: product, profile, boot state, last result",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    InLine(level: (docs: [
+        "The device contract: what every WireWeaver device answers, so generic host tools (`ww info`, `ww log`) work.",
+    ], crate_idx: 0, trait_name: "Device", items: [
+        (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "firmware", docs: [
+            "Which firmware runs and its build id",
+        ], optional: None, meta: None),
+        (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
+            "Why the device last reset, with the crash record after a fault or panic, and the boot count",
+        ], optional: None, meta: None),
+        (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "board", docs: [
+            "Board name, revision and serial number",
+        ], optional: None, meta: None),
+        (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "uid", docs: [
+            "STM32 96-bit unique id",
+        ], optional: None, meta: None),
+        (id: 4, kind: Trait(trait_idx: 4, omitted: None), multiplicity: Flat, since: None, ident: "label", docs: [
+            "Name the user gives this unit, kept in flash",
+        ], optional: None, meta: None),
+        (id: 5, kind: Trait(trait_idx: 5, omitted: None), multiplicity: Flat, since: None, ident: "counters", docs: [
+            "`cnt` counters: RAM and backup registers",
+        ], optional: None, meta: None),
+        (id: 6, kind: Trait(trait_idx: 6, omitted: None), multiplicity: Flat, since: None, ident: "log", docs: [
+            "The defmt log, also kept while no host is connected",
+        ], optional: None, meta: None),
+        (id: 7, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "variant", docs: [
+            "The chip on this board, read from the chip itself: device id, silicon revision, flash size",
+        ], optional: None, meta: None),
+        (id: 8, kind: Trait(trait_idx: 7, omitted: None), multiplicity: Flat, since: None, ident: "settings", docs: [
+            "Settings kept in flash",
+        ], optional: None, meta: None),
+        (id: 9, kind: Trait(trait_idx: 8, omitted: None), multiplicity: Flat, since: None, ident: "boot", docs: [
+            "Boot state, confirm, revert, reboot: `reboot(Updater)` goes to the STM32 ROM bootloader. The state is always",
+            "`Confirmed`, there is no image to revert to.",
+        ], optional: None, meta: None),
+        (id: 10, kind: Trait(trait_idx: 10, omitted: None), multiplicity: Flat, since: None, ident: "dfu", docs: [
+            "The update node: the firmware in place, written by the ROM bootloader (`Profile::InPlace`, `device.boot` only)",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 9, trait_name: "PinDiag", signature: [
+        6,
+        250,
+        21,
+        115,
+        122,
+        249,
+        195,
+        141,
+    ]),
+    InLine(level: (docs: [
+        "nucleo_g0b1re device",
+    ], crate_idx: 0, trait_name: "NucleoG0b1reApi", items: [
+        (id: 0, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_on", docs: [
+            "Turn the LED on",
+        ], optional: None, meta: None),
+        (id: 1, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "led_off", docs: [
+            "Turn the LED off",
+        ], optional: None, meta: None),
+        (id: 2, kind: Trait(trait_idx: 11, omitted: None), multiplicity: Flat, since: Some((major: 0, minor: 2, patch: 0)), ident: "device", docs: [
+            "Device contract: firmware, last reset, board, ids, label, counters, log, variant, settings, boot, update node",
+        ], optional: None, meta: None),
+        (id: 3, kind: Trait(trait_idx: 12, omitted: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "pins", docs: [
+            "Raw access to the pins the board leaves free (docs/board/nucleo_g0b1re-pins.md), for bring-up and pin tests",
+            "(`ww pins tui`): one program at a time, every pin given back when it lets go or disconnects",
+        ], optional: None, meta: None),
+    ], compact_id: None, meta: None), crate_idx: 0),
+], ext_crates: [
+    (crate_id: "nucleo_g0b1re_api", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_log", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_dfu", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_pin_diag", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

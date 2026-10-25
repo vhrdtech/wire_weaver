@@ -14,6 +14,7 @@ source = ["dep:wire_weaver_core"]
 
 [dependencies]
 ron.workspace = true
+serde = { workspace = true, features = ["std"] }
 shrink_wrap = { workspace = true, features = ["std"] }
 wire_weaver_core = { workspace = true, optional = true }
 wire_weaver_snapshots.workspace = true

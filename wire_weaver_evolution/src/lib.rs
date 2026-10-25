@@ -40,12 +40,14 @@ use ww_self::{
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
 use crate::compat::{Bounds, TypeCheck, compare_items, field_name, fields};
+use crate::recorded::{Recorded, Unrecorded};
 
 #[cfg(feature = "source")]
 mod check;
 pub mod compat;
 mod diff;
 mod layout;
+pub mod recorded;
 mod rule;
 pub mod snapshot_files;
 
@@ -123,6 +125,9 @@ pub struct Report {
     pub compatible: Vec<String>,
     /// Not affecting the verdict, e.g. an added resource without `#[since]`.
     pub warnings: Vec<String>,
+    /// Fields of the model that one of the snapshot files compared doesn't have (saved by an older wire_weaver), left
+    /// out on both sides, see [compare_recorded].
+    pub unrecorded: Vec<Unrecorded>,
 }
 
 impl Report {
@@ -156,6 +161,27 @@ impl Report {
             display(&self.minimal_version())
         ))
     }
+}
+
+/// [compare] of what both sides recorded: a field of the API model that either side's snapshot file doesn't have
+/// (saved by a wire_weaver from before the field) is left out on both, so that upgrading wire_weaver alone never
+/// shows up as a change (EVO-13). [Recorded::default] for a bundle loaded from source, which has every field.
+pub fn compare_recorded(
+    old: &ApiBundleOwned,
+    old_recorded: &Recorded,
+    new: &ApiBundleOwned,
+    new_recorded: &Recorded,
+) -> Result<Report, String> {
+    let mut unrecorded = old_recorded.unrecorded();
+    unrecorded.extend(new_recorded.unrecorded());
+    if unrecorded.is_empty() {
+        return compare(old, new);
+    }
+    let old = Recorded::leave_out(old, &unrecorded)?;
+    let new = Recorded::leave_out(new, &unrecorded)?;
+    let mut report = compare(&old, &new)?;
+    report.unrecorded = unrecorded.into_iter().collect();
+    Ok(report)
 }
 
 /// Compare an old version of a crate with a new one. Both are crate bundles, as loaded by
@@ -210,6 +236,7 @@ pub fn compare(old: &ApiBundleOwned, new: &ApiBundleOwned) -> Result<Report, Str
         breaking: checker.breaking,
         compatible: checker.compatible,
         warnings: checker.warnings,
+        unrecorded: vec![],
     })
 }
 

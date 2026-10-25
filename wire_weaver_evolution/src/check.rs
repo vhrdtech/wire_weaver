@@ -8,8 +8,9 @@ use std::path::{Path, PathBuf};
 use ww_self::{ApiBundleOwned, snapshot};
 use ww_version::VersionOwned;
 
-use crate::snapshot_files::{SNAPSHOTS_DIR, latest_snapshot, parse, triplet};
-use crate::{Change, Report, compare};
+use crate::recorded::Recorded;
+use crate::snapshot_files::{SNAPSHOTS_DIR, Snapshot, latest_snapshot, read, triplet};
+use crate::{Change, Report, compare_recorded};
 
 /// Checks a crate, or a snapshot file, against an earlier snapshot.
 ///
@@ -81,15 +82,22 @@ impl Check {
         if self.require_current && !is_snapshot && self.against.is_none() {
             return self.run_current();
         }
-        let (new, new_label, dir) = if is_snapshot {
+        let (new, new_recorded, new_label, dir) = if is_snapshot {
             let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
-            (parse(&self.path)?, self.path.display().to_string(), dir)
+            let new = read(&self.path)?;
+            (
+                new.bundle,
+                new.recorded,
+                self.path.display().to_string(),
+                dir,
+            )
         } else {
             let new = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
-            (new, "source".to_string(), self.path.join(SNAPSHOTS_DIR))
+            let dir = self.path.join(SNAPSHOTS_DIR);
+            (new, Recorded::default(), "source".to_string(), dir)
         };
-        let (old_path, old) = match &self.against {
-            Some(against) => (against.clone(), parse(against)?),
+        let old = match &self.against {
+            Some(against) => read(against)?,
             None => {
                 let version = &new.crate_version(0).map_err(|e| e.to_string())?.version;
                 match latest_snapshot(&dir, &new, version, !is_snapshot)? {
@@ -109,13 +117,13 @@ impl Check {
                 }
             }
         };
-        let report = compare(&old, &new)?;
+        let report = compare_recorded(&old.bundle, &old.recorded, &new, &new_recorded)?;
         Ok(Outcome::Compared(Box::new(Comparison {
-            old_path,
+            old_path: old.path,
             new_label,
             crate_path: (!is_snapshot).then(|| self.path.clone()),
             report,
-            old,
+            old: old.bundle,
             new,
             current_required: false,
         })))
@@ -129,7 +137,7 @@ impl Check {
         let current = current_snapshot(&dir, &source)?;
         let previous = latest_snapshot(&dir, &source, &own.version, false)?;
         let crate_path = Some(self.path.clone());
-        let Some((current_path, current)) = current else {
+        let Some(current) = current else {
             return Ok(Outcome::NoSnapshot(NoSnapshot {
                 crate_id: own.crate_id.clone(),
                 version: own.version.clone(),
@@ -137,25 +145,35 @@ impl Check {
                 crate_path,
                 strict: true,
                 current_required: true,
-                previous: previous.map(|(path, _)| path),
+                previous: previous.map(|s| s.path),
             }));
         };
-        let report = compare(&current, &source)?;
-        let (old_path, old, new_label, new, report) = match previous {
+        let report = compare_recorded(
+            &current.bundle,
+            &current.recorded,
+            &source,
+            &Recorded::default(),
+        )?;
+        let (old, new_label, new, report) = match previous {
             // the source is checked against the snapshot of its version first, then that snapshot against the previous
-            Some((previous_path, previous)) if report.change == Change::None => {
-                let report = compare(&previous, &current)?;
-                let label = current_path.display().to_string();
-                (previous_path, previous, label, current, report)
+            Some(previous) if report.change == Change::None => {
+                let report = compare_recorded(
+                    &previous.bundle,
+                    &previous.recorded,
+                    &current.bundle,
+                    &current.recorded,
+                )?;
+                let label = current.path.display().to_string();
+                (previous, label, current.bundle, report)
             }
-            _ => (current_path, current, "source".to_string(), source, report),
+            _ => (current, "source".to_string(), source, report),
         };
         Ok(Outcome::Compared(Box::new(Comparison {
-            old_path,
+            old_path: old.path,
             new_label,
             crate_path,
             report,
-            old,
+            old: old.bundle,
             new,
             current_required: true,
         })))
@@ -183,8 +201,13 @@ impl Check {
         let contents = wire_weaver_snapshots::render_ron(&bundle)?;
 
         let previous = match latest_snapshot(&dir, &bundle, &own.version, false)? {
-            Some((previous_path, previous)) => {
-                let report = compare(&previous, &bundle)?;
+            Some(previous) => {
+                let report = compare_recorded(
+                    &previous.bundle,
+                    &previous.recorded,
+                    &bundle,
+                    &Recorded::default(),
+                )?;
                 if let Err(e) = report.check_version()
                     && !force
                 {
@@ -195,7 +218,7 @@ impl Check {
                         triplet(&report.minimal_version())
                     ));
                 }
-                Some((previous_path, report))
+                Some((previous.path, report))
             }
             None => None,
         };
@@ -204,15 +227,25 @@ impl Check {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => SaveStatus::Saved,
             Err(e) => return Err(format!("reading {}: {e}", path.display())),
             Ok(text) => {
-                let same = parse(&path).ok().is_some_and(|old| {
-                    old.ww_self_version == bundle.ww_self_version
-                        && compare(&old, &bundle).is_ok_and(|r| r.change == Change::None)
+                let old = read(&path).ok();
+                let same = old.as_ref().is_some_and(|old| {
+                    old.bundle.ww_self_version == bundle.ww_self_version
+                        && compare_recorded(
+                            &old.bundle,
+                            &old.recorded,
+                            &bundle,
+                            &Recorded::default(),
+                        )
+                        .is_ok_and(|r| r.change == Change::None)
                 });
-                // the same definitions in another ww_self format, or a file without (or with another) hash, are
-                // saved again
+                let complete = old.is_some_and(|old| old.recorded.unrecorded().is_empty());
+                // the same definitions in another ww_self format or with fields it didn't record yet, or a file
+                // without (or with another) hash, are saved again
                 if !same {
                     SaveStatus::Refreshed
-                } else if snapshot::saved_hash(&text) != snapshot::saved_hash(&contents) {
+                } else if !complete
+                    || snapshot::saved_hash(&text) != snapshot::saved_hash(&contents)
+                {
                     SaveStatus::Reformatted
                 } else {
                     SaveStatus::UpToDate
@@ -421,13 +454,10 @@ fn save_command(crate_path: Option<&Path>) -> String {
 }
 
 /// The snapshot of exactly the version of `bundle` in `dir`.
-fn current_snapshot(
-    dir: &Path,
-    bundle: &ApiBundleOwned,
-) -> Result<Option<(PathBuf, ApiBundleOwned)>, String> {
+fn current_snapshot(dir: &Path, bundle: &ApiBundleOwned) -> Result<Option<Snapshot>, String> {
     let version = &bundle.crate_version(0).map_err(|e| e.to_string())?.version;
     Ok(latest_snapshot(dir, bundle, version, true)?
-        .filter(|(_, s)| triplet(&s.ext_crates[0].version) == triplet(version)))
+        .filter(|s| triplet(&s.bundle.ext_crates[0].version) == triplet(version)))
 }
 
 impl NoSnapshot {
@@ -503,6 +533,14 @@ impl fmt::Display for Comparison {
         }
         for warning in &report.warnings {
             write!(f, "\n  warning: {warning}")?;
+        }
+        if !report.unrecorded.is_empty() {
+            let fields: Vec<_> = report.unrecorded.iter().map(|u| u.to_string()).collect();
+            write!(
+                f,
+                "\n  not compared: {}, which a snapshot saved by an older wire_weaver doesn't have",
+                fields.join(", ")
+            )?;
         }
         Ok(())
     }

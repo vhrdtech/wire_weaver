@@ -344,3 +344,170 @@ fn compatible_bump_with_current_snapshot_passes() {
         ],
     );
 }
+
+/// nucleo_g0b1re_template's API 0.4.0 with its snapshots, saved by a wire_weaver from before
+/// `ItemEnum::future_version` (EVO-10).
+fn old_format_fixture() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/nucleo_g0b1re_api")
+}
+
+/// The fixture copied into `c`, its path dependencies made absolute, with `lib_rs` changed by `edit`.
+fn copy_fixture(c: &TestCrate, edit: impl Fn(String) -> String) {
+    let fixture = old_format_fixture();
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let cargo_toml = std::fs::read_to_string(fixture.join("Cargo.toml"))
+        .unwrap()
+        .replace(
+            "path = \"../../../../",
+            &format!("path = \"{}/", repo.display()),
+        );
+    std::fs::write(c.path().join("Cargo.toml"), cargo_toml).unwrap();
+    let lib_rs = std::fs::read_to_string(fixture.join("src/lib.rs")).unwrap();
+    std::fs::write(c.path().join("src/lib.rs"), edit(lib_rs)).unwrap();
+    let snapshots = c.path().join(SNAPSHOTS_DIR);
+    std::fs::create_dir_all(&snapshots).unwrap();
+    for entry in std::fs::read_dir(fixture.join(SNAPSHOTS_DIR)).unwrap() {
+        let path = entry.unwrap().path();
+        std::fs::copy(&path, snapshots.join(path.file_name().unwrap())).unwrap();
+    }
+}
+
+fn unrecorded(outcome: &Outcome) -> Vec<String> {
+    let Outcome::Compared(comparison) = outcome else {
+        panic!("{outcome:?}")
+    };
+    comparison
+        .report
+        .unrecorded
+        .iter()
+        .map(|u| u.to_string())
+        .collect()
+}
+
+#[test]
+fn old_format_snapshot_passes_against_unchanged_source() {
+    // upgrading wire_weaver alone is no change of the API (EVO-13): the snapshot has no future_version, which codegen
+    // now records for the crate's SiliconRevision
+    let (outcome, verdict) = check_current(&old_format_fixture());
+    verdict.unwrap_or_else(|e| panic!("{outcome}\n{e}"));
+
+    let snapshot = old_format_fixture()
+        .join(SNAPSHOTS_DIR)
+        .join("nucleo_g0b1re_api_0_4_0.ron");
+    let outcome = Check::new(old_format_fixture())
+        .against(&snapshot)
+        .run()
+        .unwrap();
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+    assert_eq!(unrecorded(&outcome), ["ItemEnum::future_version"]);
+    has_all(
+        &outcome.to_string(),
+        &["not compared: ItemEnum::future_version, which a snapshot saved by an older wire_weaver"],
+    );
+}
+
+#[test]
+fn real_change_against_old_format_snapshot_is_caught() {
+    let c = TestCrate::new("old-format-change");
+    copy_fixture(&c, |lib_rs| lib_rs.replace("    fn led_off();\n", ""));
+    let (outcome, verdict) = check_current(c.path());
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_eq!(comparison.report.change, Change::Breaking, "{outcome}");
+    has_all(
+        &verdict.unwrap_err(),
+        &["0.5.0 or later", "The source differs from"],
+    );
+
+    // and a compatible one: a variant appended to the enum with the catch-all, which the old snapshot can't tell
+    // had one, so the bump is breaking as for an enum without (docs/evolution/rules.md#unsized-types)
+    let c = TestCrate::new("old-format-variant");
+    copy_fixture(&c, |lib_rs| {
+        lib_rs.replace(
+            "    Unknown,\n}",
+            "    Unknown,\n    /// Revision B\n    B,\n}",
+        )
+    });
+    let (outcome, verdict) = check_current(c.path());
+    assert!(verdict.is_err(), "{outcome}");
+    let Outcome::Compared(comparison) = &outcome else {
+        panic!("{outcome:?}")
+    };
+    assert_ne!(comparison.report.change, Change::None, "{outcome}");
+}
+
+#[test]
+fn any_field_a_snapshot_lacks_is_not_recorded() {
+    // a snapshot without fields of the model, as one saved before they were added: not a change, for any field
+    let api = format!(
+        "{API}\n#[derive_shrink_wrap(ww_repr = u4)]\npub enum Mode {{\n    Off,\n    On,\n}}\n"
+    );
+    let c = TestCrate::new("unrecorded-fields");
+    c.write("0.1.0", &api).save();
+    let path = c.path().join(SNAPSHOTS_DIR).join("test_api_0_1_0.ron");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let mut stripped = text.clone();
+    for field in ["future_version", "instance_of"] {
+        stripped = strip_field(&stripped, field);
+    }
+    assert_ne!(stripped, text);
+    std::fs::write(&path, &stripped).unwrap();
+
+    let (outcome, verdict) = check_current(c.path());
+    verdict.unwrap_or_else(|e| panic!("{outcome}\n{e}"));
+    let outcome = Check::new(c.path()).against(&path).run().unwrap();
+    assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
+    assert_eq!(
+        unrecorded(&outcome),
+        [
+            "ItemEnum::future_version",
+            "ItemEnum::instance_of",
+            "ItemStruct::instance_of"
+        ]
+    );
+
+    // a real change is still one
+    c.write("0.1.0", &api.replace("    On,\n", "    On,\n    Auto,\n"));
+    let (outcome, verdict) = check_current(c.path());
+    assert!(verdict.is_err(), "{outcome}");
+
+    // saving it again records every field, and leaves an unchanged one up to date
+    c.write("0.1.0", &api);
+    let saved = Check::new(c.path()).save(false).unwrap();
+    assert_eq!(saved.status, SaveStatus::Reformatted);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), text);
+    assert_eq!(
+        Check::new(c.path()).save(false).unwrap().status,
+        SaveStatus::UpToDate
+    );
+}
+
+/// `text` without `, field: <value>` anywhere, the value up to the next `,` or closing bracket at its depth.
+fn strip_field(text: &str, field: &str) -> String {
+    let needle = format!(", {field}: ");
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(at) = rest.find(&needle) {
+        out.push_str(&rest[..at]);
+        let value = &rest[at + needle.len()..];
+        let mut depth = 0i32;
+        let mut in_string = false;
+        let end = value
+            .char_indices()
+            .find(|&(_, ch)| {
+                match ch {
+                    '"' => in_string = !in_string,
+                    '(' | '[' if !in_string => depth += 1,
+                    ')' | ']' if !in_string => depth -= 1,
+                    _ => {}
+                }
+                !in_string && (depth < 0 || (depth == 0 && ch == ','))
+            })
+            .map(|(i, _)| i)
+            .unwrap();
+        rest = &value[end..];
+    }
+    out.push_str(rest);
+    out
+}

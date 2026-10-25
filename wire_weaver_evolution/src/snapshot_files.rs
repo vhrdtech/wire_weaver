@@ -6,14 +6,36 @@ use std::path::{Path, PathBuf};
 use ww_self::ApiBundleOwned;
 use ww_version::VersionOwned;
 
+use crate::recorded::Recorded;
+
 /// Directory inside a crate where its snapshots are kept.
 pub const SNAPSHOTS_DIR: &str = "api_snapshots";
 
+/// A snapshot file as read.
+#[derive(Clone, Debug)]
+pub struct Snapshot {
+    pub path: PathBuf,
+    pub bundle: ApiBundleOwned,
+    /// The fields of the model the file has.
+    pub recorded: Recorded,
+}
+
 /// Reads a snapshot file.
 pub fn parse(path: &Path) -> Result<ApiBundleOwned, String> {
+    read(path).map(|s| s.bundle)
+}
+
+/// Reads a snapshot file, with what it recorded.
+pub fn read(path: &Path) -> Result<Snapshot, String> {
     let contents =
         fs::read_to_string(path).map_err(|e| format!("reading {}: {e}", path.display()))?;
-    ron::from_str(&contents).map_err(|e| format!("parsing {}: {e}", path.display()))
+    let (bundle, recorded) =
+        Recorded::parse(&contents).map_err(|e| format!("parsing {}: {e}", path.display()))?;
+    Ok(Snapshot {
+        path: path.to_path_buf(),
+        bundle,
+        recorded,
+    })
 }
 
 /// Newest snapshot of the same crate as `bundle` saved in `dir`, with a version older than `version`, or the same
@@ -23,14 +45,14 @@ pub fn latest_snapshot(
     bundle: &ApiBundleOwned,
     version: &VersionOwned,
     or_same: bool,
-) -> Result<Option<(PathBuf, ApiBundleOwned)>, String> {
+) -> Result<Option<Snapshot>, String> {
     let crate_id = &bundle.crate_version(0).map_err(|e| e.to_string())?.crate_id;
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(format!("reading {}: {e}", dir.display())),
     };
-    let mut latest: Option<(PathBuf, ApiBundleOwned)> = None;
+    let mut latest: Option<Snapshot> = None;
     for entry in entries {
         let path = entry
             .map_err(|e| format!("reading {}: {e}", dir.display()))?
@@ -38,8 +60,11 @@ pub fn latest_snapshot(
         if path.extension().is_none_or(|ext| ext != "ron") {
             continue;
         }
-        let snapshot = parse(&path)?;
-        let snapshot_version = snapshot.crate_version(0).map_err(|e| e.to_string())?;
+        let snapshot = read(&path)?;
+        let snapshot_version = snapshot
+            .bundle
+            .crate_version(0)
+            .map_err(|e| e.to_string())?;
         let v = key(&snapshot_version.version);
         if &snapshot_version.crate_id != crate_id
             || v > key(version)
@@ -49,9 +74,9 @@ pub fn latest_snapshot(
         }
         if latest
             .as_ref()
-            .is_none_or(|(_, l)| key(&l.ext_crates[0].version) < v)
+            .is_none_or(|l| key(&l.bundle.ext_crates[0].version) < v)
         {
-            latest = Some((path, snapshot));
+            latest = Some(snapshot);
         }
     }
     Ok(latest)

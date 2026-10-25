@@ -6,8 +6,10 @@
 //! plugin's own command line flattens [`DeviceArgs`] (the same flags, with the same environment variables), resolves
 //! them with [`Selection::resolve`] and connects with `selection.client_config()`.
 //!
-//! Completion: a plugin answers [`complete_if_requested`]; `ww`'s completion lists plugins found on `PATH` and asks
-//! them for the words after their name.
+//! Completion: `ww`'s completion lists the `ww-*` programs found on `PATH`, but runs one with the typed words only after
+//! it answered the probe `ww-NAME --ww-plugin` with the line `ww-plugin 1` (what [`complete_if_requested`] does for a
+//! plugin built on this module): any other program that happens to be called `ww-something` is listed and never run
+//! with the words. The answer is remembered per path and modification time.
 
 pub use crate::device::{DeviceArgs, Selection, Setting, Source};
 pub use crate::untrusted::{Untrusted, escape};
@@ -24,9 +26,19 @@ use wire_weaver_client::hub::Exclusive;
 /// help text.
 const COMPLETE_VAR: &str = "_WW_PLUGIN_COMPLETE";
 
+/// The only argument of the probe, and the line a plugin answers it with.
+const PROBE_ARG: &str = "--ww-plugin";
+const PROBE_ANSWER: &str = "ww-plugin 1";
+
 /// Plugin side: answers a completion request of `ww` and exits if there is one, otherwise does nothing. Call it
-/// first thing in `main`, with the factory that builds the plugin's `clap::Command`.
+/// first thing in `main`, with the factory that builds the plugin's `clap::Command`. It also answers the probe
+/// `ww-NAME --ww-plugin` that tells `ww` this is a plugin.
 pub fn complete_if_requested(factory: fn() -> clap::Command) {
+    let mut args = std::env::args_os().skip(1);
+    if args.next().is_some_and(|a| a == PROBE_ARG) && args.next().is_none() {
+        println!("{PROBE_ANSWER}");
+        std::process::exit(0);
+    }
     if std::env::var_os(COMPLETE_VAR).is_none() {
         return;
     }
@@ -185,6 +197,9 @@ pub(crate) fn complete_words(name: &str, words: &[OsString]) -> Vec<CompletionCa
     let Some(exe) = find(name) else {
         return vec![];
     };
+    if !is_plugin(&exe) {
+        return vec![];
+    }
     let Ok(out) = Command::new(exe)
         .args(words)
         .env(COMPLETE_VAR, "1")
@@ -203,4 +218,41 @@ pub(crate) fn complete_words(name: &str, words: &[OsString]) -> Vec<CompletionCa
             None => CompletionCandidate::new(line),
         })
         .collect()
+}
+
+/// Whether the program at `exe` answers the probe, from the cache when it is the same file as when asked (path and
+/// modification time), else by running `exe --ww-plugin` (the only argument it ever gets from a completion before
+/// that).
+fn is_plugin(exe: &std::path::Path) -> bool {
+    let Ok(mtime) = exe.metadata().and_then(|m| m.modified()) else {
+        return false;
+    };
+    let stamp = mtime
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let key = format!("{}\t{stamp}", exe.display());
+    let cache = std::env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+        .map(|dir| dir.join("ww").join("plugins"));
+    let known = cache
+        .as_ref()
+        .and_then(|file| std::fs::read_to_string(file).ok())
+        .unwrap_or_default();
+    if let Some(line) = known.lines().find(|l| l.starts_with(&key)) {
+        return line.ends_with("\tyes");
+    }
+    let answered = Command::new(exe)
+        .arg(PROBE_ARG)
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).trim() == PROBE_ANSWER);
+    if let Some(file) = cache {
+        let _ = std::fs::create_dir_all(file.parent().unwrap_or(&file));
+        let line = format!("{key}\t{}\n", if answered { "yes" } else { "no" });
+        // lines of a program that changed stay behind, the file is small (one line per version of each ww-* program)
+        let _ = std::fs::write(&file, known + &line);
+    }
+    answered
 }

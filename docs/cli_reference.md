@@ -899,7 +899,9 @@ is an error naming `ww-NAME`.
 
 The shell completion lists the plugins found on `PATH` and asks them for the words after their name: `ww chunky <TAB>`
 and `ww dfu flash --<TAB>` give what `ww-chunky` completes, with live values (a plugin completes its device
-selection like `ww` does). Plugins also complete on their own (`ww-chunky --help`, `COMPLETE=fish ww-chunky`).
+selection like `ww` does). A `ww-*` program is run with the typed words only after it answered the probe
+`ww-NAME --ww-plugin` with the line `ww-plugin 1` (remembered per path and modification time, in
+`~/.cache/ww/plugins`); any other program called `ww-something` is listed and never run by the completion. Plugins also complete on their own (`ww-chunky --help`, `COMPLETE=fish ww-chunky`).
 
 Writing one: depend on the `wire_weaver_cli` crate (it is a library too, `wire_weaver_cli::plugin`), flatten
 `DeviceArgs` into your command line, resolve it with `Selection::resolve(&matches, false)` and connect with

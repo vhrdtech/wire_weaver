@@ -5203,6 +5203,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Plugins
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#untrusted-device-and-hub-strings" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5738,6 +5749,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         <code>ww config</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#plugins" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Plugins
       </span>
     </span>
   </a>
@@ -6393,7 +6415,7 @@ check and calls the trait through a <a href="../api/addressing/">global trait pa
 <tr>
 <td><code>flash &lt;FILE&gt;</code></td>
 <td></td>
-<td>A whole update of a <a href="https://github.com/romixlab/chunky_mcu_updater">chunky</a> device: delta, trial, confirm (below)</td>
+<td>A whole update of a <a href="https://github.com/romixlab/chunky_mcu_updater">chunky</a> device: delta, trial, confirm, run by the <code>ww-chunky</code> <a href="#plugins">plugin</a> (below)</td>
 </tr>
 <tr>
 <td><code>status</code></td>
@@ -6422,8 +6444,10 @@ writes the new image and waits for the app to come back; a single command that f
 updater is not done yet (CLT-21). An A/B device whose app takes updates itself has no updater of its own: <code>reboot
 --into updater</code> there goes to the chip's boot ROM (the B135's STM32 ROM DFU), and <code>ww dfu reboot</code> says so.</p>
 <h3 id="ww-dfu-flash"><code>ww dfu flash</code><a class="headerlink" href="#ww-dfu-flash" title="Permanent link">&para;</a></h3>
-<p>Updates a device whose app serves <code>ww_dfu</code> with chunky's <code>chunky_ww</code> (scenario <code>2C-APP-STEP</code>), with the host library
-<code>chunky_ww_host</code>: reads what the device holds (<code>Inventory::chunks</code>), plans a delta against it (chunks the device has
+<p>Runs the <code>ww-chunky</code> <a href="#plugins">plugin</a> (<code>ww-chunky flash</code>, from chunky_mcu_updater: <code>just install</code> there or <code>cargo install --git
+https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked</code>) with the arguments after <code>flash</code> and your device
+selection; <code>ww dfu flash --help</code> is its help, and without it on PATH <code>ww</code> says so. It updates a device whose app serves
+<code>ww_dfu</code> with chunky's <code>chunky_ww</code> (scenario <code>2C-APP-STEP</code>), with the host library <code>chunky_ww_host</code>: reads what the device holds (<code>Inventory::chunks</code>), plans a delta against it (chunks the device has
 are copied on the device, only the rest goes over the wire), sends the steps with as many in flight as the device
 takes and a progress bar, has the device verify and stage the image, reboots it into a trial, follows it by serial
 number and waits until the new firmware confirms itself, or the device reverts to the old image.</p>
@@ -7130,6 +7154,23 @@ error. <code>--format json</code> gives the same information as JSON instead.</p
 directory or its closest parent, otherwise creates <code>ww.toml</code> in the current directory. Only flags from the command
 line are saved, never environment variables, so a <code>WW_*</code> variable exported in a shell profile does not end up in
 project files.</p>
+<h2 id="plugins">Plugins<a class="headerlink" href="#plugins" title="Permanent link">&para;</a></h2>
+<p><code>ww NAME ARGS..</code> runs the program <code>ww-NAME ARGS..</code> found on <code>PATH</code>, the way <code>cargo</code> does for <code>cargo-NAME</code>: for a command
+that needs more than <code>ww</code> should carry (updates of chunky devices, <code>ww-chunky</code>). The device selection given before
+<code>NAME</code> reaches the plugin as the <code>WW_*</code> environment variables (<code>ww --serial 4B33 chunky status</code> runs
+<code>WW_SERIAL=4B33 ww-chunky status</code>; <a href="#ww-config"><code>ww.toml</code></a> is found by the plugin itself), the plugin's exit code is
+<code>ww</code>'s, and <code>ww dfu flash ARGS..</code> is <code>ww-chunky flash ARGS..</code>. A name that is no built-in command and not on <code>PATH</code>
+is an error naming <code>ww-NAME</code>.</p>
+<p>The shell completion lists the plugins found on <code>PATH</code> and asks them for the words after their name: <code>ww chunky &lt;TAB&gt;</code>
+and <code>ww dfu flash --&lt;TAB&gt;</code> give what <code>ww-chunky</code> completes, with live values (a plugin completes its device
+selection like <code>ww</code> does). A <code>ww-*</code> program is run with the typed words only after it answered the probe
+<code>ww-NAME --ww-plugin</code> with the line <code>ww-plugin 1</code> (remembered per path and modification time, in
+<code>~/.cache/ww/plugins</code>); any other program called <code>ww-something</code> is listed and never run by the completion. Plugins also complete on their own (<code>ww-chunky --help</code>, <code>COMPLETE=fish ww-chunky</code>).</p>
+<p>Writing one: depend on the <code>wire_weaver_cli</code> crate (it is a library too, <code>wire_weaver_cli::plugin</code>), flatten
+<code>DeviceArgs</code> into your command line, resolve it with <code>Selection::resolve(&amp;matches, false)</code> and connect with
+<code>selection.client_config()</code>, as every <code>ww</code> command does (same flags, environment variables, <code>ww.toml</code>, hub exclusive
+claims with <code>take_exclusive</code>), and call <code>plugin::complete_if_requested(Cli::command)</code> first in <code>main</code>, which answers
+<code>ww</code>'s completion requests. <code>ww_chunky</code> in chunky_mcu_updater is the example.</p>
 <h2 id="untrusted-device-and-hub-strings">Untrusted device and hub strings<a class="headerlink" href="#untrusted-device-and-hub-strings" title="Permanent link">&para;</a></h2>
 <p>A connected device, or another program through the hub, can put anything in a string it hands over: a USB
 product/manufacturer/serial descriptor, an introspection doc line or resource name, a <code>UserStr</code> error, a pin name,

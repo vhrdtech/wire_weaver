@@ -1153,7 +1153,7 @@ mod tests {
             api.replace("ww_repr = u4)", "ww_repr = u4, self_describing)")
                 .replace("B(u8),", "B(u8),\n#[future_version]\nLater(u32),")
         };
-        let new = written(&API).replace("B(u8),", "B(u8),\nC,");
+        let new = written(API).replace("B(u8),", "B(u8),\nC,");
         assert_eq!(report(&written(API), &new).change, Change::Compatible);
 
         // the old version reads Mode::B as the new C
@@ -1165,7 +1165,7 @@ mod tests {
         );
         assert_breaking(&report(API, &reordered), "variant A moved");
         // a self_describing enum can't skip a newer variant's fields
-        let new = written(&API).replace("B(u8),", "B(u8),\nC(u8),");
+        let new = written(API).replace("B(u8),", "B(u8),\nC(u8),");
         assert_breaking(
             &report(&written(API), &new),
             "its catch-all Later(u32) can't skip the variant's fields",

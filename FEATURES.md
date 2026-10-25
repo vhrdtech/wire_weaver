@@ -1105,9 +1105,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Generated clients open streams through it (`tests/streams_reliable`, API-31); the dynamic client and Python pass
   the stream function's arguments and return its result. Missing: counted and reliable streams on trait paths
   (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).
+- ✅ **CLT-47 ww-plugins** · `v0.5.x` — `ww NAME ARGS..` runs `ww-NAME ARGS..` from PATH, as `cargo` does: the device
+  selection given before NAME reaches the plugin as the `WW_*` variables, its exit code is `ww`'s, an unknown NAME says
+  there is no `ww-NAME` on PATH. `ww dfu flash ARGS..` runs `ww-chunky flash ARGS..` (chunky_mcu_updater's `ww_chunky`;
+  the error without it names the install step), which cut the repository cycle: `wire_weaver_cli` no longer depends on
+  chunky_mcu_updater, so `cargo install --git https://github.com/vhrdtech/wire_weaver wire_weaver_cli --locked` works
+  on any PC. The completion lists plugins on PATH and asks them for the words after their name (`ww dfu flash --<TAB>`
+  gives the flags of `ww-chunky flash`). `wire_weaver_cli` is a library too: `wire_weaver_cli::plugin` is the plugin
+  API (`DeviceArgs`, `Selection`, `take_exclusive`, `complete_if_requested`, `escape`), so a plugin has the connection
+  options, the config file and the completion of `ww`. `just check-clean-clone` builds `ww` from a fresh clone.
 - 🚧 **CLT-33 `ww dfu flash`: updates of a chunky device** — `ww dfu flash <ELF|sealed image|bin>`, `status`,
-  `confirm`, `revert` (`wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
-  (NET-2; a path dependency on `../chunky_mcu_updater`, as chunky depends on `../wire_weaver`): seals an ELF or a
+  `confirm`, `revert` (`ww_chunky/src/commands.rs` in chunky_mcu_updater; `ww dfu status | confirm | revert` also run in `wire_weaver_cli/src/cmd/dfu.rs`) on the host library `chunky_ww_host` of chunky_mcu_updater
+  (NET-2), now the `ww-chunky` plugin of chunky_mcu_updater that `ww dfu flash` runs (CLT-47): seals an ELF or a
   binary for the device (product and seal scheme from `NodeInfo`, which carries `product_id` and `seal` for it,
   STD-12), plans a delta, sends the steps pipelined up to `StageLimits::in_flight` (`PreparedCall::send` →
   `PendingCall`: requests leave in send order, replies awaited later), a progress bar, reboots into the trial,

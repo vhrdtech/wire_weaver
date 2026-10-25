@@ -1,5 +1,13 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `snapshot_files::latest_snapshot` returns `Option<Snapshot>` (new, from the new `snapshot_files::read`: `path`, `bundle` and `recorded`, what the file recorded) instead of a path and bundle. `Report` has a new public field `unrecorded`, so a `Report { .. }` literal needs it.
+
+### 🐛 Fixes
+
+- Upgrading wire_weaver alone no longer fails `Check::require_current` or reports a change (EVO-13): a field of the API model that a snapshot file has in no instance (written by an older wire_weaver, like `ItemEnum::future_version` from EVO-10 in a snapshot saved before it) is not recorded, and both sides are compared without it, instead of the source counting as changed. The rule needs no list of fields or `ww_self` versions, so the next field added to the model gets it as well (with shrink_wrap DER-17, also one that is not an `Option`). New `recorded` module (`Recorded`, `Unrecorded`), `compare_recorded(old, old_recorded, new, new_recorded)`, and `Report::unrecorded`, printed as "not compared: ..". `Check::save` reports a file that only lacks such fields as `SaveStatus::Reformatted`, never as refreshed. Test with the snapshots of `nucleo_g0b1re_api` 0.3.0 / 0.4.0 as saved by an older wire_weaver (`tests/check.rs`).
+
 ### 🚀 Features
 
 - A variant appended to an enum with the `#[future_version]` catch-all (SW-47) is a compatible change (EVO-10): an older reader gets it as the catch-all, when it can skip the variant's fields (`Unsized`, or a unit variant). Without the catch-all, or with a snapshot saved before EVO-10 (the error says to save it again), it stays breaking. A variant found under another discriminant on the other side (inserted before others, reordered) is reported as moved, before any unknown-variant check. Adding, removing or renaming the catch-all is breaking under the new `Rule::CatchAll` (Rust type, not wire); an exhaustive match on `Rule` needs the arm.

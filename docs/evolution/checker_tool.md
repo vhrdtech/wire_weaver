@@ -101,6 +101,14 @@ no snapshot of my_device_api 0.2.0 in my_device_api/api_snapshots (the previous 
 Save it with `just api-save` (`WW_API_SAVE=1 cargo test --test evolution` in the crate, or `ww api save my_device_api`) and commit api_snapshots/ (see docs/evolution/checker_tool.md).
 ```
 
+Upgrading wire_weaver alone never makes this test fail or asks for a new snapshot. A newer wire_weaver may record
+more about an API than the one that saved its snapshot (EVO-10 added each enum's catch-all, `future_version`): a field
+of the API model that a snapshot file has nowhere was not recorded by its writer, and the checker compares both sides
+without it, saying so in the report (`not compared: ItemEnum::future_version, which a snapshot saved by an older
+wire_weaver doesn't have`). A snapshot is saved again only for a real change of the API, or when you run `ww api save`
+to record the new fields too (an appended variant of an enum with the catch-all passes only once the snapshot records
+the catch-all).
+
 `strict(true)` instead of `require_current(true)` only requires some snapshot to compare with: the source is then
 compared with the newest one not newer than its version, which may be the previous version's. That suits a crate that
 saves a snapshot only when it releases.

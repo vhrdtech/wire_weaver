@@ -6,8 +6,8 @@ use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, assert_sized_before_tail_size, maybe_quote, rewrite_positional_placeholders,
-    serdes_scaffold,
+    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_quote,
+    rewrite_positional_placeholders, serdes_scaffold,
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, format_ident, quote};
@@ -79,10 +79,13 @@ impl<'i> CGItemEnum<'i> {
         });
         let cfg_attr = self.cfg_attr.iter();
         let enum_name = &self.ident;
+        let serde_defaults =
+            SerdeDefaults::new(self.cfg_attr, self.derive, self.ident, self.generics);
         let variants = CGEnumFieldsDef {
             variants: self.variants,
             is_ref,
             cp: self.crate_path,
+            serde_defaults: serde_defaults.as_ref(),
         };
         let lifetime = self.generics.def(is_ref && !self.ambiguous);
         let where_clause = self.generics.where_clause(&[]);
@@ -137,7 +140,43 @@ impl<'i> CGItemEnum<'i> {
             #assert_size
             #(#assert_tail_size)*
         };
+        let mut ts = ts;
+        if serde_defaults.is_some() {
+            ts.append_all(self.serde_defaults_rust(is_ref));
+        }
         ts
+    }
+
+    /// DER-17: the `Enum::__ww_default_<variant>_<field>` function of each `#[default = ..]` field of a struct
+    /// variant, see `SerdeDefaults`.
+    fn serde_defaults_rust(&self, is_ref: bool) -> TokenStream {
+        let fns = self
+            .variants
+            .iter()
+            .flat_map(|v| {
+                let fields = match &v.fields {
+                    Fields::Named(named) => named.as_slice(),
+                    _ => &[],
+                };
+                let cfg = v.cfg_attrs();
+                fields
+                    .iter()
+                    .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
+                    .filter_map(move |f| {
+                        let name = SerdeDefaults::fn_name(Some(&v.ident), &f.ident);
+                        let ty = f.ty.def(is_ref, self.crate_path);
+                        let def = SerdeDefaults::fn_def(&name, ty, f.default.as_ref()?);
+                        Some(quote! { #cfg #def })
+                    })
+            })
+            .collect();
+        SerdeDefaults::impl_block(
+            fns,
+            self.cfg,
+            self.ident,
+            self.generics,
+            is_ref && !self.ambiguous,
+        )
     }
 
     pub(crate) fn impl_discriminant(&self, is_ref: bool) -> TokenStream {
@@ -464,6 +503,8 @@ struct CGEnumFieldsDef<'a> {
     variants: &'a [Variant],
     is_ref: bool,
     cp: &'a CratePath,
+    /// DER-17: when the type derives `serde::Deserialize`
+    serde_defaults: Option<&'a SerdeDefaults>,
 }
 
 impl ToTokens for CGEnumFieldsDef<'_> {
@@ -479,7 +520,19 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                         .iter()
                         .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
                         .collect::<Vec<_>>();
-                    let fields_docs = fields_named.iter().map(|f| &f.docs).collect::<Vec<_>>();
+                    let fields_docs = fields_named
+                        .iter()
+                        .map(|f| {
+                            let docs = &f.docs;
+                            let serde_default = match (self.serde_defaults, &f.default) {
+                                (Some(serde), Some(_)) => {
+                                    serde.field_attr(&SerdeDefaults::fn_name(Some(ident), &f.ident))
+                                }
+                                _ => quote! {},
+                            };
+                            quote! { #docs #serde_default }
+                        })
+                        .collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
                         fields_named.iter().map(|f| f.ident.clone()).collect();
                     let field_types: Vec<TokenStream> = fields_named

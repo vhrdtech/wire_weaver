@@ -5,8 +5,8 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, assert_sized_before_tail_size, maybe_quote, rewrite_positional_placeholders,
-    serdes_scaffold,
+    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_quote,
+    rewrite_positional_placeholders, serdes_scaffold,
 };
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, quote};
@@ -46,11 +46,15 @@ impl<'i> CGItemStruct<'i> {
         });
         let cfg_attr = self.cfg_attr.iter();
         let ident = &self.ident;
+        let serde_defaults =
+            SerdeDefaults::new(self.cfg_attr, self.derive, self.ident, self.generics)
+                .filter(|_| self.kind == StructKind::Named);
         let fields = CGStructFieldsDef {
             fields: self.fields,
             is_ref,
             tuple: self.kind == StructKind::Tuple,
             cp: self.crate_path,
+            serde_defaults: serde_defaults.as_ref(),
         };
         let where_clause = self.generics.where_clause(&[]);
         let body = match self.kind {
@@ -88,6 +92,26 @@ impl<'i> CGItemStruct<'i> {
             #assert_size
             #assert_tail_size
         };
+        let mut ts = ts;
+        if serde_defaults.is_some() {
+            let fns = self
+                .fields
+                .iter()
+                .filter(|f| !matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)))
+                .filter_map(|f| {
+                    let name = SerdeDefaults::fn_name(None, &f.ident);
+                    let ty = f.ty.def(is_ref, self.crate_path);
+                    Some(SerdeDefaults::fn_def(&name, ty, f.default.as_ref()?))
+                })
+                .collect();
+            ts.append_all(SerdeDefaults::impl_block(
+                fns,
+                self.cfg,
+                self.ident,
+                self.generics,
+                is_ref && !self.ambiguous,
+            ));
+        }
         ts
     }
 
@@ -226,6 +250,8 @@ struct CGStructFieldsDef<'a> {
     /// `pub T,` instead of `pub name: T,`
     tuple: bool,
     cp: &'a CratePath,
+    /// DER-17: when the type derives `serde::Deserialize`
+    serde_defaults: Option<&'a SerdeDefaults>,
 }
 
 impl ToTokens for CGStructFieldsDef<'_> {
@@ -237,6 +263,11 @@ impl ToTokens for CGStructFieldsDef<'_> {
             let ident = &struct_field.ident;
             let ty = struct_field.ty.def(self.is_ref, self.cp);
             let docs = &struct_field.docs;
+            let serde_default = match (self.serde_defaults, &struct_field.default) {
+                (Some(serde), Some(_)) => serde.field_attr(&SerdeDefaults::fn_name(None, ident)),
+                _ => quote! {},
+            };
+            let docs = quote! { #docs #serde_default };
             if self.tuple {
                 tokens.append_all(quote! {
                     #docs

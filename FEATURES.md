@@ -345,6 +345,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `PhantomData<..>` without the serdes / `SeriesColumns` bounds of DER-14, so `struct Quantity<U> { value: i32,
   _unit: PhantomData<U> }` works with a bare unit marker and writes the same bytes as without the field
   (`docs/serdes/derive_reference.md#generics`; test `shrink_wrap/tests/phantom_data.rs`). For `ww_si` units.
+- ✅ **DER-17 `#[default = ..]` fields default in serde too**: a type deriving `serde::Deserialize` (through
+  `derive(..)` or a `cfg_attr`) gets `#[serde(default = ..)]` on each `#[default = ..]` field of a struct or struct
+  variant, so RON or JSON written before the field was added still reads; for saved `ww_self` API snapshots when a
+  later model field isn't an `Option` (EVO-13) (`docs/serdes/derive.md#evolving-types`; test
+  `shrink_wrap/tests/serde_default.rs`).
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
@@ -1380,8 +1385,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `#[future_version]` catch-all (SW-47), set by codegen; the evolution checker (`ww api check`), the client's runtime
   compat check and the dynamic decoder use it: a variant appended to an enum with the catch-all is compatible, an
   inserted or reordered one is reported as moved, and without the catch-all a new variant stays breaking. Snapshots
-  saved before EVO-10 count as without it until saved again (`docs/evolution/rules.md#unsized-types`,
+  saved before EVO-10 count as without it until saved again, and compare clean otherwise (EVO-13)
+  (`docs/evolution/rules.md#unsized-types`,
   `wire_weaver_evolution` tests `enum_variant_appended_to_the_catch_all`). Found with `ww_timebase::SyncState::Conflict`.
+- ✅ **EVO-13 Upgrading wire_weaver never forces an API bump or re-save** — a field of the API model that a snapshot
+  file has in no instance (written by an older wire_weaver: `ItemEnum::future_version` before EVO-10) is not
+  recorded, and the checker compares both sides without it and says so, instead of the unchanged source counting as
+  changed and `require_current` failing (G0's `nucleo_g0b1re_api` 0.4.0 after EVO-10). Read from the file itself, no
+  list of fields or `ww_self` versions: the next model field gets it too, also a non-`Option` one, which DER-17 makes
+  readable (`docs/evolution/checker_tool.md#the-current-versions-snapshot`, `wire_weaver_evolution/tests/check.rs`
+  with G0's old-format snapshots as a fixture).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s

@@ -53,6 +53,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Generic field types](serdes/derive.md#type-mapping)**: `Wrapper<'i, T>` and types from `macro_rules` work as fields.
 - **[Generic types](serdes/derive_reference.md#generics)**: Structs and enums with type and const parameters (`Timed<T>`, `Buf<const N: usize>`) and where clauses derive like any other type.
 - **[`PhantomData` fields](serdes/derive_reference.md#generics)**: A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own.
+- **[`#[default]` fields default in serde too](serdes/derive.md#evolving-types)**: A RON or JSON file saved before a field was added still reads, the field taking its default.
 - **[Growing writer](serdes/shrink_wrap.md)**: `BufWriterOwned` for hosts, when the size isn't known up front.
 - **[Writing in place](serdes/showcase.md)**: Builders that write a value straight into the output buffer, and patching a field after the rest is written.
 - **[Fixed layouts](serdes/layouts.md#fixed_layout-fields-at-fixed-offsets)**: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.
@@ -271,6 +272,7 @@ round, and tell you before a release when a change would break that.
 - **[Checker knows the catch-all](evolution/rules.md#unsized-types)**: Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible.
 - **[Evolution check at every commit](evolution/checker_tool.md#checking-at-every-commit)**: A test of your API crate fails when the API changed without the version bump it needs.
 - **[Current version's snapshot required](evolution/checker_tool.md#checking-at-every-commit)**: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.
+- **[Upgrades don't touch your snapshots](evolution/checker_tool.md#the-current-versions-snapshot)**: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 

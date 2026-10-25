@@ -213,6 +213,121 @@ pub(crate) fn maybe_quote<F: FnMut() -> TokenStream>(
     }
 }
 
+/// DER-17: a type that derives `serde::Deserialize` gives its `#[default = ..]` fields `#[serde(default = ..)]`, so
+/// serde data written before such a field was added (a saved RON or JSON file) reads it as its default, as
+/// shrink_wrap data does. The attribute names a hidden function `Type::__ww_default_[<variant>_]<field>`.
+pub(crate) struct SerdeDefaults {
+    /// `None` when the type always derives it, else the condition of each `cfg_attr(cond, ..)` that does.
+    conds: Option<Vec<TokenStream>>,
+    /// `Type::<T>`: inside serde's derive `Self` is its visitor, so the functions are named by the type's path.
+    owner: String,
+}
+
+impl SerdeDefaults {
+    /// `None` when the type doesn't derive `serde::Deserialize`: through a `derive(..)` path ending in
+    /// `Deserialize`, or a `cfg_attr(..)` mentioning it.
+    pub(crate) fn new(
+        cfg_attr: &[TokenStream],
+        derive: &[syn::Path],
+        ident: &Ident,
+        generics: &Generics,
+    ) -> Option<Self> {
+        let conds = if derive
+            .iter()
+            .any(|p| p.segments.last().is_some_and(|s| s.ident == "Deserialize"))
+        {
+            None
+        } else {
+            let conds: Vec<TokenStream> = cfg_attr
+                .iter()
+                .filter_map(|ts| {
+                    let mut tokens = ts.clone().into_iter();
+                    let cond: TokenStream = tokens
+                        .by_ref()
+                        .take_while(
+                            |t| !matches!(t, proc_macro2::TokenTree::Punct(p) if p.as_char() == ','),
+                        )
+                        .collect();
+                    mentions_deserialize(tokens.collect()).then_some(cond)
+                })
+                .collect();
+            if conds.is_empty() {
+                return None;
+            }
+            Some(conds)
+        };
+        let ty_generics = generics.ty(false);
+        let owner = if ty_generics.is_empty() {
+            ident.to_string()
+        } else {
+            format!("{ident}::{ty_generics}")
+        };
+        Some(SerdeDefaults { conds, owner })
+    }
+
+    /// `#[serde(default = "Type::<fn_name>")]`, under the conditions that derive `Deserialize`.
+    pub(crate) fn field_attr(&self, fn_name: &Ident) -> TokenStream {
+        let path = syn::LitStr::new(
+            &format!("{}::{fn_name}", self.owner),
+            proc_macro2::Span::call_site(),
+        );
+        match &self.conds {
+            None => quote! { #[serde(default = #path)] },
+            Some(conds) => quote! { #(#[cfg_attr(#conds, serde(default = #path))])* },
+        }
+    }
+
+    /// `__ww_default_[<variant>_]<field>`
+    pub(crate) fn fn_name(variant: Option<&Ident>, field: &Ident) -> Ident {
+        let field = field.to_string();
+        let field = field.trim_start_matches("r#");
+        match variant {
+            Some(variant) => quote::format_ident!("__ww_default_{variant}_{field}"),
+            None => quote::format_ident!("__ww_default_{field}"),
+        }
+    }
+
+    /// `fn <fn_name>() -> <ty> { <default> }`
+    pub(crate) fn fn_def(fn_name: &Ident, ty: TokenStream, default: &syn::Expr) -> TokenStream {
+        quote! {
+            #[doc(hidden)]
+            #[allow(dead_code, non_snake_case)]
+            fn #fn_name() -> #ty { #default }
+        }
+    }
+
+    /// The inherent impl holding `fns`, empty without any.
+    pub(crate) fn impl_block(
+        fns: Vec<TokenStream>,
+        cfg: Option<&TokenStream>,
+        ident: &Ident,
+        generics: &Generics,
+        lifetime: bool,
+    ) -> TokenStream {
+        if fns.is_empty() {
+            return quote! {};
+        }
+        let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let params = generics.impl_params(None);
+        let ty_generics = generics.ty(lifetime);
+        let where_clause = generics.where_clause(&[]);
+        quote! {
+            #cfg
+            impl<'i, #params> #ident #ty_generics #where_clause {
+                #(#fns)*
+            }
+        }
+    }
+}
+
+fn mentions_deserialize(ts: TokenStream) -> bool {
+    ts.into_iter().any(|t| match t {
+        proc_macro2::TokenTree::Ident(i) => i == "Deserialize",
+        proc_macro2::TokenTree::Group(g) => mentions_deserialize(g.stream()),
+        _ => false,
+    })
+}
+
 #[cfg(test)]
 mod rewrite_positional_placeholders_tests {
     use super::rewrite_positional_placeholders;

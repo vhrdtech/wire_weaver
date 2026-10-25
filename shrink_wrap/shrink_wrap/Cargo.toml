@@ -25,6 +25,8 @@ shrink_wrap_derive.workspace = true
 [dev-dependencies]
 hex-literal.workspace = true
 proptest.workspace = true
+serde = { workspace = true, features = ["std"] }
+serde_json.workspace = true
 
 [lints.rust]
 # `cargo fuzz` builds with `--cfg fuzzing`: entry points for fuzz/ to the crate-internal series column codecs

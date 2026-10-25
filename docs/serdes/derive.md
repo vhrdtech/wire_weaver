@@ -171,6 +171,10 @@ fn evolved_struct() {
 This works as long as the type stays evolvable, which is the default (see
 [size assumptions](size_assumptions.md) for the alternatives).
 
+A type that also derives `serde::Deserialize` (with `derive(..)` or `cfg_attr(cond, derive(..))`) gets
+`#[serde(default = ..)]` on each such field, so serde data written before the field was added (a RON or JSON file
+saved by an older version) reads it as its default too, instead of failing with "missing field".
+
 A field with a default reads as its default only when it starts at the end of the data and its read runs out of
 data. A field that starts with data left is read as usual: a truncated or malformed value is an error, never
 replaced with the default. The default can be any expression of the field's type (`#[default = 7]`,

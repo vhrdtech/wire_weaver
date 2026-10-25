@@ -6,8 +6,10 @@
 //! locally with a clear error, instead of sending bytes the device would misinterpret.
 //!
 //! Resources and types are compared by [wire_weaver_evolution::compat], structurally, following [evolution rules](https://github.com/vhrdtech/wire_weaver/blob/master/docs/evolution/rules.md):
-//! names don't matter, positions do. Direction matters as well: an `Unsized` struct written by one side can have more
-//! trailing fields than the reader knows about (they are skipped), but a reader's extra fields must have `#[default]`.
+//! names don't matter, positions do (but a variant found under another discriminant on the other side moved).
+//! Direction matters as well: an `Unsized` struct written by one side can have more trailing fields than the reader
+//! knows about (they are skipped), but a reader's extra fields must have `#[default]`, and a variant unknown to the
+//! reader needs the reader's `#[future_version]` catch-all.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

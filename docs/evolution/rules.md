@@ -95,6 +95,10 @@ overhead, giving all the nice backwards and forwards compatibility benefits.
   discriminant. Every `Unsized` enum has one unless it says `no_future_version` (SW-47). In an `Unsized` enum new
   variants may carry data, in a `sized` or `self_describing` one only new unit variants can be read past by older
   readers. Adding or removing `no_future_version` changes the Rust type, not the wire: a Rust API break only.
+  The checker knows the catch-all (EVO-10): a variant appended to an enum with one is a compatible change, one
+  inserted before others or a reordering moves a variant to another discriminant and stays breaking, as does any new
+  variant of an enum without the catch-all. The API model records the catch-all since EVO-10, so a snapshot saved
+  before it counts as one without: save it again (`ww api save`) for appended variants to pass.
 * New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see [the checker](checker_tool.md#new-fields-in-padding-bits) for exact conditions).
 * TODO: clarify: `T` -> struct containing `T`

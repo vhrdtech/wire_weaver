@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- Snapshots of the current versions of `ww_global`, `ww_tap` and the `ww_stdlib` crates saved again with each enum's catch-all (EVO-10, `ww_self::ItemEnum::future_version`); signatures are unchanged. Older versions' snapshots stay without it and count as enums without a catch-all.
 - The crate embeds the snapshots as shrink_wrap bytes, encoded from the RON files by the build script, and never parses RON: `all()` decodes all 36 in 1.1 ms in a release build (was 8.1 ms parsing RON), 80 ms in debug (was 633 ms); the embedded bytes are 291 KB (RON text: 756 KB). The build fails when a RON file's header lacks the `// shrink_wrap sha256: <hex>` line `ww api save` writes now, or when the file encodes to other bytes than the hash says (edited by hand, or RON does not round trip): run `just save-snapshots`. `files()` renders the text on first call from the decoded bundles with the new `render_ron()` (what `ww api save` writes), so it equals the saved files except fields added to ww_self since a file was saved (`meta: None`).
 - `all()` returns `&HashMap<FullVersionOwned, &ApiBundleOwned>` (was owned bundles): `get(version)` parses only the snapshot asked for, on its first use, instead of all of them (820 KB of RON). A client connecting to a device paid for parsing every snapshot on its first connect: 150 ms and more in a debug build under load, on every short `ww` command.
 - Snapshots saved again with definitions' module paths (API-46, ww_self `ItemStruct::path`): the definitions are

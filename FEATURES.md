@@ -1376,17 +1376,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`WW_API_SAVE=1 cargo test --test evolution`, `Check::save`), with the checker the lock file pins; `ww api save`
   refreshes the current version's snapshot too, never an older one
   (`docs/evolution/checker_tool.md#checking-at-every-commit`, `wire_weaver_evolution/tests/check.rs`).
+- ✅ **EVO-10 Checker knows the `Unknown(u32)` catch-all** — `ww_self::ItemEnum::future_version` records an enum's
+  `#[future_version]` catch-all (SW-47), set by codegen; the evolution checker (`ww api check`), the client's runtime
+  compat check and the dynamic decoder use it: a variant appended to an enum with the catch-all is compatible, an
+  inserted or reordered one is reported as moved, and without the catch-all a new variant stays breaking. Snapshots
+  saved before EVO-10 count as without it until saved again (`docs/evolution/rules.md#unsized-types`,
+  `wire_weaver_evolution` tests `enum_variant_appended_to_the_catch_all`). Found with `ww_timebase::SyncState::Conflict`.
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
-- 📋 **EVO-10 Checker knows the `Unknown(u32)` catch-all** — the evolution checker (`ww api save` / `check`,
-  `wire_weaver_evolution::compat::check_enum`) reports a variant appended to an `Unsized` enum as breaking ("variant
-  Host is unknown to the old version"), although since SW-47 an older reader gets it as `Unknown(n)`, as
-  `docs/evolution/rules.md` says. The `ww_self` model doesn't record whether an enum has the catch-all
-  (`no_future_version` or not): needs a defaulted field on `ItemEnum` set by codegen, the checker and the
-  dynamic decoder reading it, and snapshots saved again. Found with `ww_timebase::SyncState::Conflict` (STD-49).
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 

@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* `ItemEnum` gets `future_version: Option<FutureVersion>` (`#[default = None]`, EVO-10), new `enum FutureVersion { Off, Variant { ident } }`: whether a reader gets a variant from a newer version as the enum's `#[future_version]` catch-all (SW-47), so the evolution checker and the client's compat check know whether an appended variant is compatible. `None` in a model saved before EVO-10 (treated as no catch-all by the checker). Left out of signatures, so definitions saved before keep theirs. The dynamic decoder (`Value`) reads a newer variant of an enum with `Variant` as `<unknown N>` (also for `sized` / `self_describing` enums with a written catch-all, as the derive does), fails with `Off`, and keeps reading an `Unsized` enum leniently with `None`. Struct literals of `ItemEnumOwned` need the new field.
 * `Type::Delta`, `Type::DeltaOfDelta` and `Type::XorFloat` are removed (shrink_wrap dropped the types, SW-31/SW-32
   are `Series` codecs now): an API with such a field describes it as `Type::Series` of the number. The variants after
   them (`Instance`, `Param`, `Series`) move down by three discriminants, so introspection data written before can't be

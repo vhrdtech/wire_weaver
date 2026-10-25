@@ -43,6 +43,7 @@
 
 ### 🚀 Features
 
+- The runtime compat check (`compat`) lets a device send an enum variant the client doesn't know when the client's enum has the `#[future_version]` catch-all (EVO-10): it reads it as `Unknown(n)` instead of the resource being marked incompatible; a moved variant is reported as `variant X moved`.
 - With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names, `rtt_chip_known(name)` whether probe-rs knows one, for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).
 
 - `clock_sync::Fit::rate_bound_ppb(resolution_ns)`: how far the fitted rate can be from the device's true rate at most, a bound that holds whatever the load (each sample's host time is within half its round trip of the device's reading), `None` for a slope from the rate cache.

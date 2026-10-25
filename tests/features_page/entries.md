@@ -253,6 +253,7 @@ round, and tell you before a release when a change would break that.
 
 - EVO-1 | Evolution rules | What you can change in types and APIs, and which version to bump. | evolution/rules.md
 - EVO-6 | Evolution checker | `ww api check` and `ww api diff` say whether a change is compatible. | evolution/checker_tool.md
+- EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
 - EVO-11 | Evolution check at every commit | A test of your API crate fails when the API changed without the version bump it needs. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
 

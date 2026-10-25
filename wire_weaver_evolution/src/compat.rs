@@ -3,8 +3,10 @@
 //! Shared by the evolution checker (an old and a new version of a crate) and `wire_weaver_client` (the client's API and
 //! the connected device's). Types are compared structurally, following
 //! [evolution rules](https://github.com/vhrdtech/wire_weaver/blob/master/docs/evolution/rules.md): names don't matter,
-//! positions do. Direction matters as well: an `Unsized` struct written by one side can have more trailing fields than
-//! the reader knows about (they are skipped), but a reader's extra fields must have `#[default]`.
+//! positions do (but a variant found under another discriminant on the other side moved). Direction matters as well:
+//! an `Unsized` struct written by one side can have more trailing fields than the reader knows about (they are
+//! skipped), but a reader's extra fields must have `#[default]`, and a variant unknown to the reader needs the
+//! reader's `#[future_version]` catch-all.
 
 use std::borrow::Cow;
 use std::collections::HashSet;

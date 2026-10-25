@@ -54,7 +54,11 @@ ww_self = "0.2"
   generated Rust types for the API at hand.
 * `ItemStruct<'i>` / `ItemEnum<'i>` - a struct's/enum's own `size: ElementSize` (the same
   [size assumption](../serdes/size_assumptions.md) `#[derive_shrink_wrap]`
-  picks), `crate_idx`, `docs`, `ident`, and `fields`/(`repr: Repr`, `variants: RefVec<Variant>`).
+  picks), `crate_idx`, `docs`, `ident`, and `fields`/(`repr: Repr`, `variants: RefVec<Variant>`). An `ItemEnum` also
+  records its catch-all for newer variants in `future_version: Option<FutureVersion>` (EVO-10): `Variant { ident }`
+  (`Unknown` by default), `Off` (`no_future_version`, or none possible), `None` in a model saved before EVO-10. The
+  evolution checker lets a variant be appended only to an enum with the catch-all, and the dynamic decoder reads a
+  newer variant as `<unknown N>` with one and fails with `Off`.
 * `Field<'i>` / `Variant<'i>` - `ident`, `ty`, `docs`, `since`; a `Field` also carries its `default: Option<Value>`
   (for a `#[default = ..]` field) and relocates its own presence flags with `#[flag]` the same way `ww_version::Version`
   does.

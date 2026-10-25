@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: d812d3a0dee5bcf8c78252efa9b0ccdca70743ff4362a05bd992d186ca852cd8
+// shrink_wrap sha256: ad6d14f22ff74dfa01e751ffb514d6c2720bfe3b89ba097c804dc9a3c67b6e59
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -46,8 +46,8 @@
     "specific to 1-Wire (`NoPresence`, `CrcMismatch`, `ShortCircuit`). Each method lists the variants it returns",
     "(`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_onewire", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "OneWire", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "OneWire", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A 1-Wire ROM id: an 8-bit family code, a 48-bit serial number, and a CRC8 of the other seven bytes",
         "(`bytes[0..7]`), most to least significant as read off the bus.",
@@ -116,7 +116,7 @@
         (docs: [
             "The bus is held low.",
         ], ident: "ShortCircuit", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Where a paged `OneWire::search` left off: the classic Dallas/Maxim search state, carried from one page to the",
         "next so the device doesn\'t have to remember it between calls.",
@@ -177,7 +177,7 @@
     ], ident: "OneWireSpeed", generics: [], variants: [
         (docs: [], ident: "Standard", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Overdrive", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `OneWire::configure`: what is asked for going in, what was actually",
         "set coming back.",
@@ -228,7 +228,7 @@
             "`NoPresence` when the reset found no device, `Busy` while another transaction or search runs, `WrongState`",
             "while the bus is not configured (see `OneWire::configure`), `InvalidArgument` for `write.len() + read_len`",
             "over [OW_MAX] or a `strong_pullup` on a device without [OneWireCapabilities::strong_pullup].",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 5))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
@@ -238,7 +238,7 @@
             (ident: "ShortCircuit", nested: None),
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Reset pulse; true when a device answered with a presence pulse.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 6))),
             (ident: "family", ty: Option(some_ty: NumericAny(Base(U8)))),
@@ -255,10 +255,10 @@
             "ROM search, one page at a time: start with `from: None`, continue with the page\'s `next` until it comes back",
             "`None`. `family`, when given, only returns ids whose first byte matches. `NoPresence` when nothing answered",
             "the reset before this page\'s search, `CrcMismatch` when a found id\'s own CRC8 did not check out.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 11)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 5))), errors: Some([
@@ -275,7 +275,7 @@
             "outside [OneWireCapabilities::pins], `Unsupported` for `speed: Overdrive` without",
             "[OneWireCapabilities::overdrive] or an IO level the adapter doesn\'t have, `InUse` when the pin serves another",
             "function, `Busy` while a transaction or search runs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "direction", ty: Bool),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 5))), errors: Some([
@@ -292,8 +292,8 @@
             "on it, both clear at a fork between devices); `direction` is the bit this call actually drove onto the bus",
             "for the next step (the agreed bit when there is no fork, the caller\'s `direction` at a fork). `WrongState`",
             "when no `Search ROM` command was sent since the last reset, or after more than 64 calls.",
-        ], optional: None),
-    ], compact_id: Some(72)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(72), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

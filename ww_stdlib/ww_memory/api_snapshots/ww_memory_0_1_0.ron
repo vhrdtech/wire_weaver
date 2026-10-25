@@ -1,6 +1,6 @@
 // ww_memory 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: dffbbc55f70e4db19085d1ea2675a5cb02f940f475321c663c2ba730580f6356
+// shrink_wrap sha256: 77d17106b1296eaab17b9d7072e7c29ea43769dfcb43ac1d9d6d368e64696832
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Low-level access to memory or registers over WireWeaver: read and write words at addresses, and optionally watch",
     "addresses for changes.",
@@ -17,9 +17,9 @@
     "Errors are [MemoryError]: the framework\'s `CommonError` as [MemoryError::Common], plus what is specific to",
     "memory access. Each method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_memory", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Memory8", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Memory8", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Memory32", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -45,7 +45,7 @@
         (docs: [
             "All watch slots are taken.",
         ], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "Access rights of a memory region.",
     ], ident: "Access", generics: [], variants: [
@@ -55,7 +55,7 @@
         (docs: [], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(Nibble)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Memory or registers with 8-bit addresses and 8-bit words.",
@@ -71,7 +71,7 @@
         ])), multiplicity: Flat, since: None, ident: "read", docs: [
             "Reads the word at `addr`. With `allow_side_effects` false, an address whose read changes the device\'s state",
             "(e.g. a status register cleared on read) isn\'t read and answers `Common(Refused)`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U8))),
             (ident: "value", ty: NumericAny(Base(U8))),
@@ -82,7 +82,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "write", docs: [
             "Writes the word at `addr`; `Common(Refused)` for a read-only address.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U8))),
             (ident: "len", ty: NumericAny(Base(U8))),
@@ -95,7 +95,7 @@
         ])), multiplicity: Flat, since: None, ident: "read_many", docs: [
             "Reads `len` words starting at `addr`. With `allow_side_effects` false, addresses whose read changes the",
             "device\'s state are skipped.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U8))),
             (ident: "data", ty: Vec(NumericAny(Base(U8)))),
@@ -106,7 +106,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "write_many", docs: [
             "Writes `data` to consecutive words starting at `addr`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U8))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -114,26 +114,26 @@
             (ident: "OutOfWatchSlots", nested: None),
         ])), multiplicity: Flat, since: None, ident: "watch", docs: [
             "Starts watching the word at `addr`: its changes come on `changed`.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 5, kind: Method(args: [], return_ty: Some(Vec(NumericAny(Base(U8)))), errors: None), multiplicity: Flat, since: None, ident: "watching", docs: [
             "Watched addresses.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 6, kind: Stream(ty: Tuple([
             NumericAny(Base(U8)),
             NumericAny(Base(U8)),
         ]), is_up: true), multiplicity: Flat, since: None, ident: "changed", docs: [
             "Changes of the watched words: `(address, new value)`.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U8)),
             NumericAny(Base(U8)),
         ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
-        ], optional: None),
-    ], compact_id: Some(64)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(64), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Memory or registers with 32-bit addresses and 32-bit words.",
     ], crate_idx: 0, trait_name: "Memory32", items: [
@@ -148,7 +148,7 @@
         ])), multiplicity: Flat, since: None, ident: "read", docs: [
             "Reads the word at `addr`. With `allow_side_effects` false, an address whose read changes the device\'s state",
             "(e.g. a status register cleared on read) isn\'t read and answers `Common(Refused)`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U32))),
             (ident: "value", ty: NumericAny(Base(U32))),
@@ -159,7 +159,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "write", docs: [
             "Writes the word at `addr`; `Common(Refused)` for a read-only address.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U32))),
             (ident: "len", ty: NumericAny(Base(U32))),
@@ -172,7 +172,7 @@
         ])), multiplicity: Flat, since: None, ident: "read_many", docs: [
             "Reads `len` words starting at `addr`. With `allow_side_effects` false, addresses whose read changes the",
             "device\'s state are skipped.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U32))),
             (ident: "data", ty: Vec(NumericAny(Base(U32)))),
@@ -183,7 +183,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "write_many", docs: [
             "Writes `data` to consecutive words starting at `addr`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "addr", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 1))), errors: Some([
@@ -191,26 +191,26 @@
             (ident: "OutOfWatchSlots", nested: None),
         ])), multiplicity: Flat, since: None, ident: "watch", docs: [
             "Starts watching the word at `addr`: its changes come on `changed`.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 5, kind: Method(args: [], return_ty: Some(Vec(NumericAny(Base(U32)))), errors: None), multiplicity: Flat, since: None, ident: "watching", docs: [
             "Watched addresses.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 6, kind: Stream(ty: Tuple([
             NumericAny(Base(U32)),
             NumericAny(Base(U32)),
         ]), is_up: true), multiplicity: Flat, since: None, ident: "changed", docs: [
             "Changes of the watched words: `(address, new value)`.",
-        ], optional: Some((group: Some("watches")))),
+        ], optional: Some((group: Some("watches"))), meta: None),
         (id: 7, kind: Property(ty: Tuple([
             NumericAny(Base(U32)),
             NumericAny(Base(U32)),
         ]), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "address_range", docs: [
             "Valid addresses, first and last.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 8, kind: Property(ty: OutOfLine(type_idx: 2), access: ReadOnly(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "access", docs: [
             "Access rights for this memory region.",
-        ], optional: None),
-    ], compact_id: Some(65)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(65), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_memory", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

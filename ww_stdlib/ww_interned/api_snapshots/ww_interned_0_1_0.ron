@@ -1,6 +1,6 @@
 // ww_interned 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: fe89fcd500ba00426b23f5f33a119ee8164d47469cf0c7dc40e8d7b9dfdd277e
+// shrink_wrap sha256: 28d48a78f3d0f530184bdbcea1101e86373a9ea1fbd145e23c1506e51cf7decb
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Strings a device sends as a small number instead of text (STD-48).",
     "",
@@ -11,7 +11,7 @@
     "text itself, and a host without the ELF shows an id as `#<id>`.",
     "",
     "How a firmware builds its table is open (see the docs page): the type only fixes what travels.",
-], crate_idx: 0, trait_name: "ww_interned", items: []), types: [
+], crate_idx: 0, trait_name: "ww_interned", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A string sent as an index into the firmware\'s string table, or as text.",
     ], ident: "Interned", generics: [], variants: [
@@ -25,7 +25,7 @@
         ], ident: "Text", fields: Unnamed([
             (ident: None, default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_interned", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

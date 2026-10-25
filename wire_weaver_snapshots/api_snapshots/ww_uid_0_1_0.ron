@@ -1,6 +1,6 @@
 // ww_uid 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0d6b20f082467ea1f70842f8238c510c93dacf1a30867162174d7a0b08a6b443
+// shrink_wrap sha256: 11818fa83f9c35a0acf32c7adc0a48b543fee3e2dcb80003a799e4db8533c5a4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Unique ids of a device (STD-24).",
     "",
@@ -9,8 +9,8 @@
     "serial number string (as lower-case hex, no separators) and a host shows in `ww list`. A host that lost a device",
     "on a reboot into a ROM bootloader sharing the same id (RP2350 BOOTSEL, STM32 DFU) finds the unit again by it.",
 ], crate_idx: 0, trait_name: "ww_uid", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uid", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What an id\'s bytes are.",
     ], ident: "UidKind", generics: [], variants: [
@@ -31,7 +31,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Who provides an id.",
     ], ident: "UidSource", generics: [], variants: [
@@ -52,7 +52,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One unique id of a unit, where it comes from and what kind of number it is.",
     ], ident: "UniqueId", generics: [], fields: Named([
@@ -75,8 +75,8 @@
     ], crate_idx: 0, trait_name: "Uid", items: [
         (id: 0, kind: Property(ty: MaxLen(max_len: Fixed(4), ty: Vec(OutOfLine(type_idx: 2))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "IDS", docs: [
             "All ids of this unit, the primary one first. At most 4.",
-        ], optional: None),
-    ], compact_id: Some(11)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(11), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

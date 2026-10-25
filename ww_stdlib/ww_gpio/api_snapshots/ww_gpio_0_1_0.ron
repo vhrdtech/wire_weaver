@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1cd259534b9e86b65d540ddb46494826e43f914d0594ad0d7eafcc3b38331b9b
+// shrink_wrap sha256: 35029c999564694398cd9f5128a78480752132c52948797bd1aa5e221a828cfc
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -14,7 +14,7 @@
     ], ident: "Level", generics: [], variants: [
         (docs: [], ident: "Low", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "High", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Event sources of an IO pin (interrupts) to report on the `Pin::event` stream, its argument.",
     ], ident: "IoPinEnabledEvents", generics: [], fields: Named([
@@ -50,7 +50,7 @@
         (docs: [
             "The pins of this bank share one mode, and another pin is in a different one.",
         ], ident: "DifferentModes", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin asynchronous event (interrupt reason), sent on the `Pin::event` stream; when it happened is in the event\'s",
         "head.",
@@ -66,7 +66,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin mode (Push-Pull, Open-Drain, Input, etc.)",
     ], ident: "Mode", generics: [], variants: [
@@ -90,7 +90,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 5, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "IO pin pull configuration (pull-up, pull-down, etc.)",
     ], ident: "Pull", generics: [], variants: [
@@ -108,7 +108,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "IO pin drive strength configuration",
     ], ident: "Speed", generics: [], variants: [
@@ -125,7 +125,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What one pin can do, see `Pin::capabilities`.",
     ], ident: "PinCapabilities", generics: [], fields: Named([

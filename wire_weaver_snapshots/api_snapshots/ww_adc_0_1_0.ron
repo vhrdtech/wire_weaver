@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e60e5477d37675654cb769ef98f805e23391a83689c87acbbd6825ff606ecbd3
+// shrink_wrap sha256: 3157524942a6bd50a70c87d0281cb17162912d7e3c7cc6bb38f0e399f3c61387
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -56,10 +56,10 @@
     "All traits return [AdcError]: the framework\'s `CommonError` as [AdcError::Common], plus `NoSuchChannel`. Each",
     "method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_adc", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Adc", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "AdcStream", docs: [], optional: None),
-    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "AdcCapture", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Adc", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "AdcStream", docs: [], optional: None, meta: None),
+    (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "AdcCapture", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "NumericValue", signature: [
         191,
         150,
@@ -137,7 +137,7 @@
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "SIExpr", signature: [
         238,
         246,
@@ -219,7 +219,7 @@
         (docs: [
             "Three bytes per sample, signed, little-endian (sigma-delta converters).",
         ], ident: "I24", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to stream, see `AdcStream::samples`.",
     ], ident: "StreamConfig", generics: [], fields: Named([
@@ -310,7 +310,7 @@
         (docs: [
             "On the device\'s external trigger input, or another device\'s trigger.",
         ], ident: "External", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to capture, see `AdcCapture::capture`.",
     ], ident: "CaptureConfig", generics: [], fields: Named([
@@ -370,7 +370,7 @@
             ])), docs: [], slot: None, series_opaque: false),
             (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The channels and single readings.",
@@ -388,11 +388,11 @@
             "One calibrated reading of `channel`, in the channel\'s unit.",
             "`Busy`: the ADC runs a stream or capture that can\'t be interrupted; `NoPower`: inputs behind an unpowered",
             "buffer.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their units and ranges.",
-        ], optional: None),
-    ], compact_id: Some(44)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(44), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Continuous sampling, sent on the `samples` stream.",
         "",
@@ -414,17 +414,17 @@
             "the order of [StreamConfig::channels]. Opening returns what was actually set (the nearest rate the hardware",
             "can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set. `InvalidArgument`",
             "for a rate or channel count out of range, `Unsupported` for the format, `Busy` while a capture runs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, formats and limits of streaming.",
-        ], optional: None),
-    ], compact_id: Some(45)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(45), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.",
     ], crate_idx: 0, trait_name: "AdcCapture", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
             "Rates, depth, triggers and formats of captures.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 19)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 6))), errors: Some([
@@ -441,10 +441,10 @@
             "and keeps them, waits for the trigger, then takes the rest. Replaces a previous capture and its data.",
             "`InvalidArgument`: rate, depth or trigger level out of range; `Unsupported`: format or trigger; `Busy`: a stream",
             "runs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 21)), errors: None), multiplicity: Flat, since: None, ident: "capture_status", docs: [
             "Where the capture stands.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "len", ty: NumericAny(Base(U16))),
@@ -457,11 +457,11 @@
             "Reads `len` bytes of the captured data from `offset`. The data is raw samples, interleaved in the order of",
             "[CaptureConfig::channels], `CaptureActual::bytes` long; the first `pre_trigger` sets come before the trigger.",
             "`WrongState`: no finished capture; `InvalidArgument`: outside the data.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "capture_abort", docs: [
             "Stops an armed or running capture and drops its data.",
-        ], optional: None),
-    ], compact_id: Some(96)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(96), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_adc", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

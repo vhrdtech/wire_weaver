@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1757ed641f3411fbae18d36c08c5d84b80cc4d21cc8acecb1a21c70325bdd596
+// shrink_wrap sha256: 44f26b92d4d4a158c3b3120aacb7ed2154546e8386073ba918c4e2f905bf20a2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -181,7 +181,7 @@
         (docs: [
             "Only watch the bus, see `I2cMonitor`.",
         ], ident: "MonitorOnly", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `I2c::i2c_configure`: what is asked for going in, what was actually",
         "set coming back.",
@@ -237,7 +237,7 @@
         (docs: [
             "No watch in this slot.",
         ], ident: "InvalidWatchSlot", fields: Unit, discriminant: 8, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "A 7-bit or 10-bit I2C address.",
         "",
@@ -250,7 +250,7 @@
         (docs: [], ident: "Ten", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(UB(10))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -282,7 +282,7 @@
         ], ident: "RepeatedStart", fields: Named([
             (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_read`.",
     ], ident: "I2cReadEnvelope", generics: [], fields: Named([
@@ -302,7 +302,7 @@
         ], ident: "Read", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_transaction`.",
     ], ident: "I2cTransactionResult", generics: [], fields: Named([
@@ -378,7 +378,7 @@
             "Don\'t acknowledge the address while the queue is empty, writes included, as a busy EEPROM does; a master",
             "polling for an acknowledge gets one once an answer is queued.",
         ], ident: "Nack", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a slave\'s answers come from, see [I2cSlaveConfig::answers].",
     ], ident: "I2cSlaveAnswers", generics: [], variants: [
@@ -400,7 +400,7 @@
         ], ident: "Queue", fields: Named([
             (ident: Some("empty"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Slave mode, see `I2c::slave_events`.",
     ], ident: "I2cSlaveConfig", generics: [], fields: Named([
@@ -431,7 +431,7 @@
         (docs: [
             "A start or stop in the middle of a byte, or a line stuck.",
         ], ident: "BusError", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One transaction addressed to this device: from the start (or repeated start) to the stop (or the next repeated",
         "start).",
@@ -478,7 +478,7 @@
             "answer comes on `I2c::slave_answers` or the limit passes. Sent at once, not held back for batching. The",
             "write before it (a command, a register address) is the [I2cSlaveEvent::Transfer] just before.",
         ], ident: "ReadWaiting", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A result of a watch, on the `I2cWatch` `changes` stream; when the read started is the time in the event head. An error is reported once, when the watch starts to",
         "fail, and the next successful read is reported whatever the rule.",
@@ -525,7 +525,7 @@
         ], ident: "Matches", fields: Named([
             (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 25))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One autonomous read, see `I2cWatch::watch_add`.",
     ], ident: "I2cWatchConfig", generics: [], fields: Named([

@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 48b914242e6c8d1788d4e6f274ea2e67de21bd7aaa41af6d86dc4d8a77df7e0b
+// shrink_wrap sha256: b9f38d64ef9141c0e4a2d42d19b82d577a80d66d61d6e77b8aa276827c7c6d37
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
@@ -11,8 +11,8 @@
     "only when the value actually changed (flash wear), so a host may write the same value again freely. A device",
     "that cannot save returns `Fault`, one that cannot interrupt a flash operation `Busy`.",
 ], crate_idx: 0, trait_name: "ww_user_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UserInfo", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "UserInfo", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device keeps of the user\'s name and notes.",
     ], ident: "UserInfoCaps", generics: [], fields: Named([
@@ -51,7 +51,7 @@
                 "What the device keeps, from `CAPABILITIES`.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A name and notes the user gives this unit.",
@@ -63,7 +63,7 @@
     ], crate_idx: 0, trait_name: "UserInfo", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "CAPABILITIES", docs: [
             "Lengths this device keeps and whether a written value survives a power cycle.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
@@ -72,7 +72,7 @@
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "name", docs: [
             "Short name of the unit, shown by `ww list`.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(256), ty: String), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 2)), errors: Some([
             (ident: "TooLong", nested: None),
             (ident: "Common", nested: Some([
@@ -81,8 +81,8 @@
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "notes", docs: [
             "Free-form notes about the unit. A device with no room for them leaves this out.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(12)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(12), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

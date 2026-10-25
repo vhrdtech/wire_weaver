@@ -1,6 +1,6 @@
 // ww_dfu 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6a47c28f4a5531fa6a42b280380d1f336aa5e104cb6bb05dcac96f8481d4af5c
+// shrink_wrap sha256: 0ee334e600bc988264aa8f62d0a79032b762dd3013e59ce0d3c4be147c9e29ba
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Firmware update API: a set of small traits that every node taking part in an update picks from.",
     "",
@@ -122,7 +122,7 @@
         (docs: [
             "A recovery app at its own address that updates the app in place (mode 3).",
         ], ident: "Recovery", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "How an A/B device switches to the other slot. Both work the same for the host; they differ in the time the first",
         "boot after an update takes and in flash wear.",
@@ -138,7 +138,7 @@
             "partition table with an A/B pair, address translation, try-before-you-buy), ESP32 OTA partitions, nRF",
             "dual-bank.",
         ], ident: "Remap", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "How a device switches between images; decides which [Target]s make sense.",
     ], ident: "Profile", generics: [], variants: [
@@ -152,7 +152,7 @@
             "One app slot, updated in place: from a stored plan by the bootloader (mode 2) or live by an updater (mode 3).",
             "No revert.",
         ], ident: "InPlace", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "How a node checks the seal of an image\'s descriptor (the chunky protocol spec\'s seal schemes).",
     ], ident: "Seal", generics: [], variants: [
@@ -163,7 +163,7 @@
         (docs: [
             "An Ed25519 signature by the release key the node trusts.",
         ], ident: "Ed25519", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where the device stands between two updates.",
     ], ident: "BootState", generics: [], variants: [
@@ -185,7 +185,7 @@
         (docs: [
             "In place, an update is under way and the app slot does not hold a bootable image (mode 3, in the updater).",
         ], ident: "Updating", fields: Unit, discriminant: 5, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "What happened to the last update.",
     ], ident: "Outcome", generics: [], variants: [
@@ -204,7 +204,7 @@
         (docs: [
             "A stored plan or a live in-place update could not finish and the updater took over.",
         ], ident: "Recovery", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How the last update ended.",
     ], ident: "LastResult", generics: [], fields: Named([
@@ -344,7 +344,7 @@
         ], ident: "Custom", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 19, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where `BootControl::reboot` goes.",
     ], ident: "BootTarget", generics: [], variants: [
@@ -354,7 +354,7 @@
         (docs: [
             "The updater (bootloader with a transport, or recovery app), to receive an update there (mode 3).",
         ], ident: "Updater", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "A slot of the flash, from the update\'s point of view.",
     ], ident: "Slot", generics: [], variants: [
@@ -364,7 +364,7 @@
         (docs: [
             "The slot a live A/B update is written to: DFU, the other bank, the other partition.",
         ], ident: "Inactive", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Layout of a slot, as `Inventory::layout` reports it.",
     ], ident: "SlotLayout", generics: [], fields: Named([
@@ -395,7 +395,7 @@
         (docs: [
             "Faults on read (ECC: a write or erase cut by power loss). Needs an erase before anything else.",
         ], ident: "Unreadable", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::limits` reports.",
     ], ident: "StageLimits", generics: [], fields: Named([
@@ -429,7 +429,7 @@
         (docs: [
             "Store the plan with its data in the plan area; the bootloader applies it in place after the reset (mode 2).",
         ], ident: "Stored", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::begin` and `StageBulk::begin_bulk` answer.",
     ], ident: "Session", generics: [], fields: Named([
@@ -491,7 +491,7 @@
         ], ident: "Failed", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A segment of a bulk plan, sent on `StageBulk`\'s `plan` sink.",
     ], ident: "PlanSegment", generics: [], fields: Named([
@@ -520,7 +520,7 @@
         ], ident: "Failed", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An acknowledgement on `StageBulk`\'s `plan_ack` stream.",
     ], ident: "PlanAck", generics: [], fields: Named([

@@ -1,19 +1,19 @@
 // ww_numeric 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8d1f11c60d4a9d9b8fe4fb4707d6cb6454456ffe6bc1823a3d066411ce16f059
-(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: []), types: [
+// shrink_wrap sha256: b50f70d411d5317386ce43238ddf0d37981302d89e119ab239fe9580c8e14b4d
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [], crate_idx: 0, trait_name: "ww_numeric", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Number of bits in UB number. Serialized as 7-bits and shifted by -1 to represent U1-U128.",
         "Note that only U1-U64 is supported now, but it\'s not hard to add numbers up to U128.",
     ], ident: "UBits", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Number of bits in IB number. Serialized as 7-bits and shifted by -2 to represent I2-I128.",
         "Note that only I2-I64 is supported now, but it\'s not hard to add numbers up to I128.",
     ], ident: "IBits", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "NumericBaseType", generics: [], variants: [
         (docs: [
             "4-bits (nibble), alignment of four-bits",
@@ -100,7 +100,7 @@
         (docs: [
             "[UVlq64](shrink_wrap::UVlq64): variable length u64, 1 to 10 bytes, alignment of one-byte",
         ], ident: "UVlq64", fields: Unit, discriminant: 28, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Any number value (u8-u128, i8-i128, f32, f64, etc.).",
         "Encoded as: (UNib32 type, number bytes).",
@@ -172,7 +172,7 @@
         ], ident: "UVlq64", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 17, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [], ident: "SubTypeKind", generics: [], variants: [
         (docs: [], ident: "ValidRange", fields: Named([
             (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
@@ -184,7 +184,7 @@
         (docs: [], ident: "InvalidList", fields: Unnamed([
             (ident: None, default: None, since: None, ty: Vec(OutOfLine(type_idx: 3)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Any of the base numeric types plus derived types: subtype, shift-scale.",
     ], ident: "NumericAnyType", generics: [], variants: [
@@ -200,7 +200,7 @@
             (ident: Some("shift"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
             (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_numeric", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 54b46d76f8707ee30aecd6e3798af00f316e08c06e15beaa864fb4571413fac1
+// shrink_wrap sha256: 011a1e9cc6d6f6220f4cc5cc0a1491449b88b4957171b90227cca10093688a6b
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -47,9 +47,9 @@
     "Both traits return [LaError]: the framework\'s `CommonError` as [LaError::Common], plus `NoSuchChannel`. Each",
     "method lists the variants it returns (`#[errors]`).",
 ], crate_idx: 0, trait_name: "ww_logic_analyzer", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogicAnalyzer", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "LogicAnalyzer", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
         94,
         190,
@@ -120,7 +120,7 @@
         (docs: [
             "Edges per channel ([TransitionsChunk]).",
         ], ident: "Transitions", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which triggers work.",
     ], ident: "TriggerCapabilities", generics: [], fields: Named([
@@ -172,7 +172,7 @@
         (docs: [], ident: "Rising", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Falling", fields: Unit, discriminant: 3, since: None),
         (docs: [], ident: "AnyEdge", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`channel` (an index into [CaptureConfig::channels]) meets `when`.",
     ], ident: "ChannelCondition", generics: [], fields: Named([
@@ -240,14 +240,14 @@
             (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
             (ident: Some("mask"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Which edge of an input. Complete by nature, so without an `Unknown` variant for newer versions.",
     ], ident: "Edge", generics: [], variants: [
         (docs: [], ident: "Rising", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Falling", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Any", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a capture triggers.",
     ], ident: "Trigger", generics: [], variants: [
@@ -264,7 +264,7 @@
         ], ident: "External", fields: Named([
             (ident: Some("edge"), default: None, since: None, ty: OutOfLine(type_idx: 14), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to capture, see `LogicAnalyzer::capture`.",
     ], ident: "CaptureConfig", generics: [], fields: Named([
@@ -334,7 +334,7 @@
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -371,7 +371,7 @@
             (ident: Some("trigger_at"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [], slot: None, series_opaque: false),
             (ident: Some("samples"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`count` samples from `first`.",
     ], ident: "SampleRange", generics: [], fields: Named([
@@ -460,7 +460,7 @@
         (docs: [], ident: "Transitions", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 26), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `LogicStream` can do.",
     ], ident: "StreamCapabilities", generics: [], fields: Named([
@@ -481,7 +481,7 @@
     ], crate_idx: 0, trait_name: "LogicAnalyzer", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 8)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Channels, rates, memory, encodings and triggers.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "config", ty: OutOfLine(type_idx: 16)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 20))), errors: Some([
@@ -499,7 +499,7 @@
             "waits for the trigger, then takes the rest.",
             "`InvalidArgument`: rate, depth, threshold or trigger out of range; `Unsupported`: a trigger stage or condition;",
             "`Busy`: a stream runs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 18), err_ty: OutOfLine(type_idx: 20))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -507,10 +507,10 @@
         ])), multiplicity: Flat, since: None, ident: "rearm", docs: [
             "Arms again with the configuration of the last `capture`, for repeated captures of the same event.",
             "`WrongState`: nothing was configured yet.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 22)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "Where the capture stands.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "range", ty: OutOfLine(type_idx: 23)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 24), err_ty: OutOfLine(type_idx: 20))), errors: Some([
@@ -524,7 +524,7 @@
             "fewer samples than asked, a whole number of words.",
             "`WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn\'t",
             "give raw words.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "channel", ty: NumericAny(Base(U8))),
             (ident: "from", ty: NumericAny(Base(U32))),
@@ -540,11 +540,11 @@
             "edges or a full reply; [TransitionsChunk::scanned_to] says where the next call starts.",
             "`WrongState`: no finished capture; `InvalidArgument`: outside the capture; `Unsupported`: the device doesn\'t",
             "give transitions.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 6, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "abort", docs: [
             "Stops an armed or running capture and drops its data.",
-        ], optional: None),
-    ], compact_id: Some(120)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(120), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Continuous capture, sent on the `data` stream.",
         "",
@@ -567,11 +567,11 @@
             "Captured data in `config`\'s encoding: raw chunks, or transition chunks of each channel as they fill. Opening",
             "returns what was actually set. Unit: chunk. `InvalidArgument` for a rate, channel count or threshold out of",
             "range, `Unsupported` for the encoding, `Busy` while a capture runs.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 30)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, channels and encodings of streaming.",
-        ], optional: None),
-    ], compact_id: Some(121)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(121), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

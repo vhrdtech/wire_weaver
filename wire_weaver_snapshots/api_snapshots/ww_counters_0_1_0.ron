@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 5376b0c47fc9f4c584c7a9f2d7ee7e1f4ab0d479895b717fe44882748a0804b7
+// shrink_wrap sha256: 357a914cfc6a54a7ed3fc55a824be403f59f61b6d7df7728dfc824923b684da3
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -56,8 +56,8 @@
     "",
     "See `tests/counters` for a complete server.",
 ], crate_idx: 0, trait_name: "ww_counters", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Counters", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Size and use of one counter buffer, in 32-bit words.",
     ], ident: "BufferInfo", generics: [], fields: Named([
@@ -94,7 +94,7 @@
         (docs: [
             "`_CNT_BKP_BUFFER`, in memory that survives a reset (backup SRAM).",
         ], ident: "Backup", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -113,7 +113,7 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
         52,
         96,
@@ -159,7 +159,7 @@
     ], crate_idx: 0, trait_name: "Counters", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 1), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "INFO", docs: [
             "Buffers, their size and use, the `cnt` format version and the build id: all fixed at link time.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
             (ident: "buffer", ty: OutOfLine(type_idx: 2)),
             (ident: "offset", ty: NumericAny(Base(U16))),
@@ -172,7 +172,7 @@
             "Words of a buffer from word `offset`, up to [MAX_WORDS] and never past its used words: empty at the end. The",
             "words of one call are copied at once, so a page is one snapshot (a `u64` counter can still tear between two",
             "calls, or within one if an interrupt carries into its high word; the host reads such a counter again).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
             (ident: "buffer", ty: OutOfLine(type_idx: 2)),
         ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
@@ -181,7 +181,7 @@
             ])),
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Zero a buffer.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 8), delivery: Counted, args: [
             (ident: "period", ty: Instance(type_idx: 6, args: [
                 Type(OutOfLine(type_idx: 5)),
@@ -198,8 +198,8 @@
             "answers): for slow links where polling [Counters::read] costs too much. A counted stream, unit: event.",
             "",
             "Optional: a device leaves it out (`omit = [\"counters.watch\"]`), polling `read` works everywhere.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(13)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(13), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

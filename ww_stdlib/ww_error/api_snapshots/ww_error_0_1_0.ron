@@ -1,6 +1,6 @@
 // ww_error 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: eb71b46cf08bf8c75d6951cd72f77f1ae0b43fd2d70ccfcbeaa62845e7f0be47
+// shrink_wrap sha256: 897ff541f997c2f26b548337c92e1f8d2815611a60005a465963a397fe00a42f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Errors every WireWeaver API can return (STD-16).",
     "",
@@ -37,7 +37,7 @@
     "",
     "Tools (the ww CLI, Python) recognise `ww_error::CommonError` by its type in the API model and show it the same",
     "for every API. Strings are bounded and may be empty: a device that saves flash sends `\"\"`.",
-], crate_idx: 0, trait_name: "ww_error", items: []), types: [
+], crate_idx: 0, trait_name: "ww_error", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors every crate can return, recognised by tools by this type.",
         "",
@@ -87,7 +87,7 @@
         ], ident: "Fault", fields: Named([
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 8, since: None),
-    ])), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

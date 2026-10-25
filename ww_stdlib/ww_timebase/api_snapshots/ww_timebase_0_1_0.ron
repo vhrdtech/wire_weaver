@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 684bbc092d6d14d9ca4f6ecc38c9c9ea1ca949f6b5b0e68445623519360e8f06
+// shrink_wrap sha256: 5a1b61f90c55c4f691876d060e9cff79cfcb551ad345b36f0d782ad32c00b9e4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -47,7 +47,7 @@
         (docs: [
             "Pulse-per-second, edge-only: carries phase, not time of day (see `Clock::set_time_of_day`).",
         ], ident: "Pps", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Static description of a device\'s clock, see `Clock::info`.",
     ], ident: "ClockInfo", generics: [], fields: Named([
@@ -88,7 +88,7 @@
             "This device is the master of its sync line and sees another master\'s signal on it: two masters on one line,",
             "reported until one of them goes. Slaves on that line can\'t tell which one to follow.",
         ], ident: "Conflict", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a device\'s shared clock takes its time from, best first: a locked sync line, then a host steering it.",
         "See `SyncStatus::source`.",
@@ -101,7 +101,7 @@
         ], ident: "Line", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point of the `time_map` stream: this device\'s local time mapped to the shared sync time.",
     ], ident: "TimeMapPoint", generics: [], fields: Named([
@@ -138,7 +138,7 @@
         ], ident: "Slave", fields: Named([
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
         187,
         44,
@@ -158,7 +158,7 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Who steers a device\'s clock (SRV-31): a program on a host, see `SteerPoint::steerer` and `SyncStatus::steerer`.",
     ], ident: "Steerer", generics: [], fields: Named([

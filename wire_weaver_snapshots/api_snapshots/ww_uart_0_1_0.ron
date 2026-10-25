@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2f47a7c6d4955effeeb94281fa2551ebdae950c5923f705d329ea71091725e4e
+// shrink_wrap sha256: 671bf911d0df691904d937e11643a49fffc3f0835fd18282c61d319f427c970c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -173,7 +173,7 @@
         (docs: [], ident: "Nine", fields: Unit, discriminant: 2, since: None),
         (docs: [], ident: "Six", fields: Unit, discriminant: 3, since: None),
         (docs: [], ident: "Five", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Parity checking mode.",
     ], ident: "Parity", generics: [], variants: [
@@ -186,7 +186,7 @@
         (docs: [
             "Even parity.",
         ], ident: "Even", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(1), crate_idx: 0, docs: [
         "Number of stop bits transmitted after every character.",
     ], ident: "StopBits", generics: [], variants: [
@@ -196,7 +196,7 @@
         (docs: [
             "Two stop bits.",
         ], ident: "Stop2", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Mode", generics: [], variants: [
         (docs: [
             "No flow control.",
@@ -213,7 +213,7 @@
         (docs: [
             "Manual control of pins state.",
         ], ident: "Test", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a port is configured with, see `Uart::configure`: what is asked for going in, what was actually set",
         "coming back.",
@@ -261,7 +261,7 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
         "Pin selector used in test mode (`Uart::set_pin_level`).",
     ], ident: "Pin", generics: [], variants: [
@@ -277,7 +277,7 @@
         (docs: [
             "Clear-to-send pin.",
         ], ident: "Cts", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line settings of the watched link, the argument and the answer of `Uart::monitor`.",
     ], ident: "MonitorConfig", generics: [], fields: Named([
@@ -313,7 +313,7 @@
         (docs: [
             "The other direction (rePort: CTS / RX2).",
         ], ident: "B", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bytes of one line of the watched link, see `Uart::monitor`.",
     ], ident: "MonitorChunk", generics: [], fields: Named([

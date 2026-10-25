@@ -1,6 +1,6 @@
 // ww_sd 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 091a9af28dbcb928f867822706ee9f89c74984349e127c3b04000a52a77cc3a2
+// shrink_wrap sha256: 7ae34c0035bb9e7c78a1c1fb51c311fbb4f39e587196cbac09937e5b5b95142f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to an SD card over WireWeaver (STD-40): its state, its registers as the card sent them, the init",
     "sequence with what each step answered, and single raw commands with their response, status bits and timing.",
@@ -26,8 +26,8 @@
     "",
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_sd", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "SdCard", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "SdCard", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How the controller talks to the card, see [Capabilities::interface].",
     ], ident: "Interface", generics: [], variants: [
@@ -37,7 +37,7 @@
         (docs: [
             "SPI mode: some commands don\'t exist, responses are R1-based.",
         ], ident: "Spi", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Width of the data bus, see [CardState::bus] and [SdCard::reinit].",
     ], ident: "BusWidth", generics: [], variants: [
@@ -46,7 +46,7 @@
         (docs: [
             "eMMC only.",
         ], ident: "Eight", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the host controller can do, see [SdCard::capabilities].",
     ], ident: "Capabilities", generics: [], fields: Named([
@@ -79,7 +79,7 @@
         (docs: [
             "Up to 128 TB.",
         ], ident: "Sduc", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Bus speed mode (CMD6 function group 1), see [BusState::speed].",
     ], ident: "SpeedMode", generics: [], variants: [
@@ -94,7 +94,7 @@
         (docs: [], ident: "Sdr50", fields: Unit, discriminant: 4, since: None),
         (docs: [], ident: "Sdr104", fields: Unit, discriminant: 5, since: None),
         (docs: [], ident: "Ddr50", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The bus after init, see [CardState::bus].",
     ], ident: "BusState", generics: [], fields: Named([
@@ -176,7 +176,7 @@
         ], ident: "Restricted", fields: Named([
             (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How a command went on the bus, see [RawResponse::outcome] and [InitStep::outcome].",
         "",
@@ -206,7 +206,7 @@
         ], ident: "Other", fields: Named([
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One step of an [InitReport]: a command and what the card answered last.",
     ], ident: "InitStep", generics: [], fields: Named([
@@ -261,7 +261,7 @@
         (docs: [
             "Interface condition (CMD8).",
         ], ident: "R7", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "The data phase of a raw command, see [RawCommand::data].",
     ], ident: "DataPhase", generics: [], variants: [
@@ -278,7 +278,7 @@
             (ident: Some("block_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
             (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A raw command, see [SdCard::command].",
     ], ident: "RawCommand", generics: [], fields: Named([
@@ -341,13 +341,13 @@
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 2)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What the device\'s host controller can do: interface, bus widths, clock, UHS, the size of a data phase,",
             "whether restricted commands go through.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "state", docs: [
             "The card in the slot and how it is driven now.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Stream(ty: Bool, is_up: true), multiplicity: Flat, since: None, ident: "detect", docs: [
             "Card inserted (`true`) or removed (`false`), from the card detect switch or a failing poll.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 9))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
@@ -358,7 +358,7 @@
             "(ACMD13), and the RCA. Decoding is the host\'s. Read at init and cached, safe at any time.",
             "",
             "`NoCard`, `Common(WrongState)` before the card is initialised.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "lease", ty: NumericAny(Base(U32))),
             (ident: "max_clock_khz", ty: NumericAny(Base(U32))),
@@ -377,7 +377,7 @@
             "",
             "A card that fails to come up is not an error: the report says where it stopped. `Common(Unsupported)` for",
             "a bus width or clock the controller can\'t do.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "lease", ty: Option(some_ty: NumericAny(Base(U32)))),
             (ident: "cmd", ty: OutOfLine(type_idx: 15)),
@@ -398,8 +398,8 @@
             "timing there were; an error here means the command wasn\'t sent. `Restricted` for CMD42 and CMD27 without",
             "`raw-sd-unrestricted`, `Common(Unsupported)` for a command the interface doesn\'t have (SPI mode),",
             "`Common(InvalidArgument)` for an index above 63 or a data phase over [MAX_DATA].",
-        ], optional: None),
-    ], compact_id: Some(105)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(105), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_sd", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

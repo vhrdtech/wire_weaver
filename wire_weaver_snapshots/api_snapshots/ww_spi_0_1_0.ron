@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3553b1cdfa83bde5fcc8bc11591998b8a068662fae0cfd6af1458ce6b2c24739
+// shrink_wrap sha256: 5291165d91fad308bf863a94ab93e2b6a6259e3b7d468b269813e237fc857ae8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -78,7 +78,7 @@
         (docs: [
             "Longer than this device takes, see its capabilities.",
         ], ident: "BufferTooBig", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
         52,
         96,
@@ -124,7 +124,7 @@
                 Type(OutOfLine(type_idx: 2)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Hertz", signature: [
         126,
         49,
@@ -183,7 +183,7 @@
             "Controller off, pins released.",
         ], ident: "Disabled", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Master", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(2), crate_idx: 0, docs: [
         "Clock polarity and phase (CPOL/CPHA), the usual SPI mode numbering.",
     ], ident: "SpiMode", generics: [], variants: [
@@ -199,13 +199,13 @@
         (docs: [
             "CPOL = 1, CPHA = 1.",
         ], ident: "Mode3", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Bit order of each word on the wire.",
     ], ident: "BitOrder", generics: [], variants: [
         (docs: [], ident: "MsbFirst", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "LsbFirst", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How CS is driven, set with `Spi::configure`.",
     ], ident: "CsMode", generics: [], variants: [
@@ -218,7 +218,7 @@
         (docs: [
             "Not driven by this device at all.",
         ], ident: "None", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `Spi::configure`: what is asked for going in, what was actually set",
         "coming back.",
@@ -313,7 +313,7 @@
         ], ident: "ClearIsRead", fields: Named([
             (ident: Some("bit"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The register map layout of a frame: address, optional dummy bytes, data.",
     ], ident: "SpiRegisters", generics: [], fields: Named([
@@ -352,7 +352,7 @@
         ], ident: "Registers", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Slave mode, see `Spi::slave_frames`.",
     ], ident: "SpiSlaveConfig", generics: [], fields: Named([

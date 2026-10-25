@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e2ba80bfc068bf2bea562bffabafd5b62d263f5d65a43a652ffebccff60e0039
+// shrink_wrap sha256: a512158565710bd2114033259d500fb2dbb934826cb268167f058bb72ff039bd
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -56,9 +56,9 @@
     "Without the note `FirmwareInfo::BUILD_ID` is empty and hosts fall back to the newest ELF they find, with a",
     "warning.",
 ], crate_idx: 0, trait_name: "ww_firmware_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "FirmwareInfo", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Version", signature: [
         93,
         154,
@@ -99,7 +99,7 @@
         ], ident: "Other", fields: Unnamed([
             (ident: None, default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `--version` shows of a firmware, see `FirmwareInfo::FIRMWARE`.",
     ], ident: "FirmwareSummary", generics: [], fields: Named([
@@ -152,7 +152,7 @@
         (docs: [
             "The device cannot tell.",
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
         52,
         96,
@@ -240,7 +240,7 @@
         ], ident: "RiscV", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Why the device reset last and what was saved before it, see [LastReset::last_reset](crate::LastReset::last_reset).",
     ], ident: "ResetRecord", generics: [], fields: Named([
@@ -279,16 +279,16 @@
     ], crate_idx: 0, trait_name: "FirmwareInfo", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 4), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "FIRMWARE", docs: [
             "Name, version, git commit, build time and profile.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_ID", docs: [
             "GNU build id of the image (20 bytes with sha1), empty when the firmware didn\'t keep the note. A host finds",
             "the ELF by it.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Property(ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BUILD_RECORD", docs: [
             "The `bedrock_build_info` compact record as stored in flash (header with magic, length and CRC-32 included):",
             "crate features, dependencies, compiler, target. The full record is in the ELF only.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(8)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(8), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Why the device last reset and what the firmware saved before it, see [LastReset::last_reset].",
         "",
@@ -297,14 +297,14 @@
     ], crate_idx: 0, trait_name: "LastReset", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [
             "Boots since the boot counter was cleared. With the cause it tells a reset loop from a single crash.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: None, errors: None), multiplicity: Flat, since: None, ident: "clear", docs: [
             "Forget the crash record and zero the boot counter, after the host saved them.",
-        ], optional: None),
-    ], compact_id: Some(9)), crate_idx: 0),
+        ], optional: None, meta: None),
+    ], compact_id: Some(9), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

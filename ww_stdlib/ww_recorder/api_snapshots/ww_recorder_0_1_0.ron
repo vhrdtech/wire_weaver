@@ -1,6 +1,6 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3d498f2ab5321c4da281cd542310892b6497eed92ee16cda7e5589dbfbf6933a
+// shrink_wrap sha256: d0fa453453bb1dcd703bd4c3264ca516b96abbc809564fb0c3241bf638303df3
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
@@ -25,9 +25,9 @@
     "",
     "Serve it with `ww api scaffold`, which prints the handler stubs for the `ww_codegen!` call you use.",
 ], crate_idx: 0, trait_name: "ww_recorder", items: [
-    (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Recorder", docs: [], optional: None),
-    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Track", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "Recorder", docs: [], optional: None, meta: None),
+    (id: 1, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Track", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The type of a track\'s items, see [TrackInfo::item_type]. A host finds crate, version and type path in the",
         "device\'s API from the track\'s path, and recognises kinds of data (a CAN frame, a defmt frame) by these.",
@@ -97,7 +97,7 @@
         (docs: [
             "No recording is running.",
         ], ident: "NoRecording", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "When a track is flushed, see [Track::durability].",
     ], ident: "Durability", generics: [], variants: [
@@ -107,14 +107,14 @@
         (docs: [
             "Written to the card right after each item: for events and errors. Costs a write per item.",
         ], ident: "Immediate", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Compression of a track\'s batches, see [Track::compression].",
     ], ident: "Compression", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Lz4", fields: Unit, discriminant: 1, since: None),
         (docs: [], ident: "Heatshrink", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a track has stored, see [Track::counters]. Since this boot unless it says otherwise.",
     ], ident: "TrackCounters", generics: [], fields: Named([
@@ -168,7 +168,7 @@
         ], ident: "Failed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
         52,
         96,
@@ -221,7 +221,7 @@
         (docs: [
             "SPI or QSPI NOR flash.",
         ], ident: "NorFlash", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What is on a card, see [CardFacts::content].",
     ], ident: "CardContent", generics: [], variants: [
@@ -237,7 +237,7 @@
         (docs: [
             "A ring file that is not where the device put it, see [State::Unbound].",
         ], ident: "UnboundRing", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How the card does against the configured data rate, see [CardCheck::rating].",
     ], ident: "Rating", generics: [], variants: [
@@ -253,7 +253,7 @@
         (docs: [
             "Not checked.",
         ], ident: "Unchecked", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of a card check, see [CardFacts::check]. Rates the card against [Settings] and the data rate configured.",
     ], ident: "CardCheck", generics: [], fields: Named([
@@ -320,7 +320,7 @@
         (docs: [
             "Create the ring file again after [State::Unbound], keeping the files of the read-write region.",
         ], ident: "RecreateRing", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a format would do, the answer of [Recorder::prepare_format].",
     ], ident: "FormatOffer", generics: [], fields: Named([
@@ -361,7 +361,7 @@
         (docs: [
             "The device\'s button.",
         ], ident: "Button", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Why a recording ended, see [RecordingInfo::stopped].",
     ], ident: "StopReason", generics: [], variants: [
@@ -377,7 +377,7 @@
         (docs: [
             "The device rebooted or lost power and did not continue it.",
         ], ident: "Reboot", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One recording of [Recorder::recordings].",
     ], ident: "RecordingInfo", generics: [], fields: Named([
@@ -422,7 +422,7 @@
         ], ident: "User", fields: Named([
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Behaviour of a full ring, see [Settings::full].",
     ], ident: "FullPolicy", generics: [], variants: [
@@ -432,7 +432,7 @@
         (docs: [
             "Stop writing and count what is refused ([State::Full]).",
         ], ident: "DropNewest", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Which items are written, see [Settings::mode].",
     ], ident: "RecordingMode", generics: [], variants: [
@@ -442,7 +442,7 @@
         (docs: [
             "Tracks are written only inside recordings.",
         ], ident: "Triggered", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How the USB view splits the log, see [Settings::usb_view]. The recordings folder is always there.",
     ], ident: "UsbView", generics: [], fields: Named([
@@ -519,7 +519,7 @@
     ], crate_idx: 0, trait_name: "Track", items: [
         (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 1)), errors: None), multiplicity: Flat, since: None, ident: "info", docs: [
             "Where the track comes from and what it carries.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Property(ty: Bool, access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -527,14 +527,14 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "enabled", docs: [
             "Whether the track is written. A disabled track keeps its place in the table and its position; its items are",
             "counted as dropped. Takes effect at once; the system track (0) can\'t be disabled (`Unsupported`).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Property(ty: OutOfLine(type_idx: 4), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "durability", docs: [
             "When the track is flushed to the card, see [Durability]. Takes effect at once.",
-        ], optional: Some((group: Some("track_settings")))),
+        ], optional: Some((group: Some("track_settings"))), meta: None),
         (id: 3, kind: Property(ty: OutOfLine(type_idx: 5), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -542,11 +542,11 @@
         ]), batched: None), multiplicity: Flat, since: None, ident: "compression", docs: [
             "Compression of the track\'s batches, see [Compression]. Optional: a device without a codec leaves it out,",
             "and tracks are stored plain.",
-        ], optional: Some((group: None))),
+        ], optional: Some((group: None)), meta: None),
         (id: 4, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "What the track has stored and lost.",
-        ], optional: Some((group: Some("counting")))),
-    ], compact_id: Some(113)), crate_idx: 0),
+        ], optional: Some((group: Some("counting"))), meta: None),
+    ], compact_id: Some(113), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Control of a recorder: a logger that writes tracks to a card or flash.",
         "",
@@ -558,14 +558,14 @@
             "Tracks of this session, indexed by track number: 0 is the system track (markers, recordings, drops, card",
             "events), the data tracks follow from 1. The indices valid right now are the session\'s tracks; they change",
             "only when the device boots.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "status", docs: [
             "What the recorder is doing now.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 2, kind: Method(args: [], return_ty: Some(Option(some_ty: OutOfLine(type_idx: 15))), errors: None), multiplicity: Flat, since: None, ident: "card", docs: [
             "Facts about the card in the slot, `None` without a card. Reads what the card reports (SD Status, CID); the",
             "speed rating is the result of the last card check, made by [Recorder::format].",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "action", ty: OutOfLine(type_idx: 16)),
         ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 3))), errors: Some([
@@ -582,7 +582,7 @@
             "the card refused the old one (keeps the rw files).",
             "",
             "`Common(Busy)` while a format is running, `NoCard`.",
-        ], optional: Some((group: Some("formatting")))),
+        ], optional: Some((group: Some("formatting"))), meta: None),
         (id: 4, kind: Method(args: [
             (ident: "token", ty: NumericAny(Base(U32))),
             (ident: "rw_mb", ty: Option(some_ty: NumericAny(Base(U32)))),
@@ -604,7 +604,7 @@
             "",
             "`BadToken` for an expired, used or other card\'s token, `Common(InvalidArgument)` for an `rw_mb` outside the",
             "offer\'s limits, `CardFailed` when the check finds a fake or broken card (nothing is formatted then).",
-        ], optional: Some((group: Some("formatting")))),
+        ], optional: Some((group: Some("formatting"))), meta: None),
         (id: 5, kind: Method(args: [
             (ident: "trigger", ty: OutOfLine(type_idx: 18)),
             (ident: "pre_trigger_s", ty: NumericAny(Base(U16))),
@@ -622,13 +622,13 @@
             "(`Unsupported` if the device has none). Returns the recording id (counts up for the life of the card).",
             "",
             "`NotLogging` without a mounted ring, `RecordingRunning` while one is open.",
-        ], optional: Some((group: Some("recording")))),
+        ], optional: Some((group: Some("recording"))), meta: None),
         (id: 6, kind: Method(args: [], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "NotLogging", nested: None),
             (ident: "NoRecording", nested: None),
         ])), multiplicity: Flat, since: None, ident: "recording_stop", docs: [
             "Stops the running recording and returns its id. `NoRecording` when none runs.",
-        ], optional: Some((group: Some("recording")))),
+        ], optional: Some((group: Some("recording"))), meta: None),
         (id: 7, kind: Method(args: [
             (ident: "after", ty: NumericAny(Base(U32))),
         ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 20))), err_ty: OutOfLine(type_idx: 3))), errors: Some([
@@ -636,7 +636,7 @@
         ])), multiplicity: Flat, since: None, ident: "recordings", docs: [
             "Recordings on the card, oldest first, up to [MAX_RECORDINGS] with id above `after` (0 for the first page).",
             "Recordings whose data the ring has already overwritten are not listed.",
-        ], optional: Some((group: Some("recording")))),
+        ], optional: Some((group: Some("recording"))), meta: None),
         (id: 8, kind: Method(args: [
             (ident: "kind", ty: OutOfLine(type_idx: 21)),
             (ident: "label", ty: MaxLen(max_len: Fixed(64), ty: String)),
@@ -649,13 +649,13 @@
         ])), multiplicity: Flat, since: None, ident: "marker", docs: [
             "Drops a marker into the system track: a moment to find again (a button press, a note, a trigger). Written",
             "at once, not with the next flush.",
-        ], optional: Some((group: Some("markers")))),
+        ], optional: Some((group: Some("markers"))), meta: None),
         (id: 9, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "NotLogging", nested: None),
         ])), multiplicity: Flat, since: None, ident: "sync", docs: [
             "Writes what is in RAM to the card now (all tracks), instead of waiting for `flush_bytes` or",
             "`flush_interval_ms`. Answers when it is on the card. Before a planned power-off, on a brown-out warning.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 10, kind: Property(ty: OutOfLine(type_idx: 25), access: ReadWrite(observe: false), write_err_ty: Some(OutOfLine(type_idx: 3)), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -663,10 +663,10 @@
             ])),
         ]), batched: None), multiplicity: Flat, since: None, ident: "settings", docs: [
             "Settings: flush thresholds, full policy, recording mode, USB view. Each field says when it takes effect.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 11, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 26)), errors: None), multiplicity: Flat, since: None, ident: "counters", docs: [
             "Totals since the card was formatted and since this boot.",
-        ], optional: Some((group: Some("counting")))),
+        ], optional: Some((group: Some("counting"))), meta: None),
         (id: 12, kind: Method(args: [], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
@@ -676,8 +676,8 @@
             "Tells the USB mass storage view to show the log as it is now. The view is a snapshot taken when the host",
             "mounts it, so new data shows only after a re-mount; this raises a media change instead. Optional: a device",
             "without a USB view leaves it out.",
-        ], optional: Some((group: Some("usb")))),
-    ], compact_id: Some(112)), crate_idx: 0),
+        ], optional: Some((group: Some("usb"))), meta: None),
+    ], compact_id: Some(112), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_recorder", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

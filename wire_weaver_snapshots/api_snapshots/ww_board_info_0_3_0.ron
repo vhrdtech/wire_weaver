@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a144d58f164344c719714539c4403fde33ca8f35217eefdd75e376a45e101e32
+// shrink_wrap sha256: 87ff35d5ea66e0932ce2c6f3e2b567341f7da8742c5e75e905e5d376443eab52
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -8,8 +8,8 @@
     "revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.",
     "[BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied.",
 ], crate_idx: 0, trait_name: "ww_board_info", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a board\'s revision comes from.",
         "",
@@ -32,7 +32,7 @@
             "A provisional record a bench or developer wrote in editable storage (flash), standing in for the production",
             "record until it is written; not a production record.",
         ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
         29,
         39,
@@ -91,12 +91,12 @@
     ], crate_idx: 0, trait_name: "BoardInfo", items: [
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
             "Everything the device knows about its board, in one value.",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 3))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "REWORKS", docs: [
             "Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this",
             "unit; for bring-up boards, where units of one revision differ. Left out by devices that don\'t keep the list.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(10)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(10), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

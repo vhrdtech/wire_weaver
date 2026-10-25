@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 38cfa5d95390c98f31bbf57af0797448551d1e01eb61ac6ad5080e457b010010
+// shrink_wrap sha256: cabb434cc961868b6e7f57f28c18d7ca4ba2e444fac4f90f71fc5a1042cfe586
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -15,8 +15,8 @@
     "same animation are in phase with no epoch passed around, across hosts too (to their NTP precision). A device",
     "whose clock runs free starts an animation when its mode changes.",
 ], crate_idx: 0, trait_name: "ww_indication", items: [
-    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Indication", docs: [], optional: None),
-], compact_id: None), types: [
+    (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Indication", docs: [], optional: None, meta: None),
+], compact_id: None, meta: None), types: [
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Global operation mode, see [Indication::mode].",
         "",
@@ -32,7 +32,7 @@
         (docs: [
             "Every indicator behaves as designed.",
         ], ident: "Normal", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Indicator brightness, see [Indication::brightness].",
         "",
@@ -54,7 +54,7 @@
         (docs: [
             "Visible outside.",
         ], ident: "Highest", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None)), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         52,
         96,
@@ -93,11 +93,11 @@
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 0), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "mode", docs: [
             "Global operation mode every indicator follows. Periodic animations are aligned to shared time when the device",
             "has it, see the [crate docs](crate).",
-        ], optional: None),
+        ], optional: None, meta: None),
         (id: 1, kind: Property(ty: OutOfLine(type_idx: 1), access: ReadWrite(observe: false), write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "brightness", docs: [
             "Brightness of all indicators; one setting covers every one of them. Left out by a device whose",
             "indicators have no adjustable brightness.",
-        ], optional: Some((group: None))),
+        ], optional: Some((group: None)), meta: None),
         (id: 2, kind: Method(args: [
             (ident: "duration", ty: Instance(type_idx: 3, args: [
                 Type(OutOfLine(type_idx: 2)),
@@ -108,12 +108,12 @@
         ])), multiplicity: Flat, since: None, ident: "identify", docs: [
             "Blinks every indicator for `duration` so the unit can be found on a bench or in a rack, then returns to",
             "`mode`. `Unsupported` on a device with no way to blink its indicators, `Busy` while already identifying.",
-        ], optional: Some((group: None))),
+        ], optional: Some((group: None)), meta: None),
         (id: 3, kind: Property(ty: Vec(String), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "NAMES", docs: [
             "Indicator names, in the device\'s own order. Left out (empty on devices that implement it with nothing to",
             "name) to save flash.",
-        ], optional: Some((group: None))),
-    ], compact_id: Some(25)), crate_idx: 0),
+        ], optional: Some((group: None)), meta: None),
+    ], compact_id: Some(25), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_indication", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

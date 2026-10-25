@@ -17,6 +17,7 @@ use crate::complete;
 use crate::device::DeviceArgs;
 use clap::{Args, CommandFactory, Parser, Subcommand};
 use clap_complete::ArgValueCandidates;
+use std::ffi::OsString;
 use wire_weaver_client::internal::LoopbackParams;
 
 #[derive(Parser)]
@@ -197,6 +198,12 @@ pub(crate) enum Commands {
     #[cfg(target_os = "linux")]
     #[command(verbatim_doc_comment)]
     Udev,
+
+    /// A plugin: `ww NAME ARGS..` runs `ww-NAME ARGS..` found on PATH, with the device selection given before NAME
+    ///
+    /// Plugins found on PATH are listed by the shell completion; see 'Plugins' in the CLI reference.
+    #[command(external_subcommand)]
+    External(Vec<OsString>),
 }
 
 /// Timeouts and flow control of `ww usb-loopback`, defaults from [LoopbackParams::default].
@@ -421,6 +428,8 @@ impl Cli {
             Commands::Elf(_) => false,
             Commands::Settings(_) => false,
             Commands::Hub(_) => false,
+            // the plugin connects itself
+            Commands::External(_) => false,
             #[cfg(target_os = "linux")]
             Commands::Udev => false,
         }
@@ -470,8 +479,6 @@ mod tests {
         assert!(help(&["dfu", "stm32", "flash", "--help"]).contains("-s/--serial"));
         assert!(!help(&["dfu", "stm32", "flash", "--help"]).contains("--monitor"));
         assert!(help(&["dfu", "status", "-h"]).contains("--monitor"));
-        // a subcommand's own flag of the same name stays its own
-        assert!(help(&["dfu", "flash", "-h"]).contains("--product <PRODUCT>        Product id"));
     }
 
     #[test]
@@ -481,9 +488,45 @@ mod tests {
         assert!(info.contains("-s/--serial, -l/--label"), "{info}");
         assert!(info.contains("--monitor, --monitor-bytes"), "{info}");
         assert!(!help(&["list", "--help"]).contains("--monitor"));
-        assert!(!help(&["dfu", "flash", "--help"]).contains("-p/--product"));
         // in full where they are defined
         assert!(help(&["--help"]).contains("[env: WW_SERIAL=]"));
+    }
+
+    /// `ww dfu flash` hands everything after it, flags and help included, to the `ww-chunky` plugin.
+    #[test]
+    fn dfu_flash_forwards_its_arguments() {
+        use crate::cmd::dfu::{DeviceDfu, DfuCommand};
+        let matches = Cli::command_fitted()
+            .try_get_matches_from([
+                "ww",
+                "-s",
+                "A1",
+                "dfu",
+                "flash",
+                "fw.elf",
+                "--product",
+                "7",
+                "-h",
+            ])
+            .unwrap();
+        let cli = Cli::from_arg_matches(&matches).unwrap();
+        let Commands::Dfu(DfuCommand::Device(DeviceDfu::Flash { args })) = cli.command else {
+            panic!("not dfu flash");
+        };
+        assert_eq!(args, ["fw.elf", "--product", "7", "-h"]);
+    }
+
+    /// An unknown command is a plugin: `ww chunky flash f` is `ww-chunky flash f`.
+    #[test]
+    fn unknown_command_is_a_plugin() {
+        let matches = Cli::command_fitted()
+            .try_get_matches_from(["ww", "--label", "bench", "chunky", "flash", "-x"])
+            .unwrap();
+        let cli = Cli::from_arg_matches(&matches).unwrap();
+        let Commands::External(args) = cli.command else {
+            panic!("not a plugin");
+        };
+        assert_eq!(args, ["chunky", "flash", "-x"]);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //! (see [CompleteEnv]).
 //!
 //! Values of device selection flags are taken from connected devices, listed live without opening them.
-//! Bash uses its own adapter ([Bash]), other shells use the clap_complete ones.
+//! Bash uses its own adapter (`Bash`), other shells use the clap_complete ones.
 
 use clap::Command;
 use clap_complete::CompleteEnv;
@@ -14,8 +14,123 @@ use std::io::Write;
 use std::path::Path;
 use wire_weaver_client::DeviceInfo;
 
+/// The command line for completion: `factory`'s, one subcommand per plugin found on `PATH` (`ww-NAME`), and
+/// `dfu flash`, which `ww-chunky flash` answers. A plugin completes its own arguments: it is asked for the words of
+/// the command line being completed, and what it answers is put into the command as its flags and values, which
+/// the completion engine then filters by the word being completed.
+pub fn with_plugins(factory: fn() -> Command) -> Command {
+    let mut cmd = factory();
+    // the global flags are the root's: a plugin offering them would be a second flag of the same name
+    let taken: Vec<String> = cmd
+        .get_arguments()
+        .filter_map(|a| a.get_long().map(str::to_string))
+        .chain(["help".into(), "version".into()])
+        .collect();
+    cmd = cmd.mut_subcommand("dfu", |dfu| {
+        dfu.mut_subcommand("flash", |flash| {
+            plugin_stub(flash, &["dfu", "flash"], "chunky", &["flash"], &taken)
+        })
+    });
+    for (name, path) in crate::plugin::list() {
+        if cmd.find_subcommand(&name).is_some() {
+            continue;
+        }
+        // a completion run is short, the name lives until it ends
+        let name: &'static str = Box::leak(name.into_boxed_str());
+        let stub = Command::new(name)
+            .about(format!("plugin {}", path.display()))
+            .disable_help_flag(true);
+        cmd = cmd.subcommand(plugin_stub(stub, &[name], name, &[], &taken));
+    }
+    cmd
+}
+
+/// `stub` (the command a plugin answers for), with the flags and values `plugin` offers for the command line being
+/// completed, when it is the one that line is in.
+fn plugin_stub(
+    stub: Command,
+    prefix: &[&str],
+    plugin: &str,
+    lead: &[&str],
+    taken: &[String],
+) -> Command {
+    let mut stub = stub;
+    if stub.get_arguments().all(|a| a.get_id() != "args") {
+        stub = stub.arg(
+            clap::Arg::new("args")
+                .num_args(0..)
+                .trailing_var_arg(true)
+                .allow_hyphen_values(true),
+        );
+    }
+    let Some(words) = words_after(prefix) else {
+        return stub;
+    };
+    // the plugin's own command line starts with the subcommand the stub stands for
+    let words: Vec<std::ffi::OsString> = lead
+        .iter()
+        .map(std::ffi::OsString::from)
+        .chain(words)
+        .collect();
+    let mut values = vec![];
+    for c in crate::plugin::complete_words(plugin, &words) {
+        let value = c.get_value().to_string_lossy().into_owned();
+        let help = c.get_help().cloned();
+        match value.strip_prefix("--") {
+            Some(long) if !long.is_empty() && !taken.iter().any(|t| t == long) => {
+                // names live until the completion run ends
+                let long: &'static str = Box::leak(long.to_string().into_boxed_str());
+                let mut arg = clap::Arg::new(long)
+                    .long(long)
+                    .action(clap::ArgAction::SetTrue);
+                if let Some(help) = help {
+                    arg = arg.help(help);
+                }
+                stub = stub.arg(arg);
+            }
+            Some(_) => {}
+            _ => {
+                let value: &'static str = Box::leak(value.into_boxed_str());
+                let mut possible = clap::builder::PossibleValue::new(value);
+                if let Some(help) = help {
+                    possible = possible.help(help);
+                }
+                values.push(possible);
+            }
+        }
+    }
+    if !values.is_empty() {
+        stub = stub.mut_arg("args", |a| a.value_parser(values));
+    }
+    stub
+}
+
+/// The words of the command line being completed after `prefix` (the word being completed last, empty if there is
+/// none yet), `None` when the command line is not in `prefix`'s command. The command line is in the environment
+/// bash's adapter passes (`Bash`) or after `--` in the arguments of the other shells.
+fn words_after(prefix: &[&str]) -> Option<Vec<std::ffi::OsString>> {
+    let words: Vec<String> = match std::env::var("_WW_COMP_LINE") {
+        Ok(line) => {
+            let wordbreaks = std::env::var("_WW_COMP_WORDBREAKS").unwrap_or_default();
+            split_line(&line, &wordbreaks).0
+        }
+        Err(_) => std::env::args().skip_while(|a| a != "--").skip(2).collect(),
+    };
+    let at = words
+        .windows(prefix.len())
+        .position(|w| w.iter().map(String::as_str).eq(prefix.iter().copied()))?;
+    let mut rest: Vec<std::ffi::OsString> = words[at + prefix.len()..]
+        .iter()
+        .map(std::ffi::OsString::from)
+        .collect();
+    if rest.is_empty() {
+        rest.push(std::ffi::OsString::new());
+    }
+    Some(rest)
+}
+
 /// Answers a shell completion request and exits if there is one, otherwise does nothing.
-pub(crate) fn complete(factory: fn() -> Command) {
+pub fn complete(factory: fn() -> Command) {
     CompleteEnv::with_factory(factory)
         .shells(Shells(&[&Bash, &Elvish, &Fish, &Powershell, &Zsh]))
         .complete();
@@ -56,7 +171,7 @@ fn candidates(value: impl Fn(&DeviceInfo) -> Vec<String>) -> Vec<CompletionCandi
 }
 
 /// Serial numbers of WireWeaver devices of RP2040 / RP2350 boot ROMs in BOOTSEL mode (`ww dfu rp`) and of STM32 bootloaders in DFU mode (`ww dfu stm32`).
-pub(crate) fn serials() -> Vec<CompletionCandidate> {
+pub fn serials() -> Vec<CompletionCandidate> {
     let mut all = candidates(|d| d.serials.clone());
     if let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -85,7 +200,7 @@ pub(crate) fn serials() -> Vec<CompletionCandidate> {
 }
 
 /// Serial numbers and user labels of WireWeaver devices (`ww sync DEVICE...`).
-pub(crate) fn serials_and_labels() -> Vec<CompletionCandidate> {
+pub fn serials_and_labels() -> Vec<CompletionCandidate> {
     candidates(|d| {
         let mut v = d.serials.clone();
         v.push(d.user_label.clone());
@@ -95,7 +210,7 @@ pub(crate) fn serials_and_labels() -> Vec<CompletionCandidate> {
 
 /// Device keys of `ww hub who`, as the hub names them (`usb:<vid>:<pid>:<serial>`, `rtt:..` from lock files), with
 /// product and label as help.
-pub(crate) fn device_keys() -> Vec<CompletionCandidate> {
+pub fn device_keys() -> Vec<CompletionCandidate> {
     use wire_weaver_client::holders::{self, DeviceRef};
     let mut out: BTreeMap<String, String> = BTreeMap::new();
     for d in connected_devices() {
@@ -129,7 +244,7 @@ pub(crate) fn device_keys() -> Vec<CompletionCandidate> {
 }
 
 /// Debug probes for `--probe`: serial numbers, and VID:PID for a probe without one, with the probe's name as help.
-pub(crate) fn probes() -> Vec<CompletionCandidate> {
+pub fn probes() -> Vec<CompletionCandidate> {
     wire_weaver_client::list_probes()
         .into_iter()
         .map(|p| {
@@ -144,7 +259,7 @@ pub(crate) fn probes() -> Vec<CompletionCandidate> {
 }
 
 /// probe-rs chip names for `--rtt` starting with what is typed so far (a whole list is several thousand names).
-pub(crate) fn rtt_chips(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
+pub fn rtt_chips(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
     let Some(current) = current.to_str() else {
         return vec![];
     };
@@ -154,19 +269,19 @@ pub(crate) fn rtt_chips(current: &std::ffi::OsStr) -> Vec<CompletionCandidate> {
         .collect()
 }
 
-pub(crate) fn labels() -> Vec<CompletionCandidate> {
+pub fn labels() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.user_label.clone()])
 }
 
-pub(crate) fn products() -> Vec<CompletionCandidate> {
+pub fn products() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.product.clone()])
 }
 
-pub(crate) fn manufacturers() -> Vec<CompletionCandidate> {
+pub fn manufacturers() -> Vec<CompletionCandidate> {
     candidates(|d| vec![d.manufacturer.clone()])
 }
 
-pub(crate) fn apis() -> Vec<CompletionCandidate> {
+pub fn apis() -> Vec<CompletionCandidate> {
     candidates(|d| {
         d.api
             .iter()
@@ -175,7 +290,7 @@ pub(crate) fn apis() -> Vec<CompletionCandidate> {
     })
 }
 
-pub(crate) fn vid_pids() -> Vec<CompletionCandidate> {
+pub fn vid_pids() -> Vec<CompletionCandidate> {
     candidates(|d| {
         d.usb
             .iter()
@@ -184,7 +299,7 @@ pub(crate) fn vid_pids() -> Vec<CompletionCandidate> {
     })
 }
 
-pub(crate) fn usb_paths() -> Vec<CompletionCandidate> {
+pub fn usb_paths() -> Vec<CompletionCandidate> {
     candidates(|d| {
         d.usb
             .iter()
@@ -198,7 +313,7 @@ pub(crate) fn usb_paths() -> Vec<CompletionCandidate> {
 
 /// Point names of the device `ww pins` would open (selection from env variables and ww.toml, flags aren't seen
 /// here), with `group.*` for each group; empty when there's no single PinDiag to ask.
-pub(crate) fn pin_points() -> Vec<CompletionCandidate> {
+pub fn pin_points() -> Vec<CompletionCandidate> {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -428,7 +543,7 @@ fn quote(v: &str) -> String {
 }
 
 /// `ww usb-loopback --packet-size`: `max` or a few common sizes.
-pub(crate) fn packet_sizes() -> Vec<CompletionCandidate> {
+pub fn packet_sizes() -> Vec<CompletionCandidate> {
     [
         ("max", "largest message both the device and the host accept"),
         ("64", "small messages, rate of messages counts"),
@@ -441,7 +556,7 @@ pub(crate) fn packet_sizes() -> Vec<CompletionCandidate> {
 }
 
 /// `ww settings dump --word-size`: the flash word sizes `ww_settings::Store` supports, with a chip example each.
-pub(crate) fn settings_word_sizes() -> Vec<CompletionCandidate> {
+pub fn settings_word_sizes() -> Vec<CompletionCandidate> {
     [
         ("1", "no ECC, e.g. SPI NOR flash (W25Q128JV)"),
         ("4", "STM32F4"),
@@ -455,7 +570,7 @@ pub(crate) fn settings_word_sizes() -> Vec<CompletionCandidate> {
 }
 
 /// `ww settings dump --page-size`: the flash page (erase unit) sizes `ww_settings::Store` supports.
-pub(crate) fn settings_page_sizes() -> Vec<CompletionCandidate> {
+pub fn settings_page_sizes() -> Vec<CompletionCandidate> {
     [
         ("2048", "e.g. STM32H7A3/7B3"),
         ("4096", ""),

@@ -60,7 +60,7 @@ const PROBE_KEYS: [&str; 2] = ["probe", "probe_speed_khz"];
 
 #[derive(Args)]
 #[command(next_help_heading = "Device selection (flags > env variables > ww.toml)")]
-pub(crate) struct DeviceArgs {
+pub struct DeviceArgs {
     /// Serial number or its part (case-insensitive)
     #[arg(short, long, env = "WW_SERIAL", global = true, add = ArgValueCandidates::new(complete::serials))]
     serial: Option<String>,
@@ -127,39 +127,39 @@ pub(crate) struct DeviceArgs {
     config: Option<PathBuf>,
 
     /// Do not load ww.toml
-    #[arg(long, global = true)]
+    #[arg(long, env = "WW_NO_CONFIG", global = true)]
     no_config: bool,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum Source {
+pub enum Source {
     Flag,
     Env,
     File(PathBuf),
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct Setting {
-    pub(crate) key: &'static str,
-    pub(crate) value: String,
-    pub(crate) source: Source,
+pub struct Setting {
+    pub key: &'static str,
+    pub value: String,
+    pub source: Source,
 }
 
 /// Resolved device selection.
-pub(crate) struct Selection {
-    pub(crate) settings: Vec<Setting>,
+pub struct Selection {
+    pub settings: Vec<Setting>,
     /// USB filters left out because `rtt` from a source that comes first selects a debug probe.
-    pub(crate) unused: Vec<Setting>,
+    pub unused: Vec<Setting>,
     /// Project config file, if one was found and loaded.
-    pub(crate) file: Option<PathBuf>,
+    pub file: Option<PathBuf>,
     /// Where `--config`/`WW_CONFIG` points to, even if it does not exist yet.
-    pub(crate) explicit_file: Option<PathBuf>,
+    pub explicit_file: Option<PathBuf>,
     client_config: ClientConfig,
 }
 
 impl Selection {
     /// `allow_missing_file` lets `--config` point to a file that doesn't exist yet (to save into it).
-    pub(crate) fn resolve(matches: &ArgMatches, allow_missing_file: bool) -> Result<Self> {
+    pub fn resolve(matches: &ArgMatches, allow_missing_file: bool) -> Result<Self> {
         let explicit_file = matches.get_one::<PathBuf>("config").cloned();
         let file = if matches.get_flag("no_config") {
             None
@@ -208,13 +208,13 @@ impl Selection {
         })
     }
 
-    pub(crate) fn client_config(&self) -> ClientConfig {
+    pub fn client_config(&self) -> ClientConfig {
         self.client_config.clone()
     }
 
     /// `--elf` from the command line: the ELF `counters` and `report` decode with instead of looking for the one
     /// with the device's build id. From an env variable or ww.toml it's only the RTT control block's.
-    pub(crate) fn elf_flag(&self) -> Option<PathBuf> {
+    pub fn elf_flag(&self) -> Option<PathBuf> {
         self.settings
             .iter()
             .find(|s| s.key == "elf" && matches!(s.source, Source::Flag))
@@ -222,7 +222,7 @@ impl Selection {
     }
 
     /// The chip, when the device is reached over RTT through a debug probe.
-    pub(crate) fn rtt(&self) -> Option<&str> {
+    pub fn rtt(&self) -> Option<&str> {
         self.get("rtt")
     }
 
@@ -234,7 +234,7 @@ impl Selection {
     }
 
     /// The single debug probe `--probe` picks for `--rtt` (any one, when it doesn't narrow down to one).
-    pub(crate) fn rtt_probe(&self) -> Result<wire_weaver_client::ProbeInfo> {
+    pub fn rtt_probe(&self) -> Result<wire_weaver_client::ProbeInfo> {
         let probes = wire_weaver_client::list_probes();
         if probes.is_empty() {
             bail!(
@@ -263,7 +263,7 @@ impl Selection {
 
     /// The hub's and the lock file's name of the device: `rtt:<probe serial>:<chip>` over RTT, see
     /// [holders::key_for](wire_weaver_client::holders::key_for).
-    pub(crate) fn rtt_key(&self) -> Result<Option<String>> {
+    pub fn rtt_key(&self) -> Result<Option<String>> {
         let Some(chip) = self.rtt() else {
             return Ok(None);
         };
@@ -278,10 +278,7 @@ impl Selection {
 
     /// Over RTT the device isn't known before connecting: checks `api` on the connected device. Nothing to do over
     /// USB, where the device was picked by it.
-    pub(crate) fn check_connected(
-        &self,
-        api: &wire_weaver::ww_version::FullVersionOwned,
-    ) -> Result<()> {
+    pub fn check_connected(&self, api: &wire_weaver::ww_version::FullVersionOwned) -> Result<()> {
         if self.rtt().is_none() {
             return Ok(());
         }
@@ -306,7 +303,7 @@ impl Selection {
     }
 
     /// Whether any of the settings came from the project config file.
-    pub(crate) fn uses_file(&self) -> bool {
+    pub fn uses_file(&self) -> bool {
         self.settings
             .iter()
             .any(|s| matches!(s.source, Source::File(_)))
@@ -542,7 +539,7 @@ impl Source {
     }
 }
 
-pub(crate) fn env_var(key: &str) -> String {
+pub fn env_var(key: &str) -> String {
     format!("WW_{}", key.to_uppercase())
 }
 

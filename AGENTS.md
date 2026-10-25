@@ -43,7 +43,7 @@ just check          # cargo check for repo-root workspace (+ ww_device with defm
 just check-mcu       # cargo check the separate `mcu/` workspace (embassy-based, embedded)
 just check-examples-mcu   # cargo check every board in examples_mcu/ (excluded from root workspace)
 just install        # build ww (--profile deploy) and install it; works anywhere: with `tpm` it uses the release stack (the only ww on PATH), else `cargo install`
-just deploy         # pull --ff-only (refuses on local changes), deps-pull, install, check ww --version against main
+just deploy         # pull --ff-only (refuses on local changes), install, check ww --version against main
 just test            # cargo nextest run --workspace --no-fail-fast
 just serve-docs       # local docs preview (uv run zensical serve)
 just build-docs        # build docs site
@@ -172,7 +172,10 @@ The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that o
   register map, answer queue and event ring driven by byte-level hooks from the firmware's interrupt handler, see
   `docs/api/bus_slave.md`.
 - **`wire_weaver_cli/`** (package `wire_weaver_cli`, binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
-  introspection and USB loopback subcommands (`src/cmd/`).
+  introspection and USB loopback subcommands (`src/cmd/`). Also a library: `plugin` is the API of `ww-NAME` plugins
+  (`ww NAME` runs `ww-NAME` from PATH, `ww dfu flash` runs `ww-chunky` of chunky_mcu_updater; docs `cli_reference.md#plugins`).
+  Nothing in this repository depends on another repository by path (chunky_mcu_updater depends on this one by git): keep
+  it so, `just check-clean-clone` builds `ww` from a fresh clone.
 - **`wire_weaver_tool/`** — egui-based GUI (Trunk-buildable) for viewing parsed AST / generated code side by side,
   no_std vs host toggle; see `docs/dev_tool.md` for current/planned features.
 - **`ww_stdlib/`** (separate crates, some vendored here under `ww_stdlib/*`, canonical home is the

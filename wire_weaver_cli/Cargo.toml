@@ -11,14 +11,15 @@ license.workspace = true
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "ww"
 path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-# chunky_mcu_updater checked out next to this repository (~/git/chunky_mcu_updater), as chunky uses ../wire_weaver
-chunky_ww_host = { path = "../../chunky_mcu_updater/chunky_ww_host" }
 clap = { workspace = true, features = ["derive", "env"] }
 clap_complete = { workspace = true, features = ["unstable-dynamic"] }
 cnt_core.workspace = true

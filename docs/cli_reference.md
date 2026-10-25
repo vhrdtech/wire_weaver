@@ -470,7 +470,7 @@ blinky_api@0.1.0 reboots into the updater
 |------------------------------|-----------|-----------------------------------------------------------------------------|
 | `reboot`                     |           | `ww_dfu::BootControl::reboot`, then exits without waiting for the device    |
 | `reboot --into <TARGET>`     | `updater` | `updater` (bootloader with a transport or recovery app) or `app` (normal reset, applies a staged update) |
-| `flash <FILE>`               |           | A whole update of a [chunky](https://github.com/romixlab/chunky_mcu_updater) device: delta, trial, confirm (below) |
+| `flash <FILE>`               |           | A whole update of a [chunky](https://github.com/romixlab/chunky_mcu_updater) device: delta, trial, confirm, run by the `ww-chunky` [plugin](#plugins) (below) |
 | `status`                     |           | `UpdateNode::node`: role, profile, product, layout, version, floor, seal, boot state, last update; `Stage` limits |
 | `confirm`                    |           | `BootControl::confirm`: keep the trial image (the firmware normally does this itself after its self-test) |
 | `revert`                     |           | `BootControl::revert`: give up the trial image (the old one runs after the next reset), or withdraw a staged one |
@@ -488,8 +488,10 @@ updater is not done yet (CLT-21). An A/B device whose app takes updates itself h
 
 ### `ww dfu flash`
 
-Updates a device whose app serves `ww_dfu` with chunky's `chunky_ww` (scenario `2C-APP-STEP`), with the host library
-`chunky_ww_host`: reads what the device holds (`Inventory::chunks`), plans a delta against it (chunks the device has
+Runs the `ww-chunky` [plugin](#plugins) (`ww-chunky flash`, from chunky_mcu_updater: `just install` there or `cargo install --git
+https://github.com/romixlab/chunky_mcu_updater ww_chunky --locked`) with the arguments after `flash` and your device
+selection; `ww dfu flash --help` is its help, and without it on PATH `ww` says so. It updates a device whose app serves
+`ww_dfu` with chunky's `chunky_ww` (scenario `2C-APP-STEP`), with the host library `chunky_ww_host`: reads what the device holds (`Inventory::chunks`), plans a delta against it (chunks the device has
 are copied on the device, only the rest goes over the wire), sends the steps with as many in flight as the device
 takes and a progress bar, has the device verify and stage the image, reboots it into a trial, follows it by serial
 number and waits until the new firmware confirms itself, or the device reverts to the old image.
@@ -967,6 +969,27 @@ ww config unset serial                                 # remove settings from ww
 directory or its closest parent, otherwise creates `ww.toml` in the current directory. Only flags from the command
 line are saved, never environment variables, so a `WW_*` variable exported in a shell profile does not end up in
 project files.
+
+## Plugins
+
+`ww NAME ARGS..` runs the program `ww-NAME ARGS..` found on `PATH`, the way `cargo` does for `cargo-NAME`: for a command
+that needs more than `ww` should carry (updates of chunky devices, `ww-chunky`). The device selection given before
+`NAME` reaches the plugin as the `WW_*` environment variables (`ww --serial 4B33 chunky status` runs
+`WW_SERIAL=4B33 ww-chunky status`; [`ww.toml`](#ww-config) is found by the plugin itself), the plugin's exit code is
+`ww`'s, and `ww dfu flash ARGS..` is `ww-chunky flash ARGS..`. A name that is no built-in command and not on `PATH`
+is an error naming `ww-NAME`.
+
+The shell completion lists the plugins found on `PATH` and asks them for the words after their name: `ww chunky <TAB>`
+and `ww dfu flash --<TAB>` give what `ww-chunky` completes, with live values (a plugin completes its device
+selection like `ww` does). A `ww-*` program is run with the typed words only after it answered the probe
+`ww-NAME --ww-plugin` with the line `ww-plugin 1` (remembered per path and modification time, in
+`~/.cache/ww/plugins`); any other program called `ww-something` is listed and never run by the completion. Plugins also complete on their own (`ww-chunky --help`, `COMPLETE=fish ww-chunky`).
+
+Writing one: depend on the `wire_weaver_cli` crate (it is a library too, `wire_weaver_cli::plugin`), flatten
+`DeviceArgs` into your command line, resolve it with `Selection::resolve(&matches, false)` and connect with
+`selection.client_config()`, as every `ww` command does (same flags, environment variables, `ww.toml`, hub exclusive
+claims with `take_exclusive`), and call `plugin::complete_if_requested(Cli::command)` first in `main`, which answers
+`ww`'s completion requests. `ww_chunky` in chunky_mcu_updater is the example.
 
 ## Untrusted device and hub strings
 

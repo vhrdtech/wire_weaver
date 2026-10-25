@@ -209,18 +209,19 @@ install:
 # Old name of install, kept for people and docs
 install-cli: install
 
-# Pull the sibling checkout the build takes by path (wire_weaver_cli depends on ../chunky_mcu_updater)
-deps-pull:
-    git -C ../chunky_mcu_updater pull --ff-only
+# Build ww from a fresh clone of HEAD with nothing but this repository around (what `cargo install --git` sees)
+check-clean-clone:
+    rm -rf /tmp/ww-clean-clone && git clone -q . /tmp/ww-clean-clone
+    cd /tmp/ww-clean-clone && cargo build --locked -p wire_weaver_cli
+    rm -rf /tmp/ww-clean-clone
 
-# Bring this PC up to main: pull --ff-only, refuse on local changes, pull deps, install, check ww --version against main
+# Bring this PC up to main: pull --ff-only, refuse on local changes, install, check ww --version against main
 deploy:
     #!/usr/bin/env bash
     set -eu
     dirty=$(git status --porcelain)
     if [ -n "$dirty" ]; then echo "local changes, not deploying:"; echo "$dirty"; exit 1; fi
     git pull --ff-only
-    just deps-pull
     just install
     ww --version | grep -q "($(git rev-parse --short HEAD)" || { echo "ww --version does not show $(git rev-parse --short HEAD):"; ww --version; exit 1; }
     ww --version

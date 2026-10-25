@@ -5839,6 +5839,7 @@ name = "wire_weaver_evolution"
 version = "0.5.0"
 dependencies = [
  "ron",
+ "serde",
  "shrink_wrap",
  "wire_weaver_core",
  "wire_weaver_snapshots",

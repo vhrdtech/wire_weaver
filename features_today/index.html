@@ -5684,6 +5684,7 @@ round, and tell you before a release when a change would break that.</p>
 <ul>
 <li><strong><a href="../evolution/rules/">Evolution rules</a></strong>: What you can change in types and APIs, and which version to bump.</li>
 <li><strong><a href="../evolution/checker_tool/">Evolution checker</a></strong>: <code>ww api check</code> and <code>ww api diff</code> say whether a change is compatible.</li>
+<li><strong><a href="../evolution/rules/#unsized-types">Checker knows the catch-all</a></strong>: Appending a variant to an enum with the <code>Unknown</code> catch-all passes the evolution check as compatible.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Evolution check at every commit</a></strong>: A test of your API crate fails when the API changed without the version bump it needs.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Current version's snapshot required</a></strong>: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.</li>
 </ul>

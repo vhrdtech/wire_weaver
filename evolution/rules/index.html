@@ -5654,7 +5654,11 @@ overhead, giving all the nice backwards and forwards compatibility benefits.</p>
   <a href="../../serdes/derive/#enum-variants-from-a-newer-version"><code>#[future_version]</code> variant</a>; with one, they get its
   discriminant. Every <code>Unsized</code> enum has one unless it says <code>no_future_version</code> (SW-47). In an <code>Unsized</code> enum new
   variants may carry data, in a <code>sized</code> or <code>self_describing</code> one only new unit variants can be read past by older
-  readers. Adding or removing <code>no_future_version</code> changes the Rust type, not the wire: a Rust API break only.</li>
+  readers. Adding or removing <code>no_future_version</code> changes the Rust type, not the wire: a Rust API break only.
+  The checker knows the catch-all (EVO-10): a variant appended to an enum with one is a compatible change, one
+  inserted before others or a reordering moves a variant to another discriminant and stays breaking, as does any new
+  variant of an enum without the catch-all. The API model records the catch-all since EVO-10, so a snapshot saved
+  before it counts as one without: save it again (<code>ww api save</code>) for appended variants to pass.</li>
 <li>New fixed size fields can be added in between old ones, into previously unused padding bits, without moving any
   other field (see <a href="../checker_tool/#new-fields-in-padding-bits">the checker</a> for exact conditions).</li>
 <li>TODO: clarify: <code>T</code> -&gt; struct containing <code>T</code></li>

@@ -13,8 +13,8 @@ fn ww_si_dep() -> String {
 fn api(arg: &str, prop: &str, field: &str) -> String {
     format!(
         r#"
-        use ww_si::{{Fixed, Micros, Millis, Range, RangeU64, RangeDec, Unbounded, Quantity}};
-        use ww_si::prefix::{{Micro, Milli, One}};
+        use ww_si::{{Duty16, Fixed, Micros, Millis, Range, RangeU64, RangeDec, Unbounded, Quantity}};
+        use ww_si::prefix::{{Micro, Milli, One, Pow10, Rational}};
         use ww_si::units;
         use ww_si::prefix;
         use ww_si::units::{{Second, Meter, Ratio}};
@@ -230,5 +230,35 @@ fn prepared_bundles() {
     assert!(
         e.contains("values the device writes outside -5..=300 are refused by the client"),
         "{e}"
+    );
+}
+
+/// Scales without a name (`Pow10<E>`, `Rational<NUM, DEN>`) are markers with const arguments, compared with them.
+/// Markers are compared by name, not by the scale they stand for: `Milli` -> `Pow10<-3>` is reported too.
+#[test]
+fn exact_scales_are_markers() {
+    for (old, new, marker) in [
+        (
+            "Fixed<Second, Pow10<-4>, u32>",
+            "Fixed<Second, Pow10<-3>, u32>",
+            "marker prefix::Pow10<-4> on the old version, prefix::Pow10<-3> on the new version",
+        ),
+        (
+            "Fixed<Ratio, Rational<1, 65535>, u16>",
+            "Fixed<Ratio, Rational<1, 65536>, u16>",
+            "marker prefix::Rational<1, 65535> on the old version, prefix::Rational<1, 65536>",
+        ),
+        (
+            "Fixed<Second, Milli, u32>",
+            "Fixed<Second, Pow10<-3>, u32>",
+            "marker prefix::Milli on the old version, prefix::Pow10<-3>",
+        ),
+    ] {
+        assert_rule(&report(&same(old), &same(new)), Rule::Meaning, marker);
+        assert_eq!(report(&same(new), &same(new)).change, Change::None, "{new}");
+    }
+    assert_eq!(
+        report(&same("u16"), &same("Duty16")).change,
+        Change::Compatible
     );
 }

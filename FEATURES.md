@@ -2169,8 +2169,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
   past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
   firmware's pipes.
-- 📋 **TEST-27 Firmware cost of exact_units** · `v0.5` — a harness measuring `Fixed`, points and rounding conversions
-  against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.
 - 📋 **TEST-28 Units coverage against the standards** · `v0.5` — a dev-only test (not shipped) walks the public unit
   lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
   each unit representable exactly in `exact_units`, or lists it on a short written "cannot, because" list for review.
@@ -2183,6 +2181,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `just test` / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
   compiles to identical code on every core and firmware profile measured (M0, M4F, M33; `opt-level` `z` and `3`), and
   a pair that differs fails with the per-symbol diff.
+- 🧪 **TEST-27 Units firmware budget** · `v0.5` — what `ww_si::Fixed` costs on an MCU against the plain fields it
+  replaces, one harness any later piece (`Point`, rounding conversions, `Level`) re-runs with `just units-budget`:
+  `examples_mcu/mcu_qemu/src/unit_budget.rs` (`qemu-unit-budget`, `stm32h725ig-unit-budget-cycles`) with plain/`Fixed`
+  pairs that must write the same bytes, and `examples_mcu/fw_budget` printing instructions (Cortex-M3 under QEMU),
+  flash and stack, at the shipped firmware's profile (`fw-z`, fat LTO, `opt-level = "z"`, and `fw-3`). Baseline of
+  27 Oct 2026: struct encode/decode, a `Series` column and a `Range` check within ±7 % of the plain instructions at
+  `fw-z`, +0 bytes of flash (+68 at `fw-3`), equal stack frames. Hardware check open: DWT cycles on the STM32H725
+  (the board was not behind the probe). See `docs/articles/units_budget.md`.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

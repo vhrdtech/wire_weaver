@@ -1,0 +1,10 @@
+[package]
+name = "fw_budget"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Runs the units firmware budget (TEST-27): plain fields against ww_si::Fixed, in instructions, cycles, flash and stack"
+
+[dependencies]
+object = { version = "0.37", default-features = false, features = ["read", "std"] }
+rustc-demangle = "0.1"

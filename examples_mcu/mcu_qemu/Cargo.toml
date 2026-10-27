@@ -3,6 +3,11 @@ name = "mcu_qemu"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# the units budget (TEST-27) with only the plain cases / only the Fixed cases, to compare the flash of the two
+only-plain = []
+only-fixed = []
+
 [dependencies]
 cortex-m = "0.7"
 cortex-m-rt = "0.7"
@@ -147,3 +152,22 @@ path = "src/bin/bus_slave.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-unit-budget"
+path = "src/bin/unit_budget.rs"
+test = false
+doctest = false
+bench = false
+
+# the profile of the shipped firmware (usb_stm32h725ig's release): the units budget (TEST-27) is measured at it
+[profile.fw-z]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+opt-level = "z"
+
+# the same at opt-level 3, to see what `z` costs in speed
+[profile.fw-3]
+inherits = "fw-z"
+opt-level = 3

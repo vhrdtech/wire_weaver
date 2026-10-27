@@ -264,6 +264,12 @@ build-docs:
 size-bench *args:
     cargo run -q --release -p size_bench -- {{ args }}
 
+# Units firmware budget (TEST-27): ww_si::Fixed against plain fields in instructions (QEMU M3), flash and stack, at the
+# shipped firmware's profile; `--qemu-host HOST` runs QEMU there (this PC has none), `--cycles` adds the STM32H725 (DWT)
+[working-directory('examples_mcu/fw_budget')]
+units-budget *args:
+    cargo run -q --release -- {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

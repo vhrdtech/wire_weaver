@@ -150,6 +150,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[Deferred replies everywhere](api/methods.md#deferred)**: Answer a call later, also on nested trait levels.
+- **[Replies by priority](transport/ww_framer.md#latency-and-priority)**: A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. <span class="ww-status">hardware check open</span>
 - **[Errors that say where](api/errors.md#where-on-the-device-an-error-came-from)**: A device's error names the site that raised it, by a number that is the same in every firmware.
 - **[Sync handlers in an async server](api/handlers.md)**: Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash.
 - **[Observed properties](api/observing.md#the-device-side)**: The device sends property changes within the budget each host asked for.
@@ -194,7 +195,8 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Link setup timeout](cli.md)**: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.
 - **[Calls that work on any device](std_library/device_contract.md)**: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span>
 - **[Calls fail fast while disconnected](transport/hub.md#reconnect-after-a-hub-restart-clt-40)**: A call made while the link is down fails at once with `Disconnected` instead of waiting for a reconnect.
-- **[Low call latency](transport/ww_link.md)**: A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond.
+- **[Urgent requests](transport/ww_framer.md#latency-and-priority)**: `.urgent()` (or `.priority(p)`) on a call, read or write sends it and its answer at once instead of waiting for the link's accumulation window; everything else shares frames. <span class="ww-status">hardware check open</span>
+- **[Windows kept to the microsecond](transport/ww_framer.md#latency-and-priority)**: A link that batches messages for 1 ms waits 1 ms, not up to 2 for the PC's timer tick. <span class="ww-status">hardware check open</span>
 - **[Who holds a device](transport/hub.md#who-holds-a-device-clt-38)**: A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away.
 - **[Hub routing in connect](transport/hub.md#reaching-devices-through-the-hub-clt-39)**: A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; `WW_HUB` says when. <span class="ww-status">in progress</span>
 - **[Back after a hub restart](transport/hub.md#reconnect-after-a-hub-restart-clt-40)**: A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. <span class="ww-status">hardware check open</span>
@@ -274,6 +276,7 @@ round, and tell you before a release when a change would break that.
 - **[Checker knows the catch-all](evolution/rules.md#unsized-types)**: Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible.
 - **[Evolution check at every commit](evolution/checker_tool.md#checking-at-every-commit)**: A test of your API crate fails when the API changed without the version bump it needs.
 - **[Current version's snapshot required](evolution/checker_tool.md#checking-at-every-commit)**: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.
+- **[Priority in every request](transport/ww_framer.md#latency-and-priority)**: Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after.
 - **[Upgrades don't touch your snapshots](evolution/checker_tool.md#the-current-versions-snapshot)**: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

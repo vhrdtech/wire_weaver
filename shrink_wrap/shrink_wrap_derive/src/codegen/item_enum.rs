@@ -653,9 +653,13 @@ impl ToTokens for CGEnumSer<'_> {
                         //     "Serialize named field",
                         //     field.ident.to_string().as_str(),
                         // ));
-                        field
-                            .ty
-                            .buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
+                        field.ty.buf_write(
+                            field_path,
+                            self.is_ref,
+                            quote! { ? },
+                            self.item_enum.crate_path,
+                            &mut ser,
+                        );
                     }
                     if fields_named
                         .iter()
@@ -686,7 +690,13 @@ impl ToTokens for CGEnumSer<'_> {
                         //     "Serialize unnamed field",
                         //     field_name.to_string().as_str(),
                         // ));
-                        ty.buf_write(field_path, self.is_ref, quote! { ? }, &mut ser);
+                        ty.buf_write(
+                            field_path,
+                            self.is_ref,
+                            quote! { ? },
+                            self.item_enum.crate_path,
+                            &mut ser,
+                        );
                     }
                     if fields_unnamed
                         .iter()

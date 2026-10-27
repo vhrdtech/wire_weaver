@@ -1655,9 +1655,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   carries, also by a command that never introspects the device. Open: `GlobalCompact` paths, multi requests; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
   expression input.
-- 📋 **TOOL-22 Hint for plain fields with a unit in their name** — `ww api check` notes a plain integer field,
-  argument or property named `*_us`, `*_ms`, `*_bytes`, `*_ppb`, .. with the `ww_si::Fixed` (STD-55) it could be;
-  a note, never an error, silenced per item.
+- 📋 **TOOL-22 Hint for plain fields that carry a unit** · `v0.5` — `ww api check` notes a plain numeric field,
+  argument or property whose name (`*_us`, `*_ms`, `*_bytes`, `*_ppb`, ..) or doc comment ("in µs", "bytes",
+  "0..=65535 = 0..100 %", "127 = not available") states a unit, scale, range or sentinel, with the `Fixed` (STD-55),
+  `Bounds` or niche (STD-66) form it could be: no meaning left in comments. A note, never an error, silenced per item;
+  tested on the scout's repos.
 
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
@@ -2012,10 +2014,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   explicit casts between siblings.
 - 📋 **STD-69 More counted units** · `v0.5` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
   each a dimension of its own.
-- 📋 **STD-70 Text unit codes in and out** · `v0.5` — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
-  imports, exports that say where they lose something.
-- 📋 **STD-71 Device-standard units in and out** · `v0.5` — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA
-  EUInformation, CAN DBC / J1939, IEEE 1451 TEDS, with exact decimal factors and sentinel tables.
+- 📋 **STD-77 Runtime scale parts and reference values** · `v0.5` — what device standards do at run time, without a
+  refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
+  (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec `*_SF` scale-factor register), and a
+  value in % or per-mille of another resource's reading ("% of a reference register"); the model names the field or
+  resource the scale comes from, the dynamic client, Python and C apply it exactly. Exponents of 10 or 2 only: a
+  free runtime factor (calibration) is data, not a unit (TEST-28's list).
+- 📋 **STD-70 Text unit codes in and out** — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
+  imports, exports that say where they lose something. Later, in a separate optional crate `exact_units_interop`
+  (Roman, 27 Oct): this release builds the capability to represent them (STD-77, TEST-28), not the tables.
+- 📋 **STD-71 Device-standard units in and out** — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
+  DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
+  only. Later, in `exact_units_interop` like STD-70.
 - 📋 **STD-72 Imperial and US customary units, complete** · `v0.5` — every unit the exact rational of SI from its legal
   definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
   variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
@@ -2151,6 +2161,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   firmware's pipes.
 - 📋 **TEST-27 Firmware cost of exact_units** · `v0.5` — a harness measuring `Fixed`, points and rounding conversions
   against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.
+- 📋 **TEST-28 Units coverage against the standards** · `v0.5` — a dev-only test (not shipped) walks the public unit
+  lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
+  each unit representable exactly in `exact_units`, or lists it on a short written "cannot, because" list for review.
+  A capability enters `exact_units` only as a pattern a class of units or a standard's structure uses, never for one
+  odd value: non-linear or empirical scales (AWG, Beaufort, Richter, Rockwell, octane, API gravity, shoe sizes),
+  ill-defined codes (GATT "decibel" without a reference, month / year durations, unqualified kcal) and data-defined
+  scales (calibration, currency) go on the list, at most as named functions or "unknown, reported".
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

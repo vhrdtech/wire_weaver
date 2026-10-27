@@ -372,6 +372,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `#[repr(..)]` of a derived struct being dropped (`docs/serdes/derive_reference.md#transparent`; tests
   `shrink_wrap/tests/transparent.rs`, `phantom_data.rs`, conformance cases `transparent.*`). Not yet in the
   evolution checker: EVO-15.
+- ✅ **DER-20 Unit-typed fields cost what plain fields cost**: a `transparent` wrapper (DER-18, e.g.
+  `exact_units::Fixed`) inside a derived struct is written and read on exactly the path of its inner plain field:
+  the latched `write_*_latch` / `des_shrink_wrap_latch` calls with one error check per type (SW-34, SW-38), not the
+  wrapper's own `ser_shrink_wrap` with a checked write per field. Hidden `ser_shrink_wrap_latch` (borrowed and owned)
+  with `BufWriter::write_field`, used by the derive for every user-type field; a wrapper with `validate` keeps the
+  plain path. TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
+  M33 before it; same wire format (`docs/serdes/derive_reference.md#transparent`,
+  `docs/serdes/code_size.md#transparent-fields`; test `shrink_wrap/tests/transparent.rs`
+  `fields_are_latched_like_the_plain_field`, fuzz `shrink_wrap_latched`).
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
@@ -406,11 +415,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   model records the wire type, so the dynamic client, Python and C need nothing new. For `exact_units` (STD-61,
   Roman's option A): its types use plain Rust fields with `shrink_wrap` an optional feature, and the bytes stay those
   of today's `ww_si` types (`I4` exponents, `UNib32` scale parts). Read by the crate walker inside `cfg_attr` (API-60).
-- 📋 **DER-20 Unit-typed fields cost what plain fields cost** · `v0.5` — a `transparent` wrapper (DER-18, e.g.
-  `exact_units::Fixed`) inside a derived struct is written and read on exactly the path of its inner plain field:
-  the latched `write_*_latch` / `des_shrink_wrap_latch` calls with one error check per type (SW-34, SW-38), not the
-  wrapper's own `ser_shrink_wrap` with a checked write per field. Measured by TEST-27: today +2 to 15 instructions and
-  +4 to 42 bytes per struct encode/decode on M0, M4F and M33; target zero, same wire format.
 
 ## API model and codegen (`API`)
 

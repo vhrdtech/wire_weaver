@@ -4,6 +4,10 @@
 
 - `GenServerConfig`, `GenServerConfigRaw`, `GenClientConfig` and `GenClientConfigRaw` have a `crate_paths: CratePaths` field (API-60): code built with a struct literal adds `crate_paths: Default::default()` (every crate named by its own name, as before) or the paths from `load_dep_with_paths`.
 
+### 🚀 Features
+
+- The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
+
 ### 🐛 Fixes
 
 - The crate walker follows modules brought in by `use` (`pub use fixed::prefix`, `use ww_si::units`, `use ww_si as si`), and generated code names a type in such a module by the re-export when its own modules are private (API-46): `ww_si::prefix::Milli` failed with "Module prefix not found", then "not reachable from other crates".

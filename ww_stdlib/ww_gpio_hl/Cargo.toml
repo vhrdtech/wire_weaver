@@ -8,6 +8,8 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 description = "High-level wrapper over ww_gpio to control IO on microcontrollers"
 
 [dependencies]
+embedded-hal.workspace = true
+embedded-hal-async.workspace = true
 thiserror.workspace = true
 wire_weaver = { workspace = true }
 wire_weaver_client.workspace = true

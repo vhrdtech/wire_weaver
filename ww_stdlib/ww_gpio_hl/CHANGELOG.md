@@ -10,6 +10,18 @@
   `wire_weaver_client::CallError<ww_gpio::Error>`, and gets `Error::Unimplemented { resource }` for a method or
   property the device doesn't implement. `FlexPromise::set_mode_promise()` returns
   `&Promise<(), CallError<ww_gpio::Error>>`.
+
+### 🚀 Features
+
+- Async flavor `asynchronous::{Flex, PushPullOutput, Input, OpenDrainOutput, Bank}` (STD-6), for code in an async
+  task. `Flex`, `Input` and `OpenDrainOutput` implement `embedded_hal_async::digital::Wait` without a race: the
+  pin's `event` stream is opened first, then the level read, then an edge awaited; the stream is closed when the
+  wait ends or is dropped. `last_edge_time()` keeps the device time of the edge that ended the wait;
+  `set_priority()` / `urgent()` set the priority of the pin's requests (CLT-50).
+- The blocking flavor implements `embedded_hal::digital::{OutputPin, StatefulOutputPin, InputPin}`
+  (`FlexBlocking`, `PushPullOutputBlocking`, `InputBlocking`, `OpenDrainOutputBlocking`), `Error` implements
+  `embedded_hal::digital::Error`.
+
 ### 🐛 Fixes
 
 - Drop the unused `tokio` and `ww_si` dependencies (P2401, cargo-machete).

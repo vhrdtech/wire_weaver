@@ -27,6 +27,10 @@ mod tests {
         output_level: Level,
         pull: Pull,
         speed: Speed,
+        /// Edges the pin's `event` stream reports now, (rising, falling): lets a test act once a wait is set up.
+        events: (bool, bool),
+        /// `input_level` calls so far: lets a test act once a wait has read the level.
+        input_reads: u32,
     }
 
     impl Default for PinModel {
@@ -36,6 +40,8 @@ mod tests {
                 output_level: Level::Low,
                 pull: Pull::None,
                 speed: Speed::Medium,
+                events: (false, false),
+                input_reads: 0,
             }
         }
     }
@@ -249,7 +255,10 @@ mod tests {
                 index_chain: [UNib32; 2],
             ) -> RpcResult<Level> {
                 // Loopback: the mock has no real pads, input mirrors the output register.
-                Ready(self.pin(index_chain).output_level)
+                Ready(self.with_pin_mut(index_chain, |pin| {
+                    pin.input_reads += 1;
+                    pin.output_level
+                }))
             }
 
             fn bank_pin_event(
@@ -266,6 +275,9 @@ mod tests {
                 let events = &mut self.events[bank][pin];
                 events.rising = enabled.rising;
                 events.falling = enabled.falling;
+                self.with_pin_mut(index_chain, |pin| {
+                    pin.events = (enabled.rising, enabled.falling)
+                });
                 Ready(Ok(()))
             }
 
@@ -278,6 +290,7 @@ mod tests {
                 let events = &mut self.events[bank][pin];
                 events.rising = false;
                 events.falling = false;
+                self.with_pin_mut(index_chain, |pin| pin.events = (false, false));
             }
 
             fn stream_bank_pin_event(&mut self, index_chain: [UNib32; 2]) -> &mut Counted {
@@ -672,5 +685,157 @@ mod tests {
         let b = banks.lock().unwrap();
         assert_eq!(b[0].pins[2].mode, Mode::Input);
         assert_eq!(b[1].pins[1].pull, Pull::Down);
+    }
+
+    /// Polls the mock until `done` holds for the pin, at most a second.
+    async fn until_pin(
+        banks: &Arc<Mutex<Vec<BankModel>>>,
+        pin: (usize, usize),
+        what: &str,
+        done: impl Fn(&PinModel) -> bool,
+    ) {
+        for _ in 0..1000 {
+            if done(&banks.lock().unwrap()[pin.0].pins[pin.1]) {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+        panic!("the pin never got to: {what}");
+    }
+
+    /// Polls the mock until the pin's `event` stream reports `events`.
+    async fn until_events(
+        banks: &Arc<Mutex<Vec<BankModel>>>,
+        pin: (usize, usize),
+        events: (bool, bool),
+    ) {
+        until_pin(banks, pin, "events", |p| p.events == events).await
+    }
+
+    /// Polls the mock until a wait set up its stream and read the level after `reads` reads before it.
+    async fn until_waiting(
+        banks: &Arc<Mutex<Vec<BankModel>>>,
+        pin: (usize, usize),
+        events: (bool, bool),
+        reads: u32,
+    ) {
+        until_pin(banks, pin, "waiting", |p| {
+            p.events == events && p.input_reads > reads
+        })
+        .await
+    }
+
+    fn input_reads(banks: &Arc<Mutex<Vec<BankModel>>>, pin: (usize, usize)) -> u32 {
+        banks.lock().unwrap()[pin.0].pins[pin.1].input_reads
+    }
+
+    /// What an async driver does with its interrupt line: generic over `embedded_hal_async::digital::Wait`.
+    async fn wait_irq<P: embedded_hal_async::digital::Wait>(irq: &mut P) -> Result<(), P::Error> {
+        irq.wait_for_low().await
+    }
+
+    async fn wait_rising<P: embedded_hal_async::digital::Wait>(p: &mut P) -> Result<(), P::Error> {
+        p.wait_for_rising_edge().await
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_async_wait() {
+        let (device, banks) = start("io_gpio/eh_async_wait");
+        let client = connect(&device).await;
+        // the line is driven through a second handle, the mock loops its output back to the input
+        let bank = client.bank(0);
+        let line = bank.pin(2);
+        let irq =
+            ww_gpio_hl::asynchronous::Flex::new_ignore_mode(client.bank(0).pin(2).attachment())
+                .unwrap()
+                .urgent();
+        let mut irq = irq.into_input(Pull::Up).await.unwrap();
+
+        // already low: the level read after the stream opened answers, no edge
+        line.set_output_level(Level::Low).call().await.unwrap();
+        wait_irq(&mut irq).await.unwrap();
+        assert_eq!(irq.last_edge_time(), None);
+        // the stream is closed once the wait is over
+        until_events(&banks, (0, 2), (false, false)).await;
+
+        // high: waits for the falling edge, which carries its device time
+        line.set_output_level(Level::High).call().await.unwrap();
+        let reads = input_reads(&banks, (0, 2));
+        let waiter = tokio::spawn(async move {
+            wait_irq(&mut irq).await.unwrap();
+            irq
+        });
+        // the line going low before the level read would end the wait at the read, without an edge
+        until_waiting(&banks, (0, 2), (false, true), reads).await;
+        line.set_output_level(Level::Low).call().await.unwrap();
+        // the mock sends edges before the next request
+        line.output_level().call().await.unwrap();
+        let mut irq = waiter.await.unwrap();
+        assert!(irq.last_edge_time().is_some());
+        until_events(&banks, (0, 2), (false, false)).await;
+
+        // an edge from before the call doesn't count
+        line.set_output_level(Level::High).call().await.unwrap();
+        line.set_output_level(Level::Low).call().await.unwrap();
+        line.output_level().call().await.unwrap();
+        let waiter = tokio::spawn(async move {
+            wait_rising(&mut irq).await.unwrap();
+            irq
+        });
+        until_events(&banks, (0, 2), (true, false)).await;
+        assert!(!waiter.is_finished());
+        line.set_output_level(Level::High).call().await.unwrap();
+        line.output_level().call().await.unwrap();
+        let irq = waiter.await.unwrap();
+        assert!(irq.last_edge_time().is_some());
+
+        // a dropped wait closes the stream
+        let mut irq = irq;
+        let wait = tokio::time::timeout(
+            std::time::Duration::from_millis(20),
+            embedded_hal_async::digital::Wait::wait_for_any_edge(&mut irq),
+        );
+        assert!(wait.await.is_err());
+        until_events(&banks, (0, 2), (false, false)).await;
+    }
+
+    /// What a blocking driver does with its pins: generic over `embedded_hal::digital`.
+    fn pulse<P: embedded_hal::digital::StatefulOutputPin>(p: &mut P) -> Result<bool, P::Error> {
+        p.set_high()?;
+        let high = p.is_set_high()?;
+        p.toggle()?;
+        Ok(high && p.is_set_low()?)
+    }
+
+    fn read<P: embedded_hal::digital::InputPin>(p: &mut P) -> Result<bool, P::Error> {
+        p.is_high()
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_blocking_digital() {
+        let (device, banks) = start("io_gpio/eh_blocking_digital");
+        let client = connect(&device).await;
+        let out = client.bank(0).pin(1).attachment();
+        let inp = client.bank(0).pin(1).attachment();
+        let banks2 = banks.clone();
+        tokio::task::spawn_blocking(move || {
+            use ww_gpio_hl::blocking::FlexBlocking;
+            let mut out = FlexBlocking::new_ignore_mode(out)
+                .unwrap()
+                .into_output(Some(Level::Low))
+                .unwrap();
+            assert_eq!(banks2.lock().unwrap()[0].pins[1].mode, Mode::PushPullOutput);
+            assert!(pulse(&mut out).unwrap());
+            let mut inp = FlexBlocking::new_ignore_mode(inp)
+                .unwrap()
+                .into_input(Pull::None)
+                .unwrap();
+            assert!(!read(&mut inp).unwrap());
+            embedded_hal::digital::OutputPin::set_high(&mut out).unwrap();
+            assert!(read(&mut inp).unwrap());
+        })
+        .await
+        .unwrap();
+        assert_eq!(banks.lock().unwrap()[0].pins[1].output_level, Level::High);
     }
 }

@@ -1,6 +1,6 @@
 use crate::Error;
 use wire_weaver::prelude::*;
-use wire_weaver_client::{Attachment, Commander};
+use wire_weaver_client::{Attachment, Commander, Priority};
 
 #[derive(Clone)]
 pub(crate) struct BankClient {
@@ -27,8 +27,32 @@ pub(crate) struct GpioClient {
 }
 
 impl GpioClient {
-    pub(crate) fn new(cmd: Commander) -> Self {
-        Self { cmd }
+    /// The client of one pin and its index in the bank.
+    pub(crate) fn from_attachment(gpio_pin: Attachment) -> Result<(Self, u32), Error> {
+        if (gpio_pin.trait_name() != "Pin") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
+            return Err(Error::IncompatibleTrait(format!(
+                "{}::{}",
+                gpio_pin.source_crate().crate_id,
+                gpio_pin.trait_name()
+            )));
+        }
+        let cmd = gpio_pin.cmd_tx_take();
+        let index = if let Some(base_path) = cmd.base_path()
+            && let Some(last) = base_path.last()
+        {
+            last.0
+        } else {
+            return Err(Error::Internal("empty base path".into()));
+        };
+        Ok((Self { cmd }, index))
+    }
+
+    pub(crate) fn set_priority(&mut self, priority: Priority) {
+        self.cmd.set_default_priority(priority);
+    }
+
+    pub(crate) fn priority(&self) -> Priority {
+        self.cmd.default_priority()
     }
 }
 

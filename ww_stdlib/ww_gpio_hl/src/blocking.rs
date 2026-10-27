@@ -62,23 +62,9 @@ impl FlexBlocking {
     /// Get the correct [Attachment] from a client that implements ww_gpio::GpioBank:
     /// `my_client.my_gpio_bank().pins(pin_idx).attachment()`
     pub fn new_ignore_mode(gpio_pin: Attachment) -> Result<FlexBlocking, Error> {
-        if (gpio_pin.trait_name() != "Pin") || (gpio_pin.source_crate().crate_id != "ww_gpio") {
-            return Err(Error::IncompatibleTrait(format!(
-                "{}::{}",
-                gpio_pin.source_crate().crate_id,
-                gpio_pin.trait_name()
-            )));
-        }
-        let cmd_tx = gpio_pin.cmd_tx_take();
-        let index = if let Some(base_path) = cmd_tx.base_path()
-            && let Some(last) = base_path.last()
-        {
-            last.0
-        } else {
-            return Err(Error::Internal("empty base path".into()));
-        };
+        let (io, index) = GpioClient::from_attachment(gpio_pin)?;
         Ok(FlexBlocking {
-            io: GpioClient::new(cmd_tx),
+            io,
             event_rx: None,
             rising_enabled: false,
             falling_enabled: false,
@@ -496,5 +482,127 @@ impl BankBlocking {
             )));
         }
         Ok(())
+    }
+}
+
+// embedded-hal 1.0 digital traits: blocking calls, so not from inside an async task (see crate::asynchronous).
+
+macro_rules! digital_error_type {
+    ($($pin:ty),*) => {$(
+        impl embedded_hal::digital::ErrorType for $pin {
+            type Error = Error;
+        }
+    )*};
+}
+
+digital_error_type!(
+    FlexBlocking,
+    PushPullOutputBlocking,
+    InputBlocking,
+    OpenDrainOutputBlocking
+);
+
+impl embedded_hal::digital::OutputPin for FlexBlocking {
+    fn set_low(&mut self) -> Result<(), Error> {
+        FlexBlocking::set_low(self)
+    }
+
+    fn set_high(&mut self) -> Result<(), Error> {
+        FlexBlocking::set_high(self)
+    }
+}
+
+impl embedded_hal::digital::StatefulOutputPin for FlexBlocking {
+    fn is_set_high(&mut self) -> Result<bool, Error> {
+        FlexBlocking::is_set_high(self)
+    }
+
+    fn is_set_low(&mut self) -> Result<bool, Error> {
+        FlexBlocking::is_set_low(self)
+    }
+
+    /// One remote call (`Pin::toggle`), not a read and a write.
+    fn toggle(&mut self) -> Result<(), Error> {
+        FlexBlocking::toggle(self)
+    }
+}
+
+impl embedded_hal::digital::InputPin for FlexBlocking {
+    fn is_high(&mut self) -> Result<bool, Error> {
+        FlexBlocking::is_high(self)
+    }
+
+    fn is_low(&mut self) -> Result<bool, Error> {
+        FlexBlocking::is_low(self)
+    }
+}
+
+impl embedded_hal::digital::OutputPin for PushPullOutputBlocking {
+    fn set_low(&mut self) -> Result<(), Error> {
+        self.flex.set_low()
+    }
+
+    fn set_high(&mut self) -> Result<(), Error> {
+        self.flex.set_high()
+    }
+}
+
+impl embedded_hal::digital::StatefulOutputPin for PushPullOutputBlocking {
+    fn is_set_high(&mut self) -> Result<bool, Error> {
+        self.flex.is_set_high()
+    }
+
+    fn is_set_low(&mut self) -> Result<bool, Error> {
+        self.flex.is_set_low()
+    }
+
+    fn toggle(&mut self) -> Result<(), Error> {
+        self.flex.toggle()
+    }
+}
+
+impl embedded_hal::digital::InputPin for InputBlocking {
+    fn is_high(&mut self) -> Result<bool, Error> {
+        self.flex.is_high()
+    }
+
+    fn is_low(&mut self) -> Result<bool, Error> {
+        self.flex.is_low()
+    }
+}
+
+impl embedded_hal::digital::OutputPin for OpenDrainOutputBlocking {
+    fn set_low(&mut self) -> Result<(), Error> {
+        self.flex.set_low()
+    }
+
+    /// Lets the line go (high-z).
+    fn set_high(&mut self) -> Result<(), Error> {
+        self.flex.set_high()
+    }
+}
+
+impl embedded_hal::digital::StatefulOutputPin for OpenDrainOutputBlocking {
+    fn is_set_high(&mut self) -> Result<bool, Error> {
+        self.flex.is_set_high()
+    }
+
+    fn is_set_low(&mut self) -> Result<bool, Error> {
+        self.flex.is_set_low()
+    }
+
+    fn toggle(&mut self) -> Result<(), Error> {
+        self.flex.toggle()
+    }
+}
+
+impl embedded_hal::digital::InputPin for OpenDrainOutputBlocking {
+    /// The line: low when driven low here or by another device.
+    fn is_high(&mut self) -> Result<bool, Error> {
+        self.flex.is_high()
+    }
+
+    fn is_low(&mut self) -> Result<bool, Error> {
+        self.flex.is_low()
     }
 }

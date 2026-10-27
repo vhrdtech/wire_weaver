@@ -8,6 +8,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+embedded-hal.workspace = true
+embedded-hal-async.workspace = true
 io_gpio_api.workspace = true
 tests_common.workspace = true
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
@@ -16,6 +18,7 @@ wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
 ww_client_server.workspace = true
 ww_gpio = { workspace = true, features = ["std"] }
+ww_gpio_hl.workspace = true
 ww_pin_probe.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }

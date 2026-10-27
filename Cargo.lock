@@ -2534,6 +2534,8 @@ dependencies = [
 name = "io_gpio"
 version = "0.1.0"
 dependencies = [
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
  "io_gpio_api",
  "tests_common",
  "tokio",
@@ -2542,6 +2544,7 @@ dependencies = [
  "wire_weaver_client",
  "ww_client_server",
  "ww_gpio",
+ "ww_gpio_hl",
  "ww_pin_probe",
  "ww_si",
  "ww_stream",
@@ -6152,6 +6155,8 @@ dependencies = [
 name = "ww_gpio_hl"
 version = "0.1.0"
 dependencies = [
+ "embedded-hal 1.0.0",
+ "embedded-hal-async",
  "thiserror 2.0.20",
  "wire_weaver",
  "wire_weaver_client",

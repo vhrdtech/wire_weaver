@@ -38,3 +38,9 @@ impl From<wire_weaver_client::CallError<ww_gpio::GpioErrorOwned>> for Error {
         }
     }
 }
+
+impl embedded_hal::digital::Error for Error {
+    fn kind(&self) -> embedded_hal::digital::ErrorKind {
+        embedded_hal::digital::ErrorKind::Other
+    }
+}

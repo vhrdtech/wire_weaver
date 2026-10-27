@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.72">
+      <meta name="generator" content="zensical-0.0.73">
     
     
       
@@ -5673,6 +5673,9 @@ other's data. Fields with a default go after all the others.</p>
 </span></code></pre></div>
 <p>This works as long as the type stays evolvable, which is the default (see
 <a href="../size_assumptions/">size assumptions</a> for the alternatives).</p>
+<p>A type that also derives <code>serde::Deserialize</code> (with <code>derive(..)</code> or <code>cfg_attr(cond, derive(..))</code>) gets
+<code>#[serde(default = ..)]</code> on each such field, so serde data written before the field was added (a RON or JSON file
+saved by an older version) reads it as its default too, instead of failing with "missing field".</p>
 <p>A field with a default reads as its default only when it starts at the end of the data and its read runs out of
 data. A field that starts with data left is read as usual: a truncated or malformed value is an error, never
 replaced with the default. The default can be any expression of the field's type (<code>#[default = 7]</code>,
@@ -5959,7 +5962,7 @@ their arguments, see <a href="../../types/#generic-types-in-an-api">generic type
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.10ee5ab6.min.js"></script>
+      <script src="../../assets/javascripts/bundle.77dd0ce9.min.js"></script>
       
     
   </body>

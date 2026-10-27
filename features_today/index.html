@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.72">
+      <meta name="generator" content="zensical-0.0.73">
     
     
       
@@ -5471,6 +5471,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/derive/#type-mapping">Generic field types</a></strong>: <code>Wrapper&lt;'i, T&gt;</code> and types from <code>macro_rules</code> work as fields.</li>
 <li><strong><a href="../serdes/derive_reference/#generics">Generic types</a></strong>: Structs and enums with type and const parameters (<code>Timed&lt;T&gt;</code>, <code>Buf&lt;const N: usize&gt;</code>) and where clauses derive like any other type.</li>
 <li><strong><a href="../serdes/derive_reference/#generics"><code>PhantomData</code> fields</a></strong>: A zero-bit <code>PhantomData&lt;U&gt;</code> field carries a unit marker type (<code>Quantity&lt;Volt&gt;</code>) that needs no impls of its own.</li>
+<li><strong><a href="../serdes/derive/#evolving-types"><code>#[default]</code> fields default in serde too</a></strong>: A RON or JSON file saved before a field was added still reads, the field taking its default.</li>
 <li><strong><a href="../serdes/shrink_wrap/">Growing writer</a></strong>: <code>BufWriterOwned</code> for hosts, when the size isn't known up front.</li>
 <li><strong><a href="../serdes/showcase/">Writing in place</a></strong>: Builders that write a value straight into the output buffer, and patching a field after the rest is written.</li>
 <li><strong><a href="../serdes/layouts/#fixed_layout-fields-at-fixed-offsets">Fixed layouts</a></strong>: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.</li>
@@ -5687,6 +5688,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../evolution/rules/#unsized-types">Checker knows the catch-all</a></strong>: Appending a variant to an enum with the <code>Unknown</code> catch-all passes the evolution check as compatible.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Evolution check at every commit</a></strong>: A test of your API crate fails when the API changed without the version bump it needs.</li>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Current version's snapshot required</a></strong>: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.</li>
+<li><strong><a href="../evolution/checker_tool/#the-current-versions-snapshot">Upgrades don't touch your snapshots</a></strong>: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
@@ -5955,7 +5957,7 @@ They are shared, so a tool that knows one of them works with every device that i
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.10ee5ab6.min.js"></script>
+      <script src="../assets/javascripts/bundle.77dd0ce9.min.js"></script>
       
     
   </body>

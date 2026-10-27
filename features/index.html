@@ -24,7 +24,7 @@
       
       
       <link rel="icon" href="../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.72">
+      <meta name="generator" content="zensical-0.0.73">
     
     
       
@@ -5811,6 +5811,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>PhantomData&lt;..&gt;</code> without the serdes / <code>SeriesColumns</code> bounds of DER-14, so <code>struct Quantity&lt;U&gt; { value: i32,
   _unit: PhantomData&lt;U&gt; }</code> works with a bare unit marker and writes the same bytes as without the field
   (<code>docs/serdes/derive_reference.md#generics</code>; test <code>shrink_wrap/tests/phantom_data.rs</code>). For <code>ww_si</code> units.</li>
+<li>✅ <strong>DER-17 <code>#[default = ..]</code> fields default in serde too</strong>: a type deriving <code>serde::Deserialize</code> (through
+  <code>derive(..)</code> or a <code>cfg_attr</code>) gets <code>#[serde(default = ..)]</code> on each <code>#[default = ..]</code> field of a struct or struct
+  variant, so RON or JSON written before the field was added still reads; for saved <code>ww_self</code> API snapshots when a
+  later model field isn't an <code>Option</code> (EVO-13) (<code>docs/serdes/derive.md#evolving-types</code>; test
+  <code>shrink_wrap/tests/serde_default.rs</code>).</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -6845,8 +6850,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>#[future_version]</code> catch-all (SW-47), set by codegen; the evolution checker (<code>ww api check</code>), the client's runtime
   compat check and the dynamic decoder use it: a variant appended to an enum with the catch-all is compatible, an
   inserted or reordered one is reported as moved, and without the catch-all a new variant stays breaking. Snapshots
-  saved before EVO-10 count as without it until saved again (<code>docs/evolution/rules.md#unsized-types</code>,
+  saved before EVO-10 count as without it until saved again, and compare clean otherwise (EVO-13)
+  (<code>docs/evolution/rules.md#unsized-types</code>,
   <code>wire_weaver_evolution</code> tests <code>enum_variant_appended_to_the_catch_all</code>). Found with <code>ww_timebase::SyncState::Conflict</code>.</li>
+<li>✅ <strong>EVO-13 Upgrading wire_weaver never forces an API bump or re-save</strong> — a field of the API model that a snapshot
+  file has in no instance (written by an older wire_weaver: <code>ItemEnum::future_version</code> before EVO-10) is not
+  recorded, and the checker compares both sides without it and says so, instead of the unchanged source counting as
+  changed and <code>require_current</code> failing (G0's <code>nucleo_g0b1re_api</code> 0.4.0 after EVO-10). Read from the file itself, no
+  list of fields or <code>ww_self</code> versions: the next model field gets it too, also a non-<code>Option</code> one, which DER-17 makes
+  readable (<code>docs/evolution/checker_tool.md#the-current-versions-snapshot</code>, <code>wire_weaver_evolution/tests/check.rs</code>
+  with G0's old-format snapshots as a fixture).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -7576,7 +7589,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
       <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../assets/javascripts/bundle.10ee5ab6.min.js"></script>
+      <script src="../assets/javascripts/bundle.77dd0ce9.min.js"></script>
       
     
   </body>

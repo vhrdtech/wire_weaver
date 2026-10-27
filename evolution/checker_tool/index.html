@@ -26,7 +26,7 @@
       
       
       <link rel="icon" href="../../assets/wire_weaver_favicon.svg">
-      <meta name="generator" content="zensical-0.0.72">
+      <meta name="generator" content="zensical-0.0.73">
     
     
       
@@ -5424,6 +5424,13 @@ change. A failing test names what to do:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>no snapshot of my_device_api 0.2.0 in my_device_api/api_snapshots (the previous one is my_device_api/api_snapshots/my_device_api_0_1_0.ron), and the current version&#39;s snapshot is required.
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Save it with `just api-save` (`WW_API_SAVE=1 cargo test --test evolution` in the crate, or `ww api save my_device_api`) and commit api_snapshots/ (see docs/evolution/checker_tool.md).
 </span></code></pre></div>
+<p>Upgrading wire_weaver alone never makes this test fail or asks for a new snapshot. A newer wire_weaver may record
+more about an API than the one that saved its snapshot (EVO-10 added each enum's catch-all, <code>future_version</code>): a field
+of the API model that a snapshot file has nowhere was not recorded by its writer, and the checker compares both sides
+without it, saying so in the report (<code>not compared: ItemEnum::future_version, which a snapshot saved by an older
+wire_weaver doesn't have</code>). A snapshot is saved again only for a real change of the API, or when you run <code>ww api save</code>
+to record the new fields too (an appended variant of an enum with the catch-all passes only once the snapshot records
+the catch-all).</p>
 <p><code>strict(true)</code> instead of <code>require_current(true)</code> only requires some snapshot to compare with: the source is then
 compared with the newest one not newer than its version, which may be the previous version's. That suits a crate that
 saves a snapshot only when it releases.</p>
@@ -5745,7 +5752,7 @@ reading as zero from old data. The client uses the same rules when comparing its
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.tabs","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.c47bb847.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.10ee5ab6.min.js"></script>
+      <script src="../../assets/javascripts/bundle.77dd0ce9.min.js"></script>
       
     
   </body>

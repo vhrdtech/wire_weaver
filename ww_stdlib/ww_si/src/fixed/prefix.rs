@@ -1,44 +1,27 @@
-//! Prefix markers: zero-size types that fix a prefix in a type (`Fixed<Second, Micro, u32>`), never sent themselves.
-//! The decimal SI prefixes `Quecto` to `Quetta` with [One] for none, and the binary `Kibi` to `Tebi` (2¹⁰ to 2⁴⁰), which
-//! exist only as markers: the run-time [Prefix] of a [Quantity](crate::Quantity) is decimal.
+//! Scale markers: zero-size types that fix the scale of a [Fixed](crate::Fixed) in its type (`Fixed<Second, Micro,
+//! u32>`), never sent themselves. The decimal SI prefixes `Quecto` to `Quetta` with [One] for none, the binary `Kibi`
+//! to `Tebi` (2¹⁰ to 2⁴⁰), which exist only as markers (the run-time [Prefix] of a [Quantity](crate::Quantity) is
+//! decimal), and exact factors without a name: [Pow10] and [Rational].
 //!
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs, like the unit markers.
 
-use crate::Prefix;
+use crate::{ExactScale, Prefix};
 
-/// The scale of a prefix: `10^n` or `2^n`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum PrefixScale {
-    /// `10^n`: `Pow10(-6)` for [Micro].
-    Pow10(i8),
-    /// `2^n`: `Pow2(10)` for [Kibi].
-    Pow2(u8),
-}
-
-impl PrefixScale {
-    /// The powers of 10 and of 2.
-    pub const fn exps(self) -> (i16, i16) {
-        match self {
-            PrefixScale::Pow10(e) => (e as i16, 0),
-            PrefixScale::Pow2(e) => (0, e as i16),
-        }
-    }
-}
-
-/// A prefix fixed at compile time: a zero-size marker, never sent. The markers of this crate are in this module.
-pub trait UnitPrefix: Copy + Default + 'static {
-    /// `Pow10(-6)` for [Micro], `Pow2(10)` for [Kibi].
-    const SCALE: PrefixScale;
-    /// As written before a unit's symbol: `µ`, `Ki`, empty for [One].
+/// A scale fixed at compile time, the `P` of [Fixed](crate::Fixed): a zero-size marker, never sent. A prefix
+/// ([Micro], [Kibi]) or a factor without a name ([Pow10], [Rational]). The markers of this crate are in this module.
+pub trait FixedScale: Copy + Default + 'static {
+    /// `10⁻⁶` for [Micro], `2¹⁰` for [Kibi], `1/65535` for `Rational<1, 65535>`.
+    const SCALE: ExactScale;
+    /// As written before a unit's symbol: `µ`, `Ki`; empty for [One] and for a scale that isn't a prefix.
     const SYMBOL: &'static str;
-    /// The marker's name: `"Micro"`.
+    /// The marker's name: `"Micro"`, `"Pow10"`.
     const NAME: &'static str;
-    /// The run-time prefix of the same scale, `None` for a binary one.
+    /// The run-time prefix of the same scale, `None` for a binary prefix and other factors.
     const RUNTIME: Option<Prefix>;
 }
 
 /// A decimal prefix, one a [Quantity](crate::Quantity) can have too.
-pub trait DecimalPrefix: UnitPrefix {
+pub trait DecimalPrefix: FixedScale {
     /// The run-time prefix of the same scale.
     const PREFIX: Prefix;
 }
@@ -47,6 +30,30 @@ pub trait DecimalPrefix: UnitPrefix {
 pub trait SubSecond: DecimalPrefix {
     /// How many of it make a second.
     const PER_SECOND: u64;
+}
+
+/// `10^E` for a decimal step without a prefix of its own: tenths of a millisecond are `Fixed<Second, Pow10<-4>, u32>`.
+/// A step that has a prefix is written with it (`Milli`, not `Pow10<-3>`), so one scale has one type.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Pow10<const E: i8>;
+
+/// `NUM / DEN`, an exact scale that isn't a power of ten: a 16-bit duty where 65535 is 100 % is
+/// `Fixed<Ratio, Rational<1, 65535>, u16>` ([Duty16](crate::Duty16)). Not reduced in the type, the [ExactScale] is.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Rational<const NUM: u32, const DEN: u32>;
+
+impl<const E: i8> FixedScale for Pow10<E> {
+    const SCALE: ExactScale = ExactScale::pow10(E);
+    const SYMBOL: &'static str = "";
+    const NAME: &'static str = "Pow10";
+    const RUNTIME: Option<Prefix> = None;
+}
+
+impl<const NUM: u32, const DEN: u32> FixedScale for Rational<NUM, DEN> {
+    const SCALE: ExactScale = ExactScale::rational(NUM, DEN);
+    const SYMBOL: &'static str = "";
+    const NAME: &'static str = "Rational";
+    const RUNTIME: Option<Prefix> = None;
 }
 
 /// Quecto, `q`, 10⁻³⁰.
@@ -168,8 +175,8 @@ pub struct Tebi;
 macro_rules! decimal {
     ($($ty:ident $prefix:ident $symbol:literal $e:literal;)*) => {
         $(
-            impl UnitPrefix for $ty {
-                const SCALE: PrefixScale = PrefixScale::Pow10($e);
+            impl FixedScale for $ty {
+                const SCALE: ExactScale = ExactScale::pow10($e);
                 const SYMBOL: &'static str = $symbol;
                 const NAME: &'static str = stringify!($ty);
                 const RUNTIME: Option<Prefix> = Some(Prefix::$prefix);
@@ -184,8 +191,8 @@ macro_rules! decimal {
 macro_rules! binary {
     ($($ty:ident $symbol:literal $e:literal;)*) => {
         $(
-            impl UnitPrefix for $ty {
-                const SCALE: PrefixScale = PrefixScale::Pow2($e);
+            impl FixedScale for $ty {
+                const SCALE: ExactScale = ExactScale::pow2($e);
                 const SYMBOL: &'static str = $symbol;
                 const NAME: &'static str = stringify!($ty);
                 const RUNTIME: Option<Prefix> = None;

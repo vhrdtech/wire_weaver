@@ -598,6 +598,22 @@ impl Decoder<'_, '_> {
                     None,
                 ))
             }
+            // DER-18: the columns are the field's, at the same level (no head of its own), its tag restarts the
+            // fields after it as the field's own would
+            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+                let def = item_struct.transparent_field()?;
+                let (kind, _) = fields_of(&item_struct.fields);
+                let (column, tag) = self.group(rd, &def.ty, restarts, level)?;
+                let name = def.ident.clone().unwrap_or_else(|| "0".to_string());
+                Ok((
+                    SeriesColumn::Fields {
+                        kind,
+                        len: m,
+                        fields: vec![(name, column)],
+                    },
+                    tag,
+                ))
+            }
             TypeOwned::Struct(item_struct) => {
                 if item_struct.sparse {
                     bail!(

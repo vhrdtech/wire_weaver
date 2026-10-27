@@ -678,6 +678,14 @@ pub struct ItemStruct<'i> {
     /// [signatures](crate::signature).
     #[default = None]
     pub instance_of: Option<InstanceOf<'i>>,
+    /// `#[derive_shrink_wrap(transparent, ..)]` (DER-18): on the wire the struct is its one field (`fields` has
+    /// exactly one, zero-bit fields like `PhantomData` and `()` are left out), with that field's size class:
+    /// [Self::size] is recorded as [UnsizedFinalStructure](ElementSize::UnsizedFinalStructure), so a reader that
+    /// doesn't know this flag reads the same bytes inside a parent, and a decoder that knows it takes the size class
+    /// and Series columns of the field ([ItemStructOwned::transparent_field]). Only a top-level value of a transparent
+    /// struct around an `Unsized` type differs for such an older reader (it expects the field's size).
+    #[default = false]
+    pub transparent: bool,
 }
 
 #[derive_shrink_wrap(

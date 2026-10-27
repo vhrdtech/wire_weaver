@@ -1334,7 +1334,10 @@ fn ser_transparent_field(
             [value] => value,
             _ => bail!("{path}: expected 1 unnamed field, got {}", values.len()),
         },
-        _ if def.ident.is_some() => bail!("{path}: expected named fields: {}", field_names(std::slice::from_ref(def))),
+        _ if def.ident.is_some() => bail!(
+            "{path}: expected named fields: {}",
+            field_names(std::slice::from_ref(def))
+        ),
         _ => bail!("{path}: expected 1 unnamed field"),
     };
     ser_inner(wr, value, &def.ty, api_bundle)

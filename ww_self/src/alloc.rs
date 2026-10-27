@@ -336,10 +336,9 @@ impl TypeOwned {
                 "type parameter {} of a generic definition, not an instance of it",
                 idx.0
             )),
-            TypeOwned::Struct(item_struct) if item_struct.transparent => item_struct
-                .transparent_field()?
-                .ty
-                .is_unsized(api_bundle),
+            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+                item_struct.transparent_field()?.ty.is_unsized(api_bundle)
+            }
             TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
             TypeOwned::Enum(item_enum) => Ok(item_enum.is_unsized()),
             // its byte length goes into the parent's FIFO, nothing inside uses it

@@ -1,9 +1,8 @@
 //! [Fixed]: a number with its unit, prefix and storage fixed at compile time, on the wire exactly the number.
 
-use crate::ops::{powi_f64, scale_f64};
 use crate::tree::write_unit;
 use crate::unit::{Unit, UnitExpr};
-use crate::{Prefix, Quantity};
+use crate::{ExactScale, Prefix, Quantity};
 use core::cmp::Ordering;
 use core::fmt;
 use core::hash::{Hash, Hasher};
@@ -12,7 +11,7 @@ use shrink_wrap::prelude::*;
 use ww_numeric::NumericValue;
 
 pub use bounds::{Bounds, OutOfBounds, Range, RangeDec, RangeU64, Unbounded};
-pub use prefix::{DecimalPrefix, PrefixScale, UnitPrefix};
+pub use prefix::{DecimalPrefix, FixedScale};
 pub use storage::{Repr, Storage, UnsignedStorage};
 
 mod bounds;
@@ -91,6 +90,11 @@ pub type Nanos<T> = Fixed<crate::units::Second, prefix::Nano, T>;
 #[cfg(feature = "information")]
 pub type Bytes<T> = Fixed<crate::units::Byte, prefix::One, T>;
 
+/// A 16-bit duty or fraction where 65535 is 1 (100 %): `Fixed<Ratio, Rational<1, 65535>, u16>`, the PWM duty of
+/// many timers.
+#[cfg(feature = "dimensionless")]
+pub type Duty16 = Fixed<crate::units::Ratio, prefix::Rational<1, 65535>, u16>;
+
 /// A fraction in parts per billion (a clock's rate error), `Fixed<Ratio, Nano, T>`.
 #[cfg(feature = "dimensionless")]
 pub type Ppb<T> = Fixed<crate::units::Ratio, prefix::Nano, T>;
@@ -130,7 +134,7 @@ impl<U, P, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
 
     /// Without the bounds check: for bounds checked some other way.
     #[inline(always)]
-    const fn new_unchecked(value: T) -> Self {
+    pub(crate) const fn new_unchecked(value: T) -> Self {
         Fixed {
             value,
             _unit: PhantomData,
@@ -168,12 +172,11 @@ impl<U, P, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
     }
 }
 
-impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
+impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
     /// The same value in prefix `P2` and storage `T2`, if that is exact: `None` when it is not a whole number of
     /// `P2` for an integer `T2`, or doesn't fit `T2`. Floats are scaled.
-    pub fn to<P2: UnitPrefix, T2: Storage>(self) -> Option<Fixed<U, P2, T2>> {
-        let (d5, d2) = scale_between(P::SCALE, P2::SCALE);
-        rescale(self.value.to_repr(), d5, d2).map(Fixed::new)
+    pub fn to<P2: FixedScale, T2: Storage>(self) -> Option<Fixed<U, P2, T2>> {
+        rescale(self.value.to_repr(), P::SCALE.div(P2::SCALE)).map(Fixed::new)
     }
 
     /// The same value with other bounds, if it is within them.
@@ -183,10 +186,7 @@ impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
 
     /// The value of a [Quantity] in this unit, if it is exact (as [to](Self::to)) and within `B`.
     pub fn try_from_quantity(q: &Quantity<U>) -> Option<Self> {
-        let e10 = i8::from(q.prefix) as i16;
-        let (p10, p2) = P::SCALE.exps();
-        // q * 10^e10 / (10^p10 * 2^p2), 10 = 5 * 2
-        let (d5, d2) = (e10 - p10, e10 - p10 - p2);
+        let scale = ExactScale::pow10(i8::from(q.prefix)).div(P::SCALE);
         let repr = if q.value.is_float() {
             Repr::Float(q.value.to_f64())
         } else {
@@ -194,7 +194,7 @@ impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
             let m = i128::try_from(x.magnitude()).ok()?;
             Repr::Int(if x.is_negative() { -m } else { m })
         };
-        let value = rescale(repr, d5, d2)?;
+        let value = rescale(repr, scale)?;
         Self::try_new(value).ok()
     }
 
@@ -401,65 +401,28 @@ mod arith {
     }
 }
 
-/// `(d5, d2)`: a value in `from` is `x * 5^d5 * 2^d2` in `to` (10 = 5 · 2, so a decimal and a binary prefix combine
-/// without a factor that isn't needed).
-fn scale_between(from: PrefixScale, to: PrefixScale) -> (i16, i16) {
-    let (f10, f2) = from.exps();
-    let (t10, t2) = to.exps();
-    let d10 = f10 - t10;
-    (d10, d10 + f2 - t2)
-}
-
-/// `x * 5^d5 * 2^d2` in `T`: exact for an integer `T` (`None` when not whole or out of range), scaled for a float.
-fn rescale<T: Storage>(x: Repr, d5: i16, d2: i16) -> Option<T> {
+/// `x · scale` in `T`: exact for an integer `T` (`None` when not whole, out of range or with a power of π), scaled for
+/// a float.
+fn rescale<T: Storage>(x: Repr, scale: ExactScale) -> Option<T> {
     match x {
-        Repr::Int(x) if !T::IS_FLOAT => T::from_int(rescale_int(x, d5, d2)?),
-        Repr::Int(x) => T::from_float(rescale_float(x as f64, d5, d2)),
-        Repr::Float(x) => T::from_float(rescale_float(x, d5, d2)),
+        Repr::Int(x) if !T::IS_FLOAT => T::from_int(scale.apply_int(x)?),
+        Repr::Int(x) => T::from_float(scale.apply_f64(x as f64)),
+        Repr::Float(x) => T::from_float(scale.apply_f64(x)),
     }
 }
 
-fn rescale_int(mut x: i128, d5: i16, d2: i16) -> Option<i128> {
-    if x == 0 {
-        return Some(0);
-    }
-    // multiplications first, so a division that is exact after them isn't refused
-    if d5 > 0 {
-        x = x.checked_mul(5i128.checked_pow(d5 as u32)?)?;
-    }
-    if d2 > 0 {
-        x = x.checked_mul(2i128.checked_pow(d2 as u32)?)?;
-    }
-    for (base, d) in [(5i128, d5), (2, d2)] {
-        if d < 0 {
-            let p = base.checked_pow(d.unsigned_abs() as u32)?;
-            if x % p != 0 {
-                return None;
-            }
-            x /= p;
-        }
-    }
-    Some(x)
-}
-
-fn rescale_float(x: f64, d5: i16, d2: i16) -> f64 {
-    // 5^d5 * 2^d2 = 10^d5 * 2^(d2 - d5)
-    let x = scale_f64(x, d5 as i8);
-    x * powi_f64(2.0, (d2 - d5) as i8)
-}
-
-/// The number as stored and the prefix with the unit: `1500 µs`, `4 KiB`, `50 %`; `{:#}` writes it in the unit
-/// itself, `0.0015 s`.
-impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> fmt::Display for Fixed<U, P, T, B> {
+/// The number as stored and the prefix with the unit: `1500 µs`, `4 KiB`, `50 %`, a scale without a prefix after
+/// the number (`15·10⁻⁴ s`, `32767·1/65535`); `{:#}` writes it in the unit itself, `0.0015 s`.
+impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> fmt::Display for Fixed<U, P, T, B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
-            let (d5, d2) = scale_between(P::SCALE, PrefixScale::Pow10(0));
             match self.value.to_repr() {
-                Repr::Int(x) => match rescale_int(x, d5, d2) {
-                    Some(x) => write!(f, "{x}")?,
-                    None => write_decimal(x, d5, d2, f)?,
+                Repr::Int(x) => match (P::SCALE.apply_int(x), P::SCALE.as_pow10()) {
+                    (Some(x), _) => write!(f, "{x}")?,
+                    (None, Some(e)) => write_decimal(x, e, f)?,
+                    (None, None) => write!(f, "{}", P::SCALE.apply_f64(x as f64))?,
                 },
-                Repr::Float(x) => write!(f, "{}", rescale_float(x, d5, d2))?,
+                Repr::Float(x) => write!(f, "{}", P::SCALE.apply_f64(x))?,
             }
             write_unit(Prefix::Unit, &U::EXPR, f)
         } else {
@@ -469,13 +432,12 @@ impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> fmt::Display for Fixed<U,
     }
 }
 
-/// An integer in a decimal prefix below the unit, exactly: 1500 at 10⁻⁶ is `0.0015`. Binary prefixes below the unit
-/// don't exist, so only the decimal case is left here; anything else goes through `f64`.
-fn write_decimal(x: i128, d5: i16, d2: i16, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if d5 != d2 || !(-38..0).contains(&d5) {
-        return write!(f, "{}", rescale_float(x as f64, d5, d2));
+/// An integer at a power of ten below the unit, exactly: 1500 at 10⁻⁶ is `0.0015`.
+fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if !(-38..0).contains(&e) {
+        return write!(f, "{}", ExactScale::pow10(e).apply_f64(x as f64));
     }
-    let digits = d5.unsigned_abs() as u32;
+    let digits = e.unsigned_abs() as u32;
     let p = 10u128.pow(digits);
     let m = x.unsigned_abs();
     let (int, mut frac) = (m / p, m % p);
@@ -488,20 +450,25 @@ fn write_decimal(x: i128, d5: i16, d2: i16, f: &mut fmt::Formatter<'_>) -> fmt::
     write!(f, "{sign}{int}.{frac:0width$}")
 }
 
-fn write_prefix_unit<P: UnitPrefix>(unit: &UnitExpr, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match P::SCALE {
-        PrefixScale::Pow10(e) => write_unit(Prefix::try_from(e).unwrap_or(Prefix::Unit), &unit, f),
-        PrefixScale::Pow2(_) => match unit {
-            UnitExpr::Named { symbol: "", .. } => write!(f, " {}", P::SYMBOL),
-            UnitExpr::Named { symbol, .. } => write!(f, " {}{symbol}", P::SYMBOL),
-            unit => write!(f, " {}({unit})", P::SYMBOL),
-        },
+fn write_prefix_unit<P: FixedScale>(unit: &UnitExpr, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(prefix) = P::SCALE.as_pow10().and_then(|e| Prefix::try_from(e).ok()) {
+        return write_unit(prefix, &unit, f);
+    }
+    if P::SYMBOL.is_empty() {
+        // a factor without a prefix: after the number, then the unit
+        write!(f, "{}", P::SCALE)?;
+        return write_unit(Prefix::Unit, &unit, f);
+    }
+    match unit {
+        UnitExpr::Named { symbol: "", .. } => write!(f, " {}", P::SYMBOL),
+        UnitExpr::Named { symbol, .. } => write!(f, " {}{symbol}", P::SYMBOL),
+        unit => write!(f, " {}({unit})", P::SYMBOL),
     }
 }
 
 /// `Second(1500 µs u32)`: the unit's name, the value as `Display` shows it, and the storage; bounds after it when
 /// there are some (`Second(10 ms u16, 1..=5000)`).
-impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> fmt::Debug for Fixed<U, P, T, B> {
+impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> fmt::Debug for Fixed<U, P, T, B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", U::EXPR.name())?;
         self.value.fmt_number(f)?;
@@ -523,7 +490,7 @@ impl<U: Unit, P: UnitPrefix, T: Storage, B: Bounds<T>> fmt::Debug for Fixed<U, P
 
 /// `1500 µs`, like `Display`.
 #[cfg(feature = "defmt")]
-impl<U: Unit, P: UnitPrefix, T: Storage + defmt::Format, B: Bounds<T>> defmt::Format
+impl<U: Unit, P: FixedScale, T: Storage + defmt::Format, B: Bounds<T>> defmt::Format
     for Fixed<U, P, T, B>
 {
     fn format(&self, f: defmt::Formatter<'_>) {
@@ -531,6 +498,9 @@ impl<U: Unit, P: UnitPrefix, T: Storage + defmt::Format, B: Bounds<T>> defmt::Fo
             UnitExpr::Named { symbol: "", .. } if P::RUNTIME.is_some() => {
                 defmt::write!(f, "{}", self.value);
                 crate::quantity::defmt_ratio_prefix(P::RUNTIME.unwrap_or(Prefix::Unit), f);
+            }
+            UnitExpr::Named { symbol, .. } if P::SYMBOL.is_empty() && P::RUNTIME.is_none() => {
+                defmt::write!(f, "{} ·{} {=str}", self.value, P::SCALE, symbol)
             }
             UnitExpr::Named { symbol, .. } => {
                 defmt::write!(f, "{} {=str}{=str}", self.value, P::SYMBOL, symbol)
@@ -762,6 +732,53 @@ mod tests {
             Millis::<u16>::try_from(Duration::from_secs(70)),
             Err(OutOfBounds)
         );
+    }
+
+    #[test]
+    fn scales_without_a_prefix() {
+        // tenths of a ms
+        let t = Fixed::<Second, Pow10<-4>, u32>::new(15);
+        assert_eq!(format!("{t}"), "15·10⁻⁴ s");
+        assert_eq!(format!("{t:#}"), "0.0015 s");
+        assert_eq!(t.to::<Micro, u32>(), Some(Fixed::new(1500)));
+        assert_eq!(t.to::<Milli, u32>(), None);
+        assert_eq!(
+            Fixed::<Second, Pow10<-3>, u8>::new(7).to_string(),
+            "7 ms"
+        );
+        assert_eq!(
+            Fixed::<Second, Pow10<-4>, u32>::try_from_quantity(&crate::Second::micro(300u16)),
+            Some(Fixed::new(3))
+        );
+        // a 16-bit duty
+        let half = Duty16::new(32767);
+        assert_eq!(format!("{half}"), "32767·1/65535");
+        assert_eq!(Duty16::new(65535).to::<One, u8>(), Some(Fixed::new(1)));
+        assert_eq!(half.to::<Centi, u8>(), None);
+        assert_eq!(Duty16::new(13107).to::<Centi, u8>(), Some(Fixed::new(20)));
+        assert!((half.to::<One, f32>().unwrap().get() - 0.5).abs() < 1e-4);
+        // a binary angle: 65536 is a turn
+        let a = Fixed::<crate::units::Turn, Rational<1, 65536>, u16>::new(16384);
+        assert_eq!(format!("{a:#}"), "0.25 rev");
+        assert_eq!(a.to::<Rational<1, 4>, u8>(), Some(Fixed::new(1)));
+    }
+
+    #[test]
+    fn exact_angles() {
+        use crate::units::{Degree, Turn};
+        let deg: &crate::UnitExpr = <Degree as crate::Unit>::EXPR;
+        assert!((deg.factor() - core::f64::consts::PI / 180.0).abs() < 1e-18);
+        assert!((<Turn as crate::Unit>::EXPR.factor() - core::f64::consts::TAU).abs() < 1e-15);
+        assert!((crate::Turn::base(1u8).to_si_f64() - core::f64::consts::TAU).abs() < 1e-15);
+    }
+
+    #[test]
+    fn cycles_are_hertz_by_name() {
+        use crate::units::{Cycle, Per};
+        let f = crate::Quantity::<Per<Cycle, Second>>::new(crate::Prefix::Mega, 8u8);
+        assert_eq!(f.to_hertz(), crate::Hertz::new(crate::Prefix::Mega, 8u8));
+        let g = Fixed::<Per<Cycle, Second>, Kilo, u16>::new(32);
+        assert_eq!(g.to_hertz(), Fixed::<crate::units::Hertz, Kilo, u16>::new(32));
     }
 
     #[test]

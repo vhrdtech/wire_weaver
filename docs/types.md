@@ -306,6 +306,26 @@ The path and the name are the definition's identity: `units::Volt` and a `Volt` 
 different types, in generated code, in API snapshots (`ww api save` takes the types of `pub mod`s too, unit marker
 structs like `pub struct Volt;` included) and in introspection data.
 
+### Types from crates that aren't API crates
+
+An API can use types of any crate, also one that isn't built on WireWeaver: no `wire_weaver` dependency, no
+`#[ww_trait]`, only data types with `#[derive_shrink_wrap]` and `shrink_wrap` as its dependency (API-60). The crate
+walker reads its source like an API crate's, and `ww api save` snapshots its types and unit markers.
+
+The API model names a type by the crate that defines it, so generated code does too. When the crate with the
+`ww_codegen!` call doesn't depend on that crate itself, generated code names it through a crate it does depend on
+that re-exports it at the root:
+
+```rust
+// in ww_si: its quantities are defined in exact_units
+pub use exact_units;
+```
+
+A server depending on `ww_si` alone then gets `ww_si::exact_units::units::Second` in its generated code, while
+introspection data keeps `exact_units::units::Second`. `pub use dep as name;` and `pub extern crate dep;` work the
+same, through any number of crates. Without such a re-export, the generated code names the crate directly, and the
+crate with the `ww_codegen!` call needs a dependency on it.
+
 ## Special types
 
 For particular jobs, on their own page:

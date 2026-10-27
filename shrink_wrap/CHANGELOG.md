@@ -445,6 +445,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- A derived generic type with a parameter named `I`, `S`, `P` or `C` didn't build with `series` (E0403 "the name `P` is already used", or E0276 for `P: ?Sized`): the generated `SeriesColumns::write_group` and `skim` took parameters of those names. They are `__I`, `__S`, `__P`, `__C` now. `struct In<P, U, T>` with `series` was the case (DER-18). Test `tests/phantom_data.rs`.
 - `BufReader::bits_left()` and `nibbles_left()` counted the current byte twice when the reader was at a byte boundary (3 fresh bytes: 32 bits, 8 nibbles; 24 and 6 are there), so the bounds checks that use them (`OptionAnyVec`, `Series`) let a too large count through to fail later, and a `Series` skipping the rest of its bits from a byte boundary went 8 bits past the end. Both count from where the lengths at the back begin now, checked for every reader state of 1- to 3-byte buffers; the C reader (`sw_reader_bits_left`, `sw_reader_nibbles_left`) the same.
 - Decoding a recursive type (`Box<T>`, `RefBox<T>`, `Vec<T>` or `RefVec<T>` of a type that contains itself, like
   `ww_self`'s `TypeOwned` and `ValueOwned`) had no nesting limit: 38 KB of untrusted data with 10 000 nested lists

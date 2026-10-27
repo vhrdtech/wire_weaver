@@ -129,3 +129,47 @@ fn mixed_and_enum() {
     assert_eq!(Reading::<Volt>::from_ww_bytes(&bytes).unwrap(), r);
     assert_eq!(Reading::<Volt>::from_ww_bytes_owned(&bytes).unwrap(), r);
 }
+
+/// Parameters named like the ones the derive's own generated functions take (`I`, `S`, `P`, `C`, `N`, `R`): no
+/// clash (E0403), also in the series and cells code. `P` only in `PhantomData` too, and inside a tuple.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    final_structure,
+    series(cells),
+    derive(Clone, Copy, Debug, PartialEq)
+)]
+struct Named<P, U, T, I, S, C> {
+    value: T,
+    i: I,
+    s: S,
+    c: C,
+    _p: PhantomData<P>,
+    _u: PhantomData<(U, P)>,
+}
+
+#[derive_shrink_wrap(borrowed, owned, ww_repr = u4, series, derive(Clone, Copy, Debug, PartialEq))]
+enum NamedEnum<P, T> {
+    Empty,
+    Value(T, PhantomData<P>),
+}
+
+#[test]
+fn parameters_named_like_the_derives_own() {
+    let v = Named::<Volt, Volt, u16, u8, bool, u8> {
+        value: 0x1234,
+        i: 5,
+        s: true,
+        c: 6,
+        _p: PhantomData,
+        _u: PhantomData,
+    };
+    let bytes = v.to_ww_bytes_owned().unwrap();
+    assert_eq!(
+        Named::<Volt, Volt, u16, u8, bool, u8>::from_ww_bytes(&bytes).unwrap(),
+        v
+    );
+    let e = NamedEnum::<Volt, u16>::Value(7, PhantomData);
+    let bytes = e.to_ww_bytes_owned().unwrap();
+    assert_eq!(NamedEnum::<Volt, u16>::from_ww_bytes(&bytes).unwrap(), e);
+}

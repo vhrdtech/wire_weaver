@@ -48,7 +48,8 @@ impl Quantity {
     }
 
     /// The dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{"rad": 1, "s": -1}`
-    /// for an angular velocity, `{"bit": 1}` for a byte, counted bases by their name (`{"Sample": 1, "s": -1}`), `{}`
+    /// for an angular velocity, `{"bit": 1}` for a byte, counted bases by their name (`{"Sample": 1, "s": -1}`), halves for a root
+    /// (V/√Hz: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`), `{}`
     /// when dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
     /// device sent with its dimension in an `AnyQuantity`).
     #[getter]
@@ -70,8 +71,12 @@ impl Quantity {
             ("bit", bit),
         ];
         for (symbol, exp) in fixed.into_iter().chain(dim.counted_bases()) {
-            if exp != 0 {
-                dict.set_item(symbol, exp)?;
+            match exp {
+                0 => {}
+                // a root's odd exponent is a half: V/√Hz has s -2.5
+                e if dim.root && e % 2 != 0 => dict.set_item(symbol, e as f64 / 2.0)?,
+                e if dim.root => dict.set_item(symbol, e / 2)?,
+                e => dict.set_item(symbol, e)?,
             }
         }
         Ok(Some(dict))

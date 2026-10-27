@@ -36,6 +36,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) crate_path: &'i CratePath,
     /// Type and const parameters and where clause of the struct (DER-14), as written.
     pub(crate) generics: &'i Generics,
+    /// `#[repr(..)]` of the struct, as written.
+    pub(crate) repr: &'i [syn::Attribute],
 }
 
 impl<'i> CGItemStruct<'i> {
@@ -47,6 +49,7 @@ impl<'i> CGItemStruct<'i> {
             quote! { #[derive( #(#d),* )] }
         });
         let cfg_attr = self.cfg_attr.iter();
+        let repr = self.repr;
         let ident = &self.ident;
         let serde_defaults =
             SerdeDefaults::new(self.cfg_attr, self.derive, self.ident, self.generics)
@@ -90,6 +93,7 @@ impl<'i> CGItemStruct<'i> {
             #docs
             #derive
             #(#[cfg_attr(#cfg_attr)])*
+            #(#repr)*
             pub struct #ident #lifetime #body
             #assert_size
             #assert_tail_size

@@ -406,6 +406,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   model records the wire type, so the dynamic client, Python and C need nothing new. For `exact_units` (STD-61,
   Roman's option A): its types use plain Rust fields with `shrink_wrap` an optional feature, and the bytes stay those
   of today's `ww_si` types (`I4` exponents, `UNib32` scale parts). Read by the crate walker inside `cfg_attr` (API-60).
+- 📋 **DER-20 Unit-typed fields cost what plain fields cost** · `v0.5` — a `transparent` wrapper (DER-18, e.g.
+  `exact_units::Fixed`) inside a derived struct is written and read on exactly the path of its inner plain field:
+  the latched `write_*_latch` / `des_shrink_wrap_latch` calls with one error check per type (SW-34, SW-38), not the
+  wrapper's own `ser_shrink_wrap` with a checked write per field. Measured by TEST-27: today +2 to 15 instructions and
+  +4 to 42 bytes per struct encode/decode on M0, M4F and M33; target zero, same wire format.
 
 ## API model and codegen (`API`)
 
@@ -2170,6 +2175,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ill-defined codes (GATT "decibel" without a reference, month / year durations, unqualified kcal) and data-defined
   scales go on the list, at most as named functions or "unknown, reported"; a free runtime factor (calibration,
   currency) is listed as "runtime value, not a unit", carried by `ww_si::Quantity` / `AnyQuantity` or the application.
+- 📋 **TEST-29 Units zero-cost gate** · `v0.5` — the ELF comparison of TEST-27 (`just units-elf`) becomes a gate in
+  `just test` / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
+  compiles to identical code on every core and firmware profile measured (M0, M4F, M33; `opt-level` `z` and `3`), and
+  a pair that differs fails with the per-symbol diff.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

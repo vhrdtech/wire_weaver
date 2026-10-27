@@ -5505,7 +5505,9 @@ event scratch buffer size.</p>
 <li><code>cx.medium()</code> - the medium the request came from. The type is set with <code>ww_codegen!(.., medium = "crate::Medium")</code>
   (<code>()</code> by default) and the value with <code>Server::with_medium(..)</code>. A device with USB and CAN runs one server per
   medium, all handling requests with the same server state.</li>
-<li><code>cx.reply_to()</code> - medium and seq to answer a deferred call later, <code>None</code> if no reply is expected.</li>
+<li><code>cx.priority()</code> - the request's priority (<code>wire_weaver::Priority</code>), its reply goes out at once when it is urgent,
+  see <a href="../../transport/ww_framer/#latency-and-priority">latency and priority</a>.</li>
+<li><code>cx.reply_to()</code> - medium, seq and priority to answer a deferred call later, <code>None</code> if no reply is expected.</li>
 <li><code>cx</code> sends events: stream updates and property updates with the generated
   <code>stream_data_ser().&lt;name&gt;_send(&amp;value, cx).await</code> (<code>_send_blocking</code> for sync servers), or any event with
   <code>send_event()</code>. Events sent from a handler go out before its reply.</li>
@@ -5528,11 +5530,13 @@ event scratch buffer size.</p>
 their servers' <code>sink()</code>.</p>
 <h3 id="deferred">deferred<a class="headerlink" href="#deferred" title="Permanent link">&para;</a></h3>
 <p><code>method_model = "move_motor=deferred, _=immediate"</code> lets a method return <code>Deferred</code> and answer later. The handler
-keeps <code>cx.reply_to()</code>, and the reply is sent with the generated <code>ServerState::move_motor_send_return(out, seq, output)</code>
-(<code>_send_return_blocking</code> for sync), where <code>out</code> is another handler's <code>cx</code> or <code>server.sink()</code> of <code>reply_to.medium</code>.
+keeps <code>cx.reply_to()</code>, and the reply is sent with the generated
+<code>ServerState::move_motor_send_return(out, reply_to, output)</code> (<code>_send_return_blocking</code> for sync), where <code>out</code> is another
+handler's <code>cx</code> or <code>server.sink()</code> of <code>reply_to.medium</code>. The reply to an urgent request goes out at once, others wait
+for the accumulation window like every message (see <a href="../../transport/ww_framer/#latency-and-priority">latency and priority</a>).
 A deferred method on a nested level (<code>ww_impl!(plug: Plug)</code>) uses the prefixed name everywhere, like its handler:
 <code>method_model = "plug_vbus_cycle=deferred, _=immediate"</code> and <code>ServerState::plug_vbus_cycle_send_return(..)</code>. On a
-resource array level the handler gets the index chain, the helper does not need it (<code>seq</code> identifies the call).
+resource array level the handler gets the index chain, the helper does not need it (<code>reply_to</code> identifies the call).
 A deferred call that is never answered times out on the client.</p>
 <h3 id="handler-names">Handler names<a class="headerlink" href="#handler-names" title="Permanent link">&para;</a></h3>
 <p>To avoid shared data structures and allocation on <code>no_std</code>, all API levels are flattened into one: every handler is

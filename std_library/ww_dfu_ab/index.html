@@ -5556,75 +5556,75 @@ packets.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>   ── device runs the app
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>→ node.node()
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>         4 B  01 00 00 02
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>         5 B  01 40 00 00 02
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>      stage: true, stage_bulk: true } }
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        46 B  01 80 00 00 73 69 6d 2d 64 66 …
 </span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>→ stage.limits()
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>         4 B  02 03 00 02
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>         5 B  02 40 30 00 02
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        13 B  02 80 40 00 00 00 01 80 00 00 …
 </span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>→ stage.begin(target: Live, header: [35 B: 57 57 44 50 01 92 …])
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        41 B  03 03 10 00 57 57 44 50 01 92 …
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>        42 B  03 40 31 00 00 57 57 44 50 01 …
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>← Ok({ steps: 11, resumed: false, resume_from: 0 })
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        13 B  03 80 80 0b 00 00 00 00 00 00 …
 </span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>→ stage.erase(index: 0, block: 0)
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>        10 B  04 03 20 00 00 00 00 00 00 02
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>        11 B  04 40 32 00 00 00 00 00 00 00 …
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>← Ok(())
 </span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>         3 B  04 80 80
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>→ stage.erase(index: 1, block: 1)
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        10 B  05 03 20 01 00 00 00 01 00 02
+</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>        11 B  05 40 32 00 01 00 00 00 01 00 …
 </span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>← Ok(())
 </span><span id="__span-1-25"><a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>         3 B  05 80 80
 </span><span id="__span-1-26"><a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>→ stage.erase(index: 2, block: 2)
-</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        10 B  06 03 20 02 00 00 00 02 00 02
+</span><span id="__span-1-27"><a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>        11 B  06 40 32 00 02 00 00 00 02 00 …
 </span><span id="__span-1-28"><a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a>← Ok(())
 </span><span id="__span-1-29"><a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a>         3 B  06 80 80
 </span><span id="__span-1-30"><a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a>→ stage.erase(index: 3, block: 3)
-</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        10 B  07 03 20 03 00 00 00 03 00 02
+</span><span id="__span-1-31"><a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a>        11 B  07 40 32 00 03 00 00 00 03 00 …
 </span><span id="__span-1-32"><a id="__codelineno-1-32" name="__codelineno-1-32" href="#__codelineno-1-32"></a>← Ok(())
 </span><span id="__span-1-33"><a id="__codelineno-1-33" name="__codelineno-1-33" href="#__codelineno-1-33"></a>         3 B  07 80 80
 </span><span id="__span-1-34"><a id="__codelineno-1-34" name="__codelineno-1-34" href="#__codelineno-1-34"></a>→ stage.write(index: 4, dst: 0, hash: 2780790d97efcff7, offset: 0, data: [64 B: 46 57 02 00 00 00 …])
-</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        88 B  08 03 40 04 00 00 00 00 00 27 …
+</span><span id="__span-1-35"><a id="__codelineno-1-35" name="__codelineno-1-35" href="#__codelineno-1-35"></a>        89 B  08 40 34 00 04 00 00 00 00 00 …
 </span><span id="__span-1-36"><a id="__codelineno-1-36" name="__codelineno-1-36" href="#__codelineno-1-36"></a>← Ok(())
 </span><span id="__span-1-37"><a id="__codelineno-1-37" name="__codelineno-1-37" href="#__codelineno-1-37"></a>         3 B  08 80 80
 </span><span id="__span-1-38"><a id="__codelineno-1-38" name="__codelineno-1-38" href="#__codelineno-1-38"></a>→ stage.copy(index: 5, dst: 1, src: 1, hash: 3ce293643207b87c)
-</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>        20 B  09 03 30 05 00 00 00 01 00 01 …
+</span><span id="__span-1-39"><a id="__codelineno-1-39" name="__codelineno-1-39" href="#__codelineno-1-39"></a>        21 B  09 40 33 00 05 00 00 00 01 00 …
 </span><span id="__span-1-40"><a id="__codelineno-1-40" name="__codelineno-1-40" href="#__codelineno-1-40"></a>← Ok(())
 </span><span id="__span-1-41"><a id="__codelineno-1-41" name="__codelineno-1-41" href="#__codelineno-1-41"></a>         3 B  09 80 80
 </span><span id="__span-1-42"><a id="__codelineno-1-42" name="__codelineno-1-42" href="#__codelineno-1-42"></a>→ stage.write(index: 6, dst: 2, hash: edcc83d5b3974a90, offset: 0, data: [64 B: 61 70 70 20 76 32 …])
-</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>        88 B  0a 03 40 06 00 00 00 02 00 ed …
+</span><span id="__span-1-43"><a id="__codelineno-1-43" name="__codelineno-1-43" href="#__codelineno-1-43"></a>        89 B  0a 40 34 00 06 00 00 00 02 00 …
 </span><span id="__span-1-44"><a id="__codelineno-1-44" name="__codelineno-1-44" href="#__codelineno-1-44"></a>← Ok(())
 </span><span id="__span-1-45"><a id="__codelineno-1-45" name="__codelineno-1-45" href="#__codelineno-1-45"></a>         3 B  0a 80 80
 </span><span id="__span-1-46"><a id="__codelineno-1-46" name="__codelineno-1-46" href="#__codelineno-1-46"></a>→ stage.copy(index: 7, dst: 3, src: 5, hash: 1ec70fb257d1befc)
-</span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>        20 B  0b 03 30 07 00 00 00 03 00 05 …
+</span><span id="__span-1-47"><a id="__codelineno-1-47" name="__codelineno-1-47" href="#__codelineno-1-47"></a>        21 B  0b 40 33 00 07 00 00 00 03 00 …
 </span><span id="__span-1-48"><a id="__codelineno-1-48" name="__codelineno-1-48" href="#__codelineno-1-48"></a>← Ok(())
 </span><span id="__span-1-49"><a id="__codelineno-1-49" name="__codelineno-1-49" href="#__codelineno-1-49"></a>         3 B  0b 80 80
 </span><span id="__span-1-50"><a id="__codelineno-1-50" name="__codelineno-1-50" href="#__codelineno-1-50"></a>→ stage.copy(index: 8, dst: 4, src: 4, hash: a809c61b42942960)
-</span><span id="__span-1-51"><a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>        20 B  0c 03 30 08 00 00 00 04 00 04 …
+</span><span id="__span-1-51"><a id="__codelineno-1-51" name="__codelineno-1-51" href="#__codelineno-1-51"></a>        21 B  0c 40 33 00 08 00 00 00 04 00 …
 </span><span id="__span-1-52"><a id="__codelineno-1-52" name="__codelineno-1-52" href="#__codelineno-1-52"></a>← Ok(())
 </span><span id="__span-1-53"><a id="__codelineno-1-53" name="__codelineno-1-53" href="#__codelineno-1-53"></a>         3 B  0c 80 80
 </span><span id="__span-1-54"><a id="__codelineno-1-54" name="__codelineno-1-54" href="#__codelineno-1-54"></a>→ stage.write(index: 9, dst: 5, hash: 3bf9a7bd49c0f887, offset: 0, data: [64 B: 6e 65 74 20 76 32 …])
-</span><span id="__span-1-55"><a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>        88 B  0d 03 40 09 00 00 00 05 00 3b …
+</span><span id="__span-1-55"><a id="__codelineno-1-55" name="__codelineno-1-55" href="#__codelineno-1-55"></a>        89 B  0d 40 34 00 09 00 00 00 05 00 …
 </span><span id="__span-1-56"><a id="__codelineno-1-56" name="__codelineno-1-56" href="#__codelineno-1-56"></a>← Ok(())
 </span><span id="__span-1-57"><a id="__codelineno-1-57" name="__codelineno-1-57" href="#__codelineno-1-57"></a>         3 B  0d 80 80
 </span><span id="__span-1-58"><a id="__codelineno-1-58" name="__codelineno-1-58" href="#__codelineno-1-58"></a>→ stage.write(index: 10, dst: 6, hash: d18f7ce680781257, offset: 0, data: [64 B: 6f 74 61 94 9a 86 …])
-</span><span id="__span-1-59"><a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>        88 B  0e 03 40 0a 00 00 00 06 00 d1 …
+</span><span id="__span-1-59"><a id="__codelineno-1-59" name="__codelineno-1-59" href="#__codelineno-1-59"></a>        89 B  0e 40 34 00 0a 00 00 00 06 00 …
 </span><span id="__span-1-60"><a id="__codelineno-1-60" name="__codelineno-1-60" href="#__codelineno-1-60"></a>← Ok(())
 </span><span id="__span-1-61"><a id="__codelineno-1-61" name="__codelineno-1-61" href="#__codelineno-1-61"></a>         3 B  0e 80 80
 </span><span id="__span-1-62"><a id="__codelineno-1-62" name="__codelineno-1-62" href="#__codelineno-1-62"></a>   ── host resends step 5 as if its reply was lost: skipped
 </span><span id="__span-1-63"><a id="__codelineno-1-63" name="__codelineno-1-63" href="#__codelineno-1-63"></a>→ stage.copy(index: 5, dst: 1, src: 1, hash: 3ce293643207b87c)
-</span><span id="__span-1-64"><a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a>        20 B  0f 03 30 05 00 00 00 01 00 01 …
+</span><span id="__span-1-64"><a id="__codelineno-1-64" name="__codelineno-1-64" href="#__codelineno-1-64"></a>        21 B  0f 40 33 00 05 00 00 00 01 00 …
 </span><span id="__span-1-65"><a id="__codelineno-1-65" name="__codelineno-1-65" href="#__codelineno-1-65"></a>← Ok(())
 </span><span id="__span-1-66"><a id="__codelineno-1-66" name="__codelineno-1-66" href="#__codelineno-1-66"></a>         3 B  0f 80 80
 </span><span id="__span-1-67"><a id="__codelineno-1-67" name="__codelineno-1-67" href="#__codelineno-1-67"></a>→ stage.finish()
-</span><span id="__span-1-68"><a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a>         4 B  10 03 60 02
+</span><span id="__span-1-68"><a id="__codelineno-1-68" name="__codelineno-1-68" href="#__codelineno-1-68"></a>         5 B  10 40 36 00 02
 </span><span id="__span-1-69"><a id="__codelineno-1-69" name="__codelineno-1-69" href="#__codelineno-1-69"></a>← Ok(Staged)
 </span><span id="__span-1-70"><a id="__codelineno-1-70" name="__codelineno-1-70" href="#__codelineno-1-70"></a>         3 B  10 80 82
 </span><span id="__span-1-71"><a id="__codelineno-1-71" name="__codelineno-1-71" href="#__codelineno-1-71"></a>→ boot.reboot(into: App)
-</span><span id="__span-1-72"><a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a>         5 B  11 01 30 00 02
+</span><span id="__span-1-72"><a id="__codelineno-1-72" name="__codelineno-1-72" href="#__codelineno-1-72"></a>         6 B  11 40 13 00 00 02
 </span><span id="__span-1-73"><a id="__codelineno-1-73" name="__codelineno-1-73" href="#__codelineno-1-73"></a>← Ok(())
 </span><span id="__span-1-74"><a id="__codelineno-1-74" name="__codelineno-1-74" href="#__codelineno-1-74"></a>         3 B  11 80 80
 </span><span id="__span-1-75"><a id="__codelineno-1-75" name="__codelineno-1-75" href="#__codelineno-1-75"></a>← Disconnect(RequestByUser)
@@ -5635,18 +5635,18 @@ packets.</p>
 </span><span id="__span-1-80"><a id="__codelineno-1-80" name="__codelineno-1-80" href="#__codelineno-1-80"></a>   ── host reconnects to the same device
 </span><span id="__span-1-81"><a id="__codelineno-1-81" name="__codelineno-1-81" href="#__codelineno-1-81"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-1-82"><a id="__codelineno-1-82" name="__codelineno-1-82" href="#__codelineno-1-82"></a>→ node.node()
-</span><span id="__span-1-83"><a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a>         4 B  01 00 00 02
+</span><span id="__span-1-83"><a id="__codelineno-1-83" name="__codelineno-1-83" href="#__codelineno-1-83"></a>         5 B  01 40 00 00 02
 </span><span id="__span-1-84"><a id="__codelineno-1-84" name="__codelineno-1-84" href="#__codelineno-1-84"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-1-85"><a id="__codelineno-1-85" name="__codelineno-1-85" href="#__codelineno-1-85"></a>      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
 </span><span id="__span-1-86"><a id="__codelineno-1-86" name="__codelineno-1-86" href="#__codelineno-1-86"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
 </span><span id="__span-1-87"><a id="__codelineno-1-87" name="__codelineno-1-87" href="#__codelineno-1-87"></a>      stage: true, stage_bulk: true } }
 </span><span id="__span-1-88"><a id="__codelineno-1-88" name="__codelineno-1-88" href="#__codelineno-1-88"></a>        46 B  01 80 00 00 73 69 6d 2d 64 66 …
 </span><span id="__span-1-89"><a id="__codelineno-1-89" name="__codelineno-1-89" href="#__codelineno-1-89"></a>→ boot.confirm()
-</span><span id="__span-1-90"><a id="__codelineno-1-90" name="__codelineno-1-90" href="#__codelineno-1-90"></a>         4 B  02 01 10 02
+</span><span id="__span-1-90"><a id="__codelineno-1-90" name="__codelineno-1-90" href="#__codelineno-1-90"></a>         5 B  02 40 11 00 02
 </span><span id="__span-1-91"><a id="__codelineno-1-91" name="__codelineno-1-91" href="#__codelineno-1-91"></a>← Ok(())
 </span><span id="__span-1-92"><a id="__codelineno-1-92" name="__codelineno-1-92" href="#__codelineno-1-92"></a>         3 B  02 80 80
 </span><span id="__span-1-93"><a id="__codelineno-1-93" name="__codelineno-1-93" href="#__codelineno-1-93"></a>→ node.node()
-</span><span id="__span-1-94"><a id="__codelineno-1-94" name="__codelineno-1-94" href="#__codelineno-1-94"></a>         4 B  03 00 00 02
+</span><span id="__span-1-94"><a id="__codelineno-1-94" name="__codelineno-1-94" href="#__codelineno-1-94"></a>         5 B  03 40 00 00 02
 </span><span id="__span-1-95"><a id="__codelineno-1-95" name="__codelineno-1-95" href="#__codelineno-1-95"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-1-96"><a id="__codelineno-1-96" name="__codelineno-1-96" href="#__codelineno-1-96"></a>      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
 </span><span id="__span-1-97"><a id="__codelineno-1-97" name="__codelineno-1-97" href="#__codelineno-1-97"></a>      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
@@ -5654,86 +5654,85 @@ packets.</p>
 </span><span id="__span-1-99"><a id="__codelineno-1-99" name="__codelineno-1-99" href="#__codelineno-1-99"></a>        46 B  03 80 00 00 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 45 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 44 USB packets (full speed, 64 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>   ── device runs the app
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>→    6 B  05 01 40 00 00 02
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>←   48 B  08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>→    5 B  04 02 03 00 02
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>→    6 B  05 02 40 30 00 02
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>←   15 B  08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>→   43 B  08 29 03 03 10 00 57 57 44 50 01 92 10 00 00 02
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>          00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c c3
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>          5d c1 92 3c 26 b1 01 e5 86 3c 02
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>→   44 B  08 2a 03 40 31 00 00 57 57 44 50 01 92 10 00 00
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>          02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>          c3 5d c1 92 3c 26 b1 01 e5 86 3c 02
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>→   12 B  08 0a 04 03 20 00 00 00 00 00 00 02
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>→   13 B  08 0b 04 40 32 00 00 00 00 00 00 00 02
 </span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>←    4 B  03 04 80 80
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>→   12 B  08 0a 05 03 20 01 00 00 00 01 00 02
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>→   13 B  08 0b 05 40 32 00 01 00 00 00 01 00 02
 </span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>←    4 B  03 05 80 80
-</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>→   12 B  08 0a 06 03 20 02 00 00 00 02 00 02
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>→   13 B  08 0b 06 40 32 00 02 00 00 00 02 00 02
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>←    4 B  03 06 80 80
-</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>→   12 B  08 0a 07 03 20 03 00 00 00 03 00 02
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>→   13 B  08 0b 07 40 32 00 03 00 00 00 03 00 02
 </span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>←    4 B  03 07 80 80
-</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>→   64 B  48 58 08 03 40 04 00 00 00 00 00 27 80 79 0d 97
-</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>          ef cf f7 00 00 00 00 46 57 02 00 00 00 2f 86 5d
-</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>          24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d
-</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>          54 0c 01 ff 97 77 ce a5 6c 24 19 17 af 8f e6 bd
-</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>→   28 B  c8 1a 84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df bf
-</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>          16 ed b4 6c 61 5f f7 d7 2e 00 89 02
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>→   64 B  48 59 08 40 34 00 04 00 00 00 00 00 27 80 79 0d
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>          97 ef cf f7 00 00 00 00 46 57 02 00 00 00 2f 86
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>          5d 24 dc d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>          8d 54 0c 01 ff 97 77 ce a5 6c 24 19 17 af 8f e6
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>→   29 B  c8 1b bd 84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>          bf 16 ed b4 6c 61 5f f7 d7 2e 00 89 02
 </span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>←    4 B  03 08 80 80
-</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>→   22 B  08 14 09 03 30 05 00 00 00 01 00 01 00 3c e2 93
-</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>          64 32 07 b8 7c 02
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>→   23 B  08 15 09 40 33 00 05 00 00 00 01 00 01 00 3c e2
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>          93 64 32 07 b8 7c 02
 </span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>←    4 B  03 09 80 80
-</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>→   64 B  48 58 0a 03 40 06 00 00 00 02 00 ed cc 83 d5 b3
-</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>          97 4a 90 00 00 00 00 61 70 70 20 76 32 11 db 28
-</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>          16 4c de 9f 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
-</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>          46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
-</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>→   28 B  c8 1a 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1
-</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>          6b b8 a6 dc 6e 2f b8 b9 83 00 89 02
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>→   64 B  48 59 0a 40 34 00 06 00 00 00 02 00 ed cc 83 d5
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>          b3 97 4a 90 00 00 00 00 61 70 70 20 76 32 11 db
+</span><span id="__span-2-32"><a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>          28 16 4c de 9f 28 29 f3 40 2e 64 f6 b7 40 41 0b
+</span><span id="__span-2-33"><a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>          58 46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b
+</span><span id="__span-2-34"><a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>→   29 B  c8 1b 88 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0
+</span><span id="__span-2-35"><a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>          a1 6b b8 a6 dc 6e 2f b8 b9 83 00 89 02
 </span><span id="__span-2-36"><a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>←    4 B  03 0a 80 80
-</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>→   22 B  08 14 0b 03 30 07 00 00 00 03 00 05 00 1e c7 0f
-</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>          b2 57 d1 be fc 02
+</span><span id="__span-2-37"><a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>→   23 B  08 15 0b 40 33 00 07 00 00 00 03 00 05 00 1e c7
+</span><span id="__span-2-38"><a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a>          0f b2 57 d1 be fc 02
 </span><span id="__span-2-39"><a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a>←    4 B  03 0b 80 80
-</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>→   22 B  08 14 0c 03 30 08 00 00 00 04 00 04 00 a8 09 c6
-</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>          1b 42 94 29 60 02
+</span><span id="__span-2-40"><a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a>→   23 B  08 15 0c 40 33 00 08 00 00 00 04 00 04 00 a8 09
+</span><span id="__span-2-41"><a id="__codelineno-2-41" name="__codelineno-2-41" href="#__codelineno-2-41"></a>          c6 1b 42 94 29 60 02
 </span><span id="__span-2-42"><a id="__codelineno-2-42" name="__codelineno-2-42" href="#__codelineno-2-42"></a>←    4 B  03 0c 80 80
-</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>→   64 B  48 58 0d 03 40 09 00 00 00 05 00 3b f9 a7 bd 49
-</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>          c0 f8 87 00 00 00 00 6e 65 74 20 76 32 87 6d 7c
-</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>          5d 3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac
-</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>          8d 6c 95 a5 54 cf b5 c4 a5 84 ad bd 6c e7 cd dc
-</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a>→   28 B  c8 1a bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17
-</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>          fd 0c ed cc f5 05 b4 2f 15 00 89 02
+</span><span id="__span-2-43"><a id="__codelineno-2-43" name="__codelineno-2-43" href="#__codelineno-2-43"></a>→   64 B  48 59 0d 40 34 00 09 00 00 00 05 00 3b f9 a7 bd
+</span><span id="__span-2-44"><a id="__codelineno-2-44" name="__codelineno-2-44" href="#__codelineno-2-44"></a>          49 c0 f8 87 00 00 00 00 6e 65 74 20 76 32 87 6d
+</span><span id="__span-2-45"><a id="__codelineno-2-45" name="__codelineno-2-45" href="#__codelineno-2-45"></a>          7c 5d 3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d
+</span><span id="__span-2-46"><a id="__codelineno-2-46" name="__codelineno-2-46" href="#__codelineno-2-46"></a>          ac 8d 6c 95 a5 54 cf b5 c4 a5 84 ad bd 6c e7 cd
+</span><span id="__span-2-47"><a id="__codelineno-2-47" name="__codelineno-2-47" href="#__codelineno-2-47"></a>→   29 B  c8 1b dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c
+</span><span id="__span-2-48"><a id="__codelineno-2-48" name="__codelineno-2-48" href="#__codelineno-2-48"></a>          17 fd 0c ed cc f5 05 b4 2f 15 00 89 02
 </span><span id="__span-2-49"><a id="__codelineno-2-49" name="__codelineno-2-49" href="#__codelineno-2-49"></a>←    4 B  03 0d 80 80
-</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>→   64 B  48 58 0e 03 40 0a 00 00 00 06 00 d1 8f 7c e6 80
-</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>          78 12 57 00 00 00 00 6f 74 61 94 9a 86 af 33 c8
-</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>          a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8
-</span><span id="__span-2-53"><a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>          d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28
-</span><span id="__span-2-54"><a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a>→   28 B  c8 1a 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f
-</span><span id="__span-2-55"><a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>          c3 58 36 7a 3c 42 2e 57 db 00 89 02
+</span><span id="__span-2-50"><a id="__codelineno-2-50" name="__codelineno-2-50" href="#__codelineno-2-50"></a>→   64 B  48 59 0e 40 34 00 0a 00 00 00 06 00 d1 8f 7c e6
+</span><span id="__span-2-51"><a id="__codelineno-2-51" name="__codelineno-2-51" href="#__codelineno-2-51"></a>          80 78 12 57 00 00 00 00 6f 74 61 94 9a 86 af 33
+</span><span id="__span-2-52"><a id="__codelineno-2-52" name="__codelineno-2-52" href="#__codelineno-2-52"></a>          c8 a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63
+</span><span id="__span-2-53"><a id="__codelineno-2-53" name="__codelineno-2-53" href="#__codelineno-2-53"></a>          f8 d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93
+</span><span id="__span-2-54"><a id="__codelineno-2-54" name="__codelineno-2-54" href="#__codelineno-2-54"></a>→   29 B  c8 1b 28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16
+</span><span id="__span-2-55"><a id="__codelineno-2-55" name="__codelineno-2-55" href="#__codelineno-2-55"></a>          3f c3 58 36 7a 3c 42 2e 57 db 00 89 02
 </span><span id="__span-2-56"><a id="__codelineno-2-56" name="__codelineno-2-56" href="#__codelineno-2-56"></a>←    4 B  03 0e 80 80
 </span><span id="__span-2-57"><a id="__codelineno-2-57" name="__codelineno-2-57" href="#__codelineno-2-57"></a>   ── host resends step 5 as if its reply was lost: skipped
-</span><span id="__span-2-58"><a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a>→   22 B  08 14 0f 03 30 05 00 00 00 01 00 01 00 3c e2 93
-</span><span id="__span-2-59"><a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>          64 32 07 b8 7c 02
+</span><span id="__span-2-58"><a id="__codelineno-2-58" name="__codelineno-2-58" href="#__codelineno-2-58"></a>→   23 B  08 15 0f 40 33 00 05 00 00 00 01 00 01 00 3c e2
+</span><span id="__span-2-59"><a id="__codelineno-2-59" name="__codelineno-2-59" href="#__codelineno-2-59"></a>          93 64 32 07 b8 7c 02
 </span><span id="__span-2-60"><a id="__codelineno-2-60" name="__codelineno-2-60" href="#__codelineno-2-60"></a>←    4 B  03 0f 80 80
-</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>→    5 B  04 10 03 60 02
+</span><span id="__span-2-61"><a id="__codelineno-2-61" name="__codelineno-2-61" href="#__codelineno-2-61"></a>→    6 B  05 10 40 36 00 02
 </span><span id="__span-2-62"><a id="__codelineno-2-62" name="__codelineno-2-62" href="#__codelineno-2-62"></a>←    4 B  03 10 80 82
-</span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>→    6 B  05 11 01 30 00 02
-</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>←    4 B  03 11 80 80
-</span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>←    3 B  30 c1 02
-</span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>   ── device resets (into the app)
-</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
-</span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>   ── device runs the app
-</span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>   ── host reconnects to the same device
-</span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-2-71"><a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a>←   48 B  08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-2-72"><a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a>          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
-</span><span id="__span-2-73"><a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a>          73 03 0c 91 c1 ef 0d 30 00 00 00 00 00 f0 01 57
-</span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>→    5 B  04 02 01 10 02
-</span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>←    4 B  03 02 80 80
-</span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>→    5 B  04 03 00 00 02
-</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>←   48 B  08 2e 03 80 00 00 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
-</span><span id="__span-2-79"><a id="__codelineno-2-79" name="__codelineno-2-79" href="#__codelineno-2-79"></a>          73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01 57
+</span><span id="__span-2-63"><a id="__codelineno-2-63" name="__codelineno-2-63" href="#__codelineno-2-63"></a>→    7 B  06 11 40 13 00 00 02
+</span><span id="__span-2-64"><a id="__codelineno-2-64" name="__codelineno-2-64" href="#__codelineno-2-64"></a>←    7 B  03 11 80 80 30 c1 02
+</span><span id="__span-2-65"><a id="__codelineno-2-65" name="__codelineno-2-65" href="#__codelineno-2-65"></a>   ── device resets (into the app)
+</span><span id="__span-2-66"><a id="__codelineno-2-66" name="__codelineno-2-66" href="#__codelineno-2-66"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
+</span><span id="__span-2-67"><a id="__codelineno-2-67" name="__codelineno-2-67" href="#__codelineno-2-67"></a>   ── device runs the app
+</span><span id="__span-2-68"><a id="__codelineno-2-68" name="__codelineno-2-68" href="#__codelineno-2-68"></a>   ── host reconnects to the same device
+</span><span id="__span-2-69"><a id="__codelineno-2-69" name="__codelineno-2-69" href="#__codelineno-2-69"></a>→    6 B  05 01 40 00 00 02
+</span><span id="__span-2-70"><a id="__codelineno-2-70" name="__codelineno-2-70" href="#__codelineno-2-70"></a>←   48 B  08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-2-71"><a id="__codelineno-2-71" name="__codelineno-2-71" href="#__codelineno-2-71"></a>          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
+</span><span id="__span-2-72"><a id="__codelineno-2-72" name="__codelineno-2-72" href="#__codelineno-2-72"></a>          73 03 0c 91 c1 ef 0d 30 00 00 00 00 00 f0 01 57
+</span><span id="__span-2-73"><a id="__codelineno-2-73" name="__codelineno-2-73" href="#__codelineno-2-73"></a>→    6 B  05 02 40 11 00 02
+</span><span id="__span-2-74"><a id="__codelineno-2-74" name="__codelineno-2-74" href="#__codelineno-2-74"></a>←    4 B  03 02 80 80
+</span><span id="__span-2-75"><a id="__codelineno-2-75" name="__codelineno-2-75" href="#__codelineno-2-75"></a>→    6 B  05 03 40 00 00 02
+</span><span id="__span-2-76"><a id="__codelineno-2-76" name="__codelineno-2-76" href="#__codelineno-2-76"></a>←   48 B  08 2e 03 80 00 00 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-2-77"><a id="__codelineno-2-77" name="__codelineno-2-77" href="#__codelineno-2-77"></a>          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
+</span><span id="__span-2-78"><a id="__codelineno-2-78" name="__codelineno-2-78" href="#__codelineno-2-78"></a>          73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 <h2 id="2c-app-bulk-swap-freight">2C-APP-BULK: Swap Freight<a class="headerlink" href="#2c-app-bulk-swap-freight" title="Permanent link">&para;</a></h2>
@@ -5778,34 +5777,34 @@ session at segment 3, gets one <code>Complete</code>, finishes, reboots and conf
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>   ── device runs the app
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>→ node.node()
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>         4 B  01 00 00 02
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>         5 B  01 40 00 00 02
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>      stage: true, stage_bulk: true } }
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        46 B  01 80 00 00 73 69 6d 2d 64 66 …
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>→ stage.limits()
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>         4 B  02 03 00 02
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>         5 B  02 40 30 00 02
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>        13 B  02 80 40 00 00 00 01 80 00 00 …
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>→ bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        49 B  03 04 00 00 57 57 44 50 01 92 …
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        50 B  03 40 40 00 00 57 57 44 50 01 …
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>← Ok({ steps: 11, resumed: false, resume_from: 0 })
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>        13 B  03 80 80 0b 00 00 00 00 00 00 …
 </span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>→ bulk.plan: open its session at 0
-</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>         8 B  04 04 18 80 01 00 00 02
+</span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>         8 B  04 40 41 88 01 00 00 02
 </span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>← bulk.plan: ack: have 0 units, may send 2062 more bytes
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>         8 B  00 83 41 50 00 90 0e 02
 </span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>← bulk.plan: opened at 0, buffer of 2062 bytes
 </span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a>         9 B  04 80 01 00 00 40 90 0e 00
 </span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>        75 B  00 04 1a 00 00 00 00 00 01 00 …
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>        76 B  00 40 41 a0 00 00 00 00 00 01 …
 </span><span id="__span-4-26"><a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 1, 1 unit)
-</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        75 B  00 04 1a 01 40 00 00 00 e6 bd …
+</span><span id="__span-4-27"><a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a>        76 B  00 40 41 a0 01 40 00 00 00 e6 …
 </span><span id="__span-4-28"><a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 2, 1 unit)
-</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        75 B  00 04 1a 02 80 00 00 00 28 29 …
+</span><span id="__span-4-29"><a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a>        76 B  00 40 41 a0 02 80 00 00 00 28 …
 </span><span id="__span-4-30"><a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a>→ bulk.plan: query: sent 3 units
-</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>         6 B  05 04 16 70 03 02
+</span><span id="__span-4-31"><a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a>         7 B  05 40 41 67 00 03 02
 </span><span id="__span-4-32"><a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a>← bulk.plan: ack: have 3 units, may send 2062 more bytes
 </span><span id="__span-4-33"><a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a>         8 B  05 83 41 50 03 90 0e 02
 </span><span id="__span-4-34"><a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>   ── host restarts; the device keeps its session
@@ -5813,38 +5812,38 @@ session at segment 3, gets one <code>Complete</code>, finishes, reboots and conf
 </span><span id="__span-4-36"><a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a>         1 B  02
 </span><span id="__span-4-37"><a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-38"><a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a>→ bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
-</span><span id="__span-4-39"><a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>        49 B  01 04 00 00 57 57 44 50 01 92 …
+</span><span id="__span-4-39"><a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a>        50 B  01 40 40 00 00 57 57 44 50 01 …
 </span><span id="__span-4-40"><a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a>← Ok({ steps: 11, resumed: true, resume_from: 192 })
 </span><span id="__span-4-41"><a id="__codelineno-4-41" name="__codelineno-4-41" href="#__codelineno-4-41"></a>        13 B  01 80 80 0b 00 00 00 80 c0 00 …
 </span><span id="__span-4-42"><a id="__codelineno-4-42" name="__codelineno-4-42" href="#__codelineno-4-42"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
-</span><span id="__span-4-43"><a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>         5 B  02 04 28 00 02
+</span><span id="__span-4-43"><a id="__codelineno-4-43" name="__codelineno-4-43" href="#__codelineno-4-43"></a>         5 B  02 40 42 80 02
 </span><span id="__span-4-44"><a id="__codelineno-4-44" name="__codelineno-4-44" href="#__codelineno-4-44"></a>← ()
 </span><span id="__span-4-45"><a id="__codelineno-4-45" name="__codelineno-4-45" href="#__codelineno-4-45"></a>         6 B  02 80 00 00 00 00
 </span><span id="__span-4-46"><a id="__codelineno-4-46" name="__codelineno-4-46" href="#__codelineno-4-46"></a>   ── the plan sink continues its session where the device is
 </span><span id="__span-4-47"><a id="__codelineno-4-47" name="__codelineno-4-47" href="#__codelineno-4-47"></a>→ bulk.plan: open its session at 3
-</span><span id="__span-4-48"><a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>         8 B  03 04 18 80 01 03 00 02
+</span><span id="__span-4-48"><a id="__codelineno-4-48" name="__codelineno-4-48" href="#__codelineno-4-48"></a>         8 B  03 40 41 88 01 03 00 02
 </span><span id="__span-4-49"><a id="__codelineno-4-49" name="__codelineno-4-49" href="#__codelineno-4-49"></a>← bulk.plan: ack: have 3 units, may send 2062 more bytes
 </span><span id="__span-4-50"><a id="__codelineno-4-50" name="__codelineno-4-50" href="#__codelineno-4-50"></a>         8 B  00 83 41 50 03 90 0e 02
 </span><span id="__span-4-51"><a id="__codelineno-4-51" name="__codelineno-4-51" href="#__codelineno-4-51"></a>← bulk.plan: opened at 3, buffer of 2062 bytes
 </span><span id="__span-4-52"><a id="__codelineno-4-52" name="__codelineno-4-52" href="#__codelineno-4-52"></a>         9 B  03 80 01 03 03 40 90 0e 00
 </span><span id="__span-4-53"><a id="__codelineno-4-53" name="__codelineno-4-53" href="#__codelineno-4-53"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 3, 1 unit)
-</span><span id="__span-4-54"><a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>        75 B  00 04 1a 03 c0 00 00 00 02 04 …
+</span><span id="__span-4-54"><a id="__codelineno-4-54" name="__codelineno-4-54" href="#__codelineno-4-54"></a>        76 B  00 40 41 a0 03 c0 00 00 00 02 …
 </span><span id="__span-4-55"><a id="__codelineno-4-55" name="__codelineno-4-55" href="#__codelineno-4-55"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 4, 1 unit)
-</span><span id="__span-4-56"><a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>        75 B  00 04 1a 04 00 01 00 00 e7 cd …
+</span><span id="__span-4-56"><a id="__codelineno-4-56" name="__codelineno-4-56" href="#__codelineno-4-56"></a>        76 B  00 40 41 a0 04 00 01 00 00 e7 …
 </span><span id="__span-4-57"><a id="__codelineno-4-57" name="__codelineno-4-57" href="#__codelineno-4-57"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 5, 1 unit)
-</span><span id="__span-4-58"><a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>        49 B  00 04 1a 05 40 01 00 00 d6 1a …
+</span><span id="__span-4-58"><a id="__codelineno-4-58" name="__codelineno-4-58" href="#__codelineno-4-58"></a>        50 B  00 40 41 a0 05 40 01 00 00 d6 …
 </span><span id="__span-4-59"><a id="__codelineno-4-59" name="__codelineno-4-59" href="#__codelineno-4-59"></a>← bulk.plan_ack ⇒ { have: 359, status: Complete }
 </span><span id="__span-4-60"><a id="__codelineno-4-60" name="__codelineno-4-60" href="#__codelineno-4-60"></a>         9 B  00 82 42 67 01 00 00 20 02
 </span><span id="__span-4-61"><a id="__codelineno-4-61" name="__codelineno-4-61" href="#__codelineno-4-61"></a>→ bulk.plan: query: sent 6 units
-</span><span id="__span-4-62"><a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>         6 B  04 04 16 70 06 02
+</span><span id="__span-4-62"><a id="__codelineno-4-62" name="__codelineno-4-62" href="#__codelineno-4-62"></a>         7 B  04 40 41 67 00 06 02
 </span><span id="__span-4-63"><a id="__codelineno-4-63" name="__codelineno-4-63" href="#__codelineno-4-63"></a>← bulk.plan: ack: have 6 units, may send 2062 more bytes
 </span><span id="__span-4-64"><a id="__codelineno-4-64" name="__codelineno-4-64" href="#__codelineno-4-64"></a>         8 B  04 83 41 50 06 90 0e 02
 </span><span id="__span-4-65"><a id="__codelineno-4-65" name="__codelineno-4-65" href="#__codelineno-4-65"></a>→ stage.finish()
-</span><span id="__span-4-66"><a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a>         4 B  05 03 60 02
+</span><span id="__span-4-66"><a id="__codelineno-4-66" name="__codelineno-4-66" href="#__codelineno-4-66"></a>         5 B  05 40 36 00 02
 </span><span id="__span-4-67"><a id="__codelineno-4-67" name="__codelineno-4-67" href="#__codelineno-4-67"></a>← Ok(Staged)
 </span><span id="__span-4-68"><a id="__codelineno-4-68" name="__codelineno-4-68" href="#__codelineno-4-68"></a>         3 B  05 80 82
 </span><span id="__span-4-69"><a id="__codelineno-4-69" name="__codelineno-4-69" href="#__codelineno-4-69"></a>→ boot.reboot(into: App)
-</span><span id="__span-4-70"><a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a>         5 B  06 01 30 00 02
+</span><span id="__span-4-70"><a id="__codelineno-4-70" name="__codelineno-4-70" href="#__codelineno-4-70"></a>         6 B  06 40 13 00 00 02
 </span><span id="__span-4-71"><a id="__codelineno-4-71" name="__codelineno-4-71" href="#__codelineno-4-71"></a>← Ok(())
 </span><span id="__span-4-72"><a id="__codelineno-4-72" name="__codelineno-4-72" href="#__codelineno-4-72"></a>         3 B  06 80 80
 </span><span id="__span-4-73"><a id="__codelineno-4-73" name="__codelineno-4-73" href="#__codelineno-4-73"></a>← Disconnect(RequestByUser)
@@ -5854,11 +5853,11 @@ session at segment 3, gets one <code>Complete</code>, finishes, reboots and conf
 </span><span id="__span-4-77"><a id="__codelineno-4-77" name="__codelineno-4-77" href="#__codelineno-4-77"></a>   ── device runs the app
 </span><span id="__span-4-78"><a id="__codelineno-4-78" name="__codelineno-4-78" href="#__codelineno-4-78"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-79"><a id="__codelineno-4-79" name="__codelineno-4-79" href="#__codelineno-4-79"></a>→ boot.confirm()
-</span><span id="__span-4-80"><a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>         4 B  01 01 10 02
+</span><span id="__span-4-80"><a id="__codelineno-4-80" name="__codelineno-4-80" href="#__codelineno-4-80"></a>         5 B  01 40 11 00 02
 </span><span id="__span-4-81"><a id="__codelineno-4-81" name="__codelineno-4-81" href="#__codelineno-4-81"></a>← Ok(())
 </span><span id="__span-4-82"><a id="__codelineno-4-82" name="__codelineno-4-82" href="#__codelineno-4-82"></a>         3 B  01 80 80
 </span><span id="__span-4-83"><a id="__codelineno-4-83" name="__codelineno-4-83" href="#__codelineno-4-83"></a>→ node.node()
-</span><span id="__span-4-84"><a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>         4 B  02 00 00 02
+</span><span id="__span-4-84"><a id="__codelineno-4-84" name="__codelineno-4-84" href="#__codelineno-4-84"></a>         5 B  02 40 00 00 02
 </span><span id="__span-4-85"><a id="__codelineno-4-85" name="__codelineno-4-85" href="#__codelineno-4-85"></a>← { role: App, profile: AB(Copy), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-4-86"><a id="__codelineno-4-86" name="__codelineno-4-86" href="#__codelineno-4-86"></a>      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
 </span><span id="__span-4-87"><a id="__codelineno-4-87" name="__codelineno-4-87" href="#__codelineno-4-87"></a>      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
@@ -5866,84 +5865,84 @@ session at segment 3, gets one <code>Complete</code>, finishes, reboots and conf
 </span><span id="__span-4-89"><a id="__codelineno-4-89" name="__codelineno-4-89" href="#__codelineno-4-89"></a>        46 B  02 80 00 00 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 28 UDP datagrams (link setup and pings left out)</summary>
+<summary>Wire bytes: 27 UDP datagrams (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>   ── device runs the app
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>→   10 B  03 04 01 00 00 02 84 73 64 94
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>→   11 B  03 05 01 40 00 00 02 f1 44 33 b4
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>←   53 B  03 08 2e 01 80 00 00 73 69 6d 2d 64 66 75 92 10
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>          00 00 01 00 00 00 08 01 00 00 00 01 00 00 00 80
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>          1d d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>          57 e8 8a 34 ed
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>→   10 B  04 04 02 03 00 02 8b 52 92 99
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>→   11 B  04 05 02 40 30 00 02 3f e5 5f 12
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>←   20 B  04 08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>          06 e4 55 c3
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>→   56 B  05 08 31 03 04 00 00 57 57 44 50 01 92 10 00 00
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>          02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>          c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>          00 00 3c 02 08 75 df 7d
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>→   57 B  05 08 32 03 40 40 00 00 57 57 44 50 01 92 10 00
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>          00 02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>          2c c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>          00 00 00 3c 02 a9 a3 1f f3
 </span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>←   20 B  05 08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
 </span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>          19 4f f6 d8
-</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>→   15 B  06 08 08 04 04 18 80 01 00 00 02 87 85 e9 53
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>→   15 B  06 08 08 04 40 41 88 01 00 00 02 13 c6 5c f8
 </span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>←   30 B  06 08 08 00 83 41 50 00 90 0e 02 7c 8b 4a e3 08
 </span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>          09 04 80 01 00 00 40 90 0e 00 21 bb 1a 82
-</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>→  255 B  07 08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01
-</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>          00 01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef
-</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>          cf f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1
-</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>          cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01
-</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>          ff 97 77 ce a5 6c 24 19 17 af 8f 00 89 02 a9 7e
-</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>          b2 41 08 4b 00 04 1a 01 40 00 00 00 e6 bd 84 3c
-</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>          31 2f c7 a7 fe d5 9c 54 49 47 df bf 16 ed b4 6c
-</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>          61 5f f7 d7 2e 02 01 00 01 00 3c e2 93 64 32 07
-</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>          b8 7c 03 02 00 ed cc 83 d5 b3 97 4a 90 40 00 61
-</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>          70 70 20 76 32 11 db 28 16 4c de 9f 00 89 02 b6
-</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>          70 60 a9 08 4b 00 04 1a 02 80 00 00 00 28 29 f3
-</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>          40 2e 64 f6 b7 40 41 0b 58 46 7c 0e cf 58 59 23
-</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>          70 5e 94 26 e7 70 71 3b 88 76 ac 3e ff 88 89 53
-</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>          a0 8e c4 56 17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83
-</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>          02 03 00 05 00 1e c7 0f b2 57 d1 be fc 00 89 02
-</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>          e6 8e 10 55 06 05 04 16 70 03 02 c5 86 da 4d
-</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>←   15 B  07 08 08 05 83 41 50 03 90 0e 02 36 f5 91 78
-</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>   ── host restarts; the device keeps its session
-</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>→    8 B  08 30 c1 02 40 95 74 fc
-</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>→   56 B  03 08 31 01 04 00 00 57 57 44 50 01 92 10 00 00
-</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>          02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c
-</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>          c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00
-</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>          00 00 3c 02 00 23 c5 17
-</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>←   20 B  0b 08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
-</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>          fa f0 8d 6f
-</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>→   11 B  04 05 02 04 28 00 02 9d d8 1c 14
-</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a>←   12 B  0c 06 02 80 00 00 00 00 85 ee 73 ad
-</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>   ── the plan sink continues its session where the device is
-</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>→   15 B  05 08 08 03 04 18 80 01 03 00 02 c6 54 88 c2
-</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>←   30 B  0d 08 08 00 83 41 50 03 90 0e 02 d6 a3 de d2 08
-</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>          09 03 80 01 03 03 40 90 0e 00 98 7a dd 56
-</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>→  229 B  06 08 4b 00 04 1a 03 c0 00 00 00 02 04 00 04 00
-</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>          a8 09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd 49
-</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>          c0 f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d 3c
-</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a>          65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac 8d 6c
-</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a>          95 a5 54 cf b5 c4 a5 84 ad bd 6c 00 89 02 28 ae
-</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a>          7e 89 08 4b 00 04 1a 04 00 01 00 00 e7 cd dc bd
-</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a>          9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd 0c ed
-</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a>          cc f5 05 b4 2f 15 03 06 00 d1 8f 7c e6 80 78 12
-</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>          57 40 00 6f 74 61 94 9a 86 af 33 c8 a6 ea ac b2
-</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>          9e c7 4b e0 be 02 c4 ca b6 df 63 f8 00 89 02 15
-</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>          34 8d 64 08 31 00 04 1a 05 40 01 00 00 d6 1a dc
-</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>          e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a 0c
-</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>          12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a 3c
-</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>          42 2e 57 db 7c 02 19 e5 f7 c3 06 04 04 16 70 06
-</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>          02 bb a1 5b 37
-</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>←   30 B  0e 08 09 00 82 42 67 01 00 00 20 02 d5 6a a3 45
-</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>          08 08 04 83 41 50 06 90 0e 02 1f 3b a8 f8
-</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>→   10 B  07 04 05 03 60 02 3b 73 2c e7
-</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>←    9 B  0f 03 05 80 82 8e 77 39 68
-</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>→   11 B  08 05 06 01 30 00 02 d3 16 d7 03
-</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>←    9 B  00 03 06 80 80 2a 3f 21 06
-</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>←    8 B  01 30 c1 02 ca da 7c 81
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>→  259 B  07 08 4c 00 40 41 a0 00 00 00 00 00 01 00 00 01
+</span><span id="__span-5-20"><a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a>          01 00 01 02 00 01 03 00 03 00 00 27 80 79 0d 97
+</span><span id="__span-5-21"><a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>          ef cf f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc
+</span><span id="__span-5-22"><a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a>          d1 cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c
+</span><span id="__span-5-23"><a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a>          01 ff 97 77 ce a5 6c 24 19 17 af 8f 00 89 02 f5
+</span><span id="__span-5-24"><a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a>          10 45 fa 08 4c 00 40 41 a0 01 40 00 00 00 e6 bd
+</span><span id="__span-5-25"><a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a>          84 3c 31 2f c7 a7 fe d5 9c 54 49 47 df bf 16 ed
+</span><span id="__span-5-26"><a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>          b4 6c 61 5f f7 d7 2e 02 01 00 01 00 3c e2 93 64
+</span><span id="__span-5-27"><a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a>          32 07 b8 7c 03 02 00 ed cc 83 d5 b3 97 4a 90 40
+</span><span id="__span-5-28"><a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a>          00 61 70 70 20 76 32 11 db 28 16 4c de 9f 00 89
+</span><span id="__span-5-29"><a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a>          02 ea 1e 97 12 08 4c 00 40 41 a0 02 80 00 00 00
+</span><span id="__span-5-30"><a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>          28 29 f3 40 2e 64 f6 b7 40 41 0b 58 46 7c 0e cf
+</span><span id="__span-5-31"><a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>          58 59 23 70 5e 94 26 e7 70 71 3b 88 76 ac 3e ff
+</span><span id="__span-5-32"><a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a>          88 89 53 a0 8e c4 56 17 a0 a1 6b b8 a6 dc 6e 2f
+</span><span id="__span-5-33"><a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>          b8 b9 83 02 03 00 05 00 1e c7 0f b2 57 d1 be fc
+</span><span id="__span-5-34"><a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a>          00 89 02 ba e0 e7 ee 07 05 40 41 67 00 03 02 19
+</span><span id="__span-5-35"><a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>          d9 8c d3
+</span><span id="__span-5-36"><a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>←   15 B  07 08 08 05 83 41 50 03 90 0e 02 36 f5 91 78
+</span><span id="__span-5-37"><a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>   ── host restarts; the device keeps its session
+</span><span id="__span-5-38"><a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>→    8 B  08 30 c1 02 40 95 74 fc
+</span><span id="__span-5-39"><a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>→   57 B  03 08 32 01 40 40 00 00 57 57 44 50 01 92 10 00
+</span><span id="__span-5-40"><a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>          00 02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00
+</span><span id="__span-5-41"><a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a>          2c c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00
+</span><span id="__span-5-42"><a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>          00 00 00 3c 02 cd 31 ae fd
+</span><span id="__span-5-43"><a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a>←   20 B  0b 08 0d 01 80 80 0b 00 00 00 80 c0 00 00 00 19
+</span><span id="__span-5-44"><a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>          fa f0 8d 6f
+</span><span id="__span-5-45"><a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a>→   11 B  04 05 02 40 42 80 02 4a c1 a9 7e
+</span><span id="__span-5-46"><a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>←   12 B  0c 06 02 80 00 00 00 00 85 ee 73 ad
+</span><span id="__span-5-47"><a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a>   ── the plan sink continues its session where the device is
+</span><span id="__span-5-48"><a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a>→   15 B  05 08 08 03 40 41 88 01 03 00 02 52 17 3d 69
+</span><span id="__span-5-49"><a id="__codelineno-5-49" name="__codelineno-5-49" href="#__codelineno-5-49"></a>←   30 B  0d 08 08 00 83 41 50 03 90 0e 02 d6 a3 de d2 08
+</span><span id="__span-5-50"><a id="__codelineno-5-50" name="__codelineno-5-50" href="#__codelineno-5-50"></a>          09 03 80 01 03 03 40 90 0e 00 98 7a dd 56
+</span><span id="__span-5-51"><a id="__codelineno-5-51" name="__codelineno-5-51" href="#__codelineno-5-51"></a>→  233 B  06 08 4c 00 40 41 a0 03 c0 00 00 00 02 04 00 04
+</span><span id="__span-5-52"><a id="__codelineno-5-52" name="__codelineno-5-52" href="#__codelineno-5-52"></a>          00 a8 09 c6 1b 42 94 29 60 03 05 00 3b f9 a7 bd
+</span><span id="__span-5-53"><a id="__codelineno-5-53" name="__codelineno-5-53" href="#__codelineno-5-53"></a>          49 c0 f8 87 40 00 6e 65 74 20 76 32 87 6d 7c 5d
+</span><span id="__span-5-54"><a id="__codelineno-5-54" name="__codelineno-5-54" href="#__codelineno-5-54"></a>          3c 65 75 24 9f 85 94 75 54 7d 8d 3c b7 9d ac 8d
+</span><span id="__span-5-55"><a id="__codelineno-5-55" name="__codelineno-5-55" href="#__codelineno-5-55"></a>          6c 95 a5 54 cf b5 c4 a5 84 ad bd 6c 00 89 02 00
+</span><span id="__span-5-56"><a id="__codelineno-5-56" name="__codelineno-5-56" href="#__codelineno-5-56"></a>          a1 d3 84 08 4c 00 40 41 a0 04 00 01 00 00 e7 cd
+</span><span id="__span-5-57"><a id="__codelineno-5-57" name="__codelineno-5-57" href="#__codelineno-5-57"></a>          dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd
+</span><span id="__span-5-58"><a id="__codelineno-5-58" name="__codelineno-5-58" href="#__codelineno-5-58"></a>          0c ed cc f5 05 b4 2f 15 03 06 00 d1 8f 7c e6 80
+</span><span id="__span-5-59"><a id="__codelineno-5-59" name="__codelineno-5-59" href="#__codelineno-5-59"></a>          78 12 57 40 00 6f 74 61 94 9a 86 af 33 c8 a6 ea
+</span><span id="__span-5-60"><a id="__codelineno-5-60" name="__codelineno-5-60" href="#__codelineno-5-60"></a>          ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8 00 89
+</span><span id="__span-5-61"><a id="__codelineno-5-61" name="__codelineno-5-61" href="#__codelineno-5-61"></a>          02 3d 3b 20 69 08 32 00 40 41 a0 05 40 01 00 00
+</span><span id="__span-5-62"><a id="__codelineno-5-62" name="__codelineno-5-62" href="#__codelineno-5-62"></a>          d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93 28
+</span><span id="__span-5-63"><a id="__codelineno-5-63" name="__codelineno-5-63" href="#__codelineno-5-63"></a>          06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3 58
+</span><span id="__span-5-64"><a id="__codelineno-5-64" name="__codelineno-5-64" href="#__codelineno-5-64"></a>          36 7a 3c 42 2e 57 db 7c 02 20 a4 eb ca 07 04 40
+</span><span id="__span-5-65"><a id="__codelineno-5-65" name="__codelineno-5-65" href="#__codelineno-5-65"></a>          41 67 00 06 02 ab 32 f7 1f
+</span><span id="__span-5-66"><a id="__codelineno-5-66" name="__codelineno-5-66" href="#__codelineno-5-66"></a>←   30 B  0e 08 09 00 82 42 67 01 00 00 20 02 d5 6a a3 45
+</span><span id="__span-5-67"><a id="__codelineno-5-67" name="__codelineno-5-67" href="#__codelineno-5-67"></a>          08 08 04 83 41 50 06 90 0e 02 1f 3b a8 f8
+</span><span id="__span-5-68"><a id="__codelineno-5-68" name="__codelineno-5-68" href="#__codelineno-5-68"></a>→   11 B  07 05 05 40 36 00 02 00 5f 1a 95
+</span><span id="__span-5-69"><a id="__codelineno-5-69" name="__codelineno-5-69" href="#__codelineno-5-69"></a>←    9 B  0f 03 05 80 82 8e 77 39 68
+</span><span id="__span-5-70"><a id="__codelineno-5-70" name="__codelineno-5-70" href="#__codelineno-5-70"></a>→   12 B  08 06 06 40 13 00 00 02 ef d3 1f f7
+</span><span id="__span-5-71"><a id="__codelineno-5-71" name="__codelineno-5-71" href="#__codelineno-5-71"></a>←   16 B  00 03 06 80 80 2a 3f 21 06 30 c1 02 af bd c0 39
 </span><span id="__span-5-72"><a id="__codelineno-5-72" name="__codelineno-5-72" href="#__codelineno-5-72"></a>   ── device resets (into the app)
 </span><span id="__span-5-73"><a id="__codelineno-5-73" name="__codelineno-5-73" href="#__codelineno-5-73"></a>   ── bootloader switches to the staged image: swaps the slots&#39; contents page by page
 </span><span id="__span-5-74"><a id="__codelineno-5-74" name="__codelineno-5-74" href="#__codelineno-5-74"></a>   ── device runs the app
-</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75" href="#__codelineno-5-75"></a>→   10 B  03 04 01 01 10 02 e2 0b 64 df
+</span><span id="__span-5-75"><a id="__codelineno-5-75" name="__codelineno-5-75" href="#__codelineno-5-75"></a>→   11 B  03 05 01 40 11 00 02 b6 8d d7 a9
 </span><span id="__span-5-76"><a id="__codelineno-5-76" name="__codelineno-5-76" href="#__codelineno-5-76"></a>←    9 B  03 03 01 80 80 7f 53 ce 44
-</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77" href="#__codelineno-5-77"></a>→   10 B  04 04 02 00 00 02 d2 ec d4 9b
+</span><span id="__span-5-77"><a id="__codelineno-5-77" name="__codelineno-5-77" href="#__codelineno-5-77"></a>→   11 B  04 05 02 40 00 00 02 af 00 34 36
 </span><span id="__span-5-78"><a id="__codelineno-5-78" name="__codelineno-5-78" href="#__codelineno-5-78"></a>←   53 B  04 08 2e 02 80 00 00 73 69 6d 2d 64 66 75 92 10
 </span><span id="__span-5-79"><a id="__codelineno-5-79" name="__codelineno-5-79" href="#__codelineno-5-79"></a>          00 00 01 00 00 00 08 02 00 00 00 01 00 00 00 80
 </span><span id="__span-5-80"><a id="__codelineno-5-80" name="__codelineno-5-80" href="#__codelineno-5-80"></a>          56 73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01
@@ -5983,71 +5982,71 @@ trial and the confirm. Test: <code>flip_shuttle_2r_app_step</code> over WebSocke
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>   ── device runs the app
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>→ node.node()
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>         4 B  01 00 00 02
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>         5 B  01 40 00 00 02
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>← { role: App, profile: AB(Remap), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>      stage: true, stage_bulk: true } }
 </span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 </span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>→ stage.limits()
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>         4 B  02 03 00 02
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>         5 B  02 40 30 00 02
 </span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
 </span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>        13 B  02 80 40 00 00 00 01 80 00 00 …
 </span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>   ── host sends a plain full image: ERASE and WRITE only, no manifest needed
 </span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>→ stage.begin(target: Live, header: [35 B: 57 57 44 50 01 92 …])
-</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        41 B  03 03 10 00 57 57 44 50 01 92 …
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>        42 B  03 40 31 00 00 57 57 44 50 01 …
 </span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>← Ok({ steps: 11, resumed: false, resume_from: 0 })
 </span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>        13 B  03 80 80 0b 00 00 00 00 00 00 …
 </span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>→ stage.erase(index: 0, block: 0)
-</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        10 B  04 03 20 00 00 00 00 00 00 02
+</span><span id="__span-7-20"><a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>        11 B  04 40 32 00 00 00 00 00 00 00 …
 </span><span id="__span-7-21"><a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>← Ok(())
 </span><span id="__span-7-22"><a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>         3 B  04 80 80
 </span><span id="__span-7-23"><a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>→ stage.erase(index: 1, block: 1)
-</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>        10 B  05 03 20 01 00 00 00 01 00 02
+</span><span id="__span-7-24"><a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>        11 B  05 40 32 00 01 00 00 00 01 00 …
 </span><span id="__span-7-25"><a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>← Ok(())
 </span><span id="__span-7-26"><a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>         3 B  05 80 80
 </span><span id="__span-7-27"><a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>→ stage.erase(index: 2, block: 2)
-</span><span id="__span-7-28"><a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>        10 B  06 03 20 02 00 00 00 02 00 02
+</span><span id="__span-7-28"><a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>        11 B  06 40 32 00 02 00 00 00 02 00 …
 </span><span id="__span-7-29"><a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>← Ok(())
 </span><span id="__span-7-30"><a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>         3 B  06 80 80
 </span><span id="__span-7-31"><a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>→ stage.erase(index: 3, block: 3)
-</span><span id="__span-7-32"><a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>        10 B  07 03 20 03 00 00 00 03 00 02
+</span><span id="__span-7-32"><a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>        11 B  07 40 32 00 03 00 00 00 03 00 …
 </span><span id="__span-7-33"><a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>← Ok(())
 </span><span id="__span-7-34"><a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>         3 B  07 80 80
 </span><span id="__span-7-35"><a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>→ stage.write(index: 4, dst: 0, hash: 2780790d97efcff7, offset: 0, data: [64 B: 46 57 02 00 00 00 …])
-</span><span id="__span-7-36"><a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>        88 B  08 03 40 04 00 00 00 00 00 27 …
+</span><span id="__span-7-36"><a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>        89 B  08 40 34 00 04 00 00 00 00 00 …
 </span><span id="__span-7-37"><a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>← Ok(())
 </span><span id="__span-7-38"><a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>         3 B  08 80 80
 </span><span id="__span-7-39"><a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>→ stage.write(index: 5, dst: 1, hash: 3ce293643207b87c, offset: 0, data: [64 B: 68 61 6c d3 da 10 …])
-</span><span id="__span-7-40"><a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>        88 B  09 03 40 05 00 00 00 01 00 3c …
+</span><span id="__span-7-40"><a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>        89 B  09 40 34 00 05 00 00 00 01 00 …
 </span><span id="__span-7-41"><a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>← Ok(())
 </span><span id="__span-7-42"><a id="__codelineno-7-42" name="__codelineno-7-42" href="#__codelineno-7-42"></a>         3 B  09 80 80
 </span><span id="__span-7-43"><a id="__codelineno-7-43" name="__codelineno-7-43" href="#__codelineno-7-43"></a>→ stage.write(index: 6, dst: 2, hash: edcc83d5b3974a90, offset: 0, data: [64 B: 61 70 70 20 76 32 …])
-</span><span id="__span-7-44"><a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a>        88 B  0a 03 40 06 00 00 00 02 00 ed …
+</span><span id="__span-7-44"><a id="__codelineno-7-44" name="__codelineno-7-44" href="#__codelineno-7-44"></a>        89 B  0a 40 34 00 06 00 00 00 02 00 …
 </span><span id="__span-7-45"><a id="__codelineno-7-45" name="__codelineno-7-45" href="#__codelineno-7-45"></a>← Ok(())
 </span><span id="__span-7-46"><a id="__codelineno-7-46" name="__codelineno-7-46" href="#__codelineno-7-46"></a>         3 B  0a 80 80
 </span><span id="__span-7-47"><a id="__codelineno-7-47" name="__codelineno-7-47" href="#__codelineno-7-47"></a>→ stage.write(index: 7, dst: 3, hash: 1ec70fb257d1befc, offset: 0, data: [64 B: 66 6f 6e 74 b0 4c …])
-</span><span id="__span-7-48"><a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a>        88 B  0b 03 40 07 00 00 00 03 00 1e …
+</span><span id="__span-7-48"><a id="__codelineno-7-48" name="__codelineno-7-48" href="#__codelineno-7-48"></a>        89 B  0b 40 34 00 07 00 00 00 03 00 …
 </span><span id="__span-7-49"><a id="__codelineno-7-49" name="__codelineno-7-49" href="#__codelineno-7-49"></a>← Ok(())
 </span><span id="__span-7-50"><a id="__codelineno-7-50" name="__codelineno-7-50" href="#__codelineno-7-50"></a>         3 B  0b 80 80
 </span><span id="__span-7-51"><a id="__codelineno-7-51" name="__codelineno-7-51" href="#__codelineno-7-51"></a>→ stage.write(index: 8, dst: 4, hash: a809c61b42942960, offset: 0, data: [64 B: 75 69 83 ee 6e 08 …])
-</span><span id="__span-7-52"><a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a>        88 B  0c 03 40 08 00 00 00 04 00 a8 …
+</span><span id="__span-7-52"><a id="__codelineno-7-52" name="__codelineno-7-52" href="#__codelineno-7-52"></a>        89 B  0c 40 34 00 08 00 00 00 04 00 …
 </span><span id="__span-7-53"><a id="__codelineno-7-53" name="__codelineno-7-53" href="#__codelineno-7-53"></a>← Ok(())
 </span><span id="__span-7-54"><a id="__codelineno-7-54" name="__codelineno-7-54" href="#__codelineno-7-54"></a>         3 B  0c 80 80
 </span><span id="__span-7-55"><a id="__codelineno-7-55" name="__codelineno-7-55" href="#__codelineno-7-55"></a>→ stage.write(index: 9, dst: 5, hash: 3bf9a7bd49c0f887, offset: 0, data: [64 B: 6e 65 74 20 76 32 …])
-</span><span id="__span-7-56"><a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a>        88 B  0d 03 40 09 00 00 00 05 00 3b …
+</span><span id="__span-7-56"><a id="__codelineno-7-56" name="__codelineno-7-56" href="#__codelineno-7-56"></a>        89 B  0d 40 34 00 09 00 00 00 05 00 …
 </span><span id="__span-7-57"><a id="__codelineno-7-57" name="__codelineno-7-57" href="#__codelineno-7-57"></a>← Ok(())
 </span><span id="__span-7-58"><a id="__codelineno-7-58" name="__codelineno-7-58" href="#__codelineno-7-58"></a>         3 B  0d 80 80
 </span><span id="__span-7-59"><a id="__codelineno-7-59" name="__codelineno-7-59" href="#__codelineno-7-59"></a>→ stage.write(index: 10, dst: 6, hash: d18f7ce680781257, offset: 0, data: [64 B: 6f 74 61 94 9a 86 …])
-</span><span id="__span-7-60"><a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a>        88 B  0e 03 40 0a 00 00 00 06 00 d1 …
+</span><span id="__span-7-60"><a id="__codelineno-7-60" name="__codelineno-7-60" href="#__codelineno-7-60"></a>        89 B  0e 40 34 00 0a 00 00 00 06 00 …
 </span><span id="__span-7-61"><a id="__codelineno-7-61" name="__codelineno-7-61" href="#__codelineno-7-61"></a>← Ok(())
 </span><span id="__span-7-62"><a id="__codelineno-7-62" name="__codelineno-7-62" href="#__codelineno-7-62"></a>         3 B  0e 80 80
 </span><span id="__span-7-63"><a id="__codelineno-7-63" name="__codelineno-7-63" href="#__codelineno-7-63"></a>→ stage.finish()
-</span><span id="__span-7-64"><a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a>         4 B  0f 03 60 02
+</span><span id="__span-7-64"><a id="__codelineno-7-64" name="__codelineno-7-64" href="#__codelineno-7-64"></a>         5 B  0f 40 36 00 02
 </span><span id="__span-7-65"><a id="__codelineno-7-65" name="__codelineno-7-65" href="#__codelineno-7-65"></a>← Ok(Staged)
 </span><span id="__span-7-66"><a id="__codelineno-7-66" name="__codelineno-7-66" href="#__codelineno-7-66"></a>         3 B  0f 80 82
 </span><span id="__span-7-67"><a id="__codelineno-7-67" name="__codelineno-7-67" href="#__codelineno-7-67"></a>→ boot.reboot(into: App)
-</span><span id="__span-7-68"><a id="__codelineno-7-68" name="__codelineno-7-68" href="#__codelineno-7-68"></a>         5 B  10 01 30 00 02
+</span><span id="__span-7-68"><a id="__codelineno-7-68" name="__codelineno-7-68" href="#__codelineno-7-68"></a>         6 B  10 40 13 00 00 02
 </span><span id="__span-7-69"><a id="__codelineno-7-69" name="__codelineno-7-69" href="#__codelineno-7-69"></a>← Ok(())
 </span><span id="__span-7-70"><a id="__codelineno-7-70" name="__codelineno-7-70" href="#__codelineno-7-70"></a>         3 B  10 80 80
 </span><span id="__span-7-71"><a id="__codelineno-7-71" name="__codelineno-7-71" href="#__codelineno-7-71"></a>← Disconnect(RequestByUser)
@@ -6057,15 +6056,15 @@ trial and the confirm. Test: <code>flip_shuttle_2r_app_step</code> over WebSocke
 </span><span id="__span-7-75"><a id="__codelineno-7-75" name="__codelineno-7-75" href="#__codelineno-7-75"></a>   ── device runs the app
 </span><span id="__span-7-76"><a id="__codelineno-7-76" name="__codelineno-7-76" href="#__codelineno-7-76"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-7-77"><a id="__codelineno-7-77" name="__codelineno-7-77" href="#__codelineno-7-77"></a>→ boot.boot_state()
-</span><span id="__span-7-78"><a id="__codelineno-7-78" name="__codelineno-7-78" href="#__codelineno-7-78"></a>         4 B  01 01 00 02
+</span><span id="__span-7-78"><a id="__codelineno-7-78" name="__codelineno-7-78" href="#__codelineno-7-78"></a>         5 B  01 40 10 00 02
 </span><span id="__span-7-79"><a id="__codelineno-7-79" name="__codelineno-7-79" href="#__codelineno-7-79"></a>← Trial
 </span><span id="__span-7-80"><a id="__codelineno-7-80" name="__codelineno-7-80" href="#__codelineno-7-80"></a>         3 B  01 80 30
 </span><span id="__span-7-81"><a id="__codelineno-7-81" name="__codelineno-7-81" href="#__codelineno-7-81"></a>→ boot.confirm()
-</span><span id="__span-7-82"><a id="__codelineno-7-82" name="__codelineno-7-82" href="#__codelineno-7-82"></a>         4 B  02 01 10 02
+</span><span id="__span-7-82"><a id="__codelineno-7-82" name="__codelineno-7-82" href="#__codelineno-7-82"></a>         5 B  02 40 11 00 02
 </span><span id="__span-7-83"><a id="__codelineno-7-83" name="__codelineno-7-83" href="#__codelineno-7-83"></a>← Ok(())
 </span><span id="__span-7-84"><a id="__codelineno-7-84" name="__codelineno-7-84" href="#__codelineno-7-84"></a>         3 B  02 80 80
 </span><span id="__span-7-85"><a id="__codelineno-7-85" name="__codelineno-7-85" href="#__codelineno-7-85"></a>→ node.node()
-</span><span id="__span-7-86"><a id="__codelineno-7-86" name="__codelineno-7-86" href="#__codelineno-7-86"></a>         4 B  03 00 00 02
+</span><span id="__span-7-86"><a id="__codelineno-7-86" name="__codelineno-7-86" href="#__codelineno-7-86"></a>         5 B  03 40 00 00 02
 </span><span id="__span-7-87"><a id="__codelineno-7-87" name="__codelineno-7-87" href="#__codelineno-7-87"></a>← { role: App, profile: AB(Remap), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-7-88"><a id="__codelineno-7-88" name="__codelineno-7-88" href="#__codelineno-7-88"></a>      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Confirmed,
 </span><span id="__span-7-89"><a id="__codelineno-7-89" name="__codelineno-7-89" href="#__codelineno-7-89"></a>      last_result: { outcome: Confirmed, version: 2 }, offers: { boot_control: true, inventory: true,
@@ -6075,96 +6074,97 @@ trial and the confirm. Test: <code>flip_shuttle_2r_app_step</code> over WebSocke
 <details>
 <summary>Wire bytes: 39 WebSocket frames (host frames unmasked, mask key zeroed) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>   ── device runs the app
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>→   11 B  82 85 00 00 00 00 00 01 00 00 02
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>→   12 B  82 86 00 00 00 00 00 01 40 00 00 02
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>←   49 B  82 2f 00 01 80 00 10 73 69 6d 2d 64 66 75 92 10
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>          00 00 01 00 00 00 08 01 00 00 00 01 00 00 00 80
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>          1d d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>          57
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>→   11 B  82 85 00 00 00 00 00 02 03 00 02
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>→   12 B  82 86 00 00 00 00 00 02 40 30 00 02
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>←   16 B  82 0e 00 02 80 40 00 00 00 01 80 00 00 00 00 80
 </span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>   ── host sends a plain full image: ERASE and WRITE only, no manifest needed
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>→   48 B  82 aa 00 00 00 00 00 03 03 10 00 57 57 44 50 01
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>          92 10 00 00 02 00 00 00 0b 00 27 02 00 00 86 ba
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>          52 71 00 2c c3 5d 65 c6 3a 85 91 25 c9 ad 3c 02
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>←   16 B  82 0e 00 03 80 80 0b 00 00 00 00 00 00 00 00 19
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>→   17 B  82 8b 00 00 00 00 00 04 03 20 00 00 00 00 00 00
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>          02
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>←    6 B  82 04 00 04 80 80
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>→   17 B  82 8b 00 00 00 00 00 05 03 20 01 00 00 00 01 00
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>          02
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>←    6 B  82 04 00 05 80 80
-</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>→   17 B  82 8b 00 00 00 00 00 06 03 20 02 00 00 00 02 00
-</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>          02
-</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>←    6 B  82 04 00 06 80 80
-</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>→   17 B  82 8b 00 00 00 00 00 07 03 20 03 00 00 00 03 00
-</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>          02
-</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>←    6 B  82 04 00 07 80 80
-</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>→   95 B  82 d9 00 00 00 00 00 08 03 40 04 00 00 00 00 00
-</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>          27 80 79 0d 97 ef cf f7 00 00 00 00 46 57 02 00
-</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>          00 00 2f 86 5d 24 dc d1 cf 67 47 9e 75 3c f4 e9
-</span><span id="__span-8-29"><a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>          e7 7f 5f b6 8d 54 0c 01 ff 97 77 ce a5 6c 24 19
-</span><span id="__span-8-30"><a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>          17 af 8f e6 bd 84 3c 31 2f c7 a7 fe d5 9c 54 49
-</span><span id="__span-8-31"><a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>          47 df bf 16 ed b4 6c 61 5f f7 d7 2e 00 89 02
-</span><span id="__span-8-32"><a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>←    6 B  82 04 00 08 80 80
-</span><span id="__span-8-33"><a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>→   95 B  82 d9 00 00 00 00 00 09 03 40 05 00 00 00 01 00
-</span><span id="__span-8-34"><a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>          3c e2 93 64 32 07 b8 7c 00 00 00 00 68 61 6c d3
-</span><span id="__span-8-35"><a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>          da 10 e3 4c 3b 40 72 eb f2 28 fb 64 53 58 8a 03
-</span><span id="__span-8-36"><a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>          0a 40 13 7c 6b 70 a2 1b 22 58 2b 94 83 88 ba 33
-</span><span id="__span-8-37"><a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>          3a 70 43 ac 9b a0 d2 4b 52 88 5b c4 b3 b8 ea 63
-</span><span id="__span-8-38"><a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>          6a a0 73 dc cb d0 02 7b 82 b8 8b f4 00 89 02
-</span><span id="__span-8-39"><a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>←    6 B  82 04 00 09 80 80
-</span><span id="__span-8-40"><a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>→   95 B  82 d9 00 00 00 00 00 0a 03 40 06 00 00 00 02 00
-</span><span id="__span-8-41"><a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>          ed cc 83 d5 b3 97 4a 90 00 00 00 00 61 70 70 20
-</span><span id="__span-8-42"><a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>          76 32 11 db 28 16 4c de 9f 28 29 f3 40 2e 64 f6
-</span><span id="__span-8-43"><a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>          b7 40 41 0b 58 46 7c 0e cf 58 59 23 70 5e 94 26
-</span><span id="__span-8-44"><a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a>          e7 70 71 3b 88 76 ac 3e ff 88 89 53 a0 8e c4 56
-</span><span id="__span-8-45"><a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a>          17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83 00 89 02
-</span><span id="__span-8-46"><a id="__codelineno-8-46" name="__codelineno-8-46" href="#__codelineno-8-46"></a>←    6 B  82 04 00 0a 80 80
-</span><span id="__span-8-47"><a id="__codelineno-8-47" name="__codelineno-8-47" href="#__codelineno-8-47"></a>→   95 B  82 d9 00 00 00 00 00 0b 03 40 07 00 00 00 03 00
-</span><span id="__span-8-48"><a id="__codelineno-8-48" name="__codelineno-8-48" href="#__codelineno-8-48"></a>          1e c7 0f b2 57 d1 be fc 00 00 00 00 66 6f 6e 74
-</span><span id="__span-8-49"><a id="__codelineno-8-49" name="__codelineno-8-49" href="#__codelineno-8-49"></a>          b0 4c 1a 87 91 79 c1 10 c8 64 32 9f a9 91 d9 28
-</span><span id="__span-8-50"><a id="__codelineno-8-50" name="__codelineno-8-50" href="#__codelineno-8-50"></a>          e0 7c 4a b7 c1 a9 f1 40 f8 94 62 cf d9 c1 09 58
-</span><span id="__span-8-51"><a id="__codelineno-8-51" name="__codelineno-8-51" href="#__codelineno-8-51"></a>          10 ac 7a e7 f1 d9 21 70 28 c4 92 ff 09 f1 39 88
-</span><span id="__span-8-52"><a id="__codelineno-8-52" name="__codelineno-8-52" href="#__codelineno-8-52"></a>          40 dc aa 17 21 09 51 a0 58 f4 c2 2f 00 89 02
-</span><span id="__span-8-53"><a id="__codelineno-8-53" name="__codelineno-8-53" href="#__codelineno-8-53"></a>←    6 B  82 04 00 0b 80 80
-</span><span id="__span-8-54"><a id="__codelineno-8-54" name="__codelineno-8-54" href="#__codelineno-8-54"></a>→   95 B  82 d9 00 00 00 00 00 0c 03 40 08 00 00 00 04 00
-</span><span id="__span-8-55"><a id="__codelineno-8-55" name="__codelineno-8-55" href="#__codelineno-8-55"></a>          a8 09 c6 1b 42 94 29 60 00 00 00 00 75 69 83 ee
-</span><span id="__span-8-56"><a id="__codelineno-8-56" name="__codelineno-8-56" href="#__codelineno-8-56"></a>          6e 08 b6 b8 eb 0a 9b 06 86 20 ce d0 03 22 b3 1e
-</span><span id="__span-8-57"><a id="__codelineno-8-57" name="__codelineno-8-57" href="#__codelineno-8-57"></a>          9e 38 e6 e8 1b 3a cb 36 b6 50 fe 00 33 52 e3 4e
-</span><span id="__span-8-58"><a id="__codelineno-8-58" name="__codelineno-8-58" href="#__codelineno-8-58"></a>          ce 68 16 18 4b 6a fb 66 e6 80 2e 30 63 82 13 7e
-</span><span id="__span-8-59"><a id="__codelineno-8-59" name="__codelineno-8-59" href="#__codelineno-8-59"></a>          fe 98 46 48 7b 9a 2b 96 16 b0 5e 60 00 89 02
-</span><span id="__span-8-60"><a id="__codelineno-8-60" name="__codelineno-8-60" href="#__codelineno-8-60"></a>←    6 B  82 04 00 0c 80 80
-</span><span id="__span-8-61"><a id="__codelineno-8-61" name="__codelineno-8-61" href="#__codelineno-8-61"></a>→   95 B  82 d9 00 00 00 00 00 0d 03 40 09 00 00 00 05 00
-</span><span id="__span-8-62"><a id="__codelineno-8-62" name="__codelineno-8-62" href="#__codelineno-8-62"></a>          3b f9 a7 bd 49 c0 f8 87 00 00 00 00 6e 65 74 20
-</span><span id="__span-8-63"><a id="__codelineno-8-63" name="__codelineno-8-63" href="#__codelineno-8-63"></a>          76 32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75 54 7d
-</span><span id="__span-8-64"><a id="__codelineno-8-64" name="__codelineno-8-64" href="#__codelineno-8-64"></a>          8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5 84 ad
-</span><span id="__span-8-65"><a id="__codelineno-8-65" name="__codelineno-8-65" href="#__codelineno-8-65"></a>          bd 6c e7 cd dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd
-</span><span id="__span-8-66"><a id="__codelineno-8-66" name="__codelineno-8-66" href="#__codelineno-8-66"></a>          ed 9c 17 fd 0c ed cc f5 05 b4 2f 15 00 89 02
-</span><span id="__span-8-67"><a id="__codelineno-8-67" name="__codelineno-8-67" href="#__codelineno-8-67"></a>←    6 B  82 04 00 0d 80 80
-</span><span id="__span-8-68"><a id="__codelineno-8-68" name="__codelineno-8-68" href="#__codelineno-8-68"></a>→   95 B  82 d9 00 00 00 00 00 0e 03 40 0a 00 00 00 06 00
-</span><span id="__span-8-69"><a id="__codelineno-8-69" name="__codelineno-8-69" href="#__codelineno-8-69"></a>          d1 8f 7c e6 80 78 12 57 00 00 00 00 6f 74 61 94
-</span><span id="__span-8-70"><a id="__codelineno-8-70" name="__codelineno-8-70" href="#__codelineno-8-70"></a>          9a 86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be 02 c4
-</span><span id="__span-8-71"><a id="__codelineno-8-71" name="__codelineno-8-71" href="#__codelineno-8-71"></a>          ca b6 df 63 f8 d6 1a dc e2 ce f7 7b 10 ee 32 f4
-</span><span id="__span-8-72"><a id="__codelineno-8-72" name="__codelineno-8-72" href="#__codelineno-8-72"></a>          fa e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62 24
-</span><span id="__span-8-73"><a id="__codelineno-8-73" name="__codelineno-8-73" href="#__codelineno-8-73"></a>          2a 16 3f c3 58 36 7a 3c 42 2e 57 db 00 89 02
-</span><span id="__span-8-74"><a id="__codelineno-8-74" name="__codelineno-8-74" href="#__codelineno-8-74"></a>←    6 B  82 04 00 0e 80 80
-</span><span id="__span-8-75"><a id="__codelineno-8-75" name="__codelineno-8-75" href="#__codelineno-8-75"></a>→   11 B  82 85 00 00 00 00 00 0f 03 60 02
-</span><span id="__span-8-76"><a id="__codelineno-8-76" name="__codelineno-8-76" href="#__codelineno-8-76"></a>←    6 B  82 04 00 0f 80 82
-</span><span id="__span-8-77"><a id="__codelineno-8-77" name="__codelineno-8-77" href="#__codelineno-8-77"></a>→   12 B  82 86 00 00 00 00 00 10 01 30 00 02
-</span><span id="__span-8-78"><a id="__codelineno-8-78" name="__codelineno-8-78" href="#__codelineno-8-78"></a>←    6 B  82 04 00 10 80 80
-</span><span id="__span-8-79"><a id="__codelineno-8-79" name="__codelineno-8-79" href="#__codelineno-8-79"></a>←    4 B  82 02 0c 02
-</span><span id="__span-8-80"><a id="__codelineno-8-80" name="__codelineno-8-80" href="#__codelineno-8-80"></a>   ── device resets (into the app)
-</span><span id="__span-8-81"><a id="__codelineno-8-81" name="__codelineno-8-81" href="#__codelineno-8-81"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
-</span><span id="__span-8-82"><a id="__codelineno-8-82" name="__codelineno-8-82" href="#__codelineno-8-82"></a>   ── device runs the app
-</span><span id="__span-8-83"><a id="__codelineno-8-83" name="__codelineno-8-83" href="#__codelineno-8-83"></a>→   11 B  82 85 00 00 00 00 00 01 01 00 02
-</span><span id="__span-8-84"><a id="__codelineno-8-84" name="__codelineno-8-84" href="#__codelineno-8-84"></a>←    6 B  82 04 00 01 80 30
-</span><span id="__span-8-85"><a id="__codelineno-8-85" name="__codelineno-8-85" href="#__codelineno-8-85"></a>→   11 B  82 85 00 00 00 00 00 02 01 10 02
-</span><span id="__span-8-86"><a id="__codelineno-8-86" name="__codelineno-8-86" href="#__codelineno-8-86"></a>←    6 B  82 04 00 02 80 80
-</span><span id="__span-8-87"><a id="__codelineno-8-87" name="__codelineno-8-87" href="#__codelineno-8-87"></a>→   11 B  82 85 00 00 00 00 00 03 00 00 02
-</span><span id="__span-8-88"><a id="__codelineno-8-88" name="__codelineno-8-88" href="#__codelineno-8-88"></a>←   49 B  82 2f 00 03 80 00 10 73 69 6d 2d 64 66 75 92 10
-</span><span id="__span-8-89"><a id="__codelineno-8-89" name="__codelineno-8-89" href="#__codelineno-8-89"></a>          00 00 01 00 00 00 08 02 00 00 00 01 00 00 00 80
-</span><span id="__span-8-90"><a id="__codelineno-8-90" name="__codelineno-8-90" href="#__codelineno-8-90"></a>          56 73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01
-</span><span id="__span-8-91"><a id="__codelineno-8-91" name="__codelineno-8-91" href="#__codelineno-8-91"></a>          57
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>→   49 B  82 ab 00 00 00 00 00 03 40 31 00 00 57 57 44 50
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>          01 92 10 00 00 02 00 00 00 0b 00 27 02 00 00 86
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>          ba 52 71 00 2c c3 5d 65 c6 3a 85 91 25 c9 ad 3c
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>          02
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>←   16 B  82 0e 00 03 80 80 0b 00 00 00 00 00 00 00 00 19
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>→   18 B  82 8c 00 00 00 00 00 04 40 32 00 00 00 00 00 00
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>          00 02
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>←    6 B  82 04 00 04 80 80
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>→   18 B  82 8c 00 00 00 00 00 05 40 32 00 01 00 00 00 01
+</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>          00 02
+</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>←    6 B  82 04 00 05 80 80
+</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>→   18 B  82 8c 00 00 00 00 00 06 40 32 00 02 00 00 00 02
+</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>          00 02
+</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a>←    6 B  82 04 00 06 80 80
+</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a>→   18 B  82 8c 00 00 00 00 00 07 40 32 00 03 00 00 00 03
+</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>          00 02
+</span><span id="__span-8-26"><a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a>←    6 B  82 04 00 07 80 80
+</span><span id="__span-8-27"><a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a>→   96 B  82 da 00 00 00 00 00 08 40 34 00 04 00 00 00 00
+</span><span id="__span-8-28"><a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a>          00 27 80 79 0d 97 ef cf f7 00 00 00 00 46 57 02
+</span><span id="__span-8-29"><a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a>          00 00 00 2f 86 5d 24 dc d1 cf 67 47 9e 75 3c f4
+</span><span id="__span-8-30"><a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a>          e9 e7 7f 5f b6 8d 54 0c 01 ff 97 77 ce a5 6c 24
+</span><span id="__span-8-31"><a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a>          19 17 af 8f e6 bd 84 3c 31 2f c7 a7 fe d5 9c 54
+</span><span id="__span-8-32"><a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a>          49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e 00 89 02
+</span><span id="__span-8-33"><a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a>←    6 B  82 04 00 08 80 80
+</span><span id="__span-8-34"><a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a>→   96 B  82 da 00 00 00 00 00 09 40 34 00 05 00 00 00 01
+</span><span id="__span-8-35"><a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a>          00 3c e2 93 64 32 07 b8 7c 00 00 00 00 68 61 6c
+</span><span id="__span-8-36"><a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a>          d3 da 10 e3 4c 3b 40 72 eb f2 28 fb 64 53 58 8a
+</span><span id="__span-8-37"><a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a>          03 0a 40 13 7c 6b 70 a2 1b 22 58 2b 94 83 88 ba
+</span><span id="__span-8-38"><a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a>          33 3a 70 43 ac 9b a0 d2 4b 52 88 5b c4 b3 b8 ea
+</span><span id="__span-8-39"><a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a>          63 6a a0 73 dc cb d0 02 7b 82 b8 8b f4 00 89 02
+</span><span id="__span-8-40"><a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a>←    6 B  82 04 00 09 80 80
+</span><span id="__span-8-41"><a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a>→   96 B  82 da 00 00 00 00 00 0a 40 34 00 06 00 00 00 02
+</span><span id="__span-8-42"><a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a>          00 ed cc 83 d5 b3 97 4a 90 00 00 00 00 61 70 70
+</span><span id="__span-8-43"><a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a>          20 76 32 11 db 28 16 4c de 9f 28 29 f3 40 2e 64
+</span><span id="__span-8-44"><a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a>          f6 b7 40 41 0b 58 46 7c 0e cf 58 59 23 70 5e 94
+</span><span id="__span-8-45"><a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a>          26 e7 70 71 3b 88 76 ac 3e ff 88 89 53 a0 8e c4
+</span><span id="__span-8-46"><a id="__codelineno-8-46" name="__codelineno-8-46" href="#__codelineno-8-46"></a>          56 17 a0 a1 6b b8 a6 dc 6e 2f b8 b9 83 00 89 02
+</span><span id="__span-8-47"><a id="__codelineno-8-47" name="__codelineno-8-47" href="#__codelineno-8-47"></a>←    6 B  82 04 00 0a 80 80
+</span><span id="__span-8-48"><a id="__codelineno-8-48" name="__codelineno-8-48" href="#__codelineno-8-48"></a>→   96 B  82 da 00 00 00 00 00 0b 40 34 00 07 00 00 00 03
+</span><span id="__span-8-49"><a id="__codelineno-8-49" name="__codelineno-8-49" href="#__codelineno-8-49"></a>          00 1e c7 0f b2 57 d1 be fc 00 00 00 00 66 6f 6e
+</span><span id="__span-8-50"><a id="__codelineno-8-50" name="__codelineno-8-50" href="#__codelineno-8-50"></a>          74 b0 4c 1a 87 91 79 c1 10 c8 64 32 9f a9 91 d9
+</span><span id="__span-8-51"><a id="__codelineno-8-51" name="__codelineno-8-51" href="#__codelineno-8-51"></a>          28 e0 7c 4a b7 c1 a9 f1 40 f8 94 62 cf d9 c1 09
+</span><span id="__span-8-52"><a id="__codelineno-8-52" name="__codelineno-8-52" href="#__codelineno-8-52"></a>          58 10 ac 7a e7 f1 d9 21 70 28 c4 92 ff 09 f1 39
+</span><span id="__span-8-53"><a id="__codelineno-8-53" name="__codelineno-8-53" href="#__codelineno-8-53"></a>          88 40 dc aa 17 21 09 51 a0 58 f4 c2 2f 00 89 02
+</span><span id="__span-8-54"><a id="__codelineno-8-54" name="__codelineno-8-54" href="#__codelineno-8-54"></a>←    6 B  82 04 00 0b 80 80
+</span><span id="__span-8-55"><a id="__codelineno-8-55" name="__codelineno-8-55" href="#__codelineno-8-55"></a>→   96 B  82 da 00 00 00 00 00 0c 40 34 00 08 00 00 00 04
+</span><span id="__span-8-56"><a id="__codelineno-8-56" name="__codelineno-8-56" href="#__codelineno-8-56"></a>          00 a8 09 c6 1b 42 94 29 60 00 00 00 00 75 69 83
+</span><span id="__span-8-57"><a id="__codelineno-8-57" name="__codelineno-8-57" href="#__codelineno-8-57"></a>          ee 6e 08 b6 b8 eb 0a 9b 06 86 20 ce d0 03 22 b3
+</span><span id="__span-8-58"><a id="__codelineno-8-58" name="__codelineno-8-58" href="#__codelineno-8-58"></a>          1e 9e 38 e6 e8 1b 3a cb 36 b6 50 fe 00 33 52 e3
+</span><span id="__span-8-59"><a id="__codelineno-8-59" name="__codelineno-8-59" href="#__codelineno-8-59"></a>          4e ce 68 16 18 4b 6a fb 66 e6 80 2e 30 63 82 13
+</span><span id="__span-8-60"><a id="__codelineno-8-60" name="__codelineno-8-60" href="#__codelineno-8-60"></a>          7e fe 98 46 48 7b 9a 2b 96 16 b0 5e 60 00 89 02
+</span><span id="__span-8-61"><a id="__codelineno-8-61" name="__codelineno-8-61" href="#__codelineno-8-61"></a>←    6 B  82 04 00 0c 80 80
+</span><span id="__span-8-62"><a id="__codelineno-8-62" name="__codelineno-8-62" href="#__codelineno-8-62"></a>→   96 B  82 da 00 00 00 00 00 0d 40 34 00 09 00 00 00 05
+</span><span id="__span-8-63"><a id="__codelineno-8-63" name="__codelineno-8-63" href="#__codelineno-8-63"></a>          00 3b f9 a7 bd 49 c0 f8 87 00 00 00 00 6e 65 74
+</span><span id="__span-8-64"><a id="__codelineno-8-64" name="__codelineno-8-64" href="#__codelineno-8-64"></a>          20 76 32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75 54
+</span><span id="__span-8-65"><a id="__codelineno-8-65" name="__codelineno-8-65" href="#__codelineno-8-65"></a>          7d 8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5 84
+</span><span id="__span-8-66"><a id="__codelineno-8-66" name="__codelineno-8-66" href="#__codelineno-8-66"></a>          ad bd 6c e7 cd dc bd 9c c5 d5 84 ff e5 f4 d5 b4
+</span><span id="__span-8-67"><a id="__codelineno-8-67" name="__codelineno-8-67" href="#__codelineno-8-67"></a>          dd ed 9c 17 fd 0c ed cc f5 05 b4 2f 15 00 89 02
+</span><span id="__span-8-68"><a id="__codelineno-8-68" name="__codelineno-8-68" href="#__codelineno-8-68"></a>←    6 B  82 04 00 0d 80 80
+</span><span id="__span-8-69"><a id="__codelineno-8-69" name="__codelineno-8-69" href="#__codelineno-8-69"></a>→   96 B  82 da 00 00 00 00 00 0e 40 34 00 0a 00 00 00 06
+</span><span id="__span-8-70"><a id="__codelineno-8-70" name="__codelineno-8-70" href="#__codelineno-8-70"></a>          00 d1 8f 7c e6 80 78 12 57 00 00 00 00 6f 74 61
+</span><span id="__span-8-71"><a id="__codelineno-8-71" name="__codelineno-8-71" href="#__codelineno-8-71"></a>          94 9a 86 af 33 c8 a6 ea ac b2 9e c7 4b e0 be 02
+</span><span id="__span-8-72"><a id="__codelineno-8-72" name="__codelineno-8-72" href="#__codelineno-8-72"></a>          c4 ca b6 df 63 f8 d6 1a dc e2 ce f7 7b 10 ee 32
+</span><span id="__span-8-73"><a id="__codelineno-8-73" name="__codelineno-8-73" href="#__codelineno-8-73"></a>          f4 fa e6 0f 93 28 06 4a 0c 12 fe 27 ab 40 1e 62
+</span><span id="__span-8-74"><a id="__codelineno-8-74" name="__codelineno-8-74" href="#__codelineno-8-74"></a>          24 2a 16 3f c3 58 36 7a 3c 42 2e 57 db 00 89 02
+</span><span id="__span-8-75"><a id="__codelineno-8-75" name="__codelineno-8-75" href="#__codelineno-8-75"></a>←    6 B  82 04 00 0e 80 80
+</span><span id="__span-8-76"><a id="__codelineno-8-76" name="__codelineno-8-76" href="#__codelineno-8-76"></a>→   12 B  82 86 00 00 00 00 00 0f 40 36 00 02
+</span><span id="__span-8-77"><a id="__codelineno-8-77" name="__codelineno-8-77" href="#__codelineno-8-77"></a>←    6 B  82 04 00 0f 80 82
+</span><span id="__span-8-78"><a id="__codelineno-8-78" name="__codelineno-8-78" href="#__codelineno-8-78"></a>→   13 B  82 87 00 00 00 00 00 10 40 13 00 00 02
+</span><span id="__span-8-79"><a id="__codelineno-8-79" name="__codelineno-8-79" href="#__codelineno-8-79"></a>←    6 B  82 04 00 10 80 80
+</span><span id="__span-8-80"><a id="__codelineno-8-80" name="__codelineno-8-80" href="#__codelineno-8-80"></a>←    4 B  82 02 0c 02
+</span><span id="__span-8-81"><a id="__codelineno-8-81" name="__codelineno-8-81" href="#__codelineno-8-81"></a>   ── device resets (into the app)
+</span><span id="__span-8-82"><a id="__codelineno-8-82" name="__codelineno-8-82" href="#__codelineno-8-82"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
+</span><span id="__span-8-83"><a id="__codelineno-8-83" name="__codelineno-8-83" href="#__codelineno-8-83"></a>   ── device runs the app
+</span><span id="__span-8-84"><a id="__codelineno-8-84" name="__codelineno-8-84" href="#__codelineno-8-84"></a>→   12 B  82 86 00 00 00 00 00 01 40 10 00 02
+</span><span id="__span-8-85"><a id="__codelineno-8-85" name="__codelineno-8-85" href="#__codelineno-8-85"></a>←    6 B  82 04 00 01 80 30
+</span><span id="__span-8-86"><a id="__codelineno-8-86" name="__codelineno-8-86" href="#__codelineno-8-86"></a>→   12 B  82 86 00 00 00 00 00 02 40 11 00 02
+</span><span id="__span-8-87"><a id="__codelineno-8-87" name="__codelineno-8-87" href="#__codelineno-8-87"></a>←    6 B  82 04 00 02 80 80
+</span><span id="__span-8-88"><a id="__codelineno-8-88" name="__codelineno-8-88" href="#__codelineno-8-88"></a>→   12 B  82 86 00 00 00 00 00 03 40 00 00 02
+</span><span id="__span-8-89"><a id="__codelineno-8-89" name="__codelineno-8-89" href="#__codelineno-8-89"></a>←   49 B  82 2f 00 03 80 00 10 73 69 6d 2d 64 66 75 92 10
+</span><span id="__span-8-90"><a id="__codelineno-8-90" name="__codelineno-8-90" href="#__codelineno-8-90"></a>          00 00 01 00 00 00 08 02 00 00 00 01 00 00 00 80
+</span><span id="__span-8-91"><a id="__codelineno-8-91" name="__codelineno-8-91" href="#__codelineno-8-91"></a>          56 73 03 0c 91 c1 ef 0d 00 10 02 00 00 00 f0 01
+</span><span id="__span-8-92"><a id="__codelineno-8-92" name="__codelineno-8-92" href="#__codelineno-8-92"></a>          57
 </span></code></pre></div>
 </details>
 <h2 id="2r-app-bulk-flip-freight">2R-APP-BULK: Flip Freight<a class="headerlink" href="#2r-app-bulk-flip-freight" title="Permanent link">&para;</a></h2>
@@ -6199,54 +6199,54 @@ against the descriptor in <code>finish</code>.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>   ── device runs the app
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>→ node.node()
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>         4 B  01 00 00 02
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>         5 B  01 40 00 00 02
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>← { role: App, profile: AB(Remap), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Confirmed,
 </span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
 </span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>      stage: true, stage_bulk: true } }
 </span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 </span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>→ stage.limits()
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>         4 B  02 03 00 02
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>         5 B  02 40 30 00 02
 </span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>← { max_piece: 64, in_flight: 1, live: true, stored: false, plan_area: 0, writes_in_background: true }
 </span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        13 B  02 80 40 00 00 00 01 80 00 00 …
 </span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>→ bulk.begin_bulk(target: Live, header: [35 B: 57 57 44 50 01 92 …], total_len: 359, ack_every: 0)
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>        49 B  03 04 00 00 57 57 44 50 01 92 …
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>        50 B  03 40 40 00 00 57 57 44 50 01 …
 </span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>← Ok({ steps: 11, resumed: false, resume_from: 0 })
 </span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>        13 B  03 80 80 0b 00 00 00 00 00 00 …
 </span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>→ bulk.plan_ack: StreamOpen { resume: None, max_age_us: None, codecs: None, args: tail(0:[]) }
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>         5 B  04 04 28 00 02
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>         5 B  04 40 42 80 02
 </span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>← ()
 </span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>         6 B  04 80 00 00 00 00
 </span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a>→ bulk.plan: open its session at 0
-</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>         8 B  05 04 18 80 01 00 00 02
+</span><span id="__span-10-23"><a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a>         8 B  05 40 41 88 01 00 00 02
 </span><span id="__span-10-24"><a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a>← bulk.plan: ack: have 0 units, may send 2062 more bytes
 </span><span id="__span-10-25"><a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a>         8 B  00 83 41 50 00 90 0e 02
 </span><span id="__span-10-26"><a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a>← bulk.plan: opened at 0, buffer of 2062 bytes
 </span><span id="__span-10-27"><a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a>         9 B  05 80 01 00 00 40 90 0e 00
 </span><span id="__span-10-28"><a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a>→ bulk.plan ⇐ { offset: 0, data: [64 B: 01 00 00 01 01 00 …] } (sink position 0, 1 unit)
-</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        75 B  00 04 1a 00 00 00 00 00 01 00 …
+</span><span id="__span-10-29"><a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a>        76 B  00 40 41 a0 00 00 00 00 00 01 …
 </span><span id="__span-10-30"><a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a>→ bulk.plan ⇐ { offset: 64, data: [64 B: e6 bd 84 3c 31 2f …] } (sink position 1, 1 unit)
-</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>        75 B  00 04 1a 01 40 00 00 00 e6 bd …
+</span><span id="__span-10-31"><a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a>        76 B  00 40 41 a0 01 40 00 00 00 e6 …
 </span><span id="__span-10-32"><a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a>→ bulk.plan ⇐ { offset: 128, data: [64 B: 28 29 f3 40 2e 64 …] } (sink position 2, 1 unit)
-</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        75 B  00 04 1a 02 80 00 00 00 28 29 …
+</span><span id="__span-10-33"><a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a>        76 B  00 40 41 a0 02 80 00 00 00 28 …
 </span><span id="__span-10-34"><a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>→ bulk.plan ⇐ { offset: 192, data: [64 B: 02 04 00 04 00 a8 …] } (sink position 3, 1 unit)
-</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>        75 B  00 04 1a 03 c0 00 00 00 02 04 …
+</span><span id="__span-10-35"><a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a>        76 B  00 40 41 a0 03 c0 00 00 00 02 …
 </span><span id="__span-10-36"><a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a>→ bulk.plan ⇐ { offset: 256, data: [64 B: e7 cd dc bd 9c c5 …] } (sink position 4, 1 unit)
-</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>        75 B  00 04 1a 04 00 01 00 00 e7 cd …
+</span><span id="__span-10-37"><a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a>        76 B  00 40 41 a0 04 00 01 00 00 e7 …
 </span><span id="__span-10-38"><a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a>→ bulk.plan ⇐ { offset: 320, data: [39 B: d6 1a dc e2 ce f7 …] } (sink position 5, 1 unit)
-</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>        49 B  00 04 1a 05 40 01 00 00 d6 1a …
+</span><span id="__span-10-39"><a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a>        50 B  00 40 41 a0 05 40 01 00 00 d6 …
 </span><span id="__span-10-40"><a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a>← bulk.plan_ack ⇒ { have: 359, status: Complete }
 </span><span id="__span-10-41"><a id="__codelineno-10-41" name="__codelineno-10-41" href="#__codelineno-10-41"></a>         9 B  00 82 42 67 01 00 00 20 02
 </span><span id="__span-10-42"><a id="__codelineno-10-42" name="__codelineno-10-42" href="#__codelineno-10-42"></a>→ bulk.plan: query: sent 6 units
-</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>         6 B  06 04 16 70 06 02
+</span><span id="__span-10-43"><a id="__codelineno-10-43" name="__codelineno-10-43" href="#__codelineno-10-43"></a>         7 B  06 40 41 67 00 06 02
 </span><span id="__span-10-44"><a id="__codelineno-10-44" name="__codelineno-10-44" href="#__codelineno-10-44"></a>← bulk.plan: ack: have 6 units, may send 2062 more bytes
 </span><span id="__span-10-45"><a id="__codelineno-10-45" name="__codelineno-10-45" href="#__codelineno-10-45"></a>         8 B  06 83 41 50 06 90 0e 02
 </span><span id="__span-10-46"><a id="__codelineno-10-46" name="__codelineno-10-46" href="#__codelineno-10-46"></a>→ stage.finish()
-</span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>         4 B  07 03 60 02
+</span><span id="__span-10-47"><a id="__codelineno-10-47" name="__codelineno-10-47" href="#__codelineno-10-47"></a>         5 B  07 40 36 00 02
 </span><span id="__span-10-48"><a id="__codelineno-10-48" name="__codelineno-10-48" href="#__codelineno-10-48"></a>← Ok(Staged)
 </span><span id="__span-10-49"><a id="__codelineno-10-49" name="__codelineno-10-49" href="#__codelineno-10-49"></a>         3 B  07 80 82
 </span><span id="__span-10-50"><a id="__codelineno-10-50" name="__codelineno-10-50" href="#__codelineno-10-50"></a>→ boot.reboot(into: App)
-</span><span id="__span-10-51"><a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a>         5 B  08 01 30 00 02
+</span><span id="__span-10-51"><a id="__codelineno-10-51" name="__codelineno-10-51" href="#__codelineno-10-51"></a>         6 B  08 40 13 00 00 02
 </span><span id="__span-10-52"><a id="__codelineno-10-52" name="__codelineno-10-52" href="#__codelineno-10-52"></a>← Ok(())
 </span><span id="__span-10-53"><a id="__codelineno-10-53" name="__codelineno-10-53" href="#__codelineno-10-53"></a>         3 B  08 80 80
 </span><span id="__span-10-54"><a id="__codelineno-10-54" name="__codelineno-10-54" href="#__codelineno-10-54"></a>← Disconnect(RequestByUser)
@@ -6256,7 +6256,7 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-58"><a id="__codelineno-10-58" name="__codelineno-10-58" href="#__codelineno-10-58"></a>   ── device runs the app
 </span><span id="__span-10-59"><a id="__codelineno-10-59" name="__codelineno-10-59" href="#__codelineno-10-59"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-10-60"><a id="__codelineno-10-60" name="__codelineno-10-60" href="#__codelineno-10-60"></a>→ node.node()
-</span><span id="__span-10-61"><a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a>         4 B  01 00 00 02
+</span><span id="__span-10-61"><a id="__codelineno-10-61" name="__codelineno-10-61" href="#__codelineno-10-61"></a>         5 B  01 40 00 00 02
 </span><span id="__span-10-62"><a id="__codelineno-10-62" name="__codelineno-10-62" href="#__codelineno-10-62"></a>← { role: App, profile: AB(Remap), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-10-63"><a id="__codelineno-10-63" name="__codelineno-10-63" href="#__codelineno-10-63"></a>      app_version: Some(2), version_floor: 1, manifest_digest: Some(5673030c91c1ef0d), boot_state: Trial,
 </span><span id="__span-10-64"><a id="__codelineno-10-64" name="__codelineno-10-64" href="#__codelineno-10-64"></a>      last_result: { outcome: Nothing, version: 0 }, offers: { boot_control: true, inventory: true,
@@ -6264,11 +6264,11 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-66"><a id="__codelineno-10-66" name="__codelineno-10-66" href="#__codelineno-10-66"></a>        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 </span><span id="__span-10-67"><a id="__codelineno-10-67" name="__codelineno-10-67" href="#__codelineno-10-67"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
 </span><span id="__span-10-68"><a id="__codelineno-10-68" name="__codelineno-10-68" href="#__codelineno-10-68"></a>→ boot.revert()
-</span><span id="__span-10-69"><a id="__codelineno-10-69" name="__codelineno-10-69" href="#__codelineno-10-69"></a>         4 B  02 01 20 02
+</span><span id="__span-10-69"><a id="__codelineno-10-69" name="__codelineno-10-69" href="#__codelineno-10-69"></a>         5 B  02 40 12 00 02
 </span><span id="__span-10-70"><a id="__codelineno-10-70" name="__codelineno-10-70" href="#__codelineno-10-70"></a>← Ok(())
 </span><span id="__span-10-71"><a id="__codelineno-10-71" name="__codelineno-10-71" href="#__codelineno-10-71"></a>         3 B  02 80 80
 </span><span id="__span-10-72"><a id="__codelineno-10-72" name="__codelineno-10-72" href="#__codelineno-10-72"></a>→ boot.reboot(into: App)
-</span><span id="__span-10-73"><a id="__codelineno-10-73" name="__codelineno-10-73" href="#__codelineno-10-73"></a>         5 B  03 01 30 00 02
+</span><span id="__span-10-73"><a id="__codelineno-10-73" name="__codelineno-10-73" href="#__codelineno-10-73"></a>         6 B  03 40 13 00 00 02
 </span><span id="__span-10-74"><a id="__codelineno-10-74" name="__codelineno-10-74" href="#__codelineno-10-74"></a>← Ok(())
 </span><span id="__span-10-75"><a id="__codelineno-10-75" name="__codelineno-10-75" href="#__codelineno-10-75"></a>         3 B  03 80 80
 </span><span id="__span-10-76"><a id="__codelineno-10-76" name="__codelineno-10-76" href="#__codelineno-10-76"></a>← Disconnect(RequestByUser)
@@ -6278,7 +6278,7 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-80"><a id="__codelineno-10-80" name="__codelineno-10-80" href="#__codelineno-10-80"></a>   ── device runs the app
 </span><span id="__span-10-81"><a id="__codelineno-10-81" name="__codelineno-10-81" href="#__codelineno-10-81"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-10-82"><a id="__codelineno-10-82" name="__codelineno-10-82" href="#__codelineno-10-82"></a>→ node.node()
-</span><span id="__span-10-83"><a id="__codelineno-10-83" name="__codelineno-10-83" href="#__codelineno-10-83"></a>         4 B  01 00 00 02
+</span><span id="__span-10-83"><a id="__codelineno-10-83" name="__codelineno-10-83" href="#__codelineno-10-83"></a>         5 B  01 40 00 00 02
 </span><span id="__span-10-84"><a id="__codelineno-10-84" name="__codelineno-10-84" href="#__codelineno-10-84"></a>← { role: App, profile: AB(Remap), product: &quot;sim-dfu&quot;, geometry_id: 4242, product_id: 1, seal: Unsigned,
 </span><span id="__span-10-85"><a id="__codelineno-10-85" name="__codelineno-10-85" href="#__codelineno-10-85"></a>      app_version: Some(1), version_floor: 1, manifest_digest: Some(1dd95effd1e00214), boot_state: Reverted,
 </span><span id="__span-10-86"><a id="__codelineno-10-86" name="__codelineno-10-86" href="#__codelineno-10-86"></a>      last_result: { outcome: Reverted, version: 2 }, offers: { boot_control: true, inventory: true,
@@ -6286,79 +6286,78 @@ against the descriptor in <code>finish</code>.</p>
 </span><span id="__span-10-88"><a id="__codelineno-10-88" name="__codelineno-10-88" href="#__codelineno-10-88"></a>        46 B  01 80 00 10 73 69 6d 2d 64 66 …
 </span></code></pre></div>
 <details>
-<summary>Wire bytes: 26 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
+<summary>Wire bytes: 24 USB packets (high speed, 512 B max) (link setup and pings left out)</summary>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>   ── device runs the app
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>→    6 B  05 01 40 00 00 02
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
 </span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>          d9 5e ff d1 e0 02 14 00 00 00 00 00 00 f0 01 57
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>→    5 B  04 02 03 00 02
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>→    6 B  05 02 40 30 00 02
 </span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>←   15 B  08 0d 02 80 40 00 00 00 01 80 00 00 00 00 80
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>→   51 B  08 31 03 04 00 00 57 57 44 50 01 92 10 00 00 02
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>          00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c c3
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>          5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00 00
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>          00 3c 02
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>→   52 B  08 32 03 40 40 00 00 57 57 44 50 01 92 10 00 00
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>          02 00 00 00 0b 00 67 01 00 00 86 ba 52 71 00 2c
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>          c3 5d c1 92 3c 26 b1 01 e5 86 67 01 00 00 00 00
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>          00 00 3c 02
 </span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>←   15 B  08 0d 03 80 80 0b 00 00 00 00 00 00 00 00 19
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>→    6 B  05 04 04 28 00 02
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a>→    6 B  05 04 40 42 80 02
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>←    7 B  06 04 80 00 00 00 00
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>→   10 B  08 08 05 04 18 80 01 00 00 02
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>→   10 B  08 08 05 40 41 88 01 00 00 02
 </span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a>←   21 B  08 08 00 83 41 50 00 90 0e 02 08 09 05 80 01 00
 </span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>          00 40 90 0e 00
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>→  443 B  08 4b 00 04 1a 00 00 00 00 00 01 00 00 01 01 00
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>          01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef cf
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>          f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1 cf
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>          67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01 ff
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>          97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4b 00
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>          04 1a 01 40 00 00 00 e6 bd 84 3c 31 2f c7 a7 fe
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>          d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7 d7 2e
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>          02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03 02 00
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>          ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20 76 32
-</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>          11 db 28 16 4c de 9f 00 89 02 08 4b 00 04 1a 02
-</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>          80 00 00 00 28 29 f3 40 2e 64 f6 b7 40 41 0b 58
-</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>          46 7c 0e cf 58 59 23 70 5e 94 26 e7 70 71 3b 88
-</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>          76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0 a1 6b b8
-</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>          a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e c7 0f b2
-</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>          57 d1 be fc 00 89 02 08 4b 00 04 1a 03 c0 00 00
-</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>          00 02 04 00 04 00 a8 09 c6 1b 42 94 29 60 03 05
-</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>          00 3b f9 a7 bd 49 c0 f8 87 40 00 6e 65 74 20 76
-</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>          32 87 6d 7c 5d 3c 65 75 24 9f 85 94 75 54 7d 8d
-</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>          3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4 a5 84 ad bd
-</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>          6c 00 89 02 08 4b 00 04 1a 04 00 01 00 00 e7 cd
-</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>          dc bd 9c c5 d5 84 ff e5 f4 d5 b4 dd ed 9c 17 fd
-</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>          0c ed cc f5 05 b4 2f 15 03 06 00 d1 8f 7c e6 80
-</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>          78 12 57 40 00 6f 74 61 94 9a 86 af 33 c8 a6 ea
-</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>          ac b2 9e c7 4b e0 be 02 c4 ca b6 df 63 f8 00 89
-</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>          02 08 31 00 04 1a 05 40 01 00 00 d6 1a dc e2 ce
-</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>          f7 7b 10 ee 32 f4 fa e6 0f 93 28 06 4a 0c 12 fe
-</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>          27 ab 40 1e 62 24 2a 16 3f c3 58 36 7a 3c 42 2e
-</span><span id="__span-11-45"><a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>          57 db 7c 02 06 06 04 16 70 06 02
-</span><span id="__span-11-46"><a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
-</span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>          50 06 90 0e 02
-</span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>→    5 B  04 07 03 60 02
-</span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>←    4 B  03 07 80 82
-</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>→    6 B  05 08 01 30 00 02
-</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>←    4 B  03 08 80 80
-</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>←    3 B  30 c1 02
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>→  450 B  08 4c 00 40 41 a0 00 00 00 00 00 01 00 00 01 01
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>          00 01 02 00 01 03 00 03 00 00 27 80 79 0d 97 ef
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>          cf f7 40 00 46 57 02 00 00 00 2f 86 5d 24 dc d1
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>          cf 67 47 9e 75 3c f4 e9 e7 7f 5f b6 8d 54 0c 01
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>          ff 97 77 ce a5 6c 24 19 17 af 8f 00 89 02 08 4c
+</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>          00 40 41 a0 01 40 00 00 00 e6 bd 84 3c 31 2f c7
+</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>          a7 fe d5 9c 54 49 47 df bf 16 ed b4 6c 61 5f f7
+</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>          d7 2e 02 01 00 01 00 3c e2 93 64 32 07 b8 7c 03
+</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a>          02 00 ed cc 83 d5 b3 97 4a 90 40 00 61 70 70 20
+</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a>          76 32 11 db 28 16 4c de 9f 00 89 02 08 4c 00 40
+</span><span id="__span-11-28"><a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a>          41 a0 02 80 00 00 00 28 29 f3 40 2e 64 f6 b7 40
+</span><span id="__span-11-29"><a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a>          41 0b 58 46 7c 0e cf 58 59 23 70 5e 94 26 e7 70
+</span><span id="__span-11-30"><a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a>          71 3b 88 76 ac 3e ff 88 89 53 a0 8e c4 56 17 a0
+</span><span id="__span-11-31"><a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a>          a1 6b b8 a6 dc 6e 2f b8 b9 83 02 03 00 05 00 1e
+</span><span id="__span-11-32"><a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a>          c7 0f b2 57 d1 be fc 00 89 02 08 4c 00 40 41 a0
+</span><span id="__span-11-33"><a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a>          03 c0 00 00 00 02 04 00 04 00 a8 09 c6 1b 42 94
+</span><span id="__span-11-34"><a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>          29 60 03 05 00 3b f9 a7 bd 49 c0 f8 87 40 00 6e
+</span><span id="__span-11-35"><a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a>          65 74 20 76 32 87 6d 7c 5d 3c 65 75 24 9f 85 94
+</span><span id="__span-11-36"><a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a>          75 54 7d 8d 3c b7 9d ac 8d 6c 95 a5 54 cf b5 c4
+</span><span id="__span-11-37"><a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a>          a5 84 ad bd 6c 00 89 02 08 4c 00 40 41 a0 04 00
+</span><span id="__span-11-38"><a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a>          01 00 00 e7 cd dc bd 9c c5 d5 84 ff e5 f4 d5 b4
+</span><span id="__span-11-39"><a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a>          dd ed 9c 17 fd 0c ed cc f5 05 b4 2f 15 03 06 00
+</span><span id="__span-11-40"><a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a>          d1 8f 7c e6 80 78 12 57 40 00 6f 74 61 94 9a 86
+</span><span id="__span-11-41"><a id="__codelineno-11-41" name="__codelineno-11-41" href="#__codelineno-11-41"></a>          af 33 c8 a6 ea ac b2 9e c7 4b e0 be 02 c4 ca b6
+</span><span id="__span-11-42"><a id="__codelineno-11-42" name="__codelineno-11-42" href="#__codelineno-11-42"></a>          df 63 f8 00 89 02 08 32 00 40 41 a0 05 40 01 00
+</span><span id="__span-11-43"><a id="__codelineno-11-43" name="__codelineno-11-43" href="#__codelineno-11-43"></a>          00 d6 1a dc e2 ce f7 7b 10 ee 32 f4 fa e6 0f 93
+</span><span id="__span-11-44"><a id="__codelineno-11-44" name="__codelineno-11-44" href="#__codelineno-11-44"></a>          28 06 4a 0c 12 fe 27 ab 40 1e 62 24 2a 16 3f c3
+</span><span id="__span-11-45"><a id="__codelineno-11-45" name="__codelineno-11-45" href="#__codelineno-11-45"></a>          58 36 7a 3c 42 2e 57 db 7c 02 07 06 40 41 67 00
+</span><span id="__span-11-46"><a id="__codelineno-11-46" name="__codelineno-11-46" href="#__codelineno-11-46"></a>          06 02
+</span><span id="__span-11-47"><a id="__codelineno-11-47" name="__codelineno-11-47" href="#__codelineno-11-47"></a>←   21 B  08 09 00 82 42 67 01 00 00 20 02 08 08 06 83 41
+</span><span id="__span-11-48"><a id="__codelineno-11-48" name="__codelineno-11-48" href="#__codelineno-11-48"></a>          50 06 90 0e 02
+</span><span id="__span-11-49"><a id="__codelineno-11-49" name="__codelineno-11-49" href="#__codelineno-11-49"></a>→    6 B  05 07 40 36 00 02
+</span><span id="__span-11-50"><a id="__codelineno-11-50" name="__codelineno-11-50" href="#__codelineno-11-50"></a>←    4 B  03 07 80 82
+</span><span id="__span-11-51"><a id="__codelineno-11-51" name="__codelineno-11-51" href="#__codelineno-11-51"></a>→    7 B  06 08 40 13 00 00 02
+</span><span id="__span-11-52"><a id="__codelineno-11-52" name="__codelineno-11-52" href="#__codelineno-11-52"></a>←    7 B  03 08 80 80 30 c1 02
 </span><span id="__span-11-53"><a id="__codelineno-11-53" name="__codelineno-11-53" href="#__codelineno-11-53"></a>   ── device resets (into the app)
 </span><span id="__span-11-54"><a id="__codelineno-11-54" name="__codelineno-11-54" href="#__codelineno-11-54"></a>   ── bootloader switches to the staged image: maps bank 1 to the boot address, nothing is copied
 </span><span id="__span-11-55"><a id="__codelineno-11-55" name="__codelineno-11-55" href="#__codelineno-11-55"></a>   ── device runs the app
-</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>→    5 B  04 01 00 00 02
+</span><span id="__span-11-56"><a id="__codelineno-11-56" name="__codelineno-11-56" href="#__codelineno-11-56"></a>→    6 B  05 01 40 00 00 02
 </span><span id="__span-11-57"><a id="__codelineno-11-57" name="__codelineno-11-57" href="#__codelineno-11-57"></a>←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
 </span><span id="__span-11-58"><a id="__codelineno-11-58" name="__codelineno-11-58" href="#__codelineno-11-58"></a>          00 01 00 00 00 08 02 00 00 00 01 00 00 00 80 56
 </span><span id="__span-11-59"><a id="__codelineno-11-59" name="__codelineno-11-59" href="#__codelineno-11-59"></a>          73 03 0c 91 c1 ef 0d 30 00 00 00 00 00 f0 01 57
 </span><span id="__span-11-60"><a id="__codelineno-11-60" name="__codelineno-11-60" href="#__codelineno-11-60"></a>   ── the new image fails its own checks: gives up the trial instead of confirming
-</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>→    5 B  04 02 01 20 02
+</span><span id="__span-11-61"><a id="__codelineno-11-61" name="__codelineno-11-61" href="#__codelineno-11-61"></a>→    6 B  05 02 40 12 00 02
 </span><span id="__span-11-62"><a id="__codelineno-11-62" name="__codelineno-11-62" href="#__codelineno-11-62"></a>←    4 B  03 02 80 80
-</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>→    6 B  05 03 01 30 00 02
-</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>←    4 B  03 03 80 80
-</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>←    3 B  30 c1 02
-</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>   ── device resets (into the app)
-</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
-</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>   ── device runs the app
-</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>→    5 B  04 01 00 00 02
-</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
-</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
-</span><span id="__span-11-72"><a id="__codelineno-11-72" name="__codelineno-11-72" href="#__codelineno-11-72"></a>          d9 5e ff d1 e0 02 14 10 20 02 00 00 00 f0 01 57
+</span><span id="__span-11-63"><a id="__codelineno-11-63" name="__codelineno-11-63" href="#__codelineno-11-63"></a>→    7 B  06 03 40 13 00 00 02
+</span><span id="__span-11-64"><a id="__codelineno-11-64" name="__codelineno-11-64" href="#__codelineno-11-64"></a>←    7 B  03 03 80 80 30 c1 02
+</span><span id="__span-11-65"><a id="__codelineno-11-65" name="__codelineno-11-65" href="#__codelineno-11-65"></a>   ── device resets (into the app)
+</span><span id="__span-11-66"><a id="__codelineno-11-66" name="__codelineno-11-66" href="#__codelineno-11-66"></a>   ── bootloader the trial image did not confirm: switches back: maps bank 0 to the boot address, nothing is copied
+</span><span id="__span-11-67"><a id="__codelineno-11-67" name="__codelineno-11-67" href="#__codelineno-11-67"></a>   ── device runs the app
+</span><span id="__span-11-68"><a id="__codelineno-11-68" name="__codelineno-11-68" href="#__codelineno-11-68"></a>→    6 B  05 01 40 00 00 02
+</span><span id="__span-11-69"><a id="__codelineno-11-69" name="__codelineno-11-69" href="#__codelineno-11-69"></a>←   48 B  08 2e 01 80 00 10 73 69 6d 2d 64 66 75 92 10 00
+</span><span id="__span-11-70"><a id="__codelineno-11-70" name="__codelineno-11-70" href="#__codelineno-11-70"></a>          00 01 00 00 00 08 01 00 00 00 01 00 00 00 80 1d
+</span><span id="__span-11-71"><a id="__codelineno-11-71" name="__codelineno-11-71" href="#__codelineno-11-71"></a>          d9 5e ff d1 e0 02 14 10 20 02 00 00 00 f0 01 57
 </span></code></pre></div>
 </details>
 

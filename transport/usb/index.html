@@ -5382,6 +5382,9 @@ runs in its own task:</p>
 <p>A driver with endpoint kinds <code>usb_init()</code> doesn't name (e.g. embassy-stm32's double-buffered bulk endpoints on USB
 v4 parts) can use <code>usb_init_with_endpoints()</code> instead: same as <code>usb_init()</code>, with a closure allocating the OUT and
 IN endpoints.</p>
+<p><code>UsbTimings</code> also sets the accumulation window the host and device batch messages in (1 ms for
+<code>fs_higher_speed()</code>): a request or reply waits for it at most, an urgent one (<code>.urgent()</code> on the host) not at all,
+see <a href="../ww_framer/#latency-and-priority">latency and priority</a>.</p>
 <h2 id="what-you-get">What you get<a class="headerlink" href="#what-you-get" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Plug and play</strong>: hot-plug is handled — a device that disappears fails outstanding requests and can be

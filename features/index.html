@@ -6345,6 +6345,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   direct, 16 B round trips over USB FS 10-25 % fewer on an idle PC, 3-13 % under load, from the two extra process
   wakes). Tested on Linux; check on macOS and Windows open. Limits: sinks and the sideband of a shared stream are the
   first client's, streams on trait paths are not counted per client.</li>
+<li>🧪 <strong>SRV-42 Device flushes by priority, also deferred replies</strong> · <code>v0.5.x</code> — the device answers by the request's
+  priority (CLT-50): <code>Context::priority()</code> and <code>ReplyTo::priority</code> carry it to handlers, a reply to an urgent
+  request is flushed at once from <code>Server::handle</code>, and a deferred one (generated <code>&lt;method&gt;_send_return(out,
+  reply_to, ..)</code>, sent through <code>Server::sink()</code> from outside <code>handle</code>) through <code>MessageSink::send_reply</code>;
+  default-priority replies, immediate or deferred, wait for the accumulation window like everything else.
+  <code>Sink::flush</code> (async and blocking) lets firmware send what waits now. Before, a deferred reply always waited for
+  the window and firmware had no way to flush it. Tests: <code>ww_device</code> <code>async_server::replies_flushed_by_priority</code>,
+  <code>wire_weaver_client</code> <code>flush_e2e_tests</code>. On hardware: part of CLT-50's re-measure.</li>
 <li>💡 <strong>SRV-41 Fewer wakes on the hub path</strong> — the tunnel's cost is two extra process wakes per message (client →
   hub → client): 16 B round trips over USB FS are 15 % (donguru) and 23 % (b200) fewer than direct on an idle PC
   (median of 7 rounds), 3.5 % and 12.6 % under load; the hub's own USB round trip equals direct (480 µs against
@@ -6423,6 +6431,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   a static key per PC (<code>ww hub key</code>), peers allowlisted by key and source address with SRV-37 rules. Built when a
   box without ssh needs it.</li>
 <li>💡 <strong>SRV-14 FPGA server</strong> · <code>v0.5.x</code>.</li>
+<li>📋 <strong>SRV-44 Device serves waiting requests by priority</strong> — requests that arrived in one frame are handled in
+  order; take the highest priority (CLT-50) first, so its reply leaves first. <code>TODO(SRV-44)</code> in <code>ww_device</code>
+  <code>server.rs</code> and <code>blocking.rs</code>.</li>
+<li>📋 <strong>SRV-45 Hub queues by priority across clients</strong> — the hub (SRV-29) forwards each client's requests in the order
+  they came and flushes urgent ones at once (CLT-50); with several busy clients on one device, an urgent request of
+  one could still wait behind another's batch in the device link's queue. Sort what waits there by priority
+  (with CLT-52).</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6603,12 +6618,25 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shortened form or none. <code>DeviceLink::peer_meta()</code> on the device; <code>wire_weaver_py</code> sets <code>Notebook</code>. Docs:
   <code>docs/transport/hub.md</code>. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
   only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).</li>
-<li>✅ <strong>CLT-37 No millisecond per request from the accumulation window</strong> · <code>v0.5.x</code> — the host slept out the device's
-  frame accumulation window (250 µs on USB HS) with <code>tokio::time::sleep_until</code>, which rounds up to whole
-  milliseconds: every request waited ~1.06 ms before it left. A window under 1 ms now ends as soon as the tx task has
-  nothing else waiting (after one yield, so requests queued together still share a frame; <code>TxInput::Idle</code>,
-  <code>TxCore::wants_idle_flush</code>). Measured on a B135 rev B over USB HS (omarchy-m1, 21 Oct 2026): a property-like call
-  1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit sink 3.8k → 7.2k/s.</li>
+<li>🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 4-bit priority (<code>ww_client_server::Request</code>'s
+  <code>priority</code> nibble, <code>wire_weaver::Priority</code>: 0..=15, <code>NORMAL</code> = 4 by default, <code>URGENT</code> = 8, wire change EVO-14).
+  Default traffic follows one plain rule on both ends: a frame goes out when it is full or when the device's
+  accumulation window is over, never later (CLT-53), also for a request or reply alone. An urgent request (8 and up)
+  is flushed at once by the host, and its reply, immediate or deferred (SRV-42), by the device. API:
+  <code>.priority(p)</code> / <code>.urgent()</code> on <code>PreparedCall</code>, <code>PreparedRead</code>, <code>PreparedWrite</code> and <code>PreparedStreamOpen</code>,
+  <code>Commander::set_default_priority</code>, <code>ClientConfig::default_priority</code>; a multi request (CLT-15) goes at the highest
+  priority of its items. Through the hub (SRV-29) the nibble stays as the client sent it and the hub's link to the
+  device flushes an urgent request at once too (<code>tests/hub</code> <code>urgent_call_through_the_hub_goes_at_once</code>). Replaces
+  the lone request/reply fast paths (CLT-37, TR-12's reply flush), which made latency depend on what else happened
+  to be queued. Docs: <code>docs/transport/ww_framer.md#latency-and-priority</code>; tests
+  <code>wire_weaver_client</code> <code>flush_e2e_tests</code>, <code>core::tests::urgent_request_flushes_at_once</code>, <code>ww_device</code>
+  <code>async_server::replies_flushed_by_priority</code>. On hardware: re-measure the rePort B200A round trips (scratch fixes:
+  immediate call 2.69 → 0.54 ms p50, deferred <code>i2c_read</code> 5.3 → 2.3 ms).</li>
+<li>🧪 <strong>CLT-53 An accumulation window never costs more than itself</strong> · <code>v0.5.x</code> — the host waited for the window with
+  <code>tokio::time::sleep_until</code>, which rounds up to whole milliseconds: a 1 ms window (rePort B200A,
+  <code>UsbTimings::fs_higher_speed</code>) cost ~2.2 ms per request. The tx task now waits on a fine timer
+  (<code>event_loop/fine_timer.rs</code>: one thread per process for deadlines under 2 ms away, tokio's timer for the rest),
+  within tens of µs of the deadline. On hardware: part of CLT-50's re-measure.</li>
 <li>✅ <strong>CLT-38 Who holds a device</strong> · <code>v0.5.x</code> — <code>wire_weaver_client::holders</code> (<code>key_for</code>, <code>holder_of</code>, <code>list</code>),
   always on, not gated by a feature: before claiming a USB interface or RTT probe, <code>claim()</code> takes an exclusive
   <code>std::fs::File::try_lock</code> on <code>&lt;runtime dir&gt;/ww/holders/&lt;key&gt;.lock</code> (<code>$XDG_RUNTIME_DIR/ww</code> on Linux, <code>$TMPDIR/ww</code>
@@ -6731,6 +6759,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   the same path for every index. Host-tested (<code>tests/methods</code> <code>multi_call_same_method_twice</code>: 3-tuple at the root,
   2-tuple in an array item, <code>Same</code> and <code>Different</code> args, Ok and device <code>Err</code> mixed, infallible too),
   <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.</li>
+<li>📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
+  flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
+  by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
+  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6793,14 +6825,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>🚧 <strong>TR-12 USB throughput on small MCUs</strong> — measured with <code>ww usb-loopback</code> on Donguru (STM32G0B1, Cortex-M0+
   64 MHz, USB FS behind the board's HS hub, 15 Oct 2026). Done: U2Head encodes and decodes whole bytes in u32
   instead of bit by bit (<code>ww_framer</code> <code>framed.rs</code>, was ~15% of the device's CPU per packet); the async device server
-  flushes replies at once when no other request waits instead of after the accumulation window (<code>ww_device</code>
-  <code>Server::handle</code>; DFU transcripts +1-2 packets). <code>WireWeaverClass::with_endpoints()</code> lets
+  flushed replies at once when no other request waited (<code>ww_device</code> <code>Server::handle</code>), removed again for request
+  priority (CLT-50, SRV-42: a reply goes out at once only when its request is urgent). <code>WireWeaverClass::with_endpoints()</code> lets
   firmware allocate the endpoints, e.g. double-buffered bulk ones (Donguru, embassy-rs/embassy#7275: raw bulk 500 -&gt;
   950 kB/s OUT on the G0); <code>usb_init_with_endpoints()</code> offers the same choice to callers of the single-function
   <code>usb_init()</code> convenience, who can't reach into its private <code>UsbBuffers</code>. Next: CRC through a pluggable checksum
-  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+); a host-side flush for lone requests
-  that keeps packetization deterministic (flushing whenever the event loop goes idle made the DFU transcripts
-  vary between runs); the same reply flush for the blocking server.</li>
+  so MCUs can use their CRC unit (~13% of the CPU per packet on the M0+). The lone request and reply flushes once
+  planned here are superseded by request priority (CLT-50).</li>
 </ul>
 <h2 id="introspection-ww_self-int">Introspection (<code>ww_self</code>, <code>INT</code>)<a class="headerlink" href="#introspection-ww_self-int" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6882,6 +6913,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   list of fields or <code>ww_self</code> versions: the next model field gets it too, also a non-<code>Option</code> one, which DER-17 makes
   readable (<code>docs/evolution/checker_tool.md#the-current-versions-snapshot</code>, <code>wire_weaver_evolution/tests/check.rs</code>
   with G0's old-format snapshots as a fixture).</li>
+<li>✅ <strong>EVO-14 Priority nibble in <code>Request</code></strong> · <code>v0.5.x</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>: a
+  <code>priority: Nibble</code> after <code>seq</code> (CLT-50). A host and a device must both have it; nothing with the old layout was
+  released. Conformance cases of <code>Request</code> carry the new bytes with <code>"wire_change": "EVO-14 / ..."</code>.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -7470,6 +7504,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>CLT-37 No millisecond per request from the accumulation window</strong> — superseded by request priority (CLT-50)
+  and the fine window timer (CLT-53) (user, 27 Oct 2026). CLT-37 flushed whatever accumulated as soon as the tx
+  task had nothing else waiting, for windows under 1 ms (<code>TxInput::Idle</code>, <code>TxCore::wants_idle_flush</code>, removed), so
+  a request's latency depended on what else happened to be queued. Now default traffic waits for the window, never
+  longer, and a request that must not wait says so with <code>.urgent()</code>. Its measurement (B135 rev B, USB HS, 21 Oct
+  2026): a property-like call 1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit
+  sink 3.8k → 7.2k/s.</li>
 <li><strong>API-25 Refactor codegen to use an IR</strong> — decided against (18 Oct 2026). There are two wire-layout engines by
   design: <code>shrink_wrap_derive</code> keeps its own AST, as <code>ww_self</code>'s own types are encoded with <code>#[derive_shrink_wrap]</code>
   and the derive can't depend on <code>ww_self</code> (a bootstrapping cycle); the dynamic path (<code>ww_self</code> to the dynamic

@@ -4,7 +4,7 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
     collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
-    take_id_attr, take_series_attr, take_since_attr,
+    take_id_attr, take_series_attr, take_since_attr, take_wire_attr,
 };
 use crate::transform::transform_ty::transform_type;
 use proc_macro2::{Ident, Span};
@@ -248,6 +248,66 @@ pub(crate) fn check_tail_bytes_position(types: &[&Type]) -> Result<(), String> {
 //     })
 // }
 
+/// Signedness of an integer type that can be a `#[wire(W)]` field or its wire type (DER-19), `None` for any other
+/// type. `wire` picks the wire side: no 128-bit types there (`WireAs` goes through 64 bits), but sub-byte, nibble and
+/// variable-length ones; the field side is the Rust integers.
+fn wire_int_signed(ty: &Type, wire: bool) -> Option<bool> {
+    match ty {
+        Type::U8 | Type::U16 | Type::U32 | Type::U64 => Some(false),
+        Type::I8 | Type::I16 | Type::I32 | Type::I64 => Some(true),
+        Type::U128 if !wire => Some(false),
+        Type::I128 if !wire => Some(true),
+        Type::Nibble | Type::UNib32 | Type::UVlq32 | Type::UVlq64 if wire => Some(false),
+        Type::External(path, false) if path.args.is_empty() => {
+            let name = path.segments.last()?.to_string();
+            if !wire {
+                return match name.as_str() {
+                    "usize" if path.segments.len() == 1 => Some(false),
+                    "isize" if path.segments.len() == 1 => Some(true),
+                    _ => None,
+                };
+            }
+            let (signed, bits) = if let Some(bits) = name.strip_prefix('U') {
+                (false, bits)
+            } else {
+                (true, name.strip_prefix('I')?)
+            };
+            let bits: u8 = bits.parse().ok()?;
+            let min = if signed { 2 } else { 1 };
+            (min..=64).contains(&bits).then_some(signed)
+        }
+        _ => None,
+    }
+}
+
+/// The type of a `#[wire(W)] field: T` (DER-19), checked: both integers of the same signedness.
+fn wire_field_type(plain: Type, wire: Type, cfg: Option<syn::Meta>) -> Result<Type, String> {
+    let Some(plain_signed) = wire_int_signed(&plain, false) else {
+        return Err(
+            "#[wire(W)] goes on a plain integer field (u8..u128, i8..i128, usize, isize)".into(),
+        );
+    };
+    let Some(wire_signed) = wire_int_signed(&wire, true) else {
+        return Err(
+            "#[wire(W)]: W is an integer type of 64 bits or less: u8..u64, i8..i64, Nibble, \
+                    U1..U64, I2..I64, UNib32, UVlq32 or UVlq64"
+                .into(),
+        );
+    };
+    if plain_signed != wire_signed {
+        return Err(format!(
+            "#[wire(W)]: the field is {} and W is {}, both must be signed or both unsigned",
+            if plain_signed { "signed" } else { "unsigned" },
+            if wire_signed { "signed" } else { "unsigned" },
+        ));
+    }
+    Ok(Type::Wire {
+        plain: Box::new(plain),
+        wire: Box::new(wire),
+        cfg,
+    })
+}
+
 pub(crate) fn transform_field(
     def_order_idx: u32,
     field: &syn::Field,
@@ -266,6 +326,13 @@ pub(crate) fn transform_field(
     };
 
     let ty = transform_type(field.ty, Some(&mut field.attrs), &path)?;
+    let ty = match take_wire_attr(&mut field.attrs).map_err(|e| format!("field `{ident}`: {e}"))? {
+        Some((wire, cfg)) => {
+            let wire = transform_type(wire, None, &path)?;
+            wire_field_type(ty, wire, cfg).map_err(|e| format!("field `{ident}`: {e}"))?
+        }
+        None => ty,
+    };
     let default = take_default_attr(&mut field.attrs)?;
     let series_opaque =
         take_series_attr(&mut field.attrs).map_err(|e| format!("field `{ident}`: {e}"))?;

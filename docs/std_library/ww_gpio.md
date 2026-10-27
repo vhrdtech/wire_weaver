@@ -196,6 +196,38 @@ let modes = join_all(modes).await;
 `mode_mega_parallel.rs` takes this further, flattening the bank/pin loop into a single `join_all` over every pin of
 every bank at once, for the best-case latency (17ms on USB High Speed in this example).
 
+## embedded-hal (`ww_gpio_hl`)
+
+`ww_gpio_hl` wraps the generated client in pin types modeled after embassy's: `Flex` (any mode), `PushPullOutput`,
+`Input`, `OpenDrainOutput` and `Bank`, in a blocking (`blocking::FlexBlocking`, ...), an async
+(`asynchronous::Flex`, ...) and a promise flavor (immediate-mode GUIs). They carry the embedded-hal 1.0 traits, so
+a stock driver gets its reset, chip-select or interrupt line from a remote device:
+
+* blocking pins: `embedded_hal::digital::{OutputPin, StatefulOutputPin, InputPin}`. Each call is a round trip,
+  `toggle` one call (`Pin::toggle`), not a read and a write. They block, so not inside an async task.
+* async pins (`Flex`, `Input`, `OpenDrainOutput`): `embedded_hal_async::digital::Wait`.
+
+```rust
+let irq = Flex::new_ignore_mode(device.port(0).pin(4).attachment())?
+    .urgent()
+    .into_input(Pull::Up)
+    .await?;
+let mut fusb = Fusb302::new(i2c, irq);
+```
+
+A wait doesn't miss an edge that comes after the call, nor count one from before it: it opens the pin's `event`
+stream with the edges it needs first, then (`wait_for_high` / `wait_for_low`) reads the input level, then awaits the
+edge. The stream is closed when the wait returns or is dropped. Setting up is one round trip, two for a level; a pin
+already at the level returns after these. `last_edge_time()` gives the device time of the edge that ended the last
+wait (when the device sends one), to measure from the moment the line moved rather than from when the host heard of
+it. A gap in the stream (the device dropped events) ends an edge wait, since the edge may be among the lost ones,
+and makes a level wait read the level again. `urgent()` / `set_priority()` set the priority of the pin's requests,
+the stream open included.
+
+`tests/io_gpio` runs them through generic functions, the way a driver uses them: `eh_async_wait` (a level that is
+already there, a falling edge with its device time, an earlier edge that doesn't count, a dropped wait closing the
+stream) and `eh_blocking_digital`.
+
 ## MCU server implementation (`examples_mcu/nucleo_h743zi2/src/bin/all_gpio.rs`)
 
 On the device side, `ww_codegen!` generates the dispatch code and leaves the actual register access to hand-written

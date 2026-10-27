@@ -318,6 +318,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-50 | Indicators in phase | Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. | std_library/ww_indication.md#animations-in-phase-std-50
 - STD-12 | Firmware updates | `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. | std_library/ww_dfu.md
 - STD-20 | 1-Wire | Transactions and ROM search. | std_library/ww_onewire.md
+- STD-76 | Stock I2C drivers on the host | An embedded-hal I2C driver crate runs unchanged against the I2C bus of a remote device, one transaction per round trip. | std_library/ww_i2c_hl.md
 - STD-8, STD-6 | More buses | `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. | std_library/ww_i2c.md
 
 ## Advanced

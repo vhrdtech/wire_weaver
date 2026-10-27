@@ -105,7 +105,7 @@ address and its direction bit, after a repeated start for all but the first, as 
 The last line is not one longer write: `embedded_hal::i2c::I2c::transaction` merges adjacent operations of the same
 direction without a repeated start, `i2c_transaction` doesn't. An EEPROM page write (memory address, then data) is
 one `Write` with both, as on a real 24Cxx the repeated start would make the data a new memory address. A host
-adapter implementing embedded-hal over `ww_i2c` merges before the call: adjacent writes concatenated into one
+adapter implementing embedded-hal over `ww_i2c` ([`ww_i2c_hl`](ww_i2c_hl.md)) merges before the call: adjacent writes concatenated into one
 `Write`, adjacent reads into one `Read` of the summed length, and splits the read bytes again.
 
 `Nack` errors say where the transfer stopped: `op` is the operation (0 for `i2c_write` and a plain read, 0 or 1

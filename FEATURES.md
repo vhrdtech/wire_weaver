@@ -1764,7 +1764,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   2026): callers in usb_io_fw and typec_dongle adapt. Docs
   `docs/std_library/ww_i2c.md#transactions`, tests in `ww_i2c` (round trips) and `tests/io_i2c`. Open:
   the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).
-- 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
+- 🧪 **STD-76 `ww_i2c_hl` embedded-hal I2C over `ww_i2c`** · `v0.5` — a stock embedded-hal 1.0 I2C driver,
+    blocking or async, runs unchanged on the host against a remote `ww_i2c::I2c` (for P2534 fusb302-sink, a PD sink
+    driven from the PC): `I2cMaster` merges contiguous same-direction operations (a repeated start before every
+    `ww_i2c` operation, STD-52), so one embedded-hal transaction is one call and one round trip; refuses, never
+    splits, what the device's `I2cCapabilities` don't take; `Nack`/`Arbitration`/`Bus`/`Overrun` mapped to
+    `ErrorKind`; request priority as a handle setting (`urgent()`, CLT-50). Docs `docs/std_library/ww_i2c_hl.md`,
+    tests `tests/io_i2c` (`tmp1x2` async, `eeprom24x` blocking, unchanged). Open: the check on real silicon with
+    the FUSB302 over the rePort's I2C (P2534).
+- 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing. Blocking, async and promise flavors; the blocking
+    pins implement `embedded_hal::digital` (`OutputPin`, `StatefulOutputPin`, `InputPin`), the async ones
+    `embedded_hal_async::digital::Wait` without a race (stream opened, then level read, then edge awaited) and keep
+    the edge's device time (`last_edge_time`), tested in `tests/io_gpio` (`docs/std_library/ww_gpio.md#embedded-hal-ww_gpio_hl`).
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.
 - 🚧 **STD-8 Prototypes**, to be completed later: `ww_i2c`, `ww_uart`,

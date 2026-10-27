@@ -95,6 +95,7 @@ nav = [
                     "std_library/ww_uart.md",
                     "std_library/ww_can_bus.md",
                     "std_library/ww_i2c.md",
+                    "std_library/ww_i2c_hl.md",
                     "std_library/ww_spi.md",
                     "std_library/ww_onewire.md",
                     "std_library/ww_adc.md",

@@ -337,6 +337,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Indicators in phase](std_library/ww_indication.md#animations-in-phase-std-50)**: Devices with a shared clock breathe and blink together, aligned to UTC, with nothing to configure. <span class="ww-status">hardware check open</span>
 - **[Firmware updates](std_library/ww_dfu.md)**: `ww_dfu` for A/B, in-place and bootloader updates, tested with reboots and power cuts. <span class="ww-status">in progress</span>
 - **[1-Wire](std_library/ww_onewire.md)**: Transactions and ROM search.
+- **[Stock I2C drivers on the host](std_library/ww_i2c_hl.md)**: An embedded-hal I2C driver crate runs unchanged against the I2C bus of a remote device, one transaction per round trip. <span class="ww-status">hardware check open</span>
 - **[More buses](std_library/ww_i2c.md)**: `ww_i2c`, `ww_uart`, `ww_memory` and the `ww_gpio_hl` helpers, usable with gaps. <span class="ww-status">in progress</span>
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>

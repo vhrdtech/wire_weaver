@@ -127,4 +127,7 @@ Used by the codegen and introspection; an API crate rarely depends on these dire
 
 Crates with a more ergonomic client on top of a generated one, for drivers, CLIs and GUIs rather than firmware.
 
-* `ww_gpio_hl` — async, blocking and promise wrappers over `ww_gpio`'s generated client
+* `ww_gpio_hl` — async, blocking and promise wrappers over `ww_gpio`'s generated client, with embedded-hal digital
+  traits ([ww_gpio](ww_gpio.md#embedded-hal-ww_gpio_hl))
+* [`ww_i2c_hl`](ww_i2c_hl.md) — embedded-hal I2C (blocking and async) over a remote `ww_i2c::I2c`: stock driver
+  crates run unchanged on the host

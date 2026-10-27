@@ -737,9 +737,15 @@ mod tests {
     use std::path::PathBuf;
 
     mod transparent;
+    mod ww_si_fixed;
 
     /// Load a crate bundle from source, as `ww api save` would, by writing a throwaway crate.
     fn load(version: &str, lib_rs: &str) -> ApiBundleOwned {
+        load_with(version, lib_rs, "")
+    }
+
+    /// [load] with `dependencies`, lines of the `[dependencies]` section.
+    fn load_with(version: &str, lib_rs: &str, dependencies: &str) -> ApiBundleOwned {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_evolution_tests")
             .join(format!(
@@ -751,7 +757,7 @@ mod tests {
         std::fs::write(
             dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}"
             ),
         )
         .unwrap();

@@ -262,6 +262,7 @@ round, and tell you before a release when a change would break that.
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
 - EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: counted bases sorted, out-of-order ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
+- EVO-15 | Units and bounds in the checker | Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking. | evolution/rules.md#transparent-wrappers-units-and-scales
 
 ## Advanced
 

@@ -2019,7 +2019,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec `*_SF` scale-factor register), and a
   value in % or per-mille of another resource's reading ("% of a reference register"); the model names the field or
   resource the scale comes from, the dynamic client, Python and C apply it exactly. Exponents of 10 or 2 only: a
-  free runtime factor (calibration) is data, not a unit (TEST-28's list).
+  free runtime factor (calibration, currency) is a runtime value, not a unit: `ww_si::Quantity` / `AnyQuantity` or the
+  application (TEST-28's list).
 - 📋 **STD-70 Text unit codes in and out** — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
   imports, exports that say where they lose something. Later, in a separate optional crate `exact_units_interop`
   (Roman, 27 Oct): this release builds the capability to represent them (STD-77, TEST-28), not the tables.
@@ -2167,7 +2168,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   A capability enters `exact_units` only as a pattern a class of units or a standard's structure uses, never for one
   odd value: non-linear or empirical scales (AWG, Beaufort, Richter, Rockwell, octane, API gravity, shoe sizes),
   ill-defined codes (GATT "decibel" without a reference, month / year durations, unqualified kcal) and data-defined
-  scales (calibration, currency) go on the list, at most as named functions or "unknown, reported".
+  scales go on the list, at most as named functions or "unknown, reported"; a free runtime factor (calibration,
+  currency) is listed as "runtime value, not a unit", carried by `ww_si::Quantity` / `AnyQuantity` or the application.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

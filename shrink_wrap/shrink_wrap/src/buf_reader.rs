@@ -566,6 +566,14 @@ impl<'i> BufReader<'i> {
         }
     }
 
+    /// Keep `e` for [latched](Self::latched) like a failed `_latch` read, unless an earlier error is kept: a
+    /// `transparent` type with `validate` reports a value out of its range this way when it is read latched (DER-20).
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn keep_error(&mut self, e: Error) {
+        self.latch.get_or_insert(e);
+    }
+
     /// What `#[derive_shrink_wrap]` reads a field of a user type with: [read](Self::read), except for the types
     /// that keep a failed read for [latched](Self::latched) (`U1`..`U64`, `I2`..`I64`), see
     /// [DeserializeShrinkWrap::des_shrink_wrap_latch].

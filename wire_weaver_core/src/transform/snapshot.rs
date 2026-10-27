@@ -35,8 +35,8 @@ use ww_version::FullVersionOwned;
 pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
     scratch.dedup_traits = true;
-    // loaded first, so gets crate_idx 0
-    let entry = CrateContext::load(crate_path, &mut scratch)?;
+    // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
+    let entry = CrateContext::load_all_features(crate_path, &mut scratch)?;
     let mut items = vec![];
     for item in &entry.lib_rs_ast.items {
         match item {

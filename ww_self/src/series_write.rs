@@ -369,6 +369,32 @@ impl Encoder<'_> {
                     None,
                 ))
             }
+            // DER-18: the field's columns, at the same level (no head of its own), with its tag
+            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+                let def = item_struct.transparent_field()?;
+                let path = &item_struct.ident;
+                let column = items
+                    .iter()
+                    .map(|v| match v {
+                        ValueOwned::Struct {
+                            fields: FieldsValueOwned::Named(values),
+                        } if def.ident.is_some() => {
+                            check_field_names(values, std::slice::from_ref(def), path)?;
+                            find_field(values, def).ok_or_else(|| {
+                                anyhow!(
+                                    "{path}: missing field '{}'",
+                                    def.ident.as_deref().unwrap_or_default()
+                                )
+                            })
+                        }
+                        ValueOwned::Struct {
+                            fields: FieldsValueOwned::Unnamed(values),
+                        } if def.ident.is_none() && values.len() == 1 => Ok(&values[0]),
+                        v => Err(mismatch(v)),
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                self.group(&column, &def.ty, restarts, level)
+            }
             TypeOwned::Struct(item_struct) => {
                 if item_struct.sparse {
                     bail!(

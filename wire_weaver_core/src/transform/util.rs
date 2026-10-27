@@ -386,7 +386,8 @@ pub(crate) fn derive_shrink_wrap_args(
 /// wire_weaver_core: `size_assumption` (`final_structure`/`self_describing`/`sized`), `ww_repr`, `sparse`
 /// (TOOL-11: the API model needs to know a struct is sparse to decode it dynamically) and `fixed_layout` (same
 /// bytes as without it, but it makes a struct without a size assumption `sized`, as the derive does),
-/// `no_future_version` and `future_version = <Name>` (whether an enum has the SW-47 catch-all, EVO-10).
+/// `no_future_version`, `future_version = <Name>` (whether an enum has the SW-47 catch-all, EVO-10) and
+/// `transparent` (DER-18: the struct is its one field on the wire, with that field's size class).
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Args {
     pub(crate) size_assumption: Option<ElementSize>,
@@ -395,6 +396,7 @@ pub(crate) struct Args {
     pub(crate) fixed_layout: bool,
     pub(crate) no_future_version: bool,
     pub(crate) future_version: Option<String>,
+    pub(crate) transparent: bool,
 }
 
 impl Parse for Args {
@@ -405,6 +407,7 @@ impl Parse for Args {
         let mut fixed_layout = false;
         let mut no_future_version = false;
         let mut future_version = None;
+        let mut transparent = false;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -439,6 +442,7 @@ impl Parse for Args {
                 }
                 "sparse" => sparse = true,
                 "fixed_layout" => fixed_layout = true,
+                "transparent" => transparent = true,
                 "head_tail" => {
                     return Err(syn::Error::new(
                         ident.span(),
@@ -489,11 +493,12 @@ impl Parse for Args {
             fixed_layout,
             no_future_version,
             future_version,
+            transparent,
         })
     }
 }
 
-const SUPPORTED_DIRECTIVES: &str = "final_structure, self_describing, sized, sparse, fixed_layout, validate = <path>, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
+const SUPPORTED_DIRECTIVES: &str = "final_structure, self_describing, sized, sparse, fixed_layout, transparent, validate = <path>, ww_repr=<u1,u2,..,nib,unib32,u8,..>";
 
 /// Sets `size_assumption`, erroring if it was already set by an earlier directive since
 /// `final_structure`, `self_describing` and `sized` are mutually exclusive.

@@ -851,8 +851,14 @@ fn convert_item_struct(
     item_struct: &ItemStruct,
 ) -> Result<TypeOwned> {
     let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
-    let fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
+    let mut fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
+    if args.transparent {
+        transparent_field(&ty_name, &mut fields).context(current_crate.err_context())?;
+    }
     let size = match args.size_assumption {
+        // DER-18: the size class is the field's, read through `transparent`; an older reader takes the struct as
+        // `final_structure`, the same bytes in a parent
+        _ if args.transparent => ElementSize::UnsizedFinalStructure,
         Some(size) => size,
         // as shrink_wrap_derive's `struct_size_assumption`: `fixed_layout` implies `sized`, or `self_describing`
         // with an `Option` or `Result` last
@@ -878,9 +884,28 @@ fn convert_item_struct(
         generics: scratch.generic_scope.clone(),
         fields,
         sparse: args.sparse,
+        transparent: args.transparent,
         path,
     });
     Ok(ty)
+}
+
+/// Leaves only the one field of a `transparent` struct (DER-18) in `fields`: `PhantomData` fields are already left
+/// out, `()` ones go too. Zero or more than one field left is an error, as in `shrink_wrap_derive`.
+fn transparent_field(ty_name: &str, fields: &mut FieldsOwned) -> Result<()> {
+    let count = match fields {
+        FieldsOwned::Named(defs) | FieldsOwned::Unnamed(defs) => {
+            defs.retain(|f| !matches!(&f.ty, TypeOwned::Tuple(types) if types.is_empty()));
+            defs.len()
+        }
+        FieldsOwned::Unit => 0,
+    };
+    if count != 1 {
+        return Err(anyhow!(
+            "transparent struct {ty_name} must have exactly one field that isn't zero bits, has {count}"
+        ));
+    }
+    Ok(())
 }
 
 /// `sparse`: the struct is `#[derive_shrink_wrap(sparse, ..)]` (DER-13), so each field's [FieldOwned::slot] is its
@@ -1460,6 +1485,52 @@ mod alias_tests {
                 "enum ub4 test_api::Reading {Offset(ub4), Count{n: ub12}}",
             ]
         );
+    }
+
+    #[test]
+    fn transparent_struct_is_its_one_field() {
+        let bundle = load(
+            "transparent",
+            "fn a(t: In<u8, u64>);",
+            "#[derive_shrink_wrap(transparent)]
+            pub struct In<U, T> { value: T, _u: core::marker::PhantomData<U>, _z: () }",
+        )
+        .unwrap();
+        let s = bundle
+            .types
+            .iter()
+            .find_map(|location| match location {
+                ww_self::TypeLocationOwned::InLine {
+                    ty: ww_self::TypeOwned::Struct(s),
+                    ..
+                } => Some(s),
+                _ => None,
+            })
+            .unwrap();
+        assert!(s.transparent);
+        // what an older reader takes it for: the same bytes inside a parent
+        assert_eq!(s.size, shrink_wrap::ElementSize::UnsizedFinalStructure);
+        assert_eq!(s.transparent_field().unwrap().ident.as_deref(), Some("value"));
+        assert_eq!(args(&bundle), ["struct test_api::In<u8, u64> {value: u64}"]);
+    }
+
+    #[test]
+    fn transparent_struct_needs_one_field() {
+        for (name, def) in [
+            ("transparent_two", "pub struct T2 { a: u8, b: u8 }"),
+            ("transparent_none", "pub struct T2 { z: (), p: core::marker::PhantomData<u8> }"),
+        ] {
+            let e = load(
+                name,
+                "fn a(t: T2);",
+                &format!("#[derive_shrink_wrap(transparent)]\n{def}"),
+            )
+            .unwrap_err();
+            assert!(
+                format!("{e:#}").contains("transparent struct T2 must have exactly one field"),
+                "{e:#}"
+            );
+        }
     }
 
     #[test]

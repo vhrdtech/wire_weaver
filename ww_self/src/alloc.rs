@@ -336,6 +336,10 @@ impl TypeOwned {
                 "type parameter {} of a generic definition, not an instance of it",
                 idx.0
             )),
+            TypeOwned::Struct(item_struct) if item_struct.transparent => item_struct
+                .transparent_field()?
+                .ty
+                .is_unsized(api_bundle),
             TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
             TypeOwned::Enum(item_enum) => Ok(item_enum.is_unsized()),
             // its byte length goes into the parent's FIFO, nothing inside uses it
@@ -849,8 +853,27 @@ impl ItemStructOwned {
         self.fields.is_lifetime(api_bundle, &mut HashSet::new())
     }
 
+    /// Whether [Self::size] is `Unsized`. For a [transparent](Self::transparent) struct that is never the case, the
+    /// size class is its field's: see [TypeOwned::is_unsized].
     pub fn is_unsized(&self) -> bool {
         self.size == ElementSize::Unsized
+    }
+
+    /// The one field of a [transparent](Self::transparent) struct, an error for any other struct, or for a
+    /// transparent one without exactly one field (malformed).
+    pub fn transparent_field(&self) -> Result<&FieldOwned> {
+        if !self.transparent {
+            bail!("struct {} is not transparent", self.ident);
+        }
+        match &self.fields {
+            FieldsOwned::Named(fields) | FieldsOwned::Unnamed(fields) if fields.len() == 1 => {
+                Ok(&fields[0])
+            }
+            _ => bail!(
+                "transparent struct {} must have exactly one field",
+                self.ident
+            ),
+        }
     }
 }
 

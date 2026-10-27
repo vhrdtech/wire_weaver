@@ -10,7 +10,7 @@
 use crate::explain::{PartKind, Trace};
 use crate::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, FutureVersionOwned, ItemEnumOwned,
-    Repr, TypeOwned, ValueOwned,
+    ItemStructOwned, Repr, TypeOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::buf_reader::Cursors;
@@ -566,6 +566,10 @@ fn des_ty(
             api_bundle,
             b,
         )?)),
+        TypeOwned::Struct(struct_def) if struct_def.transparent => {
+            let fields = des_transparent_field(rd, struct_def, api_bundle, b)?;
+            Ok(ValueOwned::Struct { fields })
+        }
         TypeOwned::Struct(struct_def) if struct_def.sparse => {
             let fields = des_sparse_fields(rd, &struct_def.fields, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
@@ -782,6 +786,28 @@ fn des_fields(
             FieldsValueOwned::Unnamed(values)
         }
         FieldsOwned::Unit => FieldsValueOwned::Unit,
+    })
+}
+
+/// The one field of a `transparent` struct (DER-18): the struct has the field's size class, which [des_field] already
+/// handled, so the field is read as it is, without a size of its own.
+fn des_transparent_field(
+    rd: &mut BufReader,
+    struct_def: &ItemStructOwned,
+    api_bundle: &ApiBundleOwned,
+    b: &mut Budget,
+) -> Result<FieldsValueOwned> {
+    let def = struct_def.transparent_field()?;
+    Ok(match &def.ident {
+        Some(name) => {
+            b.label(name);
+            let value = des_inner(rd, &def.ty, api_bundle, b)?;
+            FieldsValueOwned::Named(vec![(b.name(name)?, value)])
+        }
+        None => {
+            b.label(0);
+            FieldsValueOwned::Unnamed(vec![des_inner(rd, &def.ty, api_bundle, b)?])
+        }
     })
 }
 
@@ -1059,6 +1085,12 @@ fn ser_inner(
                 ser_field(wr, value, ty, api_bundle)?;
             }
         }
+        TypeOwned::Struct(item_struct) if item_struct.transparent => {
+            let ValueOwned::Struct { fields } = value else {
+                return Err(mismatch());
+            };
+            ser_transparent_field(wr, fields, item_struct, api_bundle)?;
+        }
         TypeOwned::Struct(item_struct) if item_struct.sparse => {
             let ValueOwned::Struct { fields } = value else {
                 return Err(mismatch());
@@ -1276,6 +1308,36 @@ fn ser_fields(
         (FieldsOwned::Unit, _) => bail!("{path}: expected no fields"),
     }
     Ok(())
+}
+
+/// The one field of a `transparent` struct (DER-18), written as it is: its size class is the struct's, which
+/// [ser_field] already handled.
+fn ser_transparent_field(
+    wr: &mut BufWriterOwned,
+    fields: &FieldsValueOwned,
+    item_struct: &ItemStructOwned,
+    api_bundle: &ApiBundleOwned,
+) -> Result<()> {
+    let def = item_struct.transparent_field()?;
+    let path = &item_struct.ident;
+    let value = match fields {
+        FieldsValueOwned::Named(values) if def.ident.is_some() => {
+            check_field_names(values, std::slice::from_ref(def), path)?;
+            find_field(values, def).ok_or_else(|| {
+                anyhow!(
+                    "{path}: missing field '{}'",
+                    def.ident.as_deref().unwrap_or_default()
+                )
+            })?
+        }
+        FieldsValueOwned::Unnamed(values) if def.ident.is_none() => match values.as_slice() {
+            [value] => value,
+            _ => bail!("{path}: expected 1 unnamed field, got {}", values.len()),
+        },
+        _ if def.ident.is_some() => bail!("{path}: expected named fields: {}", field_names(std::slice::from_ref(def))),
+        _ => bail!("{path}: expected 1 unnamed field"),
+    };
+    ser_inner(wr, value, &def.ty, api_bundle)
 }
 
 /// Fields of a `sparse` struct (DER-13): every field is `Option<T>`, written as one slot of an `OptionAnyVec` in

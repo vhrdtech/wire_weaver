@@ -462,6 +462,7 @@ mod tests {
                 generics: vec![],
                 fields,
                 sparse: false,
+                transparent: false,
             }),
             crate_idx: UNib32(0),
         };

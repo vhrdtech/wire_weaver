@@ -302,7 +302,7 @@ pub fn offset<E: Tree>(e: &E) -> f64 {
     }
 }
 
-/// A named unit without a symbol ([Ratio](crate::units::Ratio)): a prefix is written as %, ‰, ppm.
+/// A named unit without a symbol ([Ratio](crate::units::Ratio)): a prefix is written as %, ‰, ppm, ppb.
 pub fn is_ratio<E: Tree>(e: &E) -> bool {
     matches!(e.node(), Some(Node::Named { symbol: "", .. }))
 }
@@ -356,6 +356,7 @@ pub(crate) fn write_unit<E: Tree>(
             Prefix::Centi => f.write_str(" %"),
             Prefix::Milli => f.write_str(" ‰"),
             Prefix::Micro => f.write_str(" ppm"),
+            Prefix::Nano => f.write_str(" ppb"),
             p => write!(f, "e{}", i8::from(p)),
         };
     }

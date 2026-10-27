@@ -24,6 +24,8 @@ quantities = [
     "radiation",
     "logarithmic",
     "dimensionless",
+    "information",
+    "counting",
 ]
 # Second, Hertz, HertzPerSecond, Baud, Timed
 time = []
@@ -45,6 +47,10 @@ radiation = []
 logarithmic = []
 # Ratio (duty, probability, scale): used next to any other group, so a group of its own
 dimensionless = []
+# Bit, Byte (8 Bit): data sizes, dimensionless and told apart by the marker
+information = []
+# Item: a count of things
+counting = []
 # host helpers: timestamp Unwrapper
 host = ["time", "u64"]
 

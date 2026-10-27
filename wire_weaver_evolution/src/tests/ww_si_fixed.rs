@@ -1,0 +1,234 @@
+//! EVO-15 with the real `ww_si::Fixed<U, P, T, B>` (STD-55), read from ww_si's source as an API crate depending on it
+//! sees it.
+
+use super::*;
+
+fn ww_si_dep() -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+    format!("ww_si = {{ path = {:?} }}\n", path.canonicalize().unwrap())
+}
+
+/// An API using `ty` for a method argument (the host writes it), a read-only property (the device writes it) and a
+/// struct field.
+fn api(arg: &str, prop: &str, field: &str) -> String {
+    format!(
+        r#"
+        use ww_si::{{Fixed, Micros, Millis, Range, RangeU64, RangeDec, Unbounded, Quantity}};
+        use ww_si::prefix::{{Micro, Milli, One}};
+        use ww_si::units;
+        use ww_si::prefix;
+        use ww_si::units::{{Second, Meter, Ratio}};
+
+        #[ww_api_root]
+        pub trait Api {{
+            fn set(shared: {arg});
+            property!(ro uptime: {prop});
+        }}
+
+        #[derive_shrink_wrap]
+        pub struct Sample {{
+            pub at: {field},
+        }}
+    "#
+    )
+}
+
+fn same(ty: &str) -> String {
+    api(ty, ty, ty)
+}
+
+fn report(old: &str, new: &str) -> Report {
+    let dep = ww_si_dep();
+    compare(
+        &load_with("0.1.0", old, &dep),
+        &load_with("0.1.0", new, &dep),
+    )
+    .unwrap()
+}
+
+fn assert_rule(report: &Report, rule: Rule, contains: &str) {
+    assert_eq!(report.change, Change::Breaking, "{report:#?}");
+    assert!(
+        report
+            .breaking
+            .iter()
+            .any(|f| f.rule == rule && f.contains(contains)),
+        "no {rule:?} finding with '{contains}' in {:#?}",
+        report.breaking
+    );
+}
+
+const MICROS: &str = "Fixed<units::Second, prefix::Micro, u64, Unbounded>";
+
+/// `shared_us: u64` -> `shared: Fixed<Second, Micro, u64>`: the same bytes, compatible both ways, reported as such.
+/// `Fixed` comes from ww_si's snapshot (the API sees it skipped), so this also checks the definition is found there.
+#[test]
+fn plain_to_fixed_and_back_is_compatible() {
+    let (plain, fixed) = (same("u64"), same("Fixed<Second, Micro, u64>"));
+    let report_ = report(&plain, &fixed);
+    assert_eq!(report_.change, Change::Compatible, "{report_:#?}");
+    assert!(
+        report_.compatible.contains(&format!(
+            "Api::set: argument `shared`: u64 -> {MICROS}, same bytes"
+        )),
+        "{:#?}",
+        report_.compatible
+    );
+    assert_eq!(report(&fixed, &plain).change, Change::Compatible);
+    assert_eq!(
+        report(&same("u64"), &same("Micros<u64>")).change,
+        Change::Compatible
+    );
+}
+
+/// D13: `B` is in the model on every instance, `Unbounded` too, so the three-argument form and the four-argument one
+/// with `Unbounded` (and an alias of either) are the same type.
+#[test]
+fn default_bound_is_the_same_type() {
+    let three = same("Fixed<Second, Micro, u64>");
+    for other in ["Fixed<Second, Micro, u64, Unbounded>", "Micros<u64>"] {
+        assert_eq!(report(&three, &same(other)).change, Change::None, "{other}");
+    }
+}
+
+/// A unit or prefix changed: the same bytes, but a reader takes µs for ms.
+#[test]
+fn unit_or_prefix_changed_is_breaking() {
+    let old = same("Fixed<Second, Micro, u64>");
+    assert_rule(
+        &report(&old, &same("Fixed<Second, Milli, u64>")),
+        Rule::Meaning,
+        "Api::set: argument `shared`: P of Fixed: marker prefix::Micro on the old version, prefix::Milli on the new \
+         version: the same bytes, but the new version would read them as another quantity",
+    );
+    assert_rule(
+        &report(&old, &same("Millis<u64>")),
+        Rule::Meaning,
+        "marker prefix::Micro on the old version, prefix::Milli",
+    );
+    assert_rule(
+        &report(&old, &same("Fixed<Meter, Micro, u64>")),
+        Rule::Meaning,
+        "U of Fixed: marker units::Second on the old version, units::Meter",
+    );
+}
+
+/// A changed `T` breaks as it does for plain numbers.
+#[test]
+fn changed_storage_is_breaking() {
+    assert_breaking(
+        &report(
+            &same("Fixed<Second, Milli, u16>"),
+            &same("Fixed<Second, Milli, u32>"),
+        ),
+        "argument 2 of Fixed: u16 on the old version, u32 on the new version",
+    );
+    assert_breaking(
+        &report(&same("u16"), &same("Fixed<Second, Milli, u32>")),
+        "u16 on the old version, u32 on the new version",
+    );
+}
+
+/// `Range<MIN, MAX>` (read as ww_si's, not as `core::ops::Range`) narrowed or widened: breaking for the side that
+/// refuses, named by who writes the item.
+#[test]
+fn bound_changed_is_breaking() {
+    let bounded = |min: i64, max: i64| format!("Fixed<Ratio, One, i16, Range<{min}, {max}>>");
+    let old = same(&bounded(-5, 300));
+    assert_eq!(report(&old, &old).change, Change::None);
+    // the property, written by the device
+    let report_ = report(
+        &old,
+        &api(&bounded(-5, 300), &bounded(-5, 600), &bounded(-5, 300)),
+    );
+    assert_rule(
+        &report_,
+        Rule::Bound,
+        "Api::uptime: B of Fixed: bound -5..=600 on the new version, -5..=300 on the old version: values the new \
+         version writes outside -5..=300 are refused by the old version",
+    );
+    assert_eq!(report_.breaking.len(), 1, "{:#?}", report_.breaking);
+    // the argument, written by the host
+    assert_rule(
+        &report(
+            &old,
+            &api(&bounded(0, 300), &bounded(-5, 300), &bounded(-5, 300)),
+        ),
+        Rule::Bound,
+        "Api::set: argument `shared`: B of Fixed: bound -5..=300 on the old version, 0..=300 on the new version: \
+         values the old version writes outside 0..=300 are refused by the new version",
+    );
+    // a bound added to a plain value or to an unbounded Fixed
+    assert_rule(
+        &report(&same("i16"), &old),
+        Rule::Bound,
+        "bound Unbounded on the old version, -5..=300 on the new version",
+    );
+    assert_rule(
+        &report(&same("Fixed<Ratio, One, i16>"), &old),
+        Rule::Bound,
+        "B of Fixed: bound Unbounded on the old version, -5..=300 on the new version",
+    );
+}
+
+/// `Quantity` -> `Fixed` is the intended move, and breaking: the finding says both.
+#[test]
+fn quantity_to_fixed_is_breaking_with_a_hint() {
+    assert_breaking(
+        &report(
+            &same("Quantity<Second>"),
+            &same("Fixed<Second, Milli, u32>"),
+        ),
+        "Api::set: argument `shared`: Quantity<units::Second> on the old version, Fixed<units::Second, \
+         prefix::Milli, u32, Unbounded> on the new version: a Quantity sends its prefix and number type with every \
+         value, a Fixed only the number: moving to Fixed is intended, but needs a major version",
+    );
+}
+
+/// A client compares its API with a device's after putting skipped definitions back and preparing both.
+#[test]
+fn prepared_bundles() {
+    let prepared = |src: &str| {
+        let mut bundle = load_with("0.1.0", src, &ww_si_dep());
+        // markers stay skipped (ww_si's snapshot doesn't have them), compared by name
+        let not_inlined = wire_weaver_snapshots::inline_skipped(&mut bundle);
+        assert!(
+            not_inlined.iter().all(|n| !n.name.ends_with("Fixed")),
+            "{not_inlined:?}"
+        );
+        ww_self::generics::prepare(&mut bundle).unwrap();
+        bundle
+    };
+    let check = |client: &str, device: &str| -> Result<(), String> {
+        let (client, device) = (prepared(client), prepared(device));
+        let items = |bundle: &ApiBundleOwned| match &bundle.traits[0] {
+            ApiLevelLocationOwned::InLine { level, .. } => level.items.clone(),
+            _ => panic!("not in line"),
+        };
+        for (c, d) in items(&client).iter().zip(&items(&device)) {
+            crate::compat::compare_items(
+                (&client, c, "client"),
+                (&device, d, "device"),
+                &mut Bounds::default(),
+            )?;
+        }
+        Ok(())
+    };
+    let micros = same("Micros<u64>");
+    check(&micros, &micros).unwrap();
+    check(&same("u64"), &micros).unwrap();
+    let e = check(&micros, &same("Millis<u64>")).unwrap_err();
+    assert!(
+        e.contains("marker prefix::Micro on the client, prefix::Milli on the device"),
+        "{e}"
+    );
+    let e = check(
+        &same("Fixed<Ratio, One, i16, Range<-5, 300>>"),
+        &same("Fixed<Ratio, One, i16, Range<-5, 600>>"),
+    )
+    .unwrap_err();
+    assert!(
+        e.contains("values the device writes outside -5..=300 are refused by the client"),
+        "{e}"
+    );
+}

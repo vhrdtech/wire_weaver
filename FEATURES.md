@@ -605,6 +605,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shortest `max_age_us`. Against a time column per property (21 FOC properties, n = 32, `DeltaPacked`): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (`docs/api/observing.md#which-rates-fit-an-mcu`, `tests/observe_batched`).
+- 🚧 **API-60 Types from crates that aren't API crates** · `v0.5` — a crate without `wire_weaver` or `#[ww_trait]`
+  (`exact_units`, STD-61) is walked and snapshotted like an API crate; generated code names its types through a
+  crate that re-exports it (`ww_si::exact_units::..`, `CratePaths` from `load_dep_with_paths`) when the generating
+  crate doesn't depend on it; the walker follows `use dep as name;` and `use dep::module;` for leading path
+  segments. Tests `tests/standalone` (server and client without a dependency on `standalone_units`),
+  `wire_weaver_core` unit tests (`docs/types.md#types-from-crates-that-arent-api-crates`). Missing: reading
+  `#[cfg_attr(feature = "..", derive_shrink_wrap(..))]` with the features the depending crate enables.
 - ✅ **API-14 API crates with git and crates.io dependencies** · `v0.5` — the crate walker (`#[ww_api_root]`,
   `#[ww_trait]`, `ww_codegen!`, `ww api`) follows `{ git = .. }` and `"version"` / `{ version = .. }` dependencies
   (also through `[workspace.dependencies]` and `package = ".."` renames), not only path ones: the exact package from

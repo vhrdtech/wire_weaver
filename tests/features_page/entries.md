@@ -93,6 +93,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - API-43 | Generic types | `Timed<Ampere>`, `Window<4>` and your own generic structs and enums anywhere in an API, also in the dynamic client and Python. | types.md#generic-types-in-an-api
 - API-45 | Type aliases | `type Volt = Quantity<VoltUnit>` and generic aliases anywhere in an API; tools show what they name. | types.md#type-aliases
 - API-14 | Dependencies from anywhere | An API crate can take traits and types from git and crates.io crates, not only from a path next to it. | api/traits.md#reusing-traits-from-other-crates
+- API-60 | Types from other crates | An API can use types of a crate that isn't built on WireWeaver, also one the server only reaches through a re-export. | types.md#types-from-crates-that-arent-api-crates
 - API-46 | Types in modules | API types can live in any `pub mod` or be re-exported under another name; generated code finds them. | types.md#types-in-modules
 - API-44 | Self-referential types | Trees and expressions (`RefBox`, a list of the type itself) anywhere in an API, also in the dynamic client and Python. | types.md#self-referential-types-refbox
 

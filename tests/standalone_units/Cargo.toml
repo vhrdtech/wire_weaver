@@ -1,0 +1,14 @@
+[package]
+name = "standalone_units"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+std = ["shrink_wrap/std"]
+
+[dependencies]
+shrink_wrap.workspace = true

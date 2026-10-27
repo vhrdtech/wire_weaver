@@ -8,7 +8,7 @@ pub mod method_model;
 pub mod property_model;
 pub mod transform;
 
-pub use transform::{load, load_crate, load_dep};
+pub use transform::{CratePaths, load, load_crate, load_dep, load_dep_with_paths};
 
 pub use codegen::api_client::{ClientModel, GenClientConfig, gen_client};
 pub use codegen::api_server::{GenServerConfig, gen_server};

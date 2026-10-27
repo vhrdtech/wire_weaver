@@ -2,6 +2,7 @@
 //! [gen_server](crate::gen_server) expects to be implemented on the server struct.
 //!
 //! Handler names and signatures must stay in sync with `codegen/api_server.rs`.
+use crate::codegen::CodegenBundle;
 use crate::codegen::omit::{Omissions, Omit};
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::const_model::{ConstModel, ConstModelKind};
@@ -13,8 +14,8 @@ use convert_case::{Case, Casing};
 use std::fmt::Write;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, Delivery, FlowControl,
-    Multiplicity, PropertyAccess, StreamFnRef, TypeOwned,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, Batching, Delivery, FlowControl, Multiplicity,
+    PropertyAccess, StreamFnRef, TypeOwned,
 };
 
 /// Server scaffold generation configuration, same meaning as the `ww_codegen!` arguments.
@@ -47,9 +48,12 @@ pub struct ServerScaffoldConfig {
 ///
 /// The output is not formatted, run it through rustfmt.
 pub fn gen_server_scaffold(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &ww_self::ApiBundleOwned,
     config: &ServerScaffoldConfig,
 ) -> Result<String> {
+    // printed for the API crate's own users: every crate named by its own name
+    let crate_paths = crate::transform::CratePaths::default();
+    let api_bundle = &CodegenBundle::new(api_bundle, &crate_paths);
     let method_model_str = if config.method_model.is_empty() {
         "_=immediate"
     } else {
@@ -265,7 +269,7 @@ pub fn gen_server_scaffold(
 }
 
 struct Scaffold<'a> {
-    api_bundle: &'a ApiBundleOwned,
+    api_bundle: &'a CodegenBundle<'a>,
     no_alloc: bool,
     use_async: bool,
     /// `_cx: &mut Context<..>, ` argument every handler takes

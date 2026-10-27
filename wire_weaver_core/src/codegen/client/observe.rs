@@ -5,11 +5,12 @@
 //! Same rules as the server (`codegen/server/observe.rs`): a level under a resource array can't be observed yet, a
 //! property is observable when declared with `+observe` and not in an array itself.
 
+use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::{TyPos, ty_def};
 use crate::codegen::util::maybe_quote;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
-use ww_self::{ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess};
+use ww_self::{ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess};
 
 /// An observable property of a level.
 pub(crate) struct ObservableProp<'a> {
@@ -51,7 +52,7 @@ pub(crate) struct LevelNames {
 
 /// `<Trait>Update`, `<Trait>UpdateOwned` when a property holds owned data (`String`, `Vec`), like other owned
 /// types.
-pub(crate) fn level_names(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned) -> LevelNames {
+pub(crate) fn level_names(api_bundle: &CodegenBundle, api_level: &ApiLevelOwned) -> LevelNames {
     let t = &api_level.trait_name;
     let owned = observable_props(api_level)
         .iter()
@@ -64,7 +65,7 @@ pub(crate) fn level_names(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
 }
 
 /// `<Trait>Update`, `<Trait>Latest` and `<Trait>Observe` of an observable level, in its client module.
-pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned) -> TokenStream {
+pub(crate) fn level_types(api_bundle: &CodegenBundle, api_level: &ApiLevelOwned) -> TokenStream {
     let props = observable_props(api_level);
     let LevelNames { update, config } = level_names(api_bundle, api_level);
     let latest = Ident::new(
@@ -213,7 +214,7 @@ pub(crate) fn level_types(api_bundle: &ApiBundleOwned, api_level: &ApiLevelOwned
 
 /// `observe(cfg)` of an observable level's client, `index_chain` set to the level's path.
 pub(crate) fn level_observe_fn(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     level_chain: TokenStream,
     path_kind: &TokenStream,
@@ -236,7 +237,7 @@ pub(crate) fn level_observe_fn(
 
 /// `observe_<name>(mode)` of a `+observe` property: fanned out from its level.
 pub(crate) fn property_observe_fn(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     prop: &Ident,
     ty: &TokenStream,

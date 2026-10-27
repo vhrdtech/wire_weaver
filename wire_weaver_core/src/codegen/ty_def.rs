@@ -1,9 +1,10 @@
+use crate::codegen::CodegenBundle;
 use anyhow::{Result, anyhow};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{Lit, LitInt};
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType};
-use ww_self::{ApiBundleOwned, GenericArgOwned, TypeOwned, ValueOwned};
+use ww_self::{GenericArgOwned, TypeOwned, ValueOwned};
 
 use crate::codegen::util::maybe_quote_cl;
 use crate::transform::WIRE_WEAVER_REEXPORTS;
@@ -19,7 +20,7 @@ pub(crate) enum TyPos {
 }
 
 pub(crate) fn ty_def(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     ty: &TypeOwned,
     alloc: bool,
     ty_pos: TyPos,
@@ -28,7 +29,7 @@ pub(crate) fn ty_def(
 }
 
 pub(crate) fn ty_def_by_idx(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     type_idx: u32,
     alloc: bool,
     ty_pos: TyPos,
@@ -38,7 +39,7 @@ pub(crate) fn ty_def_by_idx(
 }
 
 fn ty_def_inner(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     ty: &TypeOwned,
     alloc: bool,
     ty_pos: TyPos,
@@ -224,7 +225,7 @@ fn user_ty_path(
     path: &Option<Vec<String>>,
     ty_name: &str,
     owned: bool,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> Result<TokenStream> {
     let source_crate = source_crate(crate_idx, path, api_bundle)?;
     let ty_name = if owned {
@@ -235,11 +236,12 @@ fn user_ty_path(
     Ok(quote! { #source_crate::#ty_name })
 }
 
-/// The crate of a definition, followed by the modules other crates name it through.
+/// The crate of a definition, followed by the modules other crates name it through. A crate the generating crate
+/// doesn't depend on is named through the crate re-exporting it (API-60).
 fn source_crate(
     crate_idx: Option<u32>,
     path: &Option<Vec<String>>,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> Result<TokenStream> {
     let modules = path
         .iter()
@@ -247,13 +249,13 @@ fn source_crate(
         .map(|m| Ident::new(m, Span::call_site()));
     Ok(if let Some(crate_idx) = crate_idx {
         let name = api_bundle.crate_name(crate_idx)?;
-        let reexported = WIRE_WEAVER_REEXPORTS.contains(&name);
-        let name = Ident::new(name, Span::call_site());
-        if reexported {
+        if WIRE_WEAVER_REEXPORTS.contains(&name) {
             // `CommonError` without a dependency on `ww_error`, as the API crate itself
+            let name = Ident::new(name, Span::call_site());
             quote! { wire_weaver::#name #(::#modules)* }
         } else {
-            quote! { #name #(::#modules)* }
+            let crate_path = api_bundle.crate_path(name);
+            quote! { #crate_path #(::#modules)* }
         }
     } else {
         quote! {}
@@ -267,7 +269,7 @@ fn user_ty_def(
     is_lifetime: bool,
     alloc: bool,
     ty_pos: TyPos,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> Result<TokenStream> {
     let source_crate = source_crate(crate_idx, path, api_bundle)?;
     let maybe_turbofish = maybe_quote_cl(matches!(ty_pos, TyPos::Expr), || quote! { :: });

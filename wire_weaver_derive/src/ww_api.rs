@@ -10,7 +10,7 @@ use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, IntrospectMode};
 use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
-use wire_weaver_core::load_dep;
+use wire_weaver_core::load_dep_with_paths;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
@@ -27,8 +27,9 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
-    let api_bundle = load_dep(args.dep_name.to_string(), Some(args.trait_name.to_string()))
-        .map_err(|e| format!("{e:?}"))?;
+    let (api_bundle, crate_paths) =
+        load_dep_with_paths(args.dep_name.to_string(), Some(args.trait_name.to_string()))
+            .map_err(|e| format!("{e:?}"))?;
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {
@@ -111,6 +112,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect(),
+                crate_paths: crate_paths.clone(),
             },
         );
         codegen_ts.append_all(ts);
@@ -135,6 +137,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             GenClientConfigRaw {
                 model,
                 client_struct_path: args.context_ident.clone(),
+                crate_paths: crate_paths.clone(),
             },
         );
         codegen_ts.append_all(ts);

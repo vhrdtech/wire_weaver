@@ -1,11 +1,11 @@
 use super::api::{compact_trait_id, convert_api_items};
 use super::cargo_source::{CargoSources, DepSpec, Dependent};
 use super::meta::{MetaSite, get_meta};
-use super::util::{UseLeaf, collect_docs, use_tree_leaves};
+use super::util::{UseLeaf, collect_docs, use_tree_leaves, use_tree_path_to};
 use anyhow::{Context, Result, anyhow};
 use cargo_toml::{Dependency, DepsSet, Inheritable, Manifest};
 use shrink_wrap::UNib32;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -54,6 +54,15 @@ pub fn load_dep(
     dep_name: impl AsRef<str>,
     trait_name: Option<impl AsRef<str>>,
 ) -> Result<ApiBundleOwned> {
+    load_dep_with_paths(dep_name, trait_name).map(|(bundle, _)| bundle)
+}
+
+/// [load_dep], and how code generated in 'current crate' names the crates of the API's types and traits: pass
+/// them to codegen as `crate_paths` (API-60).
+pub fn load_dep_with_paths(
+    dep_name: impl AsRef<str>,
+    trait_name: Option<impl AsRef<str>>,
+) -> Result<(ApiBundleOwned, CratePaths)> {
     let mut scratch = Scratch::default();
     let current_crate_path = std::env::var("CARGO_MANIFEST_DIR").map_err(|_|
         anyhow!("CARGO_MANIFEST_DIR not set, cannot determine current crate path. Consider calling this method from a build.rs script.")
@@ -65,9 +74,75 @@ pub fn load_dep(
         current_crate_manifest.load_dependent_manifest(dep_name.as_ref(), &mut scratch)?;
     scratch
         .manifests
-        .insert(current_crate_path, current_crate_manifest);
+        .insert(current_crate_path, current_crate_manifest.clone());
     let trait_name = trait_name.map(|t| t.as_ref().to_string());
-    load_inner(&dep_manifest.crate_path, trait_name, &mut scratch)
+    let bundle = load_inner(&dep_manifest.crate_path, trait_name, &mut scratch)?;
+    let paths = CratePaths::find(&current_crate_manifest, &bundle, &scratch);
+    Ok((bundle, paths))
+}
+
+/// How code generated in a crate names the crates an API's types and traits are defined in (API-60), for those it
+/// can't name directly.
+///
+/// The API model names a type by the crate that defines it (`exact_units::units::Second`), and so does generated
+/// code. A crate the generating crate doesn't depend on is still reachable when a crate it does depend on
+/// re-exports it at its root (`pub use exact_units;` in `ww_si`): generated code then names it
+/// `ww_si::exact_units::units::Second`. Crates the generating crate depends on under their own name aren't listed.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CratePaths {
+    paths: BTreeMap<String, Vec<String>>,
+}
+
+impl CratePaths {
+    /// Path segments naming `crate_name` (`["ww_si", "exact_units"]`), `None` when it is named by its own name.
+    pub fn get(&self, crate_name: &str) -> Option<&[String]> {
+        self.paths.get(crate_name).map(|path| path.as_slice())
+    }
+
+    /// Paths for the crates of `bundle` that `current`, the generating crate, doesn't depend on: through the root
+    /// re-exports of the crates it does depend on, transitively, among the crates walked for `bundle`.
+    fn find(current: &ManifestContext, bundle: &ApiBundleOwned, scratch: &Scratch) -> Self {
+        let mut found: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        let mut queue = VecDeque::new();
+        let direct = current
+            .manifest
+            .dependencies
+            .iter()
+            .chain(&current.manifest.dev_dependencies);
+        for (key, dep) in direct {
+            let package = dep.package().unwrap_or(key).to_string();
+            found.insert(package.clone(), vec![key.clone()]);
+            queue.push_back(package);
+        }
+        while let Some(name) = queue.pop_front() {
+            let Some(crate_cx) = scratch.crates.values().find(|c| c.crate_name() == name) else {
+                continue;
+            };
+            for (dep_key, exported_as) in crate_cx.reexported_crates() {
+                let Some(dep) = crate_cx.manifest.manifest.dependencies.get(&dep_key) else {
+                    continue;
+                };
+                let package = dep.package().unwrap_or(&dep_key).to_string();
+                if found.contains_key(&package) {
+                    continue;
+                }
+                let mut path = found[&name].clone();
+                path.push(exported_as);
+                found.insert(package.clone(), path);
+                queue.push_back(package);
+            }
+        }
+        let paths = bundle
+            .ext_crates
+            .iter()
+            .filter_map(|c| {
+                let path = found.get(&c.crate_id)?;
+                (path.len() > 1 || path[0] != c.crate_id)
+                    .then(|| (c.crate_id.clone(), path.clone()))
+            })
+            .collect();
+        CratePaths { paths }
+    }
 }
 
 fn load_inner(
@@ -293,15 +368,79 @@ impl CrateContext {
                 "crate" if i == 0 => Self::load_from_manifest(cx.manifest.clone(), scratch)?,
                 _ => match cx.module(&name, scratch)? {
                     Some(module) => module,
-                    None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
-                    None => {
-                        return Err(anyhow!("Module {name} not found").context(cx.err_context()));
-                    }
+                    None => match cx.imported_module(&name, scratch) {
+                        Some(module) => module,
+                        None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
+                        None => {
+                            return Err(
+                                anyhow!("Module {name} not found").context(cx.err_context())
+                            );
+                        }
+                    },
                 },
             };
             resolved = Some(next);
         }
         Ok(resolved.unwrap_or_else(|| Rc::new(self.clone())))
+    }
+
+    /// Crates re-exported at this module's root (`pub use dep;`, `pub use dep as name;`, `pub extern crate dep;`),
+    /// by the dependency key and the name they are exported under.
+    fn reexported_crates(&self) -> Vec<(String, String)> {
+        let mut crates = vec![];
+        for item in &self.lib_rs_ast.items {
+            match item {
+                Item::Use(item_use) if matches!(item_use.vis, syn::Visibility::Public(_)) => {
+                    for (path, leaf) in use_tree_leaves(&item_use.tree) {
+                        match (path.is_empty(), leaf) {
+                            (true, UseLeaf::Name(name)) => {
+                                crates.push((name.to_string(), name.to_string()))
+                            }
+                            (true, UseLeaf::Rename { name, rename }) => {
+                                crates.push((name.to_string(), rename.to_string()))
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Item::ExternCrate(extern_crate)
+                    if matches!(extern_crate.vis, syn::Visibility::Public(_)) =>
+                {
+                    let name = extern_crate.ident.to_string();
+                    let exported = extern_crate
+                        .rename
+                        .as_ref()
+                        .map(|(_, rename)| rename.to_string())
+                        .unwrap_or_else(|| name.clone());
+                    crates.push((name, exported));
+                }
+                _ => {}
+            }
+        }
+        crates
+    }
+
+    /// The module or crate a `use` of this module names `name`: `use dep as name;` (a crate under another name, API-60),
+    /// `use dep::units;` or `use self::inner::units as name;`. `None` when no `use` names it, or it doesn't resolve
+    /// to a module or crate.
+    fn imported_module(&self, name: &str, scratch: &mut Scratch) -> Option<Rc<Self>> {
+        for item in &self.lib_rs_ast.items {
+            let Item::Use(item_use) = item else {
+                continue;
+            };
+            let Some((path, real_name)) = use_tree_path_to(&item_use.tree, name) else {
+                continue;
+            };
+            if path.is_empty() {
+                return self
+                    .load_dependent_crate(&real_name.to_string(), scratch)
+                    .ok();
+            }
+            return self
+                .resolve_path(path.into_iter().chain([real_name]), scratch)
+                .ok();
+        }
+        None
     }
 
     /// Whether `name` is a child module of this crate or module.
@@ -900,6 +1039,53 @@ mod tests {
             crate_names(&bundle),
             [("api".into(), 1), ("dep_api".into(), 2)]
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A crate that isn't a ww API crate (no `wire_weaver`, no `#[ww_trait]`), re-exported by the API crate: its
+    /// types are walked like any other, and code generated in a crate depending only on the API crate names them
+    /// through the re-export (API-60).
+    #[test]
+    fn standalone_crate_through_a_reexport() {
+        let dir = scratch_dir("standalone");
+        write(
+            &dir.join("units/Cargo.toml"),
+            "[package]\nname = \"units\"\nversion = \"0.2.0\"\nedition = \"2024\"\n",
+        );
+        write(
+            &dir.join("units/src/lib.rs"),
+            "pub mod scale {\n    #[derive_shrink_wrap(sized)]\n    pub struct Milli { pub raw: i32 }\n}\n",
+        );
+        write(
+            &dir.join("api/Cargo.toml"),
+            "[package]\nname = \"api\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+             [dependencies]\nunits_core = { path = \"../units\", package = \"units\" }\n",
+        );
+        write(
+            &dir.join("api/src/lib.rs"),
+            "pub use units_core as units;\n#[ww_api_root]\npub trait Api {\n    fn get() -> units::scale::Milli;\n}\n",
+        );
+        write(
+            &dir.join("server/Cargo.toml"),
+            "[package]\nname = \"server\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n\
+             [workspace]\n\n[dependencies]\napi = { path = \"../api\" }\n",
+        );
+        let current = ManifestContext::load(&dir.join("server")).unwrap();
+        let mut scratch = Scratch::default();
+        let api = current
+            .load_dependent_manifest("api", &mut scratch)
+            .unwrap();
+        let bundle = load_inner(&api.crate_path, None, &mut scratch).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("units".into(), 2)]
+        );
+        let paths = CratePaths::find(&current, &bundle, &scratch);
+        assert_eq!(
+            paths.get("units"),
+            Some(&["api".to_string(), "units".to_string()][..])
+        );
+        assert_eq!(paths.get("api"), None);
         fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -1,5 +1,9 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- `GenServerConfig`, `GenServerConfigRaw`, `GenClientConfig` and `GenClientConfigRaw` have a `crate_paths: CratePaths` field (API-60): code built with a struct literal adds `crate_paths: Default::default()` (every crate named by its own name, as before) or the paths from `load_dep_with_paths`.
+
 ### 🚀 Features
 
 - The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
@@ -10,6 +14,9 @@
 - `no_alloc = false` servers compile and work (API-21): their handlers take and give owned types (`Vec`, `String`, `..Owned`; a method's return, a property's value and write error, a sink's item, a stream function's result, stream items, deferred returns), the arguments structs are read with `des_shrink_wrap_owned`, owned values are written into the reply buffer with shrink_wrap's `BufWriter::ser_owned` / `write_owned` (the same bytes a `no_alloc` server sends, checked by running the `methods`, `properties` and `streams` test suites against both), and observed properties with an owned type go through `OwnedSer`; the `<Trait>Update` of such a level is `<Trait>UpdateOwned`. Before, they failed to compile (args structs without `des_shrink_wrap`, a missing `RefVec` import, a deferred `<method>_ser_return_event` typed `Vec<u8>`, borrowed return types). `ww api scaffold --alloc` prints the owned handler signatures. See `docs/transport/hub.md#servers-on-std-no_alloc-false`.
 
 ### 🚀 Features
+
+- Generated code names the types and traits of a crate the generating crate doesn't depend on through a crate that re-exports it (API-60): `load_dep_with_paths` returns, next to the bundle, `CratePaths` (found from the generating crate's dependencies and their root `pub use dep;` / `pub use dep as name;` / `pub extern crate dep;`, transitively), and codegen names e.g. `exact_units::units::Second` as `ww_si::exact_units::units::Second` in a crate that depends on `ww_si` only. The API model keeps naming the defining crate. A crate that isn't a ww API crate (no `wire_weaver`, no `#[ww_trait]`, `shrink_wrap` as a plain dependency) is walked and snapshotted like any other (`tests/standalone_units`).
+- The crate walker follows `use` items for the leading segments of a path (API-60): `pub use units_core as units;` then `units::scale::Milli`, or `use dep::units;` then `units::Second`; before, such a path was looked up as a dependency named `units` and failed.
 
 - Enums in the API model record their catch-all (EVO-10, `ww_self::ItemEnum::future_version`): the written `#[future_version]` variant, else `Unknown` or `future_version = <Name>` for an `Unsized` enum with a free discriminant and without `no_future_version`, else `FutureVersion::Off`.
 - The crate walker follows git and crates.io dependencies (API-14): `#[ww_api_root]`, `#[ww_trait]`, `ww_codegen!`, `load` and `load_dep` no longer panic with "not yet implemented" on `{ git = ".." }`, `"version"` or `{ version = ".." }` dependencies (also from `[workspace.dependencies]`, and with `package = ".."` renames). The exact package comes from the nearest `Cargo.lock` above the crate being built, its source from Cargo's copy under `CARGO_HOME` (`git/checkouts/<repo>-*/<rev>/`, the member found by package name anywhere in the repository; `registry/src/*/<name>-<version>/`); a missing lock or source is an error that says to run `cargo fetch`. In a crate Cargo fetched itself (a published API crate's own `#[ww_trait]`, a docs.rs build), crates.io dependencies are read at the newest matching version Cargo has. See `docs/api/traits.md#reusing-traits-from-other-crates`.

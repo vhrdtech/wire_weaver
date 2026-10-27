@@ -9,6 +9,6 @@ mod ty;
 mod util;
 
 pub use api::{PropertyMacroArgs, StreamAndImplMacroArgs};
-pub use crate_walker::{load, load_dep};
+pub use crate_walker::{CratePaths, load, load_dep, load_dep_with_paths};
 pub use errors::ErrorListError;
 pub use snapshot::{load_crate, skip_known};

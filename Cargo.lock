@@ -4605,6 +4605,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
+name = "standalone"
+version = "0.1.0"
+dependencies = [
+ "standalone_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_self",
+]
+
+[[package]]
+name = "standalone_api"
+version = "0.1.0"
+dependencies = [
+ "standalone_units",
+ "wire_weaver",
+]
+
+[[package]]
+name = "standalone_units"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

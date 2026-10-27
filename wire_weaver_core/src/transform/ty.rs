@@ -1510,7 +1510,10 @@ mod alias_tests {
         assert!(s.transparent);
         // what an older reader takes it for: the same bytes inside a parent
         assert_eq!(s.size, shrink_wrap::ElementSize::UnsizedFinalStructure);
-        assert_eq!(s.transparent_field().unwrap().ident.as_deref(), Some("value"));
+        assert_eq!(
+            s.transparent_field().unwrap().ident.as_deref(),
+            Some("value")
+        );
         assert_eq!(args(&bundle), ["struct test_api::In<u8, u64> {value: u64}"]);
     }
 
@@ -1518,7 +1521,10 @@ mod alias_tests {
     fn transparent_struct_needs_one_field() {
         for (name, def) in [
             ("transparent_two", "pub struct T2 { a: u8, b: u8 }"),
-            ("transparent_none", "pub struct T2 { z: (), p: core::marker::PhantomData<u8> }"),
+            (
+                "transparent_none",
+                "pub struct T2 { z: (), p: core::marker::PhantomData<u8> }",
+            ),
         ] {
             let e = load(
                 name,

@@ -22,6 +22,10 @@ lengths exist at all: [the FIFO of lengths](wire_format.md#the-fifo-of-lengths).
 | `self_describing` | `SelfDescribing`        | No size is stored; a reader can tell where the value ends from the encoding itself.                                          | No overhead, but only for types whose encoding ends by itself (variable-length numbers, enums of unequal variants). |
 | `sized`           | `Sized { size_bits }`   | Size is fixed and known at compile time, computed from the fields. Nothing is stored for it, ever.                           | Can't evolve at all: adding, removing or resizing a field changes the layout for every reader. Most compact.    |
 
+A struct of one field can also take its field's size class with [`transparent`](derive_reference.md#transparent)
+instead of one of these: a `Count(u64)` is `Sized { size_bits: 64 }`, a wrapped `UNib32` `SelfDescribing`, a wrapped
+`&str` `UnsizedFinalStructure`, with the bytes of the plain field. It excludes all three.
+
 !!! tip "Free bits can still be used"
     A `final_structure` or `sized` type can still grow into the gaps it already has, which are zero by default. If
     a `bool` is followed by a `u8`, 7 bits are unused and skipped by readers; a later version can put a `bool` or an

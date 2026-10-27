@@ -2745,6 +2745,8 @@
       
         
       
+        
+      
     
     
     
@@ -2915,6 +2917,33 @@
     
   
   ww_i2c
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
 
     
   </span>
@@ -5439,7 +5468,10 @@ queried at runtime, one <code>configure()</code> call per bus, common errors, ty
 <h2 id="host-side-_hl-crates">Host-side <code>_hl</code> crates<a class="headerlink" href="#host-side-_hl-crates" title="Permanent link">&para;</a></h2>
 <p>Crates with a more ergonomic client on top of a generated one, for drivers, CLIs and GUIs rather than firmware.</p>
 <ul>
-<li><code>ww_gpio_hl</code> — async, blocking and promise wrappers over <code>ww_gpio</code>'s generated client</li>
+<li><code>ww_gpio_hl</code> — async, blocking and promise wrappers over <code>ww_gpio</code>'s generated client, with embedded-hal digital
+  traits (<a href="../ww_gpio/#embedded-hal-ww_gpio_hl">ww_gpio</a>)</li>
+<li><a href="../ww_i2c_hl/"><code>ww_i2c_hl</code></a> — embedded-hal I2C (blocking and async) over a remote <code>ww_i2c::I2c</code>: stock driver
+  crates run unchanged on the host</li>
 </ul>
 
 

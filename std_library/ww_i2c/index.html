@@ -19,7 +19,7 @@
         <link rel="prev" href="../ww_can_bus/">
       
       
-        <link rel="next" href="../ww_spi/">
+        <link rel="next" href="../ww_i2c_hl/">
       
       
         
@@ -2634,6 +2634,8 @@
       
         
       
+        
+      
     
     
     
@@ -3013,6 +3015,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ww_i2c_hl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  ww_i2c_hl
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5560,6 +5589,8 @@
       
         
       
+        
+      
     
     
     
@@ -5736,7 +5767,7 @@ address and its direction bit, after a repeated start for all but the first, as 
 <p>The last line is not one longer write: <code>embedded_hal::i2c::I2c::transaction</code> merges adjacent operations of the same
 direction without a repeated start, <code>i2c_transaction</code> doesn't. An EEPROM page write (memory address, then data) is
 one <code>Write</code> with both, as on a real 24Cxx the repeated start would make the data a new memory address. A host
-adapter implementing embedded-hal over <code>ww_i2c</code> merges before the call: adjacent writes concatenated into one
+adapter implementing embedded-hal over <code>ww_i2c</code> (<a href="../ww_i2c_hl/"><code>ww_i2c_hl</code></a>) merges before the call: adjacent writes concatenated into one
 <code>Write</code>, adjacent reads into one <code>Read</code> of the summed length, and splits the read bytes again.</p>
 <p><code>Nack</code> errors say where the transfer stopped: <code>op</code> is the operation (0 for <code>i2c_write</code> and a plain read, 0 or 1
 for the write or read part of a <code>RepeatedStart</code> read, the index into <code>ops</code> for <code>i2c_transaction</code>), <code>at</code> the byte on
@@ -6083,13 +6114,13 @@ internal logic from its own timer or event loop instead.</p>
         
         
           
-          <a href="../ww_spi/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_spi">
+          <a href="../ww_i2c_hl/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_i2c_hl">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ww_spi
+                ww_i2c_hl
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -12,6 +12,7 @@ use crate::{
         fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct,
         series::SeriesSeed, util::CratePath,
     },
+    transform::cfg_attr::{cfg_guards, expand_read_cfg_attrs},
     transform::docs_util::add_notes,
 };
 
@@ -68,8 +69,10 @@ pub fn shrink_wrap_derive(item: TokenStream) -> TokenStream {
         .unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
 }
 
-fn shrink_wrap_attr_inner(item: Item, args: Args) -> Result<TokenStream, String> {
+fn shrink_wrap_attr_inner(mut item: Item, args: Args) -> Result<TokenStream, String> {
     let (ty_kind, name) = TyKind::from_item(&item)?;
+    let cfg_preds = expand_read_cfg_attrs(&mut item)?;
+    let guards = cfg_guards(&name, &cfg_preds);
     // a head_tail type has one version, nothing to choose
     if matches!(ty_kind, TyKind::Ambiguous)
         && args.borrowed.is_none()
@@ -80,7 +83,9 @@ fn shrink_wrap_attr_inner(item: Item, args: Args) -> Result<TokenStream, String>
             "Ambiguous declaration, add `Owned` to type name, add borrowed or owned directive, or use PhantomData to capture a lifetime".into(),
         );
     }
-    generate_inner(item, ty_kind, name, args)
+    let mut ts = generate_inner(item, ty_kind, name, args)?;
+    ts.append_all(guards);
+    Ok(ts)
 }
 
 fn generate_inner(

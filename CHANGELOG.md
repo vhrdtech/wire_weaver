@@ -299,6 +299,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Fixed
 
+- `derive_shrink_wrap` reads `#[cfg_attr(pred, default = ..)]` (and its other field and variant attributes) on fields and variants instead of dropping them without a word, with a compile error where `pred` doesn't hold (API-60). See `shrink_wrap/CHANGELOG.md`.
 - `no_alloc = false` servers compile and work (API-21), the first piece of the ww hub (SRV-13): servers generated
   for `std` take and give owned types (`String`, `Vec<T>`, `FooOwned`) and send the same bytes as a `no_alloc`
   server, through shrink_wrap's new `BufWriter::ser_owned` / `write_owned` and `OwnedSer`; `ww api scaffold --alloc`

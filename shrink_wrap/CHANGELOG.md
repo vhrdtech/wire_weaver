@@ -446,6 +446,7 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
 
 ### 🐛 Fixes
 
+- `derive_shrink_wrap`: `#[cfg_attr(pred, ..)]` on a field or enum variant holding an attribute the derive reads (`default = ..`, `flag`, `id`, `series`, `slot`, `since`, `common`, `display`, `future_version`) was dropped without a word, so `#[cfg_attr(feature = "shrink_wrap", default = 7)]` made a required field (rustc doesn't expand `cfg_attr` inside an attribute macro's item). It is read as if `pred` holds, and the type fails to compile where `pred` doesn't (the same rule as `#[cfg_attr(pred, wire(W))]`, DER-19); a `cfg_attr` mixing these with other attributes is an error. The form a crate with `shrink_wrap` optional uses (API-60, `exact_units`).
 - `BufReader::bits_left()` and `nibbles_left()` counted the current byte twice when the reader was at a byte boundary (3 fresh bytes: 32 bits, 8 nibbles; 24 and 6 are there), so the bounds checks that use them (`OptionAnyVec`, `Series`) let a too large count through to fail later, and a `Series` skipping the rest of its bits from a byte boundary went 8 bits past the end. Both count from where the lengths at the back begin now, checked for every reader state of 1- to 3-byte buffers; the C reader (`sw_reader_bits_left`, `sw_reader_nibbles_left`) the same.
 - Decoding a recursive type (`Box<T>`, `RefBox<T>`, `Vec<T>` or `RefVec<T>` of a type that contains itself, like
   `ww_self`'s `TypeOwned` and `ValueOwned`) had no nesting limit: 38 KB of untrusted data with 10 000 nested lists

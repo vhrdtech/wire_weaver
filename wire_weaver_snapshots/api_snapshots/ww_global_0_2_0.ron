@@ -5,7 +5,7 @@
     "Global id registry: small numbers for commonly used crates and traits, so that a request can name a trait in",
     "a few bits instead of its crate name and version (`PathKind::GlobalCompact`). Ids are assigned by hand in",
     "`wire_weaver_gid.json`, see the README for the ranges and rules.",
-], crate_idx: 0, trait_name: "ww_global", items: [], compact_id: None), types: [
+], crate_idx: 0, trait_name: "ww_global", items: [], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "GlobalTypeId", generics: [], fields: Named([
         (ident: Some("id"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),

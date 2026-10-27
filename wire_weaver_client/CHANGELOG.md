@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `multi::call_array` / `call_array_blocking` take any `CallPath` builder: the generic parameters are `<C, F>` instead of `<T, F>` (a turbofish `call_array::<u8, _>` drops the `u8`), and they answer `Vec<C::Output>`, which is `Vec<Result<T, ErrorOwned>>` as before for methods without `Result` (CLT-48). The hidden `multi::CallPath` trait has `Item` (wire value) next to `Output` and an `output` method.
 - `evolution` is a re-export of the new `wire_weaver_evolution` crate (EVO-11), where the checker lives now, together with `layout` and the type rules of `compat`; paths like `wire_weaver_client::evolution::compare` keep working. `evolution::Report::breaking` is a `Vec<Finding>` (the rule broken and the message) instead of `Vec<String>`: use `finding.message`, or its `Display`, which adds the rule.
 - `Error::DeviceNotFound` has the new field `over_rtt` (TOOL-20): the message says `No debug probe found` or lists the probes that didn't match instead of talking about WireWeaver USB devices; code building the variant sets it. The filters in the message name the RTT target, and the filters after it as `probe ..`.
 - `clock_sync::Fit` has two more public fields, `max_rtt` (the longest round trip of the samples used) and `rate_sensitivity`: code that builds a `Fit` with a struct literal adds them (`0` / `0.0` for a fit without a measured slope).
@@ -43,6 +44,7 @@
 
 ### 🚀 Features
 
+- Methods returning `Result<T, E>` go into `MultiCall` tuples and `call_array` (CLT-48), mixed with methods without `Result`: each position answers what its single `call()` would, `Result<T, CallError<E>>` (`Device` checked against the method's `#[errors]` list, `Unimplemented`, `Client(Error::RemoteError(..))` for the index's own error such as `BadIndex`). Methods without `Result` answer `Result<T, ErrorOwned>` as before. No device change needed. See `docs/api/multi_requests.md#methods-returning-result`.
 - The runtime compat check (`compat`) lets a device send an enum variant the client doesn't know when the client's enum has the `#[future_version]` catch-all (EVO-10): it reads it as `Unknown(n)` instead of the resource being marked incompatible; a moved variant is reported as `variant X moved`.
 - With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names, `rtt_chip_known(name)` whether probe-rs knows one, for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).
 

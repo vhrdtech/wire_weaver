@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use std::time::Duration;
 use wire_weaver::prelude::DeserializeShrinkWrapOwned;
 use wire_weaver::shrink_wrap::UNib32;
-use ww_client_server::PathKindOwned;
+use ww_client_server::{ErrorOwned, PathKindOwned};
 
 /// Self-contained struct containing all necessary information needed to perform a call:
 /// * TX ends towards transport and dispatcher event loops
@@ -187,10 +187,8 @@ impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
     }
 }
 
-impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
-    type Output = T;
-
-    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+impl<T, E> PreparedCall<T, E> {
+    fn multi_absolute_path(&self) -> Option<Vec<UNib32>> {
         if self.postpone_err.is_err() {
             return None;
         }
@@ -199,6 +197,16 @@ impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
             _ => None,
         }
     }
+}
+
+/// A method without `Result`: each index of a multi call answers `Result<T, ErrorOwned>`.
+impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
+    type Item = T;
+    type Output = Result<T, ErrorOwned>;
+
+    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+        self.multi_absolute_path()
+    }
 
     fn args_bytes(&self) -> Vec<u8> {
         self.args.clone()
@@ -206,6 +214,43 @@ impl<T: DeserializeShrinkWrapOwned> CallPath for PreparedCall<T, Error> {
 
     fn commander(&self) -> TransportCommander {
         self.transport_cmd_tx.clone()
+    }
+
+    fn output(&self, item: Result<T, ErrorOwned>) -> Self::Output {
+        item
+    }
+}
+
+/// A method returning `Result<T, D>` (CLT-48): each index of a multi call answers what [PreparedCall::call] would,
+/// `Result<T, CallError<D>>`: [CallError::Device] for the method's own error (checked against its `#[errors(..)]`
+/// list), [CallError::Unimplemented], or [CallError::Client] with the index's [Error::RemoteError] (`BadIndex`, ..).
+impl<T, D> CallPath for PreparedCall<T, CallError<D>>
+where
+    T: DeserializeShrinkWrapOwned,
+    D: DeserializeShrinkWrapOwned + Debug,
+{
+    type Item = Result<T, D>;
+    type Output = Result<T, CallError<D>>;
+
+    fn absolute_path(&self) -> Option<Vec<UNib32>> {
+        self.multi_absolute_path()
+    }
+
+    fn args_bytes(&self) -> Vec<u8> {
+        self.args.clone()
+    }
+
+    fn commander(&self) -> TransportCommander {
+        self.transport_cmd_tx.clone()
+    }
+
+    fn output(&self, item: Result<Result<T, D>, ErrorOwned>) -> Self::Output {
+        let result = match item {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(e)) => Err(CallError::Device(e)),
+            Err(e) => Err(CallError::from_client(Error::RemoteError(e), self.resource)),
+        };
+        check_error_list(result, self.error_list.as_ref(), self.resource)
     }
 }
 

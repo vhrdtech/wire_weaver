@@ -189,6 +189,20 @@ mod tests {
                 let _ = index_chain;
                 Ready(value.wrapping_mul(2))
             }
+
+            fn unit_halve(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: u8,
+            ) -> RpcResult<Result<u8, MethodError>> {
+                let _ = index_chain;
+                Ready(if value.is_multiple_of(2) {
+                    Ok(value / 2)
+                } else {
+                    Err(MethodError::Odd)
+                })
+            }
         }
 
         /// Elements of the `unit[]` array (CLT-15 multi-request tests)
@@ -394,6 +408,20 @@ mod tests {
                 let _ = index_chain;
                 Ready(value.wrapping_mul(2))
             }
+
+            fn unit_halve(
+                &mut self,
+                _cx: &mut Cx<'_, impl BlockingEventOut>,
+                index_chain: [UNib32; 1],
+                value: u8,
+            ) -> RpcResult<Result<u8, MethodError>> {
+                let _ = index_chain;
+                Ready(if value.is_multiple_of(2) {
+                    Ok(value / 2)
+                } else {
+                    Err(MethodError::Odd)
+                })
+            }
         }
 
         fn pick_error(pick: u8) -> Result<(), ListedErrorOwned> {
@@ -502,7 +530,7 @@ mod tests {
         use methods_api::I2cAddress;
         use wire_weaver::shrink_wrap::un::{I10, U7, U10};
         let (device, _data) = start("methods/sub_byte");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
 
         let a = U7::new(0x7f).unwrap();
         let b = I10::new(-512).unwrap();
@@ -552,7 +580,7 @@ mod tests {
     async fn calls() {
         let (device, data) = start("methods/calls");
         // methods with arguments take &mut self
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
 
         // Call as async
         client.no_args().call().await.unwrap();
@@ -594,7 +622,7 @@ mod tests {
         let (device, data) = start("methods/calls_blocking_and_promise");
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let mut client = connect_blocking(&device);
+        let client = connect_blocking(&device);
 
         client.no_args().blocking_call().unwrap();
         assert!(data.read().unwrap().no_args_called);
@@ -682,7 +710,7 @@ mod tests {
         use methods_api::ListedErrorOwned;
         use wire_weaver::prelude::CommonErrorOwned;
         let (device, _data) = start("methods/listed_errors");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         client.listed_errors(0).call().await.unwrap();
         let e = client.listed_errors(1).call().await.unwrap_err();
         assert!(
@@ -710,7 +738,7 @@ mod tests {
     )]
     async fn unlisted_nested_error_fails_in_tests() {
         let (device, _data) = start("methods/unlisted_nested_error");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let _ = client.listed_errors(3).call().await;
     }
 
@@ -720,7 +748,7 @@ mod tests {
         let (device, _data) = start("methods/unlisted_error_blocking");
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let mut client = connect_blocking(&device);
+        let client = connect_blocking(&device);
         let _ = client.listed_errors(4).blocking_call();
     }
 
@@ -730,7 +758,7 @@ mod tests {
         let (device, _data) = start("methods/unlisted_error_promise");
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let mut client = connect_blocking(&device);
+        let client = connect_blocking(&device);
         let mut promise = client.all_common(4).call_promise("all_common");
         tests_common::wait_promise(&mut promise);
     }
@@ -740,7 +768,7 @@ mod tests {
         let (device, _data) = start("methods/call_errors_blocking_and_promise");
         let rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = rt.enter();
-        let mut client = connect_blocking(&device);
+        let client = connect_blocking(&device);
         assert_eq!(client.fallible(6).blocking_call().unwrap(), 3);
         let r = client.fallible(5).blocking_call();
         assert!(
@@ -863,7 +891,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn deferred_answered_from_another_handler() {
         let (device, data) = start("methods/deferred_answered");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let deferred = tokio::spawn(client.deferred().call());
         let deferred_unit = tokio::spawn(client.deferred_unit().call());
         for _ in 0..500 {
@@ -885,7 +913,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn deferred_on_nested_level() {
         let (device, data) = start("methods/deferred_nested");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let pending = tokio::spawn(client.plug().vbus_cycle().call());
         for _ in 0..500 {
             if data.read().unwrap().plug_vbus_cycle.is_some() {
@@ -913,6 +941,93 @@ mod tests {
         assert_eq!(a.unwrap(), 0xAA);
         assert_ne!(b.unwrap(), 0);
         assert_eq!(c.unwrap(), Medium::Can as u8);
+    }
+
+    /// Fallible methods in a `MultiCall` tuple (CLT-48): each answers its single call's `Result<T, CallError<D>>`,
+    /// `Ok` and the device's `Err` mixed, next to an infallible method and a fallible one the server doesn't
+    /// implement.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_call_fallible_tuple() {
+        let (device, _data) = start("methods/multi_call_fallible_tuple");
+        let client = connect(&device).await;
+        let (ok, err) = (client.fallible(4), client.listed_errors(2))
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!(ok.unwrap(), 2);
+        assert!(
+            matches!(
+                err,
+                Err(CallError::Device(methods_api::ListedErrorOwned::Nack))
+            ),
+            "{err:?}"
+        );
+
+        let (plain, fallible, absent) = (
+            client.plain_return(),
+            client.fallible(7),
+            client.fallible_absent(),
+        )
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!(plain.unwrap(), 0xAA);
+        assert!(matches!(fallible, Err(CallError::Device(MethodError::Odd))));
+        assert!(
+            matches!(absent, Err(CallError::Unimplemented { .. })),
+            "{absent:?}"
+        );
+
+        // as a single call answers
+        let single = client.fallible(5).call().await;
+        assert!(matches!(single, Err(CallError::Device(MethodError::Odd))));
+    }
+
+    /// A fallible method across an array with `call_array` (CLT-48): `Ok`, the device's `Err` and an index past the
+    /// array's length (`BadIndex`, a [CallError::Client]) mixed.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_call_fallible_array() {
+        use wire_weaver_client::multi::{call_array, call_array_blocking};
+        use ww_client_server::MultiIndexOwned;
+
+        let (device, _data) = start("methods/multi_call_fallible_array");
+        let client = connect(&device).await;
+        let check = |r: Vec<Result<u8, CallError<MethodError>>>| {
+            assert_eq!(r.len(), 3, "{r:?}");
+            assert_eq!(r[0].as_ref().unwrap(), &2);
+            assert!(
+                matches!(&r[1], Err(CallError::Device(MethodError::Odd))),
+                "{r:?}"
+            );
+            assert!(
+                matches!(&r[2], Err(CallError::Client(Error::RemoteError(e)))
+                    if matches!(e.kind, ErrorKindOwned::BadIndex)),
+                "{r:?}"
+            );
+        };
+        let list = || {
+            MultiIndexOwned::List(vec![
+                UNib32(0),
+                UNib32(1),
+                UNib32(no_std_sync_server::UNITS),
+            ])
+        };
+        // different args: 4 to unit 0, 5 to unit 1
+        let args = |i: u32| if i == 0 { 4 } else { 5 };
+        check(
+            call_array(list(), |i| client.unit(i).halve(args(i)))
+                .await
+                .unwrap(),
+        );
+        let client = Arc::new(client);
+        let c = client.clone();
+        let r = tokio::task::spawn_blocking(move || {
+            call_array_blocking(list(), |i| c.unit(i).halve(args(i)))
+        })
+        .await
+        .unwrap()
+        .unwrap();
+        check(r);
     }
 
     /// `call_array` over the `unit[]` array (CLT-15): list, range and mask indices, `Same`/`Different` args, and a

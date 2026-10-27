@@ -48,6 +48,9 @@ trait Plug {
 trait Unit {
     /// `value` doubled, wrapping
     fn double(value: u8) -> u8;
+    /// `value / 2`, or `Err(MethodError::Odd)` for an odd value (CLT-48: fallible methods in `call_array`)
+    #[errors(Odd)]
+    fn halve(value: u8) -> Result<u8, MethodError>;
 }
 
 #[derive_shrink_wrap(borrowed, owned(feature = "std"), derive(Debug, PartialEq, Eq), ww_repr = u4)]

@@ -150,8 +150,41 @@ let r = read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i| {
 .unwrap();
 ```
 
-A method with a custom `#[errors(..)]` result (`CallError<E>`) can't go into a tuple `multi_call` or `call_array`;
-call it on its own instead - see [Errors](errors.md#which-errors-a-method-returns).
+### Methods returning `Result`
+
+A method returning `Result<T, E>` (with or without `#[errors(..)]`, CLT-48) goes into a tuple `multi_call` and into
+`call_array` like any other, mixed freely with methods without `Result`. Its position answers exactly what its own
+`call()` would, `Result<T, CallError<E>>`, so moving a call into a batch doesn't change how its result is handled:
+
+- `Ok(value)`: the method returned `Ok`;
+- `Err(CallError::Device(e))`: the method returned `Err(e)`, checked against its `#[errors(..)]` list as in a
+  single call (see [Errors](errors.md#which-errors-a-method-returns));
+- `Err(CallError::Unimplemented { .. })`: the device's handler returned `Unimplemented`;
+- `Err(CallError::Client(Error::RemoteError(e)))`: the index itself failed (`BadIndex`, `ArgsDesFailed`, ..).
+
+A method without `Result` keeps answering `Result<T, ErrorOwned>`.
+
+```rust
+// ww_i2c: a write, then a register read of a USB-PD controller, in one USB round trip
+let (written, read) = (
+    i2c.i2c_write(addr, data, None),
+    i2c.i2c_read(addr, kind, 4, None),
+)
+    .multi_call()
+    .await?; // the whole request failed: link, timeout, server without multi_req
+written?;
+let bytes = read?; // CallError<I2cError>: Device(Nack), Unimplemented or Client
+
+// the same fallible method across an array: Ok and Err mixed, one entry per index
+let r = call_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i| {
+    client.unit(i).halve(i as u8)
+})
+.await?;
+assert!(matches!(r[1], Err(CallError::Device(MethodError::Odd))));
+```
+
+Nothing changes on the device: the server already puts the method's own `Result<T, E>` into the index's slot, the
+same bytes a single call answers with.
 
 ## The dynamic client
 
@@ -194,7 +227,5 @@ huge `Range` (e.g. `0..u32::MAX`) fails outright rather than running for billion
 - **Deferred methods** are refused with `OperationNotSupported` inside a multi request, even one that defers
   although its `method_model` says `immediate` ([deferred methods](methods.md#deferred) need a reply tied to one
   request's `seq`, which a shared multi-request slot can't carry).
-- **A method with a custom error result** (`#[errors(..)]`, `CallError<E>`) can't go into a tuple `multi_call` on
-  the client - call it on its own.
 - **A trait level itself** (not a leaf resource) inside a multi request answers `OperationNotSupported`, as does a
   server without `multi_req = true` for any multi request at all.

@@ -39,11 +39,17 @@ pub trait PropertyPath {
 /// multi-call.
 #[doc(hidden)]
 pub trait CallPath {
-    type Output: DeserializeShrinkWrapOwned;
+    /// What the method puts on the wire for one index: `T`, or `Result<T, D>` for a method returning one.
+    type Item: DeserializeShrinkWrapOwned;
+    /// What one index answers the user: `Result<T, ErrorOwned>`, or for a method returning `Result<T, D>` the same
+    /// `Result<T, CallError<D>>` as its single call (CLT-48).
+    type Output;
 
     fn absolute_path(&self) -> Option<Vec<UNib32>>;
     fn args_bytes(&self) -> Vec<u8>;
     fn commander(&self) -> TransportCommander;
+    /// Turns an index's answer into [Self::Output], checking it as a single call would (`#[errors(..)]` list).
+    fn output(&self, item: Result<Self::Item, ErrorOwned>) -> Self::Output;
 }
 
 /// Resource path, serialized value (and commander) of a [PreparedWrite](crate::PreparedWrite), extracted for a
@@ -171,41 +177,48 @@ pub(crate) fn decode_items<T: DeserializeShrinkWrapOwned>(
         .collect()
 }
 
-/// `(commander, prefix, trailing id, per-index bytes)`, see [materialize].
-type MaterializeResult = (
+/// [CallPath::output] of every index.
+fn call_outputs<C: CallPath>(call: &C, items: Vec<Result<C::Item, ErrorOwned>>) -> Vec<C::Output> {
+    items.into_iter().map(|item| call.output(item)).collect()
+}
+
+/// `(commander, prefix, trailing id, per-index bytes, first index's builder)`, see [materialize].
+type MaterializeResult<L> = (
     TransportCommander,
     Vec<UNib32>,
     Option<UNib32>,
     Vec<Vec<u8>>,
+    L,
 );
 
 /// Materializes every index of `multi_idx` into (path, bytes, commander) triples via `leaf` (the existing
 /// generated per-index accessor, e.g. `|i| client.pin(i).read_mode()`), locally only - no network traffic - then
-/// finds the common path shape with [split_common]. `bytes` is `None` for a read.
+/// finds the common path shape with [split_common]. `bytes` is `None` for a read. The first index's builder is
+/// kept, it makes the answers ([CallPath::output]).
 fn materialize<L>(
     multi_idx: &MultiIndexOwned,
     leaf: impl Fn(u32) -> L,
     path_of: impl Fn(&L) -> Option<Vec<UNib32>>,
     bytes_of: impl Fn(&L) -> Option<Vec<u8>>,
     commander_of: impl Fn(&L) -> TransportCommander,
-) -> Result<MaterializeResult, Error> {
+) -> Result<MaterializeResult<L>, Error> {
     let mut paths = Vec::with_capacity(multi_idx.len());
     let mut bytes = Vec::with_capacity(multi_idx.len());
-    let mut commander = None;
+    let mut first = None;
     for i in multi_idx.iter_u32() {
         let item = leaf(i);
         let path = path_of(&item).ok_or_else(|| Error::MultiReq("a path".into()))?;
         if let Some(b) = bytes_of(&item) {
             bytes.push(b);
         }
-        if commander.is_none() {
-            commander = Some(commander_of(&item));
+        if first.is_none() {
+            first = Some(item);
         }
         paths.push(path);
     }
     let (prefix, _varying, trailing) = split_common(&paths)?;
-    let commander = commander.expect("split_common already checked paths is non-empty");
-    Ok((commander, prefix, trailing, bytes))
+    let first = first.expect("split_common already checked paths is non-empty");
+    Ok((commander_of(&first), prefix, trailing, bytes, first))
 }
 
 /// Read the same property/resource across an array (CLT-15): `multi_idx` is sent as given (`Range`/`List`/
@@ -220,7 +233,7 @@ where
     F: Fn(u32) -> crate::PreparedRead<T>,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, _) = materialize(
+    let (commander, prefix, in_each_array_id, _, _) = materialize(
         &multi_idx,
         get,
         PropertyPath::absolute_path,
@@ -250,7 +263,7 @@ where
     F: Fn(u32) -> crate::PreparedRead<T>,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, _) = materialize(
+    let (commander, prefix, in_each_array_id, _, _) = materialize(
         &multi_idx,
         get,
         PropertyPath::absolute_path,
@@ -269,17 +282,15 @@ where
     decode_items(&bytes, count)
 }
 
-/// Call the same method across an array (CLT-15): see [read_array].
-pub async fn call_array<T, F>(
-    multi_idx: MultiIndexOwned,
-    build: F,
-) -> Result<Vec<Result<T, ErrorOwned>>, Error>
+/// Call the same method across an array (CLT-15): see [read_array]. Each index answers `Result<T, ErrorOwned>`, or
+/// for a method returning `Result<T, D>` the same `Result<T, CallError<D>>` as its single call (CLT-48).
+pub async fn call_array<C, F>(multi_idx: MultiIndexOwned, build: F) -> Result<Vec<C::Output>, Error>
 where
-    T: DeserializeShrinkWrapOwned,
-    F: Fn(u32) -> crate::PreparedCall<T>,
+    C: CallPath,
+    F: Fn(u32) -> C,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, bytes) = materialize(
+    let (commander, prefix, in_each_array_id, bytes, first) = materialize(
         &multi_idx,
         build,
         CallPath::absolute_path,
@@ -298,20 +309,20 @@ where
         None,
     )
     .await?;
-    decode_items(&response, count)
+    Ok(call_outputs(&first, decode_items(&response, count)?))
 }
 
 /// Blocking variant of [call_array].
-pub fn call_array_blocking<T, F>(
+pub fn call_array_blocking<C, F>(
     multi_idx: MultiIndexOwned,
     build: F,
-) -> Result<Vec<Result<T, ErrorOwned>>, Error>
+) -> Result<Vec<C::Output>, Error>
 where
-    T: DeserializeShrinkWrapOwned,
-    F: Fn(u32) -> crate::PreparedCall<T>,
+    C: CallPath,
+    F: Fn(u32) -> C,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, bytes) = materialize(
+    let (commander, prefix, in_each_array_id, bytes, first) = materialize(
         &multi_idx,
         build,
         CallPath::absolute_path,
@@ -329,7 +340,7 @@ where
         },
         None,
     )?;
-    decode_items(&response, count)
+    Ok(call_outputs(&first, decode_items(&response, count)?))
 }
 
 /// Write the same property/resource across an array (CLT-15): see [read_array]. Answers `()` per index.
@@ -341,7 +352,7 @@ where
     F: Fn(u32) -> crate::PreparedWrite,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, bytes) = materialize(
+    let (commander, prefix, in_each_array_id, bytes, _) = materialize(
         &multi_idx,
         build,
         WritePath::absolute_path,
@@ -372,7 +383,7 @@ where
     F: Fn(u32) -> crate::PreparedWrite,
 {
     let count = multi_idx.len();
-    let (commander, prefix, in_each_array_id, bytes) = materialize(
+    let (commander, prefix, in_each_array_id, bytes, _) = materialize(
         &multi_idx,
         build,
         WritePath::absolute_path,
@@ -402,7 +413,9 @@ pub trait MultiRead<Out> {
 }
 
 /// Several methods called in one request (CLT-15): implemented for tuples of 2 to 8 of
-/// [PreparedCall](crate::PreparedCall), e.g. `(client.inc(), client.dec()).multi_call().await`.
+/// [PreparedCall](crate::PreparedCall), e.g. `(client.inc(), client.dec()).multi_call().await`. A method without
+/// `Result` answers `Result<T, ErrorOwned>` in its position, a method returning `Result<T, D>` the same
+/// `Result<T, CallError<D>>` as its single call (CLT-48); both kinds mix in one tuple.
 pub trait MultiCall<Out> {
     fn multi_call(self) -> impl Future<Output = Result<Out, Error>>;
 }
@@ -449,11 +462,11 @@ macro_rules! impl_multi_tuple {
             }
         }
 
-        impl<$($T),+> MultiCall<($(Result<$T::Output, ErrorOwned>,)+)> for ($($T,)+)
+        impl<$($T),+> MultiCall<($($T::Output,)+)> for ($($T,)+)
         where
             $($T: CallPath,)+
         {
-            async fn multi_call(self) -> Result<($(Result<$T::Output, ErrorOwned>,)+), Error> {
+            async fn multi_call(self) -> Result<($($T::Output,)+), Error> {
                 #[allow(non_snake_case)]
                 let ($(ref $T,)+) = self;
                 let paths = [$(CallPath::absolute_path($T).ok_or_else(|| Error::MultiReq("a path".into()))?),+];
@@ -473,7 +486,7 @@ macro_rules! impl_multi_tuple {
                 let mut rd = BufReader::new(&bytes);
                 let vec = EitherAnyVec::des_shrink_wrap(&mut rd)?;
                 let mut iter = vec.iter();
-                Ok(($(iter.next_owned::<ErrorOwned, $T::Output>()?.into(),)+))
+                Ok(($(CallPath::output($T, iter.next_owned::<ErrorOwned, $T::Item>()?.into()),)+))
             }
         }
 

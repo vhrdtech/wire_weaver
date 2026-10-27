@@ -1249,6 +1249,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
   controller wants exactly that. Needs each index's answer to carry the method's own `Result` next to the
   per-index `Error`.
+- ✅ **CLT-48 Fallible methods in multi calls** · `v0.5.x` — a method returning `Result<T, E>` (any with
+  `#[errors]`, e.g. `ww_i2c::I2c::i2c_read`/`i2c_write`) goes into a `MultiCall` tuple (CLT-15) and into
+  `call_array`, mixed with methods without `Result`; each position answers what its single `call()` would,
+  `Result<T, CallError<E>>` (`Device` checked against the `#[errors]` list, `Unimplemented`, `Client` for the
+  index's own framework error), methods without `Result` still `Result<T, ErrorOwned>`. No device change: servers
+  already put the method's `Result` into the index's slot. Generated client calls with arguments take `&self` now
+  (was `&mut self`), so two of them fit into one tuple. Found on the rePort B200A bench run (report-i2c-master,
+  27 Oct 2026): a write + read burst to a USB-C PD controller in one USB round trip. Host-tested (`tests/methods`:
+  2- and 3-tuples, `call_array` async and blocking, Ok, device `Err`, `Unimplemented` and `BadIndex` mixed),
+  `docs/api/multi_requests.md#methods-returning-result`.
 
 ## Transports and protocols (`TR`)
 

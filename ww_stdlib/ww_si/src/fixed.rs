@@ -63,7 +63,8 @@ mod storage;
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
-    final_structure,
+    transparent,
+    series(cells),
     validate = Self::validate
 )]
 #[repr(transparent)]

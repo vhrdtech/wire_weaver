@@ -8,7 +8,7 @@ use wire_weaver::shrink_wrap::{
 };
 use ww_client_server::observe::ObserveRequestOwned;
 use ww_client_server::{
-    Event, EventKind, PathKind, PathKindOwned, Request, RequestKind, RequestKindOwned,
+    Event, EventKind, PathKind, PathKindOwned, Priority, Request, RequestKind, RequestKindOwned,
     RequestOwned, StreamSideband,
 };
 
@@ -146,11 +146,12 @@ pub(crate) fn access(request: &[u8]) -> Result<Option<(Access, Place, bool)>, ()
 }
 
 /// A request the hub sends itself: closing a stream, an observe merged from several clients. Seq placeholder in front.
-pub(crate) fn request(path: &[u32], kind: RequestKindOwned) -> Option<Vec<u8>> {
+/// `priority` is the client's when it is sent for one, so an urgent one stays urgent (CLT-50).
+pub(crate) fn request(path: &[u32], priority: Priority, kind: RequestKindOwned) -> Option<Vec<u8>> {
     use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
     RequestOwned {
         seq: UVlq32Backfill(0),
-        priority: ww_client_server::Priority::NORMAL.nibble(),
+        priority: priority.nibble(),
         path_kind: PathKindOwned::Absolute {
             path: path.iter().map(|n| UNib32(*n)).collect(),
         },
@@ -266,12 +267,35 @@ mod tests {
         assert!(matches!(classify(&trimmed), Op::Other));
     }
 
+    /// The device's seq replaces the client's (SRV-29) without touching the priority nibble behind it (CLT-50),
+    /// whatever length either seq takes; requests the hub builds for a client keep the client's priority.
+    #[test]
+    fn seq_rewrite_keeps_priority() {
+        for priority in [
+            Priority::LOWEST,
+            Priority::NORMAL,
+            Priority::URGENT,
+            Priority::HIGHEST,
+        ] {
+            let mut sent = request(&[2, 5], priority, RequestKindOwned::Read).unwrap();
+            let sent = Request::set_seq(&mut sent, 1).unwrap().to_vec();
+            for device_seq in [1, 127, 128, 70_000] {
+                let (_, rest) = split_seq(&sent).unwrap();
+                let mut forwarded = with_placeholder(rest);
+                let forwarded = Request::set_seq(&mut forwarded, device_seq).unwrap();
+                assert_eq!(Request::peek_priority(forwarded), Ok(priority));
+                assert_eq!(Request::peek_seq(forwarded), Ok(device_seq));
+            }
+        }
+    }
+
     #[test]
     fn requests_and_events_classified() {
-        let open = request(&[3, 1], RequestKindOwned::Introspect).unwrap();
+        let open = request(&[3, 1], Priority::NORMAL, RequestKindOwned::Introspect).unwrap();
         assert!(matches!(classify(&open), Op::Introspect));
         let close = request(
             &[3, 1],
+            Priority::NORMAL,
             RequestKindOwned::StreamSideband {
                 sideband: StreamSideband::Close,
             },

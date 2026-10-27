@@ -110,7 +110,9 @@ Every handler (methods, `get_`/`set_`/`changed_` of properties, `sideband_`/`wri
 * `cx.medium()` - the medium the request came from. The type is set with `ww_codegen!(.., medium = "crate::Medium")`
   (`()` by default) and the value with `Server::with_medium(..)`. A device with USB and CAN runs one server per
   medium, all handling requests with the same server state.
-* `cx.reply_to()` - medium and seq to answer a deferred call later, `None` if no reply is expected.
+* `cx.priority()` - the request's priority (`wire_weaver::Priority`), its reply goes out at once when it is urgent,
+  see [latency and priority](../transport/ww_framer.md#latency-and-priority).
+* `cx.reply_to()` - medium, seq and priority to answer a deferred call later, `None` if no reply is expected.
 * `cx` sends events: stream updates and property updates with the generated
   `stream_data_ser().<name>_send(&value, cx).await` (`_send_blocking` for sync servers), or any event with
   `send_event()`. Events sent from a handler go out before its reply.
@@ -137,11 +139,13 @@ their servers' `sink()`.
 ### deferred
 
 `method_model = "move_motor=deferred, _=immediate"` lets a method return `Deferred` and answer later. The handler
-keeps `cx.reply_to()`, and the reply is sent with the generated `ServerState::move_motor_send_return(out, seq, output)`
-(`_send_return_blocking` for sync), where `out` is another handler's `cx` or `server.sink()` of `reply_to.medium`.
+keeps `cx.reply_to()`, and the reply is sent with the generated
+`ServerState::move_motor_send_return(out, reply_to, output)` (`_send_return_blocking` for sync), where `out` is another
+handler's `cx` or `server.sink()` of `reply_to.medium`. The reply to an urgent request goes out at once, others wait
+for the accumulation window like every message (see [latency and priority](../transport/ww_framer.md#latency-and-priority)).
 A deferred method on a nested level (`ww_impl!(plug: Plug)`) uses the prefixed name everywhere, like its handler:
 `method_model = "plug_vbus_cycle=deferred, _=immediate"` and `ServerState::plug_vbus_cycle_send_return(..)`. On a
-resource array level the handler gets the index chain, the helper does not need it (`seq` identifies the call).
+resource array level the handler gets the index chain, the helper does not need it (`reply_to` identifies the call).
 A deferred call that is never answered times out on the client.
 
 ### Handler names

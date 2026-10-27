@@ -21,7 +21,7 @@ use wire_weaver_client::internal::{Adopted, Command, ForwardSink, Forwarded};
 use wire_weaver_client::ww_client_server::observe::{
     ObserveEntry, ObserveMode, ObserveRequestOwned,
 };
-use wire_weaver_client::ww_client_server::{RequestKindOwned, StreamSideband};
+use wire_weaver_client::ww_client_server::{Priority, Request, RequestKindOwned, StreamSideband};
 use wire_weaver_client::ww_self::ApiBundleOwned;
 use wire_weaver_client::{ClientConfig, ClientKind, ClientMeta, Commander, WwClient};
 use ww_device::ww_link::Kind;
@@ -800,9 +800,10 @@ impl State {
                 Introspect::Fetching { .. } => self.bundle_waiters.push(reply),
                 Introspect::None => {
                     self.bundle_waiters.push(reply);
-                    let request = envelope::request(&[], RequestKindOwned::Introspect)
-                        .and_then(|r| envelope::split_seq(&r).map(|(_, rest)| rest.to_vec()))
-                        .unwrap_or_default();
+                    let request =
+                        envelope::request(&[], Priority::NORMAL, RequestKindOwned::Introspect)
+                            .and_then(|r| envelope::split_seq(&r).map(|(_, rest)| rest.to_vec()))
+                            .unwrap_or_default();
                     // asked with seq 0: the data comes as stream data at the root path, to nobody's tunnel
                     self.introspect = Introspect::Fetching {
                         events: vec![],
@@ -874,7 +875,9 @@ impl State {
                 if level.entries.is_empty() {
                     self.observed.remove(&path);
                 }
-                match envelope::request(&path, RequestKindOwned::Observe { cfg: merged }) {
+                let priority = Request::peek_priority(&bytes).unwrap_or_default();
+                match envelope::request(&path, priority, RequestKindOwned::Observe { cfg: merged })
+                {
                     // the device answers what it grants for all of them
                     Some(req) => {
                         let rest = envelope::split_seq(&req).map(|(_, r)| r.to_vec());
@@ -1010,6 +1013,7 @@ impl State {
         for path in close {
             if let Some(req) = envelope::request(
                 &path,
+                Priority::NORMAL,
                 RequestKindOwned::StreamSideband {
                     sideband: StreamSideband::Close,
                 },
@@ -1029,7 +1033,11 @@ impl State {
             !level.entries.is_empty()
         });
         for (path, merged) in changed {
-            if let Some(req) = envelope::request(&path, RequestKindOwned::Observe { cfg: merged }) {
+            if let Some(req) = envelope::request(
+                &path,
+                Priority::NORMAL,
+                RequestKindOwned::Observe { cfg: merged },
+            ) {
                 self.send(Command::Forward {
                     bytes: req,
                     tag: None,

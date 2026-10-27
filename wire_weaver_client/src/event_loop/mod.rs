@@ -4,6 +4,7 @@ pub(crate) mod command;
 pub(crate) mod commander;
 pub(crate) mod core;
 pub(crate) mod event_queue;
+mod fine_timer;
 pub(crate) mod live;
 pub(crate) mod medium;
 pub(crate) mod rx_dispatcher;

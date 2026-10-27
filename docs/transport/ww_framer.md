@@ -183,6 +183,39 @@ loop {
     If the remaining space in a frame is too small to fit even a head plus one payload byte, `write` returns
     `Ok(false)` without touching the frame, and the message starts at the beginning of the next one.
     Such a frame is a byte or two shorter than the maximum.
+## Latency and priority
+
+The framer only fills frames; when one goes out is decided above it, by the WireWeaver host event loop
+(`wire_weaver_client`) and the device server (`ww_device`), with one rule on both ends:
+
+- **Default traffic** (requests at the default priority, their replies, stream and property updates): a frame goes
+  out when it is full or when the link's accumulation window is over, whichever comes first. The window is the
+  device's `LinkConfig::accumulation_time` (sent to the host in `DeviceInfo`): 1 ms with
+  `UsbTimings::fs_higher_speed()`, 250 µs on USB HS. A request or reply alone waits for the window too: it is
+  what lets requests made close together share one packet, and it keeps packetization the same from run to run.
+- **Never later than the window**: the host waits for it on a timer accurate to tens of microseconds (tokio's own
+  counts whole milliseconds and made a 1 ms window cost about 2), so a window of `W` costs at most `W` (CLT-53).
+- **Urgent requests** go out at once. Every request carries a 4-bit priority (`wire_weaver::Priority`, 0..=15,
+  4 by default); 8 and up (`Priority::URGENT`) is urgent: the host flushes the frame as soon as the request is in
+  it, taking what was already waiting along, and the device flushes its reply the same way, also a deferred reply
+  sent later through `Server::sink()` (SRV-42).
+
+```rust
+let v = client.read_temperature().urgent().read().await?;           // sent and answered at once
+let r = client.i2c_read(0x48, 2).priority(Priority::HIGHEST).call().await?;
+let client = Board::config(|c| c.default_priority(Priority::URGENT)).connect().await?; // every request
+```
+
+A multi request goes at the highest priority of its items. Through the [hub](hub.md) the priority stays as the
+client sent it, and the hub's link to the device flushes an urgent request at once as well.
+
+Handlers see the priority as `cx.priority()`, and a deferred method's `cx.reply_to()` keeps it, so
+`<method>_send_return(out, reply_to, ..)` answers urgent calls at once without anything else to do. Firmware that
+wants to send what waits right now calls `server.sink().sink.flush()` (`ww_device` `Sink::flush`).
+
+The level inside each half orders requests against each other; serving a queue by priority (the host's tx queue,
+the device's, the hub's across clients) is planned (CLT-52, SRV-44, SRV-45).
+
 ## Checksum and tail
 
 After the payload of a `Full` or `End` message, the framer writes the `Checksum` and then the `Tail`, both

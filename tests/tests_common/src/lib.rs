@@ -275,6 +275,26 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     start(path, SyncServer(server), version, api_hash, medium)
 }
 
+/// Same as [start_device], with the device asking for an accumulation window of `window` instead of the default
+/// 1 ms: long enough, a test sees which messages waited for it (CLT-50).
+pub fn start_device_with_window<S: TestProcessEvents<Medium = ()> + Send + 'static>(
+    path: &str,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    window: std::time::Duration,
+) -> TestDevice {
+    start_with(
+        path,
+        Media::Messages,
+        SyncServer(server),
+        version,
+        api_hash,
+        (),
+        Some(window),
+    )
+}
+
 /// Same as [start_device], for servers generated with `use_async = true`.
 pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
     path: &str,
@@ -470,6 +490,18 @@ fn start_on<S: Process + Send + 'static>(
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
+    start_with(path, media, server, version, api_hash, medium, None)
+}
+
+fn start_with<S: Process + Send + 'static>(
+    path: &str,
+    media: Media,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+    medium: S::Medium,
+    accumulation_time: Option<std::time::Duration>,
+) -> TestDevice {
     // a device returning an error outside a method's #[errors(..)] fails the test (API-32)
     wire_weaver_client::set_strict_error_lists(true);
     let drop_requests = Arc::new(AtomicBool::new(false));
@@ -487,7 +519,11 @@ fn start_on<S: Process + Send + 'static>(
         filter: filter.clone(),
         version,
     };
-    let config = ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
+    let mut config =
+        ww_device::LinkConfig::new(version, api_hash, ww_client_server::COMPACT_VERSION);
+    if let Some(t) = accumulation_time {
+        config.accumulation_time = t;
+    }
     match media {
         Media::Messages => {
             let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);

@@ -344,22 +344,11 @@ async fn tx_task<T: Transport>(
             break result;
         }
 
-        // A frame goes out as soon as nothing else is waiting, whatever the device's accumulation window: sleeping
-        // it out would cost a lone request the whole window, and more, since tokio rounds deadlines up to the next
-        // millisecond tick (CLT-37, CLT-50). Messages that keep coming share frames up to the window, see
-        // `TxCore::accumulated`.
-        if core.wants_idle_flush() {
-            // what other tasks are queueing right now still joins this frame
-            tokio::task::yield_now().await;
-            if cmd_rx.is_empty() && from_rx.is_empty() {
-                core.handle(now(), TxInput::Idle);
-                continue;
-            }
-        }
         let deadline = core.poll_timeout();
         let timer = async {
             match deadline {
-                Some(at) => tokio::time::sleep_until(at.into()).await,
+                // on time to the microsecond: a frame waits its accumulation window, not up to a ms more (CLT-50)
+                Some(at) => super::fine_timer::sleep_until(at.into()).await,
                 None => std::future::pending().await,
             }
         };
@@ -600,6 +589,7 @@ mod tests {
     use crate::event_loop::rx_dispatcher::LATE_REPLY_WINDOW;
     use std::num::NonZeroU32;
     use tokio::sync::oneshot;
+    use wire_weaver::Priority;
     use ww_link::{DeviceInfo, DisconnectReason, Kind, Message};
     use ww_version::{
         ApiHashPair, CompactVersion, FullVersion, FullVersionOwned, GlobalTypeId, Version,
@@ -710,9 +700,18 @@ mod tests {
     }
 
     /// Request bytes as serialized by the client: seq placeholder followed by `rest`.
+    /// Request bytes with a seq placeholder, `rest` from the priority nibble on (`[1]`: priority 0).
     fn request(rest: &[u8]) -> Vec<u8> {
         let mut bytes = vec![0; wire_weaver::shrink_wrap::UVlq32Backfill::LEN];
         bytes.extend_from_slice(rest);
+        bytes
+    }
+
+    /// [request] at `priority`: its nibble shares the first byte of `rest` (the low nibble of `rest[0]` stays).
+    fn request_at(priority: Priority, rest: &[u8]) -> Vec<u8> {
+        let mut bytes = request(rest);
+        let i = wire_weaver::shrink_wrap::UVlq32Backfill::LEN;
+        bytes[i] = (priority.level() << 4) | (bytes[i] & 0x0f);
         bytes
     }
 
@@ -834,13 +833,15 @@ mod tests {
         assert!(format!("{e:#}").contains("without setup token"), "{e:#}");
     }
 
+    /// Default priority requests wait for the window, however few they are; an urgent one (CLT-50) flushes at
+    /// once and takes what accumulated before it along.
     #[test]
-    fn idle_flushes_what_accumulated_once() {
+    fn urgent_request_flushes_at_once() {
         let now = Instant::now();
         let mut p = Pair::new();
         let _connected_rx = connect(&mut p, now);
-        assert!(!p.tx.wants_idle_flush(), "nothing accumulated yet");
-        for bytes in [request(&[1]), request(&[2])] {
+        let window = Duration::from_micros(500); // device_info()
+        let send = |p: &mut Pair, bytes| {
             p.cmd(
                 now,
                 Command::SendMessage {
@@ -848,27 +849,23 @@ mod tests {
                     done_tx: None,
                 },
             );
-        }
-        assert_eq!(kinds(&p.take_sent()), [Kind::Data0, Kind::Data0]);
-        assert!(p.tx.wants_idle_flush());
+            p.settle(now);
+        };
         let flushes = p.flushes;
-        p.tx.handle(now, TxInput::Idle);
-        p.settle(now);
-        assert_eq!(
-            p.flushes,
-            flushes + 1,
-            "both requests in one frame, flushed at once"
-        );
-        assert!(!p.tx.wants_idle_flush());
+        send(&mut p, request_at(Priority::NORMAL, &[1]));
+        send(&mut p, request_at(Priority::new(7).unwrap(), &[2]));
+        assert_eq!(p.flushes, flushes, "default traffic waits for the window");
+        assert_eq!(p.tx.poll_timeout(), Some(now + window));
+        send(&mut p, request_at(Priority::URGENT, &[3]));
+        assert_eq!(p.flushes, flushes + 1, "urgent: out at once");
+        let sent = p.take_sent();
+        assert_eq!(kinds(&sent), [Kind::Data0; 3]);
+        assert!(sent.iter().all(|s| s.frame == sent[0].frame), "one frame");
         assert_eq!(
             p.tx.poll_timeout(),
             Some(now + PING),
             "no accumulation deadline left"
         );
-        // idle again with nothing accumulated: no empty flush
-        p.tx.handle(now, TxInput::Idle);
-        p.settle(now);
-        assert_eq!(p.flushes, flushes + 1);
     }
 
     /// Requests that keep coming without an idle moment share a frame for no longer than the window: the one
@@ -897,7 +894,11 @@ mod tests {
         send(&mut p, now + window, 3);
         assert_eq!(p.flushes, flushes + 1, "window over: out with the third");
         assert_eq!(kinds(&p.take_sent()), [Kind::Data0; 3]);
-        assert!(!p.tx.wants_idle_flush(), "nothing left to accumulate");
+        assert_eq!(
+            p.tx.poll_timeout(),
+            Some(now + window + PING),
+            "nothing left"
+        );
         // the next one starts a new window
         send(&mut p, now + window * 3 / 2, 4);
         assert_eq!(p.flushes, flushes + 1);
@@ -917,7 +918,6 @@ mod tests {
             timeout: Duration::from_secs(1),
         };
         p.cmd(now, forward(request(&[1])));
-        assert!(!p.tx.wants_idle_flush(), "a forwarded batch isn't over yet");
         assert_eq!(p.tx.poll_timeout(), Some(now + Duration::from_millis(1)));
         p.cmd(now, forward(request(&[2])));
         let flushes = p.flushes;
@@ -933,7 +933,7 @@ mod tests {
         let now = now + Duration::from_millis(1);
         p.timers(now);
         assert_eq!(p.flushes, flushes + 2);
-        // a plain request after that is flushed when idle again
+        // a plain request after that waits for the device's window
         p.cmd(
             now,
             Command::SendMessage {
@@ -941,7 +941,7 @@ mod tests {
                 done_tx: None,
             },
         );
-        assert!(p.tx.wants_idle_flush());
+        assert_eq!(p.tx.poll_timeout(), Some(now + Duration::from_micros(500)));
     }
 
     #[test]

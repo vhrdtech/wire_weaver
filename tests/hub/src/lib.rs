@@ -239,15 +239,20 @@ mod tests {
     }
 
     fn start(name: &str, linger: Duration) -> Bench {
+        start_windowed(name, linger, None)
+    }
+
+    /// [start] with a device asking for an accumulation window of `window`, the test device's default when `None`.
+    fn start_windowed(name: &str, linger: Duration, window: Option<Duration>) -> Bench {
         let _ = tracing_subscriber::fmt::try_init();
         let seen = Arc::new(Mutex::new(Seen::default()));
         let path = format!("hub/{name}");
-        let device = tests_common::start_device(
-            &path,
-            server::Server { seen: seen.clone() },
-            hub_api::HUB_TEST_FULL_GID,
-            server::api_impl::api_hash(),
-        );
+        let server = server::Server { seen: seen.clone() };
+        let (gid, hash) = (hub_api::HUB_TEST_FULL_GID, server::api_impl::api_hash());
+        let device = match window {
+            Some(w) => tests_common::start_device_with_window(&path, server, gid, hash, w),
+            None => tests_common::start_device(&path, server, gid, hash),
+        };
         let counted = seen.clone();
         device.filter_requests(move |bytes| {
             if RequestOwned::from_ww_bytes_owned(bytes)
@@ -305,6 +310,30 @@ mod tests {
         for (i, p) in pending.into_iter().enumerate() {
             assert_eq!(p.reply().await.unwrap(), base + i as u32);
         }
+    }
+
+    /// Priority through the hub (CLT-50): an urgent call goes to the device and its answer back at once, neither
+    /// the client's link to the hub, the hub's to the device nor the device wait for the window; a default one waits
+    /// for it on the way there and on the way back.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn urgent_call_through_the_hub_goes_at_once() {
+        // long enough that a stalled PC can't make a call that doesn't wait for it look like one that does, and
+        // still under the longest window a device can ask for (65.535 ms)
+        const WINDOW: Duration = Duration::from_millis(60);
+        let bench = start_windowed("priority", Duration::from_secs(30), Some(WINDOW));
+        let mut c = bench.client().await;
+        for _ in 0..2 {
+            let t = std::time::Instant::now();
+            assert_eq!(c.add(1, 2).urgent().call().await.unwrap(), 3);
+            let urgent = t.elapsed();
+            assert!(urgent < WINDOW, "urgent: {urgent:?}");
+
+            let t = std::time::Instant::now();
+            assert_eq!(c.add(2, 3).call().await.unwrap(), 5);
+            let default = t.elapsed();
+            assert!(default >= 2 * WINDOW, "default: {default:?}");
+        }
+        bench.stop().await;
     }
 
     /// Two clients call the device at the same time: both start their seqs at 1, the hub gives the device its own

@@ -13,7 +13,7 @@ use shrink_wrap::Nibble;
 ///   packet less.
 ///
 /// The level inside each half orders requests against each other: a host or device that serves its queue by
-/// priority takes the higher one first (CLT-51, SRV-43).
+/// priority takes the higher one first (CLT-52, SRV-44).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Priority(u8);

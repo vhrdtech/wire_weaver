@@ -78,6 +78,10 @@ A driver with endpoint kinds `usb_init()` doesn't name (e.g. embassy-stm32's dou
 v4 parts) can use `usb_init_with_endpoints()` instead: same as `usb_init()`, with a closure allocating the OUT and
 IN endpoints.
 
+`UsbTimings` also sets the accumulation window the host and device batch messages in (1 ms for
+`fs_higher_speed()`): a request or reply waits for it at most, an urgent one (`.urgent()` on the host) not at all,
+see [latency and priority](ww_framer.md#latency-and-priority).
+
 ## What you get
 
 - **Plug and play**: hot-plug is handled — a device that disappears fails outstanding requests and can be

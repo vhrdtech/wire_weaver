@@ -59,6 +59,7 @@ pub use config::{ClientConfig, DEFAULT_HUB_GIVE_UP};
 pub use connection_event::{ConnectionEvent, GapReason};
 pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
 pub use event_loop::commander::Commander;
+pub use wire_weaver::Priority;
 pub use ww_stream::StreamCursor;
 
 #[cfg(any(

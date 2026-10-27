@@ -246,7 +246,7 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                             let mut out = EventWriter::new(sink, &mut *self.event_scratch);
                             process_request(&mut out, backend, self.medium, request, self.scratch)
                                 .await;
-                            // TODO(SRV-43): serve waiting requests by priority, the highest first
+                            // TODO(SRV-44): serve waiting requests by priority, the highest first
                             // the reply to an urgent request goes out at once, the rest within the window (CLT-50)
                             if crate::request_priority(request).is_urgent() {
                                 self.link.flush_now();
@@ -434,4 +434,3 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
         _ = out.sink.send_message(reply).await;
     }
 }
-

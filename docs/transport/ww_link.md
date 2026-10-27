@@ -40,7 +40,8 @@ Driving the framer, timers and the actual medium is left to the event loop on ea
 
 `ww_link` uses the framer's `user_kind` field to tag each message. Values `0..=2` are **data channels** and take the
 compact 1-byte head; everything above is a **control message** and costs one extra head byte, which is fine because
-control traffic is rare.
+control traffic is rare. Only `Data0` is used today; `Data1` and `Data2` are reserved for a later use, not free for
+applications, and a device drops them.
 
 ## What you get
 
@@ -177,9 +178,8 @@ Rules the reference event loop follows (and a new transport should too):
   generated client API (see [ww_version](../std_library/ww_version.md)). A device may likewise reply with
   `Disconnect(IncompatibleVersion)` after `LinkSetup`.
 - `Data` accumulates into the current frame for `packet_accumulation_time_us` (as requested by the device) before
-  being flushed; control messages are flushed immediately. A window shorter than the host's timer can wait (tokio
-  counts whole milliseconds) is not slept on: the host flushes as soon as nothing else is waiting to go out, so
-  requests sent together still share a frame and a lone request isn't held back a millisecond (CLT-37).
+  being flushed, never longer; an urgent request is flushed at once, see
+  [latency and priority](ww_framer.md#latency-and-priority). Control messages are flushed immediately.
 - The host drops every message until the `DeviceInfo` carrying its token, see [Setup token](#setup-token).
 - `Data` received before `LinkReady` and `Disconnect` received while not connected are ignored — they are
   stragglers from a previous session.

@@ -12,6 +12,9 @@
 //!   existing generated per-index accessor, e.g. `read_array(MultiIndexOwned::Range(UNib32(0)..UNib32(4)), |i|
 //!   client.pin(i).read_mode())`.
 //!
+//! The multi request goes at the highest [Priority](crate::Priority) one of its items asked for (`.urgent()` on any
+//! of them makes the whole request urgent).
+//!
 //! `MultiArgs::Same`/`Different` is chosen automatically: if every index's serialized bytes are equal, `Same` is
 //! used (smaller on the wire), otherwise `Different`.
 use std::time::Duration;
@@ -202,12 +205,18 @@ fn materialize<L>(
 ) -> Result<MaterializeResult<L>, Error> {
     let mut paths = Vec::with_capacity(multi_idx.len());
     let mut bytes = Vec::with_capacity(multi_idx.len());
+    let mut commander: Option<TransportCommander> = None;
     let mut first = None;
     for i in multi_idx.iter_u32() {
         let item = leaf(i);
         let path = path_of(&item).ok_or_else(|| Error::MultiReq("a path".into()))?;
         if let Some(b) = bytes_of(&item) {
             bytes.push(b);
+        }
+        let item_commander = commander_of(&item);
+        match &mut commander {
+            None => commander = Some(item_commander),
+            Some(c) => c.priority = c.priority.max(item_commander.priority),
         }
         if first.is_none() {
             first = Some(item);
@@ -221,8 +230,9 @@ fn materialize<L>(
         ));
     }
     let (prefix, _varying, trailing) = split_common(&paths)?;
+    let commander = commander.expect("split_common already checked paths is non-empty");
     let first = first.expect("split_common already checked paths is non-empty");
-    Ok((commander_of(&first), prefix, trailing, bytes, first))
+    Ok((commander, prefix, trailing, bytes, first))
 }
 
 /// Read the same property/resource across an array (CLT-15): `multi_idx` is sent as given (`Range`/`List`/
@@ -449,7 +459,9 @@ macro_rules! impl_multi_tuple {
                 let ($(ref $T,)+) = self;
                 let paths = [$(PropertyPath::absolute_path($T).ok_or_else(|| Error::MultiReq("a path".into()))?),+];
                 let (prefix, varying, trailing) = split_common(&paths)?;
-                let commander = PropertyPath::commander(&self.0);
+                let mut commander = PropertyPath::commander(&self.0);
+                // the multi request goes at the highest priority one of its items asked for
+                commander.priority = [$(PropertyPath::commander($T).priority),+].into_iter().max().unwrap_or(commander.priority);
                 let bytes = send_multi(
                     commander,
                     prefix,
@@ -475,7 +487,9 @@ macro_rules! impl_multi_tuple {
                 let ($(ref $T,)+) = self;
                 let paths = [$(CallPath::absolute_path($T).ok_or_else(|| Error::MultiReq("a path".into()))?),+];
                 let (prefix, varying, trailing) = split_common(&paths)?;
-                let commander = CallPath::commander(&self.0);
+                let mut commander = CallPath::commander(&self.0);
+                // the multi request goes at the highest priority one of its items asked for
+                commander.priority = [$(CallPath::commander($T).priority),+].into_iter().max().unwrap_or(commander.priority);
                 let multi_args = merge_args(vec![$(CallPath::args_bytes($T)),+])?;
                 let bytes = send_multi(
                     commander,
@@ -503,7 +517,9 @@ macro_rules! impl_multi_tuple {
                 let ($(ref $T,)+) = self;
                 let paths = [$(WritePath::absolute_path($T).ok_or_else(|| Error::MultiReq("a path".into()))?),+];
                 let (prefix, varying, trailing) = split_common(&paths)?;
-                let commander = WritePath::commander(&self.0);
+                let mut commander = WritePath::commander(&self.0);
+                // the multi request goes at the highest priority one of its items asked for
+                commander.priority = [$(WritePath::commander($T).priority),+].into_iter().max().unwrap_or(commander.priority);
                 let multi_data = merge_args(vec![$(WritePath::value_bytes($T)),+])?;
                 let bytes = send_multi(
                     commander,

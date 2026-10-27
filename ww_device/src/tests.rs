@@ -435,8 +435,9 @@ fn loopback() {
     assert_eq!(loopback_seqs(3, 5).collect::<Vec<_>>(), [0, 1, 2]);
 }
 
-/// Echoes request args back as a Value event, fails on requests starting with 0xFF after seq.
-/// Requests starting with 0xEE first send an event with seq 0 and the medium as data through the handler's `out`.
+/// Echoes request args back as a Value event, fails on requests starting with 0x4F after seq (its high nibble is the
+/// priority, 4 is the default). Requests starting with 0x4E first send an event with seq 0 and the medium as data
+/// through the handler's `out`.
 struct EchoBackend;
 
 impl WireWeaverApiBackend for EchoBackend {
@@ -452,10 +453,10 @@ impl WireWeaverApiBackend for EchoBackend {
         let mut rd = BufReader::new(data);
         let seq = UVlq32(rd.read_uvlq32()?);
         let data = &data[data.len() - rd.bytes_left()..];
-        if data.first() == Some(&0xFF) {
+        if data.first() == Some(&0x4F) {
             return Err(ShrinkWrapError::OutOfBoundsWriteRawSlice);
         }
-        if data.first() == Some(&0xEE) {
+        if data.first() == Some(&0x4E) {
             let event = Event {
                 seq: UVlq32(0),
                 result: Ok(EventKind::Value {
@@ -573,7 +574,7 @@ fn blocking_server() {
         for p in host.packets(&[
             Message::Data {
                 channel: 0,
-                bytes: &[1, 0xAA],
+                bytes: &[1, 0x4A],
             },
             Message::Data {
                 channel: 0,
@@ -581,12 +582,12 @@ fn blocking_server() {
             },
             Message::Data {
                 channel: 0,
-                bytes: &[3, 0xFF],
+                bytes: &[3, 0x4F],
             },
             // handler sends an event before replying
             Message::Data {
                 channel: 0,
-                bytes: &[4, 0xEE],
+                bytes: &[4, 0x4E],
             },
         ]) {
             server.on_packet(now, &p, &mut backend);
@@ -632,7 +633,7 @@ fn blocking_server() {
         .map(|(_, bytes)| Event::from_ww_bytes(bytes).unwrap())
         .collect();
     assert_eq!(events[0].seq, UVlq32(1));
-    assert!(matches!(&events[0].result, Ok(EventKind::Value { data }) if data.0 == [0xAA]));
+    assert!(matches!(&events[0].result, Ok(EventKind::Value { data }) if data.0 == [0x4A]));
     assert_eq!(events[1].seq, UVlq32(2));
     assert!(matches!(&events[1].result, Ok(EventKind::Value { data }) if data.0.len() == 40));
     assert_eq!(
@@ -650,7 +651,7 @@ fn blocking_server() {
         "handler sees the medium"
     );
     assert_eq!(events[4].seq, UVlq32(4));
-    assert!(matches!(&events[4].result, Ok(EventKind::Value { data }) if data.0 == [0xEE]));
+    assert!(matches!(&events[4].result, Ok(EventKind::Value { data }) if data.0 == [0x4E]));
     assert_eq!(events[5].seq, UVlq32(0), "event from the main loop");
     let _ = ErrorKind::ResponseSerFailed;
 }
@@ -835,8 +836,8 @@ mod stream {
     }
 }
 
-/// Async server with in-memory message transports: the reply to a lone request is flushed at once, back to back
-/// requests share a frame, events from the main loop keep the accumulation window.
+/// Async server with in-memory message transports: replies to default priority requests wait for the accumulation
+/// window, a lone one as well; an urgent request's reply, immediate or deferred, is flushed at once (CLT-50, SRV-42).
 mod async_server {
     use super::*;
     use crate::server::{Clock, Server};
@@ -845,9 +846,9 @@ mod async_server {
     use core::task::Poll;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+    use wire_weaver::{EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
 
-    #[derive(Debug, PartialEq, Eq)]
+    #[derive(Copy, Clone, Debug, PartialEq, Eq)]
     enum Out {
         Message(Kind),
         Flush,
@@ -963,7 +964,7 @@ mod async_server {
     }
 
     #[test]
-    fn replies_flushed_when_no_request_is_waiting() {
+    fn replies_flushed_by_priority() {
         let queue = Queue::default();
         let log = Log::default();
         let mut scratch = [0u8; 128];
@@ -989,27 +990,24 @@ mod async_server {
         assert!(server.is_up());
         log.borrow_mut().clear();
 
-        // back to back requests: the first reply waits for the second, then both go out with one flush
-        for bytes in [&[1u8, 0xAA][..], &[2, 0xBB]] {
+        // seq, then the priority nibble (high nibble of the next byte)
+        let normal = (wire_weaver::Priority::NORMAL.level() << 4) | 0xA;
+        let urgent = (wire_weaver::Priority::URGENT.level() << 4) | 0xB;
+
+        // default priority, a lone request or back to back: the replies wait for the window
+        for bytes in [&[1u8, normal][..], &[2, normal], &[3, normal]] {
             push(&queue, &Message::Data { channel: 0, bytes });
+            run_ready(&mut server);
         }
-        run_ready(&mut server);
-        assert_eq!(
-            *log.borrow(),
-            [
-                Out::Message(Kind::Data0),
-                Out::Message(Kind::Data0),
-                Out::Flush
-            ]
-        );
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0); 3]);
         log.borrow_mut().clear();
 
-        // a lone request: flushed right away
+        // an urgent request: its reply goes out at once, with what waited
         push(
             &queue,
             &Message::Data {
                 channel: 0,
-                bytes: &[3, 0xCC],
+                bytes: &[4, urgent],
             },
         );
         run_ready(&mut server);
@@ -1020,6 +1018,45 @@ mod async_server {
         embassy_futures::block_on(server.send(&[0, 0x55])).unwrap();
         run_ready(&mut server);
         assert_eq!(*log.borrow(), [Out::Message(Kind::Data0)]);
+        log.borrow_mut().clear();
+
+        // deferred replies (generated `_send_return`) from outside `handle`: by the request's priority
+        let reply = |scratch: &mut [u8]| {
+            scratch[..2].copy_from_slice(&[5, 0x77]);
+            Ok(2)
+        };
+        embassy_futures::block_on(
+            server
+                .sink()
+                .send_reply_with(wire_weaver::Priority::NORMAL, reply),
+        )
+        .unwrap();
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0)]);
+        embassy_futures::block_on(
+            server
+                .sink()
+                .send_reply_with(wire_weaver::Priority::URGENT, reply),
+        )
+        .unwrap();
+        assert_eq!(
+            *log.borrow(),
+            [
+                Out::Message(Kind::Data0),
+                Out::Message(Kind::Data0),
+                Out::Flush
+            ]
+        );
+        log.borrow_mut().clear();
+
+        // and the firmware can flush itself what waits
+        embassy_futures::block_on(
+            server
+                .sink()
+                .send_reply_with(wire_weaver::Priority::NORMAL, reply),
+        )
+        .unwrap();
+        embassy_futures::block_on(server.sink().sink.flush()).unwrap();
+        assert_eq!(*log.borrow(), [Out::Message(Kind::Data0), Out::Flush]);
     }
 
     /// A clock set by the test, whose timers fire once it has passed them.

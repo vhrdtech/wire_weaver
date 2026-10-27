@@ -1,7 +1,7 @@
 //! Latency of the frame accumulation window, host event loop against [ww_device::Server] over the in-memory packet
-//! pipe of [device_e2e_tests](super::device_e2e_tests), on paused time: a device asking for a long window must not
-//! make a lone request (CLT-50) or a deferred reply (SRV-42) wait for it, while requests sent together still share
-//! frames.
+//! pipe of [device_e2e_tests](super::device_e2e_tests), on paused time: default priority traffic goes out when a
+//! frame is full or its window is over, on both sides, also a lone request and a deferred reply; an urgent request
+//! (CLT-50) and its reply, immediate or deferred (SRV-42), go out at once.
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -13,7 +13,7 @@ use wire_weaver::shrink_wrap::tail_bytes::TailBytes;
 use wire_weaver::shrink_wrap::{
     BufReader, Error as ShrinkWrapError, SerializeShrinkWrap, UVlq32, UVlq32Backfill,
 };
-use wire_weaver::{EventOut, EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{EventOut, EventWriter, MessageSink, Priority, WireWeaverAsyncApiBackend};
 use ww_client_server::{Event, EventKind};
 use ww_device::LinkConfig;
 use ww_version::{ApiHashPair, CompactVersion, FullVersion, GlobalTypeId, Version};
@@ -27,12 +27,13 @@ use super::transport::Opened;
 /// Much longer than anything in these tests takes on paused time: waiting for it shows in the elapsed time.
 const WINDOW: Duration = Duration::from_millis(50);
 
-/// Requests starting with this byte are answered later, from outside of `Server::handle`.
+/// Requests with this byte after the priority nibble's byte are answered later, from outside of `Server::handle`.
 const DEFERRED: u8 = 0xDE;
 
-/// Answers with the request's bytes after seq, at once, or deferred: their seq goes to the device loop.
+/// Answers with the request's bytes after its priority byte and the kind byte, at once, or deferred: seq and
+/// priority go to the device loop.
 struct Backend {
-    deferred: mpsc::UnboundedSender<u32>,
+    deferred: mpsc::UnboundedSender<(u32, Priority)>,
 }
 
 impl WireWeaverAsyncApiBackend for Backend {
@@ -47,12 +48,13 @@ impl WireWeaverAsyncApiBackend for Backend {
     ) -> Result<&'a [u8], ShrinkWrapError> {
         let mut rd = BufReader::new(data);
         let seq = rd.read_uvlq32()?;
+        let priority = Priority::from_nibble(rd.read_nib()?);
         let data = &data[data.len() - rd.bytes_left()..];
         if data.first() == Some(&DEFERRED) {
-            _ = self.deferred.send(seq);
+            _ = self.deferred.send((seq, priority));
             return Ok(&[]);
         }
-        reply(seq, data).to_ww_bytes(scratch)
+        reply(seq, &data[1..]).to_ww_bytes(scratch)
     }
 
     fn version(&self) -> FullVersion<'_> {
@@ -120,12 +122,12 @@ async fn device(to_host: mpsc::Sender<Packet>, from_host: CountingSource) {
             ready = server.wait() => {
                 server.handle(ready, &mut backend).await;
             }
-            seq = deferred_rx.recv() => {
+            deferred = deferred_rx.recv() => {
                 // what a generated `<method>_send_return` does
-                let seq = seq.unwrap();
+                let (seq, priority) = deferred.unwrap();
                 server
                     .sink()
-                    .send_reply_with(|scratch| {
+                    .send_reply_with(priority, |scratch| {
                         Ok(reply(seq, b"later").to_ww_bytes(scratch)?.len())
                     })
                     .await
@@ -165,13 +167,19 @@ async fn start() -> (mpsc::Sender<Command>, Arc<AtomicU32>) {
     (cmd_tx, packets)
 }
 
+/// Sends a request at `priority`, `deferred` or answered at once, with `data` to echo back.
 async fn send(
     cmd_tx: &mpsc::Sender<Command>,
+    priority: Priority,
+    deferred: bool,
     data: &[u8],
-) -> oneshot::Receiver<crate::Result<Vec<u8>>> {
+) -> oneshot::Receiver<Result<Vec<u8>, crate::Error>> {
     let (done_tx, done_rx) = oneshot::channel();
+    let kind = if deferred { DEFERRED } else { 0 };
+    // the priority nibble, then (nibble aligned) the kind byte
     let bytes = [0u8; UVlq32Backfill::LEN]
         .into_iter()
+        .chain([priority.level() << 4, kind])
         .chain(data.iter().copied())
         .collect();
     cmd_tx
@@ -184,31 +192,74 @@ async fn send(
     done_rx
 }
 
-/// A lone request leaves the host at once, and its reply the device, whatever window the device asked for.
+/// How long a request and its answer took, checking the answer.
+async fn round_trip(
+    cmd_tx: &mpsc::Sender<Command>,
+    priority: Priority,
+    deferred: bool,
+    i: u8,
+) -> Duration {
+    let t = Instant::now();
+    let bytes = send(cmd_tx, priority, deferred, &[i])
+        .await
+        .await
+        .unwrap()
+        .unwrap();
+    match deferred {
+        true => assert_eq!(bytes, b"later"),
+        false => assert_eq!(bytes, [i]),
+    }
+    t.elapsed()
+}
+
+/// tokio's paused clock moves in whole milliseconds: a window may end up to one later, per side.
+const TICKS: Duration = Duration::from_millis(2);
+
+/// A lone default priority request waits for the window on the host, its reply waits for it on the device: no
+/// faster path for a request alone, and not later than the window either.
 #[tokio::test(start_paused = true)]
-async fn lone_request_does_not_wait_for_the_window() {
+async fn default_request_waits_the_window_on_both_sides() {
     let (cmd_tx, _) = start().await;
     for i in 0..3u8 {
-        let t = Instant::now();
-        let bytes = send(&cmd_tx, &[i]).await.await.unwrap().unwrap();
-        assert_eq!(bytes, [i]);
-        assert!(t.elapsed() < WINDOW, "waited {:?}", t.elapsed());
+        let rtt = round_trip(&cmd_tx, Priority::NORMAL, false, i).await;
+        assert!(rtt >= 2 * WINDOW, "{rtt:?}");
+        assert!(rtt <= 2 * WINDOW + TICKS, "{rtt:?}");
     }
 }
 
-/// A deferred reply sent through `Server::sink()` goes out at once, as an immediate reply does.
+/// A deferred reply of default priority, sent through `Server::sink()`, waits for the window as any other.
 #[tokio::test(start_paused = true)]
-async fn deferred_reply_does_not_wait_for_the_window() {
+async fn default_deferred_reply_waits_the_window() {
     let (cmd_tx, _) = start().await;
-    for i in 0..3u8 {
-        let t = Instant::now();
-        let bytes = send(&cmd_tx, &[DEFERRED, i]).await.await.unwrap().unwrap();
-        assert_eq!(bytes, b"later");
-        assert!(t.elapsed() < WINDOW, "waited {:?}", t.elapsed());
+    let rtt = round_trip(&cmd_tx, Priority::NORMAL, true, 0).await;
+    assert!(rtt >= 2 * WINDOW, "{rtt:?}");
+    assert!(rtt <= 2 * WINDOW + TICKS, "{rtt:?}");
+}
+
+/// An urgent request leaves the host at once, and its reply the device.
+#[tokio::test(start_paused = true)]
+async fn urgent_request_and_reply_go_at_once() {
+    let (cmd_tx, _) = start().await;
+    for (i, p) in [Priority::URGENT, Priority::HIGHEST]
+        .into_iter()
+        .enumerate()
+    {
+        let rtt = round_trip(&cmd_tx, p, false, i as u8).await;
+        assert!(rtt < TICKS, "{p:?}: {rtt:?}");
     }
 }
 
-/// Requests sent together still share frames: far fewer packets than requests.
+/// A deferred reply to an urgent request goes out at once, from outside of `Server::handle`.
+#[tokio::test(start_paused = true)]
+async fn urgent_deferred_reply_goes_at_once() {
+    let (cmd_tx, _) = start().await;
+    for i in 0..3u8 {
+        let rtt = round_trip(&cmd_tx, Priority::URGENT, true, i).await;
+        assert!(rtt < TICKS, "{rtt:?}");
+    }
+}
+
+/// Requests sent together share frames: far fewer packets than requests.
 #[tokio::test(start_paused = true)]
 async fn requests_sent_together_share_frames() {
     let (cmd_tx, packets) = start().await;
@@ -216,12 +267,12 @@ async fn requests_sent_together_share_frames() {
     let before = packets.load(Ordering::Relaxed);
     let mut done = vec![];
     for i in 0..N {
-        done.push(send(&cmd_tx, &[i]).await);
+        done.push(send(&cmd_tx, Priority::NORMAL, false, &[i]).await);
     }
     for (i, rx) in done.into_iter().enumerate() {
         assert_eq!(rx.await.unwrap().unwrap(), [i as u8]);
     }
     let sent = packets.load(Ordering::Relaxed) - before;
-    // a request is 2 bytes here (seq and one data byte) plus framing: several fit a packet
+    // a request is 4 bytes here (seq, priority, kind and one data byte) plus framing: several fit a packet
     assert!(sent <= N as u32 / 4, "{N} requests in {sent} packets");
 }

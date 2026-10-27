@@ -223,6 +223,20 @@ impl<A, E: Debug + 'static, S: StreamHandle> PreparedStreamOpen<Result<A, E>, S>
 }
 
 impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
+    /// Send this request at `priority` instead of the Commander's default
+    /// ([Commander::set_default_priority](crate::Commander::set_default_priority)). An urgent one
+    /// ([Priority::is_urgent](crate::Priority::is_urgent), [Priority::URGENT](crate::Priority::URGENT) and up) leaves
+    /// at once instead of waiting for the link's accumulation window, and the device answers it the same way.
+    pub fn priority(mut self, priority: crate::Priority) -> Self {
+        self.transport_cmd_tx.priority = priority;
+        self
+    }
+
+    /// [Self::priority] at [Priority::URGENT](crate::Priority::URGENT): sent and answered at once.
+    pub fn urgent(self) -> Self {
+        self.priority(crate::Priority::URGENT)
+    }
+
     /// Use a provided timeout for the open request instead of the default one.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout_override = Some(timeout);
@@ -349,7 +363,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let (done_tx, done_rx) = oneshot::channel();
         let request = RequestOwned {
             seq: UVlq32Backfill(0),
-            priority: ww_client_server::Priority::NORMAL.nibble(),
+            priority: self.transport_cmd_tx.priority.nibble(),
             path_kind: self.path_kind.clone(),
             kind: RequestKindOwned::StreamOpen {
                 codecs: codec_offer(self.delivery, self.compression),

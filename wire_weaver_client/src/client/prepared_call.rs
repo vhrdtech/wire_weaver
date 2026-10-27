@@ -46,6 +46,20 @@ impl<T, D: DeserializeShrinkWrapOwned + Debug> PreparedCall<T, CallError<D>> {
 }
 
 impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
+    /// Send this request at `priority` instead of the Commander's default
+    /// ([Commander::set_default_priority](crate::Commander::set_default_priority)). An urgent one
+    /// ([Priority::is_urgent](crate::Priority::is_urgent), [Priority::URGENT](crate::Priority::URGENT) and up) leaves
+    /// at once instead of waiting for the link's accumulation window, and the device answers it the same way.
+    pub fn priority(mut self, priority: crate::Priority) -> Self {
+        self.transport_cmd_tx.priority = priority;
+        self
+    }
+
+    /// [Self::priority] at [Priority::URGENT](crate::Priority::URGENT): sent and answered at once.
+    pub fn urgent(self) -> Self {
+        self.priority(crate::Priority::URGENT)
+    }
+
     /// Use a provided timeout instead of the default one propagated from CommandSender.
     ///
     /// Note that this timeout does not take into account possible command queue slot waiting.

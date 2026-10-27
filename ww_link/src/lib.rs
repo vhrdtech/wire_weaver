@@ -195,7 +195,9 @@ pub const PEER_TIMEOUT_MS: u64 = 10_000;
 pub enum Kind {
     /// ww_client_server bytes
     Data0 = 0,
+    /// Reserved for a later use, not free for applications: a device drops it today.
     Data1 = 1,
+    /// Reserved for a later use, not free for applications: a device drops it today.
     Data2 = 2,
 
     /// Empty message sent right before link setup and forced out immediately.

@@ -36,6 +36,7 @@ pub struct ClientConfig {
     cmd_queue_size: Option<usize>,
     introspect_client: Option<(Vec<u8>, ApiHashPairOwned)>,
     default_timeout: Option<Duration>,
+    default_priority: Option<wire_weaver::Priority>,
     client_version: Option<Box<FullVersionOwned>>,
     max_seq: Option<SeqTy>,
     traits_only: bool,
@@ -76,6 +77,8 @@ pub(crate) struct ValidatedConfig {
     priority: Vec<InterfaceKind>,
     pub(crate) cmd_queue_size: usize,
     pub(crate) default_timeout: Duration,
+    /// [ClientConfig::default_priority]
+    pub(crate) default_priority: wire_weaver::Priority,
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
     pub(crate) stream_queue_bytes: usize,
@@ -306,6 +309,7 @@ impl ClientConfig {
             priority: vec![],
             cmd_queue_size,
             default_timeout: s.default_timeout.unwrap_or(crate::DEFAULT_REQUEST_TIMEOUT),
+            default_priority: s.default_priority.unwrap_or_default(),
             client_version,
             max_seq,
             stream_queue_bytes: s
@@ -758,6 +762,16 @@ impl ClientConfig {
     pub fn default_timeout(self, timeout: Duration) -> Self {
         let mut c = self;
         c.default_timeout = Some(timeout);
+        c
+    }
+
+    /// Priority of requests that don't set their own (`.priority(..)` / `.urgent()` on a prepared call, read,
+    /// write or stream open), [Priority::NORMAL](wire_weaver::Priority::NORMAL) by default. An urgent one
+    /// ([Priority::is_urgent](wire_weaver::Priority::is_urgent)) leaves at once instead of waiting for the link's
+    /// accumulation window, and the device answers it the same way; see `docs/transport/ww_framer.md`.
+    pub fn default_priority(self, priority: wire_weaver::Priority) -> Self {
+        let mut c = self;
+        c.default_priority = Some(priority);
         c
     }
 

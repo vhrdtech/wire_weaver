@@ -143,6 +143,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 ## Advanced
 
 - SRV-20 | Deferred replies everywhere | Answer a call later, also on nested trait levels. | api/methods.md#deferred
+- SRV-42 | Replies by priority | A reply to an urgent request leaves at once, also a deferred one sent later from your main loop; `Sink::flush` sends what waits now. | transport/ww_framer.md#latency-and-priority
 - SRV-22 | Errors that say where | A device's error names the site that raised it, by a number that is the same in every firmware. | api/errors.md#where-on-the-device-an-error-came-from
 - SRV-21 | Sync handlers in an async server | Handlers that never wait are plain `fn`s, only the ones that await are `async`: less flash. | api/handlers.md
 - SRV-18 | Observed properties | The device sends property changes within the budget each host asked for. | api/observing.md#the-device-side
@@ -185,7 +186,8 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-36 | Calls fail fast while disconnected | A call made while the link is down fails at once with `Disconnected` instead of waiting for a reconnect. | transport/hub.md#reconnect-after-a-hub-restart-clt-40
-- CLT-37 | Low call latency | A request goes out at once instead of waiting a timer tick, so a call over USB HS answers in a fraction of a millisecond. | transport/ww_link.md
+- CLT-50 | Urgent requests | `.urgent()` (or `.priority(p)`) on a call, read or write sends it and its answer at once instead of waiting for the link's accumulation window; everything else shares frames. | transport/ww_framer.md#latency-and-priority
+- CLT-53 | Windows kept to the microsecond | A link that batches messages for 1 ms waits 1 ms, not up to 2 for the PC's timer tick. | transport/ww_framer.md#latency-and-priority
 - CLT-38 | Who holds a device | A busy error names the program already holding a USB interface or RTT probe, pid and since when; a crash releases it right away. | transport/hub.md#who-holds-a-device-clt-38
 - CLT-39 | Hub routing in connect | A device the ww hub holds, or one opened again and again from a shell, is reached through the hub, which a program starts by itself when needed; `WW_HUB` says when. | transport/hub.md#reaching-devices-through-the-hub-clt-39
 - CLT-40 | Back after a hub restart | A program reaching its device through the ww hub reconnects by itself when the hub crashes, is killed or hands over, and its counted and reliable streams go on; the app hears about the gap. | transport/hub.md#reconnect-after-a-hub-restart-clt-40
@@ -259,6 +261,7 @@ round, and tell you before a release when a change would break that.
 - EVO-10 | Checker knows the catch-all | Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible. | evolution/rules.md#unsized-types
 - EVO-11 | Evolution check at every commit | A test of your API crate fails when the API changed without the version bump it needs. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
+- EVO-14 | Priority in every request | Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
 
 ## Advanced

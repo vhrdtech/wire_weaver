@@ -285,7 +285,7 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
                 if !reply.is_empty() {
                     _ = self.send_message(reply);
                 }
-                // TODO(SRV-43): serve waiting requests by priority, the highest first
+                // TODO(SRV-44): serve waiting requests by priority, the highest first
                 // the reply to an urgent request goes out at once, the rest within the window (CLT-50)
                 if crate::request_priority(request).is_urgent() {
                     self.link.flush_now();

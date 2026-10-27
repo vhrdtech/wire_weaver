@@ -838,6 +838,7 @@ fn create_commander_inner(
 ) -> Commander {
     let mut commander = Commander::new(cmd_tx);
     commander.set_local_timeout(config.default_timeout);
+    commander.set_default_priority(config.default_priority);
     commander.traits_only = config.traits_only;
     commander.set_stream_queue_bytes(config.stream_queue_bytes);
     commander.set_stream_compression(config.stream_compression);

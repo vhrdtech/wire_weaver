@@ -42,9 +42,6 @@ pub(crate) enum TxInput {
     FromRx(ToTx),
     /// In response to [TxCore::poll_timeout] deadline.
     Timer,
-    /// Nothing else is waiting to go out: send the frame being accumulated now. For accumulation windows shorter
-    /// than the wrapper's timer can wait (tokio counts whole milliseconds), see [TxCore::wants_idle_flush].
-    Idle,
     /// The device was handed to the ww hub live (CLT-44) but this program couldn't go on through it: exit as
     /// [TxInput::HandToHub] does, without a `Disconnect` (the device's link is the hub's now).
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
@@ -364,13 +361,6 @@ impl TxCore {
             }
             TxInput::FromRx(msg) => self.on_from_rx(now, msg),
             TxInput::Timer => self.on_timer(now),
-            TxInput::Idle => {
-                if self.wants_idle_flush() {
-                    trace!("idle: flushing accumulated messages");
-                    self.flush(now);
-                }
-                Ok(Flow::Continue)
-            }
             TxInput::HandedOff => {
                 warn!(
                     "the ww hub has the device, but the tunnel to it failed: reconnecting through it"
@@ -419,13 +409,6 @@ impl TxCore {
                 None
             }
         }
-    }
-
-    /// The link is up and a frame is being accumulated: the wrapper feeds [TxInput::Idle] once nothing else is
-    /// waiting instead of sleeping until [TxCore::poll_timeout]. A lone request leaves at once whatever the window,
-    /// the window only bounds how long messages that keep coming share a frame (CLT-37, CLT-50).
-    pub fn wants_idle_flush(&self) -> bool {
-        self.phase == Phase::Up && self.unflushed_since.is_some() && !self.forwarding
     }
 
     /// When what accumulated goes out at the latest: after the window, and forwarded messages, which wait for
@@ -710,6 +693,8 @@ impl TxCore {
             done_tx.fail(error, &mut self.output);
             return;
         }
+        // read once seq is in its place: in the placeholder's zeros it would be misread
+        let urgent = ww_client_server::Request::peek_priority(&bytes).is_ok_and(|p| p.is_urgent());
         // Expect goes out before the request bytes, so rx knows about the seq before the answer can arrive
         match done_tx {
             Waiter::Response(done_tx, timeout) => {
@@ -730,7 +715,12 @@ impl TxCore {
             kind: ww_link::Kind::Data0 as u8,
             message: bytes,
         });
-        self.accumulated(now);
+        // TODO(CLT-52): send waiting requests in priority order, not only flush the urgent ones early
+        match urgent {
+            // an urgent request (CLT-50) doesn't wait for the window, it takes what accumulated before it along
+            true => self.flush(now),
+            false => self.accumulated(now),
+        }
     }
 
     /// A request with a `GlobalCompact` path (API-20) goes out with the trait's `GlobalFull` path instead when the
@@ -1091,8 +1081,7 @@ impl TxCore {
     }
 
     /// A message was written into the frame: its accumulation window starts, or, when the window is already over
-    /// (messages kept coming without a pause, so the wrapper never saw an idle moment), the frame goes out now
-    /// instead of when the wrapper's timer fires, which can be a millisecond later than asked (CLT-50).
+    /// (the wrapper's timer hasn't fired yet), the frame goes out now instead of waiting for it.
     fn accumulated(&mut self, now: Instant) {
         if self.unflushed_since.is_none() {
             self.unflushed_since = Some(now);

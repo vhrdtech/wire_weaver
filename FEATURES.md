@@ -400,7 +400,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
-
+- 📋 **DER-19 Field stored as one type, written as another** · `v0.5` — a field attribute
+  (`#[wire(I4)]`, `#[wire(UNib32)]`) keeps the Rust field a plain type (`i8`, `u32`) and writes it in a narrower or
+  variable-length wire type: range-checked on write (`Error`, never a panic or a silent cut), widened on read. The API
+  model records the wire type, so the dynamic client, Python and C need nothing new. For `exact_units` (STD-61,
+  Roman's option A): its types use plain Rust fields with `shrink_wrap` an optional feature, and the bytes stay those
+  of today's `ww_si` types (`I4` exponents, `UNib32` scale parts). Read by the crate walker inside `cfg_attr` (API-60).
 
 ## API model and codegen (`API`)
 

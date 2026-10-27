@@ -1023,16 +1023,16 @@ impl SeriesSeed<'_> {
                 const MAX_FIXED_BITS: Option<usize> = #max_fixed;
                 const TAGGED: bool = false;
 
-                fn write_group<'a, I, S, P>(
-                    items: I,
-                    sink: &mut S,
-                    policy: &P,
+                fn write_group<'a, __I, __S, __P>(
+                    items: __I,
+                    sink: &mut __S,
+                    policy: &__P,
                     level: #level,
                 ) -> Result<(), #error>
                 where
-                    I: Iterator<Item = (&'a Self, bool)> + Clone,
-                    S: #bit_sink,
-                    P: #series_policy + ?Sized,
+                    __I: Iterator<Item = (&'a Self, bool)> + Clone,
+                    __S: #bit_sink,
+                    __P: #series_policy + ?Sized,
                     Self: 'a,
                 {
                     if items.clone().next().is_none() {
@@ -1045,9 +1045,9 @@ impl SeriesSeed<'_> {
                 }
 
                 #[allow(unused_assignments, unused_mut)]
-                fn skim<C: #ctx_trait>(
+                fn skim<__C: #ctx_trait>(
                     rd: &mut #buf_reader<'i>,
-                    ctx: C,
+                    ctx: __C,
                     level: #level,
                 ) -> Result<Self::Reader, #error> {
                     let __head = #skim_struct_head(rd, &ctx, level, #evolvable)?;
@@ -1363,16 +1363,16 @@ impl SeriesSeed<'_> {
                 #[allow(unused_mut)]
                 const MAX_FIXED_BITS: Option<usize> = #max_fixed;
 
-                fn write_group<'a, I, S, P>(
-                    items: I,
-                    sink: &mut S,
-                    policy: &P,
+                fn write_group<'a, __I, __S, __P>(
+                    items: __I,
+                    sink: &mut __S,
+                    policy: &__P,
                     level: #level,
                 ) -> Result<(), #error>
                 where
-                    I: Iterator<Item = (&'a Self, bool)> + Clone,
-                    S: #bit_sink,
-                    P: #series_policy + ?Sized,
+                    __I: Iterator<Item = (&'a Self, bool)> + Clone,
+                    __S: #bit_sink,
+                    __P: #series_policy + ?Sized,
                     Self: 'a,
                 {
                     let _ = (policy, level);
@@ -1392,9 +1392,9 @@ impl SeriesSeed<'_> {
                 }
 
                 #[allow(clippy::manual_range_patterns)]
-                fn skim<C: #ctx_trait>(
+                fn skim<__C: #ctx_trait>(
                     rd: &mut #buf_reader<'i>,
-                    ctx: C,
+                    ctx: __C,
                     _level: #level,
                 ) -> Result<Self::Reader, #error> {
                     let __tags = #enum_tags::skim(rd, &ctx, |tag| match tag {

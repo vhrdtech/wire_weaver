@@ -252,11 +252,31 @@ pub struct ElectronVolt;
 // Dimensionless
 
 /// A fraction: a duty cycle, a probability, a scale factor, an efficiency (dimensionless, 1). 0.5 is half, not a
-/// level in decibels. Written with `%`, `‰`, `ppm` for `Centi`, `Milli`, `Micro`. Any quantity times a ratio keeps its
+/// level in decibels. Written with `%`, `‰`, `ppm`, `ppb` for `Centi`, `Milli`, `Micro`, `Nano`. Any quantity times a ratio keeps its
 /// unit (48 V · 0.5 = 24 V).
 #[cfg(feature = "dimensionless")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Ratio;
+
+// Information
+
+/// Information in bits, bit (dimensionless): a data size or a count of bits, told apart from a [Ratio] by the marker.
+#[cfg(feature = "information")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Bit;
+
+/// Information in bytes, B (8 [Bit]): a data size, a buffer's capacity, an offset. A rate is `Per<Byte, Second>`.
+#[cfg(feature = "information")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Byte;
+
+// Counting
+
+/// A count of things, item (dimensionless): a queue's length, a number of samples. An API that counts something of its
+/// own (blocks, sectors, chunks) declares its own marker like [Unit]'s example, so the count shows as "blocks".
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Item;
 
 // Compound
 
@@ -377,6 +397,11 @@ units! {
     "radiation" ElectronVolt "eV" [kg 1, m 2, s -2] Scale::Factor(1.602176634e-19);
 
     "dimensionless" Ratio "" [] Scale::Coherent;
+
+    "information" Bit "bit" [] Scale::Coherent;
+    "information" Byte "B" [] Scale::Factor(8.0);
+
+    "counting" Item "item" [] Scale::Coherent;
 }
 
 /// The named unit of this crate called `name` (the marker's name, `"Volt"`), if its feature is enabled: what a

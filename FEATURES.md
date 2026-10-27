@@ -762,6 +762,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   for methods without effects, carried in introspection: the hub lets peers with only the `observe` right call them
   (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
   federation (SRV-33).
+- 📋 **API-60 Feature-gated derives and standalone crates in the walker** · `v0.5` — the crate walker and snapshots read
+  `#[cfg_attr(feature = "..", derive_shrink_wrap(..))]` and walk a dependency that isn't an API crate (`exact_units`,
+  STD-61).
 - ✅ **SRV-1 `no_std`, no-alloc server**, IO-free generated code.
 - ✅ **SRV-2 Sans-IO `DeviceLink`**, async `Server` with `wait()`/`handle()` for a user-owned event loop, and
   `blocking::Server`.
@@ -1443,6 +1446,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **INT-12 Bounds as a type of the API model** — `Type::Bounded { ty, min, max }` (like `MaxLen`), checked by every
   consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
   of `ww_si` markers (STD-55) that only `ww_si`-aware clients check; a new `Type` variant needs a model version step.
+- 📋 **INT-13 Unit definitions in the API model** · `v0.5` — every unit, scale, origin, level, kind and sentinel an API
+  uses carries its definition in `ww_self` (dimension, exact magnitude, offset, modulus, symbol), named by crate and
+  marker, so clients know a user crate's units without a built-in table, with a canonical sorted unit expression.
 
 ## Evolution, versioning and compatibility (`EVO`)
 
@@ -1508,6 +1514,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_si::Fixed`) are compatible, reported as the same bytes; a change of a `Fixed`'s unit or scale is breaking
   although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
   refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move.
+- 📋 **EVO-17 Units compared by meaning** · `v0.5` — the checker compares magnitudes by value (`Milli` → `Pow10<-3>` is
+  compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
+  vs N·s) breaking.
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1962,12 +1971,51 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
   `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
   `ww_client_server` and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.
-- 📋 **STD-57 `Quantity` used at one fixed scale becomes `Fixed`** — stream timestamps (`Timed<T, S>`), rates fixed in
-  practice: fewer bytes per value, a wire break. On hold until STD-55 is built.
 - 📋 **STD-58 `Index`, `IndexFrom1` and `Seq`** · `v0.5` — positions in a table of something (0- and 1-based) and
   wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
-  (`Quantity<U, B>`, range in coherent units), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
+  (`Quantity<U, B>`, range in coherent units; a break: `B` explicit in the model), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
+- 📋 **STD-61 `exact_units`: the compile-time unit core as a crate of its own** · `v0.5` — a standalone `no_std` crate
+  usable without WireWeaver (Roman, 27 Oct 2026): dimensions, unit markers, exact magnitudes, `Fixed`, bounds;
+  `shrink_wrap` and `defmt` behind features, ww_si its WireWeaver face with the runtime side. The defining crate is
+  part of each unit's identity in the model, so it moves before anything ships.
+- 📋 **STD-62 One exact magnitude for every scale** · `v0.5` — every scale (prefixes, `Pow10<E>`, `Rational<N, D>` with
+  `u64` parameters, `Kibi`.., Q formats, full-scale fractions, binary angles) is one canonical, exact form with a power
+  of π, equal however it is written; conversion factors are computed at compile time, and one that doesn't fit is a
+  compile error, never a rounding.
+- 📋 **STD-63 Named rounding and overflow policies** · `v0.5` — lossy conversions name their rounding (truncate, nearest
+  ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
+  saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
+  and C agree bit for bit (conformance).
+- 📋 **STD-64 Points and origins** · `v0.5` — `Point<Origin, Fixed<..>>`: a position against an origin with an exact
+  offset and an optional modulus, so K / °C / °F / °R, register formulas (`raw/256 + 25 °C`), gauge vs absolute
+  pressure and wrapping angles are one algebra; adding two points doesn't compile.
+- 📋 **STD-65 Instants and clocks with named epochs** · `v0.6` — `Instant<Clock, ..>`: device-monotonic, Unix, TAI, GPS
+  (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a `Seq` modulo 1024.
+- 📋 **STD-66 Sentinels next to bounds** · `v0.6` — named not-available / error codes (J1939 0xFF, HCI RSSI 127, SunSpec
+  0x8000) decoded to `Option` or an enum and published in the model, and a clipped mark for rail codes.
+- 📋 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.6` — `Level<Kind, Ref>` on the point algebra:
+  level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
+  convention).
+- 📋 **STD-68 Kinds that share a dimension** · `v0.6` — relative humidity, duty cycle, state of charge, strain, volume
+  fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
+  explicit casts between siblings.
+- 📋 **STD-69 More counted units** · `v0.6` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
+  each a dimension of its own.
+- 📋 **STD-70 Text unit codes in and out** · `v0.6` — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
+  imports, exports that say where they lose something.
+- 📋 **STD-71 Device-standard units in and out** · `v0.6` — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA
+  EUInformation, CAN DBC / J1939, IEEE 1451 TEDS, with exact decimal factors and sentinel tables.
+- 📋 **STD-72 Imperial and US customary units, complete** · `v0.6` — every unit the exact rational of SI from its legal
+  definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
+  variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
+  Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.
+- 📋 **STD-73 One table of unit symbols and spellings** · `v0.6` — display and parsing of every unit from one table,
+  shared by Rust, si_dynamic, `ww` and Python, UCUM spelling where there is one.
+- 📋 **STD-74 The runtime side catches up** · `v0.6` — `Quantity`, `AnyQuantity` and `SIExpr` get the exact magnitude,
+  the °C point / interval split, levels and sentinels.
+- 📋 **STD-75 Non-linear scales by name** · `v0.6` — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
+  conversion function each, or out of scope with the reason written down.
 
 ## Examples (`EX`)
 
@@ -2038,6 +2086,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   crates.io-shaped copy of `ww_i2c`. Missing: a docs.rs check of crates whose API uses another crate's types or
   traits (`ww_uart`, `ww_gpio`, `ww_si` types); the macro panicked on their `version = ".."` dependencies until
   API-14, try one on a crates.io-shaped copy.
+- 📋 **DOC-10 Units docs section** · `v0.6` — choosing `Fixed`, `Point`, `Level`, `Quantity` or `AnyQuantity`, imperial
+  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.
 
 ## Testing, CI and performance (`TEST`)
 
@@ -2089,6 +2139,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
   past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
   firmware's pipes.
+- 📋 **TEST-27 Firmware cost of exact_units** · `v0.5` — a harness measuring `Fixed`, points and rounding conversions
+  against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout
@@ -2136,6 +2188,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   longer, and a request that must not wait says so with `.urgent()`. Its measurement (B135 rev B, USB HS, 21 Oct
   2026): a property-like call 1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit
   sink 3.8k → 7.2k/s.
+- **STD-57 `Quantity` used at one fixed scale becomes `Fixed`** — dropped (Roman, 27 Oct 2026): the per-use list of
+  `Quantity` fields found none whose scale is fixed by contract, so nothing to change.
 - **API-25 Refactor codegen to use an IR** — decided against (18 Oct 2026). There are two wire-layout engines by
   design: `shrink_wrap_derive` keeps its own AST, as `ww_self`'s own types are encoded with `#[derive_shrink_wrap]`
   and the derive can't depend on `ww_self` (a bootstrapping cycle); the dynamic path (`ww_self` to the dynamic

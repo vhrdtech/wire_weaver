@@ -5,6 +5,8 @@
 extend-exclude = ["tests/dfu_scenarios/transcripts/"]
 
 [default.extend-identifiers]
+# the building-automation protocol (its engineering-unit codes, STD-71)
+BACnet = "BACnet"
 # plural of PNG, read as "PN" + "Gs"
 PNGs = "PNGs"
 

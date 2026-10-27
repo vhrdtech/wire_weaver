@@ -389,6 +389,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
+- 📋 **DER-18 `transparent` derive directive** · `v0.5` — a struct with one field that isn't zero bits
+  (`PhantomData`, `()`) takes that field's size class and series columns and writes exactly its bytes, with a decode
+  check (`validate`) allowed; recorded in the API model (`ItemStruct::transparent`). For `ww_si::Fixed` (STD-55): a
+  `final_structure` wrapper writes the same bytes but is `UnsizedFinalStructure` even around a `u64`, so it can't sit in
+  a `sized` parent. Also fixes a generic parameter named `P` clashing with one the derive generates, and
+  `PhantomData<(A, B)>` not being seen as phantom-only.
 
 ## API model and codegen (`API`)
 
@@ -1321,6 +1327,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   `TODO(CLT-52)` in `event_loop/core/tx.rs`.
+- 📋 **CLT-54 `ww_si::Fixed` in dynamic clients, `ww` and Python** · `v0.5` — a `Fixed<U, P, T, B>` (STD-55) shown
+  with its unit and scale (`1730000000000000 µs`), written from `5 ms` exactly into the stored scale and type (not
+  exact or out of range: an error naming the type), bounds shown and checked before a write, slider limits in a GUI,
+  `Index` / `IndexFrom1` / `Seq` (STD-58) and the dimensions of STD-60 shown; the C consumer of the conformance matrix.
 
 ## Transports and protocols (`TR`)
 
@@ -1424,6 +1434,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   and `ww_numeric::NumericAnyType` are `no_future_version` (SW-47): a host reading a newer model fails as a whole.
   With `Unknown` handled in every walker (visitor, signature, inline, values, compat, CLI, Python), an older host could
   show the rest of a newer device's API and mark the unknown parts.
+- 💡 **INT-12 Bounds as a type of the API model** — `Type::Bounded { ty, min, max }` (like `MaxLen`), checked by every
+  consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
+  of `ww_si` markers (STD-55) that only `ww_si`-aware clients check; a new `Type` variant needs a model version step.
 
 ## Evolution, versioning and compatibility (`EVO`)
 
@@ -1479,6 +1492,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
+- 📋 **EVO-15 Transparent wrappers in the checker** · `v0.5` — `T` and a `transparent` wrapper of `T` (DER-18,
+  `ww_si::Fixed`) are compatible, reported as the same bytes; a change of a `Fixed`'s unit or scale is breaking
+  although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
+  refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move.
+- 📋 **EVO-16 `ww_si::Dim` with angle, information and counted bases** · `v0.5` — the wire change of `Dim` in
+  `SIExpr` / `AnyQuantity` and in snapshots that STD-60 brings: no longer `sized`, two more fixed exponents and a
+  short list of named counted bases.
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1612,6 +1632,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   carries, also by a command that never introspects the device. Open: `GlobalCompact` paths, multi requests; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
   expression input.
+- 📋 **TOOL-22 Hint for plain fields with a unit in their name** — `ww api check` notes a plain integer field,
+  argument or property named `*_us`, `*_ms`, `*_bytes`, `*_ppb`, .. with the `ww_si::Fixed` (STD-55) it could be;
+  a note, never an error, silenced per item.
+
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
 - ✅ **STD-2 `ww_version`**.
@@ -1912,6 +1936,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   id, and its `cnt` format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
   be behind (STD-25): bring the firmware's `cnt` and build id up to what the tool needs, or make the tool say which
   format it got and what is missing instead of failing.
+- 📋 **STD-55 `ww_si::Fixed<U, P, T, B = Unbounded>`: unit, scale and bounds fixed at compile time** · `v0.5` — a
+  value of unit `U` at scale `P` stored as `T`, on the wire exactly `T` (no prefix, no `NumericValue` tag, so a
+  `u64` doesn't turn on `ww_numeric`'s `u64` for everyone); scale markers (every prefix name, `Kibi`.., `Pow10<E>`,
+  `Rational<N, D>`), bounds (`Unbounded`, `Range`, `RangeU64`, `RangeDec`) checked on decode and construction;
+  information and counting units, exact conversions to and from `Quantity`, `core::time::Duration`, const ops; in
+  the API model as an instance of one generic definition, so introspection shows the unit.
+- 📋 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
+  `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
+  `ww_client_server` and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.
+- 📋 **STD-57 `Quantity` used at one fixed scale becomes `Fixed`** — stream timestamps (`Timed<T, S>`), rates fixed in
+  practice: fewer bytes per value, a wire break. On hold until STD-55 is built.
+- 📋 **STD-58 `Index`, `IndexFrom1` and `Seq`** · `v0.5` — positions in a table of something (0- and 1-based) and
+  wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
+- 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
+  (`Quantity<U, B>`, range in coherent units), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
+- 📋 **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim` gets angle and information bases
+  and named counted bases (`Sample`, `Frame`, `Block`, ..): bytes don't convert into % or rad, `Sample/s × s` is a
+  `Sample`, `Sample → Byte` only through a bytes-per-sample; checked at compile and at run time (EVO-16).
 
 ## Examples (`EX`)
 

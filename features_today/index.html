@@ -5604,6 +5604,8 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../std_library/ww_self/#dynamic-access-helpers">Dynamic client</a></strong>: Talk to an API known only at runtime.</li>
 <li><strong><a href="../std_library/ww_self/">Cached API descriptions</a></strong>: A device's description is downloaded once, then found by its hash.</li>
 <li><strong><a href="../api/multi_requests/">Multi requests</a></strong>: Read many properties or call a method on many array elements in one request.</li>
+<li><strong><a href="../api/multi_requests/#methods-returning-result">Fallible methods in multi requests</a></strong>: Batch methods returning <code>Result</code> (an I2C write and read) into one round trip, each answering what its own call would.</li>
+<li><strong><a href="../api/multi_requests/#several-resources-at-the-same-level">Same method twice in a multi call</a></strong>: Two writes over the same I2C bus (or any repeated call) go into one batch, answers in order.</li>
 <li><strong><a href="../api/observing/#the-host-side">Observing properties</a></strong>: Typed subscriptions and a cache of the latest values, shared by everyone watching.</li>
 <li><strong><a href="../serdes/series/#introspection-and-dynamic-clients"><code>Series</code> without generated code</a></strong>: <code>ww</code>, Python and any dynamic client read and write a <code>Series&lt;T&gt;</code> from introspection alone, Python reads it as numpy columns.</li>
 <li><strong><a href="../std_library/ww_si/#in-ww-python-and-dynamic-clients">Quantities without generated code</a></strong>: <code>ww</code> and Python show a <code>ww_si</code> value with its unit (<code>3300 mV</code>), Python as a quantity object with <code>to_si()</code>.</li>

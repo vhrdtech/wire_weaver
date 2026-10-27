@@ -1943,6 +1943,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#methods-returning-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Methods returning <code>Result</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5356,6 +5367,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#methods-returning-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Methods returning <code>Result</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5648,6 +5670,10 @@ by one more shared element (e.g. the same property across two array elements):</
 <p>Each item comes back as <code>Result&lt;T, ErrorOwned&gt;</code> in the same order the tuple was given. <code>MultiArgs::Same</code>/
 <code>Different</code> - whether every index gets the same serialized argument/value or its own - is chosen automatically by
 comparing the serialized bytes of each item.</p>
+<p>The same resource can be in a tuple more than once (CLT-49), e.g. two writes over the same I2C bus,
+<code>(i2c.i2c_write(a, x, None), i2c.i2c_write(a, y, None)).multi_call()</code>: its id repeats in the request's index list
+(<code>List([id, id])</code>), the device handles the indices one after another in that order, and the answers come back in
+tuple order.</p>
 <h3 id="the-same-resource-across-a-whole-array">The same resource across a whole array<a class="headerlink" href="#the-same-resource-across-a-whole-array" title="Permanent link">&para;</a></h3>
 <p><code>read_array</code>/<code>call_array</code>/<code>write_array</code> (+ <code>_blocking</code>, <code>wire_weaver_client::multi</code>) take a <code>MultiIndexOwned</code>
 selector and the existing generated per-index accessor as a closure, called once per index locally (no network
@@ -5670,23 +5696,52 @@ traffic) just to find the common path:</p>
 </span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">.</span><span class="k">await</span>
 </span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span>
 </span></code></pre></div>
-<p>A method with a custom <code>#[errors(..)]</code> result (<code>CallError&lt;E&gt;</code>) can't go into a tuple <code>multi_call</code> or <code>call_array</code>;
-call it on its own instead - see <a href="../errors/#which-errors-a-method-returns">Errors</a>.</p>
+<h3 id="methods-returning-result">Methods returning <code>Result</code><a class="headerlink" href="#methods-returning-result" title="Permanent link">&para;</a></h3>
+<p>A method returning <code>Result&lt;T, E&gt;</code> (with or without <code>#[errors(..)]</code>, CLT-48) goes into a tuple <code>multi_call</code> and into
+<code>call_array</code> like any other, mixed freely with methods without <code>Result</code>. Its position answers exactly what its own
+<code>call()</code> would, <code>Result&lt;T, CallError&lt;E&gt;&gt;</code>, so moving a call into a batch doesn't change how its result is handled:</p>
+<ul>
+<li><code>Ok(value)</code>: the method returned <code>Ok</code>;</li>
+<li><code>Err(CallError::Device(e))</code>: the method returned <code>Err(e)</code>, checked against its <code>#[errors(..)]</code> list as in a
+  single call (see <a href="../errors/#which-errors-a-method-returns">Errors</a>);</li>
+<li><code>Err(CallError::Unimplemented { .. })</code>: the device's handler returned <code>Unimplemented</code>;</li>
+<li><code>Err(CallError::Client(Error::RemoteError(e)))</code>: the index itself failed (<code>BadIndex</code>, <code>ArgsDesFailed</code>, ..).</li>
+</ul>
+<p>A method without <code>Result</code> keeps answering <code>Result&lt;T, ErrorOwned&gt;</code>.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">// ww_i2c: a write, then a register read of a USB-PD controller, in one USB round trip</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">written</span><span class="p">,</span><span class="w"> </span><span class="n">read</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="n">i2c</span><span class="p">.</span><span class="n">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="nb">None</span><span class="p">),</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="n">i2c</span><span class="p">.</span><span class="n">i2c_read</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="nb">None</span><span class="p">),</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="p">.</span><span class="n">multi_call</span><span class="p">()</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// the whole request failed: link, timeout, server without multi_req</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">written</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">read</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="c1">// CallError&lt;I2cError&gt;: Device(Nack), Unimplemented or Client</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="c1">// the same fallible method across an array: Ok and Err mixed, one entry per index</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="kd">let</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">call_array</span><span class="p">(</span><span class="n">MultiIndexOwned</span><span class="p">::</span><span class="n">Range</span><span class="p">(</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">..</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">4</span><span class="p">)),</span><span class="w"> </span><span class="o">|</span><span class="n">i</span><span class="o">|</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">    </span><span class="n">client</span><span class="p">.</span><span class="n">unit</span><span class="p">(</span><span class="n">i</span><span class="p">).</span><span class="n">halve</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">})</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="p">.</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="fm">assert!</span><span class="p">(</span><span class="fm">matches!</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">MethodError</span><span class="p">::</span><span class="n">Odd</span><span class="p">))));</span>
+</span></code></pre></div>
+<p>Nothing changes on the device: the server already puts the method's own <code>Result&lt;T, E&gt;</code> into the index's slot, the
+same bytes a single call answers with.</p>
 <h2 id="the-dynamic-client">The dynamic client<a class="headerlink" href="#the-dynamic-client" title="Permanent link">&para;</a></h2>
 <p><code>DynResource::multi_read</code>/<code>multi_write</code>/<code>multi_call</code> are the same three operations without generated code: <code>child</code>
 names the resource inside the array's trait (<code>None</code> for an array of a flat property/method, e.g.
 <code>property!(led[]: bool)</code>), and <code>DynMultiArgs</code>/<code>DynMultiValue</code> give <code>Same</code> (one value/argument list for every index)
 or <code>Different</code> (one per index, in <code>multi_idx</code> order):</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">root</span><span class="p">.</span><span class="n">child</span><span class="p">(</span><span class="s">&quot;channel&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">channel</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="p">.</span><span class="n">multi_write</span><span class="p">(</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">        </span><span class="n">cmd</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="n">MultiIndexOwned</span><span class="p">::</span><span class="n">List</span><span class="p">(</span><span class="fm">vec!</span><span class="p">[</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">UNib32</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;gain&quot;</span><span class="p">),</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">        </span><span class="n">DynMultiValue</span><span class="p">::</span><span class="n">Different</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)),</span><span class="w"> </span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.2</span><span class="p">)),</span><span class="w"> </span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.3</span><span class="p">))]),</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="p">)</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">    </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kd">let</span><span class="w"> </span><span class="n">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">root</span><span class="p">.</span><span class="n">child</span><span class="p">(</span><span class="s">&quot;channel&quot;</span><span class="p">).</span><span class="n">unwrap</span><span class="p">();</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">channel</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p">.</span><span class="n">multi_write</span><span class="p">(</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">        </span><span class="n">cmd</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="n">MultiIndexOwned</span><span class="p">::</span><span class="n">List</span><span class="p">(</span><span class="fm">vec!</span><span class="p">[</span><span class="n">UNib32</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="n">UNib32</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="w"> </span><span class="n">UNib32</span><span class="p">(</span><span class="mi">2</span><span class="p">)]),</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">        </span><span class="nb">Some</span><span class="p">(</span><span class="s">&quot;gain&quot;</span><span class="p">),</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">        </span><span class="n">DynMultiValue</span><span class="p">::</span><span class="n">Different</span><span class="p">(</span><span class="o">&amp;</span><span class="p">[</span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)),</span><span class="w"> </span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.2</span><span class="p">)),</span><span class="w"> </span><span class="n">num</span><span class="p">(</span><span class="n">N</span><span class="p">::</span><span class="n">F32</span><span class="p">(</span><span class="mf">0.3</span><span class="p">))]),</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">    </span><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">    </span><span class="p">.</span><span class="k">await</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">    </span><span class="p">.</span><span class="n">unwrap</span><span class="p">();</span>
 </span></code></pre></div>
 <h2 id="errors-per-index-and-for-the-whole-request">Errors per index, and for the whole request<a class="headerlink" href="#errors-per-index-and-for-the-whole-request" title="Permanent link">&para;</a></h2>
 <p>Most problems land on the one index they belong to and leave the rest answered: an unknown path or index
@@ -5706,8 +5761,6 @@ huge <code>Range</code> (e.g. <code>0..u32::MAX</code>) fails outright rather th
 <li><strong>Deferred methods</strong> are refused with <code>OperationNotSupported</code> inside a multi request, even one that defers
   although its <code>method_model</code> says <code>immediate</code> (<a href="../methods/#deferred">deferred methods</a> need a reply tied to one
   request's <code>seq</code>, which a shared multi-request slot can't carry).</li>
-<li><strong>A method with a custom error result</strong> (<code>#[errors(..)]</code>, <code>CallError&lt;E&gt;</code>) can't go into a tuple <code>multi_call</code> on
-  the client - call it on its own.</li>
 <li><strong>A trait level itself</strong> (not a leaf resource) inside a multi request answers <code>OperationNotSupported</code>, as does a
   server without <code>multi_req = true</code> for any multi request at all.</li>
 </ul>

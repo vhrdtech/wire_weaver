@@ -6714,6 +6714,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
   controller wants exactly that. Needs each index's answer to carry the method's own <code>Result</code> next to the
   per-index <code>Error</code>.</li>
+<li>✅ <strong>CLT-48 Fallible methods in multi calls</strong> · <code>v0.5.x</code> — a method returning <code>Result&lt;T, E&gt;</code> (any with
+  <code>#[errors]</code>, e.g. <code>ww_i2c::I2c::i2c_read</code>/<code>i2c_write</code>) goes into a <code>MultiCall</code> tuple (CLT-15) and into
+  <code>call_array</code>, mixed with methods without <code>Result</code>; each position answers what its single <code>call()</code> would,
+  <code>Result&lt;T, CallError&lt;E&gt;&gt;</code> (<code>Device</code> checked against the <code>#[errors]</code> list, <code>Unimplemented</code>, <code>Client</code> for the
+  index's own framework error), methods without <code>Result</code> still <code>Result&lt;T, ErrorOwned&gt;</code>. No device change: servers
+  already put the method's <code>Result</code> into the index's slot. Generated client calls with arguments take <code>&amp;self</code> now
+  (was <code>&amp;mut self</code>), so two of them fit into one tuple. Found on the rePort B200A bench run (report-i2c-master,
+  27 Oct 2026): a write + read burst to a USB-C PD controller in one USB round trip. Host-tested (<code>tests/methods</code>:
+  2- and 3-tuples, <code>call_array</code> async and blocking, Ok, device <code>Err</code>, <code>Unimplemented</code> and <code>BadIndex</code> mixed),
+  <code>docs/api/multi_requests.md#methods-returning-result</code>.</li>
+<li>✅ <strong>CLT-49 Same method twice in a multi call</strong> · <code>v0.5.x</code> — a <code>MultiCall</code>/<code>MultiRead</code>/<code>MultiWrite</code> tuple
+  naming the same resource more than once (two <code>ww_i2c::I2c::i2c_write</code> in one burst) failed on the client with
+  "resources are identical", though the server already handles <code>MultiIndex::List([id, id])</code>. The client now sends
+  the repeated id, answers come back in tuple order. <code>call_array</code> and friends still refuse an accessor that builds
+  the same path for every index. Host-tested (<code>tests/methods</code> <code>multi_call_same_method_twice</code>: 3-tuple at the root,
+  2-tuple in an array item, <code>Same</code> and <code>Different</code> args, Ok and device <code>Err</code> mixed, infallible too),
+  <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>

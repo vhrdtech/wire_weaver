@@ -192,6 +192,9 @@ fn angle_information_counting() {
     assert_eq!(<units::Byte as Unit>::EXPR.factor(), 8.0);
     assert_eq!(<units::Word as Unit>::EXPR.factor(), 32.0);
     assert!(!<units::AngularVelocity as Unit>::DIM.same(<units::Hertz as Unit>::DIM));
+    assert!(<units::AngularVelocity as Unit>::DIM.strip_radian().same(<units::Hertz as Unit>::DIM));
+    assert!(<units::Torque as Unit>::DIM.strip_radian().same(<units::Joule as Unit>::DIM));
+    assert!(!<units::Torque as Unit>::DIM.same(<units::Joule as Unit>::DIM));
     assert_eq!(<units::AngularVelocity as Unit>::DIM.to_string(), "s⁻¹·rad");
     assert!(!<units::Sample as Unit>::DIM.same(<units::Packet as Unit>::DIM));
     assert!(!<units::Sample as Unit>::DIM.is_one());

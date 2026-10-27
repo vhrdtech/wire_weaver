@@ -172,6 +172,13 @@ impl<'i> Dim<'i> {
         self
     }
 
+    /// The same without angle, as SI writes it (rad = 1): `Torque` (kg·m²·s⁻²·rad⁻¹) becomes the joule's
+    /// kg·m²·s⁻², `AngularVelocity` s⁻¹. The explicit bridge for exports to systems without an angle dimension
+    /// (UCUM, UNECE, Pint, uom) and for formulas like v = ωr; never applied implicitly.
+    pub const fn strip_radian(self) -> Dim<'i> {
+        self.with_rad(0)
+    }
+
     /// The exponents of s, m, kg, A, K, mol, cd, rad, bit.
     pub const fn exps(&self) -> [i8; FIXED] {
         [

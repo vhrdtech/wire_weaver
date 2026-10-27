@@ -1,12 +1,10 @@
 //! Async glue: [DeviceLink] + [MessageTx] / [MessageRx] + a user backend. The event loop itself stays in
 //! user code, see [Server] for the intended use.
 
-use core::future::{Future, pending, poll_fn};
-use core::pin::pin;
-use core::task::Poll;
+use core::future::{Future, pending};
 
 use embassy_futures::select::{Either, select};
-use wire_weaver::{EventWriter, MessageSink, WireWeaverAsyncApiBackend};
+use wire_weaver::{EventWriter, MessageSink, Priority, WireWeaverAsyncApiBackend};
 
 use crate::fmt::{error, info, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Phase, Received, SendError, Transmit};
@@ -244,20 +242,21 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                                 link: &mut self.link,
                                 tx: &mut self.tx,
                                 clock: &self.clock,
-                                // flushed below once no other request waits
-                                flush_replies: false,
                             };
                             let mut out = EventWriter::new(sink, &mut *self.event_scratch);
                             process_request(&mut out, backend, self.medium, request, self.scratch)
                                 .await;
+                            // TODO(SRV-43): serve waiting requests by priority, the highest first
+                            // the reply to an urgent request goes out at once, the rest within the window (CLT-50)
+                            if crate::request_priority(request).is_urgent() {
+                                self.link.flush_now();
+                            }
                         }
                         Some(Received::Loopback { repeat, seq, data }) => {
                             let mut sink = Sink {
                                 link: &mut self.link,
                                 tx: &mut self.tx,
                                 clock: &self.clock,
-                                // flushed below once no other request waits
-                                flush_replies: false,
                             };
                             sink.loopback(repeat, seq, data, self.scratch).await;
                         }
@@ -265,12 +264,6 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                     }
                 }
                 self.rx.consume();
-                // Replies go out at once when no other request is already waiting, instead of at the end of the
-                // accumulation window: a lone request gets its answer without that delay, while back to back
-                // requests still share packets. Events written by user code keep the window.
-                if poll_once_here(self.rx.wait_message()).await.is_pending() {
-                    self.link.flush_now();
-                }
             }
         }
         self.drain_transmit().await;
@@ -288,15 +281,15 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
     }
 
     /// Send stream updates or deferred replies from outside of [handle](Self::handle), e.g., with generated
-    /// `stream_data_ser().<name>_send(&value, &mut server.sink())`. Stream updates share frames within the
-    /// accumulation window, a deferred reply (`<method>_send_return`) goes out at once (SRV-42).
+    /// `stream_data_ser().<name>_send(&value, &mut server.sink())`. Messages share frames within the
+    /// accumulation window, a deferred reply (`<method>_send_return`) to an urgent request goes out at once (SRV-42);
+    /// [Sink::flush] sends what was written so far now.
     pub fn sink(&mut self) -> EventWriter<'_, Sink<'_, 'a, Tx, C>> {
         EventWriter::new(
             Sink {
                 link: &mut self.link,
                 tx: &mut self.tx,
                 clock: &self.clock,
-                flush_replies: true,
             },
             self.event_scratch,
         )
@@ -343,9 +336,6 @@ pub struct Sink<'s, 'a, Tx, C> {
     link: &'s mut DeviceLink<'a>,
     tx: &'s mut Tx,
     clock: &'s C,
-    /// Deferred replies are flushed right away: false inside [Server::handle], which flushes once no other
-    /// request waits
-    flush_replies: bool,
 }
 
 impl<Tx: MessageTx, C: Clock> Sink<'_, '_, Tx, C> {
@@ -410,11 +400,11 @@ impl<Tx: MessageTx, C: Clock> MessageSink for Sink<'_, '_, Tx, C> {
         })
     }
 
-    /// A deferred reply sent from outside of [Server::handle] goes out at once instead of at the end of the
-    /// accumulation window, as an immediate reply does when no other request waits (SRV-42).
-    async fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+    /// A deferred reply to an urgent request goes out at once instead of at the end of the accumulation window,
+    /// as an immediate one does (SRV-42).
+    async fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
         self.send(message).await?;
-        if self.flush_replies {
+        if priority.is_urgent() {
             self.flush().await.map_err(|e| {
                 warn!("MessageSink::send_reply flush failed: {:?}", e);
             })?;
@@ -445,10 +435,3 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
     }
 }
 
-/// Polls `fut` once with the calling task's waker. `embassy_futures::poll_once` polls with a no-op waker, which
-/// embassy-time's timer queue refuses with a panic ("Found waker not created by the Embassy executor") as soon as
-/// the future waits on a `Timer`, as the RTT medium does while no data is there.
-async fn poll_once_here<F: Future>(fut: F) -> Poll<F::Output> {
-    let mut fut = pin!(fut);
-    poll_fn(|cx| Poll::Ready(fut.as_mut().poll(cx))).await
-}

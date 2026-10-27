@@ -420,6 +420,7 @@ mod tests {
         let path = [UNib32(1)];
         let req = Request {
             seq: UVlq32Backfill(5),
+            priority: crate::Priority::NORMAL.nibble(),
             path_kind: PathKind::absolute(&path),
             kind: RequestKind::Observe {
                 cfg: ObserveRequest {

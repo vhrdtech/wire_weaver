@@ -9,6 +9,7 @@ pub mod observe;
 pub mod stream;
 pub mod util;
 
+pub use wire_weaver::Priority;
 use wire_weaver::{prelude::*, shrink_wrap::tail_bytes::TailBytes};
 use ww_version::{CompactVersion, FullVersion};
 
@@ -39,12 +40,19 @@ pub const COMPACT_VERSION: CompactVersion = CompactVersion::new(
 /// Smallest size after [Request::set_seq]:
 /// - 3B (seq <= 127, empty Absolute path - root req, Kind with no data)
 /// - 4B (seq <= 127, path len 1 <= 7, Kind with 1B args)
+///
+/// The priority nibble right after `seq` shares a byte with `path_kind`'s discriminant.
 #[derive_shrink_wrap(owned(feature = "std"), derive(Debug))]
 pub struct Request<'i> {
     /// Request ID, starting from 1 and wrapping back to 1 that allows to map responses to requests.
     /// 0 means no answer is expected.
     /// Serialized as 1 byte if <= 127, 2 bytes if <= 16383, etc., once [Request::set_seq] is used.
     pub seq: UVlq32Backfill,
+
+    /// How soon the request and its reply should go out (CLT-50), see [Priority](wire_weaver::Priority) for the
+    /// scale: `4` ([Priority::NORMAL](wire_weaver::Priority::NORMAL)) by default, `8` and up are flushed at once
+    /// instead of waiting for the link's accumulation window.
+    pub priority: Nibble,
 
     /// Specifies whether a resource is addressed explicitly, using a full path to it or through global trait ID.
     pub path_kind: PathKind<'i>,
@@ -744,6 +752,13 @@ impl Request<'_> {
     pub fn peek_seq(bytes: &[u8]) -> Result<u32, shrink_wrap::Error> {
         BufReader::new(bytes).read_uvlq32()
     }
+
+    /// Read `priority` of a serialized request, without deserializing the rest of it.
+    pub fn peek_priority(bytes: &[u8]) -> Result<wire_weaver::Priority, shrink_wrap::Error> {
+        let mut rd = BufReader::new(bytes);
+        rd.read_uvlq32()?;
+        Ok(rd.read_nib()?.into())
+    }
 }
 
 #[cfg(feature = "std")]
@@ -751,6 +766,7 @@ impl Request<'_> {
     pub fn make_owned(&self) -> Result<RequestOwned, shrink_wrap::Error> {
         Ok(RequestOwned {
             seq: self.seq,
+            priority: self.priority,
             path_kind: self.path_kind.make_owned()?,
             kind: self.kind.make_owned()?,
         })
@@ -789,6 +805,7 @@ mod tests {
     fn request_set_seq() {
         let request = Request {
             seq: UVlq32Backfill(0),
+            priority: crate::Priority::NORMAL.nibble(),
             path_kind: PathKind::absolute(&[]),
             kind: RequestKind::Read,
         };
@@ -856,6 +873,7 @@ mod tests {
             let path: std::vec::Vec<UNib32> = path.iter().map(|i| UNib32(*i)).collect();
             let request = |kind| Request {
                 seq: UVlq32Backfill(0),
+                priority: crate::Priority::NORMAL.nibble(),
                 path_kind: PathKind::absolute(&path),
                 kind,
             };

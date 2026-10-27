@@ -519,7 +519,7 @@ impl<'a> DeviceLink<'a> {
     }
 
     /// Send what was written so far with the next [Self::poll_transmit] instead of at the end of the accumulation
-    /// window, e.g. replies when no other request is waiting. No-op if nothing is waiting to be flushed.
+    /// window, e.g. the reply to an urgent request (CLT-50). No-op if nothing is waiting to be flushed.
     pub fn flush_now(&mut self) {
         if self.unflushed_since.is_some() {
             self.pending.flush = true;

@@ -68,6 +68,12 @@ pub fn generic_error_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<
     ww_client_server::util::ser_err_event(scratch, seq, error).ok()
 }
 
+/// Priority of a serialized request, [Priority::NORMAL](wire_weaver::Priority::NORMAL) when it can't be read
+/// (the backend answers such a request with an error anyway).
+pub(crate) fn request_priority(request: &[u8]) -> wire_weaver::Priority {
+    ww_client_server::Request::peek_priority(request).unwrap_or_default()
+}
+
 /// Seq numbers for each of `repeat` loopback replies: one echo keeps the host's seq, several are numbered from 0.
 pub fn loopback_seqs(repeat: u32, seq: u32) -> impl Iterator<Item = u32> {
     let first = if repeat == 1 { seq } else { 0 };

@@ -5,14 +5,21 @@ use core::future::Future;
 
 use shrink_wrap::prelude::{BufWriter, SerializeShrinkWrap, ShrinkWrapError};
 
+use crate::Priority;
+
 /// Sends serialized messages (`ww_client_server::Event`s) out, e.g., into a framer of a link.
 pub trait MessageSink {
     fn send(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>>;
 
-    /// Send a deferred reply (generated `<method>_send_return`): someone waits for it, so a sink that accumulates
-    /// messages into frames sends it out now when nothing else is about to join it (SRV-42). Same as
+    /// Send a deferred reply (generated `<method>_send_return`) to a request of `priority`: a sink that accumulates
+    /// messages into frames flushes an urgent one ([Priority::is_urgent]) at once (SRV-42). Same as
     /// [send](Self::send) by default.
-    fn send_reply(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+    fn send_reply(
+        &mut self,
+        message: &[u8],
+        priority: Priority,
+    ) -> impl Future<Output = Result<(), ()>> {
+        _ = priority;
         self.send(message)
     }
 }
@@ -23,9 +30,10 @@ pub trait BlockingMessageSink {
     #[allow(clippy::result_unit_err)]
     fn send(&mut self, message: &[u8]) -> Result<(), ()>;
 
-    /// Same as [MessageSink::send_reply]: send a deferred reply, out now when nothing else is about to join it.
+    /// Same as [MessageSink::send_reply]: send a deferred reply, an urgent one flushed at once.
     #[allow(clippy::result_unit_err)]
-    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+    fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
+        _ = priority;
         self.send(message)
     }
 }
@@ -35,8 +43,12 @@ impl<S: MessageSink + ?Sized> MessageSink for &mut S {
         (**self).send(message)
     }
 
-    fn send_reply(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>> {
-        (**self).send_reply(message)
+    fn send_reply(
+        &mut self,
+        message: &[u8],
+        priority: Priority,
+    ) -> impl Future<Output = Result<(), ()>> {
+        (**self).send_reply(message, priority)
     }
 }
 
@@ -45,8 +57,8 @@ impl<S: BlockingMessageSink + ?Sized> BlockingMessageSink for &mut S {
         (**self).send(message)
     }
 
-    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
-        (**self).send_reply(message)
+    fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
+        (**self).send_reply(message, priority)
     }
 }
 
@@ -85,12 +97,17 @@ pub trait EventOut {
         self.send_with(|scratch| ser_into(event, scratch))
     }
 
-    /// [send_with](Self::send_with) for a deferred reply (generated `<method>_send_return`), see
-    /// [MessageSink::send_reply]. Same as [send_with](Self::send_with) by default.
-    fn send_reply_with<F>(&mut self, ser: F) -> impl Future<Output = Result<(), SendError>>
+    /// [send_with](Self::send_with) for a deferred reply (generated `<method>_send_return`) to a request of
+    /// `priority`, see [MessageSink::send_reply]. Same as [send_with](Self::send_with) by default.
+    fn send_reply_with<F>(
+        &mut self,
+        priority: Priority,
+        ser: F,
+    ) -> impl Future<Output = Result<(), SendError>>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
+        _ = priority;
         self.send_with(ser)
     }
 }
@@ -110,12 +127,13 @@ pub trait BlockingEventOut {
     }
 
     /// [send_with_blocking](Self::send_with_blocking) for a deferred reply (generated
-    /// `<method>_send_return_blocking`), see [BlockingMessageSink::send_reply]. Same as
+    /// `<method>_send_return_blocking`) to a request of `priority`, see [BlockingMessageSink::send_reply]. Same as
     /// [send_with_blocking](Self::send_with_blocking) by default.
-    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    fn send_reply_with_blocking<F>(&mut self, priority: Priority, ser: F) -> Result<(), SendError>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
+        _ = priority;
         self.send_with_blocking(ser)
     }
 }
@@ -153,13 +171,13 @@ impl<S: MessageSink> EventOut for EventWriter<'_, S> {
             .map_err(|_| SendError::Sink)
     }
 
-    async fn send_reply_with<F>(&mut self, ser: F) -> Result<(), SendError>
+    async fn send_reply_with<F>(&mut self, priority: Priority, ser: F) -> Result<(), SendError>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
         let len = ser(self.scratch)?;
         self.sink
-            .send_reply(&self.scratch[..len])
+            .send_reply(&self.scratch[..len], priority)
             .await
             .map_err(|_| SendError::Sink)
     }
@@ -176,13 +194,13 @@ impl<S: BlockingMessageSink> BlockingEventOut for EventWriter<'_, S> {
             .map_err(|_| SendError::Sink)
     }
 
-    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    fn send_reply_with_blocking<F>(&mut self, priority: Priority, ser: F) -> Result<(), SendError>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
         let len = ser(self.scratch)?;
         self.sink
-            .send_reply(&self.scratch[..len])
+            .send_reply(&self.scratch[..len], priority)
             .map_err(|_| SendError::Sink)
     }
 }
@@ -268,18 +286,36 @@ impl BlockingEventOut for EventQueue<'_> {
 /// `M` is the medium type given with `ww_codegen!(.., medium = "path::to::Medium")`, `()` by default.
 pub struct Context<'c, O, M = ()> {
     seq: u32,
+    priority: Priority,
     medium: M,
     out: &'c mut O,
 }
 
 impl<'c, O, M: Copy> Context<'c, O, M> {
     pub fn new(seq: u32, medium: M, out: &'c mut O) -> Self {
-        Context { seq, medium, out }
+        Context {
+            seq,
+            priority: Priority::NORMAL,
+            medium,
+            out,
+        }
+    }
+
+    /// The request's priority, [Priority::NORMAL] unless set.
+    pub fn with_priority(mut self, priority: Priority) -> Self {
+        self.priority = priority;
+        self
     }
 
     /// Sequence number of the request being served, 0 if the client does not expect a reply.
     pub fn seq(&self) -> u32 {
         self.seq
+    }
+
+    /// Priority of the request being served (CLT-50): a deferred reply to it inherits it through
+    /// [Context::reply_to].
+    pub fn priority(&self) -> Priority {
+        self.priority
     }
 
     /// Medium the request came from (USB, CAN, ...), as passed to the server's `process_request_bytes`.
@@ -292,6 +328,7 @@ impl<'c, O, M: Copy> Context<'c, O, M> {
         (self.seq != 0).then_some(ReplyTo {
             medium: self.medium,
             seq: self.seq,
+            priority: self.priority,
         })
     }
 
@@ -308,11 +345,15 @@ impl<O: EventOut, M> EventOut for Context<'_, O, M> {
         self.out.send_with(ser)
     }
 
-    fn send_reply_with<F>(&mut self, ser: F) -> impl Future<Output = Result<(), SendError>>
+    fn send_reply_with<F>(
+        &mut self,
+        priority: Priority,
+        ser: F,
+    ) -> impl Future<Output = Result<(), SendError>>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
-        self.out.send_reply_with(ser)
+        self.out.send_reply_with(priority, ser)
     }
 }
 
@@ -324,19 +365,21 @@ impl<O: BlockingEventOut, M> BlockingEventOut for Context<'_, O, M> {
         self.out.send_with_blocking(ser)
     }
 
-    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    fn send_reply_with_blocking<F>(&mut self, priority: Priority, ser: F) -> Result<(), SendError>
     where
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
-        self.out.send_reply_with_blocking(ser)
+        self.out.send_reply_with_blocking(priority, ser)
     }
 }
 
-/// Request to answer later, from [Context::reply_to]. Pass `seq` to a generated `<method>_send_return`
-/// through the server of `medium`.
+/// Request to answer later, from [Context::reply_to]. Pass it to a generated `<method>_send_return` through the
+/// server of `medium`: the reply goes to `seq` and inherits the request's `priority` (an urgent one is flushed at
+/// once, SRV-42).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ReplyTo<M = ()> {
     pub medium: M,
     pub seq: u32,
+    pub priority: Priority,
 }

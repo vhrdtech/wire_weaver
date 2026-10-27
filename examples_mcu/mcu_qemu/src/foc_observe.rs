@@ -353,6 +353,7 @@ fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
     });
     let req = Request {
         seq: UVlq32Backfill(1),
+        priority: ww_client_server::Priority::NORMAL.nibble(),
         path_kind: PathKind::Absolute {
             path: RefVec::Slice { slice: &[] },
         },

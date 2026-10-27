@@ -273,6 +273,7 @@ mod tests {
     async fn raw(cmd: &Commander, path: &[u32], kind: RequestKindOwned) -> Result<Vec<u8>, Error> {
         let req = RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute {
                 path: path.iter().copied().map(UNib32).collect(),
             },
@@ -651,6 +652,7 @@ mod tests {
         for (_, path, kind, _) in cases() {
             let req = RequestOwned {
                 seq: UVlq32Backfill(1),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute {
                     path: path.iter().copied().map(UNib32).collect(),
                 },
@@ -690,6 +692,7 @@ mod tests {
             for path in [vec![], vec![ADD], vec![PIN, 1, PIN_MODE], vec![PIN, 9, 0]] {
                 let req = RequestOwned {
                     seq: UVlq32Backfill(1),
+                    priority: ww_client_server::Priority::NORMAL.nibble(),
                     path_kind: PathKindOwned::Absolute {
                         path: path.iter().copied().map(UNib32).collect(),
                     },

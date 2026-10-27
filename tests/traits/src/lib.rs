@@ -415,6 +415,7 @@ mod tests {
         let path: Vec<UNib32> = path.iter().map(|id| UNib32(*id)).collect();
         let request = Request {
             seq: wire_weaver::shrink_wrap::UVlq32Backfill(1),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &path },
             },

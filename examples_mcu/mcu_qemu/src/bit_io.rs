@@ -315,6 +315,7 @@ fn write_request(buf: &mut [u8]) -> usize {
     let path = [UNib32(3), UNib32(1), UNib32(12)];
     let request = Request {
         seq: UVlq32Backfill(5),
+        priority: ww_client_server::Priority::NORMAL.nibble(),
         path_kind: PathKind::Absolute {
             path: RefVec::Slice { slice: &path },
         },

@@ -349,6 +349,7 @@ impl<R: StreamOpenResult, S: StreamHandle> PreparedStreamOpen<R, S> {
         let (done_tx, done_rx) = oneshot::channel();
         let request = RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: self.path_kind.clone(),
             kind: RequestKindOwned::StreamOpen {
                 codecs: codec_offer(self.delivery, self.compression),

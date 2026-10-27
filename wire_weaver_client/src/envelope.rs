@@ -382,6 +382,7 @@ pub fn request_bytes(resource: &DynResource, payload: Option<Vec<u8>>) -> Result
     };
     let mut bytes = RequestOwned {
         seq: UVlq32Backfill(0),
+        priority: ww_client_server::Priority::NORMAL.nibble(),
         path_kind: path,
         kind,
     }

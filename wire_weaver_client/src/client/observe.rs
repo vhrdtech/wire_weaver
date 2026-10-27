@@ -661,6 +661,7 @@ fn request_bytes(path: &[UNib32], cfg: &ObserveConfig) -> Result<Vec<u8>, Error>
         .collect();
     let req = RequestOwned {
         seq: UVlq32Backfill(0),
+        priority: ww_client_server::Priority::NORMAL.nibble(),
         path_kind: PathKindOwned::Absolute {
             path: path.to_vec(),
         },

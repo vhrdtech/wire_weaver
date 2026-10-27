@@ -6,6 +6,7 @@ mod context;
 mod disconnect_reason;
 #[doc(hidden)]
 pub mod handler;
+mod priority;
 mod rpc;
 mod test;
 mod valid_indices;
@@ -15,6 +16,7 @@ pub use context::{
     ReplyTo, SendError,
 };
 pub use disconnect_reason::DisconnectReason;
+pub use priority::Priority;
 pub use rpc::{GetResult, RpcResult, SetResult, Unimplemented};
 pub use shrink_wrap;
 pub use shrink_wrap::derive_shrink_wrap;
@@ -38,7 +40,7 @@ pub mod prelude {
     pub use crate::ww_unimplemented;
     pub use crate::{
         BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter,
-        MessageSink, ReplyTo, SendError, WireWeaverApiBackend, WireWeaverAsyncApiBackend,
+        MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend, WireWeaverAsyncApiBackend,
     };
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;

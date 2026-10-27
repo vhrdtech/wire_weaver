@@ -150,6 +150,7 @@ pub(crate) fn request(path: &[u32], kind: RequestKindOwned) -> Option<Vec<u8>> {
     use wire_weaver::shrink_wrap::{SerializeShrinkWrapOwned, UNib32};
     RequestOwned {
         seq: UVlq32Backfill(0),
+        priority: ww_client_server::Priority::NORMAL.nibble(),
         path_kind: PathKindOwned::Absolute {
             path: path.iter().map(|n| UNib32(*n)).collect(),
         },
@@ -247,6 +248,7 @@ mod tests {
         // a request as a client serializes it: padded seq placeholder
         let req = RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute {
                 path: vec![UNib32(2), UNib32(5)],
             },

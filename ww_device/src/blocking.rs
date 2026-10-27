@@ -18,7 +18,7 @@
 //! }
 //! ```
 
-use wire_weaver::{BlockingMessageSink, EventWriter, WireWeaverApiBackend};
+use wire_weaver::{BlockingMessageSink, EventWriter, Priority, WireWeaverApiBackend};
 
 use crate::fmt::{error, warn};
 use crate::link::{DeviceLink, LinkConfig, LinkEvent, Received, SendError, Transmit};
@@ -196,8 +196,9 @@ impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
     }
 
     /// Send stream updates or deferred replies from outside of request handling, e.g., with generated
-    /// `stream_data_ser().<name>_send_blocking(&value, &mut server.sink(now))`. Stream updates share frames
-    /// within the accumulation window, a deferred reply (`<method>_send_return_blocking`) goes out at once (SRV-42).
+    /// `stream_data_ser().<name>_send_blocking(&value, &mut server.sink(now))`. Messages share frames within
+    /// the accumulation window, a deferred reply (`<method>_send_return_blocking`) to an urgent request goes out at
+    /// once (SRV-42); [Sink::flush] sends what was written so far now.
     pub fn sink(&mut self, now: Instant) -> EventWriter<'_, Sink<'_, 'a, P>> {
         EventWriter::new(
             Sink {
@@ -207,7 +208,6 @@ impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
                     sink: &mut self.sink,
                     now,
                 },
-                flush_replies: true,
             },
             self.event_scratch,
         )
@@ -270,7 +270,6 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
             Some(Received::Data(request)) => {
                 let sink = Sink {
                     ctx: self.reborrow(),
-                    flush_replies: false,
                 };
                 let mut out = EventWriter::new(sink, event_scratch);
                 let reply = match backend.process_bytes(&mut out, medium, request, scratch) {
@@ -285,6 +284,11 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
                 };
                 if !reply.is_empty() {
                     _ = self.send_message(reply);
+                }
+                // TODO(SRV-43): serve waiting requests by priority, the highest first
+                // the reply to an urgent request goes out at once, the rest within the window (CLT-50)
+                if crate::request_priority(request).is_urgent() {
+                    self.link.flush_now();
                 }
             }
             Some(Received::Loopback { repeat, seq, data }) => {
@@ -370,8 +374,6 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
 /// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend inside an [EventWriter].
 pub struct Sink<'s, 'a, P: PacketSink> {
     ctx: Ctx<'s, 'a, P>,
-    /// Deferred replies are flushed right away: false while a request is handled
-    flush_replies: bool,
 }
 
 impl<P: PacketSink> Sink<'_, '_, P> {
@@ -400,11 +402,11 @@ impl<P: PacketSink> BlockingMessageSink for Sink<'_, '_, P> {
         })
     }
 
-    /// A deferred reply sent from outside of request handling goes out at once instead of on a [Server::poll]
-    /// after the accumulation window (SRV-42).
-    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+    /// A deferred reply to an urgent request goes out at once instead of on a [Server::poll] after the
+    /// accumulation window, as an immediate one does (SRV-42).
+    fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
         self.send(message)?;
-        if self.flush_replies {
+        if priority.is_urgent() {
             self.flush().map_err(|e| {
                 warn!("MessageSink::send_reply flush failed: {:?}", e);
             })?;

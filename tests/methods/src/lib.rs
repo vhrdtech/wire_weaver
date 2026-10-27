@@ -102,13 +102,13 @@ mod tests {
                 let mut data = self.data.write().unwrap();
                 if let Some(reply_to) = data.deferred.take() {
                     assert_eq!(reply_to.medium, cx.medium());
-                    Self::deferred_send_return_blocking(cx, reply_to.seq, value).unwrap();
+                    Self::deferred_send_return_blocking(cx, reply_to, value).unwrap();
                 }
                 if let Some(reply_to) = data.deferred_unit.take() {
-                    Self::deferred_unit_send_return_blocking(cx, reply_to.seq).unwrap();
+                    Self::deferred_unit_send_return_blocking(cx, reply_to).unwrap();
                 }
                 if let Some(reply_to) = data.plug_vbus_cycle.take() {
-                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to.seq, value + 1)
+                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to, value + 1)
                         .unwrap();
                 }
                 Ready(())
@@ -321,13 +321,13 @@ mod tests {
                 let mut data = self.data.write().unwrap();
                 if let Some(reply_to) = data.deferred.take() {
                     assert_eq!(reply_to.medium, cx.medium());
-                    Self::deferred_send_return_blocking(cx, reply_to.seq, value).unwrap();
+                    Self::deferred_send_return_blocking(cx, reply_to, value).unwrap();
                 }
                 if let Some(reply_to) = data.deferred_unit.take() {
-                    Self::deferred_unit_send_return_blocking(cx, reply_to.seq).unwrap();
+                    Self::deferred_unit_send_return_blocking(cx, reply_to).unwrap();
                 }
                 if let Some(reply_to) = data.plug_vbus_cycle.take() {
-                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to.seq, value + 1)
+                    Self::plug_vbus_cycle_send_return_blocking(cx, reply_to, value + 1)
                         .unwrap();
                 }
                 Ready(())

@@ -624,6 +624,7 @@ mod tests {
         let request = |id: u32| {
             RequestOwned {
                 seq: UVlq32Backfill(1),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::GlobalCompact {
                     gid: CompactVersion::new(GlobalTypeId::new(id), 0, 1, 0),
                     path_from_trait: vec![UNib32(1)],

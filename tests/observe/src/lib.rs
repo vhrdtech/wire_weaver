@@ -482,6 +482,7 @@ mod tests {
             let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice { slice: &path },
                 },
@@ -908,6 +909,7 @@ mod tests {
         // malformed: an Observe request cut short
         let req = Request {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &[] },
             },
@@ -949,6 +951,7 @@ mod tests {
         let path = [UNib32(MOTOR)];
         let req = Request {
             seq: UVlq32Backfill(1),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &path },
             },
@@ -1002,6 +1005,7 @@ mod tests {
         let path = [UNib32(MOTOR)];
         let req = Request {
             seq: UVlq32Backfill(1),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKind::Absolute {
                 path: RefVec::Slice { slice: &path },
             },

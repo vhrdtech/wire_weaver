@@ -633,6 +633,7 @@ impl Commander {
             drop(inner);
             let bytes = ww_client_server::RequestOwned {
                 seq: UVlq32Backfill(0),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKindOwned::Absolute { path },
                 kind: RequestKindOwned::StreamOpen {
                     codecs,
@@ -1217,6 +1218,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -1237,6 +1239,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -1255,6 +1258,7 @@ impl TransportCommander {
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -1278,6 +1282,7 @@ impl TransportCommander {
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Call {
                 args: TailBytesOwned(args),
@@ -1300,6 +1305,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Read,
         };
@@ -1317,6 +1323,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Read,
         };
@@ -1336,6 +1343,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind,
         };
@@ -1354,6 +1362,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind,
         };
@@ -1371,6 +1380,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -1391,6 +1401,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -1409,6 +1420,7 @@ impl TransportCommander {
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -1466,6 +1478,7 @@ impl TransportCommander {
     ) -> Result<Command, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -1485,6 +1498,7 @@ impl TransportCommander {
     ) -> Result<Command, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: match write.units {
                 None => RequestKindOwned::SinkWrite {
@@ -1512,6 +1526,7 @@ impl TransportCommander {
     ) -> Result<(Command, ResponseReceiver), Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::StreamOpen {
                 codecs: None,
@@ -1536,6 +1551,7 @@ impl TransportCommander {
     ) -> Result<Command, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
@@ -1553,6 +1569,7 @@ impl TransportCommander {
     ) -> Result<(), Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::Write {
                 data: TailBytesOwned(value),
@@ -1576,6 +1593,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
@@ -1594,6 +1612,7 @@ impl TransportCommander {
     ) -> Result<ResponseReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind,
             kind: RequestKindOwned::StreamSideband { sideband },
         };
@@ -1650,6 +1669,7 @@ impl TransportCommander {
     ) -> Result<StreamUpdateReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };
@@ -1682,6 +1702,7 @@ impl TransportCommander {
     ) -> Result<StreamUpdateReceiver, Error> {
         let req = ww_client_server::RequestOwned {
             seq: UVlq32Backfill(0),
+            priority: ww_client_server::Priority::NORMAL.nibble(),
             path_kind: PathKindOwned::Absolute { path: vec![] },
             kind: RequestKindOwned::Introspect,
         };

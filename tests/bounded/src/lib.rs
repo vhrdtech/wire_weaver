@@ -291,6 +291,7 @@ mod tests {
             let args = args.to_ww_bytes(&mut args_buf).unwrap();
             let request = Request {
                 seq: shrink_wrap::UVlq32Backfill(1),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
                 path_kind: PathKind::Absolute {
                     path: RefVec::Slice {
                         slice: &[UNib32(0)],

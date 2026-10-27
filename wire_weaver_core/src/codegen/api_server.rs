@@ -354,7 +354,7 @@ pub fn gen_server(
             ) -> Result<&'a [u8], ShrinkWrapError> {
                 let mut rd = BufReader::new(bytes);
                 let request = Request::des_shrink_wrap(&mut rd)?;
-                let mut cx = wire_weaver::Context::new(request.seq.0, medium, out);
+                let mut cx = wire_weaver::Context::new(request.seq.0, medium, out).with_priority(request.priority.into());
 
                 let mut wr = BufWriter::new(scratch);
                 let event_builder = EventBuilder::new(request.seq.0, &mut wr)?;
@@ -1043,6 +1043,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                     Some(kind) => {
                         let item_request = Request {
                             seq: request.seq,
+                            priority: request.priority,
                             path_kind: PathKind::Absolute { path: wire_weaver::shrink_wrap::RefVec::Slice { slice: &[] } },
                             kind,
                         };
@@ -2770,14 +2771,18 @@ fn deferred_method_return_ser_methods(
                 #ser_output_or_unit
             }
 
-            /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
-            pub async fn #send_fn_name<'i>(out: &mut impl wire_weaver::EventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
-                wire_weaver::EventOut::send_reply_with(out, #ser_event).await
+            /// Send the return value of a deferred call, `reply_to` is `cx.reply_to()` of the original call: the reply
+            /// inherits its priority, an urgent one is flushed at once (SRV-42).
+            pub async fn #send_fn_name<'i, M>(out: &mut impl wire_weaver::EventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
+                let seq = reply_to.seq;
+                wire_weaver::EventOut::send_reply_with(out, reply_to.priority, #ser_event).await
             }
 
-            /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
-            pub fn #send_blocking_fn_name<'i>(out: &mut impl wire_weaver::BlockingEventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
-                wire_weaver::BlockingEventOut::send_reply_with_blocking(out, #ser_event)
+            /// Send the return value of a deferred call, `reply_to` is `cx.reply_to()` of the original call: the reply
+            /// inherits its priority, an urgent one is flushed at once (SRV-42).
+            pub fn #send_blocking_fn_name<'i, M>(out: &mut impl wire_weaver::BlockingEventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
+                let seq = reply_to.seq;
+                wire_weaver::BlockingEventOut::send_reply_with_blocking(out, reply_to.priority, #ser_event)
             }
         });
     }

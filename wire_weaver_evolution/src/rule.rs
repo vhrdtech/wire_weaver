@@ -25,6 +25,11 @@ pub enum Rule {
     Optional,
     /// An enum's catch-all for variants from a newer version (`#[future_version]`) is part of its Rust type.
     CatchAll,
+    /// A marker type argument of a generic type (a unit, a prefix or scale of `ww_si::Fixed`) is its meaning: the
+    /// same bytes, but read as another quantity.
+    Meaning,
+    /// A bound (`ww_si::Range` and friends) is part of the contract: values outside the reader's bound are refused.
+    Bound,
 }
 
 impl Rule {
@@ -49,6 +54,14 @@ impl Rule {
                 "an enum's catch-all for newer variants keeps the wire, but is part of its Rust type: it is \
                  never added, removed or renamed"
             }
+            Rule::Meaning => {
+                "a marker argument (unit, prefix or scale) is what the bytes mean: changing it keeps the bytes, \
+                 but a reader takes one quantity for another (µs for ms)"
+            }
+            Rule::Bound => {
+                "a bound is part of the contract: narrowed, the new version refuses what the old one writes; \
+                 widened, the old version refuses what the new one writes"
+            }
         }
     }
 
@@ -63,6 +76,8 @@ impl Rule {
             Rule::FieldKind => "docs/evolution/rules.md#unsized-types",
             Rule::Optional => "docs/evolution/rules.md#optional-items",
             Rule::CatchAll => "docs/evolution/rules.md#unsized-types",
+            Rule::Meaning => "docs/evolution/rules.md#transparent-wrappers-units-and-scales",
+            Rule::Bound => "docs/evolution/rules.md#bounds",
         }
     }
 }

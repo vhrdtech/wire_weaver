@@ -44,6 +44,9 @@ mod ww_repr;
 ///   `to_head_tail`, `HeadTail`, a C reader); no `SerializeShrinkWrap`, see `shrink_wrap::head_tail`.
 /// * `sparse` - a struct whose fields are all `Option<T>` as an `OptionAnyVec`: one slot per field (or at
 ///   `#[slot = N]` on the field, increasing, gaps allowed), only the present ones written. Fields are only appended.
+/// * `transparent` - a struct of one field that isn't zero bits (the others `PhantomData<..>` or `()`) is exactly
+///   that field on the wire: its `ELEMENT_SIZE`, bytes, series columns, `SeriesStore` and `SeriesCells`. For
+///   wrappers that only add meaning in the type, like a unit (`In<Micro, Second, u64>` is a `u64`).
 /// * `ww_repr = <u1,u2.. | nib | unib32 | u8 | u16 ..>` - set the enum discriminant representation.
 /// * `discriminants` - additionally generate a `MyTypeDiscriminants` enum (enum items only).
 /// * `display` - generate `core::fmt::Display` and `core::error::Error` from the first doc line of each

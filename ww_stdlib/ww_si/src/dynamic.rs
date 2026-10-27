@@ -3,9 +3,9 @@
 
 use crate::ops::scale_f64;
 use crate::tree::{self, Node, Tree};
-use crate::unit::{Dim, Scale, Unit, UnitExpr};
 #[cfg(feature = "std")]
 use crate::unit::DimOwned;
+use crate::unit::{Dim, Scale, Unit, UnitExpr};
 use crate::{Prefix, Quantity};
 use core::fmt;
 use shrink_wrap::prelude::*;

@@ -544,7 +544,10 @@ pub fn table() -> Vec<Typed> {
             SeriesOwned(vec![
                 WiredSample { t: 0, value: -5 },
                 WiredSample { t: 10, value: 2047 },
-                WiredSample { t: 20, value: -2048 },
+                WiredSample {
+                    t: 20,
+                    value: -2048,
+                },
             ]),
         )
         .borrowed(borrowed!(Series<'_, WiredSample>)),

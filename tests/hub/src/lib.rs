@@ -250,7 +250,7 @@ mod tests {
         let server = server::Server { seen: seen.clone() };
         let (gid, hash) = (hub_api::HUB_TEST_FULL_GID, server::api_impl::api_hash());
         let device = match window {
-            Some(w) => tests_common::start_device_with_window(&path, server, gid, hash, w),
+            Some(w) => tests_common::start_device_usb_with_window(&path, 64, server, gid, hash, w),
             None => tests_common::start_device(&path, server, gid, hash),
         };
         let counted = seen.clone();
@@ -314,7 +314,9 @@ mod tests {
 
     /// Priority through the hub (CLT-50): an urgent call goes to the device and its answer back at once, neither
     /// the client's link to the hub, the hub's to the device nor the device wait for the window; a default one waits
-    /// for it on the way there and on the way back.
+    /// for it on the way there (client to hub; the hub sends each batch on as the client flushed it) and on the way
+    /// back (device to hub; the tunnel to the client writes at once). The device is on simulated 64 B USB, as a full
+    /// speed one: a message medium writes every message at once and has no window.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn urgent_call_through_the_hub_goes_at_once() {
         // long enough that a stalled PC can't make a call that doesn't wait for it look like one that does, and

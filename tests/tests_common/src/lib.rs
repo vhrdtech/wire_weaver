@@ -275,10 +275,12 @@ pub fn start_device_on<S: TestProcessEvents + Send + 'static>(
     start(path, SyncServer(server), version, api_hash, medium)
 }
 
-/// Same as [start_device], with the device asking for an accumulation window of `window` instead of the default
-/// 1 ms: long enough, a test sees which messages waited for it (CLT-50).
-pub fn start_device_with_window<S: TestProcessEvents<Medium = ()> + Send + 'static>(
+/// Same as [start_device_usb], with the device asking for an accumulation window of `window` instead of the default
+/// 1 ms: long enough, a test sees which messages waited for it (CLT-50). Over simulated USB, since a message medium
+/// ([start_device]) writes every message at once and has no window to wait for.
+pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + 'static>(
     path: &str,
+    packet_size: usize,
     server: S,
     version: FullVersion<'static>,
     api_hash: ApiHashPair<'static>,
@@ -286,7 +288,7 @@ pub fn start_device_with_window<S: TestProcessEvents<Medium = ()> + Send + 'stat
 ) -> TestDevice {
     start_with(
         path,
-        Media::Messages,
+        Media::Usb(packet_size),
         SyncServer(server),
         version,
         api_hash,

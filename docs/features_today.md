@@ -283,6 +283,7 @@ round, and tell you before a release when a change would break that.
 - **[Priority in every request](transport/ww_framer.md#latency-and-priority)**: Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after.
 - **[Upgrades don't touch your snapshots](evolution/checker_tool.md#the-current-versions-snapshot)**: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.
 - **[One encoding per dimension](std_library/ww_si.md#units-known-only-at-run-time)**: A unit's dimension on the wire has exactly one form: counted bases sorted, out-of-order ones refused, so two devices' `Sample/Frame` compare equal byte for byte.
+- **[Units and bounds in the checker](evolution/rules.md#transparent-wrappers-units-and-scales)**: Wrapping a plain number in a unit type passes as the same bytes; changing its unit, prefix or bound is caught as breaking. <span class="ww-status">in progress</span>
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 

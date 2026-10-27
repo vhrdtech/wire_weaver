@@ -1512,10 +1512,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
-- 📋 **EVO-15 Transparent wrappers in the checker** · `v0.5` — `T` and a `transparent` wrapper of `T` (DER-18,
+- 🚧 **EVO-15 Transparent wrappers in the checker** · `v0.5` — `T` and a `transparent` wrapper of `T` (DER-18,
   `ww_si::Fixed`) are compatible, reported as the same bytes; a change of a `Fixed`'s unit or scale is breaking
   although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
-  refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move.
+  refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move. Done with a test-local wrapper
+  of `Fixed`'s shape (`docs/evolution/rules.md#transparent-wrappers-units-and-scales`, `#bounds`,
+  `wire_weaver_evolution` `tests::transparent`): any type parameter no field uses is a marker compared by name
+  (`Rule::Meaning`), bounds by value (`Rule::Bound`), also on prepared bundles (the client). Missing: cases with the
+  real `ww_si::Fixed` (STD-55) and the `Quantity` → `Fixed` hint.
 - 📋 **EVO-17 Units compared by meaning** · `v0.5` — the checker compares magnitudes by value (`Milli` → `Pow10<-3>` is
   compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
   vs N·s) breaking.

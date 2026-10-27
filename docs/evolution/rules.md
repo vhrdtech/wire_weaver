@@ -168,6 +168,44 @@ parameters are compared by position and kind:
 * A use with other arguments (`Window<4>` -> `Window<8>`, `Pair<u8, u16>` -> `Pair<u8, u32>`) is another type, as
   `[u16; 4]` -> `[u16; 8]` is.
 
+### Transparent wrappers, units and scales
+
+A [`transparent`](../serdes/derive_reference.md#transparent) struct (DER-18) is exactly its one field on the wire,
+`ww_si::Fixed<U, P, T, B>` (STD-55) is one: a `T` with its unit `U`, prefix or scale `P` and bound `B` in the type.
+The checker compares it by what it means, not only by its bytes:
+
+* **`T` -> a wrapper of `T`, or back** (`shared_us: u64` -> `shared: Fixed<Second, Micro, u64>`): compatible, the
+  bytes are the same. The checker lists it as `u64 -> Fixed<Second, Micro, u64, Unbounded>, same bytes`. Renaming the
+  field with it (dropping the `_us`) is compatible as well (fields are matched by position), but Python and `ww`
+  scripts that name the field change with it.
+* **Another unit, prefix or scale** (`Fixed<Second, Micro, u64>` -> `Fixed<Second, Milli, u64>`): breaking, although
+  the bytes are the same: a reader of the old version would take a value in ms for µs. The same for one wrapper
+  replaced by another wrapper of the same bytes (`Fixed<..>` -> a `Count<u64>` of your own).
+* **Another `T`** (`u32` -> `u64`, inside the wrapper or across it): breaking, as for plain numbers.
+
+This holds for every generic type, not only `Fixed`: a type parameter that no field uses (one only in `PhantomData`,
+which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name. A
+marker's own definition (a unit struct) is not compared field by field, it has none.
+
+### Bounds
+
+A bound (`B` of `Fixed`: `Unbounded`, `Range<MIN, MAX>`, `RangeU64<MIN, MAX>`, `RangeDec<MIN, MAX, EXP>`) doesn't
+change the bytes, but a reader refuses a value outside its bound (on decode, before a handler runs). So a bound is part
+of the contract, and any change of it breaks one side, depending on who writes the item:
+
+* **Narrowed** (`Range<0, 300>` -> `Range<0, 100>`, `Unbounded` or plain `T` -> `Range<..>`): the new version refuses
+  values the old one writes. For a method argument or a writable property that is an old host's call refused by a new
+  device; for a property or stream the device writes, an old device's value refused by a new host.
+* **Widened** (`Range<0, 100>` -> `Range<0, 300>`, `Range<..>` -> `Unbounded` or plain `T`): the old version refuses
+  values the new one writes: a new host's argument refused by an old device, a new device's value refused by an old
+  host.
+
+Both are breaking, unlike a [max length](#maximum-lengths-maxlent-n) raised, and the checker says which side writes
+and which refuses: `Api::uptime: B of Fixed: bound 0..=600 on the new version, 0..=300 on the old version: values the
+new version writes outside 0..=300 are refused by the old version`. Bounds are compared by value: `RangeDec<-5, 25,
+-1>` and `RangeDec<-50, 250, -2>` are both `-0.5..=2.5`, the same bound. They are recognised by name and arguments
+wherever they come from; a bound marker of your own with other names is compared as any marker, by name.
+
 ### FinalStructure, SelfDescribing and Sized types
 
 * `Sized` can become `SelfDescribing` and back (`sized` <-> `self_describing`): neither gets a size slot from its

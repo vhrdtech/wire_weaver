@@ -167,16 +167,16 @@ fn display_and_debug() {
 #[test]
 fn units_and_dimensions() {
     assert_eq!(Volt::unit().dim(), Dim::new(-3, 2, 1, -1, 0, 0, 0));
-    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0]);
+    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0, 0, 0]);
     assert_eq!(Volt::unit().dim().to_string(), "kg·m²·s⁻³·A⁻¹");
     assert_eq!(Ratio::unit().dim().to_string(), "1");
     let fan = <Per<units::Torque, Times<units::AngularVelocity, units::AngularVelocity>> as ww_si::Unit>::DIM;
-    assert_eq!(fan.to_string(), "kg·m²");
+    assert_eq!(fan.to_string(), "kg·m²·rad⁻³");
     let volt = ww_si::units::by_name("Volt").unwrap();
     assert!(matches!(volt, UnitExpr::Named { symbol: "V", .. }));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 48);
+    assert_eq!(ww_si::units::ALL.len(), 57);
 }
 
 #[test]

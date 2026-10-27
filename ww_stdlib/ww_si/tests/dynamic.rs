@@ -16,10 +16,10 @@ type Viscous = Per<Torque, AngularVelocity>;
 fn dim_bytes() {
     let mut buf = [0u8; 8];
     let volt = <units::Volt as Unit>::DIM;
-    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0: seven nibbles, the eighth is padding
+    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0, rad 0, bit 0: nine nibbles, then four bits of empty counted slots
     assert_eq!(
         volt.to_ww_bytes(&mut buf).unwrap(),
-        [0xd2, 0x1f, 0x00, 0x00]
+        [0xd2, 0x1f, 0x00, 0x00, 0x00]
     );
     assert_eq!(Dim::from_ww_bytes(&[0xd2, 0x1f, 0x00, 0x00]).unwrap(), volt);
     assert_eq!(
@@ -34,8 +34,8 @@ fn dim_bytes() {
 
 #[test]
 fn dim_range() {
-    assert_eq!(Dim::checked_new([8, 0, 0, 0, 0, 0, 0]), None);
-    assert_eq!(Dim::checked_new([-9, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(Dim::checked_new([8, 0, 0, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(Dim::checked_new([0, 0, 0, 0, 0, 0, 0, 0, -9]), None);
     let m4 = Dim::new(0, 4, 0, 0, 0, 0, 0);
     assert_eq!(m4.checked_mul(m4), None);
     assert_eq!(m4.checked_pow(2), None);
@@ -67,7 +67,7 @@ fn scale_bytes() {
 }
 
 const VOLT_BYTES: [u8; 13] = [
-    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x01, 0x14,
+    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x01, 0x14,
 ];
 
 #[test]
@@ -89,7 +89,7 @@ fn compound_round_trip() {
     let mut buf = [0u8; 128];
     let si = <Viscous as Unit>::SI_EXPR;
     let bytes = si.to_ww_bytes(&mut buf).unwrap().to_vec();
-    assert_eq!(bytes.len(), 49);
+    assert_eq!(bytes.len(), 51);
     assert_eq!(&bytes[..2], [0x20, 0x00]);
     let back = SIExpr::from_ww_bytes(&bytes).unwrap();
     assert_eq!(&back, si);
@@ -212,9 +212,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x59);
+    expected.push(0x69);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 17);
+    assert_eq!(bytes.len(), 18);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());

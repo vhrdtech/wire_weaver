@@ -9,18 +9,21 @@
 //! reader's `#[future_version]` catch-all.
 
 use std::borrow::Cow;
+use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::fmt;
 
 use shrink_wrap::ElementSize;
 use ww_self::signature;
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
-    GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length, PropertyAccess, TypeLocationOwned,
-    TypeOwned, VariantOwned,
+    GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, PropertyAccess,
+    TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
 };
 use ww_version::FullVersionOwned;
 
+use crate::Rule;
 use crate::layout;
 pub type Side<'a> = (&'a ApiBundleOwned, &'a ApiItemOwned, &'static str);
 
@@ -36,6 +39,41 @@ pub struct Bounds<'a> {
     pub narrower: Vec<String>,
     /// A smaller max length was an error (see `strict_writer`).
     pub lowered: bool,
+    /// The rule an error broke when it is a marker or a bound, see [TypeCheck::rule].
+    pub rule: Option<Rule>,
+    /// Transparent wrappers on one side only, see [TypeCheck::unwrapped].
+    pub unwrapped: Vec<Unwrapped>,
+}
+
+/// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
+/// compatible.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Unwrapped {
+    /// Arguments, fields and variants leading to it (`` argument `shared` ``), empty for the type itself.
+    pub path: Vec<String>,
+    pub writer_name: &'static str,
+    /// The type as the writer has it, and as the reader has it.
+    pub written: String,
+    pub read: String,
+}
+
+impl Unwrapped {
+    /// `` field `shared`: u64 -> Fixed<Second, Micro, u64, Unbounded>, same bytes ``, from the `from` side's type to
+    /// the other's.
+    pub fn describe(&self, from: &str) -> String {
+        let (from, to) = if self.writer_name == from {
+            (&self.written, &self.read)
+        } else {
+            (&self.read, &self.written)
+        };
+        let mut out = String::new();
+        for segment in &self.path {
+            out.push_str(segment);
+            out.push_str(": ");
+        }
+        out.push_str(&format!("{from} -> {to}, same bytes"));
+        out
+    }
 }
 
 pub fn compare_items<'a>(
@@ -75,6 +113,9 @@ pub fn compare_items<'a>(
     bounds.narrower.append(&mut to_device.narrower);
     bounds.narrower.append(&mut to_client.narrower);
     bounds.lowered |= to_device.lowered || to_client.lowered;
+    bounds.rule = bounds.rule.or(to_device.rule).or(to_client.rule);
+    bounds.unwrapped.append(&mut to_device.unwrapped);
+    bounds.unwrapped.append(&mut to_client.unwrapped);
     result
 }
 
@@ -297,14 +338,15 @@ fn check_signature<'a>(
         ));
     }
     for (arg, device_arg) in args.iter().zip(device_args) {
+        let segment = format!("argument `{}`", arg.ident);
         to_device
-            .check(&arg.ty, &device_arg.ty)
-            .map_err(|e| format!("argument `{}`: {e}", arg.ident))?;
+            .within(&segment, |c| c.check(&arg.ty, &device_arg.ty))
+            .map_err(|e| format!("{segment}: {e}"))?;
     }
     match (return_ty, device_return_ty) {
         (None, None) => {}
         (Some(ty), Some(device_ty)) => to_client
-            .check(device_ty, ty)
+            .within("return type", |c| c.check(device_ty, ty))
             .map_err(|e| format!("return type: {e}"))?,
         (Some(_), None) => return Err(format!("{device_name} returns nothing")),
         (None, Some(_)) => {
@@ -439,6 +481,13 @@ pub struct TypeCheck<'a> {
     pub narrower: Vec<String>,
     /// A smaller max length on the reader was an error.
     pub lowered: bool,
+    /// The rule a failed check broke, when it is not the general one of a resource or a type: a marker argument
+    /// ([Rule::Meaning]) or a bound ([Rule::Bound]) changed.
+    pub rule: Option<Rule>,
+    /// Transparent wrappers on one side only, with their plain field on the other: compatible.
+    pub unwrapped: Vec<Unwrapped>,
+    /// Arguments, fields and variants leading to the type being checked, for [Self::unwrapped].
+    path: Vec<String>,
 }
 
 /// Type with out-of-line references resolved.
@@ -465,7 +514,18 @@ impl<'a> TypeCheck<'a> {
             strict_bounds: false,
             narrower: vec![],
             lowered: false,
+            rule: None,
+            unwrapped: vec![],
+            path: vec![],
         }
+    }
+
+    /// Runs `f` with `segment` (a field, an argument) added to [Self::path].
+    fn within<R>(&mut self, segment: &str, f: impl FnOnce(&mut Self) -> R) -> R {
+        self.path.push(segment.to_string());
+        let result = f(self);
+        self.path.pop();
+        result
     }
 
     pub fn strict_bounds(mut self, strict: bool) -> Self {
@@ -505,7 +565,7 @@ impl<'a> TypeCheck<'a> {
         Ok(())
     }
 
-    pub fn check(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
+    pub fn check(&mut self, w: &TypeOwned, r: &TypeOwned) -> Result<(), String> {
         if self.depth >= MAX_CHECK_DEPTH {
             return Err(format!(
                 "types are nested deeper than {MAX_CHECK_DEPTH} levels, can't compare them"
@@ -517,7 +577,10 @@ impl<'a> TypeCheck<'a> {
         result
     }
 
-    fn check_inner(&mut self, w: &'a TypeOwned, r: &'a TypeOwned) -> Result<(), String> {
+    fn check_inner(&mut self, w: &TypeOwned, r: &TypeOwned) -> Result<(), String> {
+        if let Some(result) = self.check_wrappers(w, r) {
+            return result;
+        }
         // instances are left after ww_self::generics::prepare only when their definition is not known
         match (w, r) {
             (
@@ -634,7 +697,8 @@ impl<'a> TypeCheck<'a> {
                     return Err(format!("tuple of {} vs tuple of {}", w.len(), r.len()));
                 }
                 for (i, (w, r)) in w.iter().zip(r).enumerate() {
-                    self.check(w, r).map_err(|e| format!(".{i}: {e}"))?;
+                    self.within(&format!(".{i}"), |c| c.check(w, r))
+                        .map_err(|e| format!(".{i}: {e}"))?;
                 }
                 Ok(())
             }
@@ -665,8 +729,8 @@ impl<'a> TypeCheck<'a> {
     /// Instances of generic definitions that are not known: the same definition, the same arguments.
     fn check_instances(
         &mut self,
-        (wi, wa): (u32, &'a [GenericArgOwned]),
-        (ri, ra): (u32, &'a [GenericArgOwned]),
+        (wi, wa): (u32, &[GenericArgOwned]),
+        (ri, ra): (u32, &[GenericArgOwned]),
     ) -> Result<(), String> {
         let identity = |bundle: &'a ApiBundleOwned, idx: u32| match bundle.types.get(idx as usize) {
             Some(TypeLocationOwned::InLine { ty, .. }) => user_type_identity(bundle, ty),
@@ -699,7 +763,17 @@ impl<'a> TypeCheck<'a> {
                 ra.len()
             ));
         }
+        let markers = match self.writer.types.get(wi as usize) {
+            Some(TypeLocationOwned::InLine { ty, .. }) => marker_params(ty),
+            // a skipped definition's arguments are compared by where they come from anyway
+            _ => vec![],
+        };
         for (i, (w_arg, r_arg)) in wa.iter().zip(ra).enumerate() {
+            if let Some((_, param)) = markers.iter().find(|(m, _)| *m == i) {
+                self.check_marker(w_arg, r_arg)
+                    .map_err(|e| format!("{param} of {}: {e}", w.1))?;
+                continue;
+            }
             match (w_arg, r_arg) {
                 (GenericArgOwned::Type(w_ty), GenericArgOwned::Type(r_ty)) => self
                     .check(w_ty, r_ty)
@@ -714,16 +788,146 @@ impl<'a> TypeCheck<'a> {
         Ok(())
     }
 
-    fn check_struct(
-        &mut self,
-        w: &'a ItemStructOwned,
-        r: &'a ItemStructOwned,
-    ) -> Result<(), String> {
+    fn check_struct(&mut self, w: &ItemStructOwned, r: &ItemStructOwned) -> Result<(), String> {
         check_generics(&w.generics, &r.generics)?;
+        if let (Some(wi), Some(ri)) = (&w.instance_of, &r.instance_of) {
+            self.check_instance_markers(wi, ri)?;
+        }
         self.check_fields(&w.size, &w.fields, &r.size, &r.fields)
     }
 
-    fn check_enum(&mut self, w: &'a ItemEnumOwned, r: &'a ItemEnumOwned) -> Result<(), String> {
+    /// Marker arguments of two instances of the same generic definition (after [ww_self::generics::prepare]), whose
+    /// fields are compared as those of any struct.
+    fn check_instance_markers(
+        &mut self,
+        wi: &InstanceOfOwned,
+        ri: &InstanceOfOwned,
+    ) -> Result<(), String> {
+        let (Some(w_def), Some(r_def)) = (
+            def_name(self.writer, wi.type_idx.0),
+            def_name(self.reader, ri.type_idx.0),
+        ) else {
+            return Ok(());
+        };
+        if w_def != r_def || wi.args.len() != ri.args.len() {
+            return Ok(());
+        }
+        let Some(TypeLocationOwned::InLine { ty: def, .. }) =
+            self.writer.types.get(wi.type_idx.0 as usize)
+        else {
+            return Ok(());
+        };
+        for (i, param) in marker_params(def) {
+            if let (Some(w_arg), Some(r_arg)) = (wi.args.get(i), ri.args.get(i)) {
+                self.check_marker(w_arg, r_arg)
+                    .map_err(|e| format!("{param} of {}: {e}", w_def.1))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A marker argument (of a type parameter no field uses, `U` and `P` of `ww_si::Fixed<U, P, T, B>`): the same by
+    /// name, or a bound that lets the reader read everything the writer writes.
+    fn check_marker(&mut self, w: &GenericArgOwned, r: &GenericArgOwned) -> Result<(), String> {
+        let (GenericArgOwned::Type(w), GenericArgOwned::Type(r)) = (w, r) else {
+            if w == r {
+                return Ok(());
+            }
+            return Err(format!("{w:?} vs {r:?}"));
+        };
+        if let (Some(w_bound), Some(r_bound)) = (bound(self.writer, w), bound(self.reader, r)) {
+            return self.check_bound_marker(&w_bound, &r_bound);
+        }
+        let (w_name, r_name) = (
+            marker_name(self.writer, w, true),
+            marker_name(self.reader, r, true),
+        );
+        if w_name == r_name {
+            return Ok(());
+        }
+        self.rule = Some(Rule::Meaning);
+        Err(format!(
+            "marker {} on the {}, {} on the {}: the same bytes, but the {} would read them as another quantity",
+            marker_name(self.writer, w, false),
+            self.writer_name,
+            marker_name(self.reader, r, false),
+            self.reader_name,
+            self.reader_name
+        ))
+    }
+
+    fn check_bound_marker(&mut self, w: &Bound, r: &Bound) -> Result<(), String> {
+        if r.contains(w) {
+            return Ok(());
+        }
+        self.rule = Some(Rule::Bound);
+        Err(format!(
+            "bound {w} on the {}, {r} on the {}: values the {} writes outside {r} are refused by the {}",
+            self.writer_name, self.reader_name, self.writer_name, self.reader_name
+        ))
+    }
+
+    /// A transparent wrapper (DER-18) is the bytes of its field: compared with a plain type, its field is (and a
+    /// reader's bound against all the values a plain writer can write); two wrappers must be of the same definition,
+    /// compared as any two instances then. `None` when neither side is a transparent wrapper.
+    fn check_wrappers(&mut self, w: &TypeOwned, r: &TypeOwned) -> Option<Result<(), String>> {
+        let (writer, reader) = (self.writer, self.reader);
+        let w_wrapper = match wrapper(writer, w) {
+            Ok(wrapper) => wrapper,
+            Err(e) => return Some(Err(e)),
+        };
+        let r_wrapper = match wrapper(reader, r) {
+            Ok(wrapper) => wrapper,
+            Err(e) => return Some(Err(e)),
+        };
+        let (written, read) = match (w_wrapper, r_wrapper) {
+            (None, None) => return None,
+            (Some(w_wrapper), Some(r_wrapper)) => {
+                if w_wrapper.def == r_wrapper.def {
+                    return None;
+                }
+                self.rule = Some(Rule::Meaning);
+                return Some(Err(format!(
+                    "{} on the {}, {} on the {}: wrappers of the same bytes with another meaning, the {} would                      read them as another quantity",
+                    w_wrapper.name,
+                    self.writer_name,
+                    r_wrapper.name,
+                    self.reader_name,
+                    self.reader_name
+                )));
+            }
+            (Some(w_wrapper), None) => {
+                // a plain reader takes any value
+                if let Err(e) = self.check(&w_wrapper.field, r) {
+                    return Some(Err(format!("{}: {e}", w_wrapper.name)));
+                }
+                (w_wrapper.name, type_name(reader, r))
+            }
+            (None, Some(r_wrapper)) => {
+                for bound in &r_wrapper.bounds {
+                    if let Err(e) = self.check_bound_marker(&Bound::Unbounded, bound) {
+                        return Some(Err(format!("{}: {e}", r_wrapper.name)));
+                    }
+                }
+                if let Err(e) = self.check(w, &r_wrapper.field) {
+                    return Some(Err(format!("{}: {e}", r_wrapper.name)));
+                }
+                (type_name(writer, w), r_wrapper.name)
+            }
+        };
+        let unwrapped = Unwrapped {
+            path: self.path.clone(),
+            writer_name: self.writer_name,
+            written,
+            read,
+        };
+        if !self.unwrapped.contains(&unwrapped) {
+            self.unwrapped.push(unwrapped);
+        }
+        Some(Ok(()))
+    }
+
+    fn check_enum(&mut self, w: &ItemEnumOwned, r: &ItemEnumOwned) -> Result<(), String> {
         check_generics(&w.generics, &r.generics)?;
         if w.repr != r.repr {
             return Err(format!("repr {:?} vs {:?}", w.repr, r.repr));
@@ -755,8 +959,11 @@ impl<'a> TypeCheck<'a> {
                 self.check_unknown_variant(variant, r)?;
                 continue;
             };
-            self.check_fields(&w.size, &variant.fields, &r.size, &r_variant.fields)
-                .map_err(|e| format!("variant {}: {e}", r_variant.ident))?;
+            let segment = format!("variant {}", r_variant.ident);
+            self.within(&segment, |c| {
+                c.check_fields(&w.size, &variant.fields, &r.size, &r_variant.fields)
+            })
+            .map_err(|e| format!("{segment}: {e}"))?;
         }
         Ok(())
     }
@@ -800,9 +1007,9 @@ impl<'a> TypeCheck<'a> {
     fn check_fields(
         &mut self,
         w_size: &ElementSize,
-        w: &'a FieldsOwned,
+        w: &FieldsOwned,
         r_size: &ElementSize,
-        r: &'a FieldsOwned,
+        r: &FieldsOwned,
     ) -> Result<(), String> {
         // Sized and SelfDescribing are laid out the same way: a parent stores a size only for Unsized, and
         // FinalStructure shares the parent's size slots
@@ -825,8 +1032,9 @@ impl<'a> TypeCheck<'a> {
             }
         }
         for (i, (w_field, r_field)) in w.iter().zip(r).enumerate() {
-            self.check(&w_field.ty, &r_field.ty)
-                .map_err(|e| format!("field {}: {e}", field_name(i, r_field)))?;
+            let segment = format!("field {}", field_name(i, r_field));
+            self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty))
+                .map_err(|e| format!("{segment}: {e}"))?;
         }
         if is_unsized {
             self.check_trailing(w.len(), r)?;
@@ -852,8 +1060,8 @@ impl<'a> TypeCheck<'a> {
     /// gain fields at the end.
     fn check_padding_reuse(
         &mut self,
-        w: &'a [FieldOwned],
-        r: &'a [FieldOwned],
+        w: &[FieldOwned],
+        r: &[FieldOwned],
         is_unsized: bool,
     ) -> Result<(), String> {
         let ((fewer_bundle, fewer), (more_bundle, more)) = if w.len() < r.len() {
@@ -890,8 +1098,9 @@ impl<'a> TypeCheck<'a> {
                 None => r.get(i),
             };
             if let Some(r_field) = r_field {
-                self.check(&w_field.ty, &r_field.ty)
-                    .map_err(|e| format!("field {}: {e}", field_name(i, r_field)))?;
+                let segment = format!("field {}", field_name(i, r_field));
+                self.within(&segment, |c| c.check(&w_field.ty, &r_field.ty))
+                    .map_err(|e| format!("{segment}: {e}"))?;
             }
         }
         Ok(())
@@ -918,6 +1127,285 @@ fn resolve<'a>(bundle: &'a ApiBundleOwned, ty: &'a TypeOwned) -> Result<Resolved
             )))
         }
         None => Err(format!("bad API bundle: no type with index {}", type_idx.0)),
+    }
+}
+
+/// A `transparent` struct (DER-18) as one side of a check.
+struct Wrapper<'b> {
+    /// Its name with the arguments, `Fixed<Second, Micro, u64, Unbounded>`.
+    name: String,
+    /// Crate and qualified name of its definition, the generic one for an instance.
+    def: Option<(String, String)>,
+    /// The type of its one field, the arguments filled in.
+    field: Cow<'b, TypeOwned>,
+    /// Bounds among its marker arguments (`B` of `ww_si::Fixed`).
+    bounds: Vec<Bound>,
+}
+
+/// `ty` as a transparent wrapper, `None` when it is not one (or its definition is not known here).
+fn wrapper<'b>(
+    bundle: &'b ApiBundleOwned,
+    ty: &'b TypeOwned,
+) -> Result<Option<Wrapper<'b>>, String> {
+    let field_of = |s: &ItemStructOwned| -> Result<TypeOwned, String> {
+        Ok(s.transparent_field().map_err(|e| e.to_string())?.ty.clone())
+    };
+    if let TypeOwned::Instance { type_idx, args } = ty {
+        let Some(TypeLocationOwned::InLine {
+            ty: def @ TypeOwned::Struct(def_struct),
+            ..
+        }) = bundle.types.get(type_idx.0 as usize)
+        else {
+            return Ok(None);
+        };
+        if !def_struct.transparent {
+            return Ok(None);
+        }
+        let TypeOwned::Struct(s) =
+            ww_self::generics::substitute(bundle, type_idx.0, args).map_err(|e| e.to_string())?
+        else {
+            return Ok(None);
+        };
+        return Ok(Some(Wrapper {
+            field: Cow::Owned(field_of(&s)?),
+            def: def_name(bundle, type_idx.0).map(|(c, n)| (c, n.into_owned())),
+            bounds: bounds_of(bundle, def, args),
+            name: s.ident,
+        }));
+    }
+    let ResolvedTy::Ty(TypeOwned::Struct(s)) = resolve(bundle, ty)? else {
+        return Ok(None);
+    };
+    if !s.transparent {
+        return Ok(None);
+    }
+    let field = Cow::Borrowed(&s.transparent_field().map_err(|e| e.to_string())?.ty);
+    let (def, bounds) = match &s.instance_of {
+        Some(instance_of) => {
+            let idx = instance_of.type_idx.0;
+            let bounds = match bundle.types.get(idx as usize) {
+                Some(TypeLocationOwned::InLine { ty: def, .. }) => {
+                    bounds_of(bundle, def, &instance_of.args)
+                }
+                _ => vec![],
+            };
+            (
+                def_name(bundle, idx).map(|(c, n)| (c, n.into_owned())),
+                bounds,
+            )
+        }
+        None => (
+            user_type_identity(bundle, ty_of_struct(bundle, ty))
+                .map(|(v, n)| (v.crate_id.clone(), n.into_owned())),
+            vec![],
+        ),
+    };
+    Ok(Some(Wrapper {
+        name: s.ident.clone(),
+        def,
+        field,
+        bounds,
+    }))
+}
+
+/// The struct or enum definition `ty` refers to (or `ty` itself).
+fn ty_of_struct<'b>(bundle: &'b ApiBundleOwned, ty: &'b TypeOwned) -> &'b TypeOwned {
+    match resolve(bundle, ty) {
+        Ok(ResolvedTy::Ty(ty)) => ty,
+        _ => ty,
+    }
+}
+
+/// Crate and qualified name of the type at `type_idx`, in-line or skipped.
+fn def_name(bundle: &ApiBundleOwned, type_idx: u32) -> Option<(String, Cow<'_, str>)> {
+    match bundle.types.get(type_idx as usize)? {
+        TypeLocationOwned::InLine { ty, .. } => {
+            user_type_identity(bundle, ty).map(|(version, name)| (version.crate_id.clone(), name))
+        }
+        TypeLocationOwned::SkippedFullVersion {
+            crate_idx,
+            type_name,
+            ..
+        } => Some((
+            bundle.crate_version(crate_idx.0).ok()?.crate_id.clone(),
+            Cow::Borrowed(type_name.as_str()),
+        )),
+    }
+}
+
+/// Type parameters of a generic struct or enum that no field uses: markers, which only give the bytes a meaning (`U`
+/// and `P` of `ww_si::Fixed<U, P, T, B>`, `PhantomData` in Rust, not in the model): their positions and names.
+fn marker_params(def: &TypeOwned) -> Vec<(usize, &str)> {
+    let (generics, all_fields): (&[GenericParamOwned], Vec<&FieldsOwned>) = match def {
+        TypeOwned::Struct(s) => (&s.generics, vec![&s.fields]),
+        TypeOwned::Enum(e) => (&e.generics, e.variants.iter().map(|v| &v.fields).collect()),
+        _ => return vec![],
+    };
+    (0..generics.len())
+        .filter(|&i| matches!(generics[i].kind, GenericParamKindOwned::Type))
+        .filter(|&i| {
+            !all_fields
+                .iter()
+                .any(|f| fields(f).iter().any(|f| uses_param(&f.ty, i)))
+        })
+        .map(|i| (i, generics[i].ident.as_str()))
+        .collect()
+}
+
+fn uses_param(ty: &TypeOwned, idx: usize) -> bool {
+    use TypeOwned::*;
+    match ty {
+        Param(p) => p.0 as usize == idx,
+        Vec(ty) | Box(ty) | Series(ty) | Array { ty, .. } | MaxLen { ty, .. } => {
+            uses_param(ty, idx)
+        }
+        Option { some_ty } => uses_param(some_ty, idx),
+        Result { ok_ty, err_ty } => uses_param(ok_ty, idx) || uses_param(err_ty, idx),
+        Tuple(types) => types.iter().any(|ty| uses_param(ty, idx)),
+        Instance { args, .. } => args
+            .iter()
+            .any(|arg| matches!(arg, GenericArgOwned::Type(ty) if uses_param(ty, idx))),
+        Struct(s) => fields(&s.fields).iter().any(|f| uses_param(&f.ty, idx)),
+        Enum(e) => e
+            .variants
+            .iter()
+            .any(|v| fields(&v.fields).iter().any(|f| uses_param(&f.ty, idx))),
+        Bool | NumericAny(_) | OutOfLine { .. } | Flag | String | Range(_) | RangeInclusive(_) => {
+            false
+        }
+    }
+}
+
+/// The bounds among the marker arguments of an instance of `def`.
+fn bounds_of(bundle: &ApiBundleOwned, def: &TypeOwned, args: &[GenericArgOwned]) -> Vec<Bound> {
+    marker_params(def)
+        .into_iter()
+        .filter_map(|(i, _)| match args.get(i)? {
+            GenericArgOwned::Type(ty) => bound(bundle, ty),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Name of a marker argument, with its crate for comparing.
+fn marker_name(bundle: &ApiBundleOwned, ty: &TypeOwned, with_crate: bool) -> String {
+    ty.human_name_bounded(with_crate, bundle, &[], MAX_NAME_LEN)
+        .unwrap_or_else(|_| describe(ty))
+}
+
+fn type_name(bundle: &ApiBundleOwned, ty: &TypeOwned) -> String {
+    marker_name(bundle, ty, false)
+}
+
+/// Longest name of a type shown in a message.
+const MAX_NAME_LEN: usize = 256;
+
+/// A bound marker of `ww_si` (`B` of `Fixed<U, P, T, B>`), recognised by its name and arguments in any crate, as
+/// dynamic clients do: `Unbounded`, `Range<MIN, MAX>`, `RangeU64<MIN, MAX>` and `RangeDec<MIN, MAX, EXP>`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Bound {
+    Unbounded,
+    /// Inclusive.
+    Range {
+        min: Dec,
+        max: Dec,
+    },
+}
+
+/// `mantissa · 10^exp`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Dec(i128, i8);
+
+impl Dec {
+    fn cmp(&self, other: &Dec) -> Ordering {
+        let exp = self.1.min(other.1);
+        let scaled = |d: &Dec| {
+            10i128
+                .checked_pow((d.1 - exp) as u32)
+                .and_then(|scale| d.0.checked_mul(scale))
+        };
+        match (scaled(self), scaled(other)) {
+            (Some(a), Some(b)) => a.cmp(&b),
+            // far apart: compare as floats
+            _ => (self.0 as f64 * 10f64.powi(self.1 as i32))
+                .total_cmp(&(other.0 as f64 * 10f64.powi(other.1 as i32))),
+        }
+    }
+}
+
+impl fmt::Display for Dec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Dec(m, exp) = *self;
+        if exp >= 0 {
+            return write!(f, "{m}{}", "0".repeat(exp as usize));
+        }
+        let digits = format!("{:0>width$}", m.unsigned_abs(), width = -exp as usize + 1);
+        let (int, frac) = digits.split_at(digits.len() - (-exp) as usize);
+        let sign = if m < 0 { "-" } else { "" };
+        write!(f, "{sign}{int}.{frac}")
+    }
+}
+
+impl Bound {
+    /// Whether every value within `other` is within `self`.
+    fn contains(&self, other: &Bound) -> bool {
+        match (self, other) {
+            (Bound::Unbounded, _) => true,
+            (Bound::Range { .. }, Bound::Unbounded) => false,
+            (
+                Bound::Range { min, max },
+                Bound::Range {
+                    min: o_min,
+                    max: o_max,
+                },
+            ) => min.cmp(o_min) != Ordering::Greater && o_max.cmp(max) != Ordering::Greater,
+        }
+    }
+}
+
+impl fmt::Display for Bound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Bound::Unbounded => f.write_str("Unbounded"),
+            Bound::Range { min, max } => write!(f, "{min}..={max}"),
+        }
+    }
+}
+
+fn bound(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Bound> {
+    let (name, args): (Cow<str>, &[GenericArgOwned]) = match ty {
+        TypeOwned::Instance { type_idx, args } => (def_name(bundle, type_idx.0)?.1, args),
+        _ => match resolve(bundle, ty).ok()? {
+            ResolvedTy::Ty(TypeOwned::Struct(s)) => match &s.instance_of {
+                Some(instance_of) => (
+                    def_name(bundle, instance_of.type_idx.0)?.1,
+                    &instance_of.args,
+                ),
+                None if s.generics.is_empty() => (Cow::Borrowed(s.ident.as_str()), &[]),
+                None => return None,
+            },
+            ResolvedTy::Skipped((_, name)) => (name, &[]),
+            ResolvedTy::Ty(_) => return None,
+        },
+    };
+    let num = |arg: &GenericArgOwned| match arg {
+        GenericArgOwned::Const(ValueOwned::Numeric(n)) => n.to_i128(),
+        _ => None,
+    };
+    match (name.rsplit("::").next()?, args) {
+        ("Unbounded", []) => Some(Bound::Unbounded),
+        ("Range" | "RangeU64", [min, max]) => Some(Bound::Range {
+            min: Dec(num(min)?, 0),
+            max: Dec(num(max)?, 0),
+        }),
+        ("RangeDec", [min, max, exp]) => {
+            let exp = i8::try_from(num(exp)?).ok()?;
+            Some(Bound::Range {
+                min: Dec(num(min)?, exp),
+                max: Dec(num(max)?, exp),
+            })
+        }
+        _ => None,
     }
 }
 

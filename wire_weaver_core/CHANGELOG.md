@@ -4,10 +4,6 @@
 
 - `GenServerConfig`, `GenServerConfigRaw`, `GenClientConfig` and `GenClientConfigRaw` have a `crate_paths: CratePaths` field (API-60): code built with a struct literal adds `crate_paths: Default::default()` (every crate named by its own name, as before) or the paths from `load_dep_with_paths`.
 
-### 🚀 Features
-
-- The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
-
 ### 🐛 Fixes
 
 - Generated client methods and stream functions with arguments take `&self` instead of `&mut self` (CLT-48): nothing in them needs it, and it kept two calls with arguments on the same client out of one `MultiCall` tuple (`(client.add(1, 2), client.add(3, 4)).multi_call()` didn't compile). Callers holding the client as `let mut` only for these calls get an `unused_mut` warning.
@@ -15,6 +11,8 @@
 
 ### 🚀 Features
 
+- The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
+- The crate walker reads `#[cfg_attr(pred, ..)]` as rustc does, with the features Cargo builds each walked crate with (API-60): what its dependents ask for in `[dependencies]` entries, `[workspace.dependencies]` plus the member's own, and `dep/feature` / `dep?/feature` in their `[features]`, its default features unless `default-features = false`, and what those enable, unified across dependents (a crate reached first with fewer features is read again with the union). So a crate with `shrink_wrap` optional (`#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]`, `exact_units`) is walked with the feature its API crate turns on; `ww api save` (`snapshot::load_crate`) reads a crate with all features. On fields and variants a `cfg_attr` of the derive's own attributes (`default`, `wire`, `flag`, ..) is read as holding, as the derive does. `#[cfg(..)]` on items stays unevaluated. Tests in `transform::cfg` and `transform::crate_walker`, `tests/standalone`.
 - Generated code names the types and traits of a crate the generating crate doesn't depend on through a crate that re-exports it (API-60): `load_dep_with_paths` returns, next to the bundle, `CratePaths` (found from the generating crate's dependencies and their root `pub use dep;` / `pub use dep as name;` / `pub extern crate dep;`, transitively), and codegen names e.g. `exact_units::units::Second` as `ww_si::exact_units::units::Second` in a crate that depends on `ww_si` only. The API model keeps naming the defining crate. A crate that isn't a ww API crate (no `wire_weaver`, no `#[ww_trait]`, `shrink_wrap` as a plain dependency) is walked and snapshotted like any other (`tests/standalone_units`).
 - The crate walker follows `use` items for the leading segments of a path (API-60): `pub use units_core as units;` then `units::scale::Milli`, or `use dep::units;` then `units::Second`; before, such a path was looked up as a dependency named `units` and failed.
 

@@ -312,6 +312,34 @@ An API can use types of any crate, also one that isn't built on WireWeaver: no `
 `#[ww_trait]`, only data types with `#[derive_shrink_wrap]` and `shrink_wrap` as its dependency (API-60). The crate
 walker reads its source like an API crate's, and `ww api save` snapshots its types and unit markers.
 
+Such a crate usually keeps `shrink_wrap` optional, so that users who don't need the wire format don't build it. The
+derive and its field attributes then sit behind a feature:
+
+```rust
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(borrowed, owned(feature = "std")))]
+pub struct Reading {
+    pub value: Milli<units::Volt>,
+    #[cfg_attr(feature = "shrink_wrap", default = 1)]
+    pub samples: u8,
+}
+```
+
+The API crate turns the feature on, in its dependency entry (`exact_units = { version = "..", features =
+["shrink_wrap"] }`) or through its own `[features]` (`wire = ["exact_units/shrink_wrap"]`). The walker reads the
+crate's `#[cfg_attr(..)]`s as rustc does, with the features Cargo builds it with: those its dependents ask for (in
+`[dependencies]`, `[workspace.dependencies]` plus the member's own, and `dep/feature`), its default features
+unless `default-features = false`, and what those enable in its `[features]` table. A crate reached from several
+dependents is read once with the union of what they ask for, whichever the walker reaches first. `ww api save` reads
+a crate with all its features, so its snapshot has every gated type.
+
+On a field or an enum variant, a `cfg_attr` holding attributes the derive reads (`default`, `wire`, `flag`, ..) is
+read as if its predicate holds, by the derive and the walker alike, and the type fails to compile where it doesn't:
+the bytes never depend on a feature (see the
+[derive reference](serdes/derive_reference.md#behind-cfg_attr-and-attributes-the-derive-doesnt-read)). Use the
+same feature as the type's derive. `#[cfg(..)]` on items isn't evaluated by the walker: a type is found as if its
+`cfg` held.
+
 The API model names a type by the crate that defines it, so generated code does too. When the crate with the
 `ww_codegen!` call doesn't depend on that crate itself, generated code names it through a crate it does depend on
 that re-exports it at the root:

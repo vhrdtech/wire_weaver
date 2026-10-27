@@ -23,6 +23,8 @@ ot = "ot"
 ake = "ake"
 # the ratatui crate (terminal UI)
 ratatui = "ratatui"
+# therm, the unit symbol (customary units catalogue)
+thm = "thm"
 
 [default]
 # golden bytes of the conformance corpus (tests/conformance/corpus.json) are hex

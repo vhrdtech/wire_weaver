@@ -1,5 +1,6 @@
 //! `ww_si` quantities through the dynamic client (CLT-31): values read from a device over the in-process transport,
-//! recognized from introspection data alone and shown with their units, the same text as the typed `Display`.
+//! recognized from introspection data alone and shown with their units, the same text as the typed `Display`. `Fixed`
+//! values (STD-55) written with and without their default bounds, carried with all four arguments in the model.
 
 #[cfg(test)]
 mod tests {
@@ -8,15 +9,21 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::quantity::{DynQuantity, DynUnit, is_quantity, unit_of};
-    use wire_weaver_client::ww_self::{ApiItemKindOwned, TypeOwned, ValueOwned};
+    use wire_weaver_client::ww_self::{ApiItemKindOwned, FieldsValueOwned, TypeOwned, ValueOwned};
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
     use ww_si::units::{self, AngularVelocity, Per, Torque};
     use ww_si::ww_numeric::NumericValue;
+    use ww_si::prefix::{Micro, Milli, One};
     use ww_si::{
-        Ampere, AnyQuantity, Dim, Prefix, Quantity, SIExpr, Scale, Second, Timed, Unit, Volt,
+        Ampere, AnyQuantity, Dim, Fixed, Micros, Prefix, Quantity, Range, SIExpr, Scale, Second,
+        Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
+    /// `B` left out, as in the API's `timeout`
+    type Timeout = Fixed<units::Second, Milli, u16>;
+    type Window = Fixed<units::Second, Milli, u16, Range<1, 5000>>;
+    type Size = Fixed<units::Byte, One, u32>;
 
     struct Values {
         voltage: Volt,
@@ -24,6 +31,8 @@ mod tests {
         speed: Quantity<Rpm>,
         /// The `AnyQuantity` property, serialized.
         sensor: Vec<u8>,
+        timeout: Timeout,
+        window: Window,
     }
 
     /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
@@ -46,6 +55,8 @@ mod tests {
             damping: Damping::from_f32(1.2e-4),
             speed: Quantity::<Rpm>::base(1500u16),
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
+            timeout: Fixed::new(250),
+            window: Window::bounded(100),
         }
     }
 
@@ -54,6 +65,24 @@ mod tests {
             .map(|k| Timed {
                 t: Second::from_parts(Prefix::Micro, NumericValue::U32(1_000_000 + k * 40)),
                 value: Ampere::from_parts(Prefix::Milli, NumericValue::I32(152 - k as i32)),
+            })
+            .collect()
+    }
+
+    fn sizes() -> Vec<Timed<Size>> {
+        (0..4u32)
+            .map(|k| Timed {
+                t: Second::from_parts(Prefix::Micro, NumericValue::U32(100 + k)),
+                value: Fixed::new(512 << k),
+            })
+            .collect()
+    }
+
+    fn ticks() -> Vec<Timed<Micros<u32>>> {
+        (0..4u32)
+            .map(|k| Timed {
+                t: Second::from_parts(Prefix::Micro, NumericValue::U32(k)),
+                value: Fixed::new(1000 * k),
             })
             .collect()
     }
@@ -67,6 +96,8 @@ mod tests {
         pub struct Server {
             pub values: Arc<Mutex<Values>>,
             pub history: Vec<Timed<Ampere>>,
+            pub sizes: Vec<Timed<Size>>,
+            pub ticks: Vec<Timed<Micros<u32>>>,
             /// Bytes of the sensor value `get_sensor` returns.
             pub sensor: Vec<u8>,
         }
@@ -150,6 +181,71 @@ mod tests {
             }
         }
 
+        impl Server {
+            fn set_timeout(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Timeout,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().timeout = value;
+                SetResult::Set
+            }
+
+            fn get_timeout(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Timeout, ()> {
+                GetResult::Value(self.values.lock().unwrap().timeout)
+            }
+
+            // `B` written out: the same type as `Timeout`
+            fn set_timeout_full(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Fixed<units::Second, Milli, u16, Unbounded>,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().timeout = value;
+                SetResult::Set
+            }
+
+            fn get_timeout_full(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Fixed<units::Second, Milli, u16, Unbounded>, ()> {
+                GetResult::Value(self.values.lock().unwrap().timeout)
+            }
+
+            fn set_window(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Window,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().window = value;
+                SetResult::Set
+            }
+
+            fn get_window(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Window, ()> {
+                GetResult::Value(self.values.lock().unwrap().window)
+            }
+
+            fn sizes(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Series<'_, Timed<Size>>> {
+                Ready(Series::new(&self.sizes))
+            }
+
+            fn ticks(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Series<'_, Timed<Micros<u32>>>> {
+                Ready(Series::new(&self.ticks))
+            }
+        }
+
         pub mod api_impl {
             wire_weaver::ww_codegen!(
                 quantities_api :: Quantities for super::Server,
@@ -180,6 +276,8 @@ mod tests {
         let server = server::Server {
             values: values.clone(),
             history: history(),
+            sizes: sizes(),
+            ticks: ticks(),
             sensor: vec![],
         };
         let device = tests_common::start_device(
@@ -458,5 +556,113 @@ mod tests {
             speed.to_value(&sensor_ty, bundle).unwrap_err(),
             "a quantity in Rpm has no dimension and scale to send in an AnyQuantity"
         );
+    }
+
+    /// The `Fixed` of a property or of the `Timed` items of a method's `Series`, with its name as `ww` shows it.
+    fn fixed_name(root: &DynResource, name: &str) -> String {
+        let item = root.child(name).unwrap();
+        let ty = match &item.item().unwrap().kind {
+            ApiItemKindOwned::Property { ty, .. } => ty.clone(),
+            ApiItemKindOwned::Method {
+                return_ty: Some(TypeOwned::Series(item_ty)),
+                ..
+            } => *item_ty.clone(),
+            kind => panic!("{name}: {kind:?}"),
+        };
+        ty.human_name(false, root.bundle()).unwrap()
+    }
+
+    /// D13: `B = Unbounded` is Rust typing sugar; the walker fills it in, so the model has all four arguments
+    /// whether the source wrote three or four, also inside `Timed`, a `Series` and an alias.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_default_bounds_filled_in() {
+        let (device, _values) = start("quantities/fixed_model");
+        let (_client, root) = connect(&device).await;
+        let ty = |name: &str| {
+            let property = root.child(name).unwrap();
+            let ApiItemKindOwned::Property { ty, .. } = &property.item().unwrap().kind else {
+                panic!("property");
+            };
+            ty.clone()
+        };
+        assert_eq!(ty("timeout"), ty("timeout_full"));
+        let timeout = ty("timeout");
+        let Ok(TypeOwned::Struct(fixed)) = timeout.get_in_line(root.bundle()) else {
+            panic!("Fixed");
+        };
+        let args = &fixed.instance_of.as_ref().expect("an instance of Fixed").args;
+        assert_eq!(args.len(), 4);
+        assert_eq!(
+            fixed_name(&root, "timeout"),
+            "Fixed<Second, Milli, u16, Unbounded>"
+        );
+        assert_eq!(
+            fixed_name(&root, "window"),
+            "Fixed<Second, Milli, u16, Range<1, 5000>>"
+        );
+        assert_eq!(
+            fixed_name(&root, "sizes"),
+            "Timed<Fixed<Byte, One, u32, Unbounded>>"
+        );
+        assert_eq!(
+            fixed_name(&root, "ticks"),
+            "Timed<Fixed<Second, Micro, u32, Unbounded>>"
+        );
+    }
+
+    /// On the wire a `Fixed` is its number: the dynamic client reads and writes it as one.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_values_are_numbers() {
+        let (device, values) = start("quantities/fixed_values");
+        let (client, root) = connect(&device).await;
+        // the generic decoder shows a transparent struct as the struct of its one field (CLT-54 shows a quantity)
+        let fixed = |v: ValueOwned| ValueOwned::Struct {
+            fields: FieldsValueOwned::Named(vec![("value".into(), v)]),
+        };
+        let (value, _) = read(&client, &root, "timeout").await;
+        assert_eq!(value, fixed(ValueOwned::Numeric(NumericValue::U16(250))));
+        let (value, _) = read(&client, &root, "window").await;
+        assert_eq!(value, fixed(ValueOwned::Numeric(NumericValue::U16(100))));
+        root.child("timeout_full")
+            .unwrap()
+            .write(client.cmd(), &fixed(ValueOwned::Numeric(NumericValue::U16(1500))))
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().timeout, Fixed::new(1500));
+        assert_eq!(values.lock().unwrap().timeout.to_string(), "1500 ms");
+
+        for (name, expected) in [
+            ("sizes", sizes().iter().map(|s| s.value.get()).collect::<Vec<_>>()),
+            ("ticks", ticks().iter().map(|s| s.value.get()).collect()),
+        ] {
+            let Some(ValueOwned::Vec(items)) =
+                root.child(name).unwrap().call(client.cmd(), &[]).await.unwrap()
+            else {
+                panic!("{name}: items");
+            };
+            let got: Vec<u32> = items
+                .iter()
+                .map(|item| {
+                    let ValueOwned::Struct {
+                        fields: FieldsValueOwned::Named(fields),
+                    } = item
+                    else {
+                        panic!("Timed");
+                    };
+                    let ValueOwned::Struct {
+                        fields: FieldsValueOwned::Named(value),
+                    } = &fields[1].1
+                    else {
+                        panic!("{name}: {:?}", fields[1].1);
+                    };
+                    let ValueOwned::Numeric(NumericValue::U32(v)) = value[0].1 else {
+                        panic!("{name}: {:?}", value[0].1);
+                    };
+                    v
+                })
+                .collect();
+            assert_eq!(got, expected, "{name}");
+        }
+        let _: Micros<u32> = Fixed::<units::Second, Micro, u32>::new(0);
     }
 }

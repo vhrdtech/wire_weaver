@@ -1036,6 +1036,58 @@
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "counted bases out of order (Sample before Frame): Dim's validate refuses a non-canonical dimension (STD-60)"
+    },
+    {
+      "name": "stdlib.si.fixed.pow10",
+      "type": "fixed_pow10",
+      "value": {"value": 3735928559},
+      "bytes_from": "int.u32.le",
+      "bytes": "efbeadde",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Second, Pow10<-4>, u32> is its u32 on the wire, the scale is only in the type (STD-55)"
+    },
+    {
+      "name": "stdlib.si.fixed.duty16",
+      "type": "duty16",
+      "value": {"value": 48879},
+      "bytes_from": "int.u16.le",
+      "bytes": "efbe",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Duty16 = Fixed<Ratio, Rational<1, 65535>, u16>: the bytes of its u16 (STD-55)"
+    },
+    {
+      "name": "stdlib.si.fixed.bounded",
+      "type": "fixed_bounded",
+      "value": {"value": 5000},
+      "bytes": "8813",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Second, Milli, u16, Range<1, 5000>> at its upper bound: a u16 (STD-55)"
+    },
+    {
+      "name": "stdlib.si.fixed.bounded.rejected",
+      "type": "fixed_bounded",
+      "value": null,
+      "bytes": "0000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "0 ms is below Range<1, 5000>: refused on decode (STD-55)"
+    },
+    {
+      "name": "stdlib.si.exact_scale.degree",
+      "type": "exact_scale",
+      "value": {"num": 1, "den": 9, "pow10": -1, "pow2": -1, "pi": 1},
+      "bytes": "1910ffff01",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "π/180 (a degree in rad), canonical: 180 = 9 · 10 · 2, num and den free of 2 and 5"
+    },
+    {
+      "name": "stdlib.si.exact_scale.rejected",
+      "type": "exact_scale",
+      "value": null,
+      "bytes": "21000000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "num 2, den 1 isn't canonical (the 2 belongs in pow2): ExactScale's validate refuses it"
     }
   ]
 }

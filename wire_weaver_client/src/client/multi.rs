@@ -66,7 +66,8 @@ type PathShape = (Vec<UNib32>, Vec<UNib32>, Option<UNib32>);
 
 /// Finds the one path element where `paths` (same length, at least 2 entries) diverge: every one up to there must
 /// agree (the common prefix, sent as the request's own path), and at most one more after it must also agree for
-/// all of them (`in_each_array_id`). Returns `(prefix, varying values in `paths` order, trailing id)`.
+/// all of them (`in_each_array_id`). Identical paths vary at their last element, which repeats (`List([id, id])`).
+/// Returns `(prefix, varying values in `paths` order, trailing id)`.
 pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
     if paths.len() < 2 {
         return Err(Error::MultiReq("need at least 2 resources".into()));
@@ -93,11 +94,8 @@ pub(crate) fn split_common(paths: &[Vec<UNib32>]) -> Result<PathShape, Error> {
             }
         }
     }
-    let Some(k) = diverges_at else {
-        return Err(Error::MultiReq(
-            "resources are identical, nothing to multi-request".into(),
-        ));
-    };
+    // the same resource more than once (a tuple calling one method twice, CLT-49): it repeats at its own last id
+    let k = diverges_at.unwrap_or(len - 1);
     let prefix = paths[0][..k].to_vec();
     let varying: Vec<UNib32> = paths.iter().map(|p| p[k]).collect();
     let trailing = match len - k - 1 {
@@ -215,6 +213,12 @@ fn materialize<L>(
             first = Some(item);
         }
         paths.push(path);
+    }
+    if paths.windows(2).all(|w| w[0] == w[1]) {
+        // `multi_idx` is sent in place of the varying element, which must be the array index
+        return Err(Error::MultiReq(
+            "resources are identical, nothing to multi-request".into(),
+        ));
     }
     let (prefix, _varying, trailing) = split_common(&paths)?;
     let first = first.expect("split_common already checked paths is non-empty");

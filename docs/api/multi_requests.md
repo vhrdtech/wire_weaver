@@ -124,6 +124,11 @@ Each item comes back as `Result<T, ErrorOwned>` in the same order the tuple was 
 `Different` - whether every index gets the same serialized argument/value or its own - is chosen automatically by
 comparing the serialized bytes of each item.
 
+The same resource can be in a tuple more than once (CLT-49), e.g. two writes over the same I2C bus,
+`(i2c.i2c_write(a, x, None), i2c.i2c_write(a, y, None)).multi_call()`: its id repeats in the request's index list
+(`List([id, id])`), the device handles the indices one after another in that order, and the answers come back in
+tuple order.
+
 ### The same resource across a whole array
 
 `read_array`/`call_array`/`write_array` (+ `_blocking`, `wire_weaver_client::multi`) take a `MultiIndexOwned`

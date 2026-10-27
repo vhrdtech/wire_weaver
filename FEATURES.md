@@ -1259,6 +1259,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   27 Oct 2026): a write + read burst to a USB-C PD controller in one USB round trip. Host-tested (`tests/methods`:
   2- and 3-tuples, `call_array` async and blocking, Ok, device `Err`, `Unimplemented` and `BadIndex` mixed),
   `docs/api/multi_requests.md#methods-returning-result`.
+- ✅ **CLT-49 Same method twice in a multi call** · `v0.5.x` — a `MultiCall`/`MultiRead`/`MultiWrite` tuple
+  naming the same resource more than once (two `ww_i2c::I2c::i2c_write` in one burst) failed on the client with
+  "resources are identical", though the server already handles `MultiIndex::List([id, id])`. The client now sends
+  the repeated id, answers come back in tuple order. `call_array` and friends still refuse an accessor that builds
+  the same path for every index. Host-tested (`tests/methods` `multi_call_same_method_twice`: 3-tuple at the root,
+  2-tuple in an array item, `Same` and `Different` args, Ok and device `Err` mixed, infallible too),
+  `docs/api/multi_requests.md#several-resources-at-the-same-level`.
 
 ## Transports and protocols (`TR`)
 

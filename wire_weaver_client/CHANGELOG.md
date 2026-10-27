@@ -30,6 +30,7 @@
 
 ### 🐛 Fixes
 
+- A `MultiCall`/`MultiRead`/`MultiWrite` tuple may name the same resource more than once, e.g. two `i2c_write` calls (CLT-49): it failed with `Error::MultiReq("resources are identical ..")`, now the id repeats in the request's index list and the answers come in tuple order. No device change needed.
 - RTT: the RAM scan attaches to every control block it finds and takes the one with `ww_up` / `ww_down`, and retries within its window while the one found has none: probe-rs takes the first `SEGGER RTT` of a RAM region, which after a flash can be the previous firmware's, left in RAM (Nucleo G0B1RE, 23 Oct 2026: `no channel named 'ww_up'` with garbage names). `hub::take` waits for the hub to open the device up to 15 s instead of the 1 s default request timeout: over RTT the open (RAM scan, link setup) takes longer, and `ww hub take rtt:..` said `Client(Timeout)` although the hub had taken it. A probe another program claimed (`ProbeCouldNotBeCreated(Usb(..))`, e.g. `probe-rs attach` on an ST-LINK) now names its holder from `/proc` and keeps the USB cause instead of only `The debug probe could not be created`.
 
 - Dropping the last `Commander` waits until the event loop closed the transport (a few ms), 50 ms at most, instead of always blocking 50 ms; with the snapshots parsed one at a time (`wire_weaver_snapshots`), a short program through the ww hub (`ww hub status`) connects, calls and disconnects in about 15 ms instead of 150-300 ms. Found by a `ww hub` test hitting its 3 s limit on a loaded PC.

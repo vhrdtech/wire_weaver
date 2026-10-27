@@ -178,6 +178,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-7 | Cached API descriptions | A device's description is downloaded once, then found by its hash. | std_library/ww_self.md
 - CLT-15 | Multi requests | Read many properties or call a method on many array elements in one request. | api/multi_requests.md
 - CLT-48 | Fallible methods in multi requests | Batch methods returning `Result` (an I2C write and read) into one round trip, each answering what its own call would. | api/multi_requests.md#methods-returning-result
+- CLT-49 | Same method twice in a multi call | Two writes over the same I2C bus (or any repeated call) go into one batch, answers in order. | api/multi_requests.md#several-resources-at-the-same-level
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
 - CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
 - CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients

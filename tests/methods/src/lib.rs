@@ -983,6 +983,49 @@ mod tests {
         assert!(matches!(single, Err(CallError::Device(MethodError::Odd))));
     }
 
+    /// The same method more than once in a `MultiCall` tuple (CLT-49): the method's id repeats in the request's
+    /// index list, the answers come back in tuple order, `Ok` and `Err` mixed; at the root and in an array item,
+    /// with different and with equal arguments, and infallible too.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn multi_call_same_method_twice() {
+        let (device, _data) = start("methods/multi_call_same_method_twice");
+        let client = connect(&device).await;
+        let (a, b, c) = (client.fallible(4), client.fallible(5), client.fallible(8))
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!(a.unwrap(), 2);
+        assert!(
+            matches!(b, Err(CallError::Device(MethodError::Odd))),
+            "{b:?}"
+        );
+        assert_eq!(c.unwrap(), 4);
+
+        // equal arguments (`MultiArgs::Same`)
+        let (a, b) = (client.fallible(6), client.fallible(6))
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!((a.unwrap(), b.unwrap()), (3, 3));
+
+        // in an array item: the path diverges only at the method's own id
+        let (a, b) = (client.unit(1).halve(3), client.unit(1).halve(10))
+            .multi_call()
+            .await
+            .unwrap();
+        assert!(
+            matches!(a, Err(CallError::Device(MethodError::Odd))),
+            "{a:?}"
+        );
+        assert_eq!(b.unwrap(), 5);
+
+        let (a, b) = (client.plain_return(), client.plain_return())
+            .multi_call()
+            .await
+            .unwrap();
+        assert_eq!((a.unwrap(), b.unwrap()), (0xAA, 0xAA));
+    }
+
     /// A fallible method across an array with `call_array` (CLT-48): `Ok`, the device's `Err` and an index past the
     /// array's length (`BadIndex`, a [CallError::Client]) mixed.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

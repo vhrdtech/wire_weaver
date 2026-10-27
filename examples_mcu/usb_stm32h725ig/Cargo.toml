@@ -161,3 +161,10 @@ path = "src/bin/bit_io_cycles.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "stm32h725ig-unit-budget-cycles"
+path = "src/bin/unit_budget_cycles.rs"
+test = false
+doctest = false
+bench = false

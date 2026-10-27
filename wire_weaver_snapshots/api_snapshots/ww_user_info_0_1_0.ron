@@ -25,7 +25,7 @@
         (ident: Some("persistent"), default: None, since: None, ty: Bool, docs: [
             "A written value survives a power cycle.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,

@@ -78,7 +78,7 @@
         (ident: Some("dirty"), default: None, since: None, ty: Bool, docs: [
             "Uncommitted changes were present at build time.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
         29,
         39,
@@ -118,7 +118,7 @@
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Cargo profile the firmware was built with.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cause of a reset.",
     ], ident: "ResetCause", generics: [], variants: [
@@ -203,7 +203,7 @@
         (ident: Some("exc_return"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "`EXC_RETURN` value of the exception entry.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Trap registers of a RISC-V core.",
     ], ident: "RiscVFault", generics: [], fields: Named([
@@ -222,7 +222,7 @@
         (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Stack pointer.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Registers saved by a fault handler, one variant per architecture.",
         "",
@@ -270,7 +270,7 @@
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
             "old it is. 0 when there is no crash data.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Which firmware runs: what `--version` prints, and how to find its ELF.",

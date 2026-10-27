@@ -12,5 +12,5 @@ default = ["std"]
 std = ["wire_weaver/std", "standalone_units/std"]
 
 [dependencies]
-standalone_units.workspace = true
+standalone_units = { workspace = true, features = ["shrink_wrap"] }
 wire_weaver.workspace = true

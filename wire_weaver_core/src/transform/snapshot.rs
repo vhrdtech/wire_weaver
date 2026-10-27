@@ -36,31 +36,34 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
     scratch.dedup_traits = true;
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
-    let entry = CrateContext::load_all_features(crate_path, &mut scratch)?;
-    let mut items = vec![];
-    for item in &entry.lib_rs_ast.items {
-        match item {
-            Item::Trait(item_trait)
-                if has_attr(&item_trait.attrs, &["ww_trait", "ww_api_root"]) =>
-            {
-                let trait_idx = convert_trait(item_trait, &entry, &mut scratch)?;
-                items.push(ApiItemOwned {
-                    id: UNib32(items.len() as u32),
-                    kind: ApiItemKindOwned::Trait {
-                        trait_idx,
-                        omitted: None,
-                    },
-                    multiplicity: Multiplicity::Flat,
-                    since: None,
-                    ident: item_trait.ident.to_string(),
-                    docs: vec![],
-                    optional: None,
-                    meta: None,
-                });
+    let (entry, items) = scratch.walk(|scratch| {
+        let entry = CrateContext::load_all_features(crate_path, scratch)?;
+        let mut items = vec![];
+        for item in &entry.lib_rs_ast.items {
+            match item {
+                Item::Trait(item_trait)
+                    if has_attr(&item_trait.attrs, &["ww_trait", "ww_api_root"]) =>
+                {
+                    let trait_idx = convert_trait(item_trait, &entry, scratch)?;
+                    items.push(ApiItemOwned {
+                        id: UNib32(items.len() as u32),
+                        kind: ApiItemKindOwned::Trait {
+                            trait_idx,
+                            omitted: None,
+                        },
+                        multiplicity: Multiplicity::Flat,
+                        since: None,
+                        ident: item_trait.ident.to_string(),
+                        docs: vec![],
+                        optional: None,
+                        meta: None,
+                    });
+                }
+                _ => convert_snapshot_item(item, &entry, scratch)?,
             }
-            _ => convert_snapshot_item(item, &entry, &mut scratch)?,
         }
-    }
+        Ok((entry, items))
+    })?;
 
     let scratch = scratch.root_bundle;
     let mut bundle = ApiBundleOwned {

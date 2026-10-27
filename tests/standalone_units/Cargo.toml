@@ -7,8 +7,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# the wire format is optional, as in exact_units: types derive it behind `cfg_attr(feature = "shrink_wrap", ..)`
 [features]
-std = ["shrink_wrap/std"]
+shrink_wrap = ["dep:shrink_wrap"]
+std = ["shrink_wrap?/std"]
 
 [dependencies]
-shrink_wrap.workspace = true
+shrink_wrap = { workspace = true, optional = true }

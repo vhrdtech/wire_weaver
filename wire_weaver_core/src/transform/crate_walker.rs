@@ -161,10 +161,14 @@ fn load_inner(
     trait_name: Option<String>,
     scratch: &mut Scratch,
 ) -> Result<ApiBundleOwned> {
-    let entry = CrateContext::load_from_manifest(manifest, features, scratch)?;
-    let trait_name = find_trait_if_none(trait_name, &entry.lib_rs_ast)?;
+    let (entry, trait_name, items) = scratch.walk(|scratch| {
+        let entry = CrateContext::load_from_manifest(manifest.clone(), features.clone(), scratch)?;
+        let trait_name = find_trait_if_none(trait_name.clone(), &entry.lib_rs_ast)?;
+        let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
+        let items = convert_api_items(item_trait, &entry, scratch)?;
+        Ok((entry, trait_name, items))
+    })?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
-    let items = convert_api_items(item_trait, &entry, scratch)?;
 
     let root = ApiLevelOwned {
         docs: collect_docs(&item_trait.attrs),
@@ -215,6 +219,9 @@ pub(crate) struct Scratch {
     modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
     /// Cargo.lock and Cargo's fetched sources, for git and registry dependencies.
     pub(crate) sources: CargoSources,
+    /// A crate was loaded again with more features than it was read with first, so what was converted from it
+    /// before may be missing what they switch on ([Scratch::walk]).
+    features_grew: bool,
 }
 
 /// Crate and module-qualified name (`units::Volt`) of a user-defined type.
@@ -338,7 +345,12 @@ impl CrateContext {
         let version = manifest.full_version(scratch)?;
         let features = match scratch.crates.get(&version) {
             Some(crate_cx) if features.is_subset(&crate_cx.features) => {
-                return Ok(crate_cx.clone());
+                let crate_cx = crate_cx.clone();
+                // the entry crate of a walk run again ([Scratch::walk]) is cached
+                if scratch.root_bundle.ext_crates.is_empty() {
+                    scratch.root_bundle.find_crate_or_create(&crate_cx);
+                }
+                return Ok(crate_cx);
             }
             Some(crate_cx) => {
                 let mut features = features;
@@ -346,6 +358,7 @@ impl CrateContext {
                 // its modules were parsed with fewer features
                 scratch.modules.retain(|(v, _, _), _| v != &version);
                 scratch.public_paths.retain(|(v, _, _), _| v != &version);
+                scratch.features_grew = true;
                 features
             }
             None => features,
@@ -670,6 +683,25 @@ impl CrateContext {
 }
 
 impl Scratch {
+    /// Runs `convert` until no crate's features grow during it: a crate reached first from a dependent asking for
+    /// fewer features than a later one had its types read without them. Each run after the first starts with the
+    /// crates already at the union of their features (Cargo builds each crate once, with that union), and with no
+    /// converted types or traits; features only grow, so this ends.
+    pub(crate) fn walk<T>(&mut self, mut convert: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
+        loop {
+            self.features_grew = false;
+            let converted = convert(self)?;
+            if !self.features_grew {
+                return Ok(converted);
+            }
+            self.root_bundle = ApiBundleScratch::default();
+            self.types_in_progress.clear();
+            self.recursive_types.clear();
+            self.generic_scope.clear();
+            self.alias_args.clear();
+        }
+    }
+
     fn get_or_load_manifest(&mut self, crate_path: PathBuf) -> Result<Rc<ManifestContext>> {
         if let Some(manifest_cx) = self.manifests.get(&crate_path) {
             return Ok(manifest_cx.clone());

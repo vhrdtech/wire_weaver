@@ -62,6 +62,8 @@ crossterm = "0.29"
 defmt = "1.1"
 defmt-decoder = "1.1"
 embassy-futures = "0.1"
+embedded-hal = "1.0"
+embedded-hal-async = "1.0"
 embedded-storage-async = "0.4.2"
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
@@ -141,6 +143,7 @@ ww_firmware_info = { version = "0.1.0", path = "./ww_stdlib/ww_firmware_info", d
 ww_gpio = { version = "0.1.0", path = "./ww_stdlib/ww_gpio", default-features = false }
 ww_gpio_hl = { version = "0.1.0", path = "./ww_stdlib/ww_gpio_hl" }
 ww_i2c = { version = "0.1.0", path = "./ww_stdlib/ww_i2c", default-features = false }
+ww_i2c_hl = { version = "0.1.0", path = "./ww_stdlib/ww_i2c_hl" }
 ww_indication = { version = "0.1.0", path = "./ww_stdlib/ww_indication", default-features = false }
 ww_interned = { version = "0.1.0", path = "./ww_stdlib/ww_interned", default-features = false }
 ww_log = { version = "0.1.0", path = "./ww_stdlib/ww_log", default-features = false }

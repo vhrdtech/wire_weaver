@@ -8,8 +8,13 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+eeprom24x = "0.7"
+embedded-hal.workspace = true
+embedded-hal-async.workspace = true
 io_i2c_api.workspace = true
 tests_common.workspace = true
+# stock embedded-hal drivers (blocking, async), run unchanged over ww_i2c_hl
+tmp1x2 = { version = "1.1", features = ["async"] }
 tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
 tracing-subscriber.workspace = true
 wire_weaver = { workspace = true, features = ["std"] }
@@ -17,5 +22,6 @@ wire_weaver_client.workspace = true
 ww_bus_slave.workspace = true
 ww_client_server.workspace = true
 ww_i2c = { workspace = true, features = ["std"] }
+ww_i2c_hl.workspace = true
 ww_si = { workspace = true, features = ["std"] }
 ww_stream = { workspace = true, features = ["std"] }

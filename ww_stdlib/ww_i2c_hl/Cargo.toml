@@ -1,0 +1,17 @@
+[package]
+name = "ww_i2c_hl"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository = "https://github.com/vhrdtech/ww_stdlib"
+description = "embedded-hal I2C (blocking and async) over a remote ww_i2c::I2c master"
+
+[dependencies]
+embedded-hal.workspace = true
+embedded-hal-async.workspace = true
+thiserror.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_i2c = { workspace = true, features = ["std"] }
+ww_si = { workspace = true, features = ["std"] }

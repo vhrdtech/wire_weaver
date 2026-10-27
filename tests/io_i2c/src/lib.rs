@@ -62,6 +62,55 @@ mod tests {
         monitor_enabled: bool,
         /// Fake device clock, advanced by one on every bus operation.
         now_us: u32,
+        /// Devices with a register pointer (a TMP102 sensor, a 24C02 EEPROM), keyed like `registers`.
+        pointer_devices: HashMap<u16, PointerDevice>,
+        /// Every `i2c_write`, `i2c_read` and `i2c_transaction` call, with the priority of its request.
+        calls: Vec<(Call, Priority)>,
+    }
+
+    /// Which call reached the mock, see `Model::calls`.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    enum Call {
+        Write(Vec<u8>),
+        Read(u16),
+        WriteRead(Vec<u8>, u16),
+        /// `(is_write, bytes)` per operation, bytes written or read.
+        Transaction(Vec<(bool, usize)>),
+    }
+
+    /// A slave with a register pointer: the first byte of a write sets it (register `n` starts at byte
+    /// `n * width`), the rest of the write is stored from there; a read returns the bytes from there. The pointer
+    /// doesn't move on its own.
+    struct PointerDevice {
+        width: usize,
+        bytes: Vec<u8>,
+        pointer: usize,
+    }
+
+    impl PointerDevice {
+        fn new(width: usize, len: usize) -> Self {
+            PointerDevice {
+                width,
+                bytes: vec![0; len],
+                pointer: 0,
+            }
+        }
+
+        fn write(&mut self, data: &[u8]) {
+            if let Some((&register, rest)) = data.split_first() {
+                self.pointer = register as usize * self.width;
+                for (i, b) in rest.iter().enumerate() {
+                    let at = (self.pointer + i) % self.bytes.len();
+                    self.bytes[at] = *b;
+                }
+            }
+        }
+
+        fn read(&self, len: u16) -> Vec<u8> {
+            (0..len as usize)
+                .map(|i| self.bytes[(self.pointer + i) % self.bytes.len()])
+                .collect()
+        }
     }
 
     impl Model {
@@ -316,6 +365,8 @@ mod tests {
             ) -> RpcResult<Result<I2cTransactionTimeRange, I2cError<'_>>> {
                 let mut m = self.model.lock().unwrap();
                 let key = addr_key(addr);
+                m.calls
+                    .push((Call::Write(data.as_slice().to_vec()), cx.priority()));
                 if let Err(e) = m
                     .start(key, 0)
                     .and_then(|_| m.write_data(key, 0, data.len()))
@@ -323,6 +374,12 @@ mod tests {
                     return Ready(Err(e));
                 }
                 let bytes = data.as_slice().to_vec();
+                if let Some(dev) = m.pointer_devices.get_mut(&key) {
+                    dev.write(&bytes);
+                    let start = m.tick();
+                    let end = m.tick();
+                    return Ready(Ok(I2cTransactionTimeRange { start, end }));
+                }
                 let start = m.tick();
                 m.registers.insert(key, bytes.clone());
                 m.writes.push((key, bytes.clone()));
@@ -359,8 +416,26 @@ mod tests {
                     return Ready(Err(unsupported()));
                 };
                 let mut m = self.model.lock().unwrap();
+                let call = match &kind {
+                    I2cReadKind::RepeatedStart { write } => {
+                        Call::WriteRead(write.as_slice().to_vec(), len)
+                    }
+                    _ => Call::Read(len),
+                };
+                m.calls.push((call, cx.priority()));
                 let start = m.tick();
-                let result = m.read(addr, offset, len);
+                let key = addr_key(addr);
+                let result = if m.pointer_devices.contains_key(&key) {
+                    m.start(key, 0).map(|_| {
+                        let dev = m.pointer_devices.get_mut(&key).unwrap();
+                        if let I2cReadKind::RepeatedStart { write } = &kind {
+                            dev.write(write.as_slice());
+                        }
+                        dev.read(len)
+                    })
+                } else {
+                    m.read(addr, offset, len)
+                };
                 let end = m.tick();
                 let data = match result {
                     Ok(data) => data,
@@ -412,11 +487,20 @@ mod tests {
 
             fn i2c_i2c_transaction(
                 &mut self,
-                _cx: &mut Context<'_, impl BlockingEventOut>,
+                cx: &mut Context<'_, impl BlockingEventOut>,
                 addr: I2cAddress,
                 ops: MaxLen<RefVec<'_, I2cOp<'_>>, { ww_i2c::MAX_OPS }>,
             ) -> RpcResult<Result<I2cTransactionResult<'_>, I2cError<'_>>> {
                 let mut m = self.model.lock().unwrap();
+                let call = ops
+                    .iter()
+                    .filter_map(|op| match op {
+                        Ok(I2cOp::Write(data)) => Some((true, data.len())),
+                        Ok(I2cOp::Read(len)) => Some((false, len as usize)),
+                        _ => None,
+                    })
+                    .collect();
+                m.calls.push((Call::Transaction(call), cx.priority()));
                 let start = m.tick();
                 let key = addr_key(addr);
                 if ops.is_empty() {
@@ -437,9 +521,15 @@ mod tests {
                             if let Err(e) = m.write_data(key, i as u8, data.len()) {
                                 return Ready(Err(e));
                             }
+                            if let Some(dev) = m.pointer_devices.get_mut(&key) {
+                                dev.write(data.as_slice());
+                            }
                             reg = data.as_slice().to_vec()
                         }
                         I2cOp::Read(0) => return Ready(Err(invalid(1, "read of 0 bytes"))),
+                        I2cOp::Read(len) if m.pointer_devices.contains_key(&key) => {
+                            read_out.extend_from_slice(&m.pointer_devices[&key].read(len));
+                        }
                         I2cOp::Read(len) => {
                             let mut chunk = vec![0u8; len as usize];
                             for (i, b) in chunk.iter_mut().enumerate() {
@@ -2243,5 +2333,204 @@ mod tests {
             wire_weaver_client::StreamEvent::Gap { units, .. } => assert_eq!(units, 2),
             ev => panic!("{ev:?}"),
         }
+    }
+
+    // ww_i2c_hl (STD-76): stock embedded-hal drivers, unchanged, over `I2cMaster`
+
+    use embedded_hal::i2c::{
+        Error as _, ErrorKind, NoAcknowledgeSource, Operation, SevenBitAddress, TenBitAddress,
+    };
+    use wire_weaver::Priority;
+    use ww_i2c_hl::{Error as HlError, I2cMaster};
+
+    /// `I2cMaster` has 7-bit and 10-bit impls, as HALs do: a direct call names one (drivers are generic over it).
+    use embedded_hal_async::i2c::I2c as I2cAsync;
+
+    fn calls(model: &Arc<Mutex<Model>>) -> Vec<(Call, Priority)> {
+        std::mem::take(&mut model.lock().unwrap().calls)
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_async_driver_runs_unchanged() {
+        let (device, model) = start("io_i2c/eh_async_driver");
+        let client = connect(&device).await;
+        // a TMP102 at 25 °C: 0x190 * 0.0625
+        let mut tmp102 = PointerDevice::new(2, 8);
+        tmp102.bytes[..2].copy_from_slice(&[0x19, 0x00]);
+        model.lock().unwrap().pointer_devices.insert(0x48, tmp102);
+
+        let i2c = I2cMaster::new(client.i2c().attachment())
+            .await
+            .unwrap()
+            .urgent();
+        assert_eq!(i2c.priority(), Priority::URGENT);
+        let mut sensor = tmp1x2::Tmp1x2::new(i2c, tmp1x2::SlaveAddr::default());
+        assert_eq!(sensor.read_temperature().await.unwrap(), 25.0);
+        sensor
+            .set_conversion_rate(tmp1x2::ConversionRate::_8Hz)
+            .await
+            .unwrap();
+
+        // one call per embedded-hal transaction, all urgent
+        let calls = calls(&model);
+        assert_eq!(calls.len(), 2, "{calls:?}");
+        assert_eq!(calls[0], (Call::WriteRead(vec![0], 2), Priority::URGENT));
+        let (Call::Write(config), Priority::URGENT) = &calls[1] else {
+            panic!("{calls:?}");
+        };
+        assert_eq!(config[0], 1);
+        let m = model.lock().unwrap();
+        assert_eq!(&m.pointer_devices[&0x48].bytes[2..4], &config[1..]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_blocking_driver_runs_unchanged() {
+        let (device, model) = start("io_i2c/eh_blocking_driver");
+        let client = connect(&device).await;
+        model
+            .lock()
+            .unwrap()
+            .pointer_devices
+            .insert(0x50, PointerDevice::new(1, 256));
+
+        let attachment = client.i2c().attachment();
+        let i2c = tokio::task::spawn_blocking(move || {
+            let i2c = I2cMaster::new_blocking(attachment).unwrap();
+            let mut eeprom = eeprom24x::Eeprom24x::new_24x02(i2c, eeprom24x::SlaveAddr::default());
+            eeprom.write_byte(0x10, 0xAB).unwrap();
+            assert_eq!(eeprom.read_byte(0x10).unwrap(), 0xAB);
+            eeprom.write_page(0x20, &[1, 2, 3, 4]).unwrap();
+            let mut buf = [0u8; 4];
+            eeprom.read_data(0x20, &mut buf).unwrap();
+            assert_eq!(buf, [1, 2, 3, 4]);
+            eeprom.destroy()
+        })
+        .await
+        .unwrap();
+        assert!(i2c.last_transaction_time().is_some());
+
+        let n = Priority::NORMAL;
+        assert_eq!(
+            calls(&model),
+            [
+                (Call::Write(vec![0x10, 0xAB]), n),
+                (Call::WriteRead(vec![0x10], 1), n),
+                (Call::Write(vec![0x20, 1, 2, 3, 4]), n),
+                (Call::WriteRead(vec![0x20], 4), n),
+            ]
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_transaction_is_merged_into_one_call() {
+        let (device, model) = start("io_i2c/eh_transaction_merged");
+        let client = connect(&device).await;
+        model
+            .lock()
+            .unwrap()
+            .pointer_devices
+            .insert(0x48, PointerDevice::new(1, 16));
+        let mut i2c = I2cMaster::new(client.i2c().attachment()).await.unwrap();
+
+        // the register pointer and the data in pieces, as drivers build them; reads in pieces too
+        let (mut a, mut b, mut c) = ([0u8; 1], [0u8; 1], [0u8; 3]);
+        <I2cMaster as I2cAsync<SevenBitAddress>>::transaction(
+            &mut i2c,
+            0x48,
+            &mut [
+                Operation::Write(&[4]),
+                Operation::Write(&[7, 8, 9]),
+                Operation::Read(&mut a),
+                Operation::Read(&mut b),
+                Operation::Write(&[5]),
+                Operation::Read(&mut c),
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!((a, b, c), ([7], [8], [8, 9, 0]));
+        assert_eq!(
+            calls(&model),
+            [(
+                Call::Transaction(vec![(true, 4), (false, 2), (true, 1), (false, 3)]),
+                Priority::NORMAL
+            )]
+        );
+
+        // more operations than the device takes: refused, nothing sent
+        let mut bufs = [[0u8; 1]; 9];
+        let mut ops: Vec<Operation<'_>> = Vec::new();
+        for buf in bufs.iter_mut() {
+            ops.push(Operation::Write(&[0]));
+            ops.push(Operation::Read(buf));
+        }
+        let err = <I2cMaster as I2cAsync<SevenBitAddress>>::transaction(&mut i2c, 0x48, &mut ops)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, HlError::TooManyOps { ops: 18, max: 16 }),
+            "{err:?}"
+        );
+        assert_eq!(err.kind(), ErrorKind::Other);
+        assert!(calls(&model).is_empty());
+
+        // a 10-bit address goes as one
+        <I2cMaster as I2cAsync<TenBitAddress>>::write(&mut i2c, 0x350, &[1])
+            .await
+            .unwrap();
+        assert_eq!(calls(&model), [(Call::Write(vec![1]), Priority::NORMAL)]);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn eh_error_kinds() {
+        let (device, model) = start("io_i2c/eh_error_kinds");
+        let client = connect(&device).await;
+        let mut i2c = I2cMaster::new(client.i2c().attachment()).await.unwrap();
+        {
+            let mut m = model.lock().unwrap();
+            m.nack.insert(0x33);
+            m.accepts.insert(0x34, 1);
+            m.stretches.insert(0x35);
+        }
+        let kind = |e: HlError| e.kind();
+        assert_eq!(
+            kind(
+                <I2cMaster as I2cAsync<SevenBitAddress>>::write(&mut i2c, 0x33, &[1])
+                    .await
+                    .unwrap_err()
+            ),
+            ErrorKind::NoAcknowledge(NoAcknowledgeSource::Address)
+        );
+        assert_eq!(
+            kind(
+                <I2cMaster as I2cAsync<SevenBitAddress>>::write(&mut i2c, 0x34, &[1, 2])
+                    .await
+                    .unwrap_err()
+            ),
+            ErrorKind::NoAcknowledge(NoAcknowledgeSource::Data)
+        );
+        assert_eq!(
+            kind(
+                <I2cMaster as I2cAsync<SevenBitAddress>>::write(&mut i2c, 0x35, &[1])
+                    .await
+                    .unwrap_err()
+            ),
+            ErrorKind::Other
+        );
+        model.lock().unwrap().sda_stuck = true;
+        let err = <I2cMaster as I2cAsync<SevenBitAddress>>::write(&mut i2c, 0x36, &[1])
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, HlError::I2c(I2cErrorOwned::BusStuck { .. })),
+            "{err:?}"
+        );
+        assert_eq!(err.kind(), ErrorKind::Bus);
+        assert!(matches!(
+            <I2cMaster as I2cAsync<SevenBitAddress>>::write(&mut i2c, 0x80, &[1])
+                .await
+                .unwrap_err(),
+            HlError::InvalidAddress(0x80)
+        ));
     }
 }

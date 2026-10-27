@@ -67,7 +67,7 @@
         (ident: Some("capacity_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Size of the buffer.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The counter buffers of this firmware and how to decode them, see [Counters::INFO].",
     ], ident: "CountersInfo", generics: [], fields: Named([
@@ -84,7 +84,7 @@
             "GNU build id of the firmware (20 bytes with sha1), to find its ELF; empty when the firmware didn\'t keep the",
             "note in flash (the host then can\'t check its ELF). The same as `ww_firmware_info::FirmwareInfo::BUILD_ID`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "One of the two `cnt` buffers.",
     ], ident: "CounterBuffer", generics: [], variants: [
@@ -141,13 +141,13 @@
             "Word index in the buffer.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", generics: [], fields: Named([
         (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 7))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The device\'s `cnt` counters: raw buffer words, decoded on the host with the firmware\'s ELF (`cnt_core`).",

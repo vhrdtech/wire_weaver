@@ -214,7 +214,7 @@
         (ident: Some("version"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The version the update was for, `0` when there was none.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which update traits a node implements. Lets a host decide what to do after a single call, which matters on slow",
         "links where introspection is expensive.",
@@ -231,7 +231,7 @@
         (ident: Some("stage_bulk"), default: None, since: None, ty: Bool, docs: [
             "`StageBulk` is here.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `UpdateNode::node` reports.",
     ], ident: "NodeInfo", generics: [], fields: Named([
@@ -274,7 +274,7 @@
         (ident: Some("offers"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
             "Which update traits this node implements.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
         "Why a request was refused.",
     ], ident: "Error", generics: [], variants: [
@@ -380,7 +380,7 @@
         (ident: Some("erase_count"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Erase blocks in the slot.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "The state of one chunk, as the manifest records it.",
     ], ident: "ChunkState", generics: [], variants: [
@@ -419,7 +419,7 @@
             "The node keeps working (answers other requests) while it writes flash. False on single-bank parts that stall",
             "while programming their own flash.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Where a plan goes on the node.",
     ], ident: "Target", generics: [], variants: [
@@ -443,7 +443,7 @@
             "Where to continue: the next step for `Stage`, the next byte after the header for `StageBulk` (`0` for a new",
             "session).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `Stage::progress` answers.",
     ], ident: "Progress", generics: [], fields: Named([
@@ -459,7 +459,7 @@
         (ident: Some("plan_bytes"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "For a bulk session: bytes after the header received in order.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Progress of long operations and session outcomes, on `Stage`\'s `event` stream.",
     ], ident: "StageEvent", generics: [], variants: [
@@ -501,7 +501,7 @@
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(1024), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Plan bytes, at most [StageLimits::max_piece] (and never more than [MAX_PIECE_LEN]).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: Nibble, crate_idx: 0, docs: [
         "Status carried by a [PlanAck].",
     ], ident: "BulkStatus", generics: [], variants: [
@@ -530,7 +530,7 @@
         (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
             "How the session stands.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Who this node is and what it can do. Every node that takes part in updates implements it: the app, the",

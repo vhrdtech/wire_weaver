@@ -16,8 +16,8 @@
 //!     Per(Box<MyUnit>, Box<MyUnit>),
 //! }
 //!
-//! impl Tree for &MyUnit {
-//!     fn node(&self) -> Option<Node<'_, Self>> {
+//! impl<'a> Tree<'a> for &'a MyUnit {
+//!     fn node(&self) -> Option<Node<'a, Self>> {
 //!         Some(match *self {
 //!             MyUnit::Name(n) => Node::Named { name: n, symbol: n, dim: None, scale: None },
 //!             MyUnit::Per(a, b) => Node::Div(&**a, &**b),
@@ -54,7 +54,7 @@ pub enum Node<'a, E> {
         name: &'a str,
         /// As written after a number: `V`; a unit known by name only has its name here.
         symbol: &'a str,
-        dim: Option<Dim>,
+        dim: Option<Dim<'a>>,
         scale: Option<Scale>,
     },
     /// `A · B`
@@ -89,51 +89,52 @@ impl<'a, E> Node<'a, E> {
 
 /// A unit tree: [UnitExpr] (`&'static` children), [SIExpr](crate::SIExpr) (children decoded on the
 /// way), or a client's own model. Children are `Self`, usually a reference into the tree.
-pub trait Tree: Sized {
-    /// The node, `None` when it can't be read (children that don't decode).
-    fn node(&self) -> Option<Node<'_, Self>>;
+pub trait Tree<'a>: Sized {
+    /// The node, `None` when it can't be read (children that don't decode). Its names live for `'a`, so a
+    /// [dim] of the tree can name counted bases after the walk.
+    fn node(&self) -> Option<Node<'a, Self>>;
 }
 
 /// The symbol as written after a number: `V`, `N·m/(rad/s)`, `(rad/s)·(rad/s)`, `m²`.
-pub fn symbol<E: Tree>(e: &E) -> impl fmt::Display + '_ {
+pub fn symbol<'t, E: Tree<'t>>(e: &E) -> impl fmt::Display + '_ {
     Show(e, |e, f, depth| write_symbol(*e, f, depth))
 }
 
 /// The type name: `Volt`, `Per<Torque, AngularVelocity>`, `Pow<Meter, 2>`.
-pub fn name<E: Tree>(e: &E) -> impl fmt::Display + '_ {
+pub fn name<'t, E: Tree<'t>>(e: &E) -> impl fmt::Display + '_ {
     Show(e, |e, f, depth| write_name(*e, f, depth))
 }
 
 /// [name] of a tree that is a reference itself (`&UnitExpr`), for an `impl Display` that outlives the call.
-pub(crate) fn name_of<E: Tree>(e: E) -> impl fmt::Display {
+pub(crate) fn name_of<'t, E: Tree<'t>>(e: E) -> impl fmt::Display {
     Show(e, write_name)
 }
 
 /// SI exponents of the whole tree; `None` when an exponent leaves -8..=7, a part is known by name only or doesn't
 /// decode, or the tree is deeper than [MAX_UNIT_DEPTH].
-pub fn dim<E: Tree>(e: &E) -> Option<Dim> {
+pub fn dim<'t, E: Tree<'t>>(e: &E) -> Option<Dim<'t>> {
     dim_at(e, 0)
 }
 
 /// Factor to coherent SI of the whole tree (offsets left out: a product with °C is not affine); `None` like [dim].
-pub fn factor<E: Tree>(e: &E) -> Option<f64> {
+pub fn factor<'t, E: Tree<'t>>(e: &E) -> Option<f64> {
     factor_at(e, 0)
 }
 
 /// The same tree: names, symbols, dimensions and scales of every named unit, and the same shape.
-pub fn same<A: Tree, B: Tree>(a: &A, b: &B) -> bool {
+pub fn same<'s, 't, A: Tree<'s>, B: Tree<'t>>(a: &A, b: &B) -> bool {
     same_at(a, b, 0)
 }
 
 /// A quantity as `Display` writes it: `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit
 /// itself, `3.3 V`. The text of a typed [Quantity](crate::Quantity) of the same unit.
-pub fn quantity<'a, E: Tree>(
+pub fn quantity<'a, 't, E: Tree<'t>>(
     prefix: Prefix,
     value: &'a NumericValue,
     unit: &'a E,
 ) -> impl fmt::Display + 'a {
     struct Q<'a, E>(Prefix, &'a NumericValue, &'a E);
-    impl<E: Tree> fmt::Display for Q<'_, E> {
+    impl<'t, E: Tree<'t>> fmt::Display for Q<'_, E> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let Q(prefix, value, unit) = *self;
             if f.alternate() {
@@ -167,8 +168,8 @@ pub(crate) fn write_number(value: &NumericValue, f: &mut fmt::Formatter<'_>) -> 
     }
 }
 
-impl Tree for &UnitExpr {
-    fn node(&self) -> Option<Node<'_, Self>> {
+impl Tree<'static> for &UnitExpr {
+    fn node(&self) -> Option<Node<'static, Self>> {
         Some(match **self {
             UnitExpr::Named {
                 name,
@@ -199,7 +200,7 @@ fn is_compound<E>(node: &Node<'_, E>) -> bool {
 }
 
 /// The symbol: `V`, `N·m/(rad/s)`, `(rad/s)·(rad/s)`, `m²`.
-fn write_symbol<E: Tree>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
+fn write_symbol<'t, E: Tree<'t>>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
     if depth >= MAX_UNIT_DEPTH {
         return f.write_str("…");
     }
@@ -238,7 +239,7 @@ fn write_symbol<E: Tree>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt
 }
 
 /// The type name: `Volt`, `Per<Torque, AngularVelocity>`, `Pow<Meter, 2>`.
-fn write_name<E: Tree>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
+fn write_name<'t, E: Tree<'t>>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
     if depth >= MAX_UNIT_DEPTH {
         return f.write_str("…");
     }
@@ -265,7 +266,7 @@ fn write_name<E: Tree>(e: &E, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::
 }
 
 /// SI exponents of the whole tree, `None` when an exponent leaves -8..=7, a part doesn't decode or it is too deep.
-fn dim_at<E: Tree>(e: &E, depth: usize) -> Option<Dim> {
+fn dim_at<'t, E: Tree<'t>>(e: &E, depth: usize) -> Option<Dim<'t>> {
     if depth >= MAX_UNIT_DEPTH {
         return None;
     }
@@ -279,7 +280,7 @@ fn dim_at<E: Tree>(e: &E, depth: usize) -> Option<Dim> {
 }
 
 /// Factor to coherent SI of the whole tree (offsets left out), `None` when a part doesn't decode or it is too deep.
-fn factor_at<E: Tree>(e: &E, depth: usize) -> Option<f64> {
+fn factor_at<'t, E: Tree<'t>>(e: &E, depth: usize) -> Option<f64> {
     if depth >= MAX_UNIT_DEPTH {
         return None;
     }
@@ -293,7 +294,7 @@ fn factor_at<E: Tree>(e: &E, depth: usize) -> Option<f64> {
 }
 
 /// Offset to coherent SI: only a named unit with an `Affine` scale (°C) has one.
-pub fn offset<E: Tree>(e: &E) -> f64 {
+pub fn offset<'t, E: Tree<'t>>(e: &E) -> f64 {
     match e.node() {
         Some(Node::Named {
             scale: Some(scale), ..
@@ -303,16 +304,16 @@ pub fn offset<E: Tree>(e: &E) -> f64 {
 }
 
 /// A named unit without a symbol ([Ratio](crate::units::Ratio)): a prefix is written as %, ‰, ppm, ppb.
-pub fn is_ratio<E: Tree>(e: &E) -> bool {
+pub fn is_ratio<'t, E: Tree<'t>>(e: &E) -> bool {
     matches!(e.node(), Some(Node::Named { symbol: "", .. }))
 }
 
 /// A named unit (no parentheses after a prefix).
-fn is_named<E: Tree>(e: &E) -> bool {
+fn is_named<'t, E: Tree<'t>>(e: &E) -> bool {
     matches!(e.node(), Some(Node::Named { .. }))
 }
 
-fn same_at<A: Tree, B: Tree>(a: &A, b: &B, depth: usize) -> bool {
+fn same_at<'s, 't, A: Tree<'s>, B: Tree<'t>>(a: &A, b: &B, depth: usize) -> bool {
     if depth >= MAX_UNIT_DEPTH {
         return false;
     }
@@ -345,7 +346,7 @@ fn same_at<A: Tree, B: Tree>(a: &A, b: &B, depth: usize) -> bool {
 
 /// The prefix and the unit's symbol, as written after a number: ` mV`, ` kg`, ` %` for a ratio in `Centi`,
 /// ` k(N·m/(rad/s))` for a compound unit.
-pub(crate) fn write_unit<E: Tree>(
+pub(crate) fn write_unit<'t, E: Tree<'t>>(
     prefix: Prefix,
     unit: &E,
     f: &mut fmt::Formatter<'_>,

@@ -167,16 +167,43 @@ fn display_and_debug() {
 #[test]
 fn units_and_dimensions() {
     assert_eq!(Volt::unit().dim(), Dim::new(-3, 2, 1, -1, 0, 0, 0));
-    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0]);
+    assert_eq!(Volt::unit().dim().exps(), [-3, 2, 1, -1, 0, 0, 0, 0, 0]);
     assert_eq!(Volt::unit().dim().to_string(), "kg·m²·s⁻³·A⁻¹");
     assert_eq!(Ratio::unit().dim().to_string(), "1");
     let fan = <Per<units::Torque, Times<units::AngularVelocity, units::AngularVelocity>> as ww_si::Unit>::DIM;
-    assert_eq!(fan.to_string(), "kg·m²");
+    assert_eq!(fan.to_string(), "kg·m²·rad⁻³");
     let volt = ww_si::units::by_name("Volt").unwrap();
     assert!(matches!(volt, UnitExpr::Named { symbol: "V", .. }));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 47);
+    assert_eq!(ww_si::units::ALL.len(), 57);
+}
+
+/// rad, bit and counted bases are dimensions of their own (STD-60): bytes never turn into a ratio, an angular
+/// velocity is not a frequency, and a count per thing times the thing is the count.
+#[test]
+fn angle_information_counting() {
+    use ww_si::Unit;
+    let byte = <units::Byte as Unit>::DIM;
+    assert_eq!(byte, <units::Bit as Unit>::DIM);
+    assert_eq!(byte.to_string(), "bit");
+    assert!(!byte.same(<units::Ratio as Unit>::DIM));
+    assert!(!byte.same(<units::Radian as Unit>::DIM));
+    assert_eq!(<units::Byte as Unit>::EXPR.factor(), 8.0);
+    assert_eq!(<units::Word as Unit>::EXPR.factor(), 32.0);
+    assert!(!<units::AngularVelocity as Unit>::DIM.same(<units::Hertz as Unit>::DIM));
+    assert!(<units::AngularVelocity as Unit>::DIM.strip_radian().same(<units::Hertz as Unit>::DIM));
+    assert!(<units::Torque as Unit>::DIM.strip_radian().same(<units::Joule as Unit>::DIM));
+    assert!(!<units::Torque as Unit>::DIM.same(<units::Joule as Unit>::DIM));
+    assert_eq!(<units::AngularVelocity as Unit>::DIM.to_string(), "s⁻¹·rad");
+    assert!(!<units::Sample as Unit>::DIM.same(<units::Packet as Unit>::DIM));
+    assert!(!<units::Sample as Unit>::DIM.is_one());
+    let per_sample = <Per<units::Byte, units::Sample> as Unit>::DIM;
+    assert_eq!(per_sample.to_string(), "bit·Sample⁻¹");
+    assert!(per_sample.mul(<units::Sample as Unit>::DIM).same(byte));
+    let rate = <Per<units::Sample, units::Second> as Unit>::DIM;
+    assert!(!rate.same(<units::Hertz as Unit>::DIM));
+    assert!(rate.mul(<units::Second as Unit>::DIM).same(<units::Sample as Unit>::DIM));
 }
 
 #[test]

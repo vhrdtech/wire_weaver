@@ -53,7 +53,7 @@
         (ident: Some("weak_drive"), default: None, since: None, ty: Bool, docs: [
             "[Drive::Weak] is weaker than [Drive::Normal] on it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point a test may touch.",
     ], ident: "Point", generics: [], fields: Named([
@@ -66,7 +66,7 @@
         (ident: Some("caps"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "What may ever be done with it; the board\'s rules may refuse more, depending on the other points.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Pull", signature: [
         200,
         13,

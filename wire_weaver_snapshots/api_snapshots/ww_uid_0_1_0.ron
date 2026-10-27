@@ -65,7 +65,7 @@
         (ident: Some("value"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The id, up to 16 bytes: 6 for a MAC, 8 for an EUI-64, 16 for a UUID, a chip\'s own length otherwise.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The unique ids of this unit.",

@@ -25,7 +25,8 @@ trait Quantities {
 pub struct Rpm;
 
 impl Unit for Rpm {
-    const DIM: Dim = Dim::new(-1, 0, 0, 0, 0, 0, 0);
+    // rad/s
+    const DIM: Dim<'static> = Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1);
     const EXPR: &'static UnitExpr = &UnitExpr::Named {
         name: "Rpm",
         symbol: "rpm",

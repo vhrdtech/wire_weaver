@@ -27,7 +27,7 @@
         (ident: Some("custom"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [
             "Indices of device-specific sources to report as `IoPinEvent::Custom`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -144,7 +144,7 @@
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
             "Name printed on the board or in the datasheet: \"IO4\", \"PB5\".",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Volt", signature: [
         94,
         190,
@@ -205,7 +205,7 @@
         (ident: Some("custom_speed"), default: None, since: None, ty: Vec(String), docs: [
             "Descriptions of the bank\'s `Speed::Custom` variants, indexed by their `u8` payload.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
@@ -216,7 +216,7 @@
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One pin from a GPIO bank.",

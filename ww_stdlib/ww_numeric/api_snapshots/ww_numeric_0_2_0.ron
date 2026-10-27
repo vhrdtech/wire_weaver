@@ -7,13 +7,13 @@
         "Note that only U1-U64 is supported now, but it\'s not hard to add numbers up to U128.",
     ], ident: "UBits", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Number of bits in IB number. Serialized as 7-bits and shifted by -2 to represent I2-I128.",
         "Note that only I2-I64 is supported now, but it\'s not hard to add numbers up to I128.",
     ], ident: "IBits", generics: [], fields: Unnamed([
         (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [], ident: "NumericBaseType", generics: [], variants: [
         (docs: [
             "4-bits (nibble), alignment of four-bits",

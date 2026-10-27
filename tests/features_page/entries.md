@@ -266,6 +266,7 @@ round, and tell you before a release when a change would break that.
 - EVO-12 | Current version's snapshot required | The API crate's test fails until the version it is at has a saved snapshot, and saves it for you. | evolution/checker_tool.md#checking-at-every-commit
 - EVO-14 | Priority in every request | Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after. | transport/ww_framer.md#latency-and-priority
 - EVO-13 | Upgrades don't touch your snapshots | A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading. | evolution/checker_tool.md#the-current-versions-snapshot
+- EVO-16 | One encoding per dimension | A unit's dimension on the wire has exactly one form: counted bases sorted, out-of-order ones refused, so two devices' `Sample/Frame` compare equal byte for byte. | std_library/ww_si.md#units-known-only-at-run-time
 
 ## Advanced
 
@@ -312,6 +313,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
 - STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra
 - STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/ww_si.md#units-known-only-at-run-time
+- STD-60 | Angles, bytes and samples are dimensions | Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart. | std_library/ww_si.md#dimensions
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md
 - STD-5 | GPIO | Pins and banks: levels, modes, pulls and edge events. | std_library/ww_gpio.md

@@ -33,7 +33,7 @@ time = []
 electrical = []
 # Meter, KiloGram, Newton, Pascal, Joule, Torque, Litre, VolumetricFlow, Speed, Acceleration, Jerk, Snap, Yank
 mechanical = []
-# Radian, Degree, Steradian, AngularVelocity, AngularAcceleration
+# Radian, Degree, Steradian, AngularVelocity, AngularAcceleration: angle is a base dimension of its own
 angle = []
 # Kelvin, DegreeCelsius
 thermal = []
@@ -47,9 +47,9 @@ radiation = []
 logarithmic = []
 # Ratio (duty, probability, scale): used next to any other group, so a group of its own
 dimensionless = []
-# Bit, Byte (8 Bit): data sizes, dimensionless and told apart by the marker
+# Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own
 information = []
-# Item: a count of things
+# Item, Sample, Frame, Packet, Cycle, Block, Sector, Chunk, Char, Code: counted bases, each a dimension of its own
 counting = []
 # host helpers: timestamp Unwrapper
 host = ["time", "u64"]

@@ -871,6 +871,39 @@ mod tests {
         assert_eq!(p.flushes, flushes + 1);
     }
 
+    /// Requests that keep coming without an idle moment share a frame for no longer than the window: the one
+    /// written after it ended flushes the frame, without waiting for the wrapper's coarse timer (CLT-50).
+    #[test]
+    fn requests_without_a_pause_flush_when_the_window_ends() {
+        let now = Instant::now();
+        let mut p = Pair::new();
+        let _connected_rx = connect(&mut p, now);
+        let window = Duration::from_micros(500); // device_info()
+        let send = |p: &mut Pair, at: Instant, b: u8| {
+            p.cmd(
+                at,
+                Command::SendMessage {
+                    bytes: request(&[b]),
+                    done_tx: None,
+                },
+            );
+            p.settle(at);
+        };
+        let flushes = p.flushes;
+        send(&mut p, now, 1);
+        send(&mut p, now + window / 2, 2);
+        assert_eq!(p.flushes, flushes, "still within the window");
+        assert_eq!(p.tx.poll_timeout(), Some(now + window));
+        send(&mut p, now + window, 3);
+        assert_eq!(p.flushes, flushes + 1, "window over: out with the third");
+        assert_eq!(kinds(&p.take_sent()), [Kind::Data0; 3]);
+        assert!(!p.tx.wants_idle_flush(), "nothing left to accumulate");
+        // the next one starts a new window
+        send(&mut p, now + window * 3 / 2, 4);
+        assert_eq!(p.flushes, flushes + 1);
+        assert_eq!(p.tx.poll_timeout(), Some(now + window * 5 / 2));
+    }
+
     /// Forwarded requests (the hub) leave in the frames their sender flushed: not on an idle moment between them,
     /// on `ForwardFlush`, or after 1 ms (or the device's longer window) when that doesn't come.
     #[test]

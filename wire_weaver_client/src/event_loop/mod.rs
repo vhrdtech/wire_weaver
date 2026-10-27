@@ -14,6 +14,8 @@ pub(crate) mod transport;
 #[cfg(test)]
 pub(crate) mod device_e2e_tests;
 #[cfg(test)]
+mod flush_e2e_tests;
+#[cfg(test)]
 mod observe_e2e_tests;
 #[cfg(test)]
 mod sink_e2e_tests;

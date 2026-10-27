@@ -231,6 +231,9 @@ pub(crate) fn classify(ty: &Type) -> Result<Kind, String> {
              (ENCODED_LEN). Remove it"
                 .into()
         }
+        Type::Wire { .. } => "a #[wire(W)] field is not in fixed_layout and head_tail yet (DER-21). Make W the \
+                              field's type"
+            .into(),
         Type::Tuple(_) => "tuples are not supported by the fast path. Use a fixed_layout struct".into(),
         Type::Range(_) | Type::RangeInclusive(_) => {
             "ranges are not supported by the fast path. Use a fixed_layout struct with start and end".into()

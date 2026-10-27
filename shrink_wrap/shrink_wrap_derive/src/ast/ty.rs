@@ -89,6 +89,14 @@ pub(crate) enum Type {
 
     /// `MaxLen<T, N>`: a `Vec`/`RefVec` or string `T` with at most `N` elements, `N` kept as written.
     MaxLen(Expr, Box<Type>),
+
+    /// `#[wire(W)] field: T` (DER-19): a plain integer `T` in Rust, written as the integer type `W` on the wire.
+    /// `cfg` is the predicate of `#[cfg_attr(pred, wire(W))]`.
+    Wire {
+        plain: Box<Type>,
+        wire: Box<Type>,
+        cfg: Option<syn::Meta>,
+    },
 }
 
 impl Type {
@@ -140,6 +148,7 @@ impl Type {
             | Type::MaxLen(_, ty) => ty.any(pred),
             Type::Tuple(types) => types.iter().any(|ty| ty.any(pred)),
             Type::Result(_, ok_err_ty) => ok_err_ty.0.any(pred) || ok_err_ty.1.any(pred),
+            Type::Wire { wire, .. } => wire.any(pred),
             _ => false,
         }
     }
@@ -190,6 +199,7 @@ impl Type {
                 ok_err_ty.0.externals(out);
                 ok_err_ty.1.externals(out);
             }
+            Type::Wire { wire, .. } => wire.externals(out),
             _ => {}
         }
     }
@@ -218,6 +228,7 @@ impl Type {
             | Type::RangeInclusive(ty)
             | Type::Option(_, ty) => ty.pushes_len_expr(cp),
             Type::Tuple(types) => Self::any_pushes_len(types.iter(), cp),
+            Type::Wire { wire, .. } => wire.pushes_len_expr(cp),
             Type::Result(_, ok_err_ty) => {
                 Self::any_pushes_len([&ok_err_ty.0, &ok_err_ty.1].into_iter(), cp)
             }
@@ -250,6 +261,7 @@ impl Type {
             Type::String | Type::Vec(_) | Type::RefBox(_) => quote! { None },
             // the flag is a field of its own (IsSome / IsOk), only the value is written here
             Type::Option(_, ty) => Self::write_max_size(ty, cp),
+            Type::Wire { wire, .. } => wire.max_size_expr(cp),
             Type::Result(_, ok_err_ty) => {
                 let ok = Self::write_max_size(&ok_err_ty.0, cp);
                 let err = Self::write_max_size(&ok_err_ty.1, cp);
@@ -388,6 +400,7 @@ impl Type {
             Type::RefBox(_) => return Some(ObjectSize::Unsized),
             // same as the list or string inside
             Type::MaxLen(_, inner) => return inner.element_size(),
+            Type::Wire { wire, .. } => return wire.element_size(),
             Type::TailSize(None) => 5 * 8,
             Type::TailSize(Some(width)) => {
                 if let Expr::Lit(lit) = width
@@ -433,6 +446,7 @@ impl Type {
                 let size = ty.size_expr(is_ref, cp);
                 quote! { #size.add(#element_size::SelfDescribing) }
             }
+            Type::Wire { wire, .. } => wire.size_expr(is_ref, cp),
             Type::Result(_, ok_err_ty) => {
                 let ok = ok_err_ty.0.size_expr(is_ref, cp);
                 let err = ok_err_ty.1.size_expr(is_ref, cp);

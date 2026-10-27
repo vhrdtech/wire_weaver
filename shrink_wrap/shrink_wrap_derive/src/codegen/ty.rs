@@ -141,7 +141,16 @@ impl Type {
                 };
                 quote! { #max_len<#inner_ty, #len> }
             }
+            Type::Wire { plain, .. } => plain.def(no_alloc, cp),
         }
+    }
+
+    /// `<W as WireAs<T>>` of a `#[wire(W)] field: T` (DER-19).
+    fn wire_as(plain: &Type, wire: &Type, cp: &CratePath) -> TokenStream {
+        let wire_as = cp.item(quote! { WireAs });
+        let plain = plain.def(true, cp);
+        let wire = wire.def(true, cp);
+        quote! { <#wire as #wire_as<#plain>> }
     }
 
     /// Width of a `TailSize` slot in bytes, as an expression.
@@ -157,9 +166,28 @@ impl Type {
         field_path: FieldPath,
         no_alloc: bool,
         handle_eob: TokenStream,
+        cp: &CratePath,
         tokens: &mut TokenStream,
     ) {
         let write_fn = match self {
+            Type::Wire { plain, wire, .. } => {
+                // range-checked: a value the wire type can't hold is an error, never cut
+                let wire_as = Self::wire_as(plain, wire, cp);
+                let value = field_path.by_value();
+                let mut write = TokenStream::new();
+                wire.buf_write(
+                    FieldPath::Value(quote! { __wire }),
+                    no_alloc,
+                    handle_eob.clone(),
+                    cp,
+                    &mut write,
+                );
+                tokens.append_all(quote! {{
+                    let __wire = #wire_as::from_plain(#value) #handle_eob;
+                    #write
+                }});
+                return;
+            }
             Type::Bool => "write_bool",
             Type::Nibble => "write_nib",
             Type::U8 => "write_u8",
@@ -326,6 +354,16 @@ impl Type {
             quote! { read }
         };
         let read_fn = match self {
+            Type::Wire { plain, wire, .. } => {
+                // read as the wire type, then range-checked into the field's type: a wider or variable-length wire
+                // type can hold more than the field
+                let wire_as = Self::wire_as(plain, wire, cp);
+                let wire = wire.def(true, cp);
+                tokens.append_all(quote! {
+                    let #variable_name = rd.#read::<#wire>().and_then(#wire_as::into_plain) #handle_err;
+                });
+                return;
+            }
             Type::TailSize(_) => {
                 // the slot bounds the rest of the value: a longer buffer stops at the value's end, a shorter one
                 // is an error, and fields a newer writer added after the ones known here are skipped

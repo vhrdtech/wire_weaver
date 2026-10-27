@@ -1,12 +1,12 @@
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{TokenStreamExt, format_ident};
+use quote::{ToTokens, TokenStreamExt, format_ident, quote};
 use syn::{File, Item, Path, parse2};
 
 use crate::{
     args::Args,
     ast::{
         generics::Generics, item_enum::ItemEnum, item_struct::ItemStruct, object_size::ObjectSize,
-        repr::Repr,
+        repr::Repr, ty::Type,
     },
     codegen::{
         fixed_layout, head_tail, item_enum::CGItemEnum, item_struct::CGItemStruct,
@@ -176,6 +176,16 @@ fn generate_inner(
                 crate::ast::item_enum::Fields::Unit => false,
             });
             check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            ts.append_all(wire_cfg_guards(
+                &type_name,
+                ww_item_enum.variants.iter().flat_map(|v| match &v.fields {
+                    crate::ast::item_enum::Fields::Named(named) => {
+                        named.iter().map(|f| &f.ty).collect::<Vec<_>>()
+                    }
+                    crate::ast::item_enum::Fields::Unnamed(unnamed) => unnamed.iter().collect(),
+                    crate::ast::item_enum::Fields::Unit => vec![],
+                }),
+            ));
             // otherwise the size would be the discriminant alone with every such variant compiled out
             if matches!(args.size_assumption, Some(ObjectSize::Sized { .. }))
                 && ww_item_enum.variants.iter().all(|v| !v.cfg.is_empty())
@@ -310,6 +320,10 @@ fn generate_inner(
                 .iter()
                 .any(|f| f.ty.contains_tail_size());
             check_tail_size_unsized(has_tail_size, &args.size_assumption)?;
+            ts.append_all(wire_cfg_guards(
+                &type_name,
+                ww_item_struct.fields.iter().map(|f| &f.ty),
+            ));
             // computed before `add_notes` below adds its own doc lines, which would otherwise count as the
             // struct's "first doc line"
             let display_message = args.display.then(|| ww_item_struct.display_message());
@@ -398,6 +412,34 @@ fn generate_inner(
         _ => {}
     }
     Ok(ts)
+}
+
+/// `#[cfg_attr(pred, wire(W))]` fields (DER-19): the bytes must not depend on whether `pred` holds where the derive
+/// runs, so `pred` must hold wherever the type is serialized. A compile error when it doesn't, once per predicate.
+fn wire_cfg_guards<'a>(type_name: &str, types: impl Iterator<Item = &'a Type>) -> TokenStream {
+    let mut preds: Vec<&syn::Meta> = vec![];
+    for ty in types {
+        if let Type::Wire {
+            cfg: Some(pred), ..
+        } = ty
+            && !preds.contains(&pred)
+        {
+            preds.push(pred);
+        }
+    }
+    let mut ts = TokenStream::new();
+    for pred in preds {
+        let message = format!(
+            "{type_name}: #[cfg_attr({}, wire(..))] is off while the type is serialized, its bytes would change \
+             with a cfg. Put the derive under the same cfg, or use #[wire(..)]",
+            pred.to_token_stream()
+        );
+        ts.append_all(quote! {
+            #[cfg(not(#pred))]
+            compile_error!(#message);
+        });
+    }
+    ts
 }
 
 /// A `head_tail` type (SW-46): the type itself, its discriminant fn, and the head+tail code instead of shrink_wrap's
@@ -1167,5 +1209,99 @@ mod tuple_struct_tests {
         .to_string();
         assert!(s.contains("compile_error"), "{s}");
         assert!(s.contains("tuple struct `Pair`"), "{s}");
+    }
+}
+
+#[cfg(test)]
+mod wire_tests {
+    use super::shrink_wrap_attr;
+    use proc_macro2::TokenStream;
+    use quote::quote;
+
+    fn output(item: TokenStream) -> String {
+        shrink_wrap_attr(quote! { borrowed }, item).to_string()
+    }
+
+    fn error_of(item: TokenStream) -> Option<String> {
+        let s = output(item);
+        s.contains("compile_error").then_some(s)
+    }
+
+    #[test]
+    fn integer_pairs_compile() {
+        assert_eq!(
+            error_of(
+                quote! { struct S { #[wire(I4)] a: i8, #[wire(UNib32)] b: u64, #[wire(shrink_wrap::U3)] c: usize } }
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn signedness_must_match() {
+        let e = error_of(quote! { struct S { #[wire(U4)] a: i8 } }).unwrap();
+        assert!(e.contains("both must be signed or both unsigned"), "{e}");
+    }
+
+    #[test]
+    fn field_must_be_a_plain_integer() {
+        for item in [
+            quote! { struct S { #[wire(U4)] a: f32 } },
+            quote! { struct S { #[wire(U4)] a: Option<u8> } },
+            quote! { struct S { #[wire(U4)] a: [u8; 2] } },
+        ] {
+            let e = error_of(item).unwrap();
+            assert!(e.contains("goes on a plain integer field"), "{e}");
+        }
+    }
+
+    #[test]
+    fn wire_type_must_be_an_integer_of_64_bits_or_less() {
+        for item in [
+            quote! { struct S { #[wire(u128)] a: u128 } },
+            quote! { struct S { #[wire(U65)] a: u128 } },
+            quote! { struct S { #[wire(I1)] a: i8 } },
+            quote! { struct S { #[wire(Foo)] a: u8 } },
+        ] {
+            let e = error_of(item).unwrap();
+            assert!(e.contains("W is an integer type"), "{e}");
+        }
+    }
+
+    #[test]
+    fn one_wire_per_field() {
+        let e = error_of(quote! { struct S { #[wire(U4)] #[wire(U5)] a: u8 } }).unwrap();
+        assert!(e.contains("more than one"), "{e}");
+    }
+
+    #[test]
+    fn cfg_attr_with_other_attributes_is_an_error() {
+        let e = error_of(
+            quote! { struct S { #[cfg_attr(feature = "sw", wire(U4), doc = "x")] a: u8 } },
+        )
+        .unwrap();
+        assert!(e.contains("wire(W) alone"), "{e}");
+    }
+
+    #[test]
+    fn cfg_attr_guard_is_emitted_once_per_predicate() {
+        let s = output(quote! {
+            struct S {
+                #[cfg_attr(feature = "sw", wire(U4))] a: u8,
+                #[cfg_attr(feature = "sw", wire(I4))] b: i8,
+            }
+        });
+        assert_eq!(s.matches("compile_error").count(), 1, "{s}");
+        assert!(s.contains("# [cfg (not (feature = \"sw\"))]"), "{s}");
+    }
+
+    #[test]
+    fn fixed_layout_names_the_feature_item() {
+        let s = shrink_wrap_attr(
+            quote! { borrowed, fixed_layout },
+            quote! { struct S { #[wire(U4)] a: u8, b: u8 } },
+        )
+        .to_string();
+        assert!(s.contains("DER-21"), "{s}");
     }
 }

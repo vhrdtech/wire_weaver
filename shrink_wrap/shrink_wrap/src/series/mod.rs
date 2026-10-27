@@ -34,6 +34,7 @@ pub mod type_check;
 pub use type_check as fuzz_type;
 #[cfg(test)]
 mod type_tests;
+mod wired;
 mod xor_float;
 
 pub use cells::{CellWord, SeriesCells, UnCells, empty_cells};
@@ -56,6 +57,7 @@ pub use store::{
     write_store_series,
 };
 
+pub use wired::Wired;
 pub use xor_float::XorBits;
 
 /// Bit-level writes shared by [BufWriter], `BufWriterOwned` and [BitCounter], so a codec is written once. The

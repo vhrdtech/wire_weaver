@@ -40,6 +40,8 @@ struct SeriesField<'a> {
     tagged: bool,
     /// Has `SeriesCells`: not opaque, no string or byte list in it.
     cells: bool,
+    /// A `#[wire(W)]` field (DER-19): `ty` is `Wired<W, T>`, the field is a `T`.
+    wired: bool,
     default: Option<&'a syn::Expr>,
 }
 
@@ -256,8 +258,20 @@ impl SeriesSeed<'_> {
             quote! {
                 #(#init_store_at::<#tys, __N>(::core::ptr::addr_of_mut!((*__at).#members));)*
             },
-            quote! { #(<#tys as #store_trait>::set::<__N>(&mut store.#members, i, &item.#members);)* },
-            quote! { Self { #(#members: <#tys as #store_trait>::get::<__N>(&store.#members, i)),* } },
+            {
+                let items = fields.iter().map(|f| {
+                    let m = &f.member;
+                    self.wrap(f, quote! { &item.#m })
+                });
+                quote! { #(<#tys as #store_trait>::set::<__N>(&mut store.#members, i, #items);)* }
+            },
+            {
+                let gets = fields.iter().map(|f| {
+                    let (m, ty) = (&f.member, &f.ty);
+                    self.unwrap(f, quote! { <#ty as #store_trait>::get::<__N>(&store.#m, i) })
+                });
+                quote! { Self { #(#members: #gets),* } }
+            },
             quote! { true #(&& <#tys as #store_trait>::columnar::<__N>(&store.#members, rows.clone()))* },
             quote! {
                 #head
@@ -329,6 +343,11 @@ impl SeriesSeed<'_> {
                 });
             }
             let pat = pattern(v, fields);
+            let binds: Vec<_> = fields
+                .iter()
+                .zip(&binds)
+                .map(|(f, b)| self.wrap(f, quote! { #b }))
+                .collect();
             set_arms.push(quote! {
                 #on
                 #pat => { #(<#tys as #store_trait>::set::<__N>(&mut store.#slots, i, #binds);)* }
@@ -343,7 +362,10 @@ impl SeriesSeed<'_> {
                     let gets = fields.iter().map(|f| {
                         let ty = &f.ty;
                         let s = slot(v, f);
-                        quote! { <#ty as #store_trait>::get::<__N>(&store.#s, i) }
+                        self.unwrap(
+                            f,
+                            quote! { <#ty as #store_trait>::get::<__N>(&store.#s, i) },
+                        )
                     });
                     match &v.fields {
                         Fields::Named(_) => {
@@ -554,7 +576,13 @@ impl SeriesSeed<'_> {
         self.cells_impl(
             &cells_ident,
             quote! { #(#members: <#tys as #cells_trait>::Cells<__R>,)* },
-            quote! { #(<#tys as #cells_trait>::put::<__R>(&cells.#members, i, &item.#members);)* },
+            {
+                let items = fields.iter().map(|f| {
+                    let m = &f.member;
+                    self.wrap(f, quote! { &item.#m })
+                });
+                quote! { #(<#tys as #cells_trait>::put::<__R>(&cells.#members, i, #items);)* }
+            },
             quote! {
                 #(<#tys as #cells_trait>::copy_rows::<__R, __N>(&cells.#members, from, &mut store.#members, to, n);)*
             },
@@ -615,6 +643,11 @@ impl SeriesSeed<'_> {
                 cells_fields.push(quote! { #on #s: <#ty as #cells_trait>::Cells<__R>, });
             }
             let pat = pattern(v, fields);
+            let binds: Vec<_> = fields
+                .iter()
+                .zip(&binds)
+                .map(|(f, b)| self.wrap(f, quote! { #b }))
+                .collect();
             put_arms.push(quote! {
                 #on
                 #pat => { #(<#tys as #cells_trait>::put::<__R>(&cells.#slots, i, #binds);)* }
@@ -685,14 +718,42 @@ impl SeriesSeed<'_> {
             }
             out.push(SeriesField {
                 member,
-                ty: ty.def(self.is_ref, self.cp),
+                ty: match ty {
+                    Type::Wire { plain, wire, .. } => {
+                        let wired = self.sc(quote! { Wired });
+                        let plain = plain.def(self.is_ref, self.cp);
+                        let wire = wire.def(self.is_ref, self.cp);
+                        quote! { #wired<#wire, #plain> }
+                    }
+                    ty => ty.def(self.is_ref, self.cp),
+                },
                 opaque,
                 tagged: !opaque && matches!(ty, Type::External(_, _) | Type::Option(_, _)),
                 cells: !opaque && has_cells(ty),
+                wired: matches!(ty, Type::Wire { .. }),
                 default,
             });
         }
         Ok(out)
+    }
+
+    /// A `&field` as what its column takes: `&Wired<W, T>` for a `#[wire(W)]` field.
+    fn wrap(&self, f: &SeriesField, field_ref: TokenStream) -> TokenStream {
+        if f.wired {
+            let wired = self.sc(quote! { Wired });
+            quote! { #wired::from_ref(#field_ref) }
+        } else {
+            field_ref
+        }
+    }
+
+    /// A value of the field's column as the field: the `T` in a `Wired<W, T>`.
+    fn unwrap(&self, f: &SeriesField, value: TokenStream) -> TokenStream {
+        if f.wired {
+            quote! { (#value).0 }
+        } else {
+            value
+        }
     }
 
     fn reader_ty(&self, f: &SeriesField) -> TokenStream {
@@ -832,11 +893,12 @@ impl SeriesSeed<'_> {
         let record = maybe_quote(f.tagged, || {
             quote! { __sib.record(#j, <#ty as #trait_<'i>>::series_tag(&__v)); }
         });
+        let value = self.unwrap(f, quote! { __v });
         quote! {
             {
                 let __v = <#ty as #trait_<'i>>::next(#r, __sib.restart(#restart))?;
                 #record
-                __v
+                #value
             }
         }
     }
@@ -889,7 +951,8 @@ impl SeriesSeed<'_> {
         let writes = fields.iter().enumerate().map(|(j, f)| {
             let m = &f.member;
             let earlier: Vec<&SeriesField> = fields[..j].iter().collect();
-            self.write_field(f, &earlier, quote! { |s: &'a Self| Some(&s.#m) })
+            let field = self.wrap(f, quote! { &s.#m });
+            self.write_field(f, &earlier, quote! { |s: &'a Self| Some(#field) })
         });
         let skims = fields.iter().enumerate().map(|(j, f)| {
             let skim = self.skim_field(f, j, quote! { ctx.clone() });
@@ -1124,7 +1187,7 @@ impl SeriesSeed<'_> {
                 }
             });
             let field_writes = fields.iter().enumerate().map(|(j, f)| {
-                let b = bind(f);
+                let b = self.wrap(f, bind(f));
                 let earlier: Vec<&SeriesField> = fields[..j].iter().collect();
                 let pick = quote! {
                     #[allow(unreachable_patterns, unused_variables)]

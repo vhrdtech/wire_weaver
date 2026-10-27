@@ -77,6 +77,69 @@ pub(crate) fn take_series_attr(attrs: &mut Vec<syn::Attribute>) -> Result<bool, 
     Ok(true)
 }
 
+/// Take `#[wire(W)]` or `#[cfg_attr(pred, wire(W))]` (DER-19): the wire type `W` and the `cfg_attr` predicate.
+/// rustc doesn't expand a field's `cfg_attr` before an attribute macro runs, so the derive sees it as written.
+pub(crate) fn take_wire_attr(
+    attrs: &mut Vec<syn::Attribute>,
+) -> Result<Option<(syn::Type, Option<Meta>)>, String> {
+    let mut found = None;
+    let mut err = None;
+    attrs.retain(|attr| {
+        let wire = if attr.path().is_ident("wire") {
+            match &attr.meta {
+                Meta::List(list) => syn::parse2::<syn::Type>(list.tokens.clone())
+                    .map(|ty| (ty, None))
+                    .map_err(|_| "expected #[wire(W)] with an integer type W".to_string()),
+                _ => Err("expected #[wire(W)] with an integer type W".to_string()),
+            }
+        } else if attr.path().is_ident("cfg_attr") {
+            match cfg_attr_wire(attr) {
+                Some(wire) => wire,
+                None => return true,
+            }
+        } else {
+            return true;
+        };
+        match wire {
+            Ok(wire) if found.is_none() => found = Some(wire),
+            Ok(_) => err = Some("more than one #[wire(..)]".to_string()),
+            Err(e) => err = Some(e),
+        }
+        false
+    });
+    match err {
+        Some(err) => Err(err),
+        None => Ok(found),
+    }
+}
+
+/// `#[cfg_attr(pred, wire(W))]`: `None` when the `cfg_attr` has no `wire(..)` in it.
+fn cfg_attr_wire(attr: &syn::Attribute) -> Option<Result<(syn::Type, Option<Meta>), String>> {
+    let Meta::List(list) = &attr.meta else {
+        return None;
+    };
+    let metas = list
+        .parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)
+        .ok()?;
+    let mut metas = metas.into_iter();
+    let pred = metas.next()?;
+    let rest: Vec<Meta> = metas.collect();
+    if !rest.iter().any(|m| m.path().is_ident("wire")) {
+        return None;
+    }
+    let [Meta::List(wire)] = rest.as_slice() else {
+        return Some(Err(
+            "expected #[cfg_attr(pred, wire(W))], with wire(W) alone: put other attributes in a cfg_attr of their own"
+                .into(),
+        ));
+    };
+    Some(
+        syn::parse2::<syn::Type>(wire.tokens.clone())
+            .map(|ty| (ty, Some(pred)))
+            .map_err(|_| "expected #[cfg_attr(pred, wire(W))] with an integer type W".to_string()),
+    )
+}
+
 /// Take `#[slot = N]` (DER-13, a field of a `sparse` struct) and return `N`.
 pub(crate) fn take_slot_attr(attrs: &mut Vec<syn::Attribute>) -> Result<Option<u32>, String> {
     let Some(attr_idx) = attrs.iter().position(|a| a.path().is_ident("slot")) else {

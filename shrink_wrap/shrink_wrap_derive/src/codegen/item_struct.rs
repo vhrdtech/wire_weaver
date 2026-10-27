@@ -315,9 +315,13 @@ impl ToTokens for CGStructSer<'_> {
                 (false, true) => FieldPath::Value(quote! {self}),
                 (false, false) => FieldPath::Value(quote! {self.#field_name}),
             };
-            struct_field
-                .ty
-                .buf_write(field_path, self.is_ref, quote! { ? }, tokens);
+            struct_field.ty.buf_write(
+                field_path,
+                self.is_ref,
+                quote! { ? },
+                self.item_struct.crate_path,
+                tokens,
+            );
         }
         if self
             .item_struct

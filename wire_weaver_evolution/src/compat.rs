@@ -763,11 +763,9 @@ impl<'a> TypeCheck<'a> {
                 ra.len()
             ));
         }
-        let markers = match self.writer.types.get(wi as usize) {
-            Some(TypeLocationOwned::InLine { ty, .. }) => marker_params(ty),
-            // a skipped definition's arguments are compared by where they come from anyway
-            _ => vec![],
-        };
+        let markers = type_def(self.writer, wi)
+            .map(marker_params)
+            .unwrap_or_default();
         for (i, (w_arg, r_arg)) in wa.iter().zip(ra).enumerate() {
             if let Some((_, param)) = markers.iter().find(|(m, _)| *m == i) {
                 self.check_marker(w_arg, r_arg)
@@ -812,9 +810,7 @@ impl<'a> TypeCheck<'a> {
         if w_def != r_def || wi.args.len() != ri.args.len() {
             return Ok(());
         }
-        let Some(TypeLocationOwned::InLine { ty: def, .. }) =
-            self.writer.types.get(wi.type_idx.0 as usize)
-        else {
+        let Some(def) = type_def(self.writer, wi.type_idx.0) else {
             return Ok(());
         };
         for (i, param) in marker_params(def) {
@@ -847,7 +843,8 @@ impl<'a> TypeCheck<'a> {
         }
         self.rule = Some(Rule::Meaning);
         Err(format!(
-            "marker {} on the {}, {} on the {}: the same bytes, but the {} would read them as another quantity",
+            "marker {} on the {}, {} on the {}: the same bytes, but the {} would \
+                     read them as another quantity",
             marker_name(self.writer, w, false),
             self.writer_name,
             marker_name(self.reader, r, false),
@@ -888,7 +885,8 @@ impl<'a> TypeCheck<'a> {
                 }
                 self.rule = Some(Rule::Meaning);
                 return Some(Err(format!(
-                    "{} on the {}, {} on the {}: wrappers of the same bytes with another meaning, the {} would                      read them as another quantity",
+                    "{} on the {}, {} on the {}: wrappers of the same bytes with another meaning, the {} would \
+                     read them as another quantity",
                     w_wrapper.name,
                     self.writer_name,
                     r_wrapper.name,
@@ -898,6 +896,11 @@ impl<'a> TypeCheck<'a> {
             }
             (Some(w_wrapper), None) => {
                 // a plain reader takes any value
+                if is_quantity(reader, r) && w_wrapper.is_fixed() {
+                    return Some(Err(
+                        self.quantity_to_fixed(w_wrapper.name, type_name(reader, r))
+                    ));
+                }
                 if let Err(e) = self.check(&w_wrapper.field, r) {
                     return Some(Err(format!("{}: {e}", w_wrapper.name)));
                 }
@@ -908,6 +911,11 @@ impl<'a> TypeCheck<'a> {
                     if let Err(e) = self.check_bound_marker(&Bound::Unbounded, bound) {
                         return Some(Err(format!("{}: {e}", r_wrapper.name)));
                     }
+                }
+                if is_quantity(writer, w) && r_wrapper.is_fixed() {
+                    return Some(Err(
+                        self.quantity_to_fixed(type_name(writer, w), r_wrapper.name)
+                    ));
                 }
                 if let Err(e) = self.check(w, &r_wrapper.field) {
                     return Some(Err(format!("{}: {e}", r_wrapper.name)));
@@ -925,6 +933,16 @@ impl<'a> TypeCheck<'a> {
             self.unwrapped.push(unwrapped);
         }
         Some(Ok(()))
+    }
+
+    /// A `ww_si::Quantity` on one side, a `ww_si::Fixed` on the other: the intended move from one to the other, and
+    /// breaking.
+    fn quantity_to_fixed(&self, written: String, read: String) -> String {
+        format!(
+            "{written} on the {}, {read} on the {}: a Quantity sends its prefix and number type with every value, \
+             a Fixed only the number: moving to Fixed is intended, but needs a major version",
+            self.writer_name, self.reader_name
+        )
     }
 
     fn check_enum(&mut self, w: &ItemEnumOwned, r: &ItemEnumOwned) -> Result<(), String> {
@@ -1142,6 +1160,14 @@ struct Wrapper<'b> {
     bounds: Vec<Bound>,
 }
 
+impl Wrapper<'_> {
+    fn is_fixed(&self) -> bool {
+        self.def
+            .as_ref()
+            .is_some_and(|(krate, name)| is_ww_si(krate, name, "Fixed"))
+    }
+}
+
 /// `ty` as a transparent wrapper, `None` when it is not one (or its definition is not known here).
 fn wrapper<'b>(
     bundle: &'b ApiBundleOwned,
@@ -1151,26 +1177,35 @@ fn wrapper<'b>(
         Ok(s.transparent_field().map_err(|e| e.to_string())?.ty.clone())
     };
     if let TypeOwned::Instance { type_idx, args } = ty {
-        let Some(TypeLocationOwned::InLine {
-            ty: def @ TypeOwned::Struct(def_struct),
-            ..
-        }) = bundle.types.get(type_idx.0 as usize)
-        else {
+        let Some(def @ TypeOwned::Struct(def_struct)) = type_def(bundle, type_idx.0) else {
             return Ok(None);
         };
         if !def_struct.transparent {
             return Ok(None);
         }
-        let TypeOwned::Struct(s) =
-            ww_self::generics::substitute(bundle, type_idx.0, args).map_err(|e| e.to_string())?
-        else {
-            return Ok(None);
+        let (field, name) = match bundle.types.get(type_idx.0 as usize) {
+            Some(TypeLocationOwned::InLine { .. }) => {
+                let TypeOwned::Struct(s) = ww_self::generics::substitute(bundle, type_idx.0, args)
+                    .map_err(|e| e.to_string())?
+                else {
+                    return Ok(None);
+                };
+                (field_of(&s)?, s.ident)
+            }
+            // from a snapshot: only a field that is one of the parameters is known here
+            _ => match field_of(def_struct)? {
+                TypeOwned::Param(p) => match args.get(p.0 as usize) {
+                    Some(GenericArgOwned::Type(field)) => (field.clone(), type_name(bundle, ty)),
+                    _ => return Ok(None),
+                },
+                _ => return Ok(None),
+            },
         };
         return Ok(Some(Wrapper {
-            field: Cow::Owned(field_of(&s)?),
+            field: Cow::Owned(field),
             def: def_name(bundle, type_idx.0).map(|(c, n)| (c, n.into_owned())),
             bounds: bounds_of(bundle, def, args),
-            name: s.ident,
+            name,
         }));
     }
     let ResolvedTy::Ty(TypeOwned::Struct(s)) = resolve(bundle, ty)? else {
@@ -1183,12 +1218,9 @@ fn wrapper<'b>(
     let (def, bounds) = match &s.instance_of {
         Some(instance_of) => {
             let idx = instance_of.type_idx.0;
-            let bounds = match bundle.types.get(idx as usize) {
-                Some(TypeLocationOwned::InLine { ty: def, .. }) => {
-                    bounds_of(bundle, def, &instance_of.args)
-                }
-                _ => vec![],
-            };
+            let bounds = type_def(bundle, idx)
+                .map(|def| bounds_of(bundle, def, &instance_of.args))
+                .unwrap_or_default();
             (
                 def_name(bundle, idx).map(|(c, n)| (c, n.into_owned())),
                 bounds,
@@ -1230,6 +1262,63 @@ fn def_name(bundle: &ApiBundleOwned, type_idx: u32) -> Option<(String, Cow<'_, s
             bundle.crate_version(crate_idx.0).ok()?.crate_id.clone(),
             Cow::Borrowed(type_name.as_str()),
         )),
+    }
+}
+
+/// Crate and name of the generic definition `ty` is an instance of, prepared or not.
+fn instance_def_name<'b>(
+    bundle: &'b ApiBundleOwned,
+    ty: &'b TypeOwned,
+) -> Option<(String, Cow<'b, str>)> {
+    match ty {
+        TypeOwned::Instance { type_idx, .. } => def_name(bundle, type_idx.0),
+        _ => match resolve(bundle, ty).ok()? {
+            ResolvedTy::Ty(TypeOwned::Struct(s)) => {
+                def_name(bundle, s.instance_of.as_ref()?.type_idx.0)
+            }
+            _ => None,
+        },
+    }
+}
+
+/// Whether `ty` is a `ww_si::Quantity`.
+fn is_quantity(bundle: &ApiBundleOwned, ty: &TypeOwned) -> bool {
+    instance_def_name(bundle, ty).is_some_and(|(krate, name)| is_ww_si(&krate, &name, "Quantity"))
+}
+
+fn is_ww_si(krate: &str, qualified_name: &str, name: &str) -> bool {
+    krate == "ww_si" && qualified_name.rsplit("::").next() == Some(name)
+}
+
+/// The definition of type `type_idx`: in-line, or for a skipped one (a `ww_si` type in an API) the definition with the
+/// same name and signature in the embedded snapshots of its crate. Field types of a definition from a snapshot refer
+/// to that snapshot, only its own parameters can be read here.
+fn type_def(bundle: &ApiBundleOwned, type_idx: u32) -> Option<&TypeOwned> {
+    match bundle.types.get(type_idx as usize)? {
+        TypeLocationOwned::InLine { ty, .. } => Some(ty),
+        TypeLocationOwned::SkippedFullVersion {
+            crate_idx,
+            type_name,
+            signature: expected,
+        } => {
+            let snapshot = wire_weaver_snapshots::get(bundle.crate_version(crate_idx.0).ok()?)?;
+            snapshot
+                .types
+                .iter()
+                .enumerate()
+                .find_map(|(idx, location)| match location {
+                    TypeLocationOwned::InLine { ty, .. }
+                        if user_type_identity(snapshot, ty)
+                            .is_some_and(|(_, name)| name == type_name.as_str())
+                            && (expected.is_empty()
+                                || type_signature(snapshot, idx as u32).as_ref()
+                                    == Some(expected)) =>
+                    {
+                        Some(ty)
+                    }
+                    _ => None,
+                })
+        }
     }
 }
 

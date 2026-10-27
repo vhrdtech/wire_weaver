@@ -66,24 +66,52 @@ pub trait I2c {
 
 * `i2c_capabilities` - static description of what the adapter supports: modes, frequency range, IO levels, buffer
   sizes, 10-bit addresses, pull-ups, bus recovery; see `I2cCapabilities` under [Types](#types).
-* `i2c_configure` - sets the bus mode and, on adapters with level translators, the bus voltage, in one
-  [`I2cConfig`](#types) (`io_level: None` leaves the level as it is); answers with what was actually set: the SCL
-  frequency the hardware settled on (never above the one asked for) and the IO level in effect.
+* `i2c_configure` - sets the bus mode, on adapters with level translators the bus voltage, and the clock stretch
+  timeout, in one [`I2cConfig`](#types) (`None` leaves the level or the timeout as it is); answers with what was
+  actually set: the SCL frequency (the highest the hardware can do that is not above the request, computed from its
+  real timing), the IO level and the stretch timeout in effect.
 * `i2c_write` - start, address, data, stop; `delay_after` makes the next transfer to the *same* address wait (an
-  EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile.
+  EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile. Empty data is an
+  address-only write (probing, SMBus Quick Command) on adapters with `I2cCapabilities::zero_length_write`,
+  `Common(Unsupported)` on the others.
 * `i2c_read` - plain read, or a register read (write a few bytes, repeated start, read) through
   [`I2cReadKind`](#types).
 * `i2c_scan` - 7-bit addresses that acknowledged a one-byte read, ascending, skipping the reserved ranges
   (`0x00..=0x07`, `0x78..=0x7F`).
-* `i2c_transaction` - several [`I2cOp`](#types) writes/reads to one address with repeated starts in between and one
-  stop at the end, like `embedded_hal::i2c::I2c::transaction`; the bytes of all reads come back concatenated, in
-  order.
+* `i2c_transaction` - several [`I2cOp`](#types) writes/reads to one address in one transaction, see
+  [Transactions](#transactions); the bytes of all reads come back concatenated, in order.
 * `i2c_lines_state` - levels of SCL and SDA now; both high on an idle bus, a line held low means a slave stuck
   mid-byte, missing/unpowered pull-ups, or a short.
-* `i2c_wiggle_clock` - clocks SCL up to `count` times (9 is enough for any stuck byte) until SDA is released, then
-  sends a stop; returns the line levels afterwards (bus recovery).
+* `i2c_wiggle_clock` - bus recovery: clocks SCL up to `count` times (9 is enough for any stuck byte) at the
+  configured SCL frequency but at most 100 kHz, stopping once SDA is released, then sends a stop; returns the line
+  levels afterwards. It works while the bus is disabled or a master between transfers. A device never frees the
+  bus on its own: a transfer that finds a line held low fails with `BusStuck`, and the host decides to recover.
 * `i2c_set_pullups` / `i2c_pullups` - the adapter's own pull-up resistors on SCL and SDA, on adapters that have
   switchable ones (see `I2cCapabilities::pullups`).
+
+### Transactions
+
+Every transfer starts with a start condition and ends with a stop. Inside one call, every operation starts with the
+address and its direction bit, after a repeated start for all but the first, as Linux's `I2C_RDWR` does:
+
+| Call | On the bus |
+|---|---|
+| `i2c_write(a, [r, d0, d1])` | S a+W r d0 d1 P |
+| `i2c_read(a, RepeatedStart { write: [r] }, 2)` | S a+W r Sr a+R x0 x1 P |
+| `i2c_transaction(a, [Write([r]), Read(2)])` | S a+W r Sr a+R x0 x1 P (the same) |
+| `i2c_transaction(a, [Write([r]), Write([d0, d1])])` | S a+W r Sr a+W d0 d1 P |
+
+The last line is not one longer write: `embedded_hal::i2c::I2c::transaction` merges adjacent operations of the same
+direction without a repeated start, `i2c_transaction` doesn't. An EEPROM page write (memory address, then data) is
+one `Write` with both, as on a real 24Cxx the repeated start would make the data a new memory address. A host
+adapter implementing embedded-hal over `ww_i2c` merges before the call: adjacent writes concatenated into one
+`Write`, adjacent reads into one `Read` of the summed length, and splits the read bytes again.
+
+`Nack` errors say where the transfer stopped: `op` is the operation (0 for `i2c_write` and a plain read, 0 or 1
+for the write or read part of a `RepeatedStart` read, the index into `ops` for `i2c_transaction`), `at` the byte on
+the bus within it, counted as `I2cRecord::nack_at` does: `Some(0)` the address, `Some(n)` the n-th data byte, so
+`n - 1` bytes went through; `None` when the controller can't tell. Only writes have data NACKs: in a read the master
+itself doesn't acknowledge the last byte, which is no error.
 
 ### `I2cWatch`
 
@@ -223,7 +251,7 @@ suite checks both sizes against a real `to_ww_bytes()` call. An adapter without 
 ## Sizes
 
 Every byte buffer is bounded (`MAX_WRITE_LEN`, `MAX_READ_LEN`, `MAX_WRITE_READ_LEN`, `MAX_OPS`, `MAX_SCAN`,
-`MAX_RECORD_LEN`, `MAX_WATCHES`, `MAX_WATCH_LEN`, `MAX_NAME_LEN`, `MAX_IO_LEVELS`), so a device knows the largest
+`MAX_RECORD_LEN`, `MAX_WATCHES`, `MAX_WATCH_LEN`, `MAX_NAME_LEN`, `MAX_IO_LEVELS`, `MAX_SPEEDS`), so a device knows the largest
 request it has to take and the largest reply it has to build at compile time. A device may support less: its limits
 are in `I2cCapabilities` / `I2cWatchCapabilities`. Raising a bound later is a compatible change, lowering it is not
 (see [evolution rules](../evolution/rules.md)).
@@ -238,7 +266,10 @@ up with the device's other data.
 
 ## Types
 
-* `I2cConfig` - `mode: I2cMode`, `io_level: Option<Volt>`; the argument and the answer of `i2c_configure`.
+* `I2cConfig` - `mode: I2cMode`, `io_level: Option<Volt>`, `stretch_timeout: Option<Second>`; the argument and
+  the answer of `i2c_configure`. The stretch timeout is the longest a slave may hold SCL low at once before the
+  transfer is aborted with `ClockStretch`; a device always enforces one (a stuck SCL never hangs it), so its answer is
+  `Some`, `None` only from a device older than the field.
 * `I2cMode` - `Disabled` (pins released), `Master { speed: Hertz, monitor }`, `MonitorOnly`. Slave mode is
   `slave_events`, not a mode.
 * `I2cSlaveConfig` - `addr: I2cAddress`, `io_level: Option<Volt>`, `answers: I2cSlaveAnswers`.
@@ -252,7 +283,8 @@ up with the device's other data.
   `nack_when_empty`, `ten_bit_address`, `max_freq: Hertz`.
 * `I2cReadKind<'i>` - `Plain` (start, address+read, `len` bytes, stop) or `RepeatedStart { write }` (start,
   address+write, `write`, repeated start, address+read, `len` bytes, stop), bounded by `MAX_WRITE_READ_LEN`.
-* `I2cOp<'i>` - `Write(MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>)` or `Read(u16)`, one operation of `i2c_transaction`.
+* `I2cOp<'i>` - `Write(MaxLen<RefVec<'i, u8>, MAX_WRITE_LEN>)` or `Read(u16)`, one operation of `i2c_transaction`
+  (an empty `Write` as in `i2c_write`, a `Read(0)` is `InvalidArgument`).
 * `I2cTransactionTimeRange` - `start` / `end: Second` (start and stop condition).
 * `I2cReadEnvelope<'i>` - `duration: I2cTransactionTimeRange`, `data: MaxLen<RefVec<'i, u8>, MAX_READ_LEN>`.
 * `I2cTransactionResult<'i>` - `duration`, `read` (every `I2cOp::Read`'s bytes, concatenated in order).
@@ -260,20 +292,25 @@ up with the device's other data.
   adapter can).
 * `I2cCapabilities<'i>` - `io_levels`, `io_level_min` / `io_level_max`, `max_write_len`, `max_read_len`,
   `min_freq` / `max_freq: Hertz`, `driver_name` (bounded by `MAX_NAME_LEN`), `master_supported` /
-  `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`. Slave mode is in the device's introspection
-  (the `slave` group) and `I2cSlaveCapabilities`.
+  `monitor_supported`, `ten_bit_addresses`, `pullups`, `bus_recovery`; `speeds` (the only SCL frequencies of a
+  controller with a few fixed ones, empty when any between `min_freq` and `max_freq` works, at most `MAX_SPEEDS`),
+  `max_ops` (operations per `i2c_transaction`), `max_write_read_len` (write part of a `RepeatedStart` read),
+  `zero_length_write`, `stretch_timeout_min` / `stretch_timeout_max` (`None`: the timeout can't be changed). A device
+  older than these last six reads as `MAX_OPS`, `MAX_WRITE_READ_LEN`, no zero-length writes, no list and no range.
+  Slave mode is in the device's introspection (the `slave` group) and `I2cSlaveCapabilities`.
 * `I2cWatchCapabilities` - `max_watches: u32` (at most `MAX_WATCHES`, 512), `max_len` (at most `MAX_WATCH_LEN`), `min_period`.
 * `I2cWatchConfig<'i>` - `addr`, `kind: I2cReadKind<'i>`, `len`, `period: Second`, `report: I2cWatchReport<'i>`.
 * `I2cWatchReport<'i>` - `Always`, `Changed { mask }`, `Matches { bytes }`, see [`I2cWatch`](#i2cwatch) above.
 * `I2cMatchByte` - `mask`, `value: u8`, one byte of a `Matches` rule; `sized`, two bytes.
 * `I2cWatchEvent<'i>` - `slot`, `result: Result<MaxLen<RefVec<'i, u8>, MAX_WATCH_LEN>, I2cError>`.
 * `I2cRecord<'i>` - `end: Second` (stop or repeated start; the start condition is the head's time), `addr`, `read: bool`, `kind: I2cRecordKind`, `nack_at: Option<u16>`
-  (index of the first byte not acknowledged, `Some(0)` = the address), `bytes` (without the address).
+  (the first byte not acknowledged: `Some(0)` the address, `Some(n)` `bytes[n - 1]`), `bytes` (without the address).
 * `I2cRecordKind` - `Complete`, `RepeatedStart` (the next record continues the transaction), `Truncated` (more than
   `MAX_RECORD_LEN` bytes), `BusError`.
-* `I2cError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), then `Nack`, `Arbitration`,
-  `Bus`, `Crc`, `Overrun`, `BufferTooBig`, `OutOfWatchSlots`, `InvalidWatchSlot`; unsized (`unib32` discriminant),
-  evolvable, `Display` from the doc lines (see [below](#errors)).
+* `I2cError<'i>` - `Common(CommonError)` ([common errors](../api/errors.md#common-errors)), then `Nack { op, at }`,
+  `Arbitration`, `Bus`, `Crc`, `Overrun`, `BufferTooBig`, `OutOfWatchSlots`, `InvalidWatchSlot`, `ClockStretch`,
+  `BusStuck { scl_low, sda_low }`; unsized (`unib32` discriminant), evolvable, `Display` from the doc lines (see
+  [below](#errors)).
 
 All enums and structs are behind `#[derive_shrink_wrap]` with `owned(feature = "std")` and
 `cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))`, so owned (`*Owned`) variants and `defmt::Format` are
@@ -283,14 +320,27 @@ available by enabling the crate's `std` / `defmt` features.
 
 Every trait returns `I2cError`: [`CommonError`](../api/errors.md#common-errors) as its `#[common] Common` variant
 (unsupported mode or IO level, invalid argument, in use, wrong state, no power, refused, timeout), then what is
-specific to I2C and a caller acts on: `Nack` (retry an EEPROM busy with a page write), `Arbitration`, `Bus`, `Crc`,
-`Overrun`, `BufferTooBig` (split the transfer), `OutOfWatchSlots`, `InvalidWatchSlot`. Each method lists the variants
-it returns with `#[errors(..)]`, shown in its rustdoc and checked on the client. The enum is unsized, so a newer
-device's variant reads as `Unknown(n)` on an older host instead of failing the call.
+specific to I2C and a caller acts on:
+
+| Error | What happened | What a caller does |
+|---|---|---|
+| `Nack { op, at }` | the address (`at: Some(0)`) or a data byte of a write was not acknowledged, see [Transactions](#transactions) | address: not there, or busy (retry an EEPROM in its page write); data: the slave refused the byte or the register |
+| `Arbitration` | another master won the bus | retry |
+| `Bus` | a start or stop where it doesn't belong | check the wiring, retry |
+| `ClockStretch` | a slave held SCL low longer than `I2cConfig::stretch_timeout` | raise the timeout for a slow slave, or reset it |
+| `BusStuck { scl_low, sda_low }` | a line held low before the start: a slave stuck mid-byte, no pull-ups, a short | `i2c_wiggle_clock`, then check `i2c_lines_state` |
+| `Common(Timeout)` | the call didn't finish within the device's own deadline, e.g. another master kept the bus | retry later |
+| `Crc`, `Overrun` | SMBus PEC failed; data came faster than the adapter took it (slave mode) | retry |
+| `BufferTooBig` | longer than the device takes | split the transfer |
+| `OutOfWatchSlots`, `InvalidWatchSlot` | `I2cWatch` slots | remove a watch; use a slot from `watch_list` |
+
+Each method lists the variants it returns with `#[errors(..)]`, shown in its rustdoc and checked on the client. The
+enum is unsized, so a newer device's variant reads as `Unknown(n)` on an older host instead of failing the call, and
+an older device's plain `Nack` reads as `Nack { op: 0, at: None }`.
 
 ```rust
 match dev.i2c().i2c_write(addr, data.clone(), None).call().await {
-    Err(CallError::Device(I2cErrorOwned::Nack)) => { /* not there, or busy */ }
+    Err(CallError::Device(I2cErrorOwned::Nack { at: Some(0), .. })) => { /* not there, or busy */ }
     Err(CallError::Device(e)) if e.common().is_some() => { /* the same handling as for any other crate */ }
     r => { r?; }
 }
@@ -316,6 +366,9 @@ event loop end to end:
 
 * `i2c_write_read_roundtrip`, `i2c_nack_and_zero_length`, `i2c_scan_and_lines` - `I2c` write/read/scan/lines/pullups,
   and the `Nack` / `Common(InvalidArgument)` (zero length) error paths.
+* `i2c_data_nack_names_op_and_byte`, `i2c_clock_stretch_timeout`, `i2c_bus_stuck_until_recovered` - where a `Nack`
+  happened (operation and byte), the stretch timeout and `ClockStretch`, and a stuck bus reported as `BusStuck` until
+  `i2c_wiggle_clock` frees it.
 * `i2c_monitor_records_writes_and_reads` - opening `I2cMonitor::records` turns transactions into `I2cRecord`s on it.
 * `i2c_watch_always_reports_every_read`, `i2c_watch_changed_reports_only_on_change`,
   `i2c_watch_matches_reports_on_transition_only`, `i2c_watch_error_reported_once_then_recovery_always_reports`,

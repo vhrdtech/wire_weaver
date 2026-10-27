@@ -9,10 +9,10 @@ mod tests {
     use wire_weaver::prelude::*;
     use ww_i2c::{
         Hertz, I2cAddress, I2cCapabilities, I2cConfig, I2cError, I2cErrorOwned, I2cLinesState,
-        I2cMatchByte, I2cMode, I2cOp, I2cReadEnvelope, I2cReadKind, I2cReadKindOwned, I2cRecord,
-        I2cRecordKind, I2cTransactionResult, I2cTransactionTimeRange, I2cWatchCapabilities,
-        I2cWatchConfig, I2cWatchConfigOwned, I2cWatchEvent, I2cWatchReportOwned, MAX_READ_LEN,
-        MAX_SCAN, MAX_WATCHES, Second,
+        I2cMatchByte, I2cMode, I2cOp, I2cOpOwned, I2cReadEnvelope, I2cReadKind, I2cReadKindOwned,
+        I2cRecord, I2cRecordKind, I2cTransactionResult, I2cTransactionTimeRange,
+        I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned, I2cWatchEvent,
+        I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second,
     };
     use ww_si::Prefix;
     use ww_si::ww_numeric::NumericValue;
@@ -48,6 +48,14 @@ mod tests {
         registers: HashMap<u16, Vec<u8>>,
         /// Addresses that never acknowledge.
         nack: HashSet<u16>,
+        /// Devices that acknowledge only this many data bytes of a write (an EEPROM page, a short register file).
+        accepts: HashMap<u16, u16>,
+        /// Devices that hold SCL low for longer than any stretch timeout.
+        stretches: HashSet<u16>,
+        /// A slave holds SDA low, until `I2c::i2c_wiggle_clock` frees it.
+        sda_stuck: bool,
+        /// `I2cConfig::stretch_timeout` in effect, `None` for the mock's default of 25 ms.
+        stretch_timeout: Option<Second>,
         /// Every `I2c::i2c_write`, in order.
         writes: Vec<(u16, Vec<u8>)>,
         pullups: bool,
@@ -57,6 +65,47 @@ mod tests {
     }
 
     impl Model {
+        /// The start of an operation `op` to `key`: a stuck bus, a missing device, one that stretches too long.
+        fn start(&self, key: u16, op: u8) -> Result<(), I2cError<'static>> {
+            if self.sda_stuck {
+                return Err(I2cError::BusStuck {
+                    scl_low: false,
+                    sda_low: true,
+                });
+            }
+            if self.nack.contains(&key) {
+                return Err(I2cError::Nack { op, at: Some(0) });
+            }
+            if self.stretches.contains(&key) {
+                return Err(I2cError::ClockStretch);
+            }
+            Ok(())
+        }
+
+        /// The data of write operation `op`: a device without zero-length writes refuses empty ones, a device that
+        /// takes fewer bytes doesn't acknowledge the first one past them.
+        fn write_data(&self, key: u16, op: u8, len: usize) -> Result<(), I2cError<'static>> {
+            if len == 0 {
+                return Err(unsupported());
+            }
+            match self.accepts.get(&key) {
+                Some(&n) if len > n as usize => Err(I2cError::Nack {
+                    op,
+                    at: Some(n + 1),
+                }),
+                _ => Ok(()),
+            }
+        }
+
+        fn lines(&self) -> I2cLinesState {
+            I2cLinesState {
+                is_scl_high: true,
+                is_sda_high: !self.sda_stuck,
+                scl: None,
+                sda: None,
+            }
+        }
+
         fn tick(&mut self) -> Second {
             self.now_us += 1;
             secs(self.now_us)
@@ -72,9 +121,7 @@ mod tests {
             len: u16,
         ) -> Result<Vec<u8>, I2cError<'static>> {
             let key = addr_key(addr);
-            if self.nack.contains(&key) {
-                return Err(I2cError::Nack);
-            }
+            self.start(key, 0)?;
             let reg = self.registers.get(&key).cloned().unwrap_or_default();
             let mut out = vec![0u8; len as usize];
             for (i, b) in out.iter_mut().enumerate() {
@@ -209,6 +256,12 @@ mod tests {
                     ten_bit_addresses: true,
                     pullups: true,
                     bus_recovery: true,
+                    speeds: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    max_ops: ww_i2c::MAX_OPS as u16,
+                    max_write_read_len: ww_i2c::MAX_WRITE_READ_LEN as u16,
+                    zero_length_write: false,
+                    stretch_timeout_min: Some(Second::milli(1u8)),
+                    stretch_timeout_max: Some(Second::base(1u8)),
                 })
             }
 
@@ -232,9 +285,17 @@ mod tests {
                     }
                     mode => mode,
                 };
+                let mut m = self.model.lock().unwrap();
+                if let Some(t) = config.stretch_timeout {
+                    if t < Second::milli(1u8) || t > Second::base(1u8) {
+                        return Ready(Err(invalid(0, "stretch timeout out of range")));
+                    }
+                    m.stretch_timeout = Some(t);
+                }
                 Ready(Ok(I2cConfig {
                     mode,
                     io_level: None,
+                    stretch_timeout: Some(m.stretch_timeout.unwrap_or(Second::milli(25u8))),
                 }))
             }
 
@@ -247,8 +308,11 @@ mod tests {
             ) -> RpcResult<Result<I2cTransactionTimeRange, I2cError<'_>>> {
                 let mut m = self.model.lock().unwrap();
                 let key = addr_key(addr);
-                if m.nack.contains(&key) {
-                    return Ready(Err(I2cError::Nack));
+                if let Err(e) = m
+                    .start(key, 0)
+                    .and_then(|_| m.write_data(key, 0, data.len()))
+                {
+                    return Ready(Err(e));
                 }
                 let bytes = data.as_slice().to_vec();
                 let start = m.tick();
@@ -347,17 +411,27 @@ mod tests {
                 let mut m = self.model.lock().unwrap();
                 let start = m.tick();
                 let key = addr_key(addr);
-                if m.nack.contains(&key) {
-                    return Ready(Err(I2cError::Nack));
+                if ops.is_empty() {
+                    return Ready(Err(invalid(1, "no operations")));
                 }
                 let mut read_out = Vec::new();
                 let mut reg = m.registers.get(&key).cloned().unwrap_or_default();
-                for op in ops.iter() {
+                for (i, op) in ops.iter().enumerate() {
                     let Ok(op) = op else {
                         return Ready(Err(invalid(1, "op")));
                     };
+                    // every operation starts with the address again (a repeated start after the first)
+                    if let Err(e) = m.start(key, i as u8) {
+                        return Ready(Err(e));
+                    }
                     match op {
-                        I2cOp::Write(data) => reg = data.as_slice().to_vec(),
+                        I2cOp::Write(data) => {
+                            if let Err(e) = m.write_data(key, i as u8, data.len()) {
+                                return Ready(Err(e));
+                            }
+                            reg = data.as_slice().to_vec()
+                        }
+                        I2cOp::Read(0) => return Ready(Err(invalid(1, "read of 0 bytes"))),
                         I2cOp::Read(len) => {
                             let mut chunk = vec![0u8; len as usize];
                             for (i, b) in chunk.iter_mut().enumerate() {
@@ -383,25 +457,20 @@ mod tests {
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<I2cLinesState> {
-                Ready(I2cLinesState {
-                    is_scl_high: true,
-                    is_sda_high: true,
-                    scl: None,
-                    sda: None,
-                })
+                Ready(self.model.lock().unwrap().lines())
             }
 
             fn i2c_i2c_wiggle_clock(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
-                _count: u8,
+                count: u8,
             ) -> RpcResult<Result<I2cLinesState, I2cError<'_>>> {
-                Ready(Ok(I2cLinesState {
-                    is_scl_high: true,
-                    is_sda_high: true,
-                    scl: None,
-                    sda: None,
-                }))
+                // the stuck slave lets go of SDA after a few clocks
+                let mut m = self.model.lock().unwrap();
+                if count >= 3 {
+                    m.sda_stuck = false;
+                }
+                Ready(Ok(m.lines()))
             }
 
             fn i2c_i2c_set_pullups(
@@ -741,6 +810,7 @@ mod tests {
                     monitor: false,
                 },
                 io_level: None,
+                stretch_timeout: None,
             })
             .call()
             .await
@@ -753,12 +823,15 @@ mod tests {
             }
         );
         assert_eq!(actual.io_level, None);
+        // the device always enforces a stretch timeout, and says which
+        assert_eq!(actual.stretch_timeout, Some(Second::milli(25u8)));
 
         let err = client
             .i2c()
             .i2c_configure(I2cConfig {
                 mode: I2cMode::Disabled,
                 io_level: Some(ww_si::Volt::milli(1800u16)),
+                stretch_timeout: None,
             })
             .call()
             .await
@@ -782,7 +855,11 @@ mod tests {
             .call()
             .await
             .unwrap_err();
-        assert_eq!(err.device(), Some(&I2cErrorOwned::Nack));
+        // the address was not acknowledged
+        assert_eq!(
+            err.device(),
+            Some(&I2cErrorOwned::Nack { op: 0, at: Some(0) })
+        );
 
         let addr_ok = I2cAddress::seven(0x52).unwrap();
         let err = client
@@ -798,6 +875,167 @@ mod tests {
                 ..
             }))
         ));
+    }
+
+    /// A data NACK says in which operation and at which byte; operations of a transaction each start with the
+    /// address (a repeated start), so a NACK in the second one has `op: 1`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn i2c_data_nack_names_op_and_byte() {
+        let (device, model) = start("io_i2c/data_nack");
+        model.lock().unwrap().accepts.insert(0x50, 2);
+        let client = connect(&device).await;
+        let addr = I2cAddress::seven(0x50).unwrap();
+
+        let err = client
+            .i2c()
+            .i2c_write(addr, MaxLen::new(vec![1, 2, 3, 4]).unwrap(), None)
+            .call()
+            .await
+            .unwrap_err();
+        // two bytes went through, the third (byte 3 on the bus after the address) was refused
+        assert_eq!(
+            err.device(),
+            Some(&I2cErrorOwned::Nack { op: 0, at: Some(3) })
+        );
+
+        let err = client
+            .i2c()
+            .i2c_transaction(
+                addr,
+                MaxLen::new(vec![
+                    I2cOpOwned::Write(MaxLen::new(vec![0]).unwrap()),
+                    I2cOpOwned::Write(MaxLen::new(vec![1, 2, 3]).unwrap()),
+                ])
+                .unwrap(),
+            )
+            .call()
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.device(),
+            Some(&I2cErrorOwned::Nack { op: 1, at: Some(3) })
+        );
+        assert_eq!(
+            err.device().unwrap().to_string(),
+            "not acknowledged: operation 1, byte Some(3) (0: the address)"
+        );
+
+        // an address-only write on a device without zero-length writes
+        let err = client
+            .i2c()
+            .i2c_write(addr, MaxLen::new(vec![]).unwrap(), None)
+            .call()
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.device(),
+            Some(&I2cErrorOwned::Common(CommonErrorOwned::Unsupported))
+        );
+        let caps = client.i2c().i2c_capabilities().call().await.unwrap();
+        assert!(!caps.zero_length_write);
+        assert_eq!(caps.max_ops, ww_i2c::MAX_OPS as u16);
+    }
+
+    /// A slave stretching the clock past the timeout is `ClockStretch`; the timeout is set with `i2c_configure`
+    /// within the device's range.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn i2c_clock_stretch_timeout() {
+        let (device, model) = start("io_i2c/stretch");
+        model.lock().unwrap().stretches.insert(0x40);
+        let client = connect(&device).await;
+        let master = I2cMode::Master {
+            speed: Hertz::kilo(100u8),
+            monitor: false,
+        };
+
+        let caps = client.i2c().i2c_capabilities().call().await.unwrap();
+        let set = client
+            .i2c()
+            .i2c_configure(I2cConfig {
+                mode: master,
+                io_level: None,
+                stretch_timeout: caps.stretch_timeout_max,
+            })
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(set.stretch_timeout, Some(Second::base(1u8)));
+        // `None` leaves it as it is
+        let set = client
+            .i2c()
+            .i2c_configure(I2cConfig {
+                mode: master,
+                io_level: None,
+                stretch_timeout: None,
+            })
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(set.stretch_timeout, Some(Second::base(1u8)));
+        let err = client
+            .i2c()
+            .i2c_configure(I2cConfig {
+                mode: master,
+                io_level: None,
+                stretch_timeout: Some(Second::base(10u8)),
+            })
+            .call()
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err.device(),
+            Some(I2cErrorOwned::Common(
+                CommonErrorOwned::InvalidArgument { .. }
+            ))
+        ));
+
+        let err = client
+            .i2c()
+            .i2c_read(
+                I2cAddress::seven(0x40).unwrap(),
+                I2cReadKindOwned::Plain,
+                1,
+                None,
+            )
+            .call()
+            .await
+            .unwrap_err();
+        assert_eq!(err.device(), Some(&I2cErrorOwned::ClockStretch));
+    }
+
+    /// A stuck SDA is reported, not recovered behind the host's back; `i2c_wiggle_clock` frees it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn i2c_bus_stuck_until_recovered() {
+        let (device, model) = start("io_i2c/stuck");
+        model.lock().unwrap().sda_stuck = true;
+        let client = connect(&device).await;
+        let addr = I2cAddress::seven(0x50).unwrap();
+
+        let err = client
+            .i2c()
+            .i2c_write(addr, MaxLen::new(vec![1]).unwrap(), None)
+            .call()
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.device(),
+            Some(&I2cErrorOwned::BusStuck {
+                scl_low: false,
+                sda_low: true
+            })
+        );
+        // still stuck: the failed call did not recover it
+        let lines = client.i2c().i2c_lines_state().call().await.unwrap();
+        assert!(lines.is_scl_high && !lines.is_sda_high);
+
+        let lines = client.i2c().i2c_wiggle_clock(9).call().await.unwrap();
+        assert!(lines.is_scl_high && lines.is_sda_high);
+        client
+            .i2c()
+            .i2c_write(addr, MaxLen::new(vec![1]).unwrap(), None)
+            .call()
+            .await
+            .unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1003,7 +1241,10 @@ mod tests {
         model.lock().unwrap().nack.insert(0x50);
         assert_eq!(client.tick_watches().call().await.unwrap(), 1);
         let ev = changes.recv().await.unwrap();
-        assert_eq!(ev.result.unwrap_err(), I2cErrorOwned::Nack);
+        assert_eq!(
+            ev.result.unwrap_err(),
+            I2cErrorOwned::Nack { op: 0, at: Some(0) }
+        );
 
         // it keeps failing: no further reports
         assert_eq!(client.tick_watches().call().await.unwrap(), 0);
@@ -1171,6 +1412,12 @@ mod tests {
                     ten_bit_addresses: false,
                     pullups: false,
                     bus_recovery: false,
+                    speeds: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    max_ops: 0,
+                    max_write_read_len: 0,
+                    zero_length_write: false,
+                    stretch_timeout_min: None,
+                    stretch_timeout_max: None,
                 })
             }
 
@@ -1183,6 +1430,7 @@ mod tests {
                     I2cMode::Disabled => Ready(Ok(I2cConfig {
                         mode: I2cMode::Disabled,
                         io_level: None,
+                        stretch_timeout: None,
                     })),
                     _ => Ready(Err(unsupported())),
                 }

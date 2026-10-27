@@ -4,6 +4,13 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
+- `I2cError::Nack` is `Nack { op: u8, at: Option<u16> }` (STD-52): which operation (`0` for `i2c_write` and a plain
+  read, `0`/`1` for the write/read part of a `RepeatedStart` read, the index into `ops` for `i2c_transaction`), and
+  what was not acknowledged, counted as `I2cRecord::nack_at`: `Some(0)` the address, `Some(n)` the n-th data byte,
+  `None` unknown. Rust only: match `Nack { .. }` instead of `Nack`, build it with both fields. Wire-compatible both
+  ways: an old host reads it as its plain `Nack`, a new host reads an old device's `Nack` as `{ op: 0, at: None }`.
+- `I2cConfig` and `I2cCapabilities` have new fields (below): struct literals need them. Wire-compatible both ways.
+
 - `I2cMode::Slave` and `I2cCapabilities::slave_supported` are removed (STD-35): slave mode is the new `slave` group of
   `I2c` (below), opened with `I2c::slave_events`; whether a device has it is in its introspection and
   `I2c::slave_capabilities`. `I2cMode::MonitorOnly` moves to discriminant 2.
@@ -41,6 +48,24 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
   `bus_recovery`.
 
 ### 🚀 Features
+
+- Master errors and limits (STD-52), all wire-compatible with older hosts and devices:
+    - `I2cError::ClockStretch`: a slave held SCL low longer than the new `I2cConfig::stretch_timeout`, which
+      `i2c_configure` sets (`None` leaves it) and answers (the limit in effect; a device always enforces one).
+    - `I2cError::BusStuck { scl_low, sda_low }`: a line held low before the start. Devices don't recover on their
+      own; `i2c_wiggle_clock` does, on request, clocking at the bus speed (at most 100 kHz) until SDA is released.
+      `Common(Timeout)` is now only the call's own deadline (e.g. another master holds the bus). Older hosts read the
+      two new errors as `Unknown(n)`.
+    - `I2cCapabilities`: `speeds` (a controller's fixed SCL frequencies, `MAX_SPEEDS`), `max_ops`,
+      `max_write_read_len`, `zero_length_write` (address-only writes; `Unsupported` without), `stretch_timeout_min`
+      / `stretch_timeout_max`. An older device reads as `MAX_OPS`, `MAX_WRITE_READ_LEN`, `false` and empty / `None`.
+    - Stated semantics: `i2c_transaction` puts a repeated start and the address before every operation (Linux
+      `I2C_RDWR`), it does not merge adjacent operations as embedded-hal does (docs say how an embedded-hal adapter
+      merges); `i2c_configure` answers the highest SCL the hardware can do that is not above the request; a data
+      NACK only happens on writes. `i2c_scan` lists `Arbitration`, `i2c_write` / `i2c_read` / `i2c_transaction` /
+      `i2c_scan` list `ClockStretch` and `BusStuck` in `#[errors]`.
+    - Tests: round trips and old-reader tests of the new error, config and capabilities shapes in `ww_i2c`, and
+      `tests/io_i2c` end to end (data NACK in a transaction, stretch timeout, stuck bus and recovery).
 
 - `I2c` is `#[claim(exclusive)]` (SRV-34): a client can claim a controller through the hub. Wire compatible, only the introspection data changes.
 - Slave mode (STD-35): an `#[optional(slave)]` group in `I2c` (`omit = ["i2c.slave"]` without it).

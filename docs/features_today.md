@@ -342,6 +342,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Device time](std_library/ww_timebase.md)**: A clock with sync to a shared time source.
 - **[Host clock sync](std_library/ww_timebase.md#host-sync-std-49)**: Devices without a sync line follow the host's clock: the host fits offset and rate from round trips and steers each device.
 - **[I2C and SPI slave](std_library/ww_i2c.md#slave-mode)**: The device stands in for a chip on another master's bus: a register map the host fills, or answers the host sends, with every transfer reported back. <span class="ww-status">hardware check open</span>
+- **[I2C master errors and limits](std_library/ww_i2c.md#transactions)**: Which byte was not acknowledged, a clock stretch timeout, a stuck bus reported and freed on request, and the adapter's limits. <span class="ww-status">hardware check open</span>
 - **[Logic analyzer](std_library/ww_logic_analyzer.md)**: Triggered captures, transitions compressed. <span class="ww-status">in progress</span>
 - **[Pin tests](std_library/ww_pin_diag.md)**: Shorts, pulls and floating pins on any board through one trait, the board's safety rules kept in its firmware. <span class="ww-status">in progress</span>
 - **[Interned strings](std_library/ww_pin_diag.md#ww_interned)**: Names and reasons sent as a small id, the text read from the firmware's ELF on the host. <span class="ww-status">in progress</span>

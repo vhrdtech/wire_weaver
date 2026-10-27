@@ -52,7 +52,9 @@ mod timestamp;
 #[cfg(feature = "host")]
 pub use timestamp::{UnwrapError, Unwrapper};
 mod unit;
-pub use unit::{Dim, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
+pub use unit::{Counted, Dim, MAX_COUNTED, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
+#[cfg(feature = "std")]
+pub use unit::{CountedOwned, DimOwned};
 pub mod units;
 
 use core::marker::PhantomData;

@@ -3,6 +3,8 @@
 
 use crate::ops::scale_f64;
 use crate::tree::{self, Node, Tree};
+#[cfg(feature = "std")]
+use crate::unit::DimOwned;
 use crate::unit::{Dim, Scale, Unit, UnitExpr};
 use crate::{Prefix, Quantity};
 use core::fmt;
@@ -30,7 +32,7 @@ pub enum SIExpr<'i> {
     Named {
         name: &'i str,
         symbol: &'i str,
-        dim: Dim,
+        dim: Dim<'i>,
         scale: Scale,
     },
     /// `A · B`, [Times](crate::units::Times).
@@ -70,7 +72,7 @@ impl SIExpr<'static> {
 impl<'i> SIExpr<'i> {
     /// SI base-unit exponents of the whole tree; `None` when one leaves -8..=7, a part doesn't decode or the tree is
     /// deeper than [MAX_UNIT_DEPTH](crate::MAX_UNIT_DEPTH).
-    pub fn dim(&self) -> Option<Dim> {
+    pub fn dim(&self) -> Option<Dim<'i>> {
         tree::dim(self)
     }
 
@@ -105,8 +107,8 @@ impl<'i> SIExpr<'i> {
     }
 }
 
-impl<'i> Tree for SIExpr<'i> {
-    fn node(&self) -> Option<Node<'_, Self>> {
+impl<'i> Tree<'i> for SIExpr<'i> {
+    fn node(&self) -> Option<Node<'i, Self>> {
         Some(match self {
             SIExpr::Named {
                 name,
@@ -146,8 +148,8 @@ mod owned {
     use std::boxed::Box;
     use std::string::ToString;
 
-    impl Tree for &SIExprOwned {
-        fn node(&self) -> Option<Node<'_, Self>> {
+    impl<'a> Tree<'a> for &'a SIExprOwned {
+        fn node(&self) -> Option<Node<'a, Self>> {
             Some(match *self {
                 SIExprOwned::Named {
                     name,
@@ -157,7 +159,7 @@ mod owned {
                 } => Node::Named {
                     name,
                     symbol,
-                    dim: Some(*dim),
+                    dim: Some(dim.as_dim()),
                     scale: Some(*scale),
                 },
                 SIExprOwned::Mul(a, b) => Node::Mul(&**a, &**b),
@@ -179,7 +181,7 @@ mod owned {
                 } => SIExprOwned::Named {
                     name: name.to_string(),
                     symbol: symbol.to_string(),
-                    dim,
+                    dim: dim.into(),
                     scale,
                 },
                 UnitExpr::Mul(a, b) => SIExprOwned::Mul(Box::new(a.into()), Box::new(b.into())),
@@ -191,7 +193,7 @@ mod owned {
 
     impl SIExprOwned {
         /// Like [SIExpr::dim].
-        pub fn dim(&self) -> Option<Dim> {
+        pub fn dim(&self) -> Option<Dim<'_>> {
             tree::dim(&self)
         }
 
@@ -282,7 +284,7 @@ mod owned {
                 let unknown = || SIExprOwned::Named {
                     name: "?".to_string(),
                     symbol: "?".to_string(),
-                    dim: Dim::ONE,
+                    dim: Dim::ONE.into(),
                     scale: Scale::Coherent,
                 };
                 if depth >= crate::MAX_UNIT_DEPTH {
@@ -301,7 +303,7 @@ mod owned {
                     } => SIExprOwned::Named {
                         name: name.to_string(),
                         symbol: symbol.to_string(),
-                        dim: *dim,
+                        dim: (*dim).into(),
                         scale: *scale,
                     },
                     SIExpr::Mul(a, b) => SIExprOwned::Mul(child(a), child(b)),

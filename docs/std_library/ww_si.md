@@ -41,8 +41,8 @@ pub type Ampere = Quantity<units::Ampere>;
 APIs and code write the aliases (`property!(ro vbus: Volt)`, `Timed<Ampere>`). Everything below is written once for
 all quantities, so `Hertz::kilo(400u32)` works the same way as `Volt::milli(3300u16)`.
 
-A marker knows its unit through the `Unit` trait: its SI dimension (`Dim`, exponents of s, m, kg, A, K, mol, cd),
-its name and symbol, and how a value becomes coherent SI (`Scale`: coherent, a power of ten, a factor, or a factor
+A marker knows its unit through the `Unit` trait: its dimension (`Dim`, exponents of s, m, kg, A, K, mol, cd, rad,
+bit and up to four counted bases, see [dimensions](#dimensions)), its name and symbol, and how a value becomes coherent SI (`Scale`: coherent, a power of ten, a factor, or a factor
 and an offset for °C). `Volt::unit()` returns it; `ww_si::units::by_name("Volt")` finds it by the marker's name, which
 is what a client that only sees introspection data uses.
 
@@ -55,13 +55,15 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 | `time`         | `Second`, `Hertz`, `HertzPerSecond`, `Baud`, [`Timed<T>`](#timed-values)                          |
 | `electrical`   | `Ampere`, `Volt`, `Ohm`, `Farad`, `Siemens`, `Henry`, `Coulomb`, `Watt`, `Weber`, `Tesla`         |
 | `mechanical`   | `Meter`, `Gram`, `Newton`, `Pascal`, `Joule`, `Torque`, `Litre`, `VolumetricFlow`, `Speed` .. `Yank` |
-| `angle`        | `Radian`, `Degree`, `Steradian`, `AngularVelocity`, `AngularAcceleration`                         |
+| `angle`        | `Radian`, `Degree`, `Steradian`, `AngularVelocity`, `AngularAcceleration` (rad is a dimension)    |
 | `thermal`      | `Kelvin`, `DegreeCelsius`                                                                         |
 | `chemical`     | `Mole`, `Katal`                                                                                   |
 | `photometric`  | `Candela`, `Lumen`, `Lux`                                                                         |
 | `radiation`    | `Becquerel`, `Gray`, `Sievert`, `ElectronVolt`                                                    |
 | `logarithmic`  | `DeciBel`, `DeciBelmW` (plain structs without a prefix)                                           |
 | `dimensionless` | `Ratio`: duty, probability, scale (a group of its own, as it is used next to any other)          |
+| `information`  | `Bit`, `Byte` (8 bit), `Word` (4 byte, 32 bit) (bit is a dimension)                              |
+| `counting`     | `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`: counted bases |
 | `quantities`   | all of the groups above                                                                           |
 | `host`         | host helpers: [`Unwrapper`](#second-as-a-timestamp)                                               |
 | `u16`, `f32`, .. `all` | number types of `NumericValue`, passed on to `ww_numeric` (see [ww_numeric](ww_numeric.md)) |
@@ -200,6 +202,37 @@ let times: Vec<Second> = t0.steps(&Second::micro(40u8)).unwrap().take(32).collec
 ```
 
 A batched stream's generated `<name>_push_many(state, t0, dt, values)` stamps a block of samples this way.
+
+## Dimensions
+
+Besides the seven SI base dimensions, `Dim` has three kinds of its own, so the compiler and a client keep apart what
+SI alone would call the same:
+
+- **Angle (rad).** The plane angle is a base dimension: `AngularVelocity` is rad·s⁻¹ and not `Hertz` (s⁻¹),
+  `Torque` is J/rad (kg·m²·s⁻²·rad⁻¹, written N·m), so `Torque * AngularVelocity = Watt` still balances and a torque
+  isn't a joule. `Steradian` is rad², `Lumen` cd·rad².
+
+  This departs from SI, where rad = 1, and has consequences: Hz and rad/s don't convert into each other by
+  themselves, a code goes from one to the other with an explicit 2π (or through `Cycle` per second); a moment of
+  inertia is kg·m²/rad² (`Per<Torque, AngularAcceleration>`), so torque over angular acceleration balances; an arc
+  length r·θ carries rad (`Times<Meter, Radian>`), it isn't a plain length.
+- **Information (bit).** `Bit` is the coherent unit, `Byte` is 8 bit and `Word` 32 bit (a scale, like `Gram` to
+  kilogram). Bytes are never a `Ratio` or an angle, and `Per<Byte, Second>` is a data rate, not a frequency.
+- **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char` and `Code` count
+  things: each is a dimension of its own, so `Per<Sample, Second>` (s⁻¹·Sample) isn't `Hertz` and samples aren't
+  packets. A base is known by its name only: `Block` of two APIs is the same base at run time. A dimension holds up
+  to four of them (`MAX_COUNTED`), sorted by name; a `Dim` on the wire whose bases are out of order, repeated or with
+  a zero exponent is refused on decode, so every dimension has exactly one encoding. Bytes of a block are
+  `Per<Byte, Block>`.
+
+```rust
+use ww_si::units::{Byte, Per, Sample};
+use ww_si::Unit;
+
+let per_sample = <Per<Byte, Sample> as Unit>::DIM;
+assert_eq!(per_sample.to_string(), "bit·Sample⁻¹");
+assert!(per_sample.mul(<Sample as Unit>::DIM).same(<Byte as Unit>::DIM));
+```
 
 ## Compound units and your own
 
@@ -340,7 +373,7 @@ assert_eq!(unit.to_string(), "N·m/(rad/s)");
 let rpm = SIExpr::Named {
     name: "Rpm",
     symbol: "rpm",
-    dim: Dim::new(-1, 0, 0, 0, 0, 0, 0),
+    dim: Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1),
     scale: Scale::Factor(core::f64::consts::TAU / 60.0),
 };
 let speed = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
@@ -355,22 +388,25 @@ and factor are computed by the same code for both, so a run-time unit is shown e
 that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has no dimension
 and is shown as `…`, it can't overflow the stack.
 
-`Dim` is seven 4-bit signed exponents in the order s, m, kg, A, K, mol, cd (each -8..=7, 28 bits, `sized`).
-`Dim::new` is `const` and refuses an exponent out of range at compile time; `checked_mul`, `checked_div` and
-`checked_pow` give `None` for a run-time tree whose exponents leave the range. `Scale` is a nibble and then its
-numbers. These are the bytes:
+`Dim` is nine 4-bit signed exponents in the order s, m, kg, A, K, mol, cd, rad, bit (each -8..=7), then four
+optional counted bases (`Counted { name, exp }`), `final_structure`. `Dim::new` is `const` and refuses an exponent
+out of range at compile time; `checked_mul`, `checked_div` and `checked_pow` give `None` for a run-time tree whose
+exponents leave the range or that needs a fifth counted base. `Scale` is a nibble and then its numbers. These are the
+bytes:
 
 | Value                                        | Bytes                                         |
 |----------------------------------------------|-----------------------------------------------|
-| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 0`                                  |
+| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 00 00`                              |
+| `Dim` of `AngularVelocity` (s⁻¹ rad)         | `f0 00 00 01 00`                              |
+| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)  | `00 00 00 00 18`, `Sample`, `f0 06`           |
 | `Scale::Coherent`                            | `0`                                           |
 | `Scale::Pow10(-3)`                           | `1` `fd`                                      |
 | `Scale::Factor(0.5)`                         | `2` and the `f64`, 8 bytes                    |
-| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 01 14`, 13 B |
-| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 49 B                                        |
-| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 13 B of the unit, `59`: 17 B  |
+| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 00 01 14`, 14 B |
+| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 51 B                                        |
+| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 14 B of the unit, `69`: 18 B  |
 
-The unit costs bytes on every value (17 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
+The unit costs bytes on every value (18 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
 API is written stays a typed quantity, and a channel's unit is better sent once in its description than with every
 reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
 

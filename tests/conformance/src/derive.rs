@@ -722,6 +722,18 @@ pub fn table() -> Vec<Typed> {
             "stdlib.timebase.steer_point.steerer",
             steer_point(Some(steerer(0x0102_0304_0506_0708, "pc1", "ww hub", 4711))),
         ),
+        case("stdlib.si.dim.volt", dim(<ww_si::units::Volt as ww_si::Unit>::DIM)),
+        case(
+            "stdlib.si.dim.rad_bit",
+            dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1).with_bit(-3)),
+        ),
+        case(
+            "stdlib.si.dim.counted",
+            dim(ww_si::Dim::counted("Sample")
+                .div(ww_si::Dim::counted("Frame"))
+                .mul(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0))),
+        ),
+        case("stdlib.si.dim.rejected", dim(ww_si::Dim::ONE)),
         case_debug("stdlib.timebase.sync_status", || {
             ww_timebase::SyncStatusOwned {
                 state: ww_timebase::SyncState::Free,
@@ -751,6 +763,10 @@ pub fn table() -> Vec<Typed> {
             rest: TailBytesOwned(vec![1, 2, 3]),
         }),
     ]
+}
+
+fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {
+    d.into()
 }
 
 fn micros(value: u32) -> ww_si::Second {

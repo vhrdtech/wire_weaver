@@ -16,26 +16,75 @@ type Viscous = Per<Torque, AngularVelocity>;
 fn dim_bytes() {
     let mut buf = [0u8; 8];
     let volt = <units::Volt as Unit>::DIM;
-    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0: seven nibbles, the eighth is padding
+    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0, rad 0, bit 0: nine nibbles, then four bits of empty counted slots
     assert_eq!(
         volt.to_ww_bytes(&mut buf).unwrap(),
-        [0xd2, 0x1f, 0x00, 0x00]
+        [0xd2, 0x1f, 0x00, 0x00, 0x00]
     );
-    assert_eq!(Dim::from_ww_bytes(&[0xd2, 0x1f, 0x00, 0x00]).unwrap(), volt);
+    assert_eq!(
+        Dim::from_ww_bytes(&[0xd2, 0x1f, 0x00, 0x00, 0x00]).unwrap(),
+        volt
+    );
     assert_eq!(
         <Dim as SerializeShrinkWrap>::ELEMENT_SIZE,
-        ElementSize::Sized { size_bits: 28 }
+        ElementSize::UnsizedFinalStructure
     );
-    let edge = Dim::new(-8, 7, 0, 0, 0, 0, -1);
+    let edge = Dim::new(-8, 7, 0, 0, 0, 0, -1).with_rad(7).with_bit(-8);
     let bytes = edge.to_ww_bytes(&mut buf).unwrap().to_vec();
-    assert_eq!(bytes, [0x87, 0x00, 0x00, 0xf0]);
+    assert_eq!(bytes, [0x87, 0x00, 0x00, 0xf7, 0x80]);
     assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), edge);
+    // samples per second: one counted slot, its name and exponent
+    let rate = <ww_si::units::Per<units::Sample, units::Second> as Unit>::DIM;
+    let mut buf = [0u8; 32];
+    let bytes = rate.to_ww_bytes(&mut buf).unwrap().to_vec();
+    // s -1 and eight 0 nibbles, slot 1 used: "Sample" and exponent 1, three empty slots
+    assert_eq!(
+        bytes,
+        [
+            0xf0, 0x00, 0x00, 0x00, 0x08, 0x53, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x10, 0x06
+        ]
+    );
+    assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), rate);
+    assert_eq!(rate.to_string(), "s⁻¹·Sample");
+}
+
+/// Counted bases: sorted by name, added up, gone at exponent 0, at most `MAX_COUNTED`; a dimension that isn't in
+/// that form doesn't decode.
+#[test]
+fn counted_bases() {
+    let sample = Dim::counted("Sample");
+    let block = Dim::counted("Block");
+    let d = sample.mul(block).div(Dim::counted("Frame"));
+    assert_eq!(
+        d.counted_bases().collect::<Vec<_>>(),
+        [("Block", 1), ("Frame", -1), ("Sample", 1)]
+    );
+    assert_eq!(d, block.div(Dim::counted("Frame")).mul(sample));
+    assert!(d.div(sample).div(block).mul(Dim::counted("Frame")).is_one());
+    let four = d.mul(Dim::counted("Item"));
+    assert_eq!(four.checked_mul(Dim::counted("Packet")), None);
+    assert_eq!(
+        four.checked_mul(Dim::counted("Item")).unwrap().to_string(),
+        "Block·Frame⁻¹·Item²·Sample"
+    );
+    assert_ne!(sample, block);
+    assert_ne!(sample, Dim::ONE);
+
+    let mut buf = [0u8; 64];
+    let bytes = d.to_ww_bytes(&mut buf).unwrap().to_vec();
+    assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), d);
+    // out of order: refused on decode
+    let mut unsorted = d;
+    unsorted.counted.swap(0, 2);
+    assert!(!unsorted.is_canonical());
+    let bytes = unsorted.to_ww_bytes(&mut buf).unwrap().to_vec();
+    assert!(Dim::from_ww_bytes(&bytes).is_err());
 }
 
 #[test]
 fn dim_range() {
-    assert_eq!(Dim::checked_new([8, 0, 0, 0, 0, 0, 0]), None);
-    assert_eq!(Dim::checked_new([-9, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(Dim::checked_new([8, 0, 0, 0, 0, 0, 0, 0, 0]), None);
+    assert_eq!(Dim::checked_new([0, 0, 0, 0, 0, 0, 0, 0, -9]), None);
     let m4 = Dim::new(0, 4, 0, 0, 0, 0, 0);
     assert_eq!(m4.checked_mul(m4), None);
     assert_eq!(m4.checked_pow(2), None);
@@ -66,8 +115,8 @@ fn scale_bytes() {
     }
 }
 
-const VOLT_BYTES: [u8; 13] = [
-    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x01, 0x14,
+const VOLT_BYTES: [u8; 14] = [
+    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x01, 0x14,
 ];
 
 #[test]
@@ -89,7 +138,7 @@ fn compound_round_trip() {
     let mut buf = [0u8; 128];
     let si = <Viscous as Unit>::SI_EXPR;
     let bytes = si.to_ww_bytes(&mut buf).unwrap().to_vec();
-    assert_eq!(bytes.len(), 49);
+    assert_eq!(bytes.len(), 51);
     assert_eq!(&bytes[..2], [0x20, 0x00]);
     let back = SIExpr::from_ww_bytes(&bytes).unwrap();
     assert_eq!(&back, si);
@@ -106,7 +155,7 @@ fn compound_round_trip() {
     let fan = SIExpr::from_ww_bytes(<Fan as Unit>::SI_EXPR.to_ww_bytes(&mut buf).unwrap()).unwrap();
     assert_eq!(fan.to_string(), "N·m/((rad/s)·(rad/s))");
     assert_eq!(fan.to_string(), <Fan as Unit>::EXPR.to_string());
-    assert_eq!(fan.dim().unwrap().to_string(), "kg·m²");
+    assert_eq!(fan.dim().unwrap().to_string(), "kg·m²·rad⁻³");
 
     // a different tree of the same dimension is not the same unit
     assert_ne!(back, *<Fan as Unit>::EXPR);
@@ -212,9 +261,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x59);
+    expected.push(0x69);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 17);
+    assert_eq!(bytes.len(), 18);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());

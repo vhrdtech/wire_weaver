@@ -250,7 +250,7 @@ mod tests {
         assert_eq!(b.unit.name(), "Per<Torque, AngularVelocity>");
         assert_eq!(b.to_string(), values().damping.to_string());
         assert_eq!(b.to_string(), "0.00012 N·m/(rad/s)");
-        assert_eq!(b.unit.dim().unwrap().to_string(), "kg·m²·s⁻¹");
+        assert_eq!(b.unit.dim().unwrap().to_string(), "kg·m²·s⁻¹·rad⁻²");
         assert_eq!(b.to_si_f64(), Some(values().damping.to_si_f64()));
     }
 
@@ -410,7 +410,7 @@ mod tests {
             DynUnit::Named {
                 name: "Bar".into(),
                 symbol: "bar".into(),
-                dim: Dim::new(-2, -1, 1, 0, 0, 0, 0),
+                dim: Dim::new(-2, -1, 1, 0, 0, 0, 0).into(),
                 scale: Scale::Pow10(5),
             }
         );

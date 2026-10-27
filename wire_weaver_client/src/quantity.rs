@@ -24,7 +24,7 @@ use ww_self::{
 };
 use ww_si::tree::{self, Tree};
 use ww_si::{AnyQuantity, AnyQuantityOwned, SIExpr, SIExprOwned, Scale};
-pub use ww_si::{Dim, MAX_UNIT_DEPTH, Prefix, UnitExpr};
+pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
 /// from the `SIExpr` the device sent with the value.
@@ -37,7 +37,7 @@ pub enum DynUnit {
     Named {
         name: String,
         symbol: String,
-        dim: Dim,
+        dim: DimOwned,
         scale: Scale,
     },
     /// A marker `ww_si` doesn't know, a user's own (`struct Rpm;`): its name and docs, nothing else.
@@ -92,7 +92,7 @@ impl DynUnit {
                     None => DynUnit::Named {
                         name: name.to_string(),
                         symbol: symbol.to_string(),
-                        dim: *dim,
+                        dim: (*dim).into(),
                         scale: *scale,
                     },
                 },
@@ -117,7 +117,7 @@ impl DynUnit {
             } => SIExprOwned::Named {
                 name: name.clone(),
                 symbol: symbol.clone(),
-                dim: *dim,
+                dim: dim.clone(),
                 scale: *scale,
             },
             DynUnit::Unknown { .. } => return None,
@@ -143,7 +143,7 @@ impl DynUnit {
     }
 
     /// SI base-unit exponents, `None` when a part of the unit is an unknown marker.
-    pub fn dim(&self) -> Option<Dim> {
+    pub fn dim(&self) -> Option<Dim<'_>> {
         tree::dim(&Part::Dyn(self))
     }
 
@@ -174,8 +174,8 @@ enum Part<'a> {
     Expr(&'static UnitExpr),
 }
 
-impl Tree for Part<'_> {
-    fn node(&self) -> Option<tree::Node<'_, Self>> {
+impl<'a> Tree<'a> for Part<'a> {
+    fn node(&self) -> Option<tree::Node<'a, Self>> {
         match self {
             Part::Expr(expr) => Some(expr.node()?.map(Part::Expr)),
             Part::Dyn(unit) => Some(match unit {
@@ -188,7 +188,7 @@ impl Tree for Part<'_> {
                 } => tree::Node::Named {
                     name,
                     symbol,
-                    dim: Some(*dim),
+                    dim: Some(dim.as_dim()),
                     scale: Some(*scale),
                 },
                 DynUnit::Unknown { name, .. } => tree::Node::Named {
@@ -630,7 +630,7 @@ mod tests {
     struct Square;
 
     impl Unit for Square {
-        const DIM: ww_si::Dim = ww_si::Dim::new(0, 2, 0, 0, 0, 0, 0);
+        const DIM: ww_si::Dim<'static> = ww_si::Dim::new(0, 2, 0, 0, 0, 0, 0);
         const EXPR: &'static UnitExpr = &UnitExpr::Pow(<Meter as Unit>::EXPR, 2);
         const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Pow(
             RefBox::Ref {

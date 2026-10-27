@@ -23,6 +23,12 @@
 
 ### ⚠️ Breaking
 
+* Against earlier builds from main (EVO-16): `Dim` on the wire is the 40-bit form with rad, bit and counted bases
+  (was seven exponents in 28 bits, `sized`), so `SIExpr`, `AnyQuantity` and `ww_adc::ChannelInfo::unit` change bytes;
+  devices and hosts built from main before this are rebuilt together. `Dim` has a lifetime (`Dim<'i>`, a constant
+  `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
+  dimension, `Byte` is 8 `Bit` (a scale, the dimension is bit).
+
 ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,
 `Series` and `Series<Timed<..>>`), the API model and Rust API are not: devices and hosts are rebuilt with 0.2 together.
 
@@ -70,13 +76,15 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
 * `Prefix::ALL`, `Prefix::name()` (`"Milli"`) `Prefix::from_name()` (the variant names a dynamic client sees in a
   decoded value) and `Prefix::scale_f64` / `scale_f32` (a number in units of the prefix to the unit itself), for
   dynamic clients (CLT-31).
-* `Dim` (SI exponents of s, m, kg, A, K, mol, cd, `Display` as `kg·m²·s⁻³·A⁻¹`), `Scale` (coherent, power of ten,
+* `Dim<'i>` (exponents of s, m, kg, A, K, mol, cd, rad, bit and up to four counted bases, `Display` as
+  `kg·m²·s⁻³·A⁻¹`), `Scale` (coherent, power of ten,
   factor, affine for °C), `UnitExpr` (a named unit or a product / quotient / power tree, with `dim()`, `factor()`,
   `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`, `SI_EXPR`): an API crate can declare its own marker.
 * Units known only at run time (STD-37), the same model as the markers on the wire:
-  * `Dim` is a `sized` type of seven `I4` exponents (-8..=7, 28 bits; Volt is `d2 1f 00 0`): `Dim::new(s, m, kg,
-    a, k, mol, cd)` (`const`, a compile error out of range), `checked_new`, `exps()`, `checked_mul` / `checked_div` /
-    `checked_pow` for run-time trees. `Scale` goes on the wire too (a nibble, then its numbers).
+  * `Dim` is nine `I4` exponents (-8..=7) and `counted: [Option<Counted>; 4]`, `final_structure` (Volt is
+    `d2 1f 00 00 00`, 40 bits): `Dim::new(s, m, kg, a, k, mol, cd)` (`const`, a compile error out of range),
+    `checked_new`, `exps()`, `checked_mul` / `checked_div` / `checked_pow` for run-time trees (`None` out of range
+    or for a fifth counted base). `Scale` goes on the wire too (a nibble, then its numbers).
   * `SIExpr<'i>` { `Named { name, symbol, dim, scale }`, `Mul`, `Div`, `Pow` } with `RefBox` children, and
     `SIExprOwned`: a unit as a tree, for a configurable sensor channel (`ww_adc::ChannelInfo::unit`). `dim()`,
     `factor()`, `offset()`, `symbol()` / `Display`, `name()` give what `UnitExpr` gives, written by the same code, so a
@@ -87,11 +95,24 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
     tree) and `known()` (the `ww_si` unit of a named one).
   * `AnyQuantity<'i> { prefix, value, unit: SIExpr }` and `AnyQuantityOwned`: `From<Quantity<U>>`,
     `to_quantity::<U>()`, `to_f64`, `to_si_f64`, `Display` like a typed quantity (`3300 mV`, `{:#}` `3.3 V`), `Debug`,
-    `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 17 bytes, the typed value's 3 and the unit's 14.
+    `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 18 bytes, the typed value's 3 and the unit's 15.
   * `UnitExpr::Pow(expr, n)`, shown as `m²`, `(m/s)²`, named `Pow<Meter, 2>`.
   * `ww_si::tree`: `Tree` and `Node` (a named node's dimension and scale can be `None`, for a unit known by name only)
     with `symbol`, `name`, `dim`, `factor`, `offset`, `same` and `quantity` (a quantity's `Display`): the one walk
     behind `UnitExpr`, `SIExpr` and the typed `Display`, for a client's own unit model (`wire_weaver_client::quantity`).
+* Angle, information and counted things are dimensions (STD-60), so bytes never turn into % or rad and a rate of
+  samples isn't a frequency:
+  * rad is a base: `Radian` rad, `AngularVelocity` rad·s⁻¹ (not `Hertz`), `AngularAcceleration` rad·s⁻²,
+    `Steradian` rad², `Lumen` cd·rad², `Lux` cd·rad²·m⁻², `Torque` J/rad (kg·m²·s⁻²·rad⁻¹, still shown `N·m`, so
+    `Torque * AngularVelocity = Watt` and a torque isn't a joule). `Dim::strip_radian()` is the explicit bridge to
+    SI's rad = 1, for exports and v = ωr.
+  * bit is a base, feature `information`: `Bit` (coherent), `Byte` (8 bit), `Word` (32 bit).
+  * counted bases, feature `counting`: `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`,
+    `Char`, `Code`, each a dimension of its own known by its name (`Counted<'i> { name, exp }`; two APIs' `Block` are
+    the same base). Up to four in one `Dim` (`MAX_COUNTED`), kept sorted by name; a `Dim` whose bases are out of
+    order, repeated or with a zero exponent is refused on decode. `Per<Byte, Sample>` times `Sample` is a `Byte`.
+  * `Dim::ONE`, `Dim::counted(name)`, `with_rad`, `with_bit`, `counted_bases()`, `is_one`, `same`, `mul` / `div`
+    (`const`, a compile error out of range), `is_canonical`; `DimOwned` / `CountedOwned` with `as_dim()`.
 * Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,
   `kilo`, `mega`, `giga`, `from_f32` (`const`); `quantize(x, prefix, storage)` (an `f32` rounded and saturated into
   the representation an API documents, computed in `f32`); `to_f64`, `to_f32`, `to_f64_in`, `to_i128_in`;

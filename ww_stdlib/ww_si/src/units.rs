@@ -118,8 +118,8 @@ pub struct Pascal;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Joule;
 
-/// Torque or moment of force in newton-meters, N·m (kg·m²·s⁻²). Same dimension as [Joule], but not the same thing:
-/// a torque times an angular velocity is a power.
+/// Torque or moment of force in newton-meters, N·m, counted as joules per radian (kg·m²·s⁻²·rad⁻¹): not the
+/// dimension of a [Joule], and a torque times an [AngularVelocity] is a [Watt].
 #[cfg(feature = "mechanical")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Torque;
@@ -161,7 +161,7 @@ pub struct Yank;
 
 // Angle
 
-/// Angle in radians, rad (dimensionless, m/m).
+/// Angle in radians, rad: a base dimension of its own here, so an angle doesn't mix with a [Ratio].
 #[cfg(feature = "angle")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Radian;
@@ -171,17 +171,17 @@ pub struct Radian;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Degree;
 
-/// Solid angle in steradians, sr (dimensionless, m²/m²).
+/// Solid angle in steradians, sr (rad²).
 #[cfg(feature = "angle")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Steradian;
 
-/// Angular velocity in radians per second, rad/s (s⁻¹).
+/// Angular velocity in radians per second, rad/s (rad·s⁻¹): not a [Hertz], a turn is 2π rad.
 #[cfg(feature = "angle")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct AngularVelocity;
 
-/// Angular acceleration in radians per second squared, rad/s² (s⁻²).
+/// Angular acceleration in radians per second squared, rad/s² (rad·s⁻²).
 #[cfg(feature = "angle")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct AngularAcceleration;
@@ -217,12 +217,12 @@ pub struct Katal;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Candela;
 
-/// Luminous flux in lumens, lm (cd·sr).
+/// Luminous flux in lumens, lm (cd·sr, cd·rad²).
 #[cfg(feature = "photometric")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Lumen;
 
-/// Illuminance in lux, lx (cd·m⁻², lm/m²).
+/// Illuminance in lux, lx (cd·rad²·m⁻², lm/m²).
 #[cfg(feature = "photometric")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Lux;
@@ -260,7 +260,7 @@ pub struct Ratio;
 
 // Information
 
-/// Information in bits, bit (dimensionless): a data size or a count of bits, told apart from a [Ratio] by the marker.
+/// Information in bits, bit: the base of information, so a size never mixes with a [Ratio] or a count of things.
 #[cfg(feature = "information")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Bit;
@@ -270,13 +270,64 @@ pub struct Bit;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Byte;
 
-// Counting
+/// Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.
+#[cfg(feature = "information")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Word;
 
-/// A count of things, item (dimensionless): a queue's length, a number of samples. An API that counts something of its
-/// own (blocks, sectors, chunks) declares its own marker like [Unit]'s example, so the count shows as "blocks".
+// Counting: each marker is a base dimension of its own (a counted base, named after the marker), so samples don't
+// add to bytes, and become bytes only through a `Per<Byte, Sample>`. An API that counts something else declares its
+// own marker with `Dim::counted("Name")`, see [Unit].
+
+/// A count of things, item: a queue's length, a number of filters, channels, presses, repeats, steps.
 #[cfg(feature = "counting")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Item;
+
+/// A count of samples, sample: an ADC's, a logic analyzer's; a sample rate is `Per<Sample, Second>`.
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Sample;
+
+/// A count of frames, frame (a bus's, a video's).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Frame;
+
+/// A count of packets, packet.
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Packet;
+
+/// A count of cycles, cycle: clock cycles, time quanta; time only with a clock (`Per<Cycle, Second>`).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Cycle;
+
+/// A count of blocks, block: of a block device, whose size differs per device (bytes through `Per<Byte, Block>`).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Block;
+
+/// A count of sectors, sector: of a flash or a disk (bytes through `Per<Byte, Sector>`).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Sector;
+
+/// A count of chunks, chunk: of a transfer or a file format (bytes through `Per<Byte, Chunk>`).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Chunk;
+
+/// A count of characters, char: of a UART line (an idle time in characters).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Char;
+
+/// A count of raw codes of a converter, code: an ADC's or DAC's output before scaling (LSB).
+#[cfg(feature = "counting")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Code;
 
 // Compound
 
@@ -296,7 +347,7 @@ pub struct Times<A, B> {
 }
 
 impl<A: Unit, B: Unit> Unit for Per<A, B> {
-    const DIM: Dim = A::DIM.div(B::DIM);
+    const DIM: Dim<'static> = A::DIM.div(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Div(A::EXPR, B::EXPR);
     const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Div(
         RefBox::Ref { value: A::SI_EXPR },
@@ -305,7 +356,7 @@ impl<A: Unit, B: Unit> Unit for Per<A, B> {
 }
 
 impl<A: Unit, B: Unit> Unit for Times<A, B> {
-    const DIM: Dim = A::DIM.mul(B::DIM);
+    const DIM: Dim<'static> = A::DIM.mul(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Mul(A::EXPR, B::EXPR);
     const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Mul(
         RefBox::Ref { value: A::SI_EXPR },
@@ -313,18 +364,26 @@ impl<A: Unit, B: Unit> Unit for Times<A, B> {
     );
 }
 
+/// The dimension of a line of [units]: exponents (`[kg 1, s -2]`), or a counted base named after the marker.
+macro_rules! dim {
+    ($ty:ident counted) => {
+        Dim::counted(stringify!($ty))
+    };
+    ($ty:ident [$($d:ident $e:literal),*]) => {{
+        #[allow(unused_mut)]
+        let mut dim = Dim::ONE;
+        $(dim.$d = crate::unit::exp($e);)*
+        dim
+    }};
+}
+
 /// `impl Unit` for each marker, and [ALL] from the same lines.
 macro_rules! units {
-    ($($feature:literal $ty:ident $symbol:literal [$($d:ident $e:literal),*] $scale:expr;)*) => {
+    ($($feature:literal $ty:ident $symbol:literal $dim:tt $scale:expr;)*) => {
         $(
             #[cfg(feature = $feature)]
             impl Unit for $ty {
-                const DIM: Dim = {
-                    #[allow(unused_mut)]
-                    let mut dim = Dim::ONE;
-                    $(dim.$d = crate::unit::exp($e);)*
-                    dim
-                };
+                const DIM: Dim<'static> = dim!($ty $dim);
                 const EXPR: &'static UnitExpr = &UnitExpr::Named {
                     name: stringify!($ty),
                     symbol: $symbol,
@@ -366,7 +425,7 @@ units! {
     "mechanical" Newton "N" [kg 1, m 1, s -2] Scale::Coherent;
     "mechanical" Pascal "Pa" [kg 1, m -1, s -2] Scale::Coherent;
     "mechanical" Joule "J" [kg 1, m 2, s -2] Scale::Coherent;
-    "mechanical" Torque "N·m" [kg 1, m 2, s -2] Scale::Coherent;
+    "mechanical" Torque "N·m" [kg 1, m 2, s -2, rad -1] Scale::Coherent;
     "mechanical" Litre "L" [m 3] Scale::Pow10(-3);
     "mechanical" VolumetricFlow "m³/s" [m 3, s -1] Scale::Coherent;
     "mechanical" Speed "m/s" [m 1, s -1] Scale::Coherent;
@@ -375,11 +434,11 @@ units! {
     "mechanical" Snap "m/s⁴" [m 1, s -4] Scale::Coherent;
     "mechanical" Yank "N/s" [kg 1, m 1, s -3] Scale::Coherent;
 
-    "angle" Radian "rad" [] Scale::Coherent;
-    "angle" Degree "°" [] Scale::Factor(core::f64::consts::PI / 180.0);
-    "angle" Steradian "sr" [] Scale::Coherent;
-    "angle" AngularVelocity "rad/s" [s -1] Scale::Coherent;
-    "angle" AngularAcceleration "rad/s²" [s -2] Scale::Coherent;
+    "angle" Radian "rad" [rad 1] Scale::Coherent;
+    "angle" Degree "°" [rad 1] Scale::Factor(core::f64::consts::PI / 180.0);
+    "angle" Steradian "sr" [rad 2] Scale::Coherent;
+    "angle" AngularVelocity "rad/s" [rad 1, s -1] Scale::Coherent;
+    "angle" AngularAcceleration "rad/s²" [rad 1, s -2] Scale::Coherent;
 
     "thermal" Kelvin "K" [k 1] Scale::Coherent;
     "thermal" DegreeCelsius "°C" [k 1] Scale::Affine { factor: 1.0, offset: 273.15 };
@@ -388,8 +447,8 @@ units! {
     "chemical" Katal "kat" [mol 1, s -1] Scale::Coherent;
 
     "photometric" Candela "cd" [cd 1] Scale::Coherent;
-    "photometric" Lumen "lm" [cd 1] Scale::Coherent;
-    "photometric" Lux "lx" [cd 1, m -2] Scale::Coherent;
+    "photometric" Lumen "lm" [cd 1, rad 2] Scale::Coherent;
+    "photometric" Lux "lx" [cd 1, rad 2, m -2] Scale::Coherent;
 
     "radiation" Becquerel "Bq" [s -1] Scale::Coherent;
     "radiation" Gray "Gy" [m 2, s -2] Scale::Coherent;
@@ -398,10 +457,20 @@ units! {
 
     "dimensionless" Ratio "" [] Scale::Coherent;
 
-    "information" Bit "bit" [] Scale::Coherent;
-    "information" Byte "B" [] Scale::Factor(8.0);
+    "information" Bit "bit" [bit 1] Scale::Coherent;
+    "information" Byte "B" [bit 1] Scale::Factor(8.0);
+    "information" Word "word" [bit 1] Scale::Factor(32.0);
 
-    "counting" Item "item" [] Scale::Coherent;
+    "counting" Item "item" counted Scale::Coherent;
+    "counting" Sample "sample" counted Scale::Coherent;
+    "counting" Frame "frame" counted Scale::Coherent;
+    "counting" Packet "packet" counted Scale::Coherent;
+    "counting" Cycle "cycle" counted Scale::Coherent;
+    "counting" Block "block" counted Scale::Coherent;
+    "counting" Sector "sector" counted Scale::Coherent;
+    "counting" Chunk "chunk" counted Scale::Coherent;
+    "counting" Char "char" counted Scale::Coherent;
+    "counting" Code "code" counted Scale::Coherent;
 }
 
 /// The named unit of this crate called `name` (the marker's name, `"Volt"`), if its feature is enabled: what a

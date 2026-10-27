@@ -79,7 +79,7 @@
         (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 0)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One input.",
     ], ident: "ChannelInfo", generics: [], fields: Named([
@@ -92,7 +92,7 @@
         (ident: Some("threshold"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Range of [CaptureConfig::threshold], if the threshold is adjustable.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         126,
         49,
@@ -110,7 +110,7 @@
         (ident: Some("max_rate"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 4)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The two encodings, see the crate docs.",
     ], ident: "Encoding", generics: [], variants: [
@@ -142,7 +142,7 @@
         (ident: Some("trigger_out"), default: None, since: None, ty: Bool, docs: [
             "[CaptureConfig::trigger_out] works.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s analyzer offers, see `LogicAnalyzer::capabilities`.",
     ], ident: "LaCapabilities", generics: [], fields: Named([
@@ -163,7 +163,7 @@
         ], slot: None, series_opaque: false),
         (ident: Some("transitions"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a channel does on the matching sample.",
     ], ident: "Condition", generics: [], variants: [
@@ -178,7 +178,7 @@
     ], ident: "ChannelCondition", generics: [], fields: Named([
         (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("when"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
         5,
         106,
@@ -291,12 +291,12 @@
         (ident: Some("trigger_out"), default: None, since: None, ty: Bool, docs: [
             "Pulse the trigger output when the capture triggers.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`width` bits per sample: 1, 2, 4, 8, 16 or 32, the smallest the device gives for the channel count.",
     ], ident: "RawLayout", generics: [], fields: Named([
         (ident: Some("width"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `LogicAnalyzer::capture` actually set.",
     ], ident: "CaptureActual", generics: [], fields: Named([
@@ -311,7 +311,7 @@
         (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
             "Layout of [RawChunk::data].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -377,7 +377,7 @@
     ], ident: "SampleRange", generics: [], fields: Named([
         (ident: Some("first"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("count"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A run of raw samples, see [Encoding::Raw].",
     ], ident: "RawChunk", generics: [], fields: Named([
@@ -388,7 +388,7 @@
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(768), ty: Vec(NumericAny(Base(U8)))), docs: [
             "`samples` words as in [RawLayout].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "Level", signature: [
         2,
         251,
@@ -415,7 +415,7 @@
         (ident: Some("edges"), default: None, since: None, ty: Series(NumericAny(Base(U32))), docs: [
             "Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to stream, see `LogicStream::data`.",
     ], ident: "StreamConfig", generics: [], fields: Named([
@@ -438,7 +438,7 @@
         ])), docs: [
             "Input threshold where it is adjustable; `None` leaves it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What opening `LogicStream::data` actually set.",
     ], ident: "StreamActual", generics: [], fields: Named([
@@ -450,7 +450,7 @@
         (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
             "Layout of raw chunks.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One item of the `LogicStream::data` stream.",
     ], ident: "StreamChunk", generics: [], variants: [
@@ -472,7 +472,7 @@
         ])), docs: [
             "Highest sample rate with [Encoding::Transitions], as long as the edge rate fits the link.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Triggered capture into device RAM, read out after.",

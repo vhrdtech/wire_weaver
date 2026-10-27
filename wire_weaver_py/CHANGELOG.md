@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Quantity.dim` has `rad` and `bit` and counted bases by name (`{"Sample": 1, "s": -1}`), STD-60: a torque per angular velocity is `{"kg": 1, "m": 2, "s": -1, "rad": -2}`.
 - Credit sinks on the stream protocol (API-34): a device with the same WireWeaver is needed; `Sink.progress` counts units (one per value, the bytes of a byte sink's payload), no longer bytes.
 
 - `Delta`, `DeltaOfDelta` and `XorFloat` values are gone with the types (shrink_wrap): their replacement `Series<T>` of

@@ -62,7 +62,7 @@
         (ident: Some("sync_formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 2))), docs: [
             "Sync formats this device can use; empty without a sync line.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "State of a device\'s shared clock, see `SyncStatus::state` and `TimeMapPoint::state`.",
     ], ident: "SyncState", generics: [], variants: [
@@ -121,7 +121,7 @@
         (ident: Some("source"), default: Some(Bool(false)), since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "The source followed at the point: a change from one point to the next is a seam (slewed, not stepped).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a device\'s sync line should do, see `Clock::configure_sync` / `Clock::sync_config`.",
     ], ident: "SyncConfig", generics: [], variants: [
@@ -175,7 +175,7 @@
         (ident: Some("pid"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The program\'s process id on `host`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Current sync state of a device\'s clock, see `Clock::sync_status`.",
     ], ident: "SyncStatus", generics: [], fields: Named([
@@ -217,7 +217,7 @@
             "Another host that sent steer points while `steerer` was followed: only noted, not followed (the latest one",
             "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
         29,
         39,
@@ -259,7 +259,7 @@
             "been quiet for the device\'s holdover time (bedrock boards: 3 s). Points without one (`None`, hosts built",
             "before this field) count as one steerer of their own.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Device clock: reads device time, and synchronises it with other devices over a sync line (IRIG-B, PPS, ...) or",

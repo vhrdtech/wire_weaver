@@ -1493,6 +1493,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **EVO-14 Priority nibble in `Request`** · `v0.5.x` — **wire break** of `ww_client_server`'s `Request`: a
   `priority: Nibble` after `seq` (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of `Request` carry the new bytes with `"wire_change": "EVO-14 / ..."`.
+- ✅ **EVO-16 `ww_si::Dim` with angle, information and counted bases** · `v0.5` — the wire change of `Dim` that
+  STD-60 brings, in `SIExpr` / `AnyQuantity` and in the `ww_si` snapshot: no longer `sized` but `final_structure`,
+  nine 4-bit exponents (rad and bit appended to the seven SI ones) and four optional named counted bases; a
+  non-canonical `Dim` is refused on decode. Volt is `d2 1f 00 00 00`. Conformance cases `stdlib.si.dim.*`
+  (`tests/conformance/corpus.json`), [ww_si](docs/std_library/ww_si.md#units-known-only-at-run-time).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
@@ -1502,9 +1507,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ww_si::Fixed`) are compatible, reported as the same bytes; a change of a `Fixed`'s unit or scale is breaking
   although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
   refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move.
-- 📋 **EVO-16 `ww_si::Dim` with angle, information and counted bases** · `v0.5` — the wire change of `Dim` in
-  `SIExpr` / `AnyQuantity` and in snapshots that STD-60 brings: no longer `sized`, two more fixed exponents and a
-  short list of named counted bases.
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1717,6 +1719,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   float types. `to_i32_in` / `to_u32_in` / `to_u32_wrapping_in`; `to_i128_in` only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, `opt-level = "z"`). `docs/std_library/ww_si.md#conversions-and-comparisons`,
   `ww_stdlib/ww_si/tests/narrow.rs` and `ww_stdlib/ww_numeric/tests/integer.rs` (run with 32-bit types only too).
+- ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
+  base dimensions and up to four named counted bases (`Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`,
+  `Sector`, `Chunk`, `Char`, `Code`, feature `counting`; `Bit`, `Byte`, `Word`, feature `information`): bytes don't
+  convert into % or rad, `AngularVelocity` isn't `Hertz`, `Per<Sample, Second> × Second` is a `Sample`, bytes of a
+  sample only through `Per<Byte, Sample>`; checked at compile time (`Unit::DIM`) and at run time (`SIExpr`,
+  `wire_weaver_client::DynUnit`, Python `Quantity.dim`). `Torque` is J/rad (written N·m). Wire change EVO-16.
+  [ww_si dimensions](docs/std_library/ww_si.md#dimensions), `ww_stdlib/ww_si/tests/quantities.rs`.
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
@@ -1957,9 +1966,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
   (`Quantity<U, B>`, range in coherent units), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
-- 📋 **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim` gets angle and information bases
-  and named counted bases (`Sample`, `Frame`, `Block`, ..): bytes don't convert into % or rad, `Sample/s × s` is a
-  `Sample`, `Sample → Byte` only through a bytes-per-sample; checked at compile and at run time (EVO-16).
 
 ## Examples (`EX`)
 

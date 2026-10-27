@@ -756,18 +756,23 @@ impl<'i, const N: usize, T: DeserializeShrinkWrap<'i> + Default + Copy> Deserial
     }
 }
 
-impl<const N: usize, T: DeserializeShrinkWrapOwned + Default + Copy> DeserializeShrinkWrapOwned
-    for [T; N]
-{
+/// Any element type, also one that isn't `Copy` (`[String; 2]`, an owned struct with a `String`).
+impl<const N: usize, T: DeserializeShrinkWrapOwned> DeserializeShrinkWrapOwned for [T; N] {
     const ELEMENT_SIZE: ElementSize = ElementSize::UnsizedFinalStructure;
 
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
-        let mut array: [T; N] = [T::default(); N];
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..N {
-            array[i] = rd.read_owned()?;
+        let mut err = None;
+        // elements after the first error are not read
+        let array: [Option<T>; N] = core::array::from_fn(|_| {
+            if err.is_some() {
+                return None;
+            }
+            rd.read_owned().map_err(|e| err = Some(e)).ok()
+        });
+        if let Some(e) = err {
+            return Err(e);
         }
-        Ok(array)
+        Ok(array.map(|elem| elem.expect("read without an error")))
     }
 }
 

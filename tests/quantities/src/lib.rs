@@ -11,9 +11,9 @@ mod tests {
     use wire_weaver_client::quantity::{DynQuantity, DynUnit, is_quantity, unit_of};
     use wire_weaver_client::ww_self::{ApiItemKindOwned, FieldsValueOwned, TypeOwned, ValueOwned};
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
+    use ww_si::prefix::{Micro, Milli, One};
     use ww_si::units::{self, AngularVelocity, Per, Torque};
     use ww_si::ww_numeric::NumericValue;
-    use ww_si::prefix::{Micro, Milli, One};
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, Micros, Prefix, Quantity, Range, SIExpr, Scale, Second,
         Timed, Unbounded, Unit, Volt,
@@ -590,7 +590,11 @@ mod tests {
         let Ok(TypeOwned::Struct(fixed)) = timeout.get_in_line(root.bundle()) else {
             panic!("Fixed");
         };
-        let args = &fixed.instance_of.as_ref().expect("an instance of Fixed").args;
+        let args = &fixed
+            .instance_of
+            .as_ref()
+            .expect("an instance of Fixed")
+            .args;
         assert_eq!(args.len(), 4);
         assert_eq!(
             fixed_name(&root, "timeout"),
@@ -625,18 +629,28 @@ mod tests {
         assert_eq!(value, fixed(ValueOwned::Numeric(NumericValue::U16(100))));
         root.child("timeout_full")
             .unwrap()
-            .write(client.cmd(), &fixed(ValueOwned::Numeric(NumericValue::U16(1500))))
+            .write(
+                client.cmd(),
+                &fixed(ValueOwned::Numeric(NumericValue::U16(1500))),
+            )
             .await
             .unwrap();
         assert_eq!(values.lock().unwrap().timeout, Fixed::new(1500));
         assert_eq!(values.lock().unwrap().timeout.to_string(), "1500 ms");
 
         for (name, expected) in [
-            ("sizes", sizes().iter().map(|s| s.value.get()).collect::<Vec<_>>()),
+            (
+                "sizes",
+                sizes().iter().map(|s| s.value.get()).collect::<Vec<_>>(),
+            ),
             ("ticks", ticks().iter().map(|s| s.value.get()).collect()),
         ] {
-            let Some(ValueOwned::Vec(items)) =
-                root.child(name).unwrap().call(client.cmd(), &[]).await.unwrap()
+            let Some(ValueOwned::Vec(items)) = root
+                .child(name)
+                .unwrap()
+                .call(client.cmd(), &[])
+                .await
+                .unwrap()
             else {
                 panic!("{name}: items");
             };

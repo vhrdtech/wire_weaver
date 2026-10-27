@@ -335,7 +335,7 @@ mod tests {
         let (device, m) = start("pwm/output");
         let client = connect(&device).await;
         let pwm = client.pwm();
-        let mut channel = pwm.channel(0);
+        let channel = pwm.channel(0);
 
         let output = PwmOutput {
             freq: Hertz::from_parts(Prefix::Kilo, NumericValue::U32(10)),
@@ -373,7 +373,7 @@ mod tests {
         let (device, _m) = start("pwm/wrong_mode");
         let client = connect(&device).await;
         let pwm = client.pwm();
-        let mut channel = pwm.channel(1);
+        let channel = pwm.channel(1);
         let err = channel.set_duty(100).call().await;
         assert!(matches!(
             err.unwrap_err().device(),
@@ -386,7 +386,7 @@ mod tests {
         let (device, m) = start("pwm_capture/read");
         let client = connect(&device).await;
         let pwm_capture = client.pwm_capture();
-        let mut channel = pwm_capture.channel(0);
+        let channel = pwm_capture.channel(0);
 
         let config = CaptureConfig {
             mode: CaptureMode::Frequency,
@@ -421,7 +421,7 @@ mod tests {
         let (device, m) = start("pwm_capture/stream");
         let client = connect(&device).await;
         let pwm_capture = client.pwm_capture();
-        let mut channel = pwm_capture.channel(0);
+        let channel = pwm_capture.channel(0);
 
         let config = |mode| CaptureConfig {
             mode,

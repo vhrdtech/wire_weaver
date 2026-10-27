@@ -305,7 +305,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn arguments_return_values_and_fields() {
         let (device, _data) = start("series/methods");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
 
         let sum: u64 = TIMESTAMPS.iter().map(|&t| t as u64).sum();
         let timestamps = SeriesOwned(TIMESTAMPS.to_vec());
@@ -618,7 +618,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn series_through_clients_and_streams() {
         let (device, _data) = start("series/series");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let readings = client.readings(40).call().await.unwrap();
         assert_eq!(readings.0, owned_readings(40));
         let history = client.history().call().await.unwrap();

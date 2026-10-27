@@ -281,7 +281,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn arguments_and_return_values() {
         let (device, _data) = start("generics/methods");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let swapped = client.swap(Pair { a: 1, b: 300 }).call().await.unwrap();
         assert_eq!(swapped, Pair { a: 300, b: 1 });
 
@@ -424,7 +424,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn type_aliases() {
         let (device, data) = start("generics/aliases");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let doubled = client.double(Quantity::new(21)).call().await.unwrap();
         assert_eq!(doubled, Quantity::new(42));
 

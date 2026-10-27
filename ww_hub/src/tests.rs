@@ -149,7 +149,7 @@ mod api {
     async fn info_clients_keep_shutdown() {
         let dir = runtime_dir("api");
         let (hub, _shutdown) = start(&dir, 300).await;
-        let mut client = connect(&dir).await;
+        let client = connect(&dir).await;
 
         let info = client.info().call().await.unwrap();
         assert_eq!(info.hub_version, HUB_VERSION);

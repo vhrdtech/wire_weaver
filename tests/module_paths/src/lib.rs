@@ -182,7 +182,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn types_in_modules() {
         let (device, _data) = start("module_paths/methods");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mirrored = client.mirror(Point { x: 3, y: -4 }).call().await.unwrap();
         assert_eq!(mirrored, Point { x: -3, y: 4 });
         let lifted = client

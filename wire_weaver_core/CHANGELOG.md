@@ -2,6 +2,7 @@
 
 ### 🐛 Fixes
 
+- Generated client methods and stream functions with arguments take `&self` instead of `&mut self` (CLT-48): nothing in them needs it, and it kept two calls with arguments on the same client out of one `MultiCall` tuple (`(client.add(1, 2), client.add(3, 4)).multi_call()` didn't compile). Callers holding the client as `let mut` only for these calls get an `unused_mut` warning.
 - `no_alloc = false` servers compile and work (API-21): their handlers take and give owned types (`Vec`, `String`, `..Owned`; a method's return, a property's value and write error, a sink's item, a stream function's result, stream items, deferred returns), the arguments structs are read with `des_shrink_wrap_owned`, owned values are written into the reply buffer with shrink_wrap's `BufWriter::ser_owned` / `write_owned` (the same bytes a `no_alloc` server sends, checked by running the `methods`, `properties` and `streams` test suites against both), and observed properties with an owned type go through `OwnedSer`; the `<Trait>Update` of such a level is `<Trait>UpdateOwned`. Before, they failed to compile (args structs without `des_shrink_wrap`, a missing `RefVec` import, a deferred `<method>_ser_return_event` typed `Vec<u8>`, borrowed return types). `ww api scaffold --alloc` prints the owned handler signatures. See `docs/transport/hub.md#servers-on-std-no_alloc-false`.
 
 ### 🚀 Features

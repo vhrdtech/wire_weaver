@@ -362,7 +362,7 @@ mod tests {
         }
         server.pump().await;
         let device = start("log_defmt/before_connect", server);
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
 
         let info = client.defmt().read_DEFMT().read().await.unwrap();
         assert_eq!(info.build_id.into_inner(), BUILD_ID);
@@ -396,7 +396,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn ring_overflow_is_exact() {
         let device = start("log_defmt/overflow", server::Server::boot().await);
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let info = client.defmt().read_DEFMT().read().await.unwrap();
         let table = table(info.encoding);
         let mut decoder = table.new_stream_decoder();
@@ -439,7 +439,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn text_records_and_level() {
         let device = start("log_defmt/text", server::Server::boot().await);
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         assert_eq!(
             client.text().read_level().read().await.unwrap(),
             LevelFilter::Info

@@ -298,7 +298,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn set_and_read_find_pulls_and_shorts() {
         let (_device, client) = start("pin_diag/probe").await;
-        let mut pins = client.pins();
+        let pins = client.pins();
         // P2 has an external pull-up: high even against the internal pull-down
         pins.set(P2, input(Pull::Down)).call().await.unwrap();
         assert_eq!(pins.read(P2).call().await.unwrap(), Level::High);
@@ -331,7 +331,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn refusals() {
         let (_device, client) = start("pin_diag/refusals").await;
-        let mut pins = client.pins();
+        let pins = client.pins();
 
         assert_eq!(
             device_error(pins.read(99).call().await),

@@ -258,7 +258,7 @@ mod tests {
             "cross_version_api"
         );
 
-        let mut boot = BootControl::new(
+        let boot = BootControl::new(
             client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
         );
         let state = boot.boot_state().call().await.unwrap();
@@ -274,7 +274,7 @@ mod tests {
     async fn trait_not_implemented() {
         let (_calls, device) = start_old_device("cross_version/not_found");
         let client = connect_traits_only(&device).await;
-        let mut inventory = Inventory {
+        let inventory = Inventory {
             cmd: client.cmd().clone(),
         };
         let r = inventory.manifest_digest(ww_dfu::Slot::Active).call().await;
@@ -345,7 +345,7 @@ mod tests {
             .gid
             .id
             .0;
-        let mut boot = BootControl::new(
+        let boot = BootControl::new(
             client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
         );
         assert_eq!(
@@ -411,7 +411,7 @@ mod tests {
         let (calls, device) = start_device("cross_version/pre_compact", true);
         let client = connect_traits_only(&device).await;
         let id = ww_dfu::BOOT_CONTROL_COMPACT_GID.unwrap().gid.id.0;
-        let mut boot = BootControl::new(
+        let boot = BootControl::new(
             client.global_attachment(ww_dfu::BOOT_CONTROL_FULL_GID, "BootControl"),
         );
         assert_eq!(

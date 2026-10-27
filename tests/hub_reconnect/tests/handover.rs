@@ -53,7 +53,7 @@ async fn newer_hub_takes_over_with_clients_connected() {
     let old = Bound::bind(config(&dir, "0.0.1")).unwrap().unwrap();
     let old = tokio::spawn(old.run());
 
-    let mut client =
+    let client =
         Client::config(|c| c.hub_device_at(socket.clone(), "inproc:hub_reconnect/handover"))
             .connect()
             .await

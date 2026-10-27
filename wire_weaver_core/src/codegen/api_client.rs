@@ -526,7 +526,6 @@ fn handle_method(
     };
 
     let path_kind = path_kind(path_mode, gid_paths);
-    let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
     let mut docs = docs.to_vec();
     let mut with_error_list = quote! {};
     if let Some(errors) = errors
@@ -548,7 +547,7 @@ fn handle_method(
     let docs = docs.iter().map(|s| quote! { #[doc = #s] });
     quote! {
         #(#docs)*
-        pub fn #ident(& #maybe_mut self, #args_list) -> wire_weaver_client::PreparedCall<#output_ty> {
+        pub fn #ident(&self, #args_list) -> wire_weaver_client::PreparedCall<#output_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;
@@ -799,7 +798,6 @@ fn handle_stream_fn(
     let args = stream.args.to_vec();
     let (args_ser, args_list, _) = ser_args(api_bundle, ident, &args, model.no_alloc());
     let path_kind = path_kind(path_mode, gid_paths);
-    let maybe_mut = maybe_quote(!args.is_empty(), quote! { mut });
     let mut docs = docs.to_vec();
     let mut with_error_list = quote! {};
     if let Some(errors) = stream.errors
@@ -844,7 +842,7 @@ fn handle_stream_fn(
         #(#docs)*
         ///
         /// Opens the stream: `.call().await` returns the stream function's result with the stream.
-        pub fn #ident(& #maybe_mut self #maybe_index_arg, #args_list) -> wire_weaver_client::PreparedStreamOpen<#result_ty, #handle_ty> {
+        pub fn #ident(&self #maybe_index_arg, #args_list) -> wire_weaver_client::PreparedStreamOpen<#result_ty, #handle_ty> {
             #args_ser
             #index_chain_push
             let path_kind = #path_kind;

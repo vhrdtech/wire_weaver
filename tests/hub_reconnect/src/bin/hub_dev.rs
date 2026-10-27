@@ -39,7 +39,7 @@ async fn hold_device(socket: &str, kind: &str) -> Result<(), String> {
         "Notebook" => ClientKind::Notebook,
         other => return Err(format!("unknown kind {other}")),
     };
-    let mut client = hub_reconnect::client::Client::config(|c| {
+    let client = hub_reconnect::client::Client::config(|c| {
         c.ipc_path(socket.to_string())
             .ipc_exclusive()
             .client_meta(ClientMeta::new().kind(kind).program("polite-holder"))
@@ -117,7 +117,7 @@ async fn hold_usb(socket: &str, kind: &str) -> Result<(), String> {
     }
     {
         let (ok, failed, slowest) = (ok.clone(), failed.clone(), slowest.clone());
-        let mut client = hub_reconnect::client::Client {
+        let client = hub_reconnect::client::Client {
             cmd: client.cmd.clone(),
         };
         tokio::spawn(async move {

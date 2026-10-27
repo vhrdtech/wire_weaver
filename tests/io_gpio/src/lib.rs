@@ -522,7 +522,7 @@ mod tests {
         let pins = bank.pin_valid_indices().read().await.unwrap();
         assert_eq!(pins.iter().count(), 4);
 
-        let mut pin = bank.pin(2);
+        let pin = bank.pin(2);
         assert_eq!(pin.output_level().call().await.unwrap(), Level::Low);
 
         pin.set_output_level(Level::High).call().await.unwrap();
@@ -538,7 +538,7 @@ mod tests {
         let (device, _banks) = start("io_gpio/pin_mode_and_properties");
         let client = connect(&device).await;
         let bank = client.bank(0);
-        let mut pin = bank.pin(0);
+        let pin = bank.pin(0);
 
         assert_eq!(pin.mode().call().await.unwrap(), Mode::Input);
         pin.set_mode(Mode::PushPullOutput, Some(Level::High))
@@ -570,7 +570,7 @@ mod tests {
         let (device, _banks) = start("io_gpio/pin_event_stream");
         let client = connect(&device).await;
         let bank = client.bank(1);
-        let mut pin = bank.pin(1);
+        let pin = bank.pin(1);
 
         let r = pin
             .event(ww_gpio::IoPinEnabledEventsOwned {

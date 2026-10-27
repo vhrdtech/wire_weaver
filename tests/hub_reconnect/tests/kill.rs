@@ -55,7 +55,7 @@ async fn hub_killed_under_load_clients_come_back() {
     let (_device, seen) = hub_reconnect::start_device_ipc(&dir.join("dev.sock"));
     let key = format!("ipc:{}", dir.join("dev.sock").display());
     // the user's hub, started by the client
-    let mut client = Client::config(|c| c.hub_device(key.clone()))
+    let client = Client::config(|c| c.hub_device(key.clone()))
         .connect()
         .await
         .expect("connect, starting the hub");
@@ -68,7 +68,7 @@ async fn hub_killed_under_load_clients_come_back() {
     let load = {
         let (stop, ok, failed) = (stop.clone(), ok.clone(), failed.clone());
         // a clone of the same connection
-        let mut client = Client {
+        let client = Client {
             cmd: client.cmd.clone(),
         };
         tokio::spawn(async move {

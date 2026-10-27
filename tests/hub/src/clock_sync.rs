@@ -366,7 +366,7 @@ async fn the_hub_steers_and_keeps_the_device_open() {
     );
     let hub = bench.hub().await;
     let mut stats = hub.sync().stats().call().await.unwrap();
-    let mut client = bench.client().await;
+    let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
 
     let e = sync_entry(&hub, &bench.key, "steered and checked", |e| {
@@ -431,7 +431,7 @@ async fn the_hub_steers_and_keeps_the_device_open() {
 async fn steering_switched_off_and_on() {
     let bench = start("off", Duration::from_millis(100), None);
     let hub = bench.hub().await;
-    let mut client = bench.client().await;
+    let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
     sync_entry(&hub, &bench.key, "steered", |e| e.steers > 0).await;
 
@@ -477,7 +477,7 @@ async fn steering_switched_off_and_on() {
 async fn a_root_claim_pauses_steering() {
     let bench = start("paused", Duration::from_millis(100), None);
     let hub = bench.hub().await;
-    let mut client = bench.client().await;
+    let client = bench.client().await;
     assert_eq!(client.add(1, 2).call().await.unwrap(), 3);
     sync_entry(&hub, &bench.key, "steered", |e| e.steers > 0).await;
 

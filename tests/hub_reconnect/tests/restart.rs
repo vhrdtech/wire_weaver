@@ -64,7 +64,7 @@ async fn hub_restart_reconnects_and_resumes_the_stream() {
     let socket = dir.join(ww_local_socket::files::HUB_SOCKET);
     let (hub, shutdown) = bind(&dir);
 
-    let mut client = Client::config(|c| {
+    let client = Client::config(|c| {
         c.hub_device_at(socket.display().to_string(), "inproc:hub_reconnect/restart")
     })
     .connect()
@@ -140,7 +140,7 @@ async fn lent_device_waits_past_the_give_up_time() {
     let socket = dir.join(ww_local_socket::files::HUB_SOCKET);
     let (hub, shutdown) = bind(&dir);
     let give_up = Duration::from_millis(100);
-    let mut client = Client::config(|c| {
+    let client = Client::config(|c| {
         c.hub_device_at(socket.display().to_string(), "inproc:hub_reconnect/lent")
             .hub_reconnect(Some(give_up))
     })
@@ -198,7 +198,7 @@ async fn no_hub_within_the_give_up_time_ends_the_streams() {
     let dir = runtime_dir("give_up");
     let socket = dir.join(ww_local_socket::files::HUB_SOCKET);
     let (hub, shutdown) = bind(&dir);
-    let mut client = Client::config(|c| {
+    let client = Client::config(|c| {
         c.hub_device_at(socket.display().to_string(), "inproc:hub_reconnect/give_up")
             .hub_reconnect(Some(Duration::from_millis(200)))
     })

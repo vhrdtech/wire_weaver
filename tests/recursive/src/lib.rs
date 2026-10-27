@@ -234,7 +234,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn arguments_and_return_values() {
         let (device, _data) = start("recursive/methods");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         assert_eq!(client.eval(expr()).call().await.unwrap(), Some(-9));
         assert_eq!(client.eval(negations(51)).call().await.unwrap(), Some(-7));
         let inner = ExprOwned::Add(Box::new(lit(1)), Box::new(lit(2)));
@@ -249,7 +249,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn too_deep_is_an_error_not_a_crash() {
         let (device, _data) = start("recursive/too_deep");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         // deeper than the device's reader allows: reading the boxed expressions fails on the way down
         let depth = shrink_wrap::BufReader::DEFAULT_MAX_DEPTH as usize + 10;
         assert_eq!(client.eval(negations(depth)).call().await.unwrap(), None);

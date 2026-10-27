@@ -195,7 +195,7 @@ async fn a_holder_hands_its_live_link_to_the_hub() {
 
     // this program wants the device too: the holder hands its live link to the hub, both go on through it
     let started = Instant::now();
-    let mut client = Client::config(|c| asker()(c.usb_sim_path(socket.display().to_string())))
+    let client = Client::config(|c| asker()(c.usb_sim_path(socket.display().to_string())))
         .connect()
         .await
         .expect("connect through the hub after the handover");
@@ -386,7 +386,7 @@ async fn the_holder_dying_in_the_commit_leaves_the_device_with_the_hub() {
 
     drop(holder);
     usb.hold_claims(false);
-    let mut client = tokio::time::timeout(Duration::from_secs(2), asker)
+    let client = tokio::time::timeout(Duration::from_secs(2), asker)
         .await
         .expect("the asker connects")
         .unwrap()
@@ -537,7 +537,7 @@ async fn a_prepared_adoption_goes_with_its_connection() {
     tokio::task::spawn_blocking(move || drop(hub))
         .await
         .unwrap();
-    let mut client = tokio::time::timeout(Duration::from_secs(2), connecting)
+    let client = tokio::time::timeout(Duration::from_secs(2), connecting)
         .await
         .expect("the hub opens the device once the adoption went")
         .unwrap()
@@ -565,7 +565,7 @@ async fn answers_waiting_in_the_device_reach_the_holder() {
     // every request in flight is answered meanwhile, the answers wait for the next host
     tokio::time::sleep(Duration::from_millis(100)).await;
     usb.hold_claims(false);
-    let mut client = tokio::time::timeout(Duration::from_secs(2), asker)
+    let client = tokio::time::timeout(Duration::from_secs(2), asker)
         .await
         .expect("the asker connects")
         .unwrap()

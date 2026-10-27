@@ -1153,7 +1153,7 @@ mod tests {
     /// gets just its property, the level is turned off when the last one goes.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn host_fans_out_and_counts_observers() {
-        let mut b = Bench::start("observe/host_fans_out", limits()).await;
+        let b = Bench::start("observe/host_fans_out", limits()).await;
         let mut temp = b
             .client
             .observe_temp(change(10 * MS))

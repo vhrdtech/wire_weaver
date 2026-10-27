@@ -470,7 +470,7 @@ mod tests {
     async fn capabilities_and_read() {
         let device = start("adc/capabilities_and_read");
         let client = connect(&device).await;
-        let mut adc = client.adc();
+        let adc = client.adc();
 
         let caps = adc.capabilities().call().await.unwrap();
         assert_eq!(caps.channels.len(), 2);
@@ -498,7 +498,7 @@ mod tests {
     async fn stream_open_receive_close() {
         let device = start("adc/stream");
         let client = connect(&device).await;
-        let mut adc_stream = client.adc_stream();
+        let adc_stream = client.adc_stream();
 
         let caps = adc_stream.stream_capabilities().call().await.unwrap();
         assert_eq!(caps.max_channels, 2);
@@ -559,7 +559,7 @@ mod tests {
     async fn capture_now_trigger_and_read() {
         let device = start("adc/capture_now");
         let client = connect(&device).await;
-        let mut adc_capture = client.adc_capture();
+        let adc_capture = client.adc_capture();
 
         let caps = adc_capture.capture_capabilities().call().await.unwrap();
         assert!(caps.simultaneous);
@@ -612,7 +612,7 @@ mod tests {
     async fn capture_polled_trigger_progresses_to_done() {
         let device = start("adc/capture_polled");
         let client = connect(&device).await;
-        let mut adc_capture = client.adc_capture();
+        let adc_capture = client.adc_capture();
 
         adc_capture
             .capture(CaptureConfigOwned {
@@ -644,7 +644,7 @@ mod tests {
         ));
 
         // a stream can't start while a capture is armed/triggered, busy by then released
-        let mut adc_stream = client.adc_stream();
+        let adc_stream = client.adc_stream();
         adc_stream
             .samples(StreamConfigOwned {
                 channels: MaxLen::new(vec![0]).unwrap(),

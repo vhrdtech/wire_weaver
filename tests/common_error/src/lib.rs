@@ -110,7 +110,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generated_client() {
         let device = start("common_error/generated");
-        let mut client = Client::config(|c| c.in_process_path(device.path()))
+        let client = Client::config(|c| c.in_process_path(device.path()))
             .connect()
             .await
             .expect("connect");

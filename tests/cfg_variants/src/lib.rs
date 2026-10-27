@@ -126,7 +126,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn shared_variants_and_skipped_types_are_exchanged() {
         use cfg_variants_api::Reading;
-        let (_device, mut host) = connect("cfg_variants/shared").await;
+        let (_device, host) = connect("cfg_variants/shared").await;
         assert_eq!(host.read().call().await.unwrap(), Reading::Small(0));
         host.write(Reading::Small(7)).call().await.unwrap();
         assert_eq!(host.read().call().await.unwrap(), Reading::Small(7));
@@ -172,7 +172,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn variant_the_device_lacks_is_refused_by_it() {
         use cfg_variants_api::Reading;
-        let (_device, mut host) = connect("cfg_variants/lacking").await;
+        let (_device, host) = connect("cfg_variants/lacking").await;
         let e = host.write(Reading::Wide(1 << 40)).call().await.err();
         // the device reads it as `EnumVariantDisabled` and answers so
         assert!(format!("{e:?}").contains("ArgsDesFailed"), "{e:?}");

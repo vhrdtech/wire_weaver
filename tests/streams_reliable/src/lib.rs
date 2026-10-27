@@ -228,7 +228,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn counted_positions_and_device_losses() {
         let device = start("streams_reliable/counted");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut rx = client.rx().call().await.unwrap();
         assert_eq!(rx.session(), Some(1));
 
@@ -280,14 +280,14 @@ mod tests {
     )]
     async fn unlisted_open_error_fails_in_tests() {
         let device = start("streams_reliable/unlisted_open_error");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let _ = client.samples(SampleConfig { rate: u32::MAX }).call().await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn stream_function_result_and_error() {
         let device = start("streams_reliable/result");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let r = client
             .samples(SampleConfig { rate: 0 })
             .call()
@@ -311,7 +311,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn reliable_in_order_with_status() {
         let device = start("streams_reliable/in_order");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let (_, mut samples) = client
             .samples(SampleConfig { rate: 10 })
             .call()
@@ -385,7 +385,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn close_then_resume_with_backfill() {
         let device = start("streams_reliable/resume");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let (_, mut samples) = client
             .samples(SampleConfig { rate: 10 })
             .call()
@@ -450,7 +450,7 @@ mod tests {
             }
             false
         });
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let (_, mut samples) = client
             .samples(SampleConfig { rate: 10 })
             .call()

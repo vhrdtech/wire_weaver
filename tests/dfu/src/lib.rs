@@ -591,7 +591,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn step_by_step_session() {
         let (client, dev, _device) = connect("dfu/steps").await;
-        let mut stage = client.stage();
+        let stage = client.stage();
 
         let limits = stage.limits().call().await.unwrap();
         assert_eq!(limits.max_piece, MAX_PIECE as u32);
@@ -676,7 +676,7 @@ mod tests {
             assert_eq!(&dev.inactive[CHUNK..2 * CHUNK], &data[..]);
         }
 
-        let mut boot = client.boot();
+        let boot = client.boot();
         assert_eq!(boot.boot_state().call().await.unwrap(), BootState::Staged);
         boot.reboot(BootTarget::App).call().await.unwrap();
         assert_eq!(dev.read().unwrap().rebooted_into, Some(BootTarget::App));
@@ -695,7 +695,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn bulk_segments_in_order() {
         let (client, dev, _device) = connect("dfu/bulk").await;
-        let mut bulk = client.bulk();
+        let bulk = client.bulk();
         let session = bulk
             .begin_bulk(Target::Live, MaxLen::new(vec![0]).unwrap(), 12, 0)
             .call()

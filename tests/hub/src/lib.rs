@@ -441,7 +441,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn other_client_versions_pass_through() {
         let bench = start("versions", Duration::from_secs(30));
-        let mut old = bench.client_with(|c| c.no_client_meta()).await;
+        let old = bench.client_with(|c| c.no_client_meta()).await;
         assert_eq!(old.add(2, 3).call().await.unwrap(), 5);
 
         let new = bench.client().await;
@@ -508,7 +508,7 @@ mod tests {
                 .map(|d| (d.state, d.tunnels))
         };
         assert_eq!(open().await, None);
-        let mut a = bench.client().await;
+        let a = bench.client().await;
         assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
         assert_eq!(open().await, Some((ww_hub_api::DeviceStateOwned::Open, 1)));
         a.cmd.disconnect().asynch().await.unwrap();
@@ -520,7 +520,7 @@ mod tests {
         );
         tokio::time::sleep(Duration::from_millis(400)).await;
         assert_eq!(open().await, None, "closed after linger");
-        let mut b = bench.client().await;
+        let b = bench.client().await;
         assert_eq!(b.add(2, 2).call().await.unwrap(), 4);
         drop(hub);
         bench.stop().await;
@@ -863,8 +863,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn exclusive_refuses_a_second_client() {
         let bench = start("exclusive", Duration::from_secs(30));
-        let mut a = bench.program("alice").await;
-        let mut b = bench.program("bob").await;
+        let a = bench.program("alice").await;
+        let b = bench.program("bob").await;
         let id = bench.claim(&a, vec![], None).await;
 
         assert_eq!(refused(b.dev.bus(0).send(7).call().await), in_use("alice"));
@@ -961,7 +961,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn lend_round_trip() {
         let bench = start("lend", Duration::from_secs(30));
-        let mut a = bench.client().await;
+        let a = bench.client().await;
         assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
         let lender = HubClient::config(|c| c.hub_api_at(bench.socket()))
             .connect()
@@ -1031,7 +1031,7 @@ mod tests {
                 r => panic!("expected InUse naming the lend, got {r:?}"),
             }
         }
-        let mut direct = Client::config(|c| c.in_process_path(bench.device.path()))
+        let direct = Client::config(|c| c.in_process_path(bench.device.path()))
             .connect()
             .await
             .expect("the device is free for the other program");
@@ -1048,7 +1048,7 @@ mod tests {
             matches!(e, EventOwned::Opened { .. }).then_some(())
         })
         .await;
-        let mut b = bench.client().await;
+        let b = bench.client().await;
         assert_eq!(b.add(3, 3).call().await.unwrap(), 6);
         bench.stop().await;
     }
@@ -1057,7 +1057,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn lend_returned_when_borrower_killed() {
         let bench = start("lend-killed", Duration::from_secs(30));
-        let mut a = bench.client().await;
+        let a = bench.client().await;
         assert_eq!(a.add(1, 1).call().await.unwrap(), 2);
         let watcher = HubClient::config(|c| c.hub_api_at(bench.socket()))
             .connect()
@@ -1106,7 +1106,7 @@ mod tests {
             matches!(e, EventOwned::Opened { .. }).then_some(())
         })
         .await;
-        let mut b = bench.client().await;
+        let b = bench.client().await;
         assert_eq!(b.add(2, 3).call().await.unwrap(), 5);
         bench.stop().await;
     }

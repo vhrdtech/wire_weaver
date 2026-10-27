@@ -72,7 +72,7 @@ fn swap_shuttle_2c_app_step() {
         let node = host.node().node().call().await.unwrap();
         assert_eq!(node.profile, Profile::AB(SlotSwitch::Copy));
         assert_eq!(node.app_version, Some(1));
-        let mut stage = host.stage();
+        let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
 
         let plan = Plan::ab(&v1(), &v2());
@@ -129,7 +129,7 @@ fn swap_freight_2c_app_bulk() {
 
         let plan = Plan::ab(&v1(), &v2());
         let total = plan.body.len() as u32;
-        let mut bulk = host.bulk();
+        let bulk = host.bulk();
         let session = bulk
             .begin_bulk(Target::Live, header(&plan), total, 0)
             .call()
@@ -146,7 +146,7 @@ fn swap_freight_2c_app_bulk() {
         drop(host);
 
         let host = connect!(AppClient, &dev.addr);
-        let mut bulk = host.bulk();
+        let bulk = host.bulk();
         let session = bulk
             .begin_bulk(Target::Live, header(&plan), total, 0)
             .call()
@@ -197,7 +197,7 @@ fn flip_shuttle_2r_app_step() {
         let host = connect!(AppClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!(node.profile, Profile::AB(SlotSwitch::Remap));
-        let mut stage = host.stage();
+        let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
 
         dev.rec
@@ -250,7 +250,7 @@ fn flip_freight_2r_app_bulk() {
 
         let plan = Plan::ab(&v1(), &v2());
         let total = plan.body.len() as u32;
-        let mut bulk = host.bulk();
+        let bulk = host.bulk();
         bulk.begin_bulk(Target::Live, header(&plan), total, 0)
             .call()
             .await
@@ -316,7 +316,7 @@ fn parcel_shuttle_1s_app_step() {
 
         dev.rec
             .note("host doesn't know this manifest digest: reads the manifest");
-        let mut inventory = host.inventory();
+        let inventory = host.inventory();
         let layout = inventory.layout(Slot::Active).call().await.unwrap();
         let chunks = inventory
             .chunks(Slot::Active, 0, layout.chunk_count)
@@ -335,7 +335,7 @@ fn parcel_shuttle_1s_app_step() {
             .collect();
         assert_eq!(*chunks, expected);
 
-        let mut stage = host.stage();
+        let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
         assert!(limits.stored && limits.plan_area >= 512);
         let plan = Plan::in_place(&v1(), &v2());
@@ -384,7 +384,7 @@ fn parcel_freight_1s_app_bulk() {
 
         let plan = Plan::in_place(&v1(), &v2());
         let total = plan.body.len() as u32;
-        let mut bulk = host.bulk();
+        let bulk = host.bulk();
         bulk.begin_bulk(Target::Stored, header(&plan), total, 0)
             .call()
             .await
@@ -449,7 +449,7 @@ fn pit_stop_shuttle_1l_upd_step() {
         let host = connect!(UpdaterClient, &dev.addr);
         let node = host.node().node().call().await.unwrap();
         assert_eq!((node.role, node.app_version), (Role::Bootloader, Some(1)));
-        let mut stage = host.stage();
+        let stage = host.stage();
         let limits = stage.limits().call().await.unwrap();
         assert_eq!(limits.max_piece, 32);
         let plan = Plan::in_place(&v1(), &v2());
@@ -493,7 +493,7 @@ fn pit_stop_shuttle_1l_upd_step() {
             (node.app_version, node.boot_state),
             (None, BootState::Updating)
         );
-        let mut stage = host.stage();
+        let stage = host.stage();
         let session = stage
             .begin(Target::Live, header(&plan))
             .call()
@@ -541,7 +541,7 @@ fn pit_stop_freight_1l_upd_bulk() {
         let max_piece = host.stage().limits().call().await.unwrap().max_piece;
         let plan = Plan::in_place(&v1(), &v2());
         let total = plan.body.len() as u32;
-        let mut bulk = host.bulk();
+        let bulk = host.bulk();
         bulk.begin_bulk(Target::Live, header(&plan), total, 0)
             .call()
             .await

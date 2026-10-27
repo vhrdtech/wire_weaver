@@ -383,7 +383,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn reset_and_transaction() {
         let (client, _bus, _device) = connect("onewire/reset_and_transaction", vec![ROM_A]).await;
-        let mut onewire = client.onewire();
+        let onewire = client.onewire();
 
         assert!(onewire.reset().call().await.unwrap());
 
@@ -424,7 +424,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn search_pages_and_filters_by_family() {
         let (client, _bus, _device) = connect("onewire/search", vec![ROM_A, ROM_B, ROM_C]).await;
-        let mut onewire = client.onewire();
+        let onewire = client.onewire();
 
         let mut found = Vec::new();
         let mut from = None;
@@ -471,7 +471,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn capabilities_and_configure() {
         let (client, bus, _device) = connect("onewire/capabilities", vec![ROM_A]).await;
-        let mut onewire = client.onewire();
+        let onewire = client.onewire();
 
         let caps = onewire.capabilities().call().await.unwrap();
         assert_eq!(caps.pins.len(), 2);
@@ -512,7 +512,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn triplet_driven_search_finds_the_only_device() {
         let (client, _bus, _device) = connect("onewire/triplet", vec![ROM_A]).await;
-        let mut onewire = client.onewire();
+        let onewire = client.onewire();
 
         assert!(onewire.reset().call().await.unwrap());
         // Send the `Search ROM` command to start a bit-level search session.

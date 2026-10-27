@@ -282,7 +282,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn counted_items_with_their_times() {
         let device = start("streams_batched/counted");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut counted = client
             .counted()
             .max_age(Duration::from_millis(5))
@@ -339,7 +339,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn reliable_result_and_items() {
         let device = start("streams_batched/reliable");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let r = client.reliable(0).call().await.unwrap();
         assert!(matches!(r, Err(SampleError::ZeroGain)), "{:?}", r.err());
 
@@ -390,7 +390,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn plain_values_and_batches() {
         let device = start("streams_batched/plain");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut plain = client.plain().call().await.unwrap();
         // the device's u32 µs clock wraps in the first batch, the host counts on into the second one
         client.produce(3, u32::MAX - 50).call().await.unwrap();
@@ -418,7 +418,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn untimed_frames() {
         let device = start("streams_batched/untimed");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut frames = client.frames().call().await.unwrap();
         client.produce(4, 0).call().await.unwrap();
         client.flush().call().await.unwrap();

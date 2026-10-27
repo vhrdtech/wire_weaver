@@ -459,7 +459,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn stream_updates_from_handler() {
         let (device, _data) = start("streams/from_handler");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut points = client.user_stream().call().await.unwrap();
         let mut array = client.array_of_streams(1).call().await.unwrap();
 
@@ -701,7 +701,7 @@ mod tests {
             .unwrap()
             .ack_sideband
             .store(true, Ordering::Relaxed);
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut sink = client.user_sink().await.unwrap();
         let recv = async |sink: &mut wire_weaver_client::Sink<Point>| {
             tokio::time::timeout(Duration::from_secs(1), sink.recv_sideband())

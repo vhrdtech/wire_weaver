@@ -291,7 +291,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn sync_server_opens_and_refuses() {
         let device = start_sync("streams_borrowed_error/sync");
-        let mut client = SyncClient::config(|c| c.in_process_path(device.path()))
+        let client = SyncClient::config(|c| c.in_process_path(device.path()))
             .connect()
             .await
             .expect("connect");
@@ -308,7 +308,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn async_server_opens_and_refuses() {
         let device = start_async("streams_borrowed_error/async");
-        let mut client = AsyncClient::config(|c| c.in_process_path(device.path()))
+        let client = AsyncClient::config(|c| c.in_process_path(device.path()))
             .connect()
             .await
             .expect("connect");

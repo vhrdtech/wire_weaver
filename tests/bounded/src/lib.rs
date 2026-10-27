@@ -237,7 +237,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn arguments_and_return_values() {
         let (device, data) = start("bounded/methods");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
 
         let at_bound = MaxLen::new(vec![1u8; 8]).unwrap();
         assert_eq!(client.write(0, true, at_bound).call().await.unwrap(), 8);
@@ -345,7 +345,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn byte_stream_and_sink() {
         let (device, data) = start("bounded/streams");
-        let mut client = connect(&device).await;
+        let client = connect(&device).await;
         let mut chunks = client.chunks().call().await.unwrap();
         assert!(client.emit_chunk(4).call().await.unwrap());
         // too long: not sent

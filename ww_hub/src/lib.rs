@@ -1163,7 +1163,7 @@ async fn take_over_from(
     temp: &std::path::Path,
 ) -> Result<File, TakeOverError> {
     use wire_weaver_client::hub::HubClient;
-    let mut hub = HubClient::config(|c| {
+    let hub = HubClient::config(|c| {
         c.hub_api_at(socket.display().to_string())
             .hub_reconnect(None)
     })

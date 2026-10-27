@@ -357,7 +357,7 @@ async fn stop() -> Result<()> {
 
 async fn keep(duration: &str) -> Result<()> {
     let seconds = parse_keep(duration)?;
-    let mut hub = need_hub().await?;
+    let hub = need_hub().await?;
     hub.keep(seconds).call().await?;
     match seconds {
         0 => println!("hub back to its idle timeout"),

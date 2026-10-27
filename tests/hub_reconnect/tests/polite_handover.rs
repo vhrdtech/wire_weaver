@@ -109,7 +109,7 @@ async fn a_command_line_holder_hands_the_device_to_the_hub() {
 
     // this program wants the device too: the holder hands it to the hub, both go on through it
     let started = Instant::now();
-    let mut client =
+    let client =
         Client::config(|c| asker()(c.ipc_path(socket.display().to_string()).ipc_exclusive()))
             .connect()
             .await

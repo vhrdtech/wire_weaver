@@ -49,7 +49,7 @@ async fn a_newer_program_replaces_the_running_hub() {
     .unwrap();
     let old = tokio::spawn(old.run());
 
-    let mut client = Client::config(|c| c.hub_device(key.clone()))
+    let client = Client::config(|c| c.hub_device(key.clone()))
         .connect()
         .await
         .unwrap();

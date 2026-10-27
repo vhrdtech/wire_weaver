@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         .to_vec();
     let table = Table::parse(&elf)?.context("the ELF has no defmt table")?;
 
-    let mut device = DefmtLog::new().connect().await?;
+    let device = DefmtLog::new().connect().await?;
     let info = device.log().read_DEFMT().read().await?;
     let build_id = info.build_id.into_inner();
     println!(

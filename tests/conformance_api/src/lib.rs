@@ -100,6 +100,25 @@ trait Conformance {
     // the derive's field attributes behind #[cfg_attr(pred, ..)] (API-60)
     property!(rw gated_v1: GatedV1);
     property!(rw gated_v2: GatedV2);
+    // transparent (DER-18), each next to its plain twin: the same bytes
+    property!(rw count: Count);
+    property!(rw index: Index);
+    property!(rw wrapped_fields: WrappedFields<'i>);
+    property!(rw plain_fields: PlainFields<'i>);
+    property!(rw wrapped_sized: WrappedSized);
+    property!(rw plain_sized: PlainSized);
+    property!(rw vec_index: RefVec<'i, Index>);
+    property!(rw vec_unib32: RefVec<'i, UNib32>);
+    property!(rw vec_digit: RefVec<'i, Digit>);
+    property!(rw vec_nibble: RefVec<'i, Nibble>);
+    property!(rw option_count: Option<Count>);
+    property!(rw option_u64: Option<u64>);
+    property!(rw array_digit: [Digit; 3]);
+    property!(rw array_nibble: [Nibble; 3]);
+    property!(rw series_count: Series<'i, Count>);
+    property!(rw series_u64: Series<'i, u64>);
+    property!(rw series_wrapped: Series<'i, WrappedSample>);
+    property!(rw series_plain: Series<'i, PlainSample>);
     // ww_stdlib types whose evolution is checked here
     property!(rw steer_point: ww_timebase::SteerPoint<'i>);
     property!(rw sync_status: ww_timebase::SyncStatus<'i>);
@@ -480,6 +499,100 @@ pub struct GatedV2 {
     pub last: bool,
     #[cfg_attr(all(), default = 3)]
     pub extra: u8,
+// transparent (DER-18): a struct that is its one field on the wire, each case has the bytes of its plain twin
+
+/// A wrapped `u64`, a tuple struct.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    transparent,
+    series,
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Count(pub u64);
+
+/// A wrapped `UNib32`: self-describing, nibble-aligned.
+#[derive_shrink_wrap(borrowed, owned, transparent, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Index(pub UNib32);
+
+/// A wrapped `Nibble`: 4 bits, packed with its neighbours.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    transparent,
+    derive(Debug, PartialEq, Clone, Copy, Default)
+)]
+pub struct Digit(pub Nibble);
+
+/// A wrapped `f32` with named fields, generic over a unit that takes no bits.
+#[derive_shrink_wrap(
+    borrowed,
+    owned,
+    transparent,
+    series,
+    derive(Debug, PartialEq, Clone, Copy)
+)]
+pub struct Volts<U> {
+    pub value: f32,
+    pub _unit: core::marker::PhantomData<U>,
+}
+
+/// A wrapped string, borrowed.
+#[derive_shrink_wrap(borrowed, owned, transparent, derive(Debug, PartialEq, Clone))]
+pub struct Label<'i>(pub &'i str);
+
+/// An `Unsized` parent of the wrappers.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone))]
+pub struct WrappedFields<'i> {
+    pub count: Count,
+    pub digit: Digit,
+    pub index: Index,
+    pub volts: Volts<Marker>,
+    pub label: Label<'i>,
+    pub end: u8,
+}
+
+/// `WrappedFields` with the plain fields.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone))]
+pub struct PlainFields<'i> {
+    pub count: u64,
+    pub digit: Nibble,
+    pub index: UNib32,
+    pub volts: f32,
+    pub label: &'i str,
+    pub end: u8,
+}
+
+/// A `sized` parent of the wrappers: their bits packed with the parent's.
+#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, PartialEq, Clone, Copy))]
+pub struct WrappedSized {
+    pub on: bool,
+    pub digit: Digit,
+    pub count: Count,
+    pub volts: Volts<Marker>,
+}
+
+/// `WrappedSized` with the plain fields.
+#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, PartialEq, Clone, Copy))]
+pub struct PlainSized {
+    pub on: bool,
+    pub digit: Nibble,
+    pub count: u64,
+    pub volts: f32,
+}
+
+/// A `Series` item with wrapped fields: the columns of the plain ones.
+#[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct WrappedSample {
+    pub t: Count,
+    pub volts: Volts<Marker>,
+}
+
+/// `WrappedSample` with the plain fields.
+#[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct PlainSample {
+    pub t: u64,
+    pub volts: f32,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -66,6 +66,7 @@ const DIRECTIVE_KINDS: &[(&str, &str)] = &[
     ("validate", "validate ="),
     ("ww_repr", "ww_repr ="),
     ("series", "series,"),
+    ("transparent", "transparent,"),
     ("series_opaque", "series(opaque)"),
     ("no_future_version", "no_future_version"),
     ("flag", "#[flag]"),

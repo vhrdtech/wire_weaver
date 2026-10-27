@@ -723,6 +723,146 @@
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
+      "name": "transparent.u64",
+      "type": "count",
+      "value": 18446744073709551615,
+      "bytes_from": "int.u64.max",
+      "bytes": "ffffffffffffffff",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a transparent struct is its one field on the wire (DER-18): the bytes of the plain u64"
+    },
+    {
+      "name": "transparent.unib32",
+      "type": "index",
+      "value": 4294967295,
+      "bytes_from": "unib32.max",
+      "bytes": "ffffffffff30",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.fields.plain",
+      "type": "plain_fields",
+      "value": {"count": 300, "digit": 10, "index": 8, "volts": 1.5, "label": "hi", "end": 7},
+      "bytes": "2c01000000000000a8100000c03f68690702",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.fields",
+      "type": "wrapped_fields",
+      "value": {"count": 300, "digit": 10, "index": 8, "volts": {"value": 1.5}, "label": "hi", "end": 7},
+      "bytes_from": "transparent.fields.plain",
+      "bytes": "2c01000000000000a8100000c03f68690702",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "wrappers of u64, Nibble, UNib32, f32 (generic, a PhantomData field) and a str in an Unsized parent"
+    },
+    {
+      "name": "transparent.sized.plain",
+      "type": "plain_sized",
+      "value": {"on": true, "digit": 5, "count": 1, "volts": -2.0},
+      "bytes": "850100000000000000000000c0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.sized",
+      "type": "wrapped_sized",
+      "value": {"on": true, "digit": 5, "count": 1, "volts": {"value": -2.0}},
+      "bytes_from": "transparent.sized.plain",
+      "bytes": "850100000000000000000000c0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "the wrappers' bits packed with a sized parent's"
+    },
+    {
+      "name": "transparent.vec.unib32.plain",
+      "type": "vec_unib32",
+      "value": [7, 8, 300],
+      "bytes": "781cd403",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.vec.unib32",
+      "type": "vec_index",
+      "value": [7, 8, 300],
+      "bytes_from": "transparent.vec.unib32.plain",
+      "bytes": "781cd403",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.vec.nibble.plain",
+      "type": "vec_nibble",
+      "value": [1, 2, 3],
+      "bytes": "1233",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.vec.nibble",
+      "type": "vec_digit",
+      "value": [1, 2, 3],
+      "bytes_from": "transparent.vec.nibble.plain",
+      "bytes": "1233",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.option.plain",
+      "type": "option_u64",
+      "value": 300,
+      "bytes": "802c01000000000000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.option",
+      "type": "option_count",
+      "value": 300,
+      "bytes_from": "transparent.option.plain",
+      "bytes": "802c01000000000000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.array.plain",
+      "type": "array_nibble",
+      "value": [1, 2, 3],
+      "bytes": "1230",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.array",
+      "type": "array_digit",
+      "value": [1, 2, 3],
+      "bytes_from": "transparent.array.plain",
+      "bytes": "1230",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.series.plain",
+      "type": "series_u64",
+      "value": [1, 2, 3, 100],
+      "bytes": "410e04103c80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.series",
+      "type": "series_count",
+      "value": [1, 2, 3, 100],
+      "bytes_from": "transparent.series.plain",
+      "bytes": "410e04103c80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.series.struct.plain",
+      "type": "series_plain",
+      "value": [{"t": 0, "volts": 1.5}, {"t": 10, "volts": 2.0}],
+      "bytes": "2204284ff0000030a3fe",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "transparent.series.struct",
+      "type": "series_wrapped",
+      "value": [{"t": 0, "volts": {"value": 1.5}}, {"t": 10, "volts": {"value": 2.0}}],
+      "bytes_from": "transparent.series.struct.plain",
+      "bytes": "2204284ff0000030a3fe",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a series item's wrapped fields have the columns of the plain ones"
+    },
+    {
       "name": "wire.struct",
       "type": "wired",
       "value": {"small": -7, "count": 300, "raw": 2748, "last": true},

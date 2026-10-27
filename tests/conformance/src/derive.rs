@@ -195,6 +195,17 @@ fn tree() -> TreeOwned {
     }
 }
 
+fn nib(v: u8) -> Nibble {
+    Nibble::new(v).unwrap()
+}
+
+fn volts(value: f32) -> Volts<Marker> {
+    Volts {
+        value,
+        _unit: core::marker::PhantomData,
+    }
+}
+
 fn u3(v: u8) -> U3 {
     U3::new(v).unwrap()
 }
@@ -575,6 +586,101 @@ pub fn table() -> Vec<Typed> {
                 extra: 3,
             },
         ),
+        // transparent (DER-18), each with the bytes of its plain twin
+        case("transparent.u64", Count(u64::MAX)),
+        case("transparent.unib32", Index(UNib32(u32::MAX))),
+        case(
+            "transparent.fields.plain",
+            PlainFieldsOwned {
+                count: 300,
+                digit: nib(10),
+                index: UNib32(8),
+                volts: 1.5,
+                label: s("hi"),
+                end: 7,
+            },
+        )
+        .borrowed(borrowed!(PlainFields<'_>)),
+        case(
+            "transparent.fields",
+            WrappedFieldsOwned {
+                count: Count(300),
+                digit: Digit(nib(10)),
+                index: Index(UNib32(8)),
+                volts: volts(1.5),
+                label: LabelOwned(s("hi")),
+                end: 7,
+            },
+        )
+        .borrowed(borrowed!(WrappedFields<'_>)),
+        case(
+            "transparent.sized.plain",
+            PlainSized {
+                on: true,
+                digit: nib(5),
+                count: 1,
+                volts: -2.0,
+            },
+        ),
+        case(
+            "transparent.sized",
+            WrappedSized {
+                on: true,
+                digit: Digit(nib(5)),
+                count: Count(1),
+                volts: volts(-2.0),
+            },
+        ),
+        case(
+            "transparent.vec.unib32.plain",
+            vec![UNib32(7), UNib32(8), UNib32(300)],
+        ),
+        case(
+            "transparent.vec.unib32",
+            vec![Index(UNib32(7)), Index(UNib32(8)), Index(UNib32(300))],
+        ),
+        case("transparent.vec.nibble.plain", vec![nib(1), nib(2), nib(3)]),
+        case(
+            "transparent.vec.nibble",
+            vec![Digit(nib(1)), Digit(nib(2)), Digit(nib(3))],
+        ),
+        case("transparent.option.plain", Some(300u64)),
+        case("transparent.option", Some(Count(300))),
+        case("transparent.array.plain", [nib(1), nib(2), nib(3)]),
+        case(
+            "transparent.array",
+            [Digit(nib(1)), Digit(nib(2)), Digit(nib(3))],
+        ),
+        case(
+            "transparent.series.plain",
+            SeriesOwned(vec![1u64, 2, 3, 100]),
+        ),
+        case(
+            "transparent.series",
+            SeriesOwned(vec![Count(1), Count(2), Count(3), Count(100)]),
+        )
+        .borrowed(borrowed!(Series<'_, Count>)),
+        case(
+            "transparent.series.struct.plain",
+            SeriesOwned(vec![
+                PlainSample { t: 0, volts: 1.5 },
+                PlainSample { t: 10, volts: 2.0 },
+            ]),
+        ),
+        case(
+            "transparent.series.struct",
+            SeriesOwned(vec![
+                WrappedSample {
+                    t: Count(0),
+                    volts: volts(1.5),
+                },
+                WrappedSample {
+                    t: Count(10),
+                    volts: volts(2.0),
+                },
+            ]),
+        )
+        .borrowed(borrowed!(Series<'_, WrappedSample>)),
         // not in the API model
         case_head_tail(
             "head_tail.struct",

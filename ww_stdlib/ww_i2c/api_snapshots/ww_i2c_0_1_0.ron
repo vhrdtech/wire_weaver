@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a815bd4251049d4e6bec83aa34c4f6a75029ec5ed3ad25311c066304f28bce0b
+// shrink_wrap sha256: b8ecf05bd202f3a661a583b26fe5575939f39a9a042f5165e08236ddb5342d0a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -775,7 +775,9 @@
             "but at most 100 kHz, stopping early once SDA is released, then sends a stop. Returns the line levels",
             "afterwards: both high when the bus is free again. Works while the bus is disabled or a master between",
             "transfers; `WrongState` while a transfer or the monitor uses the bus, `Unsupported` when the controller can\'t",
-            "drive SCL directly. The only way a device frees the bus: it never does so silently before a transfer.",
+            "drive SCL directly, `NoPower` when the bus has no level to drive (level translators without an IO level, a",
+            "bus that is off while disabled). The only way a device frees the bus: it never does so silently before a",
+            "transfer.",
         ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
             (ident: "enabled", ty: Bool),

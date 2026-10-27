@@ -230,7 +230,9 @@ pub trait I2c {
     /// but at most 100 kHz, stopping early once SDA is released, then sends a stop. Returns the line levels
     /// afterwards: both high when the bus is free again. Works while the bus is disabled or a master between
     /// transfers; `WrongState` while a transfer or the monitor uses the bus, `Unsupported` when the controller can't
-    /// drive SCL directly. The only way a device frees the bus: it never does so silently before a transfer.
+    /// drive SCL directly, `NoPower` when the bus has no level to drive (level translators without an IO level, a
+    /// bus that is off while disabled). The only way a device frees the bus: it never does so silently before a
+    /// transfer.
     #[errors(Common(Unsupported, WrongState, NoPower))]
     fn i2c_wiggle_clock(count: u8) -> Result<I2cLinesState, I2cError<'i>>;
 

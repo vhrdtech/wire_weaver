@@ -84,7 +84,8 @@ pub trait I2c {
   mid-byte, missing/unpowered pull-ups, or a short.
 * `i2c_wiggle_clock` - bus recovery: clocks SCL up to `count` times (9 is enough for any stuck byte) at the
   configured SCL frequency but at most 100 kHz, stopping once SDA is released, then sends a stop; returns the line
-  levels afterwards. It works while the bus is disabled or a master between transfers. A device never frees the
+  levels afterwards. It works while the bus is disabled or a master between transfers; `Common(NoPower)` when
+  the bus has no level to drive (level translators without an IO level, a bus off while disabled). A device never frees the
   bus on its own: a transfer that finds a line held low fails with `BusStuck`, and the host decides to recover.
 * `i2c_set_pullups` / `i2c_pullups` - the adapter's own pull-up resistors on SCL and SDA, on adapters that have
   switchable ones (see `I2cCapabilities::pullups`).

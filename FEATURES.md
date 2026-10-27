@@ -1244,6 +1244,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   crafted serial could make another one look held. Now lower-case letters, digits and `-` stay and every other byte
   is `_xx`, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
   socket's too, was FNV), and the key inside the file is checked on read.
+- 📋 **CLT-48 Fallible methods in multi calls** — `MultiCall` (CLT-15) only takes infallible methods, so a method
+  returning `Result` (`ww_i2c::I2c::i2c_read`, any method with `#[errors]`) can't be batched into one round trip;
+  found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
+  controller wants exactly that. Needs each index's answer to carry the method's own `Result` next to the
+  per-index `Error`.
 
 ## Transports and protocols (`TR`)
 
@@ -1813,6 +1818,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
   id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
   `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.
+- 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
+  Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
+  a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric
+  type differs between the host's writer and the no_std reader, fix it there, and add the case to the conformance
+  corpus.
+- 📋 **STD-54 `ww counters` against the rePort** — `ww counters` fails against the B200A: the firmware sends no build
+  id, and its `cnt` format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
+  be behind (STD-25): bring the firmware's `cnt` and build id up to what the tool needs, or make the tool say which
+  format it got and what is missing instead of failing.
 
 ## Examples (`EX`)
 

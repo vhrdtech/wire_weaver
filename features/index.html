@@ -6709,6 +6709,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   crafted serial could make another one look held. Now lower-case letters, digits and <code>-</code> stay and every other byte
   is <code>_xx</code>, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
   socket's too, was FNV), and the key inside the file is checked on read.</li>
+<li>📋 <strong>CLT-48 Fallible methods in multi calls</strong> — <code>MultiCall</code> (CLT-15) only takes infallible methods, so a method
+  returning <code>Result</code> (<code>ww_i2c::I2c::i2c_read</code>, any method with <code>#[errors]</code>) can't be batched into one round trip;
+  found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
+  controller wants exactly that. Needs each index's answer to carry the method's own <code>Result</code> next to the
+  per-index <code>Error</code>.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7162,6 +7167,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   loops: register maps with page wrap and host updates between transactions, the answer queues, stretching to the
   deadline and past it, <code>Nack</code>, <code>repeat_last</code>, cleared answers and dropped events. Open: a check on real silicon, with
   the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).</li>
+<li>🧪 <strong>STD-52 <code>ww_i2c</code> master errors and limits</strong> · <code>v0.5</code> — what a good I2C master knows reaches the host (found
+  by the rePort I2C driver, P2424 i2c-master-driver): <code>I2cError::Nack { op, at }</code> (which operation, and the address
+  or which data byte, counted as <code>I2cRecord::nack_at</code>), <code>ClockStretch</code> with <code>I2cMode::Master</code>'s <code>stretch_timeout</code>
+  (set and answered by <code>i2c_configure</code>, range in the capabilities), <code>BusStuck { scl_low, sda_low }</code> (no silent recovery:
+  <code>i2c_wiggle_clock</code> on request, at the bus speed up to 100 kHz), and the limits in <code>I2cCapabilities</code> (<code>speeds</code>,
+  <code>max_ops</code>, <code>max_write_read_len</code>, <code>zero_length_write</code>, <code>stretch_timeout</code> range; grouped by topic, sizes all <code>u16</code>). Transactions are stated as
+  a repeated start before every operation (Linux <code>I2C_RDWR</code>), not embedded-hal merging; <code>i2c_configure</code> answers the
+  highest SCL not above the request. Breaking on the wire and in Rust (nothing released or deployed, user 27 Oct
+  2026): callers in usb_io_fw and typec_dongle adapt. Docs
+  <code>docs/std_library/ww_i2c.md#transactions</code>, tests in <code>ww_i2c</code> (round trips) and <code>tests/io_i2c</code>. Open:
+  the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).</li>
 <li>🚧 <strong>STD-6 <code>ww_gpio_hl</code></strong> — usable, some APIs are still missing.</li>
 <li>🔍 <strong>STD-7 Interrupt left enabled in <code>ww_gpio_hl</code></strong> · <code>v0.5</code> — the falling edge helper documents that it leaves
   interrupts enabled; decide whether that is the intended fix or a bug.</li>
@@ -7267,6 +7283,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
   id), <code>ww pins</code> finds the ELF by build id (<code>ww_pin_probe::device::Names</code>). Missing: an accessor for
   <code>defmt::Str</code>'s index (upstream, <code>Table::get_str</code>), reading the ids from the ELF's table with it.</li>
+<li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
+  Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
+  a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
+  type differs between the host's writer and the no_std reader, fix it there, and add the case to the conformance
+  corpus.</li>
+<li>📋 <strong>STD-54 <code>ww counters</code> against the rePort</strong> — <code>ww counters</code> fails against the B200A: the firmware sends no build
+  id, and its <code>cnt</code> format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
+  be behind (STD-25): bring the firmware's <code>cnt</code> and build id up to what the tool needs, or make the tool say which
+  format it got and what is missing instead of failing.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>

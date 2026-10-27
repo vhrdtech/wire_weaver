@@ -2878,6 +2878,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#transactions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transactions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#i2cwatch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5324,6 +5335,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#transactions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transactions
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#i2cwatch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5658,25 +5680,69 @@ several operations without releasing the bus in between (repeated starts).</p>
 <ul>
 <li><code>i2c_capabilities</code> - static description of what the adapter supports: modes, frequency range, IO levels, buffer
   sizes, 10-bit addresses, pull-ups, bus recovery; see <code>I2cCapabilities</code> under <a href="#types">Types</a>.</li>
-<li><code>i2c_configure</code> - sets the bus mode and, on adapters with level translators, the bus voltage, in one
-  <a href="#types"><code>I2cConfig</code></a> (<code>io_level: None</code> leaves the level as it is); answers with what was actually set: the SCL
-  frequency the hardware settled on (never above the one asked for) and the IO level in effect.</li>
+<li><code>i2c_configure</code> - sets the bus mode (for a master its SCL frequency and clock stretch timeout) and, on adapters
+  with level translators, the bus voltage, in one <a href="#types"><code>I2cConfig</code></a> (<code>None</code> leaves the level or the timeout as
+  it is); answers with what was actually set: the SCL frequency (the highest the hardware can do that is not above
+  the request, computed from its real timing), the stretch timeout and the IO level in effect.</li>
 <li><code>i2c_write</code> - start, address, data, stop; <code>delay_after</code> makes the next transfer to the <em>same</em> address wait (an
-  EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile.</li>
+  EEPROM page write needs ~5 ms) while transfers to other addresses go ahead meanwhile. Empty data is an
+  address-only write (probing, SMBus Quick Command) on adapters with <code>I2cCapabilities::zero_length_write</code>,
+  <code>Common(Unsupported)</code> on the others.</li>
 <li><code>i2c_read</code> - plain read, or a register read (write a few bytes, repeated start, read) through
   <a href="#types"><code>I2cReadKind</code></a>.</li>
 <li><code>i2c_scan</code> - 7-bit addresses that acknowledged a one-byte read, ascending, skipping the reserved ranges
   (<code>0x00..=0x07</code>, <code>0x78..=0x7F</code>).</li>
-<li><code>i2c_transaction</code> - several <a href="#types"><code>I2cOp</code></a> writes/reads to one address with repeated starts in between and one
-  stop at the end, like <code>embedded_hal::i2c::I2c::transaction</code>; the bytes of all reads come back concatenated, in
-  order.</li>
+<li><code>i2c_transaction</code> - several <a href="#types"><code>I2cOp</code></a> writes/reads to one address in one transaction, see
+  <a href="#transactions">Transactions</a>; the bytes of all reads come back concatenated, in order.</li>
 <li><code>i2c_lines_state</code> - levels of SCL and SDA now; both high on an idle bus, a line held low means a slave stuck
   mid-byte, missing/unpowered pull-ups, or a short.</li>
-<li><code>i2c_wiggle_clock</code> - clocks SCL up to <code>count</code> times (9 is enough for any stuck byte) until SDA is released, then
-  sends a stop; returns the line levels afterwards (bus recovery).</li>
+<li><code>i2c_wiggle_clock</code> - bus recovery: clocks SCL up to <code>count</code> times (9 is enough for any stuck byte) at the
+  configured SCL frequency but at most 100 kHz, stopping once SDA is released, then sends a stop; returns the line
+  levels afterwards. It works while the bus is disabled or a master between transfers; <code>Common(NoPower)</code> when
+  the bus has no level to drive (level translators without an IO level, a bus off while disabled). A device never frees the
+  bus on its own: a transfer that finds a line held low fails with <code>BusStuck</code>, and the host decides to recover.</li>
 <li><code>i2c_set_pullups</code> / <code>i2c_pullups</code> - the adapter's own pull-up resistors on SCL and SDA, on adapters that have
   switchable ones (see <code>I2cCapabilities::pullups</code>).</li>
 </ul>
+<h3 id="transactions">Transactions<a class="headerlink" href="#transactions" title="Permanent link">&para;</a></h3>
+<p>Every transfer starts with a start condition and ends with a stop. Inside one call, every operation starts with the
+address and its direction bit, after a repeated start for all but the first, as Linux's <code>I2C_RDWR</code> does:</p>
+<table>
+<thead>
+<tr>
+<th>Call</th>
+<th>On the bus</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>i2c_write(a, [r, d0, d1])</code></td>
+<td>S a+W r d0 d1 P</td>
+</tr>
+<tr>
+<td><code>i2c_read(a, RepeatedStart { write: [r] }, 2)</code></td>
+<td>S a+W r Sr a+R x0 x1 P</td>
+</tr>
+<tr>
+<td><code>i2c_transaction(a, [Write([r]), Read(2)])</code></td>
+<td>S a+W r Sr a+R x0 x1 P (the same)</td>
+</tr>
+<tr>
+<td><code>i2c_transaction(a, [Write([r]), Write([d0, d1])])</code></td>
+<td>S a+W r Sr a+W d0 d1 P</td>
+</tr>
+</tbody>
+</table>
+<p>The last line is not one longer write: <code>embedded_hal::i2c::I2c::transaction</code> merges adjacent operations of the same
+direction without a repeated start, <code>i2c_transaction</code> doesn't. An EEPROM page write (memory address, then data) is
+one <code>Write</code> with both, as on a real 24Cxx the repeated start would make the data a new memory address. A host
+adapter implementing embedded-hal over <code>ww_i2c</code> merges before the call: adjacent writes concatenated into one
+<code>Write</code>, adjacent reads into one <code>Read</code> of the summed length, and splits the read bytes again.</p>
+<p><code>Nack</code> errors say where the transfer stopped: <code>op</code> is the operation (0 for <code>i2c_write</code> and a plain read, 0 or 1
+for the write or read part of a <code>RepeatedStart</code> read, the index into <code>ops</code> for <code>i2c_transaction</code>), <code>at</code> the byte on
+the bus within it, counted as <code>I2cRecord::nack_at</code> does: <code>Some(0)</code> the address, <code>Some(n)</code> the n-th data byte, so
+<code>n - 1</code> bytes went through; <code>None</code> when the controller can't tell. Only writes have data NACKs: in a read the master
+itself doesn't acknowledge the last byte, which is no error.</p>
 <h3 id="i2cwatch"><code>I2cWatch</code><a class="headerlink" href="#i2cwatch" title="Permanent link">&para;</a></h3>
 <p>Autonomous reads: the device repeats configured reads on its own and reports only what the host asked for (every
 result, a change under a mask, or a mask/value match starting or stopping), so the host doesn't have to poll over
@@ -5796,7 +5862,7 @@ suite checks both sizes against a real <code>to_ww_bytes()</code> call. An adapt
 10-bit scan is rarely useful and would need 1024 single-byte reads).</p>
 <h2 id="sizes">Sizes<a class="headerlink" href="#sizes" title="Permanent link">&para;</a></h2>
 <p>Every byte buffer is bounded (<code>MAX_WRITE_LEN</code>, <code>MAX_READ_LEN</code>, <code>MAX_WRITE_READ_LEN</code>, <code>MAX_OPS</code>, <code>MAX_SCAN</code>,
-<code>MAX_RECORD_LEN</code>, <code>MAX_WATCHES</code>, <code>MAX_WATCH_LEN</code>, <code>MAX_NAME_LEN</code>, <code>MAX_IO_LEVELS</code>), so a device knows the largest
+<code>MAX_RECORD_LEN</code>, <code>MAX_WATCHES</code>, <code>MAX_WATCH_LEN</code>, <code>MAX_NAME_LEN</code>, <code>MAX_IO_LEVELS</code>, <code>MAX_SPEEDS</code>), so a device knows the largest
 request it has to take and the largest reply it has to build at compile time. A device may support less: its limits
 are in <code>I2cCapabilities</code> / <code>I2cWatchCapabilities</code>. Raising a bound later is a compatible change, lowering it is not
 (see <a href="../../evolution/rules/">evolution rules</a>).</p>
@@ -5809,8 +5875,10 @@ up with the device's other data.</p>
 <h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>I2cConfig</code> - <code>mode: I2cMode</code>, <code>io_level: Option&lt;Volt&gt;</code>; the argument and the answer of <code>i2c_configure</code>.</li>
-<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed: Hertz, monitor }</code>, <code>MonitorOnly</code>. Slave mode is
-  <code>slave_events</code>, not a mode.</li>
+<li><code>I2cMode</code> - <code>Disabled</code> (pins released), <code>Master { speed: Hertz, monitor, stretch_timeout: Option&lt;Second&gt; }</code>,
+  <code>MonitorOnly</code>. The stretch timeout is the longest a slave may hold SCL low at once before the transfer is aborted
+  with <code>ClockStretch</code>; a device always enforces one (a stuck SCL never hangs it), so its answer is always <code>Some</code>.
+  Slave mode is <code>slave_events</code>, not a mode.</li>
 <li><code>I2cSlaveConfig</code> - <code>addr: I2cAddress</code>, <code>io_level: Option&lt;Volt&gt;</code>, <code>answers: I2cSlaveAnswers</code>.</li>
 <li><code>I2cSlaveAnswers</code> - <code>Registers { pointer_bytes: u8, len: u32, page: Option&lt;u16&gt;, read_only: bool }</code> or
   <code>Queue { empty: I2cSlaveUnderrun }</code>, see <a href="#slave-mode">slave mode</a>.</li>
@@ -5819,31 +5887,41 @@ up with the device's other data.</p>
 <li><code>I2cSlaveTransfer&lt;'i&gt;</code> - <code>end: Second</code>, <code>read: bool</code>, <code>kind: I2cRecordKind</code>, <code>pointer: Option&lt;u32&gt;</code>, <code>bytes</code>
   (bounded by <code>MAX_RECORD_LEN</code>), <code>filled: u16</code>, <code>stretched: Option&lt;Second&gt;</code>.</li>
 <li><code>I2cSlaveCapabilities</code> - <code>map_len</code>, <code>max_pointer_bytes</code>, <code>queue_len</code>, <code>max_stretch: Option&lt;Second&gt;</code>,
-  <code>nack_when_empty</code>, <code>ten_bit_address</code>, <code>max_freq: Hertz</code>.</li>
+  <code>nack_when_empty</code>, <code>ten_bit_addresses</code>, <code>max_freq: Hertz</code>.</li>
 <li><code>I2cReadKind&lt;'i&gt;</code> - <code>Plain</code> (start, address+read, <code>len</code> bytes, stop) or <code>RepeatedStart { write }</code> (start,
   address+write, <code>write</code>, repeated start, address+read, <code>len</code> bytes, stop), bounded by <code>MAX_WRITE_READ_LEN</code>.</li>
-<li><code>I2cOp&lt;'i&gt;</code> - <code>Write(MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WRITE_LEN&gt;)</code> or <code>Read(u16)</code>, one operation of <code>i2c_transaction</code>.</li>
+<li><code>I2cOp&lt;'i&gt;</code> - <code>Write(MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WRITE_LEN&gt;)</code> or <code>Read(u16)</code>, one operation of <code>i2c_transaction</code>
+  (an empty <code>Write</code> as in <code>i2c_write</code>, a <code>Read(0)</code> is <code>InvalidArgument</code>).</li>
 <li><code>I2cTransactionTimeRange</code> - <code>start</code> / <code>end: Second</code> (start and stop condition).</li>
 <li><code>I2cReadEnvelope&lt;'i&gt;</code> - <code>duration: I2cTransactionTimeRange</code>, <code>data: MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_READ_LEN&gt;</code>.</li>
 <li><code>I2cTransactionResult&lt;'i&gt;</code> - <code>duration</code>, <code>read</code> (every <code>I2cOp::Read</code>'s bytes, concatenated in order).</li>
 <li><code>I2cLinesState</code> - <code>is_scl_high</code> / <code>is_sda_high: bool</code>, <code>scl</code> / <code>sda: Option&lt;Volt&gt;</code> (measured level, where the
   adapter can).</li>
-<li><code>I2cCapabilities&lt;'i&gt;</code> - <code>io_levels</code>, <code>io_level_min</code> / <code>io_level_max</code>, <code>max_write_len</code>, <code>max_read_len</code>,
-  <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>driver_name</code> (bounded by <code>MAX_NAME_LEN</code>), <code>master_supported</code> /
-  <code>monitor_supported</code>, <code>ten_bit_addresses</code>, <code>pullups</code>, <code>bus_recovery</code>. Slave mode is in the device's introspection
-  (the <code>slave</code> group) and <code>I2cSlaveCapabilities</code>.</li>
+<li><code>I2cCapabilities&lt;'i&gt;</code> - grouped by topic:<ul>
+<li>what it is: <code>driver_name</code> (bounded by <code>MAX_NAME_LEN</code>), <code>master_supported</code>, <code>monitor_supported</code>;</li>
+<li>IO level: <code>io_levels</code>, <code>io_level_min</code> / <code>io_level_max</code>, <code>pullups</code>;</li>
+<li>timing: <code>min_freq</code> / <code>max_freq: Hertz</code>, <code>speeds</code> (the only SCL frequencies of a controller with a few fixed
+  ones, empty when any between <code>min_freq</code> and <code>max_freq</code> works, at most <code>MAX_SPEEDS</code>), <code>stretch_timeout:
+  Option&lt;I2cTimeRange&gt;</code> (<code>min</code> / <code>max</code> of the master's stretch timeout, <code>None</code> when it can't be changed);</li>
+<li>sizes, all <code>u16</code>: <code>max_write_len</code>, <code>max_read_len</code>, <code>max_write_read_len</code> (write part of a <code>RepeatedStart</code>
+  read), <code>max_ops</code> (operations per <code>i2c_transaction</code>);</li>
+<li>features: <code>ten_bit_addresses</code>, <code>zero_length_write</code>, <code>bus_recovery</code>.
+  Slave mode is in the device's introspection (the <code>slave</code> group) and <code>I2cSlaveCapabilities</code>.</li>
+</ul>
+</li>
 <li><code>I2cWatchCapabilities</code> - <code>max_watches: u32</code> (at most <code>MAX_WATCHES</code>, 512), <code>max_len</code> (at most <code>MAX_WATCH_LEN</code>), <code>min_period</code>.</li>
 <li><code>I2cWatchConfig&lt;'i&gt;</code> - <code>addr</code>, <code>kind: I2cReadKind&lt;'i&gt;</code>, <code>len</code>, <code>period: Second</code>, <code>report: I2cWatchReport&lt;'i&gt;</code>.</li>
 <li><code>I2cWatchReport&lt;'i&gt;</code> - <code>Always</code>, <code>Changed { mask }</code>, <code>Matches { bytes }</code>, see <a href="#i2cwatch"><code>I2cWatch</code></a> above.</li>
 <li><code>I2cMatchByte</code> - <code>mask</code>, <code>value: u8</code>, one byte of a <code>Matches</code> rule; <code>sized</code>, two bytes.</li>
 <li><code>I2cWatchEvent&lt;'i&gt;</code> - <code>slot</code>, <code>result: Result&lt;MaxLen&lt;RefVec&lt;'i, u8&gt;, MAX_WATCH_LEN&gt;, I2cError&gt;</code>.</li>
 <li><code>I2cRecord&lt;'i&gt;</code> - <code>end: Second</code> (stop or repeated start; the start condition is the head's time), <code>addr</code>, <code>read: bool</code>, <code>kind: I2cRecordKind</code>, <code>nack_at: Option&lt;u16&gt;</code>
-  (index of the first byte not acknowledged, <code>Some(0)</code> = the address), <code>bytes</code> (without the address).</li>
+  (the first byte not acknowledged: <code>Some(0)</code> the address, <code>Some(n)</code> <code>bytes[n - 1]</code>), <code>bytes</code> (without the address).</li>
 <li><code>I2cRecordKind</code> - <code>Complete</code>, <code>RepeatedStart</code> (the next record continues the transaction), <code>Truncated</code> (more than
   <code>MAX_RECORD_LEN</code> bytes), <code>BusError</code>.</li>
-<li><code>I2cError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), then <code>Nack</code>, <code>Arbitration</code>,
-  <code>Bus</code>, <code>Crc</code>, <code>Overrun</code>, <code>BufferTooBig</code>, <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>; unsized (<code>unib32</code> discriminant),
-  evolvable, <code>Display</code> from the doc lines (see <a href="#errors">below</a>).</li>
+<li><code>I2cError&lt;'i&gt;</code> - <code>Common(CommonError)</code> (<a href="../../api/errors/#common-errors">common errors</a>), then <code>Nack { op, at }</code>,
+  <code>Arbitration</code>, <code>Bus</code>, <code>Crc</code>, <code>Overrun</code>, <code>BufferTooBig</code>, <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>, <code>ClockStretch</code>,
+  <code>BusStuck { scl_low, sda_low }</code>; unsized (<code>unib32</code> discriminant), evolvable, <code>Display</code> from the doc lines (see
+  <a href="#errors">below</a>).</li>
 </ul>
 <p>All enums and structs are behind <code>#[derive_shrink_wrap]</code> with <code>owned(feature = "std")</code> and
 <code>cfg_attr_borrowed(feature = "defmt", derive(defmt::Format))</code>, so owned (<code>*Owned</code>) variants and <code>defmt::Format</code> are
@@ -5851,12 +5929,67 @@ available by enabling the crate's <code>std</code> / <code>defmt</code> features
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>Every trait returns <code>I2cError</code>: <a href="../../api/errors/#common-errors"><code>CommonError</code></a> as its <code>#[common] Common</code> variant
 (unsupported mode or IO level, invalid argument, in use, wrong state, no power, refused, timeout), then what is
-specific to I2C and a caller acts on: <code>Nack</code> (retry an EEPROM busy with a page write), <code>Arbitration</code>, <code>Bus</code>, <code>Crc</code>,
-<code>Overrun</code>, <code>BufferTooBig</code> (split the transfer), <code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code>. Each method lists the variants
-it returns with <code>#[errors(..)]</code>, shown in its rustdoc and checked on the client. The enum is unsized, so a newer
-device's variant reads as <code>Unknown(n)</code> on an older host instead of failing the call.</p>
+specific to I2C and a caller acts on:</p>
+<table>
+<thead>
+<tr>
+<th>Error</th>
+<th>What happened</th>
+<th>What a caller does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Nack { op, at }</code></td>
+<td>the address (<code>at: Some(0)</code>) or a data byte of a write was not acknowledged, see <a href="#transactions">Transactions</a></td>
+<td>address: not there, or busy (retry an EEPROM in its page write); data: the slave refused the byte or the register</td>
+</tr>
+<tr>
+<td><code>Arbitration</code></td>
+<td>another master won the bus</td>
+<td>retry</td>
+</tr>
+<tr>
+<td><code>Bus</code></td>
+<td>a start or stop where it doesn't belong</td>
+<td>check the wiring, retry</td>
+</tr>
+<tr>
+<td><code>ClockStretch</code></td>
+<td>a slave held SCL low longer than the master's <code>stretch_timeout</code></td>
+<td>raise the timeout for a slow slave, or reset it</td>
+</tr>
+<tr>
+<td><code>BusStuck { scl_low, sda_low }</code></td>
+<td>a line held low before the start: a slave stuck mid-byte, no pull-ups, a short</td>
+<td><code>i2c_wiggle_clock</code>, then check <code>i2c_lines_state</code></td>
+</tr>
+<tr>
+<td><code>Common(Timeout)</code></td>
+<td>the call didn't finish within the device's own deadline, e.g. another master kept the bus</td>
+<td>retry later</td>
+</tr>
+<tr>
+<td><code>Crc</code>, <code>Overrun</code></td>
+<td>SMBus PEC failed; data came faster than the adapter took it (slave mode)</td>
+<td>retry</td>
+</tr>
+<tr>
+<td><code>BufferTooBig</code></td>
+<td>longer than the device takes</td>
+<td>split the transfer</td>
+</tr>
+<tr>
+<td><code>OutOfWatchSlots</code>, <code>InvalidWatchSlot</code></td>
+<td><code>I2cWatch</code> slots</td>
+<td>remove a watch; use a slot from <code>watch_list</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each method lists the variants it returns with <code>#[errors(..)]</code>, shown in its rustdoc and checked on the client. The
+enum is unsized, so a newer device's variant reads as <code>Unknown(n)</code> on an older host instead of failing the call.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">match</span><span class="w"> </span><span class="n">dev</span><span class="p">.</span><span class="n">i2c</span><span class="p">().</span><span class="n">i2c_write</span><span class="p">(</span><span class="n">addr</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span><span class="w"> </span><span class="nb">None</span><span class="p">).</span><span class="n">call</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">I2cErrorOwned</span><span class="p">::</span><span class="n">Nack</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* not there, or busy */</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">I2cErrorOwned</span><span class="p">::</span><span class="n">Nack</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">at</span><span class="p">:</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">}))</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* not there, or busy */</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nb">Err</span><span class="p">(</span><span class="n">CallError</span><span class="p">::</span><span class="n">Device</span><span class="p">(</span><span class="n">e</span><span class="p">))</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">e</span><span class="p">.</span><span class="n">common</span><span class="p">().</span><span class="n">is_some</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* the same handling as for any other crate */</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">r</span><span class="o">?</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
@@ -5877,6 +6010,9 @@ event loop end to end:</p>
 <ul>
 <li><code>i2c_write_read_roundtrip</code>, <code>i2c_nack_and_zero_length</code>, <code>i2c_scan_and_lines</code> - <code>I2c</code> write/read/scan/lines/pullups,
   and the <code>Nack</code> / <code>Common(InvalidArgument)</code> (zero length) error paths.</li>
+<li><code>i2c_data_nack_names_op_and_byte</code>, <code>i2c_clock_stretch_timeout</code>, <code>i2c_bus_stuck_until_recovered</code> - where a <code>Nack</code>
+  happened (operation and byte), the stretch timeout and <code>ClockStretch</code>, and a stuck bus reported as <code>BusStuck</code> until
+  <code>i2c_wiggle_clock</code> frees it.</li>
 <li><code>i2c_monitor_records_writes_and_reads</code> - opening <code>I2cMonitor::records</code> turns transactions into <code>I2cRecord</code>s on it.</li>
 <li><code>i2c_watch_always_reports_every_read</code>, <code>i2c_watch_changed_reports_only_on_change</code>,
   <code>i2c_watch_matches_reports_on_transition_only</code>, <code>i2c_watch_error_reported_once_then_recovery_always_reports</code>,

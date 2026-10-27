@@ -192,8 +192,10 @@ checker reads its definition from the `ww_si` snapshot built into it, so a field
 checked the same way as a wrapper of your own.
 
 This holds for every generic type, not only `Fixed`: a type parameter that no field uses (one only in `PhantomData`,
-which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name. A
-marker's own definition (a unit struct) is not compared field by field, it has none.
+which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name, with
+its own arguments (`Pow10<-4>` -> `Pow10<-3>`, `Rational<1, 65535>` -> `Rational<1, 65536>`). A marker's own
+definition (a unit struct) is not compared field by field, it has none. Two names for the same scale count as a change
+too: `Milli` -> `Pow10<-3>` is reported, keep the name a field had.
 
 ### Bounds
 

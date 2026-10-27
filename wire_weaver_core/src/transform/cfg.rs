@@ -135,7 +135,7 @@ impl Expander<'_> {
             Item::Enum(item_enum) => {
                 self.attrs(&mut item_enum.attrs)?;
                 for variant in &mut item_enum.variants {
-                    self.attrs(&mut variant.attrs)?;
+                    self.derive_site_attrs(&mut variant.attrs)?;
                     self.fields(&mut variant.fields)?;
                 }
             }
@@ -169,25 +169,36 @@ impl Expander<'_> {
 
     fn fields(&self, fields: &mut Fields) -> Result<()> {
         for field in fields.iter_mut() {
-            self.attrs(&mut field.attrs)?;
+            self.derive_site_attrs(&mut field.attrs)?;
         }
         Ok(())
     }
 
     fn attrs(&self, attrs: &mut Vec<Attribute>) -> Result<()> {
+        self.attrs_at(attrs, false)
+    }
+
+    /// Attributes of a field or an enum variant: a `cfg_attr` holding only attributes `derive_shrink_wrap` reads
+    /// there is read as if its predicate holds, as the derive does (it fails to compile where the predicate
+    /// doesn't, see shrink_wrap_derive's `transform/cfg_attr.rs`).
+    fn derive_site_attrs(&self, attrs: &mut Vec<Attribute>) -> Result<()> {
+        self.attrs_at(attrs, true)
+    }
+
+    fn attrs_at(&self, attrs: &mut Vec<Attribute>, derive_site: bool) -> Result<()> {
         if !attrs.iter().any(is_cfg_attr) {
             return Ok(());
         }
         let mut expanded = Vec::with_capacity(attrs.len());
         for attr in attrs.drain(..) {
-            self.expand(attr, &mut expanded)?;
+            self.expand(attr, derive_site, &mut expanded)?;
         }
         *attrs = expanded;
         Ok(())
     }
 
     /// `attr` into `out`, expanded if it is a `cfg_attr` (nested ones too, as rustc does).
-    fn expand(&self, attr: Attribute, out: &mut Vec<Attribute>) -> Result<()> {
+    fn expand(&self, attr: Attribute, derive_site: bool, out: &mut Vec<Attribute>) -> Result<()> {
         if !is_cfg_attr(&attr) {
             out.push(attr);
             return Ok(());
@@ -207,7 +218,9 @@ impl Expander<'_> {
                 meta,
             })
             .collect();
+        let read_by_derive = derive_site && inner.iter().all(read_by_derive);
         let holds = match eval(&predicate, self.features)? {
+            _ if read_by_derive => true,
             Some(holds) => holds,
             // e.g. `#[cfg_attr(target_os = "none", derive(defmt::Format))]`: nothing the walker reads
             None if inner.iter().all(not_read_by_walker) => false,
@@ -221,7 +234,7 @@ impl Expander<'_> {
         };
         if holds {
             for attr in inner {
-                self.expand(attr, out)?;
+                self.expand(attr, derive_site, out)?;
             }
         }
         Ok(())
@@ -230,6 +243,23 @@ impl Expander<'_> {
 
 fn is_cfg_attr(attr: &Attribute) -> bool {
     attr.path().is_ident("cfg_attr")
+}
+
+/// Attributes `derive_shrink_wrap` reads on a field or an enum variant.
+fn read_by_derive(attr: &Attribute) -> bool {
+    const READ: &[&str] = &[
+        "default",
+        "flag",
+        "id",
+        "series",
+        "slot",
+        "since",
+        "common",
+        "display",
+        "future_version",
+        "wire",
+    ];
+    READ.iter().any(|name| attr.path().is_ident(name))
 }
 
 /// Attributes the walker never reads: their predicate doesn't need to be known.
@@ -401,12 +431,16 @@ mod tests {
             ),
             "{on}"
         );
+        // the derive's own attributes on fields and variants are read as the derive reads them, as if they hold
         let off = expand(src, &[]).unwrap();
         assert!(
-            off.starts_with("# [derive (Debug)] pub struct S { a : u8"),
+            off.starts_with("# [derive (Debug)] pub struct S { # [default = 7] a : u8"),
             "{off}"
         );
-        assert!(off.contains("pub enum E { A (u8) }"), "{off}");
+        assert!(
+            off.contains("pub enum E { # [since = \"0.2\"] A (# [flag] u8) }"),
+            "{off}"
+        );
 
         let err = expand(
             "#[cfg_attr(target_os = \"none\", derive_shrink_wrap(sized))] struct T;",

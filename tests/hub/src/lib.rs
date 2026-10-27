@@ -323,7 +323,7 @@ mod tests {
         // still under the longest window a device can ask for (65.535 ms)
         const WINDOW: Duration = Duration::from_millis(60);
         let bench = start_windowed("priority", Duration::from_secs(30), Some(WINDOW));
-        let mut c = bench.client().await;
+        let c = bench.client().await;
         for _ in 0..2 {
             let t = std::time::Instant::now();
             assert_eq!(c.add(1, 2).urgent().call().await.unwrap(), 3);

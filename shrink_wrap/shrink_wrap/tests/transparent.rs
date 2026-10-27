@@ -7,7 +7,7 @@ use shrink_wrap::prelude::*;
 use shrink_wrap::series::{
     CodecPolicy, Series, SeriesCells, SeriesOwned, SeriesStore, empty_cells, write_store_series,
 };
-use shrink_wrap::{ElementSize, SerializeShrinkWrap};
+use shrink_wrap::{BufReader, BufWriter, ElementSize, SerializeShrinkWrap};
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Micro;
@@ -405,4 +405,48 @@ fn store_and_cells_are_the_fields() {
     let b = wr.finish_and_take().unwrap();
     assert_eq!(a, b);
     assert_eq!(a, Series::new(&typed).to_ww_bytes_owned().unwrap());
+}
+
+/// As a field, a wrapper of a plain number takes the number's latched write and read (DER-20): the error is kept
+/// for `latched()`, not returned by the field, so a struct of wrappers compiles to the code of the plain struct.
+#[test]
+fn fields_are_latched_like_the_plain_field() {
+    let mut buf = [0u8; 3];
+    let mut wr = BufWriter::new(&mut buf);
+    assert_eq!(wr.write_field(&us(0xAABB_CCDDu32)), Ok(()));
+    assert_eq!(wr.write_field(&us(true)), Ok(()));
+    assert!(wr.latched().is_err());
+    let mut rd = BufReader::new(&[0x12, 0x34]);
+    assert_eq!(rd.read_field::<Us<u32>>(), Ok(us(0)));
+    assert!(rd.latched().is_err());
+    // a wrapper of a type without a latch is written and read as before
+    let mut wr = BufWriter::new(&mut buf);
+    assert!(wr.write_field(&us(0xAABB_CCDD_EEFFu64)).is_err());
+
+    // and a struct of them fails as the plain one does, with the same first error
+    let plain = PlainSized {
+        f: true,
+        a: 7,
+        n: Nibble::new(3).unwrap(),
+        x: 1.5,
+    };
+    let typed = TypedSized {
+        f: true,
+        a: us(7),
+        n: us(Nibble::new(3).unwrap()),
+        x: us(1.5),
+    };
+    let bytes = plain.to_ww_bytes(&mut [0; 16]).unwrap().to_vec();
+    for len in 0..bytes.len() {
+        assert_eq!(
+            typed.to_ww_bytes(&mut vec![0; len]).map(|_| ()),
+            plain.to_ww_bytes(&mut vec![0; len]).map(|_| ()),
+            "{len} bytes"
+        );
+        assert_eq!(
+            TypedSized::from_ww_bytes(&bytes[..len]).map(|_| ()),
+            PlainSized::from_ww_bytes(&bytes[..len]).map(|_| ()),
+            "{len} bytes"
+        );
+    }
 }

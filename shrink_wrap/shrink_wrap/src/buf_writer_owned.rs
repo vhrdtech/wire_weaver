@@ -425,6 +425,15 @@ impl BufWriterOwned {
         Ok(())
     }
 
+    /// What `#[derive_shrink_wrap]` writes a field of a user type with: [write](Self::write), except for the types
+    /// that keep a failed write for [latched](Self::latched) (`bool`, `u8`..`u32`, `i8`..`i32`, `f32` and
+    /// `transparent` wrappers of them), see [SerializeShrinkWrapOwned::ser_shrink_wrap_owned_latch](crate::SerializeShrinkWrapOwned::ser_shrink_wrap_owned_latch).
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn write_field<T: SerializeShrinkWrapOwned>(&mut self, val: &T) -> Result<(), Error> {
+        val.ser_shrink_wrap_owned_latch(self)
+    }
+
     /// Write any value that implements [SerializeShrinkWrapOwned].
     ///
     /// If the value is Unsized, then size is calculated and pushed to the reverse FIFO as u32,

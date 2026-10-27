@@ -291,8 +291,14 @@ impl Type {
                 }
                 return;
             }
-            Type::External(_, _)
-            | Type::String
+            Type::External(_, _) => {
+                let field_path = field_path.by_ref();
+                // `write_field` is `write`, but plain numbers and `transparent` wrappers of them keep the error
+                // for `wr.latched()` (`SerializeShrinkWrap::ser_shrink_wrap_latch`)
+                tokens.append_all(quote! { wr.write_field(#field_path) #handle_eob; });
+                return;
+            }
+            Type::String
             | Type::RefBox(_)
             | Type::Range(_)
             | Type::RangeInclusive(_)
@@ -414,8 +420,8 @@ impl Type {
                 return;
             }
             Type::External(_, _) if latch => {
-                // `read_field` is `read`, but `U1`..`U64` and `I2`..`I64` keep the error for `rd.latched()?`
-                // (`DeserializeShrinkWrap::des_shrink_wrap_latch`)
+                // `read_field` is `read`, but `U1`..`U64`, `I2`..`I64`, plain numbers and `transparent` wrappers of
+                // them keep the error for `rd.latched()?` (`DeserializeShrinkWrap::des_shrink_wrap_latch`)
                 let read_field = if owned {
                     quote! { read_field_owned }
                 } else {

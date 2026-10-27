@@ -55,6 +55,8 @@ pub(crate) fn serdes_scaffold(
     max_size: TokenStream,
     is_ref: bool,
     has_lifetime: bool,
+    // bodies of `ser_shrink_wrap_latch` and `des_shrink_wrap_latch` (`_owned_latch`), when not the default
+    latch: Option<(TokenStream, TokenStream)>,
     cp: &CratePath,
 ) -> TokenStream {
     let cfg = cfg.map(|cond| quote! { #[cfg(#cond)] });
@@ -74,6 +76,24 @@ pub(crate) fn serdes_scaffold(
         let where_clause = generics.where_clause(&[]);
         // `false` only when no field can push a length, see SerializeShrinkWrap::PUSHES_LEN
         let pushes_len = pushes_len.unwrap_or_else(|| quote! { false });
+        let (ser_latch, des_latch) = latch
+            .map(|(ser, des)| {
+                (
+                    quote! {
+                        #[inline(always)]
+                        fn ser_shrink_wrap_latch(&self, wr: &mut #buf_writer) -> Result<(), #error> {
+                            #ser
+                        }
+                    },
+                    quote! {
+                        #[inline(always)]
+                        fn des_shrink_wrap_latch(rd: &mut #buf_reader<'i>) -> Result<Self, #error> {
+                            #des
+                        }
+                    },
+                )
+            })
+            .unzip();
         quote! {
             #cfg
             impl<'i, #ser_params> #ser_trait for #ty_name #ty_lifetime #where_clause {
@@ -84,6 +104,8 @@ pub(crate) fn serdes_scaffold(
                 fn ser_shrink_wrap(&self, wr: &mut #buf_writer) -> Result<(), #error> {
                     #ser
                 }
+
+                #ser_latch
             }
 
             #cfg
@@ -93,6 +115,8 @@ pub(crate) fn serdes_scaffold(
                 fn des_shrink_wrap<'di>(rd: &'di mut #buf_reader<'i>) -> Result<Self, #error> {
                     #des
                 }
+
+                #des_latch
             }
         }
     } else {
@@ -101,6 +125,24 @@ pub(crate) fn serdes_scaffold(
         let ser_params = generics.impl_params(Some(ser_trait.clone()));
         let des_params = generics.impl_params(Some(quote! { #ser_trait + #des_trait }));
         let where_clause = generics.where_clause(&[]);
+        let (ser_latch, des_latch) = latch
+            .map(|(ser, des)| {
+                (
+                    quote! {
+                        #[inline(always)]
+                        fn ser_shrink_wrap_owned_latch(&self, wr: &mut #buf_writer) -> Result<(), #error> {
+                            #ser
+                        }
+                    },
+                    quote! {
+                        #[inline(always)]
+                        fn des_shrink_wrap_owned_latch(rd: &mut #buf_reader<'_>) -> Result<Self, #error> {
+                            #des
+                        }
+                    },
+                )
+            })
+            .unzip();
         quote! {
             #cfg
             impl<#ser_params> #ser_trait for #ty_name #ty_params #where_clause {
@@ -109,6 +151,8 @@ pub(crate) fn serdes_scaffold(
                 fn ser_shrink_wrap_owned(&self, wr: &mut #buf_writer) -> Result<(), #error> {
                     #ser
                 }
+
+                #ser_latch
             }
 
             #cfg
@@ -118,6 +162,8 @@ pub(crate) fn serdes_scaffold(
                 fn des_shrink_wrap_owned(rd: &mut #buf_reader<'_>) -> Result<Self, #error> {
                     #des
                 }
+
+                #des_latch
             }
         }
     }

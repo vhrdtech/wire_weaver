@@ -31,6 +31,20 @@ pub trait SerializeShrinkWrap {
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error>;
 
+    /// How `#[derive_shrink_wrap]` writes a field of this type ([BufWriter::write_field]). By default
+    /// [write](BufWriter::write), as before. `bool`, `u8`..`u32`, `i8`..`i32` and `f32` override it with their
+    /// `write_*_latch`: the error is kept in the writer for [latched](BufWriter::latched) and it always returns
+    /// `Ok`, so that the caller's error check folds away when it is inlined. A `transparent` struct forwards it to
+    /// its field, so a wrapper around a number is written exactly like the number.
+    #[doc(hidden)]
+    #[inline(always)]
+    fn ser_shrink_wrap_latch(&self, wr: &mut BufWriter) -> Result<(), Error>
+    where
+        Self: Sized,
+    {
+        wr.write(self)
+    }
+
     fn to_ww_bytes<'i>(&self, buf: &'i mut [u8]) -> Result<&'i [u8], Error> {
         let mut wr = BufWriter::new(buf);
         self.ser_shrink_wrap(&mut wr)?;
@@ -68,7 +82,9 @@ pub trait DeserializeShrinkWrap<'i>: Sized {
     /// for too few bits left and gives a value for every bit pattern (SW-38): the error is kept in the reader for
     /// [latched](BufReader::latched), the value is then 0, and it always returns `Ok`, so that the caller's
     /// error check folds away when it is inlined. The error kept is the first one and the one
-    /// [read](BufReader::read) would return, the reader state the same as after that read.
+    /// [read](BufReader::read) would return, the reader state the same as after that read. `bool`, `u8`..`u32`,
+    /// `i8`..`i32` and `f32` override it with their `read_*_latch`, and a `transparent` struct forwards it to its
+    /// field.
     #[doc(hidden)]
     #[inline(always)]
     fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
@@ -89,6 +105,17 @@ pub trait SerializeShrinkWrapOwned {
     const ELEMENT_SIZE: ElementSize;
 
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error>;
+
+    /// [SerializeShrinkWrap::ser_shrink_wrap_latch] for the owned side, by default
+    /// [write](BufWriterOwned::write).
+    #[doc(hidden)]
+    #[inline(always)]
+    fn ser_shrink_wrap_owned_latch(&self, wr: &mut BufWriterOwned) -> Result<(), Error>
+    where
+        Self: Sized,
+    {
+        wr.write(self)
+    }
 
     fn to_ww_bytes_owned(&self) -> Result<Vec<u8>, Error> {
         let mut wr = BufWriterOwned::new();
@@ -208,6 +235,11 @@ impl<T: SerializeShrinkWrap> SerializeShrinkWrap for &T {
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         <T as SerializeShrinkWrap>::ser_shrink_wrap(self, wr)
     }
+
+    #[inline(always)]
+    fn ser_shrink_wrap_latch(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        <T as SerializeShrinkWrap>::ser_shrink_wrap_latch(self, wr)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -216,6 +248,11 @@ impl<T: SerializeShrinkWrapOwned> SerializeShrinkWrapOwned for &T {
 
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         <T as SerializeShrinkWrapOwned>::ser_shrink_wrap_owned(self, wr)
+    }
+
+    #[inline(always)]
+    fn ser_shrink_wrap_owned_latch(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        <T as SerializeShrinkWrapOwned>::ser_shrink_wrap_owned_latch(self, wr)
     }
 }
 
@@ -364,6 +401,12 @@ impl SerializeShrinkWrap for bool {
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         wr.write_bool(*self)
     }
+
+    #[inline(always)]
+    fn ser_shrink_wrap_latch(&self, wr: &mut BufWriter) -> Result<(), Error> {
+        wr.write_bool_latch(*self);
+        Ok(())
+    }
 }
 
 #[cfg(feature = "std")]
@@ -373,6 +416,12 @@ impl SerializeShrinkWrapOwned for bool {
     fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
         wr.write_bool(*self)
     }
+
+    #[inline(always)]
+    fn ser_shrink_wrap_owned_latch(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+        wr.write_bool_latch(*self);
+        Ok(())
+    }
 }
 
 impl<'i> DeserializeShrinkWrap<'i> for bool {
@@ -380,6 +429,11 @@ impl<'i> DeserializeShrinkWrap<'i> for bool {
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
         rd.read_bool()
+    }
+
+    #[inline(always)]
+    fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
+        Ok(rd.read_bool_latch())
     }
 }
 
@@ -389,10 +443,36 @@ impl DeserializeShrinkWrapOwned for bool {
     fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
         rd.read_bool()
     }
+
+    #[inline(always)]
+    fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+        Ok(rd.read_bool_latch())
+    }
 }
 
+// `latch`: the type has `write_*_latch` / `read_*_latch`, see SerializeShrinkWrap::ser_shrink_wrap_latch
 macro_rules! impl_serialize {
     ($sign:ident, $bits:literal) => {
+        impl_serialize!(@impl $sign, $bits, {}, {});
+    };
+    ($sign:ident, $bits:literal, latch) => {
+        paste! {
+            impl_serialize!(@impl $sign, $bits, {
+                #[inline(always)]
+                fn ser_shrink_wrap_latch(&self, wr: &mut BufWriter) -> Result<(), Error> {
+                    wr.[<write_ $sign $bits _latch>](*self);
+                    Ok(())
+                }
+            }, {
+                #[inline(always)]
+                fn ser_shrink_wrap_owned_latch(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
+                    wr.[<write_ $sign $bits _latch>](*self);
+                    Ok(())
+                }
+            });
+        }
+    };
+    (@impl $sign:ident, $bits:literal, {$($latch:tt)*}, {$($owned_latch:tt)*}) => {
         paste! {
             impl SerializeShrinkWrap for [<$sign $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
@@ -401,6 +481,8 @@ macro_rules! impl_serialize {
                 fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
                     wr.[<write_ $sign $bits>](*self)
                 }
+
+                $($latch)*
             }
 
             #[cfg(feature = "std")]
@@ -410,25 +492,45 @@ macro_rules! impl_serialize {
                 fn ser_shrink_wrap_owned(&self, wr: &mut BufWriterOwned) -> Result<(), Error> {
                     wr.[<write_ $sign $bits>](*self)
                 }
+
+                $($owned_latch)*
             }
         }
     };
 }
-impl_serialize!(u, 8);
-impl_serialize!(u, 16);
-impl_serialize!(u, 32);
+impl_serialize!(u, 8, latch);
+impl_serialize!(u, 16, latch);
+impl_serialize!(u, 32, latch);
 impl_serialize!(u, 64);
 impl_serialize!(u, 128);
-impl_serialize!(i, 8);
-impl_serialize!(i, 16);
-impl_serialize!(i, 32);
+impl_serialize!(i, 8, latch);
+impl_serialize!(i, 16, latch);
+impl_serialize!(i, 32, latch);
 impl_serialize!(i, 64);
 impl_serialize!(i, 128);
-impl_serialize!(f, 32);
+impl_serialize!(f, 32, latch);
 impl_serialize!(f, 64);
 
 macro_rules! impl_deserialize {
     ($sign:ident, $bits:literal) => {
+        impl_deserialize!(@impl $sign, $bits, {}, {});
+    };
+    ($sign:ident, $bits:literal, latch) => {
+        paste! {
+            impl_deserialize!(@impl $sign, $bits, {
+                #[inline(always)]
+                fn des_shrink_wrap_latch(rd: &mut BufReader<'i>) -> Result<Self, Error> {
+                    Ok(rd.[<read_ $sign $bits _latch>]())
+                }
+            }, {
+                #[inline(always)]
+                fn des_shrink_wrap_owned_latch(rd: &mut BufReader<'_>) -> Result<Self, Error> {
+                    Ok(rd.[<read_ $sign $bits _latch>]())
+                }
+            });
+        }
+    };
+    (@impl $sign:ident, $bits:literal, {$($latch:tt)*}, {$($owned_latch:tt)*}) => {
         paste! {
             impl<'i> DeserializeShrinkWrap<'i> for [<$sign $bits>] {
                 const ELEMENT_SIZE: ElementSize = ElementSize::Sized { size_bits: $bits };
@@ -439,6 +541,8 @@ macro_rules! impl_deserialize {
                 fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
                     rd.[<read_ $sign $bits>]()
                 }
+
+                $($latch)*
             }
 
             impl DeserializeShrinkWrapOwned for [<$sign $bits>] {
@@ -447,21 +551,23 @@ macro_rules! impl_deserialize {
                 fn des_shrink_wrap_owned(rd: &mut BufReader<'_>) -> Result<Self, Error> {
                     rd.[<read_ $sign $bits>]()
                 }
+
+                $($owned_latch)*
             }
         }
     };
 }
-impl_deserialize!(u, 8);
-impl_deserialize!(u, 16);
-impl_deserialize!(u, 32);
+impl_deserialize!(u, 8, latch);
+impl_deserialize!(u, 16, latch);
+impl_deserialize!(u, 32, latch);
 impl_deserialize!(u, 64);
 impl_deserialize!(u, 128);
-impl_deserialize!(i, 8);
-impl_deserialize!(i, 16);
-impl_deserialize!(i, 32);
+impl_deserialize!(i, 8, latch);
+impl_deserialize!(i, 16, latch);
+impl_deserialize!(i, 32, latch);
 impl_deserialize!(i, 64);
 impl_deserialize!(i, 128);
-impl_deserialize!(f, 32);
+impl_deserialize!(f, 32, latch);
 impl_deserialize!(f, 64);
 
 impl SerializeShrinkWrap for &'_ [u8] {

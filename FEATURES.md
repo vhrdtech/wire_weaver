@@ -1995,31 +1995,36 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **STD-64 Points and origins** · `v0.5` — `Point<Origin, Fixed<..>>`: a position against an origin with an exact
   offset and an optional modulus, so K / °C / °F / °R, register formulas (`raw/256 + 25 °C`), gauge vs absolute
   pressure and wrapping angles are one algebra; adding two points doesn't compile.
-- 📋 **STD-65 Instants and clocks with named epochs** · `v0.6` — `Instant<Clock, ..>`: device-monotonic, Unix, TAI, GPS
+- 📋 **STD-65 Instants and clocks with named epochs** · `v0.5` — `Instant<Clock, ..>`: device-monotonic, Unix, TAI, GPS
   (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a `Seq` modulo 1024.
-- 📋 **STD-66 Sentinels next to bounds** · `v0.6` — named not-available / error codes (J1939 0xFF, HCI RSSI 127, SunSpec
-  0x8000) decoded to `Option` or an enum and published in the model, and a clipped mark for rail codes.
-- 📋 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.6` — `Level<Kind, Ref>` on the point algebra:
+- 📋 **STD-66 Sentinels next to bounds** · `v0.5` — named codes in a `Fixed`'s raw value: single codes or code ranges
+  (J1939 not-available / error ranges per 1, 2 and 4 bytes, SunSpec not-implemented 0x8000, Matter null, HCI RSSI
+  127, reserved ranges) decode to an enum (`Value`, `NotAvailable`, `Error`, `NotImplemented`, a user meaning), `Option`
+  only as the one-code shorthand. Stored as the raw `T` (size of `T`, no extra byte), `get()` gives the enum, and
+  encoding it gives back the same code, so the bytes don't change. Niche codes and `Bounds` are checked disjoint and
+  every code to fit `T` at compile time. Clipped / rail codes are a value with a saturation mark (at least / at most),
+  not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.
+- 📋 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.5` — `Level<Kind, Ref>` on the point algebra:
   level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
   convention).
-- 📋 **STD-68 Kinds that share a dimension** · `v0.6` — relative humidity, duty cycle, state of charge, strain, volume
+- 📋 **STD-68 Kinds that share a dimension** · `v0.5` — relative humidity, duty cycle, state of charge, strain, volume
   fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
   explicit casts between siblings.
-- 📋 **STD-69 More counted units** · `v0.6` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
+- 📋 **STD-69 More counted units** · `v0.5` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
   each a dimension of its own.
-- 📋 **STD-70 Text unit codes in and out** · `v0.6` — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
+- 📋 **STD-70 Text unit codes in and out** · `v0.5` — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
   imports, exports that say where they lose something.
-- 📋 **STD-71 Device-standard units in and out** · `v0.6` — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA
+- 📋 **STD-71 Device-standard units in and out** · `v0.5` — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA
   EUInformation, CAN DBC / J1939, IEEE 1451 TEDS, with exact decimal factors and sentinel tables.
-- 📋 **STD-72 Imperial and US customary units, complete** · `v0.6` — every unit the exact rational of SI from its legal
+- 📋 **STD-72 Imperial and US customary units, complete** · `v0.5` — every unit the exact rational of SI from its legal
   definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
   variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
   Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.
-- 📋 **STD-73 One table of unit symbols and spellings** · `v0.6` — display and parsing of every unit from one table,
+- 📋 **STD-73 One table of unit symbols and spellings** · `v0.5` — display and parsing of every unit from one table,
   shared by Rust, si_dynamic, `ww` and Python, UCUM spelling where there is one.
-- 📋 **STD-74 The runtime side catches up** · `v0.6` — `Quantity`, `AnyQuantity` and `SIExpr` get the exact magnitude,
+- 📋 **STD-74 The runtime side catches up** · `v0.5` — `Quantity`, `AnyQuantity` and `SIExpr` get the exact magnitude,
   the °C point / interval split, levels and sentinels.
-- 📋 **STD-75 Non-linear scales by name** · `v0.6` — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
+- 📋 **STD-75 Non-linear scales by name** · `v0.5` — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
   conversion function each, or out of scope with the reason written down.
 
 ## Examples (`EX`)
@@ -2091,7 +2096,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   crates.io-shaped copy of `ww_i2c`. Missing: a docs.rs check of crates whose API uses another crate's types or
   traits (`ww_uart`, `ww_gpio`, `ww_si` types); the macro panicked on their `version = ".."` dependencies until
   API-14, try one on a crates.io-shaped copy.
-- 📋 **DOC-10 Units docs section** · `v0.6` — choosing `Fixed`, `Point`, `Level`, `Quantity` or `AnyQuantity`, imperial
+- 📋 **DOC-10 Units docs section** · `v0.5` — choosing `Fixed`, `Point`, `Level`, `Quantity` or `AnyQuantity`, imperial
   / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.
 
 ## Testing, CI and performance (`TEST`)

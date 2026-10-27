@@ -155,8 +155,13 @@ fn convert_segment_in(
         "MaxLen" => convert_ty_max_len(segment, current_crate, scratch),
         "Option" => convert_ty_option(segment, current_crate, scratch),
         "Result" => convert_ty_result(segment, current_crate, scratch),
-        "Range" => convert_ty_range(segment, current_crate, scratch),
-        "RangeInclusive" => convert_ty_range_inclusive(segment, current_crate, scratch),
+        // `ww_si::Range` and other types of that name are user types, only `core::ops`' are ranges
+        "Range" if !is_user_item(lookup_cx, &ty_name) => {
+            convert_ty_range(segment, current_crate, scratch)
+        }
+        "RangeInclusive" if !is_user_item(lookup_cx, &ty_name) => {
+            convert_ty_range_inclusive(segment, current_crate, scratch)
+        }
         // SW-60: the item type in its own columns
         "Series" | "SeriesOwned" => {
             let inner_ty = get_inner_angle_bracketed_ty(segment, current_crate)?;
@@ -747,6 +752,22 @@ fn declares_or_imports(cx: &CrateContext, name: &str) -> bool {
         Item::Struct(item_struct) => item_struct.ident == name,
         Item::Type(item_type) => item_type.ident == name,
         Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some(),
+        _ => false,
+    })
+}
+
+/// Whether `name` in `cx` is a type of a user crate: defined there, or imported by name from anywhere but
+/// `core` / `std` / `alloc`.
+fn is_user_item(cx: &CrateContext, name: &str) -> bool {
+    cx.lib_rs_ast.items.iter().any(|item| match item {
+        Item::Enum(item_enum) => item_enum.ident == name,
+        Item::Struct(item_struct) => item_struct.ident == name,
+        Item::Type(item_type) => item_type.ident == name,
+        Item::Use(item_use) => use_tree_path_to(&item_use.tree, name).is_some_and(|(path, _)| {
+            !path
+                .first()
+                .is_some_and(|first| matches!(first.to_string().as_str(), "core" | "std" | "alloc"))
+        }),
         _ => false,
     })
 }

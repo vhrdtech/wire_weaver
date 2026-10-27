@@ -509,7 +509,7 @@ impl<P: prefix::SubSecond, T: UnsignedStorage, B: Bounds<T>> TryFrom<core::time:
         let per_s = P::PER_SECOND;
         let ns_per = 1_000_000_000 / per_s;
         let nanos = d.subsec_nanos() as u64;
-        if nanos % ns_per != 0 {
+        if !nanos.is_multiple_of(ns_per) {
             return Err(OutOfBounds);
         }
         let v = d
@@ -615,7 +615,7 @@ mod tests {
             Err(shrink_wrap::Error::SubtypeOutOfRange)
         );
         assert_eq!(
-            T::from_ww_bytes(&Millis::new(10u16).to_ww_bytes(&mut [0u8; 8]).unwrap())
+            T::from_ww_bytes(Millis::new(10u16).to_ww_bytes(&mut [0u8; 8]).unwrap())
                 .unwrap()
                 .get(),
             10
@@ -737,7 +737,7 @@ mod tests {
         );
         assert_eq!(
             Micros::<u64>::from_ww_bytes(
-                &0x0102_0304_0506_0708u64
+                0x0102_0304_0506_0708u64
                     .to_ww_bytes(&mut [0u8; 16])
                     .unwrap()
             )

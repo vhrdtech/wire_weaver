@@ -1495,8 +1495,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   released. Conformance cases of `Request` carry the new bytes with `"wire_change": "EVO-14 / ..."`.
 - ✅ **EVO-16 `ww_si::Dim` with angle, information and counted bases** · `v0.5` — the wire change of `Dim` that
   STD-60 brings, in `SIExpr` / `AnyQuantity` and in the `ww_si` snapshot: no longer `sized` but `final_structure`,
-  nine 4-bit exponents (rad and bit appended to the seven SI ones) and four optional named counted bases; a
-  non-canonical `Dim` is refused on decode. Volt is `d2 1f 00 00 00`. Conformance cases `stdlib.si.dim.*`
+  nine 4-bit exponents (rad and bit appended to the seven SI ones), a root bit and four optional counted bases
+  (crate and marker name); a non-canonical `Dim` is refused on decode. Volt is `d2 1f 00 00 00 00`. `Scale` gains
+  `Exact` (an `ExactScale`, a degree is exactly π/180) in the same break. Conformance cases `stdlib.si.dim.*`
   (`tests/conformance/corpus.json`), [ww_si](docs/std_library/ww_si.md#units-known-only-at-run-time).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
@@ -1720,8 +1721,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   less flash on Donguru (thumbv6m, `opt-level = "z"`). `docs/std_library/ww_si.md#conversions-and-comparisons`,
   `ww_stdlib/ww_si/tests/narrow.rs` and `ww_stdlib/ww_numeric/tests/integer.rs` (run with 32-bit types only too).
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
-  base dimensions and up to four named counted bases (`Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`,
-  `Sector`, `Chunk`, `Char`, `Code`, feature `counting`; `Bit`, `Byte`, `Word`, feature `information`): bytes don't
+  base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
+  `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
+  `Bit`, `Byte`, `Word`, feature `information`) and a root flag for half exponents (V/√Hz, `Dim::sqrt`): bytes don't
   convert into % or rad, `AngularVelocity` isn't `Hertz`, `Per<Sample, Second> × Second` is a `Sample`, bytes of a
   sample only through `Per<Byte, Sample>`; checked at compile time (`Unit::DIM`) and at run time (`SIExpr`,
   `wire_weaver_client::DynUnit`, Python `Quantity.dim`). `Torque` is J/rad (written N·m). Wire change EVO-16.

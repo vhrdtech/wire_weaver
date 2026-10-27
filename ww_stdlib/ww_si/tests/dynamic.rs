@@ -16,13 +16,14 @@ type Viscous = Per<Torque, AngularVelocity>;
 fn dim_bytes() {
     let mut buf = [0u8; 8];
     let volt = <units::Volt as Unit>::DIM;
-    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0, rad 0, bit 0: nine nibbles, then four bits of empty counted slots
+    // s -3, m 2, kg 1, A -1, K 0, mol 0, cd 0, rad 0, bit 0: nine nibbles, the root bit, then four bits of empty
+    // counted slots
     assert_eq!(
         volt.to_ww_bytes(&mut buf).unwrap(),
-        [0xd2, 0x1f, 0x00, 0x00, 0x00]
+        [0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00]
     );
     assert_eq!(
-        Dim::from_ww_bytes(&[0xd2, 0x1f, 0x00, 0x00, 0x00]).unwrap(),
+        Dim::from_ww_bytes(&[0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00]).unwrap(),
         volt
     );
     assert_eq!(
@@ -31,17 +32,18 @@ fn dim_bytes() {
     );
     let edge = Dim::new(-8, 7, 0, 0, 0, 0, -1).with_rad(7).with_bit(-8);
     let bytes = edge.to_ww_bytes(&mut buf).unwrap().to_vec();
-    assert_eq!(bytes, [0x87, 0x00, 0x00, 0xf7, 0x80]);
+    assert_eq!(bytes, [0x87, 0x00, 0x00, 0xf7, 0x80, 0x00]);
     assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), edge);
     // samples per second: one counted slot, its name and exponent
     let rate = <ww_si::units::Per<units::Sample, units::Second> as Unit>::DIM;
     let mut buf = [0u8; 32];
     let bytes = rate.to_ww_bytes(&mut buf).unwrap().to_vec();
-    // s -1 and eight 0 nibbles, slot 1 used: "Sample" and exponent 1, three empty slots
+    // s -1 and eight 0 nibbles, no root, slot 1 used: crate "ww_si", "Sample" and exponent 1, three empty slots
     assert_eq!(
         bytes,
         [
-            0xf0, 0x00, 0x00, 0x00, 0x08, 0x53, 0x61, 0x6d, 0x70, 0x6c, 0x65, 0x10, 0x06
+            0xf0, 0x00, 0x00, 0x00, 0x04, 0x77, 0x77, 0x5f, 0x73, 0x69, 0x53, 0x61, 0x6d, 0x70,
+            0x6c, 0x65, 0x10, 0x65
         ]
     );
     assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), rate);
@@ -52,23 +54,39 @@ fn dim_bytes() {
 /// that form doesn't decode.
 #[test]
 fn counted_bases() {
-    let sample = Dim::counted("Sample");
-    let block = Dim::counted("Block");
-    let d = sample.mul(block).div(Dim::counted("Frame"));
+    let sample = Dim::counted("ww_si", "Sample");
+    let block = Dim::counted("ww_si", "Block");
+    let d = sample.mul(block).div(Dim::counted("ww_si", "Frame"));
     assert_eq!(
         d.counted_bases().collect::<Vec<_>>(),
         [("Block", 1), ("Frame", -1), ("Sample", 1)]
     );
-    assert_eq!(d, block.div(Dim::counted("Frame")).mul(sample));
-    assert!(d.div(sample).div(block).mul(Dim::counted("Frame")).is_one());
-    let four = d.mul(Dim::counted("Item"));
-    assert_eq!(four.checked_mul(Dim::counted("Packet")), None);
+    assert_eq!(d, block.div(Dim::counted("ww_si", "Frame")).mul(sample));
+    assert!(
+        d.div(sample)
+            .div(block)
+            .mul(Dim::counted("ww_si", "Frame"))
+            .is_one()
+    );
+    let four = d.mul(Dim::counted("ww_si", "Item"));
+    assert_eq!(four.checked_mul(Dim::counted("ww_si", "Packet")), None);
     assert_eq!(
-        four.checked_mul(Dim::counted("Item")).unwrap().to_string(),
+        four.checked_mul(Dim::counted("ww_si", "Item"))
+            .unwrap()
+            .to_string(),
         "Block·Frame⁻¹·Item²·Sample"
     );
     assert_ne!(sample, block);
     assert_ne!(sample, Dim::ONE);
+
+    // a base is its crate and marker name: another crate's Sample is another base, sorted by crate first
+    let theirs = Dim::counted("my_api", "Sample");
+    assert_ne!(theirs, sample);
+    let both = sample.mul(theirs);
+    assert_eq!(both.counted[0].unwrap().crate_name, "my_api");
+    assert_eq!(both.counted[1].unwrap().crate_name, "ww_si");
+    assert!(both.div(theirs).same(sample));
+    assert_eq!(ww_si::counted!(Bucket), Dim::counted("dynamic", "Bucket"));
 
     let mut buf = [0u8; 64];
     let bytes = d.to_ww_bytes(&mut buf).unwrap().to_vec();
@@ -115,8 +133,8 @@ fn scale_bytes() {
     }
 }
 
-const VOLT_BYTES: [u8; 14] = [
-    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x01, 0x14,
+const VOLT_BYTES: [u8; 15] = [
+    0x00, b'V', b'o', b'l', b't', b'V', 0xd2, 0x1f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x14,
 ];
 
 #[test]
@@ -138,7 +156,7 @@ fn compound_round_trip() {
     let mut buf = [0u8; 128];
     let si = <Viscous as Unit>::SI_EXPR;
     let bytes = si.to_ww_bytes(&mut buf).unwrap().to_vec();
-    assert_eq!(bytes.len(), 51);
+    assert_eq!(bytes.len(), 53);
     assert_eq!(&bytes[..2], [0x20, 0x00]);
     let back = SIExpr::from_ww_bytes(&bytes).unwrap();
     assert_eq!(&back, si);
@@ -261,9 +279,9 @@ fn any_quantity() {
     // the typed value's bytes, then the unit
     let mut expected = vec![0x12, 0xe4, 0x0c];
     expected.extend_from_slice(&VOLT_BYTES);
-    expected.push(0x69);
+    expected.push(0x79);
     assert_eq!(bytes, expected);
-    assert_eq!(bytes.len(), 18);
+    assert_eq!(bytes.len(), 19);
     let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
     assert_eq!(back, v);
     assert_eq!(back.to_string(), Volt::milli(3300u16).to_string());
@@ -330,4 +348,37 @@ fn exact_scale_through_the_wire() {
 
     let rev = AnyQuantity::from(ww_si::Turn::base(1u8));
     assert!((rev.to_si_f64().unwrap() - core::f64::consts::TAU).abs() < 1e-15);
+}
+
+/// The root flag: a noise density in V/√Hz is the square root of V²/Hz, shown with half exponents; roots of even
+/// exponents are plain dimensions, and a root that isn't canonical doesn't decode.
+#[test]
+fn root() {
+    let volt = <units::Volt as Unit>::DIM;
+    let hertz = <units::Hertz as Unit>::DIM;
+    let density = volt.div(hertz.sqrt());
+    assert!(density.root);
+    assert_eq!(density.exps()[..4], [-5, 4, 2, -2]);
+    assert_eq!(density.to_string(), "kg·m²·s⁻⁵ᐟ²·A⁻¹");
+    // back to volts: times √Hz, or squared times Hz
+    assert_eq!(density.mul(hertz.sqrt()), volt);
+    assert_eq!(
+        density.checked_pow(2).unwrap().mul(hertz),
+        volt.checked_pow(2).unwrap()
+    );
+    // √(m²) is m, not a root
+    let m2 = Dim::new(0, 2, 0, 0, 0, 0, 0);
+    assert_eq!(m2.sqrt(), Dim::new(0, 1, 0, 0, 0, 0, 0));
+    assert_eq!(density.checked_sqrt(), None);
+
+    let mut buf = [0u8; 16];
+    let bytes = density.to_ww_bytes(&mut buf).unwrap().to_vec();
+    assert_eq!(bytes, [0xb4, 0x2e, 0x00, 0x00, 0x08, 0x00]);
+    assert_eq!(Dim::from_ww_bytes(&bytes).unwrap(), density);
+    // m² with the root bit is √(m²) written the long way: refused
+    let mut long = m2;
+    long.root = true;
+    assert!(!long.is_canonical());
+    let bytes = long.to_ww_bytes(&mut buf).unwrap().to_vec();
+    assert!(Dim::from_ww_bytes(&bytes).is_err());
 }

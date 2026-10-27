@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 3b9ea9f6f59eeaf5998d4347e91ebf1547ac84ff3612ddabbebca1974ba4bdbd
+// shrink_wrap sha256: f1aa864d7d7122f909484ca1d93157a2cce4a0b8c6e5923b510fa9424a5da5fd
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -62,28 +62,39 @@
         181,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "A counted base of a [Dim] and its exponent: what is counted (`\"Sample\"`, `\"Block\"`, an API\'s own marker name) and",
-        "how often it is in the dimension (`Sample/s` has `Sample` to the 1st power).",
+        "A counted base of a [Dim] and its exponent: what is counted, named by the crate and the marker that define it",
+        "(`ww_si` `Sample`, an API crate\'s own `Bucket`), and how often it is in the dimension (`Sample/s` has `Sample` to",
+        "the 1st power).",
         "",
-        "A base is told apart by its name only, so two APIs\' own `Block` markers are the same base at run time (in types",
-        "they stay different markers).",
+        "A base is told apart by crate and marker name together: two crates\' `Sample` markers are different bases, and a",
+        "marker stays the same base when it moves between modules of its crate. Shown by the marker name alone.",
     ], ident: "Counted", generics: [], fields: Named([
-        (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+        (ident: Some("crate_name"), default: None, since: None, ty: String, docs: [
+            "The crate that defines the marker, as Rust names it (`ww_si`, `my_api`): `CARGO_CRATE_NAME`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("name"), default: None, since: None, ty: String, docs: [
+            "The marker\'s name: `Sample`.",
+        ], slot: None, series_opaque: false),
         (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "The dimension of a unit: exponents of the 7 SI base units s, m, kg, A, K, mol, cd, of angle (rad) and of",
         "information (bit), each from -8 to 7, and of up to [MAX_COUNTED] counted bases (`Sample`, `Block`, `Item`, ..).",
         "Volt is kg·m²·s⁻³·A⁻¹: `Dim::new(-3, 2, 1, -1, 0, 0, 0)`; rad/s is `Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)`;",
-        "samples per second is `Dim::counted(\"Sample\").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.",
+        "samples per second is `Dim::counted(\"ww_si\", \"Sample\").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.",
+        "",
+        "With `root` set, the dimension is the square root of the one the exponents describe: a noise density in V/√Hz",
+        "is kg²·m⁴·s⁻⁵·A⁻² with `root` (`Volt` squared over hertz), shown as `kg·m²·s⁻⁵ᐟ²·A⁻¹`. Only half-integer",
+        "powers are written this way, so `root` is set only when some exponent is odd ([sqrt](Self::sqrt) and",
+        "[mul](Self::mul) keep it so).",
         "",
         "Values convert into each other and add only with the same dimension: bytes never become a ratio, an angle never",
         "a frequency, samples never bytes (that takes a `Per<Byte, Sample>`).",
         "",
-        "On the wire nine 4-bit signed numbers in the order above, then for each of the [MAX_COUNTED] slots a bit for",
-        "whether it is used, and a used one\'s name and exponent. Used slots come first, sorted by name, with exponents that",
-        "aren\'t 0 (a value that isn\'t so doesn\'t decode), so two equal dimensions have the same bytes: Volt is",
-        "`d2 1f 00 00 00` (40 bits).",
+        "On the wire nine 4-bit signed numbers in the order above, the `root` bit, then for each of the [MAX_COUNTED]",
+        "slots a bit for whether it is used, and a used one\'s crate name, name and exponent. Used slots come first, sorted",
+        "by crate and name, with exponents that aren\'t 0, and `root` only with an odd exponent (a value that isn\'t so",
+        "doesn\'t decode), so two equal dimensions have the same bytes: Volt is `d2 1f 00 00 00 00` (41 bits).",
     ], ident: "Dim", generics: [], fields: Named([
         (ident: Some("s"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
         (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
@@ -98,8 +109,11 @@
         (ident: Some("bit"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
             "Information, bit.",
         ], slot: None, series_opaque: false),
+        (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
+            "The square root of what the exponents describe, see above.",
+        ], slot: None, series_opaque: false),
         (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 2))), docs: [
-            "Counted bases, see [Counted]: used slots first, sorted by name.",
+            "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [

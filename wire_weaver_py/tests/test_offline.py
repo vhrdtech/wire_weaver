@@ -381,7 +381,7 @@ def test_quantities():
         s.to_si()
 
     # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes it
-    any_volt = "12e40c" + "00566f6c7456d21f000000000114" + "69"
+    any_volt = "12e40c" + "00566f6c7456d21f00000000000114" + "79"
     a = api.sensor.decode(bytes.fromhex(any_volt))
     assert isinstance(a, ww.Quantity)
     # the same quantity as the typed property's

@@ -220,10 +220,16 @@ SI alone would call the same:
   kilogram). Bytes are never a `Ratio` or an angle, and `Per<Byte, Second>` is a data rate, not a frequency.
 - **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char` and `Code` count
   things: each is a dimension of its own, so `Per<Sample, Second>` (s⁻¹·Sample) isn't `Hertz` and samples aren't
-  packets. A base is known by its name only: `Block` of two APIs is the same base at run time. A dimension holds up
-  to four of them (`MAX_COUNTED`), sorted by name; a `Dim` on the wire whose bases are out of order, repeated or with
-  a zero exponent is refused on decode, so every dimension has exactly one encoding. Bytes of a block are
-  `Per<Byte, Block>`.
+  packets. A base is known by its crate and marker name together (`Counted { crate_name, name, exp }`): two crates'
+  `Sample` are different bases, and a marker moved to another module of its crate stays the same base. It is shown by
+  the marker name alone. An API crate's own counted marker takes its dimension from `ww_si::counted!(Bucket)`, which
+  fills in the crate. A dimension holds up to four of them (`MAX_COUNTED`), sorted by crate and name; a `Dim` on the
+  wire whose bases are out of order, repeated or with a zero exponent is refused on decode, so every dimension has
+  exactly one encoding. Bytes of a block are `Per<Byte, Block>`.
+- **Square roots.** A noise density in V/√Hz has half exponents. `Dim` keeps whole ones and a `root` flag: the
+  dimension is the square root of what the exponents describe (kg²·m⁴·s⁻⁵·A⁻² with `root`), shown with halves as
+  `kg·m²·s⁻⁵ᐟ²·A⁻¹`. `Dim::sqrt` and `mul` / `div` keep it canonical: `root` only while some exponent is odd, so
+  √(m²) is m; a root of a root isn't a `Dim` (`checked_sqrt` is `None`).
 
 ```rust
 use ww_si::units::{Byte, Per, Sample};
@@ -232,6 +238,9 @@ use ww_si::Unit;
 let per_sample = <Per<Byte, Sample> as Unit>::DIM;
 assert_eq!(per_sample.to_string(), "bit·Sample⁻¹");
 assert!(per_sample.mul(<Sample as Unit>::DIM).same(<Byte as Unit>::DIM));
+
+let density = <ww_si::units::Volt as Unit>::DIM.div(<ww_si::units::Hertz as Unit>::DIM.sqrt());
+assert_eq!(density.to_string(), "kg·m²·s⁻⁵ᐟ²·A⁻¹");
 ```
 
 ## Compound units and your own
@@ -359,7 +368,7 @@ with one is an `AnyQuantity { prefix, value, unit }`:
 
 ```rust
 use ww_si::units::{self, AngularVelocity, Per, Torque};
-use ww_si::{AnyQuantity, Dim, Prefix, SIExpr, Scale, Volt};
+use ww_si::{AnyQuantity, Dim, ExactScale, Prefix, SIExpr, Scale, Volt};
 
 // a ww_si unit, or a typed quantity turned into one
 let v = AnyQuantity::from(Volt::milli(3300u16));
@@ -374,7 +383,8 @@ let rpm = SIExpr::Named {
     name: "Rpm",
     symbol: "rpm",
     dim: Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1),
-    scale: Scale::Factor(core::f64::consts::TAU / 60.0),
+    // exactly π/30 rad/s: 2π per 60 s
+    scale: Scale::Exact(ExactScale::new(1, 30, 0, 0, 1)),
 };
 let speed = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
 assert_eq!(speed.to_string(), "3 krpm");
@@ -388,25 +398,26 @@ and factor are computed by the same code for both, so a run-time unit is shown e
 that comes from another device is walked at most `MAX_UNIT_DEPTH` (32) levels deep: a deeper part has no dimension
 and is shown as `…`, it can't overflow the stack.
 
-`Dim` is nine 4-bit signed exponents in the order s, m, kg, A, K, mol, cd, rad, bit (each -8..=7), then four
-optional counted bases (`Counted { name, exp }`), `final_structure`. `Dim::new` is `const` and refuses an exponent
+`Dim` is nine 4-bit signed exponents in the order s, m, kg, A, K, mol, cd, rad, bit (each -8..=7), the `root` bit,
+then four optional counted bases (`Counted { crate_name, name, exp }`), `final_structure`. `Dim::new` is `const` and refuses an exponent
 out of range at compile time; `checked_mul`, `checked_div` and `checked_pow` give `None` for a run-time tree whose
 exponents leave the range or that needs a fifth counted base. `Scale` is a nibble and then its numbers. These are the
 bytes:
 
 | Value                                        | Bytes                                         |
 |----------------------------------------------|-----------------------------------------------|
-| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 00 00`                              |
-| `Dim` of `AngularVelocity` (s⁻¹ rad)         | `f0 00 00 01 00`                              |
-| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)  | `00 00 00 00 18`, `Sample`, `f0 06`           |
+| `Dim` of `Volt` (s⁻³ m² kg A⁻¹)              | `d2 1f 00 00 00 00`                           |
+| `Dim` of `AngularVelocity` (s⁻¹ rad)         | `f0 00 00 01 00 00`                           |
+| `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)  | `00 00 00 00 14`, `ww_si`, `Sample`, `f0 65`  |
 | `Scale::Coherent`                            | `0`                                           |
 | `Scale::Pow10(-3)`                           | `1` `fd`                                      |
 | `Scale::Factor(0.5)`                         | `2` and the `f64`, 8 bytes                    |
-| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 00 01 14`, 14 B |
-| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 51 B                                        |
-| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 14 B of the unit, `69`: 18 B  |
+| `Scale::Exact` of a degree (π/180)           | `41 91 ff ff 01`                              |
+| `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 00 00 01 14`, 15 B |
+| `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 53 B                                        |
+| `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 15 B of the unit, `79`: 19 B  |
 
-The unit costs bytes on every value (18 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
+The unit costs bytes on every value (19 bytes instead of 3 for 3300 mV), so a value whose unit is known when the
 API is written stays a typed quantity, and a channel's unit is better sent once in its description than with every
 reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its readings.
 

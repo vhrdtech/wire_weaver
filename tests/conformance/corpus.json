@@ -1007,24 +1007,24 @@
     {
       "name": "stdlib.si.dim.volt",
       "type": "dim",
-      "value": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "counted": [null, null, null, null]},
-      "bytes": "d21f000000",
+      "value": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]},
+      "bytes": "d21f00000000",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "Volt: kg·m²·s⁻³·A⁻¹, nine I4 exponents and four empty counted slots (STD-60)"
     },
     {
       "name": "stdlib.si.dim.rad_bit",
       "type": "dim",
-      "value": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": -3, "counted": [null, null, null, null]},
-      "bytes": "f0000001d0",
+      "value": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": -3, "root": false, "counted": [null, null, null, null]},
+      "bytes": "f0000001d000",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "rad and bit are base dimensions: bit³·rad/s (STD-60)"
     },
     {
       "name": "stdlib.si.dim.counted",
       "type": "dim",
-      "value": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "counted": [{"name": "Frame", "exp": -1}, {"name": "Sample", "exp": 1}, null, null]},
-      "bytes": "f0000000084672616d65f853616d706c651065",
+      "value": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [{"crate_name": "ww_si", "name": "Frame", "exp": -1}, {"crate_name": "ww_si", "name": "Sample", "exp": 1}, null, null]},
+      "bytes": "f00000000477775f73694672616d65f877775f736953616d706c65106555",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "counted bases by name, sorted: s⁻¹·Frame⁻¹·Sample (STD-60)"
     },
@@ -1032,10 +1032,27 @@
       "name": "stdlib.si.dim.rejected",
       "type": "dim",
       "value": null,
-      "bytes": "f00000000853616d706c65184672616d65f056",
+      "bytes": "f00000000477775f736953616d706c651877775f73694672616d65f05565",
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "counted bases out of order (Sample before Frame): Dim's validate refuses a non-canonical dimension (STD-60)"
+    },
+    {
+      "name": "stdlib.si.dim.root",
+      "type": "dim",
+      "value": {"s": -5, "m": 4, "kg": 2, "a": -2, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": true, "counted": [null, null, null, null]},
+      "bytes": "b42e00000800",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "V/√Hz: the square root of kg²·m⁴·s⁻⁵·A⁻², the root bit after the nine exponents (STD-60)"
+    },
+    {
+      "name": "stdlib.si.dim.root.rejected",
+      "type": "dim",
+      "value": null,
+      "bytes": "020000000800",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "√(m²) with the root bit isn't canonical (it is m): Dim's validate refuses a root of even exponents (STD-60)"
     },
     {
       "name": "stdlib.si.fixed.pow10",

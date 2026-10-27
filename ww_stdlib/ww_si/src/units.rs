@@ -281,9 +281,9 @@ pub struct Byte;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Word;
 
-// Counting: each marker is a base dimension of its own (a counted base, named after the marker), so samples don't
-// add to bytes, and become bytes only through a `Per<Byte, Sample>`. An API that counts something else declares its
-// own marker with `Dim::counted("Name")`, see [Unit].
+// Counting: each marker is a base dimension of its own (a counted base, named by its crate and marker name), so
+// samples don't add to bytes, and become bytes only through a `Per<Byte, Sample>`. An API that counts something else
+// declares its own marker with `ww_si::counted!(Name)`, see [Unit].
 
 /// A count of things, item: a queue's length, a number of filters, channels, presses, repeats, steps.
 #[cfg(feature = "counting")]
@@ -370,12 +370,13 @@ impl<A: Unit, B: Unit> Unit for Times<A, B> {
     );
 }
 
-/// The dimension of a line of [units]: exponents (`[kg 1, s -2]`), or a counted base named after the marker.
+/// The dimension of a line of [units]: exponents (`[kg 1, s -2]`), or a counted base of this crate named after the
+/// marker.
 // unused when no quantity group is enabled
 #[allow(unused_macros)]
 macro_rules! dim {
     ($ty:ident counted) => {
-        Dim::counted(stringify!($ty))
+        crate::counted!($ty)
     };
     ($ty:ident [$($d:ident $e:literal),*]) => {{
         #[allow(unused_mut)]

@@ -8,11 +8,12 @@ use shrink_wrap::prelude::*;
 /// Most counted bases a [Dim] has at once (`Sample·Frame⁻¹` has two).
 pub const MAX_COUNTED: usize = 4;
 
-/// A counted base of a [Dim] and its exponent: what is counted (`"Sample"`, `"Block"`, an API's own marker name) and
-/// how often it is in the dimension (`Sample/s` has `Sample` to the 1st power).
+/// A counted base of a [Dim] and its exponent: what is counted, named by the crate and the marker that define it
+/// (`ww_si` `Sample`, an API crate's own `Bucket`), and how often it is in the dimension (`Sample/s` has `Sample` to
+/// the 1st power).
 ///
-/// A base is told apart by its name only, so two APIs' own `Block` markers are the same base at run time (in types
-/// they stay different markers).
+/// A base is told apart by crate and marker name together: two crates' `Sample` markers are different bases, and a
+/// marker stays the same base when it moves between modules of its crate. Shown by the marker name alone.
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -22,6 +23,9 @@ pub const MAX_COUNTED: usize = 4;
     final_structure
 )]
 pub struct Counted<'i> {
+    /// The crate that defines the marker, as Rust names it (`ww_si`, `my_api`): `CARGO_CRATE_NAME`.
+    pub crate_name: &'i str,
+    /// The marker's name: `Sample`.
     pub name: &'i str,
     pub exp: I4,
 }
@@ -29,15 +33,20 @@ pub struct Counted<'i> {
 /// The dimension of a unit: exponents of the 7 SI base units s, m, kg, A, K, mol, cd, of angle (rad) and of
 /// information (bit), each from -8 to 7, and of up to [MAX_COUNTED] counted bases (`Sample`, `Block`, `Item`, ..).
 /// Volt is kg·m²·s⁻³·A⁻¹: `Dim::new(-3, 2, 1, -1, 0, 0, 0)`; rad/s is `Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)`;
-/// samples per second is `Dim::counted("Sample").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.
+/// samples per second is `Dim::counted("ww_si", "Sample").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.
+///
+/// With `root` set, the dimension is the square root of the one the exponents describe: a noise density in V/√Hz
+/// is kg²·m⁴·s⁻⁵·A⁻² with `root` (`Volt` squared over hertz), shown as `kg·m²·s⁻⁵ᐟ²·A⁻¹`. Only half-integer
+/// powers are written this way, so `root` is set only when some exponent is odd ([sqrt](Self::sqrt) and
+/// [mul](Self::mul) keep it so).
 ///
 /// Values convert into each other and add only with the same dimension: bytes never become a ratio, an angle never
 /// a frequency, samples never bytes (that takes a `Per<Byte, Sample>`).
 ///
-/// On the wire nine 4-bit signed numbers in the order above, then for each of the [MAX_COUNTED] slots a bit for
-/// whether it is used, and a used one's name and exponent. Used slots come first, sorted by name, with exponents that
-/// aren't 0 (a value that isn't so doesn't decode), so two equal dimensions have the same bytes: Volt is
-/// `d2 1f 00 00 00` (40 bits).
+/// On the wire nine 4-bit signed numbers in the order above, the `root` bit, then for each of the [MAX_COUNTED]
+/// slots a bit for whether it is used, and a used one's crate name, name and exponent. Used slots come first, sorted
+/// by crate and name, with exponents that aren't 0, and `root` only with an odd exponent (a value that isn't so
+/// doesn't decode), so two equal dimensions have the same bytes: Volt is `d2 1f 00 00 00 00` (41 bits).
 #[derive_shrink_wrap(
     borrowed,
     owned(feature = "std"),
@@ -59,7 +68,9 @@ pub struct Dim<'i> {
     pub rad: I4,
     /// Information, bit.
     pub bit: I4,
-    /// Counted bases, see [Counted]: used slots first, sorted by name.
+    /// The square root of what the exponents describe, see above.
+    pub root: bool,
+    /// Counted bases, see [Counted]: used slots first, sorted by crate and name.
     pub counted: [Option<Counted<'i>>; 4],
 }
 
@@ -107,9 +118,16 @@ const fn cmp_names(a: &str, b: &str) -> core::cmp::Ordering {
     }
 }
 
-const fn same_name(a: &str, b: &str) -> bool {
-    matches!(cmp_names(a, b), core::cmp::Ordering::Equal)
+/// Order of two counted bases: by crate, then by marker name.
+const fn cmp_bases(a: (&str, &str), b: (&str, &str)) -> core::cmp::Ordering {
+    match cmp_names(a.0, b.0) {
+        core::cmp::Ordering::Equal => cmp_names(a.1, b.1),
+        o => o,
+    }
 }
+
+/// Most counted bases while two dimensions are combined, before zero exponents are dropped.
+const MERGED: usize = 2 * MAX_COUNTED;
 
 impl Dim<'static> {
     /// Dimensionless: a ratio.
@@ -131,6 +149,7 @@ impl<'i> Dim<'i> {
             cd: exp(cd),
             rad: exp(0),
             bit: exp(0),
+            root: false,
             counted: [None; MAX_COUNTED],
         }
     }
@@ -153,10 +172,15 @@ impl<'i> Dim<'i> {
             .with_bit(e[8])
     }
 
-    /// A count of `name` to the 1st power: the dimension of a counted unit marker (`Dim::counted("Sample")`).
-    pub const fn counted(name: &'i str) -> Dim<'i> {
+    /// A count of the marker `name` of `crate_name` to the 1st power: the dimension of a counted unit marker
+    /// (`Dim::counted("ww_si", "Sample")`). In an API crate, [counted!](crate::counted) fills in the crate.
+    pub const fn counted(crate_name: &'i str, name: &'i str) -> Dim<'i> {
         let mut d = Dim::new(0, 0, 0, 0, 0, 0, 0);
-        d.counted[0] = Some(Counted { name, exp: exp(1) });
+        d.counted[0] = Some(Counted {
+            crate_name,
+            name,
+            exp: exp(1),
+        });
         d
     }
 
@@ -194,7 +218,8 @@ impl<'i> Dim<'i> {
         ]
     }
 
-    /// The counted bases and their exponents, sorted by name.
+    /// The marker names of the counted bases and their exponents, in the order of the wire (by crate and name), as
+    /// they are shown; [counted](Self::counted) has their crates.
     pub fn counted_bases(&self) -> impl Iterator<Item = (&'i str, i8)> + '_ {
         self.counted
             .iter()
@@ -207,69 +232,129 @@ impl<'i> Dim<'i> {
     }
 
     /// `self^times · o^sign`, `None` when an exponent leaves -8..=7 or more than [MAX_COUNTED] counted bases are left.
+    /// A side without `root` is squared first when the other has it; the result is made canonical (halved, without
+    /// `root`, when every exponent is even).
     const fn combine(self, o: Dim<'i>, sign: i16, times: i16) -> Option<Dim<'i>> {
+        // with only one side a root, the other is squared so both describe the square of what they are
+        let (fa, fb) = match (self.root, o.root) {
+            (false, true) => (2, 1),
+            (true, false) => (1, 2),
+            _ => (1, 1),
+        };
         let a = self.exps();
         let b = o.exps();
-        let mut fixed = [0i8; FIXED];
+        let mut fixed = [0i16; FIXED];
         let mut i = 0;
         while i < FIXED {
-            match checked_exp(a[i] as i16 * times + sign * b[i] as i16) {
-                Some(e) => fixed[i] = e.value(),
+            fixed[i] = a[i] as i16 * fa * times + sign * b[i] as i16 * fb;
+            i += 1;
+        }
+        // both lists are sorted: merge them, adding the exponents of a base in both
+        let mut merged: [Option<(&'i str, &'i str, i16)>; MERGED] = [None; MERGED];
+        let (mut i, mut j, mut n) = (0, 0, 0);
+        loop {
+            let (c, e) = match (self.slot(i), o.slot(j)) {
+                (None, None) => break,
+                (Some((ca, ea)), None) => {
+                    i += 1;
+                    (ca, ea as i16 * fa * times)
+                }
+                (None, Some((cb, eb))) => {
+                    j += 1;
+                    (cb, sign * eb as i16 * fb)
+                }
+                (Some((ca, ea)), Some((cb, eb))) => {
+                    match cmp_bases((ca.crate_name, ca.name), (cb.crate_name, cb.name)) {
+                        core::cmp::Ordering::Less => {
+                            i += 1;
+                            (ca, ea as i16 * fa * times)
+                        }
+                        core::cmp::Ordering::Greater => {
+                            j += 1;
+                            (cb, sign * eb as i16 * fb)
+                        }
+                        core::cmp::Ordering::Equal => {
+                            i += 1;
+                            j += 1;
+                            (ca, ea as i16 * fa * times + sign * eb as i16 * fb)
+                        }
+                    }
+                }
+            };
+            if e != 0 {
+                merged[n] = Some((c.crate_name, c.name, e));
+                n += 1;
+            }
+        }
+        let mut root = self.root || o.root;
+        if root {
+            // a square root of exponents that are all even is a plain dimension
+            let mut all_even = true;
+            let mut i = 0;
+            while i < FIXED {
+                all_even &= fixed[i] % 2 == 0;
+                i += 1;
+            }
+            let mut i = 0;
+            while i < n {
+                if let Some((_, _, e)) = merged[i] {
+                    all_even &= e % 2 == 0;
+                }
+                i += 1;
+            }
+            if all_even {
+                root = false;
+                let mut i = 0;
+                while i < FIXED {
+                    fixed[i] /= 2;
+                    i += 1;
+                }
+                let mut i = 0;
+                while i < n {
+                    if let Some((c, name, e)) = merged[i] {
+                        merged[i] = Some((c, name, e / 2));
+                    }
+                    i += 1;
+                }
+            }
+        }
+        if n > MAX_COUNTED {
+            return None;
+        }
+        let mut exps = [0i8; FIXED];
+        let mut i = 0;
+        while i < FIXED {
+            match checked_exp(fixed[i]) {
+                Some(e) => exps[i] = e.value(),
                 None => return None,
             }
             i += 1;
         }
-        let mut out = Dim::from_fixed(fixed);
-        // both lists are sorted: merge them, adding the exponents of a base in both
-        let (mut i, mut j, mut n) = (0, 0, 0);
-        loop {
-            let (name, e) = match (self.slot(i), o.slot(j)) {
-                (None, None) => break,
-                (Some((na, ea)), None) => {
-                    i += 1;
-                    (na, ea as i16 * times)
-                }
-                (None, Some((nb, eb))) => {
-                    j += 1;
-                    (nb, sign * eb as i16)
-                }
-                (Some((na, ea)), Some((nb, eb))) => match cmp_names(na, nb) {
-                    core::cmp::Ordering::Less => {
-                        i += 1;
-                        (na, ea as i16 * times)
-                    }
-                    core::cmp::Ordering::Greater => {
-                        j += 1;
-                        (nb, sign * eb as i16)
-                    }
-                    core::cmp::Ordering::Equal => {
-                        i += 1;
-                        j += 1;
-                        (na, ea as i16 * times + sign * eb as i16)
-                    }
-                },
-            };
-            if e == 0 {
-                continue;
+        let mut out = Dim::from_fixed(exps);
+        out.root = root;
+        let mut i = 0;
+        while i < n {
+            if let Some((crate_name, name, e)) = merged[i] {
+                let Some(exp) = checked_exp(e) else {
+                    return None;
+                };
+                out.counted[i] = Some(Counted {
+                    crate_name,
+                    name,
+                    exp,
+                });
             }
-            let Some(exp) = checked_exp(e) else {
-                return None;
-            };
-            if n == MAX_COUNTED {
-                return None;
-            }
-            out.counted[n] = Some(Counted { name, exp });
-            n += 1;
+            i += 1;
         }
         Some(out)
     }
 
-    const fn slot(&self, i: usize) -> Option<(&'i str, i8)> {
+    const fn slot(&self, i: usize) -> Option<(Counted<'i>, i8)> {
         if i >= MAX_COUNTED {
             return None;
         }
         match self.counted[i] {
-            Some(c) => Some((c.name, c.exp.value())),
+            Some(c) => Some((c, c.exp.value())),
             None => None,
         }
     }
@@ -288,6 +373,27 @@ impl<'i> Dim<'i> {
     /// The dimension of a power: exponents multiplied by `n`. `None` when one leaves -8..=7.
     pub const fn checked_pow(self, n: i8) -> Option<Dim<'i>> {
         self.combine(Dim::new(0, 0, 0, 0, 0, 0, 0), 0, n as i16)
+    }
+
+    /// The dimension of a square root: halved exponents when they are all even, else the same exponents with
+    /// `root`. `None` for the root of a root (a fourth root isn't a `Dim`).
+    pub const fn checked_sqrt(self) -> Option<Dim<'i>> {
+        if self.root {
+            return None;
+        }
+        let mut squared_root = self;
+        squared_root.root = true;
+        // canonical form through combine: halves when every exponent is even
+        squared_root.combine(Dim::new(0, 0, 0, 0, 0, 0, 0), 0, 1)
+    }
+
+    /// The dimension of a square root, for unit markers: V/√Hz is `Volt.div(Hertz.sqrt())`. Panics (a compile
+    /// error in `const` code) where [checked_sqrt](Self::checked_sqrt) is `None`.
+    pub const fn sqrt(self) -> Dim<'i> {
+        match self.checked_sqrt() {
+            Some(d) => d,
+            None => panic!("square root of a dimension that is already a root"),
+        }
     }
 
     /// The dimension of a product, for unit markers: panics (a compile error in `const` code) when an exponent leaves
@@ -311,6 +417,9 @@ impl<'i> Dim<'i> {
     pub const fn same(self, o: Dim<'_>) -> bool {
         let a = self.exps();
         let b = o.exps();
+        if self.root != o.root {
+            return false;
+        }
         let mut i = 0;
         while i < FIXED {
             if a[i] != b[i] {
@@ -323,7 +432,11 @@ impl<'i> Dim<'i> {
             match (self.counted[i], o.counted[i]) {
                 (None, None) => {}
                 (Some(x), Some(y)) => {
-                    if !same_name(x.name, y.name) || x.exp.value() != y.exp.value() {
+                    let same = matches!(
+                        cmp_bases((x.crate_name, x.name), (y.crate_name, y.name)),
+                        core::cmp::Ordering::Equal
+                    );
+                    if !same || x.exp.value() != y.exp.value() {
                         return false;
                     }
                 }
@@ -334,9 +447,28 @@ impl<'i> Dim<'i> {
         true
     }
 
-    /// Whether the counted bases are as they must be on the wire: used slots first, sorted by name without
-    /// duplicates, exponents not 0.
+    /// Whether the dimension is as it must be on the wire: counted bases in used slots first, sorted by crate and
+    /// name without duplicates, exponents not 0; `root` only with an odd exponent.
     pub const fn is_canonical(&self) -> bool {
+        if self.root {
+            let mut odd = false;
+            let e = self.exps();
+            let mut i = 0;
+            while i < FIXED {
+                odd |= e[i] % 2 != 0;
+                i += 1;
+            }
+            let mut i = 0;
+            while i < MAX_COUNTED {
+                if let Some(c) = self.counted[i] {
+                    odd |= c.exp.value() % 2 != 0;
+                }
+                i += 1;
+            }
+            if !odd {
+                return false;
+            }
+        }
         let mut i = 0;
         let mut ended = false;
         while i < MAX_COUNTED {
@@ -348,7 +480,9 @@ impl<'i> Dim<'i> {
                     }
                     if i > 0 {
                         if let Some(prev) = self.counted[i - 1] {
-                            if !matches!(cmp_names(prev.name, c.name), core::cmp::Ordering::Less) {
+                            let order =
+                                cmp_bases((prev.crate_name, prev.name), (c.crate_name, c.name));
+                            if !matches!(order, core::cmp::Ordering::Less) {
                                 return false;
                             }
                         }
@@ -369,8 +503,8 @@ impl<'i> Dim<'i> {
     }
 }
 
-/// Written the SI way, base units in the order kg, m, s, A, K, mol, cd, then rad, bit and the counted bases by name:
-/// `kg·m²·s⁻³·A⁻¹`, `rad·s⁻¹`, `Sample·s⁻¹`, `1` when dimensionless.
+/// Written the SI way, base units in the order kg, m, s, A, K, mol, cd, then rad, bit and the counted bases:
+/// `kg·m²·s⁻³·A⁻¹`, `rad·s⁻¹`, `Sample·s⁻¹`, `1` when dimensionless; a root with halves: `kg·m²·s⁻⁵ᐟ²·A⁻¹`.
 impl fmt::Display for Dim<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let parts = [
@@ -394,8 +528,14 @@ impl fmt::Display for Dim<'_> {
             }
             first = false;
             f.write_str(symbol)?;
-            if exp != 1 {
+            if self.root && exp % 2 != 0 {
                 write_superscript(f, exp)?;
+                f.write_str("ᐟ²")?;
+            } else {
+                let exp = if self.root { exp / 2 } else { exp };
+                if exp != 1 {
+                    write_superscript(f, exp)?;
+                }
             }
         }
         if first {
@@ -416,6 +556,7 @@ impl DimOwned {
         let mut counted = [None; MAX_COUNTED];
         for (slot, c) in counted.iter_mut().zip(&self.counted) {
             *slot = c.as_ref().map(|c| Counted {
+                crate_name: c.crate_name.as_str(),
                 name: c.name.as_str(),
                 exp: c.exp,
             });
@@ -430,6 +571,7 @@ impl DimOwned {
             cd: self.cd,
             rad: self.rad,
             bit: self.bit,
+            root: self.root,
             counted,
         }
     }
@@ -448,8 +590,10 @@ impl From<Dim<'_>> for DimOwned {
             cd: d.cd,
             rad: d.rad,
             bit: d.bit,
+            root: d.root,
             counted: d.counted.map(|c| {
                 c.map(|c| CountedOwned {
+                    crate_name: c.crate_name.into(),
                     name: c.name.into(),
                     exp: c.exp,
                 })

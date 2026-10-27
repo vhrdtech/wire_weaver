@@ -54,6 +54,21 @@ mod timestamp;
 #[cfg(feature = "host")]
 pub use timestamp::{UnwrapError, Unwrapper};
 mod unit;
+
+/// The [Dim] of a counted unit marker `Name` of the crate this is written in: `Dim::counted(<this crate>, "Name")`,
+/// with the crate as Rust names it (`CARGO_CRATE_NAME`). Two crates' markers of the same name are different bases.
+///
+/// ```
+/// let bucket = ww_si::counted!(Bucket);
+/// assert_eq!(bucket, ww_si::Dim::counted(env!("CARGO_CRATE_NAME"), "Bucket"));
+/// assert_eq!(bucket.to_string(), "Bucket");
+/// ```
+#[macro_export]
+macro_rules! counted {
+    ($name:ident) => {
+        $crate::Dim::counted(env!("CARGO_CRATE_NAME"), stringify!($name))
+    };
+}
 pub use unit::{Counted, Dim, MAX_COUNTED, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
 #[cfg(feature = "std")]
 pub use unit::{CountedOwned, DimOwned};

@@ -23,8 +23,8 @@
 
 ### ⚠️ Breaking
 
-* Against earlier builds from main (EVO-16): `Dim` on the wire is the 40-bit form with rad, bit and counted bases
-  (was seven exponents in 28 bits, `sized`), so `SIExpr`, `AnyQuantity` and `ww_adc::ChannelInfo::unit` change bytes;
+* Against earlier builds from main (EVO-16): `Dim` on the wire is the 41-bit form with rad, bit, a root flag and
+  counted bases (was seven exponents in 28 bits, `sized`), so `SIExpr`, `AnyQuantity` and `ww_adc::ChannelInfo::unit` change bytes;
   devices and hosts built from main before this are rebuilt together. `Dim` has a lifetime (`Dim<'i>`, a constant
   `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Scale` has a new variant `Exact` (an `ExactScale`), which
   `Degree` now uses (was a factor), so its `SIExpr` bytes change too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
@@ -82,8 +82,8 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   factor, affine for °C), `UnitExpr` (a named unit or a product / quotient / power tree, with `dim()`, `factor()`,
   `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`, `SI_EXPR`): an API crate can declare its own marker.
 * Units known only at run time (STD-37), the same model as the markers on the wire:
-  * `Dim` is nine `I4` exponents (-8..=7) and `counted: [Option<Counted>; 4]`, `final_structure` (Volt is
-    `d2 1f 00 00 00`, 40 bits): `Dim::new(s, m, kg, a, k, mol, cd)` (`const`, a compile error out of range),
+  * `Dim` is nine `I4` exponents (-8..=7), `root: bool` and `counted: [Option<Counted>; 4]`, `final_structure` (Volt
+    is `d2 1f 00 00 00 00`, 41 bits): `Dim::new(s, m, kg, a, k, mol, cd)` (`const`, a compile error out of range),
     `checked_new`, `exps()`, `checked_mul` / `checked_div` / `checked_pow` for run-time trees (`None` out of range
     or for a fifth counted base). `Scale` goes on the wire too (a nibble, then its numbers).
   * `SIExpr<'i>` { `Named { name, symbol, dim, scale }`, `Mul`, `Div`, `Pow` } with `RefBox` children, and
@@ -96,7 +96,7 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
     tree) and `known()` (the `ww_si` unit of a named one).
   * `AnyQuantity<'i> { prefix, value, unit: SIExpr }` and `AnyQuantityOwned`: `From<Quantity<U>>`,
     `to_quantity::<U>()`, `to_f64`, `to_si_f64`, `Display` like a typed quantity (`3300 mV`, `{:#}` `3.3 V`), `Debug`,
-    `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 18 bytes, the typed value's 3 and the unit's 15.
+    `defmt::Format`. `AnyQuantity::from(Volt::milli(3300u16))` is 19 bytes, the typed value's 3 and the unit's 16.
   * `UnitExpr::Pow(expr, n)`, shown as `m²`, `(m/s)²`, named `Pow<Meter, 2>`.
   * `ww_si::tree`: `Tree` and `Node` (a named node's dimension and scale can be `None`, for a unit known by name only)
     with `symbol`, `name`, `dim`, `factor`, `offset`, `same` and `quantity` (a quantity's `Display`): the one walk
@@ -109,11 +109,16 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
     SI's rad = 1, for exports and v = ωr.
   * bit is a base, feature `information`: `Bit` (coherent), `Byte` (8 bit), `Word` (32 bit).
   * counted bases, feature `counting`: `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`,
-    `Char`, `Code`, each a dimension of its own known by its name (`Counted<'i> { name, exp }`; two APIs' `Block` are
-    the same base). Up to four in one `Dim` (`MAX_COUNTED`), kept sorted by name; a `Dim` whose bases are out of
+    `Char`, `Code`, each a dimension of its own known by its crate and marker name (`Counted<'i> { crate_name, name,
+    exp }`: two crates' `Sample` are different bases, a marker moved between modules stays the same; shown by the
+    name). Up to four in one `Dim` (`MAX_COUNTED`), kept sorted by crate and name; a `Dim` whose bases are out of
     order, repeated or with a zero exponent is refused on decode. `Per<Byte, Sample>` times `Sample` is a `Byte`.
-  * `Dim::ONE`, `Dim::counted(name)`, `with_rad`, `with_bit`, `counted_bases()`, `is_one`, `same`, `mul` / `div`
-    (`const`, a compile error out of range), `is_canonical`; `DimOwned` / `CountedOwned` with `as_dim()`.
+    `ww_si::counted!(Name)` is the dimension of an API crate's own counted marker, with its crate filled in.
+  * square roots (`root: bool`): V/√Hz is kg²·m⁴·s⁻⁵·A⁻² with `root`, shown `kg·m²·s⁻⁵ᐟ²·A⁻¹`; `Dim::sqrt` /
+    `checked_sqrt` (`None` for a root of a root), `mul` / `div` / `checked_pow` square the plain side and halve a
+    result whose exponents are all even, so `root` is set only with an odd exponent (else refused on decode).
+  * `Dim::ONE`, `Dim::counted(crate_name, name)`, `with_rad`, `with_bit`, `counted_bases()`, `is_one`, `same`, `mul` /
+    `div` (`const`, a compile error out of range), `is_canonical`; `DimOwned` / `CountedOwned` with `as_dim()`.
 * `Fixed<U, P, T, B = Unbounded>` (STD-55): a number whose unit, scale and storage are fixed by the API, on the wire
   exactly the number (`transparent`, `#[repr(transparent)]`), so `shared_us: u64` becomes
   `shared: Fixed<Second, Micro, u64>` with the same bytes and introspection shows `µs`. No prefix and no

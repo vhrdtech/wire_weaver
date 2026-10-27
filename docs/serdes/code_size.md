@@ -366,7 +366,11 @@ their `_latch` methods, and a `transparent` struct forwards both to its field. O
 checks the value after the latched read and keeps a failure for `rd.latched()?` (`BufReader::keep_error`, an
 earlier error stays first), so `Fixed<.., Unbounded>`, whose check is `true`, is the plain field's code. Before it, such a
 field went through the wrapper's own `ser_shrink_wrap` with an error check per field: TEST-27's ELF comparison found
-+2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. The bytes and the
++2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. After it the same
+comparison (`just units-elf`, a struct of `Fixed<Second, Micro, u64>`, `Fixed<Hertz, One, u32>` and
+`Fixed<Ratio, One, u16>` against `u64`, `u32`, `u16`) is identical in instructions and bytes on all three at
+`opt-level = "z"` and on M0 at `3`; at `3` the M4F / M33 encode has the same 80 instructions and 224 bytes and
+differs only in register allocation. Cycles on silicon are not measured yet. The bytes and the
 errors are the same; `tests/transparent.rs` (`fields_are_latched_like_the_plain_field`, `validated_fields_are_latched`) checks both against the
 plain struct, `tests/latched_reads.rs` and the `shrink_wrap_latched` fuzz target hold the plain types' latched
 writes against their checked ones.

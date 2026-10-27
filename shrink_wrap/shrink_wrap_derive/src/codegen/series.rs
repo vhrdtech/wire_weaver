@@ -6,8 +6,9 @@
 
 use crate::ast::generics::Generics;
 use crate::ast::item_enum::{Fields, Variant};
-use crate::ast::item_struct::Field;
+use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::ty::Type;
+use crate::codegen::item_struct::transparent_init;
 use crate::codegen::util::{CratePath, maybe_quote};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -904,6 +905,174 @@ impl SeriesSeed<'_> {
     }
 
     /// `impl SeriesColumns` of a struct with named fields (or none), `evolvable` when it is `Unsized`.
+    /// `transparent` (DER-18): the field's `SeriesColumns`, `SeriesStore` and `SeriesCells`, so the struct has its
+    /// field's columns and tags wherever it is (a wrapped enum still restarts the fields after it). The store and
+    /// cells are the field's own.
+    pub(crate) fn series_transparent(
+        &self,
+        fields: &[Field],
+        kind: StructKind,
+        idx: usize,
+    ) -> Result<TokenStream, String> {
+        let field = &fields[idx];
+        check_ty(&field.ty, &self.ident.to_string(), &field.ident.to_string())?;
+        let ty = field.ty.def(self.is_ref, self.cp);
+        let member = kind.member(&field.ident);
+        let init = |value: TokenStream| transparent_init(fields, kind, idx, value);
+        let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
+        let ident = self.ident;
+        let lifetime = self.lifetime();
+        let params = self.impl_params();
+        let where_clause = self.generics.where_clause(&[]);
+        let trait_ = self.sc(quote! { SeriesColumns });
+        let series_policy = self.sc(quote! { SeriesPolicy });
+        let level = self.sc(quote! { Level });
+        let bit_sink = self.sc(quote! { BitSink });
+        let ctx_trait = self.sc(quote! { SeriesCtx });
+        let tag_run = self.sc(quote! { TagRun });
+        let error = self.cp.error();
+        let buf_reader = self.cp.item(quote! { BufReader });
+        let next_init = init(quote! { __field });
+        let columns = quote! {
+            #cfg
+            impl<'i, #params> #trait_<'i> for #ident #lifetime #where_clause {
+                type Reader = <#ty as #trait_<'i>>::Reader;
+                const MAX_ITEM_BITS: Option<usize> = <#ty as #trait_<'i>>::MAX_ITEM_BITS;
+                const MAX_FIXED_BITS: Option<usize> = <#ty as #trait_<'i>>::MAX_FIXED_BITS;
+                const TAGGED: bool = <#ty as #trait_<'i>>::TAGGED;
+
+                #[inline]
+                fn write_group<'a, __I, __S, __P>(
+                    items: __I,
+                    sink: &mut __S,
+                    policy: &__P,
+                    level: #level,
+                ) -> Result<(), #error>
+                where
+                    __I: Iterator<Item = (&'a Self, bool)> + Clone,
+                    __S: #bit_sink,
+                    __P: #series_policy + ?Sized,
+                    Self: 'a,
+                {
+                    <#ty as #trait_<'i>>::write_group(
+                        items.map(|(item, restart)| (&item.#member, restart)),
+                        sink,
+                        policy,
+                        level,
+                    )
+                }
+
+                #[inline]
+                fn skim<__C: #ctx_trait>(
+                    rd: &mut #buf_reader<'i>,
+                    ctx: __C,
+                    level: #level,
+                ) -> Result<Self::Reader, #error> {
+                    <#ty as #trait_<'i>>::skim(rd, ctx, level)
+                }
+
+                #[inline]
+                fn next(reader: &mut Self::Reader, restart: bool) -> Result<Self, #error> {
+                    let __field = <#ty as #trait_<'i>>::next(reader, restart)?;
+                    Ok(#next_init)
+                }
+
+                #[inline]
+                fn series_tag(&self) -> Option<u32> {
+                    <#ty as #trait_<'i>>::series_tag(&self.#member)
+                }
+
+                #[inline]
+                fn tag_run(reader: &Self::Reader) -> Option<#tag_run<'i>> {
+                    <#ty as #trait_<'i>>::tag_run(reader)
+                }
+            }
+        };
+        if !self.store || field.series_opaque {
+            return Ok(columns);
+        }
+        let def_lifetime = maybe_quote(self.has_lifetime, || quote! { 'i, });
+        let store_trait = self.sc(quote! { SeriesStore });
+        let store_params = self.generics.impl_params(Some(store_trait.clone()));
+        let get_init = init(quote! { <#ty as #store_trait>::get::<__N>(store, i) });
+        let store = quote! {
+            #cfg
+            impl<#def_lifetime #store_params> #store_trait for #ident #lifetime #where_clause {
+                type Store<const __N: usize> = <#ty as #store_trait>::Store<__N>;
+
+                #[inline]
+                fn empty_store<const __N: usize>() -> Self::Store<__N> {
+                    <#ty as #store_trait>::empty_store::<__N>()
+                }
+
+                #[inline]
+                fn init_store<const __N: usize>(
+                    slot: &mut ::core::mem::MaybeUninit<Self::Store<__N>>,
+                ) -> &mut Self::Store<__N> {
+                    <#ty as #store_trait>::init_store::<__N>(slot)
+                }
+
+                #[inline(always)]
+                fn set<const __N: usize>(store: &mut Self::Store<__N>, i: usize, item: &Self) {
+                    <#ty as #store_trait>::set::<__N>(store, i, &item.#member)
+                }
+
+                #[inline]
+                fn get<const __N: usize>(store: &Self::Store<__N>, i: usize) -> Self {
+                    #get_init
+                }
+
+                #[inline]
+                fn columnar<const __N: usize>(
+                    store: &Self::Store<__N>,
+                    rows: ::core::ops::Range<usize>,
+                ) -> bool {
+                    <#ty as #store_trait>::columnar::<__N>(store, rows)
+                }
+
+                #[inline]
+                fn write_store<__S: #bit_sink, __P: #series_policy + ?Sized, const __N: usize>(
+                    store: &Self::Store<__N>,
+                    rows: ::core::ops::Range<usize>,
+                    sink: &mut __S,
+                    policy: &__P,
+                    level: #level,
+                ) -> Result<(), #error> {
+                    <#ty as #store_trait>::write_store::<__S, __P, __N>(store, rows, sink, policy, level)
+                }
+            }
+        };
+        if !self.cells || !has_cells(&field.ty) {
+            return Ok(quote! { #columns #store });
+        }
+        let cells_trait = self.sc(quote! { SeriesCells });
+        let cells_params = self.generics.impl_params(Some(cells_trait.clone()));
+        let cells = quote! {
+            #cfg
+            // SAFETY: the cells are the field's cells
+            unsafe impl<#def_lifetime #cells_params> #cells_trait for #ident #lifetime #where_clause {
+                type Cells<const __R: usize> = <#ty as #cells_trait>::Cells<__R>;
+
+                #[inline(always)]
+                fn put<const __R: usize>(cells: &Self::Cells<__R>, i: usize, item: &Self) {
+                    <#ty as #cells_trait>::put::<__R>(cells, i, &item.#member)
+                }
+
+                #[inline]
+                fn copy_rows<const __R: usize, const __N: usize>(
+                    cells: &Self::Cells<__R>,
+                    from: usize,
+                    store: &mut Self::Store<__N>,
+                    to: usize,
+                    n: usize,
+                ) {
+                    <#ty as #cells_trait>::copy_rows::<__R, __N>(cells, from, store, to, n)
+                }
+            }
+        };
+        Ok(quote! { #columns #store #cells })
+    }
+
     pub(crate) fn series_struct(
         &self,
         fields: &[Field],

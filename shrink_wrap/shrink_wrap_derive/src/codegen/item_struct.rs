@@ -21,6 +21,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) kind: StructKind,
     /// `sparse` (DER-13): the slot of each field
     pub(crate) sparse_slots: Option<&'i [u32]>,
+    /// `transparent` (DER-18): the index of the one field that isn't zero bits, which the struct is on the wire
+    pub(crate) transparent: Option<usize>,
     /// `validate = path`: called on the value just read
     pub(crate) validate: Option<&'i Path>,
     pub(crate) cfg: Option<&'i TokenStream>,
@@ -122,6 +124,9 @@ impl<'i> CGItemStruct<'i> {
         if let Some(slots) = self.sparse_slots {
             return self.sparse_serdes_rust(slots, is_ref);
         }
+        if let Some(idx) = self.transparent {
+            return self.transparent_serdes_rust(idx, is_ref);
+        }
         let struct_name = &self.ident;
         let struct_ser = CGStructSer {
             item_struct: self,
@@ -212,6 +217,54 @@ impl<'i> CGItemStruct<'i> {
             is_ref && !self.ambiguous,
             cp,
         )
+    }
+
+    /// `transparent` (DER-18): the field's own serdes, `ELEMENT_SIZE`, `PUSHES_LEN` and `MAX_SIZE`, so the struct is
+    /// the field on the wire in every position (a parent writes the size slot of an `Unsized` field once, for the
+    /// field's type). The zero-bit fields are their `Default` when read.
+    fn transparent_serdes_rust(&self, idx: usize, is_ref: bool) -> TokenStream {
+        let cp = self.crate_path;
+        let field = &self.fields[idx];
+        let ty = field.ty.def(is_ref, cp);
+        let member = self.kind.member(&field.ident);
+        let (ser_trait, des_trait) = cp.serdes_traits(is_ref);
+        let (ser, des) = if is_ref {
+            (
+                quote! { <#ty as #ser_trait>::ser_shrink_wrap(&self.#member, wr) },
+                quote! { <#ty as #des_trait<'i>>::des_shrink_wrap(rd)? },
+            )
+        } else {
+            (
+                quote! { <#ty as #ser_trait>::ser_shrink_wrap_owned(&self.#member, wr) },
+                quote! { <#ty as #des_trait>::des_shrink_wrap_owned(rd)? },
+            )
+        };
+        let init = self.transparent_init(idx, quote! { __field });
+        let validate = self.validate.map(|path| quote! { #path(&__value)?; });
+        let des = quote! {
+            let __field = #des;
+            let __value = #init;
+            #validate
+            Ok(__value)
+        };
+        serdes_scaffold(
+            self.ident,
+            self.generics,
+            ser,
+            des,
+            self.cfg,
+            quote! { <#ty as #ser_trait>::ELEMENT_SIZE },
+            Some(quote! { <#ty as #ser_trait>::PUSHES_LEN }),
+            quote! { <#ty as #ser_trait>::MAX_SIZE },
+            is_ref,
+            is_ref && !self.ambiguous,
+            cp,
+        )
+    }
+
+    /// `Self { <field>: #value, <zero-bit fields>: Default::default() }` of a `transparent` struct.
+    fn transparent_init(&self, idx: usize, value: TokenStream) -> TokenStream {
+        transparent_init(self.fields, self.kind, idx, value)
     }
 
     /// DER-12: `core::fmt::Display` (from `message`, the struct's `display` message) and `core::error::Error`.
@@ -441,4 +494,26 @@ fn evolved_flag_idents(value: &Ident) -> (Ident, Ident) {
         quote::format_ident!("__absent_{}", value),
         quote::format_ident!("__at_end_{}", value),
     )
+}
+
+/// `Self { <field>: #value, <zero-bit fields>: Default::default() }` of a `transparent` struct (DER-18): flags are
+/// part of their `Option` / `Result`, `PhantomData` and `()` are their default.
+pub(crate) fn transparent_init(
+    fields: &[Field],
+    kind: StructKind,
+    idx: usize,
+    value: TokenStream,
+) -> TokenStream {
+    let inits = fields.iter().enumerate().filter_map(|(i, f)| {
+        if matches!(f.ty, Type::IsOk(_) | Type::IsSome(_)) {
+            return None;
+        }
+        let member = kind.member(&f.ident);
+        Some(if i == idx {
+            quote! { #member: #value }
+        } else {
+            quote! { #member: ::core::default::Default::default() }
+        })
+    });
+    quote! { Self { #(#inits),* } }
 }

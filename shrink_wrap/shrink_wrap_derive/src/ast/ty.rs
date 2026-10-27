@@ -153,6 +153,19 @@ impl Type {
         }
     }
 
+    /// `PhantomData<..>` (recognized by name) or `()`: zero bits on the wire, never anything else (DER-15). The other
+    /// fields of a `transparent` struct (DER-18).
+    pub(crate) fn is_zero_bits(&self) -> bool {
+        match self {
+            Type::Tuple(types) => types.is_empty(),
+            Type::External(path, _) => path
+                .segments
+                .last()
+                .is_some_and(|ident| ident == "PhantomData"),
+            _ => false,
+        }
+    }
+
     /// Whether this type is or contains `UVlq32Backfill`, recognized by name only.
     pub(crate) fn contains_backfill(&self) -> bool {
         self.contains_external(&["UVlq32Backfill"])

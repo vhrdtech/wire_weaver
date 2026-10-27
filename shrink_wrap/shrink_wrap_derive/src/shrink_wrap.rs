@@ -97,6 +97,9 @@ fn generate_inner(
     if args.sparse {
         check_sparse_args(&item, &args)?;
     }
+    if args.transparent {
+        check_transparent_args(&item, &args)?;
+    }
     check_fieldless_struct_args(&item, &args)?;
     check_series_args(&item, &args)?;
     check_type_params_args(&item, &args)?;
@@ -326,6 +329,11 @@ fn generate_inner(
                 return Err("structs must not have a ww_repr".into());
             }
             let mut ww_item_struct = ItemStruct::from_syn(item_struct, args.sparse)?;
+            let transparent = if args.transparent {
+                Some(transparent_field(&ww_item_struct, &type_name)?)
+            } else {
+                None
+            };
             let has_tail_size = ww_item_struct
                 .fields
                 .iter()
@@ -367,32 +375,38 @@ fn generate_inner(
             }
 
             if let Some(borrowed) = generate_borrowed {
-                let cg_item_struct = borrowed.cg_struct(&ww_item_struct, args.validate.as_ref());
+                let cg_item_struct =
+                    borrowed.cg_struct(&ww_item_struct, args.validate.as_ref(), transparent);
                 ts.append_all(cg_item_struct.def_rust(true));
                 ts.append_all(cg_item_struct.serdes_rust(true));
                 if let Some(message) = &display_message {
                     ts.append_all(cg_item_struct.display_and_error_rust(true, message));
                 }
                 if args.series {
-                    ts.append_all(
-                        borrowed
-                            .series_seed(
-                                true,
-                                &ww_item_struct.generics,
-                                args.series_store,
-                                args.series_cells,
-                            )
-                            .series_struct(
-                                &ww_item_struct.fields,
-                                series_evolvable(&args.size_assumption),
-                            )?,
+                    let seed = borrowed.series_seed(
+                        true,
+                        &ww_item_struct.generics,
+                        args.series_store,
+                        args.series_cells,
                     );
+                    ts.append_all(match transparent {
+                        Some(idx) => seed.series_transparent(
+                            &ww_item_struct.fields,
+                            ww_item_struct.kind,
+                            idx,
+                        )?,
+                        None => seed.series_struct(
+                            &ww_item_struct.fields,
+                            series_evolvable(&args.size_assumption),
+                        )?,
+                    });
                 }
             }
 
             if let Some(owned) = generate_owned {
                 ww_item_struct.make_owned();
-                let cg_item_struct = owned.cg_struct(&ww_item_struct, args.validate.as_ref());
+                let cg_item_struct =
+                    owned.cg_struct(&ww_item_struct, args.validate.as_ref(), transparent);
                 // skip when type consists of only plain types, as it is the same one as borrowed then
                 if !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
                     ts.append_all(cg_item_struct.def_rust(false));
@@ -404,19 +418,23 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.display_and_error_rust(false, message));
                 }
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
-                    ts.append_all(
-                        owned
-                            .series_seed(
-                                false,
-                                &ww_item_struct.generics,
-                                args.series_store,
-                                args.series_cells,
-                            )
-                            .series_struct(
-                                &ww_item_struct.fields,
-                                series_evolvable(&args.size_assumption),
-                            )?,
+                    let seed = owned.series_seed(
+                        false,
+                        &ww_item_struct.generics,
+                        args.series_store,
+                        args.series_cells,
                     );
+                    ts.append_all(match transparent {
+                        Some(idx) => seed.series_transparent(
+                            &ww_item_struct.fields,
+                            ww_item_struct.kind,
+                            idx,
+                        )?,
+                        None => seed.series_struct(
+                            &ww_item_struct.fields,
+                            series_evolvable(&args.size_assumption),
+                        )?,
+                    });
                 }
             }
         }
@@ -521,7 +539,7 @@ fn head_tail_inner(
                 return Err("structs must not have a ww_repr".into());
             }
             let ww_item_struct = ItemStruct::from_syn(item_struct, false)?;
-            let cg = seed.cg_struct(&ww_item_struct, args.validate.as_ref());
+            let cg = seed.cg_struct(&ww_item_struct, args.validate.as_ref(), None);
             ts.append_all(cg.def_rust(true));
             ts.append_all(head_tail::ht_struct(
                 &names,
@@ -593,6 +611,7 @@ fn check_series_args(item: &Item, args: &Args) -> Result<(), String> {
     }
     if let Item::Struct(s) = item
         && let syn::Fields::Unnamed(_) = s.fields
+        && !args.transparent
     {
         return Err(format!(
             "series: `{name}` is a tuple struct, not in Series v1: name its fields"
@@ -651,6 +670,81 @@ fn check_sparse_args(item: &Item, args: &Args) -> Result<(), String> {
         return Err("sparse: a type is sparse, fixed_layout or head_tail, only one of them".into());
     }
     Ok(())
+}
+
+/// `transparent` (DER-18) is exactly its one field on the wire: its size class, no size assumption or encoding of
+/// its own.
+fn check_transparent_args(item: &Item, args: &Args) -> Result<(), String> {
+    let Item::Struct(item_struct) = item else {
+        return Err("transparent: only a struct can be transparent, wrapping its one field".into());
+    };
+    let name = &item_struct.ident;
+    if args.size_assumption.is_some() {
+        return Err(format!(
+            "transparent: `{name}` is its field on the wire, its size class is the field's: remove sized, \
+             final_structure or self_describing"
+        ));
+    }
+    if args.sparse || args.fixed_layout || args.head_tail {
+        return Err(format!(
+            "transparent: `{name}` is its field on the wire, it can't be sparse, fixed_layout or head_tail too"
+        ));
+    }
+    Ok(())
+}
+
+/// Index in `item.fields` of the one field of a `transparent` struct (DER-18) that isn't zero bits: every other one
+/// is a `PhantomData<..>` or `()`, and the flag of an `Option` / `Result` field is part of it.
+fn transparent_field(item: &ItemStruct, type_name: &str) -> Result<usize, String> {
+    let real: Vec<usize> = item
+        .fields
+        .iter()
+        .enumerate()
+        .filter(|(_, f)| !matches!(f.ty, Type::IsSome(_) | Type::IsOk(_)) && !f.ty.is_zero_bits())
+        .map(|(i, _)| i)
+        .collect();
+    let idx = match real.as_slice() {
+        [idx] => *idx,
+        [] => {
+            return Err(format!(
+                "transparent: `{type_name}` has no field that isn't zero bits (PhantomData, ()): a transparent struct \
+                 is its one such field on the wire"
+            ));
+        }
+        many => {
+            let names: Vec<String> = many
+                .iter()
+                .map(|i| format!("`{}`", item.fields[*i].ident))
+                .collect();
+            return Err(format!(
+                "transparent: `{type_name}` has {} fields that aren't zero bits ({}), a transparent struct wraps \
+                 exactly one (the others can only be PhantomData or ())",
+                many.len(),
+                names.join(", ")
+            ));
+        }
+    };
+    let field = &item.fields[idx];
+    let field_name = &field.ident;
+    if field.default.is_some() {
+        return Err(format!(
+            "transparent: field `{field_name}` of `{type_name}` has #[default = ..], but a transparent struct is its \
+             field and nothing more: it can't gain fields, remove it"
+        ));
+    }
+    if field.series_opaque {
+        return Err(format!(
+            "transparent: field `{field_name}` of `{type_name}` is #[series(opaque)]: a transparent struct has its \
+             field's series columns, mark the field's type instead"
+        ));
+    }
+    if matches!(field.ty, Type::TailSize(_)) {
+        return Err(format!(
+            "transparent: field `{field_name}` of `{type_name}` is a TailSize slot, which is the size of a value it \
+             is in, not a value of its own"
+        ));
+    }
+    Ok(idx)
 }
 
 /// The last field is an `Option` or `Result`: a struct with `fixed_layout` is then `self_describing` by default.
@@ -830,8 +924,10 @@ impl<'a> CGSeed<'a> {
         &'i self,
         ww_item_struct: &'i ItemStruct,
         validate: Option<&'i Path>,
+        transparent: Option<usize>,
     ) -> CGItemStruct<'i> {
         CGItemStruct {
+            transparent,
             docs: &ww_item_struct.docs,
             ident: &self.ident,
             fields: &ww_item_struct.fields,
@@ -1326,5 +1422,90 @@ mod wire_tests {
         )
         .to_string();
         assert!(s.contains("DER-21"), "{s}");
+    }
+}
+
+#[cfg(test)]
+mod transparent_tests {
+    use super::shrink_wrap_attr;
+    use proc_macro2::TokenStream;
+    use quote::quote;
+
+    fn error_of(args: TokenStream, item: TokenStream) -> String {
+        let s = shrink_wrap_attr(args, item).to_string();
+        assert!(s.contains("compile_error"), "{s}");
+        s
+    }
+
+    #[test]
+    fn zero_or_two_real_fields_name_the_type() {
+        let s = error_of(
+            quote! { borrowed, owned, transparent },
+            quote! { struct Marker<U> { _u: PhantomData<U>, _x: () } },
+        );
+        assert!(
+            s.contains("`Marker` has no field that isn't zero bits"),
+            "{s}"
+        );
+        let s = error_of(
+            quote! { borrowed, owned, transparent },
+            quote! { struct Two<U> { a: u8, _u: PhantomData<U>, b: u16 } },
+        );
+        assert!(
+            s.contains("`Two` has 2 fields that aren't zero bits (`a`, `b`)"),
+            "{s}"
+        );
+    }
+
+    #[test]
+    fn other_encodings_and_size_classes_are_errors() {
+        for args in [
+            quote! { borrowed, owned, transparent, sized },
+            quote! { borrowed, owned, transparent, final_structure },
+            quote! { borrowed, owned, transparent, self_describing },
+        ] {
+            let s = error_of(args, quote! { struct W { v: u8 } });
+            assert!(s.contains("its size class is the field's"), "{s}");
+        }
+        for args in [
+            quote! { borrowed, owned, transparent, fixed_layout },
+            quote! { borrowed, owned, transparent, sparse },
+            quote! { transparent, head_tail },
+        ] {
+            let s = error_of(args, quote! { struct W { v: Option<u8> } });
+            assert!(
+                s.contains("can't be sparse, fixed_layout or head_tail"),
+                "{s}"
+            );
+        }
+        let s = error_of(
+            quote! { borrowed, owned, transparent, ww_repr = u4 },
+            quote! { enum E { A(u8) } },
+        );
+        assert!(s.contains("only a struct can be transparent"), "{s}");
+    }
+
+    #[test]
+    fn default_opaque_and_tail_size_fields_are_errors() {
+        let s = error_of(
+            quote! { borrowed, owned, transparent },
+            quote! { struct W { #[default = 0] v: u8 } },
+        );
+        assert!(s.contains("field `v` of `W` has #[default = ..]"), "{s}");
+        let s = error_of(
+            quote! { borrowed, owned, transparent, series },
+            quote! { struct W { #[series(opaque)] v: u8 } },
+        );
+        assert!(s.contains("field `v` of `W` is #[series(opaque)]"), "{s}");
+    }
+
+    #[test]
+    fn tuple_struct_with_series_is_fine() {
+        let s = shrink_wrap_attr(
+            quote! { borrowed, owned, transparent, series(cells) },
+            quote! { struct W<U>(u32, PhantomData<U>); },
+        )
+        .to_string();
+        assert!(!s.contains("compile_error"), "{s}");
     }
 }

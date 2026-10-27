@@ -22,6 +22,7 @@ pub struct Second;
     series(cells),
     derive(Clone, Copy, Debug, PartialEq, Default)
 )]
+#[repr(transparent)]
 struct In<P, U, T> {
     value: T,
     _prefix: PhantomData<P>,
@@ -36,6 +37,15 @@ fn us<T>(value: T) -> Us<T> {
         _prefix: PhantomData,
         _unit: PhantomData,
     }
+}
+
+#[test]
+fn repr_is_kept() {
+    assert_eq!(core::mem::size_of::<Us<u16>>(), 2);
+    assert_eq!(
+        core::mem::align_of::<Us<u64>>(),
+        core::mem::align_of::<u64>()
+    );
 }
 
 #[test]

@@ -19,6 +19,9 @@ pub(crate) struct ItemStruct {
     pub(crate) kind: StructKind,
     /// `struct Timed<T> { .. }`, `struct Buf<const N: usize>` (DER-14): parameters and where clause as written.
     pub(crate) generics: Generics,
+    /// `#[repr(..)]` on the struct (`#[repr(transparent)]` with the `transparent` directive), kept on the generated
+    /// types as written.
+    pub(crate) repr: Vec<syn::Attribute>,
 }
 
 /// How a struct's fields are written in Rust (SW-59). The wire format is the same: fields in order. A tuple struct's

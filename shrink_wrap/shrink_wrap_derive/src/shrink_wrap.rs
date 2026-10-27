@@ -942,6 +942,7 @@ impl<'a> CGSeed<'a> {
             crate_path: self.crate_path,
             generics: &ww_item_struct.generics,
             base: self.base,
+            repr: &ww_item_struct.repr,
         }
     }
 }
@@ -1497,6 +1498,16 @@ mod transparent_tests {
             quote! { struct W { #[series(opaque)] v: u8 } },
         );
         assert!(s.contains("field `v` of `W` is #[series(opaque)]"), "{s}");
+    }
+
+    #[test]
+    fn repr_is_kept_on_both_types() {
+        let s = shrink_wrap_attr(
+            quote! { borrowed, owned, transparent },
+            quote! { #[repr(transparent)] struct W<'i> { v: &'i str } },
+        )
+        .to_string();
+        assert_eq!(s.matches("# [repr (transparent)]").count(), 2, "{s}");
     }
 
     #[test]

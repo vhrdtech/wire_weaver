@@ -235,6 +235,17 @@ pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     docs
 }
 
+/// `#[repr(..)]` attributes, removed from `attrs`: kept on the generated types as written.
+pub(crate) fn take_repr_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<syn::Attribute> {
+    let repr = attrs
+        .iter()
+        .filter(|a| a.path().is_ident("repr"))
+        .cloned()
+        .collect();
+    attrs.retain(|a| !a.path().is_ident("repr"));
+    repr
+}
+
 pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>) {
     for a in attrs {
         // ignore #[shrink_warp(...)] in after #[derive(ShrinkWrap)]

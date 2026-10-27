@@ -2,13 +2,12 @@
 
 use crate::tree::write_unit;
 use crate::unit::{Unit, UnitExpr};
-use crate::{ExactScale, Prefix, Quantity};
+use crate::{ExactScale, Prefix};
 use core::cmp::Ordering;
 use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use shrink_wrap::prelude::*;
-use ww_numeric::NumericValue;
 
 pub use bounds::{Bounds, OutOfBounds, Range, RangeDec, RangeU64, Unbounded};
 pub use prefix::{DecimalPrefix, FixedScale};
@@ -16,6 +15,7 @@ pub use storage::{Repr, Storage, UnsignedStorage};
 
 mod bounds;
 pub mod prefix;
+mod quantity;
 mod storage;
 
 /// A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,
@@ -184,20 +184,6 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
         Fixed::try_new(self.value)
     }
 
-    /// The value of a [Quantity] in this unit, if it is exact (as [to](Self::to)) and within `B`.
-    pub fn try_from_quantity(q: &Quantity<U>) -> Option<Self> {
-        let scale = ExactScale::pow10(i8::from(q.prefix)).div(P::SCALE);
-        let repr = if q.value.is_float() {
-            Repr::Float(q.value.to_f64())
-        } else {
-            let x = q.value.to_integer()?;
-            let m = i128::try_from(x.magnitude()).ok()?;
-            Repr::Int(if x.is_negative() { -m } else { m })
-        };
-        let value = rescale(repr, scale)?;
-        Self::try_new(value).ok()
-    }
-
     /// `self + rhs`, `None` on overflow or outside `B`.
     #[inline(always)]
     pub fn checked_add(self, rhs: Self) -> Option<Self> {
@@ -253,18 +239,6 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
             x = max;
         }
         Self::new_unchecked(x)
-    }
-}
-
-impl<U: Unit, P: DecimalPrefix, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
-    /// The same value as a [Quantity], prefix and number as they are. Only for number types `NumericValue` has
-    /// enabled: a `u64` needs `ww_numeric`'s `u64` feature (on with `std`). A binary prefix is converted first
-    /// ([to](Self::to) `One`).
-    pub fn to_quantity(self) -> Quantity<U>
-    where
-        T: Into<NumericValue>,
-    {
-        Quantity::new(P::PREFIX, self.value)
     }
 }
 
@@ -593,36 +567,6 @@ mod tests {
         assert_eq!(
             Fixed::<Byte, One, UVlq64>::new(UVlq64(2048)).to::<Kibi, Nibble>(),
             Some(Fixed::new(Nibble::new(2).unwrap()))
-        );
-    }
-
-    #[test]
-    fn quantity_both_ways() {
-        let t: Micros<u32> = Fixed::new(1500);
-        assert_eq!(t.to_quantity(), crate::Second::micro(1500u32));
-        assert_eq!(
-            Micros::<u16>::try_from_quantity(&crate::Second::milli(3u8)),
-            Some(Fixed::new(3000))
-        );
-        assert_eq!(
-            Millis::<u16>::try_from_quantity(&crate::Second::micro(1500u32)),
-            None
-        );
-        assert_eq!(
-            Millis::<u8>::try_from_quantity(&crate::Second::base(1u8)),
-            None
-        );
-        assert_eq!(
-            Millis::<f32>::try_from_quantity(&crate::Second::from_f32(0.25)),
-            Some(Fixed::new(250.0))
-        );
-        assert_eq!(
-            Fixed::<Byte, Kibi, u16>::try_from_quantity(&crate::Quantity::<Byte>::kilo(2048u32)),
-            Some(Fixed::new(2000))
-        );
-        assert_eq!(
-            Fixed::<Volt, Milli, i16>::try_from_quantity(&crate::Volt::micro(-2000i32)),
-            Some(Fixed::new(-2))
         );
     }
 

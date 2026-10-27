@@ -8,9 +8,9 @@
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs; their [Unit] impls come
 //! from one table below, the `SI:` dimension of each line is checked against the product table at compile time.
 
+use crate::SIExpr;
 #[allow(unused_imports)] // `Scale` with no quantity group enabled
 use crate::unit::{Dim, Scale, Unit, UnitExpr};
-use crate::{ExactScale, SIExpr};
 use core::marker::PhantomData;
 use shrink_wrap::RefBox;
 
@@ -444,8 +444,8 @@ units! {
     "mechanical" Yank "N/s" [kg 1, m 1, s -3] Scale::Coherent;
 
     "angle" Radian "rad" [rad 1] Scale::Coherent;
-    "angle" Degree "°" [rad 1] Scale::Exact(ExactScale::new(1, 180, 0, 0, 1));
-    "angle" Turn "rev" [rad 1] Scale::Exact(ExactScale::new(2, 1, 0, 0, 1));
+    "angle" Degree "°" [rad 1] Scale::Exact(crate::ExactScale::new(1, 180, 0, 0, 1));
+    "angle" Turn "rev" [rad 1] Scale::Exact(crate::ExactScale::new(2, 1, 0, 0, 1));
     "angle" Steradian "sr" [rad 2] Scale::Coherent;
     "angle" AngularVelocity "rad/s" [rad 1, s -1] Scale::Coherent;
     "angle" AngularAcceleration "rad/s²" [rad 1, s -2] Scale::Coherent;

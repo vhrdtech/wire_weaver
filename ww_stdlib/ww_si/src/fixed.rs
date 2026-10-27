@@ -742,10 +742,7 @@ mod tests {
         assert_eq!(format!("{t:#}"), "0.0015 s");
         assert_eq!(t.to::<Micro, u32>(), Some(Fixed::new(1500)));
         assert_eq!(t.to::<Milli, u32>(), None);
-        assert_eq!(
-            Fixed::<Second, Pow10<-3>, u8>::new(7).to_string(),
-            "7 ms"
-        );
+        assert_eq!(Fixed::<Second, Pow10<-3>, u8>::new(7).to_string(), "7 ms");
         assert_eq!(
             Fixed::<Second, Pow10<-4>, u32>::try_from_quantity(&crate::Second::micro(300u16)),
             Some(Fixed::new(3))
@@ -778,7 +775,10 @@ mod tests {
         let f = crate::Quantity::<Per<Cycle, Second>>::new(crate::Prefix::Mega, 8u8);
         assert_eq!(f.to_hertz(), crate::Hertz::new(crate::Prefix::Mega, 8u8));
         let g = Fixed::<Per<Cycle, Second>, Kilo, u16>::new(32);
-        assert_eq!(g.to_hertz(), Fixed::<crate::units::Hertz, Kilo, u16>::new(32));
+        assert_eq!(
+            g.to_hertz(),
+            Fixed::<crate::units::Hertz, Kilo, u16>::new(32)
+        );
     }
 
     #[test]

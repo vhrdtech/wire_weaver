@@ -1,8 +1,8 @@
 //! [ExactScale]: a factor written with integers only, `num / den · 10^pow10 · 2^pow2 · π^pi`, so every reader computes
 //! the same value from it and two scales compare exactly.
 
-use shrink_wrap::prelude::*;
 use shrink_wrap::UNib32;
+use shrink_wrap::prelude::*;
 
 /// A factor `num / den · 10^pow10 · 2^pow2 · π^pi` with integers only: `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit
 /// duty), `π/180` (°), `2π` (a turn). Never an `f64`, so every client reproduces a value bit-exactly, and a scale
@@ -72,7 +72,11 @@ impl ExactScale {
             e10 -= 1;
             e2 += 1;
         }
-        if e10 < i8::MIN as i32 || e10 > i8::MAX as i32 || e2 < i8::MIN as i32 || e2 > i8::MAX as i32 {
+        if e10 < i8::MIN as i32
+            || e10 > i8::MAX as i32
+            || e2 < i8::MIN as i32
+            || e2 > i8::MAX as i32
+        {
             return None;
         }
         Some(ExactScale {
@@ -131,7 +135,10 @@ impl ExactScale {
         let b = gcd(rhs.num.0, self.den.0);
         let num = (self.num.0 / a) as u64 * (rhs.num.0 / b) as u64;
         let den = (self.den.0 / b) as u64 * (rhs.den.0 / a) as u64;
-        assert!(num <= u32::MAX as u64 && den <= u32::MAX as u64, "scale too large");
+        assert!(
+            num <= u32::MAX as u64 && den <= u32::MAX as u64,
+            "scale too large"
+        );
         Self::new(
             num as u32,
             den as u32,
@@ -206,7 +213,8 @@ impl ExactScale {
     pub fn apply_f64(&self, x: f64) -> f64 {
         let x = x * self.num.0 as f64 / self.den.0 as f64;
         let x = crate::ops::scale_f64(x, self.pow10);
-        x * crate::ops::powi_f64(2.0, self.pow2) * crate::ops::powi_f64(core::f64::consts::PI, self.pi)
+        x * crate::ops::powi_f64(2.0, self.pow2)
+            * crate::ops::powi_f64(core::f64::consts::PI, self.pi)
     }
 
     fn validate(&self) -> Result<(), shrink_wrap::Error> {
@@ -222,7 +230,10 @@ impl ExactScale {
 /// `a + b` within `i8`, a panic (a compile error in a `const`) otherwise.
 const fn add(a: i8, b: i16) -> i8 {
     let x = a as i16 + b as i16;
-    assert!(x >= i8::MIN as i16 && x <= i8::MAX as i16, "exponent of a scale out of i8");
+    assert!(
+        x >= i8::MIN as i16 && x <= i8::MAX as i16,
+        "exponent of a scale out of i8"
+    );
     x as i8
 }
 
@@ -352,7 +363,10 @@ mod tests {
         assert_eq!(ExactScale::new(2, 1, 0, 0, 1).to_string(), "·2π");
         assert_eq!(ExactScale::rational(1, 65535).to_string(), "·1/65535");
         assert_eq!(ExactScale::rational(3, 1024).to_string(), "·3/1024");
-        assert_eq!(ExactScale::new(1, 1, -100, 3, 0).to_string(), "·1·10⁻¹⁰⁰·2³");
+        assert_eq!(
+            ExactScale::new(1, 1, -100, 3, 0).to_string(),
+            "·1·10⁻¹⁰⁰·2³"
+        );
     }
 
     #[test]

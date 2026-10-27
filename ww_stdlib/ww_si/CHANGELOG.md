@@ -26,7 +26,8 @@
 * Against earlier builds from main (EVO-16): `Dim` on the wire is the 40-bit form with rad, bit and counted bases
   (was seven exponents in 28 bits, `sized`), so `SIExpr`, `AnyQuantity` and `ww_adc::ChannelInfo::unit` change bytes;
   devices and hosts built from main before this are rebuilt together. `Dim` has a lifetime (`Dim<'i>`, a constant
-  `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
+  `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Scale` has a new variant `Exact` (an `ExactScale`), which
+  `Degree` now uses (was a factor), so its `SIExpr` bytes change too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
   dimension, `Byte` is 8 `Bit` (a scale, the dimension is bit).
 
 ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,
@@ -113,6 +114,35 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
     order, repeated or with a zero exponent is refused on decode. `Per<Byte, Sample>` times `Sample` is a `Byte`.
   * `Dim::ONE`, `Dim::counted(name)`, `with_rad`, `with_bit`, `counted_bases()`, `is_one`, `same`, `mul` / `div`
     (`const`, a compile error out of range), `is_canonical`; `DimOwned` / `CountedOwned` with `as_dim()`.
+* `Fixed<U, P, T, B = Unbounded>` (STD-55): a number whose unit, scale and storage are fixed by the API, on the wire
+  exactly the number (`transparent`, `#[repr(transparent)]`), so `shared_us: u64` becomes
+  `shared: Fixed<Second, Micro, u64>` with the same bytes and introspection shows `µs`. No prefix and no
+  `NumericValue` on the device: a `u64` here doesn't turn on `ww_numeric`'s `u64` for the firmware.
+  * Storage (`Storage`, `UnsignedStorage`): `u8`..`u64`, `i8`..`i64`, `f32`, `f64`, `UNib32`, `UVlq32`, `UVlq64`,
+    `Nibble`.
+  * Scale markers in `ww_si::prefix` (trait `FixedScale`, `DecimalPrefix`, `SubSecond`): `Quecto`..`Quetta`, `One`,
+    binary `Kibi`, `Mebi`, `Gibi`, `Tebi`, and factors without a name `Pow10<E>` (tenths of a millisecond:
+    `Fixed<Second, Pow10<-4>, u32>`) and `Rational<NUM, DEN>`.
+  * Bounds (`Bounds<T>`, `OutOfBounds`): `Unbounded`, `Range<MIN, MAX>`, `RangeU64`, `RangeDec<MIN, MAX, EXP>`
+    (decimal bounds for floats); checked on every read from the wire (`validate`), NaN is out of bounds, a bound that
+    doesn't fit the storage is a compile error.
+  * `new` / `get`, the operators `+ - * /` by `T` (and the assigning ones, `Sum`) for unbounded values; `try_new`,
+    `bounded` (`const`, a compile error out of bounds), `unbounded`, `to_bounds` for bounded ones; `checked_*`,
+    `saturating_*`, `wrapping_*`; `to::<P2, T2>()` (exact conversion only, `None` otherwise: 1500 µs isn't a whole
+    number of ms), `to_quantity` (only for number types `NumericValue` has enabled), `try_from_quantity`;
+    `core::time::Duration` both ways for s, ds, cs, ms, µs, ns; `PartialEq`, `Ord`, `Hash`; `Display` (`1500 µs`,
+    `{:#}` in the unit: `0.0015 s`, a scale without a prefix as `15·10⁻⁴ s`), `Debug`, `defmt::Format`;
+    `series(cells)`, so a `Series` of `Fixed` fields has the columns of the plain fields.
+  * Aliases `Micros<T>`, `Millis<T>`, `Nanos<T>`, `Bytes<T>`, `Ppb<T>`, `Duty16` (`Fixed<Ratio, Rational<1, 65535>,
+    u16>`, 65535 is 100 %).
+* `ExactScale { num, den, pow10, pow2, pi }`: a factor written with integers only (`10⁻⁶`, `2¹⁰`, `1/65535`, `π/180`,
+  `2π`), always canonical (`num` / `den` coprime and free of 2 and 5), so every reader computes the same value and two
+  scales compare field by field; `new`, `try_new`, `pow10`, `pow2`, `rational`, `mul`, `div`, `recip`, `apply_int`,
+  `apply_f64`, `to_f64`, `as_pow10`, `Display` (`·10⁻⁴`, `·π/180`). A non-canonical one from the wire is refused.
+  `Scale::Exact(ExactScale)` is the same on a unit known at run time: `Degree` is exactly `π/180` rad, and the new unit
+  `Turn` (`rev`, alias `ww_si::Turn`) is `2π` rad.
+* `to_hertz` / `from_hertz` on `Quantity<Per<Cycle, Second>>` and `to_hertz` on a `Fixed` of it: cycles per second
+  become hertz only through this named step.
 * Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,
   `kilo`, `mega`, `giga`, `from_f32` (`const`); `quantize(x, prefix, storage)` (an `f32` rounded and saturated into
   the representation an API documents, computed in `f32`); `to_f64`, `to_f32`, `to_f64_in`, `to_i128_in`;

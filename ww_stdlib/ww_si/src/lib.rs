@@ -33,12 +33,12 @@ pub use exact::Steps;
 mod fixed;
 #[cfg(feature = "information")]
 pub use fixed::Bytes;
-#[cfg(feature = "dimensionless")]
-pub use fixed::{Duty16, Ppb};
 pub use fixed::{
     Bounds, DecimalPrefix, Fixed, FixedScale, OutOfBounds, Range, RangeDec, RangeU64, Repr,
     Storage, Unbounded, UnsignedStorage, prefix,
 };
+#[cfg(feature = "dimensionless")]
+pub use fixed::{Duty16, Ppb};
 #[cfg(feature = "time")]
 pub use fixed::{Micros, Millis, Nanos};
 mod ops;

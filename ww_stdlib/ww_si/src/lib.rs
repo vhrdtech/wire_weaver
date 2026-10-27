@@ -14,6 +14,9 @@
 //!
 //! A value with the time it was taken is a [Timed] (feature `time`).
 //!
+//! A value whose unit, prefix and number type the API fixes (`Fixed<Second, Micro, u64>`, a timestamp in µs) is a
+//! [Fixed]: on the wire exactly the number, the unit only in the type.
+//!
 //! A value whose unit is only known at run time (a configurable sensor channel) is an [AnyQuantity]: the same prefix
 //! and number, and the unit as an [SIExpr], the tree a unit marker describes ([Unit::SI_EXPR]) put on the wire. It is
 //! shown and converted like the typed quantity of the same unit.
@@ -27,6 +30,17 @@ pub use dynamic::{AnyQuantityOwned, SIExprOwned};
 pub use tree::MAX_UNIT_DEPTH;
 mod exact;
 pub use exact::Steps;
+mod fixed;
+#[cfg(feature = "information")]
+pub use fixed::Bytes;
+#[cfg(feature = "dimensionless")]
+pub use fixed::Ppb;
+pub use fixed::{
+    Bounds, DecimalPrefix, Fixed, OutOfBounds, PrefixScale, Range, RangeDec, RangeU64, Repr,
+    Storage, Unbounded, UnitPrefix, UnsignedStorage, prefix,
+};
+#[cfg(feature = "time")]
+pub use fixed::{Micros, Millis, Nanos};
 mod ops;
 mod quantity;
 #[cfg(feature = "time")]

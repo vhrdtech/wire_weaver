@@ -263,6 +263,7 @@ pub(crate) fn defmt_ratio_prefix(prefix: Prefix, f: defmt::Formatter<'_>) {
         Prefix::Centi => defmt::write!(f, " %"),
         Prefix::Milli => defmt::write!(f, " ‰"),
         Prefix::Micro => defmt::write!(f, " ppm"),
+        Prefix::Nano => defmt::write!(f, " ppb"),
         p => defmt::write!(f, "e{=i8}", i8::from(p)),
     }
 }

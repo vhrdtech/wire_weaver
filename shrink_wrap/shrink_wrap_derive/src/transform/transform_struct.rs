@@ -7,8 +7,7 @@ use crate::ast::item_struct::Field;
 use crate::ast::item_struct::{ItemStruct, StructKind};
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
-    collect_docs_attrs, collect_unknown_attributes, take_display_attr, take_repr_attrs,
-    take_slot_attr,
+    collect_docs_attrs, take_display_attr, take_repr_attrs, take_slot_attr,
 };
 use crate::transform::util::{
     FieldPath, FieldPathRoot, check_backfill_position, check_flag_order, check_tail_bytes_position,
@@ -64,7 +63,6 @@ impl ItemStruct {
         let display = take_display_attr(&mut attrs)?;
         let repr = take_repr_attrs(&mut attrs);
 
-        collect_unknown_attributes(&mut attrs);
         create_flags(&mut fields, &explicit_flags);
         check_flag_order(&fields)?;
         check_backfill_position(&fields, true)?;
@@ -88,6 +86,7 @@ impl ItemStruct {
             generics: Generics::from_syn(&item_struct.generics)
                 .with_field_types(item_struct.fields.iter().map(|f| &f.ty)),
             repr,
+            attrs,
         })
     }
 
@@ -154,7 +153,6 @@ impl ItemStruct {
         let docs = collect_docs_attrs(&mut attrs);
         let display = take_display_attr(&mut attrs)?;
         let repr = take_repr_attrs(&mut attrs);
-        collect_unknown_attributes(&mut attrs);
         Ok(ItemStruct {
             docs,
             fields,
@@ -164,6 +162,7 @@ impl ItemStruct {
             generics: Generics::from_syn(&item_struct.generics)
                 .with_field_types(item_struct.fields.iter().map(|f| &f.ty)),
             repr,
+            attrs,
         })
     }
 }

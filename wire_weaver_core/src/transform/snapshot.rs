@@ -612,6 +612,23 @@ mod tests {
         );
     }
 
+    /// A crate that isn't a ww API crate (API-60): no traits, its types and unit markers are the snapshot.
+    #[test]
+    fn standalone_crate_snapshot() {
+        let bundle = load("../tests/standalone_units");
+        assert_eq!(bundle.root.trait_name, "standalone_units");
+        assert!(bundle.root.items.is_empty());
+        let crates: Vec<_> = bundle
+            .ext_crates
+            .iter()
+            .map(|c| c.crate_id.as_str())
+            .collect();
+        assert_eq!(crates, ["standalone_units"]);
+        for name in ["Milli", "Source", "Volt", "Ampere"] {
+            type_idx(&bundle, name);
+        }
+    }
+
     #[test]
     fn traits_are_not_duplicated() {
         // Bank refers to Pin, both are saved once

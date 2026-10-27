@@ -1,3 +1,4 @@
+use crate::codegen::CodegenBundle;
 use crate::codegen::ty_def::ty_def;
 use crate::codegen::util;
 use crate::codegen::util::maybe_quote;
@@ -6,8 +7,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Batching, Delivery, Multiplicity,
-    PropertyAccess, TypeOwned,
+    ApiItemKindOwned, ApiLevelOwned, Batching, Delivery, Multiplicity, PropertyAccess, TypeOwned,
 };
 
 /// `value.to_ww_bytes(buf)`: the value on its own, as the host reads it from an event's tail; an owned one (a
@@ -26,7 +26,7 @@ fn to_ww_bytes(no_alloc: bool, buf: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn stream_ser_methods_recursive(
-    bundle: &ApiBundleOwned,
+    bundle: &CodegenBundle,
     level: &ApiLevelOwned,
     index_chain: IndexChain,
     no_alloc: bool,
@@ -275,7 +275,7 @@ pub(crate) fn stream_ser_methods_recursive(
 /// `poll_streams` on the server sends it; `<name>_event` serializes an event of either.
 #[allow(clippy::too_many_arguments)]
 fn positioned_ser_methods(
-    bundle: &ApiBundleOwned,
+    bundle: &CodegenBundle,
     ident: &str,
     ty: &TypeOwned,
     delivery: Delivery,
@@ -469,7 +469,7 @@ fn positioned_ser_methods(
 /// They take anything that can be pushed into: the stream's `Batched` state when it owns its batcher, the batcher,
 /// or its `Producer` half.
 fn batched_ser_methods(
-    bundle: &ApiBundleOwned,
+    bundle: &CodegenBundle,
     ident: &str,
     ty: &TypeOwned,
     batching: Batching,
@@ -579,7 +579,7 @@ fn batched_ser_methods(
 }
 
 /// Largest item of a sink with flow control in bytes, to check its receive buffer (`SinkCredit::sized_for`).
-fn max_item_bytes(bundle: &ApiBundleOwned, ident: &str, ty: &TypeOwned) -> TokenStream {
+fn max_item_bytes(bundle: &CodegenBundle, ident: &str, ty: &TypeOwned) -> TokenStream {
     let const_name = Ident::new(
         format!("{}_MAX_ITEM_BYTES", ident.to_case(Case::UpperSnake)).as_str(),
         Span::call_site(),
@@ -698,7 +698,7 @@ fn let_index_chain(mut index_chain: IndexChain, id: u32, is_array: bool) -> Toke
     }
 }
 
-fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &ApiBundleOwned) -> Ident {
+fn stream_ser_struct_name(api_level: &ApiLevelOwned, api_bundle: &CodegenBundle) -> Ident {
     let mod_name = util::mod_name(api_level, api_bundle);
     Ident::new(
         format!("{}_stream_serializer", mod_name)

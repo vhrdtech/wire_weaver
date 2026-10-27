@@ -1,5 +1,6 @@
 //! # Implementation details:
 //! * Client's index chain contains all indices up to last level (resource IDs + array index if used)
+use crate::codegen::CodegenBundle;
 use crate::codegen::api_common::args_structs;
 use crate::codegen::client::observe as client_observe;
 use crate::codegen::index_chain::IndexChain;
@@ -13,9 +14,9 @@ use quote::quote;
 use syn::{LitStr, Path};
 use ww_self::errors::{error_list_docs, fmt_error_list, method_err_ty};
 use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching,
-    Delivery, ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess,
-    StreamFnRef, TypeOwned,
+    ApiItemKindOwned, ApiItemOwned, ApiLevelOwned, ArgumentOwned, Batching, Delivery,
+    ErrorVariantOwned, FieldsOwned, FlowControl, Multiplicity, PropertyAccess, StreamFnRef,
+    TypeOwned,
 };
 
 /// API client code generation configuration.
@@ -25,6 +26,9 @@ pub struct GenClientConfig {
     /// 'impl <client_struct_path> { client methods }' code will be generated.
     /// Pass e.g., "crate::MyDeviceClient".
     pub client_struct_path: String,
+    /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
+    /// default: every crate by its own name.
+    pub crate_paths: crate::transform::CratePaths,
 }
 
 /// API client code generation configuration.
@@ -36,6 +40,9 @@ pub struct GenClientConfigRaw {
     /// 'impl <client_struct_path> { client methods }' code will be generated.
     /// Pass e.g., "crate::MyDeviceClient".
     pub client_struct_path: Path,
+    /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
+    /// default: every crate by its own name.
+    pub crate_paths: crate::transform::CratePaths,
 }
 
 impl From<GenClientConfig> for GenClientConfigRaw {
@@ -43,6 +50,7 @@ impl From<GenClientConfig> for GenClientConfigRaw {
         Self {
             model: config.model,
             client_struct_path: super::util::str_to_path(&config.client_struct_path),
+            crate_paths: config.crate_paths,
         }
     }
 }
@@ -87,10 +95,11 @@ pub(crate) enum ClientPathMode {
 ///
 /// Alternatively, use `wire_weaver_derive::ww_codegen!` proc-macro if you do not want to use build.rs.
 pub fn gen_client(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &ww_self::ApiBundleOwned,
     config: impl Into<GenClientConfigRaw>,
 ) -> TokenStream {
-    let config = config.into();
+    let config: GenClientConfigRaw = config.into();
+    let api_bundle = &CodegenBundle::new(api_bundle, &config.crate_paths);
     let additional_use = if matches!(
         config.model,
         ClientModel::StdFullClient | ClientModel::StdTraitClient
@@ -163,7 +172,7 @@ fn client_struct_name(mod_name: &str) -> Ident {
 
 #[allow(clippy::too_many_arguments)]
 fn client_structs_recursive(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
     model: ClientModel,
@@ -311,7 +320,7 @@ fn client_structs_recursive(
 }
 
 fn level_methods(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     index_chain: IndexChain,
     model: ClientModel,
@@ -355,7 +364,7 @@ fn level_methods(
 
 #[allow(clippy::too_many_arguments)]
 fn level_method(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     item: &ApiItemOwned,
     mut index_chain: IndexChain,
@@ -499,7 +508,7 @@ fn level_method(
 
 #[allow(clippy::too_many_arguments)]
 fn handle_method(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
@@ -561,7 +570,7 @@ fn handle_method(
 fn error_list_doc(
     errors: &[ErrorVariantOwned],
     err_ty: &TypeOwned,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> Vec<String> {
     let mut docs = vec![String::new(), "# Errors".into(), String::new()];
     for (name, doc) in error_list_docs(errors, err_ty, api_bundle) {
@@ -578,7 +587,7 @@ fn error_list_doc(
 fn error_list_patterns(
     errors: &[ErrorVariantOwned],
     err_ty: &TypeOwned,
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
 ) -> TokenStream {
     let err_path = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
     let variants = match err_ty.get_in_line(api_bundle) {
@@ -612,7 +621,7 @@ fn error_list_patterns(
 
 #[allow(clippy::too_many_arguments)]
 fn handle_property(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     api_level: &ApiLevelOwned,
     level_chain: Option<&TokenStream>,
     model: ClientModel,
@@ -764,7 +773,7 @@ fn handle_property(
 /// `name_resume(cursor)` and `name_status()`, the read on the stream.
 #[allow(clippy::too_many_arguments)]
 fn handle_stream_fn(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
@@ -874,7 +883,7 @@ fn handle_stream_fn(
 
 #[allow(clippy::too_many_arguments)]
 fn handle_stream(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     model: ClientModel,
     path_mode: ClientPathMode,
     gid_paths: &GidPaths,
@@ -980,7 +989,7 @@ fn handle_stream(
 }
 
 fn ser_args(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     method_ident: &Ident,
     args: &[ArgumentOwned],
     no_alloc: bool,
@@ -1034,7 +1043,7 @@ fn ser_args(
     }
 }
 
-fn connect_disconnect_methods(api_bundle: &ApiBundleOwned) -> TokenStream {
+fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
     let IntrospectTs {
         introspect_bytes,
         no_docs_hash,

@@ -6,6 +6,7 @@
 //! API-29): `Observe` on a level under an array answers `OperationNotSupported`. Properties are observable when
 //! declared with `+observe`, not in an array themselves and not `#[optional]`.
 
+use crate::codegen::CodegenBundle;
 use crate::codegen::omit::Omissions;
 use crate::codegen::server::scaffold::DEFAULT_BATCH;
 use crate::codegen::ty_def::{TyPos, ty_def};
@@ -17,9 +18,7 @@ use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::BTreeSet;
-use ww_self::{
-    ApiBundleOwned, ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned,
-};
+use ww_self::{ApiItemKindOwned, ApiLevelOwned, Multiplicity, PropertyAccess, TypeOwned};
 
 /// A trait level that `Observe` can address.
 struct Level {
@@ -117,7 +116,7 @@ pub(crate) struct Observe {
 
 impl Observe {
     pub(crate) fn collect(
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         omissions: &Omissions,
         property_model: &PropertyModel,
     ) -> Self {
@@ -141,7 +140,7 @@ impl Observe {
     #[allow(clippy::too_many_arguments)]
     fn walk(
         &mut self,
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         level: &ApiLevelOwned,
         omissions: &Omissions,
         property_model: &PropertyModel,
@@ -315,7 +314,7 @@ impl Observe {
     /// properties also `ObserveBatches`, its halves and the samplers (API-39).
     pub(crate) fn items(
         &self,
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         no_alloc: bool,
         observe_batch: Option<usize>,
         observe_outbox: Option<usize>,
@@ -749,7 +748,7 @@ impl Observe {
     /// level share one clock, one batcher per level.
     fn batch_items(
         &self,
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         bases: &[(String, bool)],
         observe_batch: Option<usize>,
         observe_outbox: Option<usize>,
@@ -1421,7 +1420,7 @@ impl Observe {
     /// `observe_request`, `mark_changed_<name>()` and `poll_properties`, in the server struct's impl.
     pub(crate) fn methods(
         &self,
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         handlers: Handlers<'_>,
         medium_ty: &TokenStream,
         no_alloc: bool,
@@ -1594,7 +1593,7 @@ impl Observe {
 
     fn poll_properties(
         &self,
-        api_bundle: &ApiBundleOwned,
+        api_bundle: &CodegenBundle,
         handlers: Handlers<'_>,
         medium_ty: &TokenStream,
         no_alloc: bool,
@@ -2102,7 +2101,7 @@ pub(crate) fn batched_slot_ty(batched: bool, ty: TokenStream, owned: bool) -> To
 /// `<Trait>Update`: a sparse struct with one `Option` per observable property of a level, in the slot of its
 /// resource index, the data of the level's `PropertyUpdate`.
 fn update_struct(
-    api_bundle: &ApiBundleOwned,
+    api_bundle: &CodegenBundle,
     level: &Level,
     name: &str,
     no_alloc: bool,

@@ -39,7 +39,7 @@ use ww_self::{
 };
 use ww_version::{FullVersionOwned, VersionOwned, VersionTriplet};
 
-use crate::compat::{Bounds, TypeCheck, compare_items, field_name, fields};
+use crate::compat::{Bounds, TypeCheck, Unwrapped, compare_items, field_name, fields};
 use crate::recorded::{Recorded, Unrecorded};
 
 #[cfg(feature = "source")]
@@ -336,14 +336,15 @@ impl<'a> Checker<'a> {
                 )
             });
             if let Err(e) = result {
-                let rule = if bounds.lowered {
-                    Rule::MaxLen
-                } else {
-                    Rule::Resource
+                let rule = match bounds.rule {
+                    Some(rule) => rule,
+                    None if bounds.lowered => Rule::MaxLen,
+                    None => Rule::Resource,
                 };
                 self.breaks(rule, format!("{path}: {e}"));
             }
             self.bounds_raised(&path, bounds.narrower);
+            self.unwrapped(&path, &bounds.unwrapped);
             self.compare_error_lists(&path, old_item, new_item);
             self.compare_optional(&path, old_item, new_item);
             self.compare_meta(&path, old_item.meta.as_ref(), new_item.meta.as_ref());
@@ -476,14 +477,16 @@ impl<'a> Checker<'a> {
                 .check(old_ty, new_ty)
                 .and_then(|_| new_to_old.check(new_ty, old_ty));
             if let Err(e) = result {
-                let rule = if old_to_new.lowered {
-                    Rule::MaxLen
-                } else {
-                    Rule::Type
+                let rule = match old_to_new.rule.or(new_to_old.rule) {
+                    Some(rule) => rule,
+                    None if old_to_new.lowered => Rule::MaxLen,
+                    None => Rule::Type,
                 };
                 self.breaks(rule, e);
             }
             self.bounds_raised(&format!("type {name}"), new_to_old.narrower);
+            old_to_new.unwrapped.append(&mut new_to_old.unwrapped);
+            self.unwrapped(&format!("type {name}"), &old_to_new.unwrapped);
             self.compare_idents(name, old_ty, new_ty);
         }
         for name in new_types.keys() {
@@ -499,6 +502,17 @@ impl<'a> Checker<'a> {
         for msg in narrower {
             self.compatible
                 .push(format!("{path}: max length raised ({msg})"));
+        }
+    }
+
+    /// A type became a transparent wrapper of it (DER-18, `u64` -> `ww_si::Fixed<..., u64, ...>`) or the other way
+    /// around: compatible, the same bytes. Found in both directions, reported once, from the old version to the new.
+    fn unwrapped(&mut self, path: &str, unwrapped: &[Unwrapped]) {
+        for u in unwrapped {
+            let msg = format!("{path}: {}", u.describe(OLD));
+            if !self.compatible.contains(&msg) {
+                self.compatible.push(msg);
+            }
         }
     }
 
@@ -721,6 +735,8 @@ fn suggest(old: &VersionOwned, required: Bump) -> VersionOwned {
 mod tests {
     use super::*;
     use std::path::PathBuf;
+
+    mod transparent;
 
     /// Load a crate bundle from source, as `ww api save` would, by writing a throwaway crate.
     fn load(version: &str, lib_rs: &str) -> ApiBundleOwned {

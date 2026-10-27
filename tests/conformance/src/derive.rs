@@ -722,10 +722,15 @@ pub fn table() -> Vec<Typed> {
             "stdlib.timebase.steer_point.steerer",
             steer_point(Some(steerer(0x0102_0304_0506_0708, "pc1", "ww hub", 4711))),
         ),
-        case("stdlib.si.dim.volt", dim(<ww_si::units::Volt as ww_si::Unit>::DIM)),
+        case(
+            "stdlib.si.dim.volt",
+            dim(<ww_si::units::Volt as ww_si::Unit>::DIM),
+        ),
         case(
             "stdlib.si.dim.rad_bit",
-            dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1).with_bit(-3)),
+            dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0)
+                .with_rad(1)
+                .with_bit(-3)),
         ),
         case(
             "stdlib.si.dim.counted",
@@ -734,6 +739,18 @@ pub fn table() -> Vec<Typed> {
                 .mul(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0))),
         ),
         case("stdlib.si.dim.rejected", dim(ww_si::Dim::ONE)),
+        case(
+            "stdlib.si.fixed.pow10",
+            ww_si::Fixed::<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>::new(0xDEAD_BEEF),
+        ),
+        case("stdlib.si.fixed.duty16", ww_si::Duty16::new(0xBEEF)),
+        case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
+        case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
+        case(
+            "stdlib.si.exact_scale.degree",
+            ww_si::ExactScale::new(1, 180, 0, 0, 1),
+        ),
+        case("stdlib.si.exact_scale.rejected", ww_si::ExactScale::ONE),
         case_debug("stdlib.timebase.sync_status", || {
             ww_timebase::SyncStatusOwned {
                 state: ww_timebase::SyncState::Free,
@@ -763,6 +780,13 @@ pub fn table() -> Vec<Typed> {
             rest: TailBytesOwned(vec![1, 2, 3]),
         }),
     ]
+}
+
+type FixedBounded =
+    ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>;
+
+fn fixed_bounded(ms: u16) -> FixedBounded {
+    FixedBounded::try_new(ms).unwrap()
 }
 
 fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {

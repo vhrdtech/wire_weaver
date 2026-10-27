@@ -176,7 +176,7 @@ fn units_and_dimensions() {
     assert!(matches!(volt, UnitExpr::Named { symbol: "V", .. }));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 57);
+    assert_eq!(ww_si::units::ALL.len(), 58);
 }
 
 /// rad, bit and counted bases are dimensions of their own (STD-60): bytes never turn into a ratio, an angular
@@ -192,8 +192,16 @@ fn angle_information_counting() {
     assert_eq!(<units::Byte as Unit>::EXPR.factor(), 8.0);
     assert_eq!(<units::Word as Unit>::EXPR.factor(), 32.0);
     assert!(!<units::AngularVelocity as Unit>::DIM.same(<units::Hertz as Unit>::DIM));
-    assert!(<units::AngularVelocity as Unit>::DIM.strip_radian().same(<units::Hertz as Unit>::DIM));
-    assert!(<units::Torque as Unit>::DIM.strip_radian().same(<units::Joule as Unit>::DIM));
+    assert!(
+        <units::AngularVelocity as Unit>::DIM
+            .strip_radian()
+            .same(<units::Hertz as Unit>::DIM)
+    );
+    assert!(
+        <units::Torque as Unit>::DIM
+            .strip_radian()
+            .same(<units::Joule as Unit>::DIM)
+    );
     assert!(!<units::Torque as Unit>::DIM.same(<units::Joule as Unit>::DIM));
     assert_eq!(<units::AngularVelocity as Unit>::DIM.to_string(), "s⁻¹·rad");
     assert!(!<units::Sample as Unit>::DIM.same(<units::Packet as Unit>::DIM));
@@ -203,7 +211,10 @@ fn angle_information_counting() {
     assert!(per_sample.mul(<units::Sample as Unit>::DIM).same(byte));
     let rate = <Per<units::Sample, units::Second> as Unit>::DIM;
     assert!(!rate.same(<units::Hertz as Unit>::DIM));
-    assert!(rate.mul(<units::Second as Unit>::DIM).same(<units::Sample as Unit>::DIM));
+    assert!(
+        rate.mul(<units::Second as Unit>::DIM)
+            .same(<units::Sample as Unit>::DIM)
+    );
 }
 
 #[test]

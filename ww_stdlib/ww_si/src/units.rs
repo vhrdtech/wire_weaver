@@ -166,10 +166,16 @@ pub struct Yank;
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Radian;
 
-/// Angle in degrees of arc, ° (π/180 rad).
+/// Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact]).
 #[cfg(feature = "angle")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Degree;
+
+/// Angle in turns (revolutions), rev (2π rad, exactly). A binary angle where 65536 is a full turn is
+/// `Fixed<Turn, Rational<1, 65536>, u16>`.
+#[cfg(feature = "angle")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Turn;
 
 /// Solid angle in steradians, sr (rad²).
 #[cfg(feature = "angle")]
@@ -365,6 +371,8 @@ impl<A: Unit, B: Unit> Unit for Times<A, B> {
 }
 
 /// The dimension of a line of [units]: exponents (`[kg 1, s -2]`), or a counted base named after the marker.
+// unused when no quantity group is enabled
+#[allow(unused_macros)]
 macro_rules! dim {
     ($ty:ident counted) => {
         Dim::counted(stringify!($ty))
@@ -435,7 +443,8 @@ units! {
     "mechanical" Yank "N/s" [kg 1, m 1, s -3] Scale::Coherent;
 
     "angle" Radian "rad" [rad 1] Scale::Coherent;
-    "angle" Degree "°" [rad 1] Scale::Factor(core::f64::consts::PI / 180.0);
+    "angle" Degree "°" [rad 1] Scale::Exact(crate::ExactScale::new(1, 180, 0, 0, 1));
+    "angle" Turn "rev" [rad 1] Scale::Exact(crate::ExactScale::new(2, 1, 0, 0, 1));
     "angle" Steradian "sr" [rad 2] Scale::Coherent;
     "angle" AngularVelocity "rad/s" [rad 1, s -1] Scale::Coherent;
     "angle" AngularAcceleration "rad/s²" [rad 1, s -2] Scale::Coherent;
@@ -479,4 +488,28 @@ pub fn by_name(name: &str) -> Option<&'static UnitExpr> {
     ALL.iter()
         .copied()
         .find(|expr| matches!(expr, UnitExpr::Named { name: n, .. } if *n == name))
+}
+
+/// Cycles per second are hertz: the counted [Cycle] and the hertz of a clock are different dimensions (Hz is s⁻¹),
+/// so going from one to the other is this named step, never an implicit conversion.
+#[cfg(all(feature = "counting", feature = "time"))]
+impl crate::Quantity<Per<Cycle, Second>> {
+    /// The same number and prefix in Hz: 8 Mcycle/s is 8 MHz.
+    pub const fn to_hertz(self) -> crate::Hertz {
+        crate::Quantity::from_parts(self.prefix, self.value)
+    }
+
+    /// The same number and prefix in cycles per second.
+    pub const fn from_hertz(f: crate::Hertz) -> Self {
+        crate::Quantity::from_parts(f.prefix, f.value)
+    }
+}
+
+/// Cycles per second are hertz, as for a [Quantity](crate::Quantity).
+#[cfg(all(feature = "counting", feature = "time"))]
+impl<P, T: crate::Storage, B: crate::Bounds<T>> crate::Fixed<Per<Cycle, Second>, P, T, B> {
+    /// The same number in Hz.
+    pub fn to_hertz(self) -> crate::Fixed<Hertz, P, T, B> {
+        crate::Fixed::new_unchecked(self.get())
+    }
 }

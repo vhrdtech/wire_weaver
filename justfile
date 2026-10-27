@@ -116,6 +116,8 @@ check-core:
     # check ww_si with no number type and with a few (NumericValue variants are features)
     @cargo check -p ww_si --no-default-features
     @cargo check -p ww_si --no-default-features --features=f32,u16,defmt
+    # Fixed on a firmware: no number type of NumericValue beyond what it enables (u64 storage without the u64 feature)
+    @cargo check -p ww_si --no-default-features --features=time,information,counting,dimensionless,u16
 
 # cargo check mcu workspace
 [working-directory('mcu')]

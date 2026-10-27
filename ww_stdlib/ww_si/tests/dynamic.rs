@@ -315,3 +315,19 @@ fn any_quantity() {
     assert!((q.to_si_f64().unwrap() - 3000.0 * core::f64::consts::TAU / 60.0).abs() < 1e-9);
     assert_eq!(q.value, NumericValue::U8(3));
 }
+
+/// A unit with an exact scale (`Scale::Exact`) keeps it through the wire: 90 ° is exactly `90 · π/180` rad on the
+/// reader, and a turn is `2π` rad.
+#[test]
+fn exact_scale_through_the_wire() {
+    let mut buf = [0u8; 64];
+    let deg = AnyQuantity::from(ww_si::Degree::base(90u8));
+    let bytes = deg.to_ww_bytes(&mut buf).unwrap().to_vec();
+    let back = AnyQuantity::from_ww_bytes(&bytes).unwrap();
+    assert_eq!(back.to_string(), "90 °");
+    assert_eq!(back.unit.known(), deg.unit.known());
+    assert!((back.to_si_f64().unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-15);
+
+    let rev = AnyQuantity::from(ww_si::Turn::base(1u8));
+    assert!((rev.to_si_f64().unwrap() - core::f64::consts::TAU).abs() < 1e-15);
+}

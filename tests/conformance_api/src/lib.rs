@@ -123,6 +123,11 @@ trait Conformance {
     property!(rw steer_point: ww_timebase::SteerPoint<'i>);
     property!(rw sync_status: ww_timebase::SyncStatus<'i>);
     property!(rw dim: ww_si::Dim<'i>);
+    // ww_si::Fixed (STD-55), each next to its plain number: the same bytes
+    property!(rw fixed_pow10: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>);
+    property!(rw duty16: ww_si::Duty16);
+    property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
+    property!(rw exact_scale: ww_si::ExactScale);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -494,6 +494,9 @@ pub enum Scale {
     Factor(f64),
     /// A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.
     Affine { factor: f64, offset: f64 },
+    /// An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader
+    /// computes the same value, unlike with a `Factor`.
+    Exact(crate::ExactScale),
 }
 
 impl Scale {
@@ -504,6 +507,7 @@ impl Scale {
             Scale::Pow10(exp) => crate::ops::pow10_f64(exp),
             Scale::Factor(factor) => factor,
             Scale::Affine { factor, .. } => factor,
+            Scale::Exact(scale) => scale.to_f64(),
         }
     }
 
@@ -598,7 +602,7 @@ impl fmt::Display for UnitExpr {
 /// this crate are in [units](crate::units); an API crate can declare its own the same way.
 ///
 /// ```
-/// use ww_si::{Dim, Quantity, Scale, Unit, UnitExpr};
+/// use ww_si::{Dim, ExactScale, Quantity, Scale, Unit, UnitExpr};
 ///
 /// /// Revolutions per minute.
 /// #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -611,7 +615,8 @@ impl fmt::Display for UnitExpr {
 ///         name: "Rpm",
 ///         symbol: "rpm",
 ///         dim: Self::DIM,
-///         scale: Scale::Factor(core::f64::consts::TAU / 60.0),
+///         // 2π rad / 60 s, exactly
+///         scale: Scale::Exact(ExactScale::new(1, 30, 0, 0, 1)),
 ///     };
 /// }
 ///

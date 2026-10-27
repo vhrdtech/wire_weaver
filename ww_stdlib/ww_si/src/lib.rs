@@ -33,15 +33,17 @@ pub use exact::Steps;
 mod fixed;
 #[cfg(feature = "information")]
 pub use fixed::Bytes;
-#[cfg(feature = "dimensionless")]
-pub use fixed::Ppb;
 pub use fixed::{
-    Bounds, DecimalPrefix, Fixed, OutOfBounds, PrefixScale, Range, RangeDec, RangeU64, Repr,
-    Storage, Unbounded, UnitPrefix, UnsignedStorage, prefix,
+    Bounds, DecimalPrefix, Fixed, FixedScale, OutOfBounds, Range, RangeDec, RangeU64, Repr,
+    Storage, Unbounded, UnsignedStorage, prefix,
 };
+#[cfg(feature = "dimensionless")]
+pub use fixed::{Duty16, Ppb};
 #[cfg(feature = "time")]
 pub use fixed::{Micros, Millis, Nanos};
 mod ops;
+mod scale;
+pub use scale::ExactScale;
 mod quantity;
 #[cfg(feature = "time")]
 mod timed;
@@ -449,6 +451,10 @@ pub type Radian = Quantity<units::Radian>;
 /// Angle in degrees with a prefix (°, m°).
 #[cfg(feature = "angle")]
 pub type Degree = Quantity<units::Degree>;
+
+/// Angle in turns with a prefix (rev).
+#[cfg(feature = "angle")]
+pub type Turn = Quantity<units::Turn>;
 
 /// Solid angle in steradians with a prefix.
 #[cfg(feature = "angle")]

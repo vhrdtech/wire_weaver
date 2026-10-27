@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: faca7b3fba009c91f6df846254cc20ff61469e78d6fea340dfb61a6ceccdcbb2
+// shrink_wrap sha256: 3b9ea9f6f59eeaf5998d4347e91ebf1547ac84ff3612ddabbebca1974ba4bdbd
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -102,6 +102,23 @@
             "Counted bases, see [Counted]: used slots first, sorted by name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A factor `num / den · 10^pow10 · 2^pow2 · π^pi` with integers only: `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit",
+        "duty), `π/180` (°), `2π` (a turn). Never an `f64`, so every client reproduces a value bit-exactly, and a scale",
+        "fixed in a type ([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
+        "",
+        "Always canonical: `num` and `den` have no common factor and no factor 2 or 5 (those are in `pow10` / `pow2`), so",
+        "two scales of the same factor are equal field by field. [new](Self::new) makes one canonical; a value read from the",
+        "wire that isn\'t is refused.",
+        "",
+        "On the wire: `num` and `den` as [UNib32] (a nibble each for small ones), then the three exponents as `i8`.",
+    ], ident: "ExactScale", generics: [], fields: Named([
+        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "How a value in a unit becomes coherent SI (the unit of [Dim] with no factor): `si = value · factor + offset`.",
         "",
@@ -126,6 +143,12 @@
             (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
             (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
+        (docs: [
+            "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader",
+            "computes the same value, unlike with a `Factor`.",
+        ], ident: "Exact", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "A unit as a tree, on the wire: what [UnitExpr] is for a unit known from a type, for a unit known only at run time",
@@ -143,24 +166,24 @@
             (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
-            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 5)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 5)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 6)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 6)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 5)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 5)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 6)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 6)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 5)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 6)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
@@ -183,7 +206,7 @@
     ], ident: "AnyQuantity", generics: [], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,",
@@ -295,8 +318,8 @@
     ], ident: "Timed", generics: [
         (ident: "T", kind: Type),
     ], fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 9, args: [
-            Type(OutOfLine(type_idx: 8)),
+        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 10, args: [
+            Type(OutOfLine(type_idx: 9)),
         ]), docs: [
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),
@@ -440,8 +463,14 @@
         "units",
     ]), instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Angle in degrees of arc, ° (π/180 rad).",
+        "Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact]).",
     ], ident: "Degree", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angle in turns (revolutions), rev (2π rad, exactly). A binary angle where 65536 is a full turn is",
+        "`Fixed<Turn, Rational<1, 65536>, u16>`.",
+    ], ident: "Turn", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [

@@ -97,6 +97,9 @@ trait Conformance {
     property!(rw wired: Wired);
     property!(rw wired_op: WiredOp);
     property!(rw series_wired: Series<'i, WiredSample>);
+    // the derive's field attributes behind #[cfg_attr(pred, ..)] (API-60)
+    property!(rw gated_v1: GatedV1);
+    property!(rw gated_v2: GatedV2);
     // ww_stdlib types whose evolution is checked here
     property!(rw steer_point: ww_timebase::SteerPoint<'i>);
     property!(rw sync_status: ww_timebase::SyncStatus<'i>);
@@ -457,6 +460,26 @@ pub struct WiredSample {
     pub t: u32,
     #[wire(I12)]
     pub value: i16,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// #[cfg_attr(pred, wire(W))] and #[cfg_attr(pred, default = ..)] (API-60): read as if pred holds, the same bytes and
+// API model as the plain attributes; a type crate with shrink_wrap optional writes them this way
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct GatedV1 {
+    #[wire(I4)]
+    pub small: i8,
+    pub last: bool,
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct GatedV2 {
+    #[cfg_attr(all(), wire(I4))]
+    pub small: i8,
+    pub last: bool,
+    #[cfg_attr(all(), default = 3)]
+    pub extra: u8,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

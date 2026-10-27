@@ -551,6 +551,30 @@ pub fn table() -> Vec<Typed> {
             ]),
         )
         .borrowed(borrowed!(Series<'_, WiredSample>)),
+        // the derive's field attributes behind cfg_attr (API-60)
+        case(
+            "cfg_attr.v1",
+            GatedV1 {
+                small: -7,
+                last: true,
+            },
+        ),
+        case(
+            "cfg_attr.v2",
+            GatedV2 {
+                small: -7,
+                last: true,
+                extra: 5,
+            },
+        ),
+        case(
+            "cfg_attr.new_reads_old",
+            GatedV2 {
+                small: -7,
+                last: true,
+                extra: 3,
+            },
+        ),
         // not in the API model
         case_head_tail(
             "head_tail.struct",

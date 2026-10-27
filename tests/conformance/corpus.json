@@ -761,6 +761,31 @@
       "note": "a #[wire(I12)] i16 column is an I12 column"
     },
     {
+      "name": "cfg_attr.v1",
+      "type": "gated_v1",
+      "value": {"small": -7, "last": true},
+      "bytes": "98",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "cfg_attr.v2",
+      "type": "gated_v2",
+      "value": {"small": -7, "last": true, "extra": 5},
+      "bytes": "9805",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "#[cfg_attr(all(), wire(I4))] and #[cfg_attr(all(), default = 3)]: the bytes and model of the plain attributes"
+    },
+    {
+      "name": "cfg_attr.new_reads_old",
+      "type": "gated_v2",
+      "value": {"small": -7, "last": true, "extra": 3},
+      "bytes": "98",
+      "bytes_from": "cfg_attr.v1",
+      "direction": "decode",
+      "gaps": {"dynamic": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "explain": "the API model has no #[default] values, an old field reads as its type's default (INT-10)", "python": "the API model has no #[default] values (INT-10)", "c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a default behind cfg_attr reads as the default from older data"
+    },
+    {
       "name": "head_tail.struct",
       "type": "HtRecord",
       "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},

@@ -5,7 +5,7 @@ use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_quote,
+    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_attrs, maybe_quote,
     rewrite_positional_placeholders, serdes_scaffold,
 };
 use proc_macro2::{Ident, Span, TokenStream};
@@ -34,6 +34,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) crate_path: &'i CratePath,
     /// Type and const parameters and where clause of the struct (DER-14), as written.
     pub(crate) generics: &'i Generics,
+    /// The type with the item's own name: its fields keep the attributes the derive doesn't read.
+    pub(crate) base: bool,
 }
 
 impl<'i> CGItemStruct<'i> {
@@ -55,6 +57,7 @@ impl<'i> CGItemStruct<'i> {
             tuple: self.kind == StructKind::Tuple,
             cp: self.crate_path,
             serde_defaults: serde_defaults.as_ref(),
+            attrs: self.base,
         };
         let where_clause = self.generics.where_clause(&[]);
         let body = match self.kind {
@@ -252,6 +255,8 @@ struct CGStructFieldsDef<'a> {
     cp: &'a CratePath,
     /// DER-17: when the type derives `serde::Deserialize`
     serde_defaults: Option<&'a SerdeDefaults>,
+    /// Keep the fields' attributes the derive doesn't read.
+    attrs: bool,
 }
 
 impl ToTokens for CGStructFieldsDef<'_> {
@@ -267,7 +272,8 @@ impl ToTokens for CGStructFieldsDef<'_> {
                 (Some(serde), Some(_)) => serde.field_attr(&SerdeDefaults::fn_name(None, ident)),
                 _ => quote! {},
             };
-            let docs = quote! { #docs #serde_default };
+            let attrs = maybe_attrs(self.attrs, &struct_field.attrs);
+            let docs = quote! { #docs #serde_default #(#attrs)* };
             if self.tuple {
                 tokens.append_all(quote! {
                     #docs

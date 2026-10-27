@@ -22,6 +22,8 @@ pub(crate) struct ItemEnum {
 pub(crate) struct FutureVersion {
     pub(crate) docs: Docs,
     pub(crate) ident: Ident,
+    /// Attributes the derive doesn't read, as [Variant::attrs].
+    pub(crate) attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Clone, Debug)]
@@ -56,6 +58,11 @@ pub(crate) struct Variant {
     pub(crate) display: Option<String>,
     /// `#[common] Common(CommonError<'i>)`: gets `From<CommonError>` and `HasCommon` (STD-16).
     pub(crate) common: bool,
+    /// The variant's attributes the derive doesn't read (`#[serde(..)]`, `#[cfg_attr(..)]`, ...), kept as written on
+    /// the generated type that has the item's own name.
+    pub(crate) attrs: Vec<syn::Attribute>,
+    /// The same for each field of a tuple variant ([Fields::Unnamed]), empty for other variants.
+    pub(crate) unnamed_attrs: Vec<Vec<syn::Attribute>>,
 }
 
 impl Variant {

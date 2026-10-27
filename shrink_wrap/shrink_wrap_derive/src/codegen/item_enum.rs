@@ -6,7 +6,7 @@ use crate::ast::repr::Repr;
 use crate::ast::ty::Type;
 use crate::codegen::ty::FieldPath;
 use crate::codegen::util::{
-    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_quote,
+    CratePath, SerdeDefaults, assert_sized_before_tail_size, maybe_attrs, maybe_quote,
     rewrite_positional_placeholders, serdes_scaffold,
 };
 use proc_macro2::{Ident, Span, TokenStream};
@@ -32,6 +32,9 @@ pub(crate) struct CGItemEnum<'i> {
     pub(crate) crate_path: &'i CratePath,
     /// Type and const parameters and where clause of the enum (DER-14), as written.
     pub(crate) generics: &'i Generics,
+    /// The type with the item's own name: its variants and their fields keep the attributes the derive doesn't
+    /// read.
+    pub(crate) base: bool,
 }
 
 impl<'i> CGItemEnum<'i> {
@@ -86,6 +89,7 @@ impl<'i> CGItemEnum<'i> {
             is_ref,
             cp: self.crate_path,
             serde_defaults: serde_defaults.as_ref(),
+            attrs: self.base,
         };
         let lifetime = self.generics.def(is_ref && !self.ambiguous);
         let where_clause = self.generics.where_clause(&[]);
@@ -125,8 +129,9 @@ impl<'i> CGItemEnum<'i> {
         // its in-memory tag is the largest one, the wire discriminant is in its field
         let future_version = self.future_version.map(|fv| {
             let docs = &fv.docs;
+            let attrs = maybe_attrs(self.base, &fv.attrs);
             let ident = &fv.ident;
-            quote! { #docs #ident(u32) = #native_repr::MAX, }
+            quote! { #docs #(#attrs)* #ident(u32) = #native_repr::MAX, }
         });
 
         let ts = quote! {
@@ -505,6 +510,8 @@ struct CGEnumFieldsDef<'a> {
     cp: &'a CratePath,
     /// DER-17: when the type derives `serde::Deserialize`
     serde_defaults: Option<&'a SerdeDefaults>,
+    /// Keep the variants' and their fields' attributes the derive doesn't read.
+    attrs: bool,
 }
 
 impl ToTokens for CGEnumFieldsDef<'_> {
@@ -513,6 +520,8 @@ impl ToTokens for CGEnumFieldsDef<'_> {
             let ident = &variant.ident;
             let discriminant = variant.discriminant_lit();
             let variant_docs = &variant.docs;
+            let variant_attrs = maybe_attrs(self.attrs, &variant.attrs);
+            let variant_docs = quote! { #variant_docs #(#variant_attrs)* };
             tokens.append_all(variant.cfg_attrs());
             let variant = match &variant.fields {
                 Fields::Named(fields_named) => {
@@ -530,7 +539,8 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                                 }
                                 _ => quote! {},
                             };
-                            quote! { #docs #serde_default }
+                            let attrs = maybe_attrs(self.attrs, &f.attrs);
+                            quote! { #docs #serde_default #(#attrs)* }
                         })
                         .collect::<Vec<_>>();
                     let field_names: Vec<Ident> =
@@ -548,7 +558,16 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                         .collect::<Vec<_>>();
                     let field_types: Vec<TokenStream> = fields_unnamed
                         .iter()
-                        .map(|ty| ty.def(self.is_ref, self.cp))
+                        .enumerate()
+                        .map(|(idx, ty)| {
+                            let ty = ty.def(self.is_ref, self.cp);
+                            let attrs = variant
+                                .unnamed_attrs
+                                .get(idx)
+                                .map(|attrs| maybe_attrs(self.attrs, attrs))
+                                .unwrap_or_default();
+                            quote! { #(#attrs)* #ty }
+                        })
                         .collect();
                     quote!(#variant_docs #ident ( #(#field_types),* ) = #discriminant,)
                 }

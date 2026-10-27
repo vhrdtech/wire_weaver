@@ -85,6 +85,9 @@ pub(crate) struct Field {
     pub(crate) default: Option<Expr>,
     /// `#[series(opaque)]` (SW-60): in a `Series`, an opaque run of the value's own bytes instead of its columns.
     pub(crate) series_opaque: bool,
+    /// The field's attributes the derive doesn't read (`#[serde(..)]`, `#[cfg_attr(..)]`, ...), kept as written on
+    /// the generated type that has the item's own name.
+    pub(crate) attrs: Vec<syn::Attribute>,
 }
 
 impl ItemStruct {

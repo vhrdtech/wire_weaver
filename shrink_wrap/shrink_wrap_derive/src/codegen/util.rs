@@ -328,6 +328,12 @@ fn mentions_deserialize(ts: TokenStream) -> bool {
     })
 }
 
+/// `attrs` when `keep`, none otherwise: the attributes the derive doesn't read go on the type with the item's own
+/// name only (an owned mirror may not derive what they belong to).
+pub(crate) fn maybe_attrs(keep: bool, attrs: &[syn::Attribute]) -> &[syn::Attribute] {
+    if keep { attrs } else { &[] }
+}
+
 #[cfg(test)]
 mod rewrite_positional_placeholders_tests {
     use super::rewrite_positional_placeholders;

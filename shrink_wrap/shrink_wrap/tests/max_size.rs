@@ -62,8 +62,7 @@ enum Choice<'i> {
 enum Far {
     A,
     B(u8),
-    #[discriminant = 100]
-    C(u16),
+    C(u16) = 100,
 }
 
 #[derive_shrink_wrap(borrowed, derive(Debug, Clone), self_describing, ww_repr = nib)]

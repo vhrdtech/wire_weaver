@@ -489,6 +489,25 @@ pub struct Wired {
 | `#[series(opaque)]`     | named fields, with `series` | the field is an opaque run of its own bytes in a `Series` ([above](#series))                                  |
 | `#[wire(W)]`            | integer fields           | the plain integer is written as `W` ([above](#wirew-field-attribute))                                           |
 
+### Behind `cfg_attr`, and attributes the derive doesn't read
+
+rustc hands the item to the macro before it expands the `cfg_attr`s on its fields and variants, and a macro can't
+evaluate a `cfg`. So:
+
+- `#[cfg_attr(pred, default = expr)]` (or `flag`, `slot`, `since`, `display`, `common`, `future_version`,
+  `series(..)`, `wire(W)`) is read as if `pred` holds, and the derive adds a `compile_error!` for builds where it
+  doesn't: the bytes never change with a `cfg` the derive couldn't see. This is for a type crate that keeps
+  `shrink_wrap` optional, with the derive under the same feature:
+  `#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]` on the type and
+  `#[cfg_attr(feature = "shrink_wrap", default = 1)]` on a field. These attributes go in a `cfg_attr` of their own,
+  mixing them with other attributes is an error.
+- Any other attribute on a field, a tuple variant's field or a variant (`#[serde(rename = "r")]`,
+  `#[cfg_attr(feature = "defmt", defmt(Debug2Format))]`, a `cfg_attr` of those) stays on the generated field or variant
+  as written, and rustc expands it there. It goes on the type with the item's own name only (the borrowed `Type<'i>`,
+  or `TypeOwned` when that is what is written), like the item's own `derive`s: the owned mirror may not derive what
+  the attribute belongs to.
+- A name the derive doesn't know is a compile error from rustc ("cannot find attribute"), never silently nothing.
+
 Special field types the macro handles itself: [`TailSize<N>`](special_types.md#tailsizen-the-size-of-the-rest-of-a-value)
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed
 and owned side) and `MaxLen<T, N>` (checked on serialize and deserialize, see

@@ -4,8 +4,10 @@ use syn::{Expr, Lit, LitStr, Meta};
 
 /// Take `#[id = integer]` attribute and return the number
 #[allow(clippy::ptr_arg)]
-pub(crate) fn take_id_attr(_attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
+/// Takes `#[id = N]`, which is accepted and not used yet: fields are written in order.
+pub(crate) fn take_id_attr(attrs: &mut Vec<syn::Attribute>) -> Option<u32> {
     // TODO: implement id's
+    attrs.retain(|a| !a.path().is_ident("id"));
     None
 }
 

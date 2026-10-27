@@ -49,12 +49,11 @@ impl ItemEnum {
                 check_common_variant(variant, variants.iter().any(|v: &Variant| v.common))?;
             }
             let path = FieldPath::new(FieldPathRoot::EnumVariant(variant.ident.clone()));
-            let fields = convert_fields(&variant.fields, &path)?;
+            let (fields, unnamed_attrs) = convert_fields(&variant.fields, &path)?;
             let since = take_since_attr(&mut attrs)?;
             let cfg = take_cfg_attrs(&mut attrs)?;
             let display = take_display_attr(&mut attrs)?;
             let docs = collect_docs_attrs(&mut attrs);
-            collect_unknown_attributes(&mut attrs);
             variants.push(Variant {
                 docs,
                 ident: variant.ident.clone(),
@@ -64,6 +63,8 @@ impl ItemEnum {
                 cfg,
                 display,
                 common,
+                attrs,
+                unnamed_attrs,
             });
         }
         let mut attrs = item_enum.attrs.clone();
@@ -149,7 +150,11 @@ impl ItemEnum {
             "A variant from a newer version of this type, with its discriminant (added by `derive_shrink_wrap`).",
             Span::call_site(),
         ));
-        self.future_version = Some(FutureVersion { docs, ident });
+        self.future_version = Some(FutureVersion {
+            docs,
+            ident,
+            attrs: vec![],
+        });
         Ok(())
     }
 }
@@ -183,10 +188,10 @@ fn future_version_variant(
         return err("cannot have #[cfg]");
     }
     let docs = collect_docs_attrs(&mut attrs);
-    collect_unknown_attributes(&mut attrs);
     Ok(FutureVersion {
         docs,
         ident: ident.clone(),
+        attrs,
     })
 }
 
@@ -225,7 +230,11 @@ fn get_discriminant(variant: &syn::Variant) -> Result<Option<u32>, String> {
         .unwrap_or(Ok(None))
 }
 
-fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, String> {
+/// The variant's fields, and the attributes the derive doesn't read of each field of a tuple variant.
+fn convert_fields(
+    fields: &syn::Fields,
+    path: &FieldPath,
+) -> Result<(Fields, Vec<Vec<syn::Attribute>>), String> {
     match fields {
         syn::Fields::Named(fields_named) => {
             let mut named = vec![];
@@ -251,10 +260,11 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
             )?;
             propagate_default_to_flags(&mut named)?;
             change_is_ok_to_is_some(&mut named);
-            Ok(Fields::Named(named))
+            Ok((Fields::Named(named), vec![]))
         }
         syn::Fields::Unnamed(fields_unnamed) => {
             let mut unnamed = vec![];
+            let mut unnamed_attrs = vec![];
             for (def_order_idx, field) in fields_unnamed.unnamed.iter().enumerate() {
                 let (field, _is_explicit_flag) =
                     transform_field(def_order_idx as u32, field, path)?;
@@ -273,6 +283,7 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                     );
                 }
                 unnamed.push(field.ty);
+                unnamed_attrs.push(field.attrs);
             }
             let unnamed = create_tuple_flags(&unnamed);
             check_tail_bytes_position(&unnamed.iter().collect::<Vec<_>>())?;
@@ -282,9 +293,9 @@ fn convert_fields(fields: &syn::Fields, path: &FieldPath) -> Result<Fields, Stri
                     .map(|i| i.to_string())
                     .collect::<Vec<_>>(),
             )?;
-            Ok(Fields::Unnamed(unnamed))
+            Ok((Fields::Unnamed(unnamed), unnamed_attrs))
         }
-        syn::Fields::Unit => Ok(Fields::Unit),
+        syn::Fields::Unit => Ok((Fields::Unit, vec![])),
     }
 }
 

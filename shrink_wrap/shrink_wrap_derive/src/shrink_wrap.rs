@@ -127,34 +127,40 @@ fn generate_inner(
     // kept for `display`'s error messages, below `name` is moved into the borrowed/owned CGSeeds
     let type_name = name.clone();
     let generate_borrowed = if do_generate_borrowed {
-        Some(CGSeed::new(
-            item_name(name.clone(), ty_kind, true),
-            args.borrowed.flatten(),
-            args.cfg_attr_borrowed,
-            &args.cfg_attr,
-            args.derive_borrowed.clone(),
-            &args.derive,
-            args.size_assumption.clone(),
-            ambiguous,
-            &crate_path,
-        ))
+        Some(
+            CGSeed::new(
+                item_name(name.clone(), ty_kind, true),
+                args.borrowed.flatten(),
+                args.cfg_attr_borrowed,
+                &args.cfg_attr,
+                args.derive_borrowed.clone(),
+                &args.derive,
+                args.size_assumption.clone(),
+                ambiguous,
+                &crate_path,
+            )
+            .base_if_named(&name),
+        )
     } else {
         None
     };
 
     let generate_owned = matches!(ty_kind, TyKind::ExplicitOwned) | args.owned.is_some();
     let generate_owned = if generate_owned {
-        Some(CGSeed::new(
-            item_name(name, ty_kind, false),
-            args.owned.flatten(),
-            args.cfg_attr_owned,
-            &args.cfg_attr,
-            args.derive_owned,
-            &args.derive,
-            args.size_assumption.clone(),
-            ambiguous,
-            &crate_path,
-        ))
+        Some(
+            CGSeed::new(
+                item_name(name, ty_kind, false),
+                args.owned.flatten(),
+                args.cfg_attr_owned,
+                &args.cfg_attr,
+                args.derive_owned,
+                &args.derive,
+                args.size_assumption.clone(),
+                ambiguous,
+                &crate_path,
+            )
+            .base_if_named(&type_name),
+        )
     } else {
         None
     };
@@ -482,7 +488,8 @@ fn head_tail_inner(
         None,
         !has_lifetime,
         &crate_path,
-    );
+    )
+    .base_if_named(&name);
     let names = head_tail::Names {
         ident: seed.ident.clone(),
         has_lifetime,
@@ -731,6 +738,8 @@ struct CGSeed<'a> {
     size_assumption: Option<ObjectSize>,
     ambiguous: bool,
     crate_path: &'a CratePath,
+    /// The type with the item's own name: it gets the item's outer attributes.
+    base: bool,
 }
 
 impl<'a> CGSeed<'a> {
@@ -758,7 +767,14 @@ impl<'a> CGSeed<'a> {
             size_assumption,
             ambiguous,
             crate_path,
+            base: false,
         }
+    }
+
+    /// Marks the seed whose type has the item's own name `name`.
+    fn base_if_named(mut self, name: &str) -> Self {
+        self.base = self.ident == name;
+        self
     }
 
     /// The `series` impl's view of the type, `is_ref` on the borrowed side.
@@ -806,6 +822,7 @@ impl<'a> CGSeed<'a> {
             ambiguous: self.ambiguous,
             crate_path: self.crate_path,
             generics: &ww_item_enum.generics,
+            base: self.base && ident == &self.ident,
         }
     }
 
@@ -828,6 +845,7 @@ impl<'a> CGSeed<'a> {
             ambiguous: self.ambiguous,
             crate_path: self.crate_path,
             generics: &ww_item_struct.generics,
+            base: self.base,
         }
     }
 }

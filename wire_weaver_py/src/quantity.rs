@@ -47,8 +47,9 @@ impl Quantity {
         self.q.unit.name()
     }
 
-    /// The SI dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{}` when
-    /// dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
+    /// The dimension as base-unit exponents, `{"kg": 1, "m": 2, "s": -3, "A": -1}` for a volt, `{"rad": 1, "s": -1}`
+    /// for an angular velocity, `{"bit": 1}` for a byte, counted bases by their name (`{"Sample": 1, "s": -1}`), `{}`
+    /// when dimensionless, `None` when the unit is a marker known by its name only (not one of `ww_si`, nor a unit a
     /// device sent with its dimension in an `AnyQuantity`).
     #[getter]
     fn dim<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
@@ -56,15 +57,19 @@ impl Quantity {
             return Ok(None);
         };
         let dict = PyDict::new(py);
-        for (symbol, exp) in [
-            ("kg", dim.kg.value()),
-            ("m", dim.m.value()),
-            ("s", dim.s.value()),
-            ("A", dim.a.value()),
-            ("K", dim.k.value()),
-            ("mol", dim.mol.value()),
-            ("cd", dim.cd.value()),
-        ] {
+        let [s, m, kg, a, k, mol, cd, rad, bit] = dim.exps();
+        let fixed = [
+            ("kg", kg),
+            ("m", m),
+            ("s", s),
+            ("A", a),
+            ("K", k),
+            ("mol", mol),
+            ("cd", cd),
+            ("rad", rad),
+            ("bit", bit),
+        ];
+        for (symbol, exp) in fixed.into_iter().chain(dim.counted_bases()) {
             if exp != 0 {
                 dict.set_item(symbol, exp)?;
             }

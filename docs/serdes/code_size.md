@@ -355,6 +355,20 @@ whole reader state, from every bit offset and from 20 000 random reader states, 
 first) and derived structs and enums against the same fields read one by one with `?`; six hand-made mutants
 (a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension) each fail it. `just fuzz-shrink-wrap-latched` does the same under libFuzzer.
 
+### Transparent fields
+
+DER-20. A [`transparent`](derive_reference.md#transparent) wrapper (`exact_units::Fixed<Second, Micro, u32>`, a
+`Count(u32)`) as a field of a derived type takes the path of its plain field on both sides. The read side had it
+through `des_shrink_wrap_latch`; the write side gets the same: a hidden `SerializeShrinkWrap::ser_shrink_wrap_latch`
+(`ser_shrink_wrap` by default, `ser_shrink_wrap_owned_latch` for owned types), called through
+`BufWriter::write_field` for every user-type field. `bool`, `u8`..`u32`, `i8`..`i32` and `f32` override both sides with
+their `_latch` methods, and a `transparent` struct without `validate` forwards both to its field. Before it, such a
+field went through the wrapper's own `ser_shrink_wrap` with an error check per field: TEST-27's ELF comparison found
++2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. The bytes and the
+errors are the same; `tests/transparent.rs` (`fields_are_latched_like_the_plain_field`) checks both against the
+plain struct, `tests/latched_reads.rs` and the `shrink_wrap_latched` fuzz target hold the plain types' latched
+writes against their checked ones.
+
 ## Fixed on the way
 
 **Bit reads and the lengths in the last byte** (SW-40). The last byte of a message can hold forward data in its

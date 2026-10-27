@@ -16,6 +16,8 @@ pub trait Bounds<T: Storage>: Copy + Default + 'static {
 
     /// `MIN <= x <= MAX`; `false` for `NaN` when there is a bound.
     #[inline(always)]
+    // `!(x >= min)` and not `x < min`: `NaN` compares false both ways and has to be refused
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
     fn contains(x: T) -> bool {
         if let Some(min) = Self::MIN
             && !(x >= min)

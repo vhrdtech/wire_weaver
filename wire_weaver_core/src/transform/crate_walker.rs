@@ -415,15 +415,11 @@ impl CrateContext {
                 "crate" if i == 0 => cx.crate_root(scratch)?,
                 _ => match cx.module(&name, scratch)? {
                     Some(module) => module,
-                    None => match cx.imported_module(&name, scratch) {
-                        Some(module) => module,
-                        None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
-                        None => {
-                            return Err(
-                                anyhow!("Module {name} not found").context(cx.err_context())
-                            );
-                        }
-                    },
+                    None if let Some(module) = cx.imported_module(&name, scratch)? => module,
+                    None if i == 0 => cx.load_dependent_crate(&name, scratch)?,
+                    None => {
+                        return Err(anyhow!("Module {name} not found").context(cx.err_context()));
+                    }
                 },
             };
             resolved = Some(next);
@@ -467,27 +463,24 @@ impl CrateContext {
         crates
     }
 
-    /// The module or crate a `use` of this module names `name`: `use dep as name;` (a crate under another name, API-60),
-    /// `use dep::units;` or `use self::inner::units as name;`. `None` when no `use` names it, or it doesn't resolve
-    /// to a module or crate.
-    fn imported_module(&self, name: &str, scratch: &mut Scratch) -> Option<Rc<Self>> {
+    /// Module `name` brought in by a `use` (`pub use fixed::prefix`, `use ww_si::units`, `use ww_si as si`).
+    fn imported_module(&self, name: &str, scratch: &mut Scratch) -> Result<Option<Rc<Self>>> {
         for item in &self.lib_rs_ast.items {
             let Item::Use(item_use) = item else {
                 continue;
             };
-            let Some((path, real_name)) = use_tree_path_to(&item_use.tree, name) else {
+            let Some((path, leaf)) = use_tree_path_to(&item_use.tree, name) else {
                 continue;
             };
-            if path.is_empty() {
-                return self
-                    .load_dependent_crate(&real_name.to_string(), scratch)
-                    .ok();
-            }
-            return self
-                .resolve_path(path.into_iter().chain([real_name]), scratch)
-                .ok();
+            let module = if path.is_empty() {
+                // `use ww_si as si`: a crate
+                self.load_dependent_crate(&leaf.to_string(), scratch)?
+            } else {
+                self.resolve_path(path.into_iter().chain([leaf]), scratch)?
+            };
+            return Ok(Some(module));
         }
-        None
+        Ok(None)
     }
 
     /// The root of the crate this module is in.
@@ -600,21 +593,31 @@ impl CrateContext {
         if let Some(path) = scratch.public_paths.get(&key) {
             return Ok(path.clone());
         }
-        let mut cx = self.crate_root(scratch)?;
-        let mut path = vec![];
-        for segment in self.mod_path.iter().map(Some).chain([None]) {
-            if let Some(name) = cx.exported_name(self, ident, scratch, 0) {
-                path.push(name);
-                scratch.public_paths.insert(key, path.clone());
-                return Ok(path);
-            }
-            let Some(segment) = segment.filter(|s| s.public) else {
-                break;
-            };
-            path.push(segment.name.clone());
-            cx = cx
+        // each module from the crate root to this one, with the path other crates name it by
+        let mut modules = vec![self.crate_root(scratch)?];
+        for segment in &self.mod_path {
+            let module = modules[modules.len() - 1]
                 .module(&segment.name, scratch)?
                 .ok_or_else(|| anyhow!("internal: module {} not found", segment.name))?;
+            modules.push(module);
+        }
+        let mut module_paths: Vec<Option<Vec<String>>> = vec![Some(vec![])];
+        for k in 1..modules.len() {
+            let path = Self::module_public_path(&modules[..=k], &module_paths, scratch);
+            module_paths.push(path);
+        }
+        let shortest = modules
+            .iter()
+            .zip(&module_paths)
+            .filter_map(|(cx, module_path)| {
+                let module_path = module_path.as_ref()?;
+                let name = cx.exported_name(self, ident, scratch, 0)?;
+                Some(module_path.iter().cloned().chain([name]).collect::<Vec<_>>())
+            })
+            .min_by_key(|path| path.len());
+        if let Some(path) = shortest {
+            scratch.public_paths.insert(key, path.clone());
+            return Ok(path);
         }
         Err(anyhow!(
             "{} is not reachable from other crates, so generated code can't name it: make the modules on its way \
@@ -622,6 +625,58 @@ impl CrateContext {
             self.qualified_name(ident)
         )
         .context(self.err_context()))
+    }
+
+    /// Path by which other crates name the last of `modules` (a chain from the crate root), `None` when they can't:
+    /// a `pub mod` in a module they can name, or a module re-exported by `pub use` (`pub use fixed::prefix`) in one
+    /// of the modules before it. `paths` has the paths of the modules before it.
+    fn module_public_path(
+        modules: &[Rc<Self>],
+        paths: &[Option<Vec<String>>],
+        scratch: &mut Scratch,
+    ) -> Option<Vec<String>> {
+        let target = &modules[modules.len() - 1];
+        let last = target.mod_path.last()?;
+        let mut candidates = vec![];
+        if last.public
+            && let Some(parent) = &paths[paths.len() - 1]
+        {
+            candidates.push(parent.iter().cloned().chain([last.name.clone()]).collect());
+        }
+        for (cx, path) in modules[..modules.len() - 1].iter().zip(paths) {
+            let Some(path) = path else {
+                continue;
+            };
+            for item in &cx.lib_rs_ast.items {
+                let Item::Use(item_use) = item else {
+                    continue;
+                };
+                if !matches!(item_use.vis, syn::Visibility::Public(_)) {
+                    continue;
+                }
+                for (use_path, leaf) in use_tree_leaves(&item_use.tree) {
+                    let (name, exported) = match leaf {
+                        UseLeaf::Name(name) => (name, name),
+                        UseLeaf::Rename { name, rename } => (name, rename),
+                        UseLeaf::Glob => continue,
+                    };
+                    let is_local = use_path.first().is_some_and(|first| {
+                        *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
+                    });
+                    if !is_local || *name != last.name {
+                        continue;
+                    }
+                    let Ok(module) = cx.resolve_path(use_path.into_iter().chain([name]), scratch)
+                    else {
+                        continue;
+                    };
+                    if module.version == target.version && module.mod_path == target.mod_path {
+                        candidates.push(path.iter().cloned().chain([exported.to_string()]).collect());
+                    }
+                }
+            }
+        }
+        candidates.into_iter().min_by_key(|p: &Vec<String>| p.len())
     }
 
     /// The name under which this module makes `ident`, defined in `def_cx`, public: `ident` when this is `def_cx`,

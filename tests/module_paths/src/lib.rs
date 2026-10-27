@@ -6,7 +6,7 @@
 mod tests {
     use module_paths_api::geometry::Point;
     use module_paths_api::geometry::shapes::{Label, LabelOwned};
-    use module_paths_api::{Hidden, Quantity, Renamed, Volt, other, units};
+    use module_paths_api::{Hidden, Quantity, Renamed, Volt, limits, other, units};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
@@ -64,6 +64,17 @@ mod tests {
                 q: Quantity<units::Volt>,
             ) -> RpcResult<Volt> {
                 Ready(Volt { mv: q.value * 1000 })
+            }
+
+            fn clamp(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                shift: core::ops::Range<i32>,
+                x: limits::Range<0, 10>,
+            ) -> RpcResult<limits::Range<0, 10>> {
+                Ready(limits::Range {
+                    value: (x.value.clamp(0, 10) + shift.start).clamp(0, 10),
+                })
             }
 
             fn set_hidden(
@@ -227,6 +238,19 @@ mod tests {
         assert_eq!(data.lock().unwrap().renamed, Some(Renamed { id: 70_000 }));
     }
 
+    /// A user type named `Range` is not `core::ops::Range`, and a module re-exported by `pub use` is named by it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn user_range_in_reexported_module() {
+        let (device, _data) = start("module_paths/range");
+        let client = connect(&device).await;
+        let got = client
+            .clamp(2..5, limits::Range { value: 7 })
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(got, limits::Range { value: 9 });
+    }
+
     /// Each definition is known by its path and name (`units::Volt` and `Volt` are two), a type re-exported under
     /// another name by that name.
     #[test]
@@ -259,6 +283,7 @@ mod tests {
                 "Volt",
                 "geometry::Point",
                 "geometry::shapes::Label",
+                "limits::Range",
                 "other::Point",
                 "units::Volt",
             ]

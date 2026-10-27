@@ -365,6 +365,8 @@ impl<A: Unit, B: Unit> Unit for Times<A, B> {
 }
 
 /// The dimension of a line of [units]: exponents (`[kg 1, s -2]`), or a counted base named after the marker.
+// unused when no quantity group is enabled
+#[allow(unused_macros)]
 macro_rules! dim {
     ($ty:ident counted) => {
         Dim::counted(stringify!($ty))

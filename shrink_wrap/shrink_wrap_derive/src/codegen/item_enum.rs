@@ -417,6 +417,7 @@ impl<'i> CGItemEnum<'i> {
             self.max_size(),
             is_ref,
             is_ref && !self.ambiguous,
+            None,
             self.crate_path,
         )
     }

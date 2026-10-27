@@ -1,7 +1,7 @@
 #![no_main]
 
-//! `U1`..`U64` and `I2`..`I64` fields are read with the error kept in the reader (SW-38): for any bytes and any
-//! reader state, a read gives the value, the error and the reader of the read with a `Result`, and a derived type
+//! `U1`..`U64`, `I2`..`I64`, and as a user type's field `bool`, `u8`..`u32` and `i8`..`i32`, are read with the
+//! error kept in the reader (SW-38): for any bytes and any reader state, a read gives the value, the error and the reader of the read with a `Result`, and a derived type
 //! the result of reading every field with `?` (and on success the same reader).
 
 use libfuzzer_sys::fuzz_target;
@@ -105,6 +105,13 @@ fuzz_target!(|data: &[u8]| {
     check::<I32>(rd);
     check::<I33>(rd);
     check::<I64>(rd);
+    check::<bool>(rd);
+    check::<u8>(rd);
+    check::<u16>(rd);
+    check::<u32>(rd);
+    check::<i8>(rd);
+    check::<i16>(rd);
+    check::<i32>(rd);
 
     let (mut rd_old, mut rd_new) = (rd, rd);
     let old = sample_with_checks(&mut rd_old);

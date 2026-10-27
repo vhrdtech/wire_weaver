@@ -52,6 +52,7 @@ copying. Every message between host and device is made of it, and it works on it
 - DER-15 | `PhantomData` fields | A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own. | serdes/derive_reference.md#generics
 - DER-17 | `#[default]` fields default in serde too | A RON or JSON file saved before a field was added still reads, the field taking its default. | serdes/derive.md#evolving-types
 - DER-19 | `#[wire(W)]` fields | Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read. | serdes/derive_reference.md#wirew-field-attribute
+- DER-18 | `transparent` wrappers | A one-field struct (`Count(u64)`, `Volts<U>` with a `PhantomData` unit) is exactly its field on the wire, size class and `Series` columns included, so a new type costs no bytes. | serdes/derive_reference.md#transparent
 - SW-11 | Growing writer | `BufWriterOwned` for hosts, when the size isn't known up front. | serdes/shrink_wrap.md
 - SW-12 | Writing in place | Builders that write a value straight into the output buffer, and patching a field after the rest is written. | serdes/showcase.md
 - SW-44, SW-45 | Fixed layouts | Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header. | serdes/layouts.md#fixed_layout-fields-at-fixed-offsets

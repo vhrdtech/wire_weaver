@@ -11,7 +11,7 @@ The order of directives doesn't matter to the parser, but the codebase consisten
 so do the examples):
 
 ```text
-borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
+borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse|transparent, ww_repr,
 discriminants, display, validate, series|series(no_store)|series(cells), no_future_version|future_version
 ```
 
@@ -21,6 +21,7 @@ discriminants, display, validate, series|series(no_store)|series(cells), no_futu
 | `cfg_attr..`, `derive..`, `non_exhaustive`          | [Attributes on the generated types](#attributes-on-the-generated-types)      |
 | `final_structure`, `self_describing`, `sized`       | [Size assumptions](size_assumptions.md)                                      |
 | `fixed_layout`, `head_tail`, `sparse`               | [Fixed and sparse layouts](layouts.md)                                       |
+| `transparent`                                       | [`transparent`](#transparent)                                                |
 | `ww_repr`, `discriminants`, `no_future_version`, `future_version` | [Enums](#enums)                                               |
 | `display`, `validate`                               | [Messages and checks](#messages-and-checks)                                  |
 | `series`, `series(no_store)`, `series(cells)`       | [`series`](#series)                                                          |
@@ -364,6 +365,49 @@ needs `PartialEq`: a value is written again where it changed).
 store written by hand or with a field whose type has none; a type with a `#[series(opaque)]` field gets none anyway.
 `series(cells)` also implements `SeriesCells`, the store as atomics for a writer in an interrupt
 ([series.md](series.md#cells-a-store-shared-with-an-interrupt-seriescells)); every field type needs it too.
+
+## `transparent`
+
+DER-18. A struct with one field that isn't zero bits (the others `PhantomData<..>` or `()`) is exactly that field on
+the wire: a new type that adds meaning (a unit, an index, a checked range) for free. Its `ELEMENT_SIZE`, `PUSHES_LEN`
+and `MAX_SIZE` are the field's, and serializing and deserializing call the field's own, so the bytes are the plain
+field's wherever the struct is: in an evolvable or `sized` parent, in a `Vec`, `Option`, array or `Series`, or alone.
+
+```rust
+#[derive_shrink_wrap(borrowed, owned, transparent, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Count(pub u64);
+
+#[derive_shrink_wrap(borrowed, owned, transparent, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Volts<U> { pub value: f32, pub _unit: PhantomData<U> }
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Ac; // a unit marker, no serdes
+
+#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Reading { pub on: bool, pub count: Count, pub volts: Volts<Ac> }
+```
+
+`Count` is `Sized { size_bits: 64 }` like a `u64`, so `Reading` can be `sized`, and `Count(u64::MAX)` alone is
+`ff ff ff ff ff ff ff ff`. Without `transparent` a one-field struct is evolvable (`Unsized`, a length stored in its
+parent), and `final_structure` keeps its size class `UnsizedFinalStructure` even around a `u64`. The
+[conformance corpus](conformance.md) has every position (`transparent.*` cases), each with the bytes of its plain
+twin.
+
+- Borrowed and owned (`Label<'i>(&'i str)` gets `LabelOwned(String)`), generics (a parameter used only in
+  `PhantomData` gets no bounds, as [above](#generics)), tuple and named structs, `validate` (a check of the value
+  just read, a range say) and `display` go with it. `#[repr(transparent)]` on the struct is kept.
+- With `series` / `series(cells)` the struct forwards `SeriesColumns`, `SeriesStore` and `SeriesCells` to the field:
+  the same columns, store and cells, and a wrapped enum keeps its tag. The field's type needs `series` (or
+  `series(cells)`) too.
+- A compile error names the type for no field or two fields that aren't zero bits, for a size assumption
+  (`sized`, `final_structure`, `self_describing`: the size is the field's), `sparse`, `fixed_layout`, `head_tail`,
+  an enum, and for `#[default]` or `#[series(opaque)]` on the field.
+- `transparent` is part of the type's wire contract, like a [size assumption](size_assumptions.md): turning it on or
+  off for a released type changes its bytes wherever it isn't already `sized`.
+- In the API model (`ww_self::ItemStruct::transparent`) the dynamic client, Python and the `ww` CLI read it the same
+  way. A reader built before the flag existed (`ww_self` without `transparent`) sees a struct of one field: it reads
+  the same bytes inside a parent, but not a value of a wrapper around an evolvable (`Unsized`) type on its own, where
+  it expects a length the derive doesn't write.
 
 ## Generics
 

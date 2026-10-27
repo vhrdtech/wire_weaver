@@ -361,6 +361,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **DER-21 `#[wire(W)]` beyond plain fields** — inside `Option`, arrays and lists (`Option<#[wire] u8>` has no
   syntax yet: a wrapper type or `#[wire(Option<U4>)]`), and in `fixed_layout` / `head_tail` types, which reject
   the attribute with a compile error naming DER-21 today.
+- ✅ **DER-18 `transparent` derive directive**: a struct with one field that isn't zero bits (`PhantomData`, `()`)
+  takes that field's size class (`ELEMENT_SIZE`, `PUSHES_LEN`, `MAX_SIZE`), series columns, store and cells, and
+  writes exactly its bytes in every position, borrowed and owned, generic, with `validate` and `display`; compile
+  errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
+  (`ItemStruct::transparent`, read by the walker, `ValueOwned`'s decoder and `Series` columns, so the `ww` CLI and
+  `wire_weaver_py` read it too). For `ww_si::Fixed` (STD-55), where a `final_structure` wrapper was
+  `UnsizedFinalStructure` even around a `u64` and couldn't sit in a `sized` parent. Also fixed: a generic parameter
+  named `P`, `I`, `S` or `C` clashing with the derive's own in series code (`PhantomData<(U, P)>` included), and
+  `#[repr(..)]` of a derived struct being dropped (`docs/serdes/derive_reference.md#transparent`; tests
+  `shrink_wrap/tests/transparent.rs`, `phantom_data.rs`, conformance cases `transparent.*`). Not yet in the
+  evolution checker: EVO-15.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
@@ -389,12 +400,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
-- 📋 **DER-18 `transparent` derive directive** · `v0.5` — a struct with one field that isn't zero bits
-  (`PhantomData`, `()`) takes that field's size class and series columns and writes exactly its bytes, with a decode
-  check (`validate`) allowed; recorded in the API model (`ItemStruct::transparent`). For `ww_si::Fixed` (STD-55): a
-  `final_structure` wrapper writes the same bytes but is `UnsizedFinalStructure` even around a `u64`, so it can't sit in
-  a `sized` parent. Also fixes a generic parameter named `P` clashing with one the derive generates, and
-  `PhantomData<(A, B)>` not being seen as phantom-only.
+
 
 ## API model and codegen (`API`)
 

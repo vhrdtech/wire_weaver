@@ -834,12 +834,18 @@ impl<'a> TypeCheck<'a> {
         if let (Some(w_bound), Some(r_bound)) = (bound(self.writer, w), bound(self.reader, r)) {
             return self.check_bound_marker(&w_bound, &r_bound);
         }
-        let (w_name, r_name) = (
-            marker_name(self.writer, w, true),
-            marker_name(self.reader, r, true),
-        );
-        if w_name == r_name {
-            return Ok(());
+        // the same marker by crate and name (one side may have it in-line, the other skipped): then its
+        // definition and crate version are checked as for any type
+        let identity = |bundle, ty| match resolve(bundle, ty).ok()? {
+            ResolvedTy::Skipped(identity) => Some(identity),
+            ResolvedTy::Ty(ty) => user_type_identity(bundle, ty),
+        };
+        let same = match (identity(self.writer, w), identity(self.reader, r)) {
+            (Some(w_id), Some(r_id)) => w_id.0.crate_id == r_id.0.crate_id && w_id.1 == r_id.1,
+            _ => marker_name(self.writer, w, true) == marker_name(self.reader, r, true),
+        };
+        if same {
+            return self.check(w, r);
         }
         self.rule = Some(Rule::Meaning);
         Err(format!(

@@ -50,13 +50,37 @@ Flash of the whole image: 13 714 bytes with the plain cases only and 13 714 with
 What the numbers say:
 
 - `Fixed` costs no instructions where it only changes the type: `Series` and the range check are the same count, because the generated code is the same. At `fw-z` the linker folded `plain_check` and `fixed_check` into one function: the `Range<0, 1000>` check *is* the `if` you would have written.
-- The struct cases are 5-7 % fewer instructions with `Fixed`. That is a different instruction schedule of identical work (the pair runs in a different inlining context), not a saving to rely on: treat anything within ±10 % as equal. The wire bytes and the hashes are identical.
+- The struct cases are 5-7 % fewer instructions with `Fixed` on the M3 at `fw-z`, but the ELF proof below shows the code is not the same there: `Fixed` fields take the derive's per-field checked write, plain fields the latched one. Treat anything within ±10 % as equal; the wire bytes and the hashes are identical.
 - A bounded `try_new` is a compare and a branch per value. A range you did not write by hand is the one cost `Fixed` can add, and it replaces the check a setter needed anyway.
 - No wide arithmetic is linked for the `u64` of the first field: `Fixed` has its own `Storage`, it does not turn on `ww_numeric`'s `u64`.
 
-Cycles on the STM32H725: **pending**, the board was not behind the probe when this was measured (the J-Link on omarchy-m1 was on an RP2350). Run `just units-budget --qemu-host gpd-omarchy --cycles` with the H725 attached to fill in this section.
+## The ELF proof: identical instructions on every core
+
+There was no hardware for this baseline, so the claim is proved from the binaries instead: the same bench is built for Cortex-M0/M0+ (`thumbv6m-none-eabi`), M4F/M7 (`thumbv7em-none-eabihf`) and M33 (`thumbv8m.main-none-eabihf`), each at `fw-z` and `fw-3`, and every `plain_*` / `fixed_*` pair is disassembled with `llvm-objdump` and compared instruction by instruction. Identical instructions cost identical cycles on any silicon, so a board is needed only for a pair that differs.
+
+```sh
+just units-elf                                  # six builds, one table each, all pairs
+just units-elf --targets thumbv7em-none-eabihf  # one core
+```
+
+A line is compared as its mnemonic and operands with addresses removed: a branch keeps its relative offset, a call its callee (a callee with another name, such as `PlainStatus::ser_shrink_wrap` against `FixedStatus::ser_shrink_wrap`, is followed and compared the same way), a `pc`-relative literal the word it loads. A literal or `movw` immediate that points into the image (a panic location in read-only data) counts as "a pointer" and not by its value; the pointee is not compared. The tool is `examples_mcu/fw_budget/src/elf_diff.rs`, with unit tests for the normalization.
+
+Result of 27 October 2026 (M4F and M33 give the same code and the same table):
+
+| Pair | M0+ `fw-z` | M0+ `fw-3` | M4F / M33 `fw-z` | M4F / M33 `fw-3` |
+|---|---|---|---|---|
+| range check | identical (folded) | identical (folded) | identical (folded) | identical (folded) |
+| `Series` encode | identical (99 instr.) | identical (405) | identical (68) | identical (354) |
+| `Series` decode | differs, 145 / 133 instr. | identical (231) | differs, 83 / 76 | identical (188) |
+| struct encode | differs, 65 / 69 | differs, 111 / 113 | differs, 49 / 51 | differs, 80 / 84 |
+| struct decode | differs, 60 / 64 | differs, 94 / 99 | differs, 48 / 54 | differs, 60 / 75 |
+
+(plain / `Fixed` instructions in the function body.) Where the pair is identical, `Fixed` is free on every core, no measurement needed. Where it differs the cause is not the integer: a plain `u32` field of a derived struct is written with the derive's built-in `write_le32_latch` (the error is latched and checked once per struct), while a `Fixed` field goes through `Fixed`'s own `ser_shrink_wrap` and `write_le32`, which checks per field. The bytes are the same (the hashes match), the work is a few instructions more or fewer per field: at `fw-z` the `Fixed` encode and decode are 2-6 instructions and 4-12 bytes larger, at `fw-3` the decode is 15 instructions and 42 bytes larger on M4F/M33. Making the derive treat a `transparent` `Fixed` like its plain field would close that, and this recipe will show it when it does.
+
+Cycles on the STM32H725 for the pairs that differ: **pending**, the board was not behind the probe when this was measured. Run `just units-budget --qemu-host gpd-omarchy --cycles` with the H725 attached to fill in this section.
 
 ## Limits of this baseline
 
+- The ELF proof compares code, not the cost of a pointer's pointee or of memory: it says nothing about cache or wait states, which only matter where the code differs.
 - QEMU counts instructions, not cycles, and models no cache or wait states; the H725 (Cortex-M7, caches on) will differ in ratio, which is why both units are reported.
 - Only today's `Fixed` is measured: `Point`, rounding conversions and `Level` are not in the crate yet. `Fixed` moves into the crate `exact_units` (STD-61); the bench follows by changing the `use` lines in `unit_budget.rs`.

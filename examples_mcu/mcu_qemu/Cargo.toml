@@ -33,6 +33,12 @@ foc_observe_api = { path = "../../examples/foc_observe_api", default-features = 
 dfu_api = { path = "../../tests/dfu_api", default-features = false }
 ww_dfu = { path = "../../ww_stdlib/ww_dfu", default-features = false }
 
+# Cortex-M0 has no compare-and-swap: ww_stream's atomics go through critical sections there (the units budget is also
+# built for thumbv6m, TEST-27)
+[target.thumbv6m-none-eabi.dependencies]
+portable-atomic = { version = "1", default-features = false, features = ["critical-section"] }
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+
 # to solve "can't find crate for test on IntelliJ"
 [[bin]]
 name = "qemu-framer-rx"

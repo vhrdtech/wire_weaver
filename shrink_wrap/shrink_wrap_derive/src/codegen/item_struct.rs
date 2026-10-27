@@ -27,6 +27,8 @@ pub(crate) struct CGItemStruct<'i> {
     pub(crate) validate: Option<&'i Path>,
     pub(crate) cfg: Option<&'i TokenStream>,
     pub(crate) cfg_attr: &'i [TokenStream],
+    /// The item's own outer attributes, on the type with its name only.
+    pub(crate) attrs: &'i [syn::Attribute],
     pub(crate) derive: &'i [Path],
     pub(crate) size_assumption: Option<ObjectSize>,
     /// Set for a plain, lifetime-less type generated only because a `borrowed`/`owned` directive
@@ -51,6 +53,7 @@ impl<'i> CGItemStruct<'i> {
             quote! { #[derive( #(#d),* )] }
         });
         let cfg_attr = self.cfg_attr.iter();
+        let attrs = self.attrs;
         let repr = self.repr;
         let ident = &self.ident;
         let serde_defaults =
@@ -96,6 +99,7 @@ impl<'i> CGItemStruct<'i> {
             #docs
             #derive
             #(#[cfg_attr(#cfg_attr)])*
+            #(#attrs)*
             #(#repr)*
             pub struct #ident #lifetime #body
             #assert_size

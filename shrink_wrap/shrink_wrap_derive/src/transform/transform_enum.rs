@@ -73,9 +73,10 @@ impl ItemEnum {
         //     add_notes(&mut docs, size_assumption, true); TODO: add docs back
         // }
 
-        collect_unknown_attributes(&mut attrs);
+        attrs.retain(|a| !a.path().is_ident("repr"));
         Ok(ItemEnum {
             docs,
+            attrs,
             // ident: item_enum.ident.clone(),
             variants,
             future_version,

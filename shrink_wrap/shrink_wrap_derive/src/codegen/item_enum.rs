@@ -23,6 +23,8 @@ pub(crate) struct CGItemEnum<'i> {
     pub(crate) future_version: Option<&'i FutureVersion>,
     pub(crate) cfg: Option<&'i TokenStream>,
     pub(crate) cfg_attr: &'i [TokenStream],
+    /// The item's own outer attributes, on the type with its name only.
+    pub(crate) attrs: &'i [syn::Attribute],
     pub(crate) derive: &'i [Path],
     pub(crate) size_assumption: Option<ObjectSize>,
     /// Set for a plain, lifetime-less type generated only because a `borrowed`/`owned` directive
@@ -81,6 +83,7 @@ impl<'i> CGItemEnum<'i> {
             quote! { #[derive( #(#d),* )] }
         });
         let cfg_attr = self.cfg_attr.iter();
+        let attrs = self.attrs;
         let enum_name = &self.ident;
         let serde_defaults =
             SerdeDefaults::new(self.cfg_attr, self.derive, self.ident, self.generics);
@@ -139,6 +142,7 @@ impl<'i> CGItemEnum<'i> {
             #docs
             #derive
             #(#[cfg_attr(#cfg_attr)])*
+            #(#attrs)*
             #[repr(#native_repr)]
             pub enum #enum_name #lifetime #where_clause { #variants #future_version }
 

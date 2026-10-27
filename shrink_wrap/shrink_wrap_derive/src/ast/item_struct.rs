@@ -22,6 +22,9 @@ pub(crate) struct ItemStruct {
     /// `#[repr(..)]` on the struct (`#[repr(transparent)]` with the `transparent` directive), kept on the generated
     /// types as written.
     pub(crate) repr: Vec<syn::Attribute>,
+    /// The struct's other outer attributes (`#[derive(..)]`, `#[cfg_attr(..)]`, `#[allow(..)]`), kept as written on
+    /// the generated type that has the item's own name.
+    pub(crate) attrs: Vec<syn::Attribute>,
 }
 
 /// How a struct's fields are written in Rust (SW-59). The wire format is the same: fields in order. A tuple struct's

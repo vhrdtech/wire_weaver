@@ -1183,6 +1183,147 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// Crate `name` in `dir/name`, with `extra` after its `[package]` table (`[features]`, `[dependencies]`, ..).
+    fn write_crate(dir: &Path, name: &str, extra: &str, lib_rs: &str) {
+        write(
+            &dir.join(name).join("Cargo.toml"),
+            &format!(
+                "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n{extra}"
+            ),
+        );
+        write(&dir.join(name).join("src/lib.rs"), lib_rs);
+    }
+
+    /// `units`, not a ww API crate: `Milli` is a shrink_wrap type with feature `sw`, and documented as such with
+    /// feature `extra`.
+    fn write_gated_units(dir: &Path) {
+        write_crate(
+            dir,
+            "units",
+            "[features]\nsw = []\nextra = []\n",
+            "#[cfg_attr(feature = \"sw\", derive_shrink_wrap(sized))]\n\
+             #[cfg_attr(feature = \"extra\", doc = \"with extra\")]\n\
+             pub struct Milli { pub raw: i32 }\n",
+        );
+    }
+
+    /// Crate `api` in `dir` with `extra` after its `[package]` table, its API returning `Milli`.
+    fn write_milli_api(dir: &Path, extra: &str) {
+        write_crate(
+            dir,
+            "api",
+            extra,
+            "#[ww_api_root]\npub trait Api {\n    fn get() -> units::Milli;\n}\n",
+        );
+    }
+
+    fn load_api(api: &Path) -> Result<ApiBundleOwned> {
+        let mut scratch = Scratch::default();
+        let manifest = ManifestContext::load(api)?;
+        let features = manifest.default_features();
+        load_inner(manifest, features, None, &mut scratch)
+    }
+
+    /// The features of a crate that isn't a ww API crate come from its dependents' entries (API-60): `Milli` is
+    /// `sized` with `sw`, and without it a plain type (as unit markers are), so `Unsized`.
+    #[test]
+    fn features_from_the_dependency_entry() {
+        let dir = scratch_dir("features_entry");
+        write_gated_units(&dir);
+        write_milli_api(
+            &dir,
+            "[workspace]\n\n[dependencies]\nunits = { path = \"../units\", features = [\"sw\"] }\n",
+        );
+        let bundle = load_api(&dir.join("api")).unwrap();
+        assert_eq!(
+            crate_names(&bundle),
+            [("api".into(), 1), ("units".into(), 1)]
+        );
+        let debug = format!("{bundle:?}");
+        assert!(debug.contains("size: Sized"), "{debug}");
+        assert!(!debug.contains("with extra"));
+
+        write_milli_api(
+            &dir,
+            "[workspace]\n\n[dependencies]\nunits = { path = \"../units\" }\n",
+        );
+        let debug = format!("{:?}", load_api(&dir.join("api")).unwrap());
+        assert!(debug.contains("size: Unsized"), "{debug}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `units/sw` in the API crate's own `[features]`, on through its default features.
+    #[test]
+    fn features_through_dep_slash_feature() {
+        let dir = scratch_dir("features_slash");
+        write_gated_units(&dir);
+        write_milli_api(
+            &dir,
+            "[workspace]\n\n[features]\ndefault = [\"wire\"]\nwire = [\"units/sw\", \"units?/extra\"]\n\n\
+             [dependencies]\nunits = { path = \"../units\" }\n",
+        );
+        let bundle = load_api(&dir.join("api")).unwrap();
+        assert!(format!("{bundle:?}").contains("with extra"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `units = { workspace = true, features = [..] }`: the workspace entry's features and the member's own.
+    #[test]
+    fn features_of_a_workspace_dependency() {
+        let dir = scratch_dir("features_workspace");
+        write(
+            &dir.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"api\", \"units\"]\n\n\
+             [workspace.dependencies]\nunits = { path = \"units\", features = [\"sw\"] }\n",
+        );
+        write_gated_units(&dir);
+        write_milli_api(
+            &dir,
+            "[dependencies]\nunits = { workspace = true, features = [\"extra\"] }\n",
+        );
+        let bundle = load_api(&dir.join("api")).unwrap();
+        assert!(format!("{bundle:?}").contains("with extra"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `units` is reached from the API crate with `sw` and from `mid` (not a ww API crate either) with `extra` too:
+    /// built once with both, as Cargo does, `Milli` is documented in either order the walker reaches them in.
+    #[test]
+    fn features_unified_across_dependents() {
+        for (first, second) in [("units::Milli", "mid::Wrap"), ("mid::Wrap", "units::Milli")] {
+            let dir = scratch_dir("features_unified");
+            write_gated_units(&dir);
+            write_crate(
+                &dir,
+                "mid",
+                "[dependencies]\nunits = { path = \"../units\", features = [\"sw\", \"extra\"] }\n",
+                "#[derive_shrink_wrap]\npub struct Wrap { pub m: units::Milli }\n",
+            );
+            write_crate(
+                &dir,
+                "api",
+                "[workspace]\n\n[dependencies]\nunits = { path = \"../units\", features = [\"sw\"] }\n\
+                 mid = { path = \"../mid\" }\n",
+                &format!(
+                    "#[ww_api_root]\npub trait Api {{\n    fn first() -> {first};\n    fn second() -> {second};\n}}\n"
+                ),
+            );
+            let bundle = load_api(&dir.join("api")).unwrap();
+            let debug = format!("{bundle:?}");
+            assert_eq!(
+                debug.matches("ident: \"Milli\"").count(),
+                1,
+                "{first} first: {debug}"
+            );
+            assert_eq!(
+                debug.matches("with extra").count(),
+                1,
+                "{first} first: {debug}"
+            );
+            fs::remove_dir_all(&dir).unwrap();
+        }
+    }
+
     /// An API crate Cargo fetched itself (`#[ww_trait]` of a dependency): its registry dependencies are the newest
     /// matching versions Cargo has, the publisher's `Cargo.lock` next to it pins what this build may not use.
     #[test]

@@ -6,7 +6,7 @@
 mod tests {
     use standalone_api::Supply;
     use standalone_api::standalone_units::units::{Ampere, Volt};
-    use standalone_api::standalone_units::{Milli, Source};
+    use standalone_api::standalone_units::{Milli, Reading, Source};
     use wire_weaver_client::{ClientConfig, Commander, WwClient};
 
     mod device {
@@ -37,6 +37,16 @@ mod tests {
             ) -> RpcResult<()> {
                 self.limit = current;
                 RpcResult::Ready(())
+            }
+
+            fn last_reading(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> RpcResult<Reading> {
+                RpcResult::Ready(Reading {
+                    value: Milli::new(1200),
+                    samples: 4,
+                })
             }
 
             fn get_limit(
@@ -119,6 +129,9 @@ mod tests {
         assert_eq!(host.read_limit().read().await.unwrap(), Milli::new(500));
         host.set_limit(Milli::new(750)).call().await.unwrap();
         assert_eq!(host.read_limit().read().await.unwrap(), Milli::new(750));
+        let reading = host.last_reading().call().await.unwrap();
+        assert_eq!(reading.value, Milli::<Volt>::new(1200));
+        assert_eq!(reading.samples, 4);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -144,5 +157,47 @@ mod tests {
             bundle.ext_crates[crate_idx as usize].crate_id,
             "standalone_units"
         );
+    }
+
+    /// The directives and field attributes behind `cfg_attr(feature = "shrink_wrap", ..)` are in the model: the
+    /// walker read `standalone_units` with the feature `standalone_api` turns on.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn introspection_reads_cfg_attr_directives() {
+        use wire_weaver::shrink_wrap::ElementSize;
+        use ww_self::{FieldsOwned, Repr, TypeLocationOwned, TypeOwned};
+        let (_device, host) = connect("standalone/cfg_attr").await;
+        let bundle = host.cmd.introspect().get().await.unwrap().unwrap();
+        let in_line = |name: &str| {
+            bundle
+                .types
+                .iter()
+                .find_map(|l| match l {
+                    TypeLocationOwned::InLine { ty, .. } => match ty {
+                        TypeOwned::Struct(s) if s.ident == name => Some(ty.clone()),
+                        TypeOwned::Enum(e) if e.ident == name => Some(ty.clone()),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{name} in the device's API"))
+        };
+        let TypeOwned::Struct(milli) = in_line("Milli") else {
+            panic!("Milli is a struct")
+        };
+        assert!(matches!(milli.size, ElementSize::Sized { .. }), "{milli:?}");
+        let TypeOwned::Enum(source) = in_line("Source") else {
+            panic!("Source is an enum")
+        };
+        assert_eq!(source.size, ElementSize::SelfDescribing);
+        assert_eq!(source.repr, Repr::BitAligned(4));
+        let TypeOwned::Struct(reading) = in_line("Reading") else {
+            panic!("Reading is a struct")
+        };
+        assert_eq!(reading.size, ElementSize::Unsized);
+        let FieldsOwned::Named(fields) = &reading.fields else {
+            panic!("Reading has named fields")
+        };
+        let names: Vec<_> = fields.iter().filter_map(|f| f.ident.as_deref()).collect();
+        assert_eq!(names, ["value", "samples"]);
     }
 }

@@ -6,7 +6,7 @@
 /// dependency of their own.
 pub use standalone_units;
 use standalone_units::units::{Ampere, Volt};
-use standalone_units::{Milli, Source};
+use standalone_units::{Milli, Reading, Source};
 use wire_weaver::prelude::*;
 
 #[ww_api_root]
@@ -14,6 +14,8 @@ pub trait Standalone {
     /// Supply voltage and how it was found.
     fn supply() -> Supply;
     fn set_limit(current: Milli<Ampere>);
+    /// The last reading, a type whose `#[default]` field is behind `cfg_attr` too.
+    fn last_reading() -> Reading;
     property!(ro limit: Milli<Ampere>);
 }
 

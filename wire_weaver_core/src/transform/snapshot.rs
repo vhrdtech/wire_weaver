@@ -627,7 +627,7 @@ mod tests {
             .map(|c| c.crate_id.as_str())
             .collect();
         assert_eq!(crates, ["standalone_units"]);
-        for name in ["Milli", "Source", "Volt", "Ampere"] {
+        for name in ["Milli", "Source", "Reading", "Volt", "Ampere"] {
             type_idx(&bundle, name);
         }
     }

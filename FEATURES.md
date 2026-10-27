@@ -359,8 +359,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `UnsizedFinalStructure` even around a `u64` and couldn't sit in a `sized` parent. Also fixed: a generic parameter
   named `P`, `I`, `S` or `C` clashing with the derive's own in series code (`PhantomData<(U, P)>` included), and
   `#[repr(..)]` of a derived struct being dropped (`docs/serdes/derive_reference.md#transparent`; tests
-  `shrink_wrap/tests/transparent.rs`, `phantom_data.rs`, conformance cases `transparent.*`). Not yet in the
-  evolution checker: EVO-15.
+  `shrink_wrap/tests/transparent.rs`, `phantom_data.rs`, conformance cases `transparent.*`). The evolution
+  checker compares wrappers by meaning: EVO-15.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and
@@ -1442,19 +1442,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (crate and marker name); a non-canonical `Dim` is refused on decode. Volt is `d2 1f 00 00 00 00`. `Scale` gains
   `Exact` (an `ExactScale`, a degree is exactly π/180) in the same break. Conformance cases `stdlib.si.dim.*`
   (`tests/conformance/corpus.json`), [ww_si](docs/std_library/ww_si.md#units-known-only-at-run-time).
+- ✅ **EVO-15 Transparent wrappers in the checker** · `v0.5` — `T` and a `transparent` wrapper of `T` (DER-18,
+  `ww_si::Fixed`) are compatible, reported as the same bytes (`u64 -> Fixed<Second, Micro, u64, Unbounded>, same
+  bytes`); a change of a `Fixed`'s unit or prefix is breaking although the bytes stay (a reader takes µs for ms,
+  `Rule::Meaning`): any type parameter no field uses is a marker compared by name; a bound narrowed or widened is
+  breaking for the side it refuses (`Rule::Bound`, compared by value); `Quantity` → `Fixed` is breaking with a hint
+  that it is the intended move. A skipped `ww_si` definition is read from the embedded snapshot, also on prepared
+  bundles (the client at connect time)
+  (`docs/evolution/rules.md#transparent-wrappers-units-and-scales`, `#bounds`; `wire_weaver_evolution` tests
+  `tests::transparent`, `tests::ww_si_fixed`).
 - 💡 **EVO-7 Git dirty flag** — not implemented, although the old tracker had it as done: neither `ww_version` nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
-- 🚧 **EVO-15 Transparent wrappers in the checker** · `v0.5` — `T` and a `transparent` wrapper of `T` (DER-18,
-  `ww_si::Fixed`) are compatible, reported as the same bytes; a change of a `Fixed`'s unit or scale is breaking
-  although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
-  refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move. Done with a test-local wrapper
-  of `Fixed`'s shape (`docs/evolution/rules.md#transparent-wrappers-units-and-scales`, `#bounds`,
-  `wire_weaver_evolution` `tests::transparent`): any type parameter no field uses is a marker compared by name
-  (`Rule::Meaning`), bounds by value (`Rule::Bound`), also on prepared bundles (the client). Missing: cases with the
-  real `ww_si::Fixed` (STD-55) and the `Quantity` → `Fixed` hint.
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 

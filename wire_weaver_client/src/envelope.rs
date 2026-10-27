@@ -14,6 +14,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::Mutex;
 use wire_weaver::prelude::UNib32;
+use wire_weaver::shrink_wrap::Nibble;
 use wire_weaver::shrink_wrap::buf_reader::Cursors;
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use wire_weaver::shrink_wrap::{
@@ -51,6 +52,18 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
         let at = b.at(&rd);
         let seq: UVlq32Backfill = rd.read()?;
         b.leaf(1, "seq", "uvlq32", at, b.at(&rd), num(seq.0), None);
+
+        let at = b.at(&rd);
+        let priority: Nibble = rd.read()?;
+        b.leaf(
+            1,
+            "priority",
+            "nibble",
+            at,
+            b.at(&rd),
+            num(priority.value() as u32),
+            None,
+        );
 
         let at = b.at(&rd);
         let path_kind: PathKind = rd.read()?;

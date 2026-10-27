@@ -404,8 +404,8 @@ twin.
   an enum, and for `#[default]` or `#[series(opaque)]` on the field.
 - As a field of a derived type, a wrapper costs what its plain field costs (DER-20): the derive writes and reads it
   on the field's own latched path (`write_le32_latch`, one `latched()` per type for a `u32`), so the code is the
-  plain field's, see [code size](code_size.md#transparent-fields). A wrapper with `validate` keeps the checked path,
-  the check needs the value.
+  plain field's, see [code size](code_size.md#transparent-fields). A wrapper with `validate` is latched too: a
+  value out of range is kept as the error, and the type returns the first error as before.
 - `transparent` is part of the type's wire contract, like a [size assumption](size_assumptions.md): turning it on or
   off for a released type changes its bytes wherever it isn't already `sized`.
 - In the API model (`ww_self::ItemStruct::transparent`) the dynamic client, Python and the `ww` CLI read it the same

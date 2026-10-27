@@ -376,8 +376,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `exact_units::Fixed`) inside a derived struct is written and read on exactly the path of its inner plain field:
   the latched `write_*_latch` / `des_shrink_wrap_latch` calls with one error check per type (SW-34, SW-38), not the
   wrapper's own `ser_shrink_wrap` with a checked write per field. Hidden `ser_shrink_wrap_latch` (borrowed and owned)
-  with `BufWriter::write_field`, used by the derive for every user-type field; a wrapper with `validate` keeps the
-  plain path. TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
+  with `BufWriter::write_field`, used by the derive for every user-type field; a wrapper with `validate` (`Fixed`'s
+  bounds) keeps a value out of range as the latched error (`BufReader::keep_error`). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
   M33 before it; same wire format (`docs/serdes/derive_reference.md#transparent`,
   `docs/serdes/code_size.md#transparent-fields`; test `shrink_wrap/tests/transparent.rs`
   `fields_are_latched_like_the_plain_field`, fuzz `shrink_wrap_latched`).

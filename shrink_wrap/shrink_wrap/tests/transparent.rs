@@ -450,3 +450,39 @@ fn fields_are_latched_like_the_plain_field() {
         );
     }
 }
+
+#[derive_shrink_wrap(borrowed, derive(Clone, Copy, Debug, PartialEq))]
+struct CheckedRow {
+    a: u16,
+    p: Percent,
+    b: u8,
+}
+
+/// A wrapper with `validate` is latched too (DER-20): a value out of its range is kept as the error, and the struct
+/// returns the first error, as reading the fields one by one with `?` does.
+#[test]
+fn validated_fields_are_latched() {
+    let mut buf = [0u8; 2];
+    let mut wr = BufWriter::new(&mut buf);
+    assert_eq!(wr.write_field(&Percent { value: 7 }), Ok(()));
+    assert_eq!(wr.write_field(&0xAABBu16), Ok(()));
+    assert!(wr.latched().is_err());
+
+    for p in [0u8, 100, 101, 255] {
+        let bytes = [0x34, 0x12, p, 9];
+        for len in 0..=bytes.len() {
+            let one_by_one = (|| {
+                let mut rd = BufReader::new(&bytes[..len]);
+                let a = rd.read::<u16>()?;
+                let p = rd.read::<Percent>()?;
+                let b = rd.read::<u8>()?;
+                Ok(CheckedRow { a, p, b })
+            })();
+            assert_eq!(
+                CheckedRow::from_ww_bytes(&bytes[..len]),
+                one_by_one,
+                "{p} in {len} bytes"
+            );
+        }
+    }
+}

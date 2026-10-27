@@ -248,26 +248,36 @@ impl<'i> CGItemStruct<'i> {
         let init = self.transparent_init(idx, quote! { __field });
         let validate = self.validate.map(|path| quote! { #path(&__value)?; });
         // as a field of a derived type, the struct is written and read exactly like its field, a latched one
-        // included; a `validate` needs the value, so such a struct keeps the default (`write` / `read`)
-        let latch = self.validate.is_none().then(|| {
-            if is_ref {
-                (
-                    quote! { <#ty as #ser_trait>::ser_shrink_wrap_latch(&self.#member, wr) },
-                    quote! {
-                        let __field = <#ty as #des_trait<'i>>::des_shrink_wrap_latch(rd)?;
-                        Ok(#init)
-                    },
-                )
-            } else {
-                (
-                    quote! { <#ty as #ser_trait>::ser_shrink_wrap_owned_latch(&self.#member, wr) },
-                    quote! {
-                        let __field = <#ty as #des_trait>::des_shrink_wrap_owned_latch(rd)?;
-                        Ok(#init)
-                    },
-                )
+        // included; a failed `validate` is kept for `rd.latched()?` like a failed read (an earlier error stays
+        // first, and a value read after an error, 0, may fail it too)
+        let validate_latch = self.validate.map(|path| {
+            quote! {
+                if let Err(e) = #path(&__value) {
+                    rd.keep_error(e);
+                }
             }
         });
+        let latch = if is_ref {
+            (
+                quote! { <#ty as #ser_trait>::ser_shrink_wrap_latch(&self.#member, wr) },
+                quote! {
+                    let __field = <#ty as #des_trait<'i>>::des_shrink_wrap_latch(rd)?;
+                    let __value = #init;
+                    #validate_latch
+                    Ok(__value)
+                },
+            )
+        } else {
+            (
+                quote! { <#ty as #ser_trait>::ser_shrink_wrap_owned_latch(&self.#member, wr) },
+                quote! {
+                    let __field = <#ty as #des_trait>::des_shrink_wrap_owned_latch(rd)?;
+                    let __value = #init;
+                    #validate_latch
+                    Ok(__value)
+                },
+            )
+        };
         let des = quote! {
             let __field = #des;
             let __value = #init;
@@ -285,7 +295,7 @@ impl<'i> CGItemStruct<'i> {
             quote! { <#ty as #ser_trait>::MAX_SIZE },
             is_ref,
             is_ref && !self.ambiguous,
-            latch,
+            Some(latch),
             cp,
         )
     }

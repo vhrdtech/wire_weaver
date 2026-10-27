@@ -942,6 +942,15 @@ impl<'i> BufWriter<'i> {
         Ok(())
     }
 
+    /// What `#[derive_shrink_wrap]` writes a field of a user type with: [write](Self::write), except for the types
+    /// that keep a failed write for [latched](Self::latched) (`bool`, `u8`..`u32`, `i8`..`i32`, `f32` and
+    /// `transparent` wrappers of them), see [SerializeShrinkWrap::ser_shrink_wrap_latch](crate::SerializeShrinkWrap::ser_shrink_wrap_latch).
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn write_field<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {
+        val.ser_shrink_wrap_latch(self)
+    }
+
     /// Write any value that implements SerializeShrinkWrap trait.
     ///
     /// If the value is Unsized, then size is calculated and written to the back of the buffer as u16.

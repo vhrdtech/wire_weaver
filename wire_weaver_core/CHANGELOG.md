@@ -28,6 +28,7 @@
 
 ### ⚠️ Breaking
 
+- Generated server code passes the request's priority to handlers (`Context::with_priority`, CLT-50), to the items of a multi request, and to deferred replies: `<method>_send_return(out, reply_to, ..)` (and `_blocking`) takes the `ReplyTo` from `cx.reply_to()` instead of `seq`, so a reply to an urgent request goes out at once (SRV-42). Firmware passes `reply_to` where it passed `reply_to.seq`.
 - Generated `<name>_send` / `<name>_send_blocking` of a counted stream take `stream: &mut impl ww_stream::codec::CountedState` (was `&mut ww_stream::tx::Counted`, which still fits) and need `ww_stream` 0.5 with `codec`. Code that reads `StreamOpen` in a hand-written dispatcher matches the new `codecs` field (API-55).
 - Credit sinks on the stream protocol (API-34): generated server code opens a sink with `RequestKind::StreamOpen` and the host's session (`SinkCredit::open(cursor)`, answered with `StreamOpened` and its buffer, then an `Ack` with the grant; a new session calls `sideband_<name>` with `Open` first, a resume doesn't), takes `SinkWrite` / `SinkWriteUnits`, answers `Query` and sends `Ack` / `Resend` / `Close`, and a read on the sink returns its `StreamStatus`. `credit_<name>()` returns a `ww_stream::sink::SinkCredit` (was `ww_client_server::credit::SinkCredit`): a firmware crate with a credit sink depends on `ww_stream` (as for counted and reliable streams), change the type and replace `take_credit()` by `take_ack()`. `ww api scaffold` prints the new type. The generated client has `<sink>_status()` for credit sinks.
 

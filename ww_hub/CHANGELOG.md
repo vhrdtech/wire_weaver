@@ -14,6 +14,7 @@
 
 ### 🚀 Features
 
+- Request priority through the hub (CLT-50): the priority nibble passes the seq rewrite unchanged, an urgent request is flushed to the device at once, and an observe the hub merges for a client keeps that client's priority.
 - Live link handover (CLT-44): `ww_hub_api::Adopt` is served. `prepare(snapshot)` checks a direct holder's link
   snapshot (the same `wire_weaver_client` minor, a medium that fits the device key, the device not open in the hub
   nor lent) and keeps the device's slot, so nobody opens it meanwhile; it goes with the API connection. `commit(id)`

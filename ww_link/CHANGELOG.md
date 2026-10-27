@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### 🐛 Fixes
+
+- `Kind::Data1` and `Kind::Data2` are documented as reserved for a later use, not free for applications (a device drops them).
+
 ### ⚠️ Breaking
 
 - Per-medium framing (TR-15), wire change of USB and UDP: `UsbChecksum` is `NopChecksum` (USB checks, retries and orders every packet; stale frames are told apart by the setup token), so split messages lose their CRC-16; `UdpChecksum` is `CrcChecksum<LinkCrc32, true>`, a CRC-32/ISO-HDLC on every message with the frame prefix and head folded in, and every datagram starts with `UdpPrefix` (`SeqPrefix`: frame counter and session epoch), so lost, duplicated, reordered and previous-session datagrams are told apart. Hosts and devices built before can't talk to ones built after. `ww_link` depends on `ww_block` for the CRC-32 (one implementation for links and blocks): `std` turns on its `crc-table-slice16`, firmware picks a table with `ww_block`'s `crc-table-*` features (bitwise without).

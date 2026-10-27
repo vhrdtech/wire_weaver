@@ -4,11 +4,13 @@
 
 ### ⚠️ Breaking
 
+- Replies follow the request's priority (CLT-50, SRV-42): `Server::handle` (and `blocking::Server`) no longer flush a reply at once when no other request waits; a default-priority reply waits for the accumulation window like every message, a reply to an urgent request is flushed at once. Deferred replies sent through `Server::sink()` do the same (`Sink` implements `MessageSink::send_reply`): before, they always waited for the window.
 - `PacketSink` / `PacketSource` (and `blocking::PacketSink`) have an associated `type Framing: ww_link::Framing` (TR-15): `FramedTx` / `FramedRx` / `blocking::Server` frame in the medium's framing instead of always the USB one, so the UDP medium now uses `UdpFraming` (frame prefix, CRC-32 on every message). Implementations add `type Framing = ww_link::UsbFraming;` (or the medium's own). `TxFramer` / `RxFramer` take the framing as a parameter. The UDP medium only takes a datagram with a good CRC as the start of a link setup, so a corrupted one can't take over.
 - Link setup token (TR-15): `DeviceLink` echoes the host's token in `DeviceInfo` and `LinkReady`, takes `LinkSetup` only with the token of the last `GetDeviceInfo`, and answers a host without a token with `Disconnect(IncompatibleVersion)`. On every `GetDeviceInfo`, `poll_transmit` first returns the new `Transmit::NewSession`: `Server` and `blocking::Server` call `MessageTx::new_session()` (new, `reset()` by default; `FramedTx` / `StreamTx` start the framer's next session), so a frame being filled and a half-sent message of the previous session are dropped and the reply starts in a fresh frame. Code matching `Transmit` handles the new variant.
 
 ### 🚀 Features
 
+- `Sink::flush` (async and blocking) is public: firmware sends what waits in the frame now, e.g. after a deferred reply (SRV-42). `DeviceLink::on_flushed` for sinks that flush on their own.
 - `DeviceLink::peer_meta()` and `PeerMeta` (CLT-41): who the host said it is in link setup (program, user, host cut to 24 bytes, kind, pid, instance id), set before `LinkEvent::Up`, for firmware that wants to log it. About 90 bytes of RAM in `DeviceLink`.
 
 - `FramedRx::prefix_stats()`: lost, duplicated, reordered and previous-session frames seen so far (UDP, USB with `UsbSeqFraming`).

@@ -612,7 +612,13 @@ impl CrateContext {
             .filter_map(|(cx, module_path)| {
                 let module_path = module_path.as_ref()?;
                 let name = cx.exported_name(self, ident, scratch, 0)?;
-                Some(module_path.iter().cloned().chain([name]).collect::<Vec<_>>())
+                Some(
+                    module_path
+                        .iter()
+                        .cloned()
+                        .chain([name])
+                        .collect::<Vec<_>>(),
+                )
             })
             .min_by_key(|path| path.len());
         if let Some(path) = shortest {
@@ -671,7 +677,8 @@ impl CrateContext {
                         continue;
                     };
                     if module.version == target.version && module.mod_path == target.mod_path {
-                        candidates.push(path.iter().cloned().chain([exported.to_string()]).collect());
+                        candidates
+                            .push(path.iter().cloned().chain([exported.to_string()]).collect());
                     }
                 }
             }

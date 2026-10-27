@@ -734,11 +734,17 @@ pub fn table() -> Vec<Typed> {
         ),
         case(
             "stdlib.si.dim.counted",
-            dim(ww_si::Dim::counted("Sample")
-                .div(ww_si::Dim::counted("Frame"))
+            dim(ww_si::Dim::counted("ww_si", "Sample")
+                .div(ww_si::Dim::counted("ww_si", "Frame"))
                 .mul(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0))),
         ),
         case("stdlib.si.dim.rejected", dim(ww_si::Dim::ONE)),
+        case(
+            "stdlib.si.dim.root",
+            dim(<ww_si::units::Volt as ww_si::Unit>::DIM
+                .div(<ww_si::units::Hertz as ww_si::Unit>::DIM.sqrt())),
+        ),
+        case("stdlib.si.dim.root.rejected", dim(ww_si::Dim::ONE)),
         case(
             "stdlib.si.fixed.pow10",
             ww_si::Fixed::<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>::new(0xDEAD_BEEF),

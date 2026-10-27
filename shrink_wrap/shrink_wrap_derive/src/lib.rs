@@ -52,6 +52,10 @@ mod ww_repr;
 /// * `display` - generate `core::fmt::Display` and `core::error::Error` from the first doc line of each
 ///   variant/struct, `{field}` filled in; `#[display("..")]` overrides it.
 ///
+/// Other outer attributes of the item (`#[derive(..)]`, `#[cfg_attr(..)]`, `#[allow(..)]`) stay on the generated type
+/// with the item's own name, so the derive can be behind a `cfg_attr` of an optional feature with the plain derives
+/// written once.
+///
 /// See also [ShrinkWrap derive macro](ShrinkWrap).
 #[proc_macro_attribute]
 pub fn derive_shrink_wrap(attr: TokenStream, item: TokenStream) -> TokenStream {

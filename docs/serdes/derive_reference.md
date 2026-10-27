@@ -113,6 +113,28 @@ fn borrowed_is_copy() {
 }
 ```
 
+### Outer attributes
+
+Attributes written next to `#[derive_shrink_wrap(..)]` (`#[derive(..)]`, `#[cfg_attr(..)]`, `#[allow(..)]`) stay on
+the generated type that has the item's own name: the borrowed one for `Type<'i>`, `TypeOwned` when that is what is
+written. The owned mirror of a borrowed type gets its derives through `derive_owned(..)`. So the derive can sit behind
+an optional feature with the plain derives written once:
+
+```rust
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(borrowed, owned(feature = "std"), derive_owned(Clone, Debug, PartialEq), final_structure)
+)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct Counted<'i> {
+    pub name: &'i str,
+    pub exp: i8,
+}
+```
+
+On an enum, `#[repr(..)]` is left out: `ww_repr` sets the enum's representation.
+
 ### `cfg_attr(..)`, `cfg_attr_owned(..)`, `cfg_attr_borrowed(..)`
 
 Splice a `#[cfg_attr(condition, attr, ..)]` verbatim onto the base, owned-only or borrowed-only generated type. Can

@@ -917,6 +917,11 @@ impl<'a> CGSeed<'a> {
             crate_path: self.crate_path,
             generics: &ww_item_enum.generics,
             base: self.base && ident == &self.ident,
+            attrs: if self.base && ident == &self.ident {
+                &ww_item_enum.attrs
+            } else {
+                &[]
+            },
         }
     }
 
@@ -943,6 +948,11 @@ impl<'a> CGSeed<'a> {
             generics: &ww_item_struct.generics,
             base: self.base,
             repr: &ww_item_struct.repr,
+            attrs: if self.base {
+                &ww_item_struct.attrs
+            } else {
+                &[]
+            },
         }
     }
 }

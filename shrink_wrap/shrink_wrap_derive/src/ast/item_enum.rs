@@ -15,6 +15,9 @@ pub(crate) struct ItemEnum {
     pub(crate) future_version: Option<FutureVersion>,
     /// `enum Reading<T> { .. }` (DER-14): parameters and where clause as written.
     pub(crate) generics: Generics,
+    /// The enum's other outer attributes (`#[derive(..)]`, `#[cfg_attr(..)]`, `#[allow(..)]`), kept as written on the
+    /// generated type that has the item's own name. A `#[repr(..)]` is left out: `ww_repr` sets the enum's repr.
+    pub(crate) attrs: Vec<syn::Attribute>,
 }
 
 /// `#[future_version] Unknown(u32)`: holds a discriminant this version doesn't know, read from a newer version.

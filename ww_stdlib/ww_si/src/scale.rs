@@ -229,7 +229,7 @@ impl ExactScale {
 
 /// `a + b` within `i8`, a panic (a compile error in a `const`) otherwise.
 const fn add(a: i8, b: i16) -> i8 {
-    let x = a as i16 + b as i16;
+    let x = a as i16 + b;
     assert!(
         x >= i8::MIN as i16 && x <= i8::MAX as i16,
         "exponent of a scale out of i8"

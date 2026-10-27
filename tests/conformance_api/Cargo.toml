@@ -10,5 +10,5 @@ description = "Types of the wire-format conformance matrix (TEST-23), one proper
 
 [dependencies]
 wire_weaver = { workspace = true, features = ["std"] }
-ww_timebase = { workspace = true, features = ["std"] }
 ww_si = { workspace = true, features = ["std"] }
+ww_timebase = { workspace = true, features = ["std"] }

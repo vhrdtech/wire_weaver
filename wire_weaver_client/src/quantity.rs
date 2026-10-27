@@ -28,6 +28,8 @@ pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
 /// from the `SIExpr` the device sent with the value.
+// A few per API on a host, the size of a named one doesn't matter there
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynUnit {
     /// A named unit of `ww_si::units`: symbol, dimension and scale are known.

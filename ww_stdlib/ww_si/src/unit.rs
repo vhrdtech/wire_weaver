@@ -478,13 +478,12 @@ impl<'i> Dim<'i> {
                     if ended || c.exp.value() == 0 {
                         return false;
                     }
-                    if i > 0 {
-                        if let Some(prev) = self.counted[i - 1] {
-                            let order =
-                                cmp_bases((prev.crate_name, prev.name), (c.crate_name, c.name));
-                            if !matches!(order, core::cmp::Ordering::Less) {
-                                return false;
-                            }
+                    if i > 0
+                        && let Some(prev) = self.counted[i - 1]
+                    {
+                        let order = cmp_bases((prev.crate_name, prev.name), (c.crate_name, c.name));
+                        if !matches!(order, core::cmp::Ordering::Less) {
+                            return false;
                         }
                     }
                 }
@@ -667,6 +666,8 @@ impl Scale {
 /// A unit as a tree: named units, and products and quotients of them (`Per<Torque, AngularVelocity>` is
 /// `Div(Torque, AngularVelocity)`). Every [Unit] has one in [Unit::EXPR]; [units::by_name](crate::units::by_name)
 /// finds the named ones of this crate.
+// Only ever in `static`s and consts, never moved around: boxing the named variant would buy nothing
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 pub enum UnitExpr {
     Named {

@@ -233,6 +233,8 @@ name. A change is breaking if:
   [transparent wrapper](rules.md#transparent-wrappers-units-and-scales) (`Fixed<Second, Micro, u64>` -> `Fixed<Second,
   Milli, u64>`), any type argument no field uses, or one wrapper replaced by another of the same bytes (rule
   `Meaning`),
+* a `ww_si::Quantity` becomes a `ww_si::Fixed` or back: other bytes; the finding says it is the intended move, for a
+  major version,
 * a [bound](rules.md#bounds) is narrowed or widened: values one side writes are refused by the other (rule `Bound`),
 * a trait or type from another crate is replaced by one from a wire-incompatible version of that crate (e.g.
   `ww_si 0.1` -> `0.2`), or one from the same crate version with a different definition.

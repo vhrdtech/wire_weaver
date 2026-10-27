@@ -182,6 +182,14 @@ The checker compares it by what it means, not only by its bytes:
   the bytes are the same: a reader of the old version would take a value in ms for µs. The same for one wrapper
   replaced by another wrapper of the same bytes (`Fixed<..>` -> a `Count<u64>` of your own).
 * **Another `T`** (`u32` -> `u64`, inside the wrapper or across it): breaking, as for plain numbers.
+* **`Quantity<U>` -> `Fixed<U, ..>`**: breaking, a `Quantity` sends its prefix and number type with every value, a
+  `Fixed` only the number. It is the intended move for values whose prefix and type never change, so the checker says
+  so in the finding: plan it for a major version.
+
+`Fixed<Second, Micro, u64>` and `Fixed<Second, Micro, u64, Unbounded>` are the same type (the model always records
+`B`), and so is an alias of either (`Micros<u64>`). `Fixed` in your API is a `ww_si` type the API model skips; the
+checker reads its definition from the `ww_si` snapshot built into it, so a field changed from `u64` to `Fixed` is
+checked the same way as a wrapper of your own.
 
 This holds for every generic type, not only `Fixed`: a type parameter that no field uses (one only in `PhantomData`,
 which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name. A

@@ -1,5 +1,8 @@
 use super::api::{compact_trait_id, convert_api_items};
 use super::cargo_source::{CargoSources, DepSpec, Dependent};
+use super::cfg::{
+    DepRequest, Features, all_features, dep_requests, enabled_features, expand_cfg_attrs,
+};
 use super::meta::{MetaSite, get_meta};
 use super::util::{UseLeaf, collect_docs, use_tree_leaves, use_tree_path_to};
 use anyhow::{Context, Result, anyhow};
@@ -45,7 +48,9 @@ pub fn load(
     _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
     let mut scratch = Scratch::default();
-    load_inner(crate_path, trait_name, &mut scratch)
+    let manifest = ManifestContext::load(crate_path)?;
+    let features = manifest.default_features();
+    load_inner(manifest, features, trait_name, &mut scratch)
 }
 
 /// Load API definition and all referenced data types for a given dependency of 'current crate'.
@@ -70,13 +75,17 @@ pub fn load_dep_with_paths(
     let current_crate_path = PathBuf::from(current_crate_path);
     let current_crate_manifest = ManifestContext::load(&current_crate_path)?;
     scratch.sources.entry_dir = Some(current_crate_manifest.crate_path.clone());
-    let dep_manifest =
-        current_crate_manifest.load_dependent_manifest(dep_name.as_ref(), &mut scratch)?;
+    let current_features = current_crate_manifest.default_features();
+    let (dep_manifest, dep_features) = current_crate_manifest.load_dependent_manifest(
+        dep_name.as_ref(),
+        &current_features,
+        &mut scratch,
+    )?;
     scratch
         .manifests
         .insert(current_crate_path, current_crate_manifest.clone());
     let trait_name = trait_name.map(|t| t.as_ref().to_string());
-    let bundle = load_inner(&dep_manifest.crate_path, trait_name, &mut scratch)?;
+    let bundle = load_inner(dep_manifest, dep_features, trait_name, &mut scratch)?;
     let paths = CratePaths::find(&current_crate_manifest, &bundle, &scratch);
     Ok((bundle, paths))
 }
@@ -145,12 +154,14 @@ impl CratePaths {
     }
 }
 
+/// The API of the crate of `manifest`, built with `features`.
 fn load_inner(
-    crate_path: &Path,
+    manifest: Rc<ManifestContext>,
+    features: Features,
     trait_name: Option<String>,
     scratch: &mut Scratch,
 ) -> Result<ApiBundleOwned> {
-    let entry = CrateContext::load(crate_path, scratch)?;
+    let entry = CrateContext::load_from_manifest(manifest, features, scratch)?;
     let trait_name = find_trait_if_none(trait_name, &entry.lib_rs_ast)?;
     let item_trait = get_trait(&entry.lib_rs_ast, &trait_name)?;
     let items = convert_api_items(item_trait, &entry, scratch)?;
@@ -274,6 +285,8 @@ impl ApiBundleScratch {
 pub(crate) struct CrateContext {
     manifest: Rc<ManifestContext>,
     version: FullVersionOwned,
+    /// Features the crate is built with, `#[cfg_attr(..)]` in `lib_rs_ast` are expanded with them (API-60).
+    features: Rc<Features>,
     /// `src/lib.rs`, or a module of the crate when resolving paths through it.
     pub(crate) lib_rs_ast: File,
     /// Directory where files of the child modules of `lib_rs_ast` are.
@@ -299,34 +312,53 @@ pub(crate) struct ModSegment {
 }
 
 /// Cargo.toml manifest together with its file path
-struct ManifestContext {
+pub(crate) struct ManifestContext {
     crate_path: PathBuf,
     manifest: Manifest,
 }
 
 impl CrateContext {
-    pub(crate) fn load(crate_path: &Path, scratch: &mut Scratch) -> Result<Rc<Self>> {
+    /// The crate at `crate_path` with every feature enabled, as for a snapshot of everything it can serialize.
+    pub(crate) fn load_all_features(crate_path: &Path, scratch: &mut Scratch) -> Result<Rc<Self>> {
         let manifest = ManifestContext::load(crate_path)?;
-        Self::load_from_manifest(manifest, scratch)
+        let features = all_features(&manifest.manifest);
+        Self::load_from_manifest(manifest, features, scratch)
     }
 
+    /// The crate of `manifest` built with `features`. A crate already loaded with fewer features is loaded again
+    /// with both sets, as Cargo unifies the features its dependents ask for.
     fn load_from_manifest(
         manifest: Rc<ManifestContext>,
+        features: Features,
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
         if scratch.sources.entry_dir.is_none() {
             scratch.sources.entry_dir = Some(manifest.crate_path.clone());
         }
         let version = manifest.full_version(scratch)?;
-        if let Some(crate_cx) = scratch.crates.get(&version) {
-            return Ok(crate_cx.clone());
-        }
-        let lib_rs = load_lib_rs(&manifest.crate_path)?;
+        let features = match scratch.crates.get(&version) {
+            Some(crate_cx) if features.is_subset(&crate_cx.features) => {
+                return Ok(crate_cx.clone());
+            }
+            Some(crate_cx) => {
+                let mut features = features;
+                features.extend(crate_cx.features.iter().cloned());
+                // its modules were parsed with fewer features
+                scratch.modules.retain(|(v, _, _), _| v != &version);
+                scratch.public_paths.retain(|(v, _, _), _| v != &version);
+                features
+            }
+            None => features,
+        };
+        let mut lib_rs = load_lib_rs(&manifest.crate_path)?;
+        expand_cfg_attrs(&mut lib_rs, &features)
+            .with_context(|| format!("{}/src/lib.rs", manifest.crate_path.display()))?;
         let crate_cx = Self {
             // crate_path: manifest.crate_path.to_path_buf(),
             mod_dir: manifest.crate_path.join("src"),
             manifest,
             version,
+            features: Rc::new(features),
             lib_rs_ast: lib_rs,
             mod_path: vec![],
         };
@@ -347,8 +379,10 @@ impl CrateContext {
         crate_name: &str,
         scratch: &mut Scratch,
     ) -> Result<Rc<Self>> {
-        let dep_manifest = self.manifest.load_dependent_manifest(crate_name, scratch)?;
-        Self::load_from_manifest(dep_manifest, scratch)
+        let (dep_manifest, dep_features) =
+            self.manifest
+                .load_dependent_manifest(crate_name, &self.features, scratch)?;
+        Self::load_from_manifest(dep_manifest, dep_features, scratch)
     }
 
     /// Resolve the leading segments of a path (e.g. `a::b` in `a::b::Ty`): `crate`, `self`, modules of this crate or
@@ -365,7 +399,7 @@ impl CrateContext {
             let name = segment.to_string();
             let next = match name.as_str() {
                 "self" if i == 0 => continue,
-                "crate" if i == 0 => Self::load_from_manifest(cx.manifest.clone(), scratch)?,
+                "crate" if i == 0 => cx.crate_root(scratch)?,
                 _ => match cx.module(&name, scratch)? {
                     Some(module) => module,
                     None => match cx.imported_module(&name, scratch) {
@@ -443,6 +477,11 @@ impl CrateContext {
         None
     }
 
+    /// The root of the crate this module is in.
+    fn crate_root(&self, scratch: &mut Scratch) -> Result<Rc<Self>> {
+        Self::load_from_manifest(self.manifest.clone(), (*self.features).clone(), scratch)
+    }
+
     /// Whether `name` is a child module of this crate or module.
     pub(crate) fn has_module(&self, name: &str) -> bool {
         self.lib_rs_ast
@@ -487,7 +526,10 @@ impl CrateContext {
                 } else {
                     mod_dir.join("mod.rs")
                 };
-                parse_rs(&path)?
+                let mut file = parse_rs(&path)?;
+                expand_cfg_attrs(&mut file, &self.features)
+                    .with_context(|| path.display().to_string())?;
+                file
             }
         };
         let mut mod_path = self.mod_path.clone();
@@ -498,6 +540,7 @@ impl CrateContext {
         Ok(Some(Self {
             manifest: self.manifest.clone(),
             version: self.version.clone(),
+            features: self.features.clone(),
             lib_rs_ast: ast,
             mod_dir,
             mod_path,
@@ -544,7 +587,7 @@ impl CrateContext {
         if let Some(path) = scratch.public_paths.get(&key) {
             return Ok(path.clone());
         }
-        let mut cx = Self::load_from_manifest(self.manifest.clone(), scratch)?;
+        let mut cx = self.crate_root(scratch)?;
         let mut path = vec![];
         for segment in self.mod_path.iter().map(Some).chain([None]) {
             if let Some(name) = cx.exported_name(self, ident, scratch, 0) {
@@ -711,23 +754,27 @@ impl ManifestContext {
         Ok((package.name, version))
     }
 
+    /// Features of this crate when nobody asks for any: its default ones.
+    fn default_features(&self) -> Features {
+        enabled_features(&self.manifest, [], true)
+    }
+
+    /// Manifest of the dependency `crate_name` of this crate (built with `features`), and the features this crate
+    /// asks of it: in its dependency entry, and through `crate_name/feature` in its own `[features]`.
     fn load_dependent_manifest(
         &self,
         crate_name: &str,
+        features: &Features,
         scratch: &mut Scratch,
-    ) -> Result<Rc<ManifestContext>> {
+    ) -> Result<(Rc<ManifestContext>, Features)> {
         // e.g. `use wire_weaver::prelude::*;` brings in `ww_version` without a direct dependency on it
         if !self.manifest.dependencies.contains_key(crate_name)
             && WIRE_WEAVER_REEXPORTS.contains(&crate_name)
             && self.manifest.dependencies.contains_key("wire_weaver")
         {
-            let wire_weaver = self.load_dependent_inner(
-                &self.manifest.dependencies,
-                "wire_weaver",
-                self,
-                scratch,
-            )?;
-            return wire_weaver.load_dependent_manifest(crate_name, scratch);
+            let (wire_weaver, wire_weaver_features) =
+                self.load_dependent_manifest("wire_weaver", features, scratch)?;
+            return wire_weaver.load_dependent_manifest(crate_name, &wire_weaver_features, scratch);
         }
         // a `ww_codegen!` in test code (e.g. a test server) sees dev-dependencies too
         let deps = if !self.manifest.dependencies.contains_key(crate_name)
@@ -737,24 +784,33 @@ impl ManifestContext {
         } else {
             &self.manifest.dependencies
         };
-        self.load_dependent_inner(deps, crate_name, self, scratch)
+        let (dep, request) = self.load_dependent_inner(deps, crate_name, self, scratch)?;
+        let requested =
+            request
+                .features
+                .into_iter()
+                .chain(dep_requests(&self.manifest, features, crate_name));
+        let dep_features = enabled_features(&dep.manifest, requested, request.default_features);
+        Ok((dep, dep_features))
     }
 
-    /// Manifest of `crate_name` from `deps_set`, a dependency table of this manifest; `dependent` is the package
-    /// asking for it (this one, or a member of this workspace for `[workspace.dependencies]`).
+    /// Manifest of `crate_name` from `deps_set`, a dependency table of this manifest, and what its entry asks for;
+    /// `dependent` is the package asking for it (this one, or a member of this workspace for
+    /// `[workspace.dependencies]`).
     fn load_dependent_inner(
         &self,
         deps_set: &DepsSet,
         crate_name: &str,
         dependent: &ManifestContext,
         scratch: &mut Scratch,
-    ) -> Result<Rc<ManifestContext>> {
+    ) -> Result<(Rc<ManifestContext>, DepRequest)> {
         let dep = deps_set.get(crate_name).ok_or(
             anyhow!("Dependency not found")
                 .context(crate_name.to_owned())
                 .context(self.err_context()),
         )?;
-        match dep {
+        let request = DepRequest::of(dep);
+        let manifest = match dep {
             // crate_name = "version"
             Dependency::Simple(version) => self.load_locked(
                 dependent,
@@ -777,12 +833,15 @@ impl ManifestContext {
                         manifest.crate_path.display()
                     ))
                     .context(self.err_context())?;
-                manifest.load_dependent_inner(
+                let (manifest, mut workspace_request) = manifest.load_dependent_inner(
                     &workspace.dependencies,
                     crate_name,
                     dependent,
                     scratch,
-                )
+                )?;
+                // `{ workspace = true, features = [..] }` adds to the workspace entry's features
+                workspace_request.features.extend(request.features);
+                return Ok((manifest, workspace_request));
             }
             Dependency::Detailed(detailed) => {
                 // crate_name = { path = "" }
@@ -793,7 +852,7 @@ impl ManifestContext {
                     } else {
                         path.to_path_buf()
                     };
-                    return scratch.get_or_load_manifest(dep_crate_path);
+                    return Ok((scratch.get_or_load_manifest(dep_crate_path)?, request));
                 }
                 let package = detailed.package.as_deref().unwrap_or(crate_name);
                 let spec = match &detailed.git {
@@ -806,7 +865,8 @@ impl ManifestContext {
                 };
                 self.load_locked(dependent, package, &spec, scratch)
             }
-        }
+        }?;
+        Ok((manifest, request))
     }
 
     /// Manifest of `package`, a git or registry dependency of `dependent`, found where Cargo fetched it.
@@ -935,7 +995,9 @@ mod tests {
     fn load_with_cargo_home(api: &Path, cargo_home: &Path) -> Result<ApiBundleOwned> {
         let mut scratch = Scratch::default();
         scratch.sources.cargo_home = Some(cargo_home.to_path_buf());
-        load_inner(api, None, &mut scratch)
+        let manifest = ManifestContext::load(api)?;
+        let features = manifest.default_features();
+        load_inner(manifest, features, None, &mut scratch)
     }
 
     fn crate_names(bundle: &ApiBundleOwned) -> Vec<(String, u32)> {
@@ -1072,10 +1134,10 @@ mod tests {
         );
         let current = ManifestContext::load(&dir.join("server")).unwrap();
         let mut scratch = Scratch::default();
-        let api = current
-            .load_dependent_manifest("api", &mut scratch)
+        let (api, features) = current
+            .load_dependent_manifest("api", &current.default_features(), &mut scratch)
             .unwrap();
-        let bundle = load_inner(&api.crate_path, None, &mut scratch).unwrap();
+        let bundle = load_inner(api, features, None, &mut scratch).unwrap();
         assert_eq!(
             crate_names(&bundle),
             [("api".into(), 1), ("units".into(), 2)]

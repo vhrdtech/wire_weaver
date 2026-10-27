@@ -191,3 +191,21 @@ fn too_small_buffer_is_an_error() {
         }
     }
 }
+
+/// An array of elements that aren't `Copy` reads back owned: `[String; 3]`, `[Option<String>; 2]`.
+#[test]
+fn array_of_owned_elements() {
+    let words = ["a".to_string(), String::new(), "ccc".to_string()];
+    let maybe = [Some("x".to_string()), None];
+    let mut buf = [0u8; 64];
+    let mut wr = BufWriter::new(&mut buf);
+    wr.write_owned(&words).unwrap();
+    wr.write_owned(&maybe).unwrap();
+    let bytes = wr.finish().unwrap();
+    let mut rd = BufReader::new(bytes);
+    assert_eq!(rd.read_owned::<[String; 3]>().unwrap(), words);
+    assert_eq!(rd.read_owned::<[Option<String>; 2]>().unwrap(), maybe);
+    // cut short: the error of the element that doesn't decode
+    let mut rd = BufReader::new(&bytes[..1]);
+    assert!(rd.read_owned::<[String; 3]>().is_err());
+}

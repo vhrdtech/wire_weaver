@@ -93,6 +93,10 @@ trait Conformance {
     // Series
     property!(rw series_u16: Series<'i, u16>);
     property!(rw series_sample: Series<'i, Sample>);
+    // plain integers written as another wire type (DER-19)
+    property!(rw wired: Wired);
+    property!(rw wired_op: WiredOp);
+    property!(rw series_wired: Series<'i, WiredSample>);
     // ww_stdlib types whose evolution is checked here
     property!(rw steer_point: ww_timebase::SteerPoint<'i>);
     property!(rw sync_status: ww_timebase::SyncStatus<'i>);
@@ -422,6 +426,37 @@ pub struct Sample {
     pub t: u32,
     pub value: i16,
     pub ok: bool,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// #[wire(W)] (DER-19): plain Rust integers, written as W; the API model shows W
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Wired {
+    #[wire(I4)]
+    pub small: i8,
+    #[wire(UNib32)]
+    pub count: u64,
+    #[wire(U12)]
+    pub raw: u16,
+    pub last: bool,
+}
+
+#[derive_shrink_wrap(borrowed, owned, self_describing, ww_repr = u4, derive(Debug, PartialEq, Clone, Copy))]
+pub enum WiredOp {
+    Stop,
+    Step(#[wire(I4)] i8),
+    Set {
+        #[wire(UNib32)]
+        value: u32,
+    },
+}
+
+#[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
+pub struct WiredSample {
+    pub t: u32,
+    #[wire(I12)]
+    pub value: i16,
 }
 
 // ---------------------------------------------------------------------------------------------------------------

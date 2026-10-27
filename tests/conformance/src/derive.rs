@@ -518,6 +518,36 @@ pub fn table() -> Vec<Typed> {
             ]),
         )
         .borrowed(borrowed!(Series<'_, Sample>)),
+        // #[wire(W)] (DER-19)
+        case(
+            "wire.struct",
+            Wired {
+                small: -7,
+                count: 300,
+                raw: 0xABC,
+                last: true,
+            },
+        ),
+        case(
+            "wire.struct.out_of_range",
+            Wired {
+                small: 9,
+                count: 0,
+                raw: 0,
+                last: false,
+            },
+        ),
+        case("wire.enum.tuple", WiredOp::Step(-3)),
+        case("wire.enum.named", WiredOp::Set { value: 70_000 }),
+        case(
+            "wire.series",
+            SeriesOwned(vec![
+                WiredSample { t: 0, value: -5 },
+                WiredSample { t: 10, value: 2047 },
+                WiredSample { t: 20, value: -2048 },
+            ]),
+        )
+        .borrowed(borrowed!(Series<'_, WiredSample>)),
         // not in the API model
         case_head_tail(
             "head_tail.struct",

@@ -70,6 +70,7 @@ const DIRECTIVE_KINDS: &[(&str, &str)] = &[
     ("no_future_version", "no_future_version"),
     ("flag", "#[flag]"),
     ("default", "#[default = "),
+    ("wire", "#[wire("),
 ];
 
 /// Name of a `ww_self::Type` variant: exhaustive, so a new variant fails to compile here instead of being missed.

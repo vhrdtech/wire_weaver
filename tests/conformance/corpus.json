@@ -723,6 +723,44 @@
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
     },
     {
+      "name": "wire.struct",
+      "type": "wired",
+      "value": {"small": -7, "count": 300, "raw": 2748, "last": true},
+      "bytes": "9cd4abc8",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "#[wire(I4)] i8, #[wire(UNib32)] u64, #[wire(U12)] u16: the model shows the wire types, so every consumer reads them as I4, UNib32, U12"
+    },
+    {
+      "name": "wire.struct.out_of_range",
+      "type": "wired",
+      "value": {"small": 9, "count": 0, "raw": 0, "last": false},
+      "direction": "reject_value",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "9 doesn't fit I4: an error on write, never a cut value"
+    },
+    {
+      "name": "wire.enum.tuple",
+      "type": "wired_op",
+      "value": {"Step": -3},
+      "bytes": "1d",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "wire.enum.named",
+      "type": "wired_op",
+      "value": {"Set": {"value": 70000}},
+      "bytes": "28ed8920",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"}
+    },
+    {
+      "name": "wire.series",
+      "type": "series_wired",
+      "value": [{"t": 0, "value": -5}, {"t": 10, "value": 2047}, {"t": 20, "value": -2048}],
+      "bytes": "32042a286013ffdffe",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a #[wire(I12)] i16 column is an I12 column"
+    },
+    {
       "name": "head_tail.struct",
       "type": "HtRecord",
       "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},

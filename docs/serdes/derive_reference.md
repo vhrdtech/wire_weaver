@@ -26,6 +26,7 @@ discriminants, display, validate, series|series(no_store)|series(cells), no_futu
 | `series`, `series(no_store)`, `series(cells)`       | [`series`](#series)                                                          |
 | generics (`struct Timed<T>`, `Buf<const N: usize>`) | [Generics](#generics)                                                        |
 | `crate_path`                                        | [`crate_path`](#crate_pathpath)                                              |
+| `#[wire(W)]` on a field                             | [`#[wire(W)]` field attribute](#wirew-field-attribute)                      |
 | `#[default]`, `#[flag]`, `#[slot]`, `#[future_version]`, `#[cfg]` | [Field and variant attributes](#field-and-variant-attributes) |
 
 ## Generated types
@@ -433,6 +434,48 @@ struct Point { x: u8, y: u8 }
 When neither crate is a dependency and nothing is given, the names are left unqualified and
 `use shrink_wrap::prelude::*` is needed.
 
+## `#[wire(W)]` field attribute
+
+DER-19. A field keeps a plain Rust integer and is written as the wire type `W`: a narrower bit-sized one or a
+variable-length one. The code that uses the struct sees `i8` and `u64`, the bytes are those of `I4` and `UNib32`:
+
+```rust
+#[derive_shrink_wrap(borrowed, owned)]
+pub struct Wired {
+    #[wire(I4)]
+    pub small: i8,
+    #[wire(UNib32)]
+    pub count: u64,
+    #[wire(U12)]
+    pub raw: u16,
+    pub last: bool,
+}
+```
+
+`Wired { small: -7, count: 300, raw: 0xABC, last: true }` is the 4 bytes `9c d4 ab c8` (conformance case
+`wire.struct`), where plain fields would take 12: the same bytes as a struct with fields of type `I4`, `UNib32`,
+`U12` and `bool`, so a type can move between the two forms without a wire change.
+
+- **Write** checks the value against `W`'s range: `small: 9` is `Err(Error::SubtypeOutOfRange)`, never a cut or
+  wrapped value, and never a panic. **Read** widens `W` back to the field's type; a value of `W` that doesn't fit
+  the field (an `UNib32` above `u16::MAX` into a `#[wire(UNib32)] u16`) is `Error::SubtypeOutOfRange` too.
+- The field is a plain integer: `u8`..`u128`, `i8`..`i128`, `usize`, `isize`. `W` is an integer of 64 bits or
+  less: `u8`..`u64`, `i8`..`i64`, `Nibble`, `U1`..`U64`, `I2`..`I64`, `UNib32`, `UVlq32`, `UVlq64`. Both are
+  signed or both unsigned; anything else is a compile error naming the field. The conversion is the runtime trait
+  `shrink_wrap::WireAs<T>` (`from_plain` / `into_plain`), implemented for these pairs.
+- Works on struct fields, tuple struct fields and enum variant fields, with `#[default = ..]`, and in `sized` and
+  `final_structure` types (the size is `W`'s).
+- `#[cfg_attr(pred, wire(W))]` writes the field as `W` only where `pred` holds. Since that would change the bytes
+  between builds, the derive adds a `compile_error!` for builds where `pred` doesn't hold: use it to keep
+  `shrink_wrap` an optional dependency of a type crate (`cfg_attr(feature = "shrink_wrap", wire(I4))`), not to
+  switch formats. The `wire(..)` must be alone in its `cfg_attr`.
+- In a `series` type the field is a column of `W` (`shrink_wrap::series::Wired<W, T>`), while `SeriesStore` and
+  `SeriesCells` hold the plain `T`; a value out of `W`'s range fails when the series is written.
+- The API model (`ww_self`) records `W` as the field's type, so the dynamic client, `wire_weaver_py` and the C
+  generator read and write it as `W` with nothing of their own; the walker also finds `wire(W)` inside `cfg_attr`.
+- Not yet (DER-21): `#[wire(W)]` inside `Option`, arrays and lists, and in `fixed_layout` and `head_tail` types,
+  which reject it with a compile error.
+
 ## Field and variant attributes
 
 | Attribute               | On                       | What it does                                                                                                     |
@@ -444,6 +487,7 @@ When neither crate is a dependency and nothing is given, the names are left unqu
 | `#[cfg(..)]`            | enum variants            | compiles the variant out ([above](#cfg-on-enum-variants))                                                        |
 | `#[display("..")]`      | variants, with `display` | the message instead of the doc line ([above](#display))                                                          |
 | `#[series(opaque)]`     | named fields, with `series` | the field is an opaque run of its own bytes in a `Series` ([above](#series))                                  |
+| `#[wire(W)]`            | integer fields           | the plain integer is written as `W` ([above](#wirew-field-attribute))                                           |
 
 Special field types the macro handles itself: [`TailSize<N>`](special_types.md#tailsizen-the-size-of-the-rest-of-a-value)
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed

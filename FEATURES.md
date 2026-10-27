@@ -350,6 +350,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   variant, so RON or JSON written before the field was added still reads; for saved `ww_self` API snapshots when a
   later model field isn't an `Option` (EVO-13) (`docs/serdes/derive.md#evolving-types`; test
   `shrink_wrap/tests/serde_default.rs`).
+- ✅ **DER-19 `#[wire(W)]` field attribute**: a field keeps a plain Rust integer (`i8`, `u16`, `u64`, ..) and is
+  written as a narrower or variable-length wire type (`#[wire(I4)] i8`, `#[wire(UNib32)] u64`, `#[wire(U12)] u16`):
+  checked on write (`Error::SubtypeOutOfRange`, never a cut value), widened on read, same bytes as a field of type W
+  (runtime trait `shrink_wrap::WireAs`). Struct and enum fields, `#[default = ..]`, `sized`/`final_structure`,
+  `#[cfg_attr(pred, wire(W))]`, `series` columns (`series::Wired<W, T>`, a W column). The API model records W (the
+  walker reads it, also inside `cfg_attr`), so the dynamic client, Python and C need nothing new
+  (`docs/serdes/derive_reference.md#wirew-field-attribute`; tests `shrink_wrap/tests/wire_as.rs`, conformance
+  `wire.*`). For `ww_si` exact units (`prj/P2401-wireweaver/design/ww_si_in.md`).
+- 💡 **DER-21 `#[wire(W)]` beyond plain fields** — inside `Option`, arrays and lists (`Option<#[wire] u8>` has no
+  syntax yet: a wrapper type or `#[wire(Option<U4>)]`), and in `fixed_layout` / `head_tail` types, which reject
+  the attribute with a compile error naming DER-21 today.
 - ✅ **DER-11 Field type from a macro_rules `$T:ty` fragment**: accepted like the type written directly, instead of
   rejected as an unsupported `syn::Type::Group` (test `shrink_wrap/tests/macro_ty_fragment.rs`).
 - ✅ **DER-12 `Display` from doc comments**: a `display` directive writes `core::fmt::Display` and

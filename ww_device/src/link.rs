@@ -457,11 +457,7 @@ impl<'a> DeviceLink<'a> {
             self.pending.nop = false;
             Message::Nop
         } else if self.pending.flush {
-            self.pending.flush = false;
-            self.unflushed_since = None;
-            if self.phase == Phase::Up {
-                self.next_ping_at = Some(now + self.config.ping_interval);
-            }
+            self.on_flushed(now);
             return Some(Transmit::Flush);
         } else if self.pending.device_info {
             self.pending.device_info = false;
@@ -527,6 +523,16 @@ impl<'a> DeviceLink<'a> {
     pub fn flush_now(&mut self) {
         if self.unflushed_since.is_some() {
             self.pending.flush = true;
+        }
+    }
+
+    /// The framer was flushed outside of [Self::poll_transmit], e.g., right after a deferred reply (SRV-42): ends
+    /// the accumulation window and restarts the ping timer, as a [Transmit::Flush] does.
+    pub fn on_flushed(&mut self, now: Instant) {
+        self.pending.flush = false;
+        self.unflushed_since = None;
+        if self.phase == Phase::Up {
+            self.next_ping_at = Some(now + self.config.ping_interval);
         }
     }
 

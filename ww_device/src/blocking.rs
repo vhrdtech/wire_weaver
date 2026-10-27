@@ -196,7 +196,8 @@ impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
     }
 
     /// Send stream updates or deferred replies from outside of request handling, e.g., with generated
-    /// `stream_data_ser().<name>_send_blocking(&value, &mut server.sink(now))`.
+    /// `stream_data_ser().<name>_send_blocking(&value, &mut server.sink(now))`. Stream updates share frames
+    /// within the accumulation window, a deferred reply (`<method>_send_return_blocking`) goes out at once (SRV-42).
     pub fn sink(&mut self, now: Instant) -> EventWriter<'_, Sink<'_, 'a, P>> {
         EventWriter::new(
             Sink {
@@ -206,6 +207,7 @@ impl<'a, P: PacketSink, M: Copy> Server<'a, P, M> {
                     sink: &mut self.sink,
                     now,
                 },
+                flush_replies: true,
             },
             self.event_scratch,
         )
@@ -268,6 +270,7 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
             Some(Received::Data(request)) => {
                 let sink = Sink {
                     ctx: self.reborrow(),
+                    flush_replies: false,
                 };
                 let mut out = EventWriter::new(sink, event_scratch);
                 let reply = match backend.process_bytes(&mut out, medium, request, scratch) {
@@ -367,6 +370,8 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
 /// Writes data messages into the framer, obtained with [Server::sink] or passed to the backend inside an [EventWriter].
 pub struct Sink<'s, 'a, P: PacketSink> {
     ctx: Ctx<'s, 'a, P>,
+    /// Deferred replies are flushed right away: false while a request is handled
+    flush_replies: bool,
 }
 
 impl<P: PacketSink> Sink<'_, '_, P> {
@@ -379,6 +384,13 @@ impl<P: PacketSink> Sink<'_, '_, P> {
     pub fn send_message(&mut self, message: &[u8]) -> Result<(), SendError> {
         self.ctx.send_message(message)
     }
+
+    /// Send what was written so far now instead of on a [Server::poll] after the accumulation window.
+    pub fn flush(&mut self) -> Result<(), SendError> {
+        self.ctx.send_frame()?;
+        self.ctx.link.on_flushed(self.ctx.now);
+        Ok(())
+    }
 }
 
 impl<P: PacketSink> BlockingMessageSink for Sink<'_, '_, P> {
@@ -386,5 +398,17 @@ impl<P: PacketSink> BlockingMessageSink for Sink<'_, '_, P> {
         self.send_message(message).map_err(|e| {
             warn!("MessageSink::send failed: {:?}", e);
         })
+    }
+
+    /// A deferred reply sent from outside of request handling goes out at once instead of on a [Server::poll]
+    /// after the accumulation window (SRV-42).
+    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+        self.send(message)?;
+        if self.flush_replies {
+            self.flush().map_err(|e| {
+                warn!("MessageSink::send_reply flush failed: {:?}", e);
+            })?;
+        }
+        Ok(())
     }
 }

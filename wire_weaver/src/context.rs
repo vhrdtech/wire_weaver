@@ -8,6 +8,13 @@ use shrink_wrap::prelude::{BufWriter, SerializeShrinkWrap, ShrinkWrapError};
 /// Sends serialized messages (`ww_client_server::Event`s) out, e.g., into a framer of a link.
 pub trait MessageSink {
     fn send(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>>;
+
+    /// Send a deferred reply (generated `<method>_send_return`): someone waits for it, so a sink that accumulates
+    /// messages into frames sends it out now when nothing else is about to join it (SRV-42). Same as
+    /// [send](Self::send) by default.
+    fn send_reply(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+        self.send(message)
+    }
 }
 
 /// Same as [MessageSink], for code without async (`use_async = false` servers, blocking event loops).
@@ -15,17 +22,31 @@ pub trait BlockingMessageSink {
     // same as MessageSink: the sink logs why it failed, callers only need to know that it did
     #[allow(clippy::result_unit_err)]
     fn send(&mut self, message: &[u8]) -> Result<(), ()>;
+
+    /// Same as [MessageSink::send_reply]: send a deferred reply, out now when nothing else is about to join it.
+    #[allow(clippy::result_unit_err)]
+    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+        self.send(message)
+    }
 }
 
 impl<S: MessageSink + ?Sized> MessageSink for &mut S {
     fn send(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>> {
         (**self).send(message)
     }
+
+    fn send_reply(&mut self, message: &[u8]) -> impl Future<Output = Result<(), ()>> {
+        (**self).send_reply(message)
+    }
 }
 
 impl<S: BlockingMessageSink + ?Sized> BlockingMessageSink for &mut S {
     fn send(&mut self, message: &[u8]) -> Result<(), ()> {
         (**self).send(message)
+    }
+
+    fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+        (**self).send_reply(message)
     }
 }
 
@@ -63,6 +84,15 @@ pub trait EventOut {
     ) -> impl Future<Output = Result<(), SendError>> {
         self.send_with(|scratch| ser_into(event, scratch))
     }
+
+    /// [send_with](Self::send_with) for a deferred reply (generated `<method>_send_return`), see
+    /// [MessageSink::send_reply]. Same as [send_with](Self::send_with) by default.
+    fn send_reply_with<F>(&mut self, ser: F) -> impl Future<Output = Result<(), SendError>>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        self.send_with(ser)
+    }
 }
 
 /// Same as [EventOut], for code without async (`use_async = false` servers, blocking event loops).
@@ -77,6 +107,16 @@ pub trait BlockingEventOut {
     /// Serialize and send a whole event (usually `ww_client_server::Event`).
     fn send_event_blocking<T: SerializeShrinkWrap>(&mut self, event: &T) -> Result<(), SendError> {
         self.send_with_blocking(|scratch| ser_into(event, scratch))
+    }
+
+    /// [send_with_blocking](Self::send_with_blocking) for a deferred reply (generated
+    /// `<method>_send_return_blocking`), see [BlockingMessageSink::send_reply]. Same as
+    /// [send_with_blocking](Self::send_with_blocking) by default.
+    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        self.send_with_blocking(ser)
     }
 }
 
@@ -112,6 +152,17 @@ impl<S: MessageSink> EventOut for EventWriter<'_, S> {
             .await
             .map_err(|_| SendError::Sink)
     }
+
+    async fn send_reply_with<F>(&mut self, ser: F) -> Result<(), SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        let len = ser(self.scratch)?;
+        self.sink
+            .send_reply(&self.scratch[..len])
+            .await
+            .map_err(|_| SendError::Sink)
+    }
 }
 
 impl<S: BlockingMessageSink> BlockingEventOut for EventWriter<'_, S> {
@@ -122,6 +173,16 @@ impl<S: BlockingMessageSink> BlockingEventOut for EventWriter<'_, S> {
         let len = ser(self.scratch)?;
         self.sink
             .send(&self.scratch[..len])
+            .map_err(|_| SendError::Sink)
+    }
+
+    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        let len = ser(self.scratch)?;
+        self.sink
+            .send_reply(&self.scratch[..len])
             .map_err(|_| SendError::Sink)
     }
 }
@@ -246,6 +307,13 @@ impl<O: EventOut, M> EventOut for Context<'_, O, M> {
     {
         self.out.send_with(ser)
     }
+
+    fn send_reply_with<F>(&mut self, ser: F) -> impl Future<Output = Result<(), SendError>>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        self.out.send_reply_with(ser)
+    }
 }
 
 impl<O: BlockingEventOut, M> BlockingEventOut for Context<'_, O, M> {
@@ -254,6 +322,13 @@ impl<O: BlockingEventOut, M> BlockingEventOut for Context<'_, O, M> {
         F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
     {
         self.out.send_with_blocking(ser)
+    }
+
+    fn send_reply_with_blocking<F>(&mut self, ser: F) -> Result<(), SendError>
+    where
+        F: FnOnce(&mut [u8]) -> Result<usize, ShrinkWrapError>,
+    {
+        self.out.send_reply_with_blocking(ser)
     }
 }
 

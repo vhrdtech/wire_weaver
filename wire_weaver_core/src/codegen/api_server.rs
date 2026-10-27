@@ -2772,12 +2772,12 @@ fn deferred_method_return_ser_methods(
 
             /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
             pub async fn #send_fn_name<'i>(out: &mut impl wire_weaver::EventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
-                wire_weaver::EventOut::send_with(out, #ser_event).await
+                wire_weaver::EventOut::send_reply_with(out, #ser_event).await
             }
 
             /// Send the return value of a deferred call, `seq` is from `cx.reply_to()` of the original call.
             pub fn #send_blocking_fn_name<'i>(out: &mut impl wire_weaver::BlockingEventOut, seq: u32 #maybe_output) -> Result<(), wire_weaver::SendError> {
-                wire_weaver::BlockingEventOut::send_with_blocking(out, #ser_event)
+                wire_weaver::BlockingEventOut::send_reply_with_blocking(out, #ser_event)
             }
         });
     }

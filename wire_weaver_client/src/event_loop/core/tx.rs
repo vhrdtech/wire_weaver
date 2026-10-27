@@ -421,8 +421,9 @@ impl TxCore {
         }
     }
 
-    /// The link is up and a frame is being accumulated: a wrapper whose timer can't wait as short as the window
-    /// feeds [TxInput::Idle] once nothing else is waiting instead of sleeping until [TxCore::poll_timeout].
+    /// The link is up and a frame is being accumulated: the wrapper feeds [TxInput::Idle] once nothing else is
+    /// waiting instead of sleeping until [TxCore::poll_timeout]. A lone request leaves at once whatever the window,
+    /// the window only bounds how long messages that keep coming share a frame (CLT-37, CLT-50).
     pub fn wants_idle_flush(&self) -> bool {
         self.phase == Phase::Up && self.unflushed_since.is_some() && !self.forwarding
     }
@@ -435,11 +436,6 @@ impl TxCore {
             false => self.frame_accumulation_time,
         };
         self.unflushed_since.map(|t| t + window)
-    }
-
-    /// The accumulation window the device asked for.
-    pub fn accumulation_time(&self) -> Duration {
-        self.frame_accumulation_time
     }
 
     /// Sender from a disconnect command, if that is why tx exited. Must only be notified after the transport
@@ -603,10 +599,8 @@ impl TxCore {
                         seq,
                         data: &data,
                     })?;
-                    if self.unflushed_since.is_none() {
-                        self.unflushed_since = Some(now);
-                    }
                     self.forwarding = true;
+                    self.accumulated(now);
                 } else {
                     debug!("forwarded loopback while not up or a test runs, dropping");
                 }
@@ -736,9 +730,7 @@ impl TxCore {
             kind: ww_link::Kind::Data0 as u8,
             message: bytes,
         });
-        if self.unflushed_since.is_none() {
-            self.unflushed_since = Some(now);
-        }
+        self.accumulated(now);
     }
 
     /// A request with a `GlobalCompact` path (API-20) goes out with the trait's `GlobalFull` path instead when the
@@ -1049,9 +1041,7 @@ impl TxCore {
                         seq,
                         data: &data,
                     })?;
-                    if self.unflushed_since.is_none() {
-                        self.unflushed_since = Some(now);
-                    }
+                    self.accumulated(now);
                 }
                 TestOut::Flush => self.flush(now),
             }
@@ -1098,6 +1088,17 @@ impl TxCore {
             message: payload.to_vec(),
         });
         Ok(())
+    }
+
+    /// A message was written into the frame: its accumulation window starts, or, when the window is already over
+    /// (messages kept coming without a pause, so the wrapper never saw an idle moment), the frame goes out now
+    /// instead of when the wrapper's timer fires, which can be a millisecond later than asked (CLT-50).
+    fn accumulated(&mut self, now: Instant) {
+        if self.unflushed_since.is_none() {
+            self.unflushed_since = Some(now);
+        } else if is_due(self.flush_due(), now) {
+            self.flush(now);
+        }
     }
 
     /// Ask the wrapper to send the current frame; also restarts the ping timer.

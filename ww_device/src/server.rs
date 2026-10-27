@@ -244,6 +244,8 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                                 link: &mut self.link,
                                 tx: &mut self.tx,
                                 clock: &self.clock,
+                                // flushed below once no other request waits
+                                flush_replies: false,
                             };
                             let mut out = EventWriter::new(sink, &mut *self.event_scratch);
                             process_request(&mut out, backend, self.medium, request, self.scratch)
@@ -254,6 +256,8 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
                                 link: &mut self.link,
                                 tx: &mut self.tx,
                                 clock: &self.clock,
+                                // flushed below once no other request waits
+                                flush_replies: false,
                             };
                             sink.loopback(repeat, seq, data, self.scratch).await;
                         }
@@ -284,13 +288,15 @@ impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock, M: Copy> Server<'a, Tx, Rx, C, 
     }
 
     /// Send stream updates or deferred replies from outside of [handle](Self::handle), e.g., with generated
-    /// `stream_data_ser().<name>_send(&value, &mut server.sink())`.
+    /// `stream_data_ser().<name>_send(&value, &mut server.sink())`. Stream updates share frames within the
+    /// accumulation window, a deferred reply (`<method>_send_return`) goes out at once (SRV-42).
     pub fn sink(&mut self) -> EventWriter<'_, Sink<'_, 'a, Tx, C>> {
         EventWriter::new(
             Sink {
                 link: &mut self.link,
                 tx: &mut self.tx,
                 clock: &self.clock,
+                flush_replies: true,
             },
             self.event_scratch,
         )
@@ -337,6 +343,9 @@ pub struct Sink<'s, 'a, Tx, C> {
     link: &'s mut DeviceLink<'a>,
     tx: &'s mut Tx,
     clock: &'s C,
+    /// Deferred replies are flushed right away: false inside [Server::handle], which flushes once no other
+    /// request waits
+    flush_replies: bool,
 }
 
 impl<Tx: MessageTx, C: Clock> Sink<'_, '_, Tx, C> {
@@ -365,6 +374,21 @@ impl<Tx: MessageTx, C: Clock> Sink<'_, '_, Tx, C> {
         }
     }
 
+    /// Send what was written so far now instead of at the end of the accumulation window.
+    pub async fn flush(&mut self) -> Result<(), SendError> {
+        match self.tx.flush().await {
+            Ok(()) => {
+                self.link.on_flushed(self.clock.now());
+                Ok(())
+            }
+            Err(_) => {
+                warn!("flush failed, transport down");
+                self.link.on_transport_down();
+                Err(SendError::Transport)
+            }
+        }
+    }
+
     async fn loopback(&mut self, repeat: u32, seq: u32, data: &[u8], scratch: &mut [u8]) {
         for seq in crate::loopback_seqs(repeat, seq) {
             let Some((kind, bytes)) = crate::loopback_reply(seq, data, scratch) else {
@@ -384,6 +408,18 @@ impl<Tx: MessageTx, C: Clock> MessageSink for Sink<'_, '_, Tx, C> {
         self.send_message(message).await.map_err(|e| {
             warn!("MessageSink::send failed: {:?}", e);
         })
+    }
+
+    /// A deferred reply sent from outside of [Server::handle] goes out at once instead of at the end of the
+    /// accumulation window, as an immediate reply does when no other request waits (SRV-42).
+    async fn send_reply(&mut self, message: &[u8]) -> Result<(), ()> {
+        self.send(message).await?;
+        if self.flush_replies {
+            self.flush().await.map_err(|e| {
+                warn!("MessageSink::send_reply flush failed: {:?}", e);
+            })?;
+        }
+        Ok(())
     }
 }
 

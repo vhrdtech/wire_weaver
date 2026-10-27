@@ -905,6 +905,9 @@ fn convert_fields(
                 let default = get_default_attr(&f.attrs, current_crate)?;
                 let ty = if f.attrs.iter().any(|a| a.path().is_ident("flag")) {
                     flag_ty(f, fields, current_crate)?
+                } else if let Some(wire) = get_wire_attr(&f.attrs) {
+                    // a plain integer in Rust, `W` on the wire: the model has the wire type (DER-19)
+                    convert_ty(&wire, current_crate, scratch)?
                 } else {
                     convert_ty(&f.ty, current_crate, scratch)?
                 };
@@ -938,6 +941,29 @@ fn convert_fields(
 /// `PhantomData<T>`, also as `core::marker::PhantomData<T>`.
 pub(crate) fn is_phantom_data(ty: &Type) -> bool {
     matches!(ty, Type::Path(p) if p.qself.is_none() && p.path.segments.last().is_some_and(|s| s.ident == "PhantomData"))
+}
+
+/// `W` of `#[wire(W)]` or `#[cfg_attr(pred, wire(W))]` (DER-19); the derive checks the form, and that `pred` holds
+/// wherever the derive runs.
+fn get_wire_attr(attrs: &[Attribute]) -> Option<Type> {
+    attrs.iter().find_map(|a| {
+        let Meta::List(list) = &a.meta else {
+            return None;
+        };
+        if a.path().is_ident("wire") {
+            return syn::parse2(list.tokens.clone()).ok();
+        }
+        if !a.path().is_ident("cfg_attr") {
+            return None;
+        }
+        let metas = list
+            .parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)
+            .ok()?;
+        metas.into_iter().skip(1).find_map(|m| match m {
+            Meta::List(wire) if wire.path.is_ident("wire") => syn::parse2(wire.tokens).ok(),
+            _ => None,
+        })
+    })
 }
 
 /// `#[series(opaque)]` (SW-60): the field is an opaque run of its bytes in a `Series`; the derive checks the form.
@@ -1415,6 +1441,24 @@ mod alias_tests {
         assert_eq!(
             args(&bundle),
             ["struct test_api::Tag<u64> {id: u8, n: u16}"]
+        );
+    }
+
+    #[test]
+    fn wire_fields_have_the_wire_type() {
+        let bundle = load(
+            "wire_fields",
+            "fn a(p: Packed, r: Reading);",
+            "pub struct Packed { #[wire(I4)] offset: i8, #[cfg_attr(feature = \"sw\", wire(UNib32))] count: u64, plain: u8 }
+             #[derive_shrink_wrap(ww_repr = u4)] pub enum Reading { Offset(#[wire(U4)] u8), Count { #[cfg_attr(all(), wire(U12))] n: u16 } }",
+        )
+        .unwrap();
+        assert_eq!(
+            args(&bundle),
+            [
+                "struct test_api::Packed {offset: ib4, count: unib32, plain: u8}",
+                "enum ub4 test_api::Reading {Offset(ub4), Count{n: ub12}}",
+            ]
         );
     }
 

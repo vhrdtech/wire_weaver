@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
+
 ### 🐛 Fixes
 
 - Generated client methods and stream functions with arguments take `&self` instead of `&mut self` (CLT-48): nothing in them needs it, and it kept two calls with arguments on the same client out of one `MultiCall` tuple (`(client.add(1, 2), client.add(3, 4)).multi_call()` didn't compile). Callers holding the client as `let mut` only for these calls get an `unused_mut` warning.

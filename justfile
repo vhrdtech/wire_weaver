@@ -270,6 +270,11 @@ size-bench *args:
 units-budget *args:
     cargo run -q --release -- {{ args }}
 
+# The ELF proof of the units budget (TEST-27): plain and Fixed code compared per function on M0, M4 and M33, `fw-z` and `fw-3`
+[working-directory('examples_mcu/fw_budget')]
+units-elf *args:
+    cargo run -q --release -- --elf {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

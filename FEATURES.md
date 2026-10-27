@@ -2181,14 +2181,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `just test` / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
   compiles to identical code on every core and firmware profile measured (M0, M4F, M33; `opt-level` `z` and `3`), and
   a pair that differs fails with the per-symbol diff.
-- 🧪 **TEST-27 Units firmware budget** · `v0.5` — what `ww_si::Fixed` costs on an MCU against the plain fields it
+- ✅ **TEST-27 Units firmware budget** · `v0.5` — what `ww_si::Fixed` costs on an MCU against the plain fields it
   replaces, one harness any later piece (`Point`, rounding conversions, `Level`) re-runs with `just units-budget`:
   `examples_mcu/mcu_qemu/src/unit_budget.rs` (`qemu-unit-budget`, `stm32h725ig-unit-budget-cycles`) with plain/`Fixed`
   pairs that must write the same bytes, and `examples_mcu/fw_budget` printing instructions (Cortex-M3 under QEMU),
   flash and stack, at the shipped firmware's profile (`fw-z`, fat LTO, `opt-level = "z"`, and `fw-3`). Baseline of
   27 Oct 2026: struct encode/decode, a `Series` column and a `Range` check within ±7 % of the plain instructions at
-  `fw-z`, +0 bytes of flash (+68 at `fw-3`), equal stack frames. Hardware check open: DWT cycles on the STM32H725
-  (the board was not behind the probe). See `docs/articles/units_budget.md`.
+  `fw-z`, +0 bytes of flash (+68 at `fw-3`), equal stack frames. Hardware check left: DWT cycles on the STM32H725 for the pairs that differ
+  (the board was not behind the probe). Proved by ELF instead (`just units-elf`): the pairs compared instruction by
+  instruction on thumbv6m, thumbv7em and thumbv8m.main at `fw-z` and `fw-3`: range check and `Series` encode
+  identical everywhere, `Series` decode at `fw-3`; struct encode/decode differ by the derive's per-field write for a
+  `Fixed` (a few instructions). See `docs/articles/units_budget.md`.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

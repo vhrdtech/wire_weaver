@@ -413,7 +413,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - **[Conformance matrix](serdes/conformance.md)**: One corpus of golden bytes every wire-format implementation must match: derive, dynamic client, Python, C; guarded against a sealed case changing and against a wire kind going untested.
 - **[Code size bench](serdes/code_size.md)**: Firmware images per case for RISC-V and Cortex-M, measured on every change.
 - **Binary size tracking**: Flash and RAM per feature in CI. <span class="ww-status">in progress</span>
-- **[Units on a microcontroller](articles/units_budget.md)**: What typed units (`Fixed`) cost in instructions, flash and stack against plain integer fields, from a harness anyone can re-run. <span class="ww-status">hardware check open</span>
+- **[Units on a microcontroller](articles/units_budget.md)**: What typed units (`Fixed`) cost in instructions, flash and stack against plain integer fields, from a harness anyone can re-run.
 - **[Power cuts on STM32](api/ecc_flash.md)**: A flash store reset thousands of times mid-write on real hardware. <span class="ww-status">in progress</span>
 
 <p class="ww-features__more" markdown>Details and what is planned: [Testing, CI and performance](features.md#testing-ci-and-performance-test), [Wire format](features.md#wire-format-shrink_wrap-sw) in the feature tracker.</p>

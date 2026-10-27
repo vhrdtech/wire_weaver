@@ -3,6 +3,7 @@
 //! ELF's symbols and `.stack_sizes`), and, with `--cycles`, in core clock cycles on the STM32H725 (DWT `CYCCNT`).
 //!
 //! ```text
+//! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -13,6 +14,8 @@
 //! `qemu-system-arm`): the ELF and `qemu_icount` are copied to `/tmp/ww-units-budget` on HOST, which needs cargo.
 //! `--cycles` flashes the board behind the probe (`PROBE_RS_PROBE=VID:PID` picks one), replacing its firmware.
 
+mod elf_diff;
+
 use object::{Object, ObjectSection, ObjectSymbol};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -22,6 +25,14 @@ type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
 const QEMU_BIN: &str = "qemu-unit-budget";
 const CYCLES_BIN: &str = "stm32h725ig-unit-budget-cycles";
+/// The Cortex-M cores of the ELF proof (`--elf`): M0/M0+, M4F/M7 and M33.
+const ELF_TARGETS: [&str; 3] = [
+    "thumbv6m-none-eabi",
+    "thumbv7em-none-eabihf",
+    "thumbv8m.main-none-eabihf",
+];
+/// The shipping opt-levels, as profiles of `mcu_qemu/Cargo.toml`.
+const ELF_PROFILES: [&str; 2] = ["fw-z", "fw-3"];
 /// Wall-clock seconds QEMU and the board run get before they are stopped.
 const TIMEOUT_S: u32 = 300;
 
@@ -30,6 +41,9 @@ struct Args {
     qemu_host: Option<String>,
     cycles: bool,
     chip: String,
+    /// Compare the plain and Fixed code in the ELFs of these targets and both profiles instead of running anything.
+    elf: bool,
+    targets: Vec<String>,
 }
 
 fn parse_args() -> Res<Args> {
@@ -38,6 +52,8 @@ fn parse_args() -> Res<Args> {
         qemu_host: None,
         cycles: false,
         chip: "STM32H725IGKx".into(),
+        elf: false,
+        targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -47,6 +63,10 @@ fn parse_args() -> Res<Args> {
             "--qemu-host" => args.qemu_host = Some(value("--qemu-host")?),
             "--chip" => args.chip = value("--chip")?,
             "--cycles" => args.cycles = true,
+            "--elf" => args.elf = true,
+            "--targets" => {
+                args.targets = value("--targets")?.split(',').map(str::to_string).collect()
+            }
             _ => return Err(format!("unknown argument {a}, see the top of src/main.rs").into()),
         }
     }
@@ -79,9 +99,47 @@ fn output(cmd: &mut Command) -> Res<String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
+/// Symbol size of `name` (demangled) in `elf`; `None` when the linker left it out.
+pub fn flash_of_symbol(elf: &Path, name: &str) -> Option<u64> {
+    let data = std::fs::read(elf).ok()?;
+    let file = object::File::parse(&*data).ok()?;
+    file.symbols()
+        .find(|s| {
+            s.name()
+                .is_ok_and(|n| format!("{:#}", rustc_demangle::demangle(n)) == name)
+        })
+        .map(|s| s.size())
+}
+
+/// Builds the bench for every core and profile and compares the plain and Fixed code of each pair (a differing pair is the
+/// one worth measuring on a board).
+fn run_elf(args: &Args, qemu_dir: &Path) -> Res<()> {
+    let mut differing = 0;
+    for target in &args.targets {
+        for profile in ELF_PROFILES {
+            eprintln!("building {QEMU_BIN} for {target} at profile {profile}");
+            build_qemu_bin(qemu_dir, profile, "", target)?;
+            let elf = qemu_dir
+                .join("target")
+                .join(target)
+                .join(profile)
+                .join(QEMU_BIN);
+            let rows = elf_diff::print(&format!("{target}, profile {profile}"), &elf)?;
+            differing += rows.iter().filter(|(_, v)| !v.identical()).count();
+        }
+    }
+    println!(
+        "\n{differing} pair(s) with different code: cycles on silicon are needed only for those; identical instructions cost identical cycles"
+    );
+    Ok(())
+}
+
 fn run(args: &Args) -> Res<()> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let qemu_dir = root.join("mcu_qemu");
+    if args.elf {
+        return run_elf(args, &qemu_dir);
+    }
     eprintln!("building {QEMU_BIN} at profile {}", args.profile);
     let elf = qemu_dir
         .join("target/thumbv7m-none-eabi")
@@ -90,7 +148,7 @@ fn run(args: &Args) -> Res<()> {
     // the flash of a build with only the plain cases and one with only the Fixed ones, the whole image each
     let mut flash = Vec::new();
     for features in ["only-plain", "only-fixed", ""] {
-        build_qemu_bin(&qemu_dir, &args.profile, features)?;
+        build_qemu_bin(&qemu_dir, &args.profile, features, "thumbv7m-none-eabi")?;
         flash.push(flash_size(&elf)?);
     }
     let funcs = functions(&elf)?;
@@ -118,9 +176,17 @@ fn run(args: &Args) -> Res<()> {
 }
 
 /// Builds the QEMU bin with `features` and `-Z emit-stack-sizes`.
-fn build_qemu_bin(dir: &Path, profile: &str, features: &str) -> Res<()> {
+fn build_qemu_bin(dir: &Path, profile: &str, features: &str, target: &str) -> Res<()> {
     let mut cmd = cargo(dir);
-    cmd.args(["rustc", "--profile", profile, "--bin", QEMU_BIN]);
+    cmd.args([
+        "rustc",
+        "--profile",
+        profile,
+        "--target",
+        target,
+        "--bin",
+        QEMU_BIN,
+    ]);
     if !features.is_empty() {
         cmd.args(["--features", features]);
     }

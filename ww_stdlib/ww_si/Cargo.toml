@@ -47,7 +47,7 @@ radiation = []
 logarithmic = []
 # Ratio (duty, probability, scale): used next to any other group, so a group of its own
 dimensionless = []
-# Bit, Byte (8 Bit): data sizes, dimensionless and told apart by the marker
+# Byte, Bit (1/8 Byte), Word (4 Byte): data sizes, dimensionless and told apart by the marker
 information = []
 # Item: a count of things
 counting = []

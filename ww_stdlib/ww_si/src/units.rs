@@ -260,15 +260,21 @@ pub struct Ratio;
 
 // Information
 
-/// Information in bits, bit (dimensionless): a data size or a count of bits, told apart from a [Ratio] by the marker.
+/// Information in bytes, B (dimensionless, the coherent unit of information here): a data size, a buffer's capacity,
+/// an offset, told apart from a [Ratio] by the marker. A rate is `Per<Byte, Second>`.
+#[cfg(feature = "information")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Byte;
+
+/// Information in bits, bit (1/8 [Byte]).
 #[cfg(feature = "information")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Bit;
 
-/// Information in bytes, B (8 [Bit]): a data size, a buffer's capacity, an offset. A rate is `Per<Byte, Second>`.
+/// Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.
 #[cfg(feature = "information")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Byte;
+pub struct Word;
 
 // Counting
 
@@ -398,8 +404,9 @@ units! {
 
     "dimensionless" Ratio "" [] Scale::Coherent;
 
-    "information" Bit "bit" [] Scale::Coherent;
-    "information" Byte "B" [] Scale::Factor(8.0);
+    "information" Byte "B" [] Scale::Coherent;
+    "information" Bit "bit" [] Scale::Factor(0.125);
+    "information" Word "word" [] Scale::Factor(4.0);
 
     "counting" Item "item" [] Scale::Coherent;
 }

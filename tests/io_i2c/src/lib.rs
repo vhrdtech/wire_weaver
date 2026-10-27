@@ -10,7 +10,7 @@ mod tests {
     use ww_i2c::{
         Hertz, I2cAddress, I2cCapabilities, I2cConfig, I2cError, I2cErrorOwned, I2cLinesState,
         I2cMatchByte, I2cMode, I2cOp, I2cOpOwned, I2cReadEnvelope, I2cReadKind, I2cReadKindOwned,
-        I2cRecord, I2cRecordKind, I2cTransactionResult, I2cTransactionTimeRange,
+        I2cRecord, I2cRecordKind, I2cTimeRange, I2cTransactionResult, I2cTransactionTimeRange,
         I2cWatchCapabilities, I2cWatchConfig, I2cWatchConfigOwned, I2cWatchEvent,
         I2cWatchReportOwned, MAX_READ_LEN, MAX_SCAN, MAX_WATCHES, Second,
     };
@@ -54,7 +54,7 @@ mod tests {
         stretches: HashSet<u16>,
         /// A slave holds SDA low, until `I2c::i2c_wiggle_clock` frees it.
         sda_stuck: bool,
-        /// `I2cConfig::stretch_timeout` in effect, `None` for the mock's default of 25 ms.
+        /// The master's stretch timeout in effect, `None` for the mock's default of 25 ms.
         stretch_timeout: Option<Second>,
         /// Every `I2c::i2c_write`, in order.
         writes: Vec<(u16, Vec<u8>)>,
@@ -243,25 +243,27 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<I2cCapabilities<'_>> {
                 Ready(I2cCapabilities {
-                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-                    io_level_min: None,
-                    io_level_max: None,
-                    max_write_len: ww_i2c::MAX_WRITE_LEN as u32,
-                    max_read_len: MAX_READ_LEN as u32,
-                    min_freq: Hertz::kilo(1u16),
-                    max_freq: Hertz::kilo(400u16),
                     driver_name: MaxLen::new_unchecked("mock"),
                     master_supported: true,
                     monitor_supported: true,
-                    ten_bit_addresses: true,
+                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
                     pullups: true,
-                    bus_recovery: true,
+                    min_freq: Hertz::kilo(1u16),
+                    max_freq: Hertz::kilo(400u16),
                     speeds: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-                    max_ops: ww_i2c::MAX_OPS as u16,
+                    stretch_timeout: Some(I2cTimeRange {
+                        min: Second::milli(1u8),
+                        max: Second::base(1u8),
+                    }),
+                    max_write_len: ww_i2c::MAX_WRITE_LEN as u16,
+                    max_read_len: MAX_READ_LEN as u16,
                     max_write_read_len: ww_i2c::MAX_WRITE_READ_LEN as u16,
+                    max_ops: ww_i2c::MAX_OPS as u16,
+                    ten_bit_addresses: true,
                     zero_length_write: false,
-                    stretch_timeout_min: Some(Second::milli(1u8)),
-                    stretch_timeout_max: Some(Second::base(1u8)),
+                    bus_recovery: true,
                 })
             }
 
@@ -275,27 +277,33 @@ mod tests {
                     return Ready(Err(unsupported()));
                 }
                 let max = Hertz::kilo(400u16);
+                let mut m = self.model.lock().unwrap();
                 let mode = match config.mode {
-                    I2cMode::Master { speed, monitor } if speed > max => I2cMode::Master {
-                        speed: max,
+                    I2cMode::Master {
+                        speed,
                         monitor,
-                    },
+                        stretch_timeout,
+                    } => {
+                        if let Some(t) = stretch_timeout {
+                            if t < Second::milli(1u8) || t > Second::base(1u8) {
+                                return Ready(Err(invalid(0, "stretch timeout out of range")));
+                            }
+                            m.stretch_timeout = Some(t);
+                        }
+                        I2cMode::Master {
+                            speed: if speed > max { max } else { speed },
+                            monitor,
+                            stretch_timeout: Some(m.stretch_timeout.unwrap_or(Second::milli(25u8))),
+                        }
+                    }
                     I2cMode::Unknown(_) => {
                         return Ready(Err(unsupported()));
                     }
                     mode => mode,
                 };
-                let mut m = self.model.lock().unwrap();
-                if let Some(t) = config.stretch_timeout {
-                    if t < Second::milli(1u8) || t > Second::base(1u8) {
-                        return Ready(Err(invalid(0, "stretch timeout out of range")));
-                    }
-                    m.stretch_timeout = Some(t);
-                }
                 Ready(Ok(I2cConfig {
                     mode,
                     io_level: None,
-                    stretch_timeout: Some(m.stretch_timeout.unwrap_or(Second::milli(25u8))),
                 }))
             }
 
@@ -808,9 +816,9 @@ mod tests {
                 mode: I2cMode::Master {
                     speed: Hertz::mega(1u8),
                     monitor: false,
+                    stretch_timeout: None,
                 },
                 io_level: None,
-                stretch_timeout: None,
             })
             .call()
             .await
@@ -819,19 +827,18 @@ mod tests {
             actual.mode,
             I2cMode::Master {
                 speed: Hertz::kilo(400u16),
-                monitor: false
+                monitor: false,
+                // the device always enforces a stretch timeout, and says which
+                stretch_timeout: Some(Second::milli(25u8)),
             }
         );
         assert_eq!(actual.io_level, None);
-        // the device always enforces a stretch timeout, and says which
-        assert_eq!(actual.stretch_timeout, Some(Second::milli(25u8)));
 
         let err = client
             .i2c()
             .i2c_configure(I2cConfig {
                 mode: I2cMode::Disabled,
                 io_level: Some(ww_si::Volt::milli(1800u16)),
-                stretch_timeout: None,
             })
             .call()
             .await
@@ -943,42 +950,31 @@ mod tests {
         let (device, model) = start("io_i2c/stretch");
         model.lock().unwrap().stretches.insert(0x40);
         let client = connect(&device).await;
-        let master = I2cMode::Master {
-            speed: Hertz::kilo(100u8),
-            monitor: false,
+        let configure = |stretch_timeout| {
+            client.i2c().i2c_configure(I2cConfig {
+                mode: I2cMode::Master {
+                    speed: Hertz::kilo(100u8),
+                    monitor: false,
+                    stretch_timeout,
+                },
+                io_level: None,
+            })
+        };
+        let stretch_of = |config: I2cConfig| match config.mode {
+            I2cMode::Master {
+                stretch_timeout, ..
+            } => stretch_timeout,
+            _ => panic!("not a master"),
         };
 
         let caps = client.i2c().i2c_capabilities().call().await.unwrap();
-        let set = client
-            .i2c()
-            .i2c_configure(I2cConfig {
-                mode: master,
-                io_level: None,
-                stretch_timeout: caps.stretch_timeout_max,
-            })
-            .call()
-            .await
-            .unwrap();
-        assert_eq!(set.stretch_timeout, Some(Second::base(1u8)));
+        let range = caps.stretch_timeout.unwrap();
+        let set = configure(Some(range.max)).call().await.unwrap();
+        assert_eq!(stretch_of(set), Some(Second::base(1u8)));
         // `None` leaves it as it is
-        let set = client
-            .i2c()
-            .i2c_configure(I2cConfig {
-                mode: master,
-                io_level: None,
-                stretch_timeout: None,
-            })
-            .call()
-            .await
-            .unwrap();
-        assert_eq!(set.stretch_timeout, Some(Second::base(1u8)));
-        let err = client
-            .i2c()
-            .i2c_configure(I2cConfig {
-                mode: master,
-                io_level: None,
-                stretch_timeout: Some(Second::base(10u8)),
-            })
+        let set = configure(None).call().await.unwrap();
+        assert_eq!(stretch_of(set), Some(Second::base(1u8)));
+        let err = configure(Some(Second::base(10u8)))
             .call()
             .await
             .unwrap_err();
@@ -1399,25 +1395,24 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> RpcResult<I2cCapabilities<'_>> {
                 Ready(I2cCapabilities {
-                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-                    io_level_min: None,
-                    io_level_max: None,
-                    max_write_len: ww_i2c::MAX_WRITE_LEN as u32,
-                    max_read_len: MAX_READ_LEN as u32,
-                    min_freq: Hertz::kilo(1u16),
-                    max_freq: Hertz::kilo(400u16),
                     driver_name: MaxLen::new_unchecked("mock-slave"),
                     master_supported: false,
                     monitor_supported: false,
-                    ten_bit_addresses: false,
+                    io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+                    io_level_min: None,
+                    io_level_max: None,
                     pullups: false,
-                    bus_recovery: false,
+                    min_freq: Hertz::kilo(1u16),
+                    max_freq: Hertz::kilo(400u16),
                     speeds: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-                    max_ops: 0,
+                    stretch_timeout: None,
+                    max_write_len: ww_i2c::MAX_WRITE_LEN as u16,
+                    max_read_len: MAX_READ_LEN as u16,
                     max_write_read_len: 0,
+                    max_ops: 0,
+                    ten_bit_addresses: false,
                     zero_length_write: false,
-                    stretch_timeout_min: None,
-                    stretch_timeout_max: None,
+                    bus_recovery: false,
                 })
             }
 
@@ -1430,7 +1425,6 @@ mod tests {
                     I2cMode::Disabled => Ready(Ok(I2cConfig {
                         mode: I2cMode::Disabled,
                         io_level: None,
-                        stretch_timeout: None,
                     })),
                     _ => Ready(Err(unsupported())),
                 }
@@ -1518,7 +1512,7 @@ mod tests {
                     queue_len: Q as u32,
                     max_stretch: Some(secs(1_000_000)),
                     nack_when_empty: true,
-                    ten_bit_address: false,
+                    ten_bit_addresses: false,
                     max_freq: Hertz::kilo(400u16),
                 })
             }

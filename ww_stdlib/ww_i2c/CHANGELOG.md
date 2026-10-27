@@ -4,12 +4,21 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### ⚠️ Breaking
 
-- `I2cError::Nack` is `Nack { op: u8, at: Option<u16> }` (STD-52): which operation (`0` for `i2c_write` and a plain
-  read, `0`/`1` for the write/read part of a `RepeatedStart` read, the index into `ops` for `i2c_transaction`), and
-  what was not acknowledged, counted as `I2cRecord::nack_at`: `Some(0)` the address, `Some(n)` the n-th data byte,
-  `None` unknown. Rust only: match `Nack { .. }` instead of `Nack`, build it with both fields. Wire-compatible both
-  ways: an old host reads it as its plain `Nack`, a new host reads an old device's `Nack` as `{ op: 0, at: None }`.
-- `I2cConfig` and `I2cCapabilities` have new fields (below): struct literals need them. Wire-compatible both ways.
+- Master errors and limits (STD-52), breaking on the wire and in Rust (nothing released or deployed yet):
+    - `I2cError::Nack` is `Nack { op: u8, at: Option<u16> }`: which operation (`0` for `i2c_write` and a plain read,
+      `0`/`1` for the write/read part of a `RepeatedStart` read, the index into `ops` for `i2c_transaction`), and
+      what was not acknowledged, counted as `I2cRecord::nack_at`: `Some(0)` the address, `Some(n)` the n-th data
+      byte, `None` unknown. Match `Nack { .. }`, build it with both fields.
+    - `I2cMode::Master` gets `stretch_timeout: Option<Second>`: the longest a slave may hold SCL low at once before
+      `I2cError::ClockStretch`. `None` leaves it as it is, the answer of `i2c_configure` always has the limit in
+      effect (a device always enforces one).
+    - `I2cCapabilities` is regrouped by topic (what it is, IO level, timing, sizes, features), its sizes
+      `max_write_len` / `max_read_len` are `u16` (was `u32`, like every other length in the crate), and it gains
+      `speeds`, `stretch_timeout: Option<I2cTimeRange>` (new type, `min` / `max`), `max_write_read_len`, `max_ops`
+      and `zero_length_write` (below). Callers: update struct literals.
+    - `I2cSlaveCapabilities::ten_bit_address` is `ten_bit_addresses`, as in `I2cCapabilities`.
+    - Callers to adapt: usb_io_fw (`b200_board::slots::i2c`, the simulator in `b200_usb_io_client`, the firmware's
+      `api/i2c.rs`) and typec_dongle (`donguru_api`, `fw/donguru/src/ww/i2c.rs`, `donguru-core` mock server).
 
 - `I2cMode::Slave` and `I2cCapabilities::slave_supported` are removed (STD-35): slave mode is the new `slave` group of
   `I2c` (below), opened with `I2c::slave_events`; whether a device has it is in its introspection and
@@ -49,23 +58,21 @@ Draft of the IO trait family (STD-13), under review; not published yet, so no ve
 
 ### 🚀 Features
 
-- Master errors and limits (STD-52), all wire-compatible with older hosts and devices:
-    - `I2cError::ClockStretch`: a slave held SCL low longer than the new `I2cConfig::stretch_timeout`, which
-      `i2c_configure` sets (`None` leaves it) and answers (the limit in effect; a device always enforces one).
+- Master errors and limits (STD-52), besides the breaking changes above:
+    - `I2cError::ClockStretch`: a slave held SCL low longer than the master's `stretch_timeout`.
     - `I2cError::BusStuck { scl_low, sda_low }`: a line held low before the start. Devices don't recover on their
-      own; `i2c_wiggle_clock` does, on request, clocking at the bus speed (at most 100 kHz) until SDA is released.
-      `Common(Timeout)` is now only the call's own deadline (e.g. another master holds the bus). Older hosts read the
-      two new errors as `Unknown(n)`.
-    - `I2cCapabilities`: `speeds` (a controller's fixed SCL frequencies, `MAX_SPEEDS`), `max_ops`,
-      `max_write_read_len`, `zero_length_write` (address-only writes; `Unsupported` without), `stretch_timeout_min`
-      / `stretch_timeout_max`. An older device reads as `MAX_OPS`, `MAX_WRITE_READ_LEN`, `false` and empty / `None`.
+      own; `i2c_wiggle_clock` does, on request, clocking at the bus speed (at most 100 kHz) until SDA is released,
+      or answers `Common(NoPower)` when the bus has no level to drive. `Common(Timeout)` is now only the call's own
+      deadline (e.g. another master holds the bus).
+    - `I2cCapabilities::speeds` (a controller's fixed SCL frequencies, `MAX_SPEEDS`), `stretch_timeout`,
+      `max_write_read_len`, `max_ops`, `zero_length_write` (address-only writes; `Unsupported` without).
     - Stated semantics: `i2c_transaction` puts a repeated start and the address before every operation (Linux
       `I2C_RDWR`), it does not merge adjacent operations as embedded-hal does (docs say how an embedded-hal adapter
       merges); `i2c_configure` answers the highest SCL the hardware can do that is not above the request; a data
       NACK only happens on writes. `i2c_scan` lists `Arbitration`, `i2c_write` / `i2c_read` / `i2c_transaction` /
       `i2c_scan` list `ClockStretch` and `BusStuck` in `#[errors]`.
-    - Tests: round trips and old-reader tests of the new error, config and capabilities shapes in `ww_i2c`, and
-      `tests/io_i2c` end to end (data NACK in a transaction, stretch timeout, stuck bus and recovery).
+    - Tests: round trips of the new error, mode and capabilities shapes in `ww_i2c`, and `tests/io_i2c` end to end
+      (data NACK in a transaction, stretch timeout, stuck bus and recovery).
 
 - `I2c` is `#[claim(exclusive)]` (SRV-34): a client can claim a controller through the hub. Wire compatible, only the introspection data changes.
 - Slave mode (STD-35): an `#[optional(slave)]` group in `I2c` (`omit = ["i2c.slave"]` without it).

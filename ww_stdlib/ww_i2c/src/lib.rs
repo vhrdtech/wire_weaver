@@ -474,13 +474,6 @@ pub struct I2cConfig {
     /// Bus voltage on adapters with level translators ([I2cCapabilities::io_levels]); `None` leaves it as it is going
     /// in (the only choice on a device without them), and is the answer of a device without them.
     pub io_level: Option<Volt>,
-    /// Master: the longest a slave may hold SCL low at once (clock stretching) before the device aborts the transfer
-    /// with [I2cError::ClockStretch], within [I2cCapabilities::stretch_timeout_min] ..
-    /// [I2cCapabilities::stretch_timeout_max]. It bounds every wait on the bus, so a stuck SCL never hangs the
-    /// device: a device always enforces a limit of its own. `None` leaves it as it is going in; the answer is the
-    /// limit in effect, `None` only from a device older than this field.
-    #[default = None]
-    pub stretch_timeout: Option<Second>,
 }
 
 /// Bus mode, part of [I2cConfig]. Slave mode is `I2c::slave_events`, not a mode here.
@@ -495,7 +488,15 @@ pub enum I2cMode {
     /// Controller off, pins released (high-Z inputs).
     Disabled,
     /// Master at `speed` SCL; `monitor` also streams the adapter's own transfers to `I2cMonitor`.
-    Master { speed: Hertz, monitor: bool },
+    Master {
+        speed: Hertz,
+        monitor: bool,
+        /// The longest a slave may hold SCL low at once (clock stretching) before the device aborts the transfer
+        /// with [I2cError::ClockStretch], within [I2cCapabilities::stretch_timeout]. It bounds every wait on the
+        /// bus, so a stuck SCL never hangs the device: a device always enforces a limit of its own. `None` leaves it
+        /// as it is going in; the answer is always the limit in effect.
+        stretch_timeout: Option<Second>,
+    },
     /// Only watch the bus, see `I2cMonitor`.
     MonitorOnly,
 }
@@ -627,50 +628,61 @@ pub enum I2cRecordKind {
     derive(Debug, Clone)
 )]
 pub struct I2cCapabilities<'i> {
+    /// Driver or controller, for the user: "STM32 I2C1", "RP2350 I2C0 + PIO monitor".
+    pub driver_name: MaxLen<&'i str, MAX_NAME_LEN>,
+    /// [I2cMode::Master] works.
+    pub master_supported: bool,
+    /// [I2cMode::MonitorOnly] and the `monitor` flag of [I2cMode::Master] work.
+    pub monitor_supported: bool,
+
     /// Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.
     pub io_levels: MaxLen<RefVec<'i, Volt>, MAX_IO_LEVELS>,
     /// Lowest IO level of an adjustable supply, if the adapter has one.
     pub io_level_min: Option<Volt>,
     /// Highest IO level of an adjustable supply, if the adapter has one.
     pub io_level_max: Option<Volt>,
-    /// Largest write this device takes, at most [MAX_WRITE_LEN].
-    pub max_write_len: u32,
-    /// Largest read this device does, at most [MAX_READ_LEN].
-    pub max_read_len: u32,
+    /// `I2c::i2c_set_pullups` works.
+    pub pullups: bool,
+
     /// Lowest SCL frequency.
     pub min_freq: Hertz,
     /// Highest SCL frequency.
     pub max_freq: Hertz,
-    /// Driver or controller, for the user: "STM32 I2C1", "RP2350 I2C0 + PIO monitor".
-    pub driver_name: MaxLen<&'i str, MAX_NAME_LEN>,
-    pub master_supported: bool,
-    pub monitor_supported: bool,
-    /// 10-bit addresses work.
-    pub ten_bit_addresses: bool,
-    /// `I2c::i2c_set_pullups` works.
-    pub pullups: bool,
-    /// `I2c::i2c_wiggle_clock` works.
-    pub bus_recovery: bool,
     /// The only SCL frequencies the controller can do (e.g. 20, 100, 400 and 750 kHz), ascending; empty when it
     /// does any between [Self::min_freq] and [Self::max_freq] (as fine as its clock divider allows).
-    #[default = Default::default()]
     pub speeds: MaxLen<RefVec<'i, Hertz>, MAX_SPEEDS>,
-    /// Most operations of one `I2c::i2c_transaction` this device takes, at most [MAX_OPS].
-    #[default = MAX_OPS as u16]
-    pub max_ops: u16,
+    /// Range of the master's clock stretch timeout ([I2cMode::Master]'s `stretch_timeout`); `None` when it can't
+    /// be changed (the device still enforces its own, and answers it in `I2c::i2c_configure`).
+    pub stretch_timeout: Option<I2cTimeRange>,
+
+    /// Largest write this device takes, at most [MAX_WRITE_LEN].
+    pub max_write_len: u16,
+    /// Largest read this device does, at most [MAX_READ_LEN].
+    pub max_read_len: u16,
     /// Longest write part of an [I2cReadKind::RepeatedStart] read this device takes, at most [MAX_WRITE_READ_LEN].
-    #[default = MAX_WRITE_READ_LEN as u16]
     pub max_write_read_len: u16,
+    /// Most operations of one `I2c::i2c_transaction` this device takes, at most [MAX_OPS].
+    pub max_ops: u16,
+
+    /// 10-bit addresses work.
+    pub ten_bit_addresses: bool,
     /// A write without data works (start, address, stop: probing an address, SMBus Quick Command), in
     /// `I2c::i2c_write` and as an empty [I2cOp::Write]. Without it, an empty write is `Unsupported`.
-    #[default = false]
     pub zero_length_write: bool,
-    /// Shortest [I2cConfig::stretch_timeout] this device sets; `None` when it can't be changed.
-    #[default = None]
-    pub stretch_timeout_min: Option<Second>,
-    /// Longest [I2cConfig::stretch_timeout] this device sets; `None` when it can't be changed.
-    #[default = None]
-    pub stretch_timeout_max: Option<Second>,
+    /// `I2c::i2c_wiggle_clock` works.
+    pub bus_recovery: bool,
+}
+
+/// A range of durations, both ends included.
+#[derive_shrink_wrap(
+    borrowed,
+    owned(feature = "std"),
+    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
+    derive(Debug, PartialEq, Copy, Clone)
+)]
+pub struct I2cTimeRange {
+    pub min: Second,
+    pub max: Second,
 }
 
 /// Slave mode, see `I2c::slave_events`.
@@ -796,7 +808,7 @@ pub struct I2cSlaveCapabilities {
     /// [I2cSlaveUnderrun::Nack] works.
     pub nack_when_empty: bool,
     /// A 10-bit slave address works.
-    pub ten_bit_address: bool,
+    pub ten_bit_addresses: bool,
     /// Fastest SCL the slave keeps up with.
     pub max_freq: Hertz,
 }
@@ -819,16 +831,10 @@ pub enum I2cError<'i> {
     /// `op` is 0 for `I2c::i2c_write` and a plain `I2c::i2c_read`; for an [I2cReadKind::RepeatedStart] read 0 is
     /// the write part and 1 the read part; for `I2c::i2c_transaction` the index of the [I2cOp]. `at` counts bytes on
     /// the bus within that operation as [I2cRecord::nack_at] does: `Some(0)` the address, `Some(n)` the n-th data
-    /// byte (`data[n - 1]`, so `n - 1` bytes went through), `None` when the controller can't tell (and from a device
-    /// older than these fields). A slave only refuses data on writes: in a read it is the master that doesn't
+    /// byte (`data[n - 1]`, so `n - 1` bytes went through), `None` when the controller can't tell. A slave only refuses data on writes: in a read it is the master that doesn't
     /// acknowledge the last byte, which is no error.
     #[display("not acknowledged: operation {op}, byte {at:?} (0: the address)")]
-    Nack {
-        #[default = 0]
-        op: u8,
-        #[default = None]
-        at: Option<u16>,
-    },
+    Nack { op: u8, at: Option<u16> },
     /// Arbitration lost to another master.
     Arbitration,
     /// Bus error: a start or stop where it doesn't belong.
@@ -843,7 +849,7 @@ pub enum I2cError<'i> {
     OutOfWatchSlots,
     /// No watch in this slot.
     InvalidWatchSlot,
-    /// A slave held SCL low longer than [I2cConfig::stretch_timeout] at once; the transfer was aborted with a stop.
+    /// A slave held SCL low longer than the stretch timeout ([I2cMode::Master]) at once; the transfer was aborted with a stop.
     #[display("a slave held SCL low longer than the stretch timeout")]
     ClockStretch,
     /// A line is held low when the master wants to start (`scl_low`, `sda_low`: which one), so it can't: a slave
@@ -899,56 +905,6 @@ mod tests {
         assert!(I2cAddress::seven(0x80).is_none());
         assert!(I2cAddress::ten(0x400).is_none());
     }
-    /// The shapes of 0.1.0 before STD-52 (a unit `Nack`, no clock stretch timeout, fewer capabilities), to check
-    /// that old hosts and old firmware read what the new version writes and the other way round.
-    mod v0_1 {
-        use wire_weaver::prelude::*;
-        use ww_si::{Hertz, Volt};
-
-        #[derive_shrink_wrap(derive(Debug, PartialEq, Eq, Clone), ww_repr = unib32)]
-        pub enum I2cError<'i> {
-            Common(CommonError<'i>),
-            Nack,
-            Arbitration,
-            Bus,
-            Crc,
-            Overrun,
-            BufferTooBig,
-            OutOfWatchSlots,
-            InvalidWatchSlot,
-        }
-
-        /// A reply as a method sends it, with a field after the error, so a skipped variant must not lose it.
-        #[derive_shrink_wrap(derive(Debug, PartialEq, Clone))]
-        pub struct Reply<'i> {
-            pub result: Result<u8, I2cError<'i>>,
-            pub after: u8,
-        }
-
-        #[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Copy, Clone))]
-        pub struct I2cConfig {
-            pub mode: super::I2cMode,
-            pub io_level: Option<Volt>,
-        }
-
-        #[derive_shrink_wrap(derive(Debug, Clone))]
-        pub struct I2cCapabilities<'i> {
-            pub io_levels: MaxLen<RefVec<'i, Volt>, 8>,
-            pub io_level_min: Option<Volt>,
-            pub io_level_max: Option<Volt>,
-            pub max_write_len: u32,
-            pub max_read_len: u32,
-            pub min_freq: Hertz,
-            pub max_freq: Hertz,
-            pub driver_name: MaxLen<&'i str, 32>,
-            pub master_supported: bool,
-            pub monitor_supported: bool,
-            pub ten_bit_addresses: bool,
-            pub pullups: bool,
-            pub bus_recovery: bool,
-        }
-    }
-
     #[derive_shrink_wrap(derive(Debug, PartialEq, Clone))]
     struct Reply<'i> {
         result: Result<u8, I2cError<'i>>,
@@ -988,158 +944,63 @@ mod tests {
         );
     }
 
-    /// An old host reads a new device's `Nack` as its plain `Nack` and the new errors as `Unknown(n)`, and the field
-    /// after the error is still read.
     #[test]
-    fn old_host_reads_new_errors() {
-        let check = |e: I2cError<'static>, old: v0_1::I2cError<'static>| {
-            let b = bytes_of(&Reply {
-                result: Err(e),
-                after: 0xAB,
-            });
-            assert_eq!(
-                v0_1::Reply::from_ww_bytes(&b).unwrap(),
-                v0_1::Reply {
-                    result: Err(old),
-                    after: 0xAB,
-                }
-            );
-        };
-        check(
-            I2cError::Nack {
-                op: 3,
-                at: Some(17),
-            },
-            v0_1::I2cError::Nack,
-        );
-        check(I2cError::ClockStretch, v0_1::I2cError::Unknown(9));
-        check(
-            I2cError::BusStuck {
-                scl_low: true,
-                sda_low: true,
-            },
-            v0_1::I2cError::Unknown(10),
-        );
-    }
-
-    /// A new host reads an old device's `Nack` with nothing known about where.
-    #[test]
-    fn new_host_reads_old_nack() {
-        let b = bytes_of(&v0_1::Reply {
-            result: Err(v0_1::I2cError::Nack),
-            after: 7,
-        });
-        assert_eq!(
-            Reply::from_ww_bytes(&b).unwrap(),
-            Reply {
-                result: Err(I2cError::Nack { op: 0, at: None }),
-                after: 7
-            }
-        );
-    }
-
-    fn master_400k() -> I2cMode {
-        I2cMode::Master {
-            speed: Hertz::kilo(400u16),
-            monitor: false,
-        }
-    }
-
-    #[test]
-    fn config_with_stretch_timeout_round_trips_and_old_readers_skip_it() {
+    fn master_mode_with_stretch_timeout_round_trips() {
         let config = I2cConfig {
-            mode: master_400k(),
+            mode: I2cMode::Master {
+                speed: Hertz::kilo(400u16),
+                monitor: false,
+                stretch_timeout: Some(Second::milli(25u8)),
+            },
             io_level: Some(Volt::milli(3300u16)),
-            stretch_timeout: Some(Second::milli(25u8)),
         };
         let b = bytes_of(&config);
         assert_eq!(I2cConfig::from_ww_bytes(&b).unwrap(), config);
-        // an old device reads the mode and the level, and leaves its stretch timeout as it is
-        assert_eq!(
-            v0_1::I2cConfig::from_ww_bytes(&b).unwrap(),
-            v0_1::I2cConfig {
-                mode: master_400k(),
-                io_level: Some(Volt::milli(3300u16)),
-            }
-        );
-        // an old device's answer has no stretch timeout
-        let old = bytes_of(&v0_1::I2cConfig {
-            mode: master_400k(),
-            io_level: None,
-        });
-        assert_eq!(
-            I2cConfig::from_ww_bytes(&old).unwrap(),
-            I2cConfig {
-                mode: master_400k(),
-                io_level: None,
-                stretch_timeout: None,
-            }
-        );
     }
 
     #[test]
-    fn capabilities_new_fields_round_trip_and_default_from_old_devices() {
+    fn capabilities_round_trip() {
         let speeds = [Hertz::kilo(100u8), Hertz::kilo(400u16)];
         let caps = I2cCapabilities {
-            io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-            io_level_min: None,
-            io_level_max: None,
-            max_write_len: 256,
-            max_read_len: 256,
-            min_freq: Hertz::kilo(10u8),
-            max_freq: Hertz::mega(1u8),
             driver_name: MaxLen::new("DW_apb_i2c").unwrap(),
             master_supported: true,
             monitor_supported: false,
-            ten_bit_addresses: true,
+            io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
+            io_level_min: None,
+            io_level_max: None,
             pullups: false,
-            bus_recovery: true,
+            min_freq: Hertz::kilo(10u8),
+            max_freq: Hertz::mega(1u8),
             speeds: MaxLen::new(RefVec::Slice { slice: &speeds }).unwrap(),
-            max_ops: 8,
+            stretch_timeout: Some(I2cTimeRange {
+                min: Second::milli(1u8),
+                max: Second::base(1u8),
+            }),
+            max_write_len: 256,
+            max_read_len: 256,
             max_write_read_len: 4,
-            zero_length_write: true,
-            stretch_timeout_min: Some(Second::milli(1u8)),
-            stretch_timeout_max: Some(Second::base(1u8)),
+            max_ops: 8,
+            ten_bit_addresses: true,
+            zero_length_write: false,
+            bus_recovery: true,
         };
         let b = bytes_of(&caps);
         let back = I2cCapabilities::from_ww_bytes(&b).unwrap();
+        assert_eq!(*back.driver_name, "DW_apb_i2c");
         assert_eq!(
             back.speeds.iter().map(|s| s.unwrap()).collect::<Vec<_>>(),
             speeds
         );
-        assert_eq!(back.max_ops, 8);
-        assert_eq!(back.max_write_read_len, 4);
-        assert!(back.zero_length_write);
-        assert_eq!(back.stretch_timeout_min, caps.stretch_timeout_min);
-        assert_eq!(back.stretch_timeout_max, caps.stretch_timeout_max);
-        // an old host reads the fields it knows
-        let old = v0_1::I2cCapabilities::from_ww_bytes(&b).unwrap();
-        assert_eq!(old.max_freq, caps.max_freq);
-        assert!(old.bus_recovery);
-
-        // a new host reads an old device's capabilities with the crate's bounds and nothing else promised
-        let old_bytes = bytes_of(&v0_1::I2cCapabilities {
-            io_levels: MaxLen::new(RefVec::Slice { slice: &[] }).unwrap(),
-            io_level_min: None,
-            io_level_max: None,
-            max_write_len: 64,
-            max_read_len: 64,
-            min_freq: Hertz::kilo(10u8),
-            max_freq: Hertz::kilo(400u16),
-            driver_name: MaxLen::new("old").unwrap(),
-            master_supported: true,
-            monitor_supported: false,
-            ten_bit_addresses: false,
-            pullups: false,
-            bus_recovery: false,
-        });
-        let new = I2cCapabilities::from_ww_bytes(&old_bytes).unwrap();
-        assert_eq!(new.max_write_len, 64);
-        assert!(new.speeds.is_empty());
-        assert_eq!(new.max_ops, MAX_OPS as u16);
-        assert_eq!(new.max_write_read_len, MAX_WRITE_READ_LEN as u16);
-        assert!(!new.zero_length_write);
-        assert_eq!(new.stretch_timeout_min, None);
-        assert_eq!(new.stretch_timeout_max, None);
+        assert_eq!(back.stretch_timeout, caps.stretch_timeout);
+        assert_eq!(
+            (
+                back.max_write_len,
+                back.max_read_len,
+                back.max_write_read_len,
+                back.max_ops
+            ),
+            (256, 256, 4, 8)
+        );
+        assert!(back.ten_bit_addresses && !back.zero_length_write && back.bus_recovery);
     }
 }

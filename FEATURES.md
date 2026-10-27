@@ -1704,14 +1704,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the first user, the rePort (usb_io_fw IF-5, v1.0 launch, Roman 16 Oct 2026).
 - 🧪 **STD-52 `ww_i2c` master errors and limits** · `v0.5` — what a good I2C master knows reaches the host (found
   by the rePort I2C driver, P2424 i2c-master-driver): `I2cError::Nack { op, at }` (which operation, and the address
-  or which data byte, counted as `I2cRecord::nack_at`), `ClockStretch` with `I2cConfig::stretch_timeout` (set and
-  answered by `i2c_configure`, range in the capabilities), `BusStuck { scl_low, sda_low }` (no silent recovery:
+  or which data byte, counted as `I2cRecord::nack_at`), `ClockStretch` with `I2cMode::Master`'s `stretch_timeout`
+  (set and answered by `i2c_configure`, range in the capabilities), `BusStuck { scl_low, sda_low }` (no silent recovery:
   `i2c_wiggle_clock` on request, at the bus speed up to 100 kHz), and the limits in `I2cCapabilities` (`speeds`,
-  `max_ops`, `max_write_read_len`, `zero_length_write`, `stretch_timeout_min` / `max`). Transactions are stated as
+  `max_ops`, `max_write_read_len`, `zero_length_write`, `stretch_timeout` range; grouped by topic, sizes all `u16`). Transactions are stated as
   a repeated start before every operation (Linux `I2C_RDWR`), not embedded-hal merging; `i2c_configure` answers the
-  highest SCL not above the request. Wire-compatible both ways (old hosts read the plain `Nack` and `Unknown(n)`,
-  new hosts read old devices with defaults), Rust: `Nack` patterns become `Nack { .. }`. Docs
-  `docs/std_library/ww_i2c.md#transactions`, tests in `ww_i2c` (old-reader round trips) and `tests/io_i2c`. Open:
+  highest SCL not above the request. Breaking on the wire and in Rust (nothing released or deployed, user 27 Oct
+  2026): callers in usb_io_fw and typec_dongle adapt. Docs
+  `docs/std_library/ww_i2c.md#transactions`, tests in `ww_i2c` (round trips) and `tests/io_i2c`. Open:
   the check on real silicon with the rePort driver (usb_io_fw IF-2, RP2350 DW_apb_i2c).
 - 🚧 **STD-6 `ww_gpio_hl`** — usable, some APIs are still missing.
 - 🔍 **STD-7 Interrupt left enabled in `ww_gpio_hl`** · `v0.5` — the falling edge helper documents that it leaves

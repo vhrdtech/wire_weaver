@@ -1,11 +1,13 @@
 //! Types in modules (API-46): generated code names each one by the path other crates see, not `<crate>::<Name>`. A
 //! type in a `pub mod` that isn't re-exported, one with a lifetime two modules deep (its `LabelOwned` on the client),
 //! one imported under another name (`use .. as ..`), one in a private module re-exported at the root, one re-exported
-//! under another name, two equal definitions with the same name in different modules, and a unit marker
-//! `units::Volt` next to a root `Volt` of another shape.
+//! under another name, two equal definitions with the same name in different modules, a unit marker
+//! `units::Volt` next to a root `Volt` of another shape, and a type named `Range` (like `ww_si::Range`) in a private
+//! module's `pub mod` re-exported by `pub use`, next to a `core::ops::Range`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use core::marker::PhantomData;
+use core::ops::Range;
 use geometry::Point as Spot;
 use wire_weaver::prelude::*;
 
@@ -23,6 +25,8 @@ trait ModulePaths {
     fn convert(q: Quantity<units::Volt>) -> Volt;
     property!(rw hidden: Hidden);
     property!(rw renamed: Renamed);
+    /// `x` limited to `0..=10`, then moved by `shift.start`
+    fn clamp(shift: Range<i32>, x: limits::Range<0, 10>) -> limits::Range<0, 10>;
 }
 
 pub mod geometry {
@@ -84,6 +88,25 @@ mod hidden {
         pub id: u32,
     }
 }
+
+mod private {
+    /// A module other crates name as `limits`, through the `pub use` at the root
+    pub mod limits {
+        use wire_weaver::prelude::*;
+
+        /// A value within `MIN..=MAX`, named like `core::ops::Range`
+        #[derive_shrink_wrap(
+            borrowed,
+            owned(feature = "std"),
+            derive(Debug, PartialEq, Clone, Copy)
+        )]
+        pub struct Range<const MIN: i32, const MAX: i32> {
+            pub value: i32,
+        }
+    }
+}
+
+pub use private::limits;
 
 pub use hidden::Hidden;
 pub use hidden::Inner as Renamed;

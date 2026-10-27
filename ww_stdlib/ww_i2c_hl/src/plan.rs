@@ -37,7 +37,7 @@ pub(crate) fn plan(operations: &[Operation<'_>], limits: &I2cLimits) -> Result<P
             (Operation::Write(bytes), Some(Merged::Write(w))) => w.extend_from_slice(bytes),
             (Operation::Write(bytes), _) => merged.push(Merged::Write(bytes.to_vec())),
             // a read of nothing puts nothing on the bus
-            (Operation::Read(buf), _) if buf.is_empty() => {}
+            (Operation::Read([]), _) => {}
             (Operation::Read(buf), Some(Merged::Read(n))) => *n += buf.len(),
             (Operation::Read(buf), _) => merged.push(Merged::Read(buf.len())),
         }

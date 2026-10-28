@@ -760,6 +760,25 @@ pub fn table() -> Vec<Typed> {
                 i32,
             >::new(-2000),
         ),
+        case("stdlib.si.quantity.milli", ww_si::Volt::milli(3300u32)),
+        case(
+            "stdlib.si.quantity.kibi",
+            ww_si::Quantity::<ww_si::units::Byte>::new(ww_si::Prefix::Kibi, 64u32),
+        ),
+        case(
+            "stdlib.si.quantity.exact.duty16",
+            quantity_exact::<ww_si::units::Ratio>(ww_si::Magnitude::ratio(1, 65535), 32768),
+        ),
+        case(
+            "stdlib.si.quantity.exact.pow10",
+            quantity_exact::<ww_si::units::Second>(ww_si::Magnitude::pow10(-4), 12345),
+        ),
+        case(
+            "stdlib.si.quantity.exact.bam",
+            quantity_exact::<ww_si::units::Radian>(ww_si::Magnitude::PI.mul(ww_si::Magnitude::pow2(-15)), 16384),
+        ),
+        case("stdlib.si.quantity.bounded", quantity_rail(3300)),
+        case("stdlib.si.quantity.bounded.rejected", quantity_rail(3300)),
         case("stdlib.si.magnitude.one", ww_si::Magnitude::ONE),
         case("stdlib.si.magnitude.milli", ww_si::Magnitude::pow10(-3)),
         case("stdlib.si.magnitude.kibi", ww_si::Magnitude::pow2(10)),
@@ -883,6 +902,16 @@ type FixedBounded =
 
 fn fixed_bounded(ms: u16) -> FixedBounded {
     FixedBounded::try_new(ms).unwrap()
+}
+
+fn quantity_exact<U: ww_si::Unit>(m: ww_si::Magnitude, value: u32) -> ww_si::Quantity<U> {
+    ww_si::Quantity::new(ww_si::Prefix::from_magnitude(&m).unwrap(), value)
+}
+
+type QuantityRail = ww_si::Quantity<ww_si::units::Volt, ww_si::RangeDec<0, 33, -1>>;
+
+fn quantity_rail(mv: u32) -> QuantityRail {
+    QuantityRail::try_new(ww_si::Prefix::Milli, mv).unwrap()
 }
 
 type PointCelsius = ww_si::Point<

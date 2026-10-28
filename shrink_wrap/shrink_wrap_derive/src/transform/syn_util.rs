@@ -245,21 +245,3 @@ pub(crate) fn take_repr_attrs(attrs: &mut Vec<syn::Attribute>) -> Vec<syn::Attri
     attrs.retain(|a| !a.path().is_ident("repr"));
     repr
 }
-
-pub(crate) fn collect_unknown_attributes(attrs: &mut Vec<syn::Attribute>) {
-    for a in attrs {
-        // ignore #[shrink_warp(...)] in after #[derive(ShrinkWrap)]
-        // if a.path().is_ident("shrink_wrap") {
-        //     continue;
-        // }
-
-        // // when used from wire_weaver introspect
-        // if a.path().is_ident("derive_shrink_wrap") {
-        //     continue;
-        // }
-        // if a.path().is_ident("owned") {
-        //     continue;
-        // }
-        println!("Unknown attribute: {:?}", a.meta.path());
-    }
-}

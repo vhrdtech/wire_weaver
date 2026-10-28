@@ -823,6 +823,7 @@ impl SeriesSeed<'_> {
             // runs restart nothing and don't care for restarts
             return quote! {
                 {
+                    #[allow(unreachable_patterns, unused_variables)]
                     let __pick = #pick;
                     #opaque::<#ty>::#write(items.clone().filter_map(|(s, r)| __pick(s).map(|v| (v, r))), sink)?;
                 }
@@ -849,6 +850,7 @@ impl SeriesSeed<'_> {
         };
         quote! {
             {
+                #[allow(unreachable_patterns, unused_variables)]
                 let __field = #field_items::new(items.clone(), #pick, #earlier);
                 <#ty as #trait_<'i>>::write_group(__field, sink, policy, #level::Nested)?;
             }
@@ -1369,8 +1371,8 @@ impl SeriesSeed<'_> {
             let field_writes = fields.iter().enumerate().map(|(j, f)| {
                 let b = self.wrap(f, bind(f));
                 let earlier: Vec<&SeriesField> = fields[..j].iter().collect();
+                // the lints are allowed on the `let` that takes the closure (not on an expression, unstable)
                 let pick = quote! {
-                    #[allow(unreachable_patterns, unused_variables)]
                     |e: &'a Self| match e {
                         #pat => Some(#b),
                         _ => None,

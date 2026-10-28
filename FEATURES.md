@@ -2146,6 +2146,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   firmware's pipes.
 - 📋 **TEST-27 Firmware cost of exact_units** · `v0.5` — a harness measuring `Fixed`, points and rounding conversions
   against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.
+  STD-63's rounding conversions were measured by hand against hand-written ones (rounding page, "Cost on a
+  device"): those pairs become its first rows.
 - 📋 **TEST-28 Units coverage against the standards** · `v0.5` — a dev-only test (not shipped) walks the public unit
   lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
   each unit representable exactly in `exact_units`, or lists it on a short written "cannot, because" list for review.

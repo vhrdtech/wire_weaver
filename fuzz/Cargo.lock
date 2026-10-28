@@ -202,6 +202,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 name = "exact_units"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "shrink_wrap",
 ]
 
@@ -762,6 +763,7 @@ dependencies = [
  "anyhow",
  "cargo_toml",
  "convert_case",
+ "exact_units",
  "hex",
  "pest",
  "pest_derive",
@@ -873,6 +875,7 @@ name = "ww_self"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "exact_units",
  "serde",
  "sha2",
  "shrink_wrap",

@@ -365,7 +365,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   takes that field's size class (`ELEMENT_SIZE`, `PUSHES_LEN`, `MAX_SIZE`), series columns, store and cells, and
   writes exactly its bytes in every position, borrowed and owned, generic, with `validate` and `display`; compile
   errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
-  (`ItemStruct::transparent`, read by the walker, `ValueOwned`'s decoder and `Series` columns, so the `ww` CLI and
+  (`ItemStructExtra::transparent`, read by the walker, `ValueOwned`'s decoder and `Series` columns, so the `ww` CLI and
   `wire_weaver_py` read it too). For `ww_si::Fixed` (STD-55), where a `final_structure` wrapper was
   `UnsizedFinalStructure` even around a `u64` and couldn't sit in a `sized` parent. Also fixed: a generic parameter
   named `P`, `I`, `S` or `C` clashing with the derive's own in series code (`PhantomData<(U, P)>` included), and

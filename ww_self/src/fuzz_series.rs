@@ -172,8 +172,7 @@ fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
         generics: vec![],
         fields,
         sparse: false,
-        transparent: false,
-        marker: None,
+        extra: None,
     })
 }
 
@@ -243,8 +242,7 @@ pub fn bundle() -> ApiBundleOwned {
             field(Some("value"), TypeOwned::Param(UNib32(0))),
         ]),
         sparse: false,
-        transparent: false,
-        marker: None,
+        extra: None,
     };
     let types = vec![
         en(

@@ -92,6 +92,24 @@ Methods have `encode_args()` / `decode_return()`, properties `encode()` / `decod
 `encode()`. Calling a
 resource of an offline API raises `WireWeaverError`.
 
+## Requantize
+
+`ww.requantize(value, factor, to, rounding, overflow="checked")` converts a stored number to another scale and
+storage, the same number as Rust's `exact_units::Requantizer`, bit for bit
+([Rounding and overflow](std_library/rounding.md)). `factor` is the source scale over the target scale, a
+`Magnitude` as the API model has it: its wire bytes, or the `dict` `decode` gives for one (every exponent doubled,
+`{"pow10": -4, "rest": None}` is 1/100). `to` names the storage (`"i8"`..`"i64"`, `"u8"`..`"u64"`, `"f32"`,
+`"f64"`), `rounding` is `"truncate"`, `"floor"`, `"ceil"`, `"nearest_even"` or `"nearest_away"`, `overflow`
+`"checked"` (`None` for a result `to` can't hold), `"saturate"` or `"wrap"`:
+
+```python
+import wire_weaver as ww
+
+ww.requantize(1250, {"pow10": -4, "rest": None}, "i8", "nearest_even")  # 12
+q = ww.Requantizer({"pow10": -4, "rest": None}, "i8", "floor", "saturate")
+[q.apply(v) for v in (1250, -1250, 99999)]  # [12, -13, 127]
+```
+
 ## Not supported yet
 
 - `f16`, `UN`/`IN` and LEB128 numbers.

@@ -88,9 +88,11 @@ lint:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
     just lint-c
 
-# Build the shrink_wrap C runtime on its own, warnings are errors (SW-43); build and run the generated fixed-layout (SW-45) and head+tail (SW-46) C readers
+# Build the shrink_wrap C runtime and sw_requantize.c (also with SW_NO_F64) on their own, warnings are errors (SW-43, CLT-54); build and run the generated fixed-layout (SW-45) and head+tail (SW-46) C readers
 lint-c:
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap/c/shrink_wrap.c -o /dev/null
+    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -c shrink_wrap/c/sw_requantize.c -o /dev/null
+    cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -DSW_NO_F64 -c shrink_wrap/c/sw_requantize.c -o /dev/null
     mkdir -p target
     cc -std=c99 -Wall -Wextra -Werror -pedantic -Wconversion -Wsign-conversion -o target/fixed_layout_c shrink_wrap/shrink_wrap/tests/fixed_layout_c.c
     target/fixed_layout_c

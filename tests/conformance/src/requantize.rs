@@ -128,7 +128,7 @@ fn expected(case: &RequantizeCase) -> Result<Option<Repr>, String> {
     }
 }
 
-fn compare(got: Option<Repr>, case: &RequantizeCase) -> Result<(), String> {
+pub(crate) fn compare(got: Option<Repr>, case: &RequantizeCase) -> Result<(), String> {
     let want = expected(case)?;
     if got == want {
         Ok(())

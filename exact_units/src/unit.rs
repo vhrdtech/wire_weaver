@@ -658,12 +658,10 @@ pub enum Scale {
     Coherent,
     /// A power of ten: g is 10⁻³ kg, L is 10⁻³ m³.
     Pow10(i8),
-    /// Any factor: ° is π/180 rad, eV is 1.602176634·10⁻¹⁹ J.
-    Factor(f64),
     /// A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.
     Affine { factor: f64, offset: f64 },
-    /// An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader
-    /// computes the same value, unlike with a `Factor`.
+    /// An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s, eV
+    /// 1.602176634·10⁻¹⁹ J. Every reader computes the same value.
     Exact(crate::Magnitude),
 }
 
@@ -673,7 +671,6 @@ impl Scale {
         match *self {
             Scale::Coherent => 1.0,
             Scale::Pow10(exp) => crate::num::pow10_f64(exp),
-            Scale::Factor(factor) => factor,
             Scale::Affine { factor, .. } => factor,
             Scale::Exact(scale) => scale.to_f64(),
         }

@@ -3,7 +3,7 @@
 #![cfg(all(feature = "std", feature = "quantities"))]
 
 use exact_units::units::{self, AngularVelocity, Per, Times, Torque};
-use exact_units::{Dim, MAX_UNIT_DEPTH, SIExpr, SIExprOwned, Scale, Unit, UnitExpr};
+use exact_units::{Dim, MAX_UNIT_DEPTH, Magnitude, SIExpr, SIExprOwned, Scale, Unit, UnitExpr};
 use shrink_wrap::prelude::*;
 
 type Viscous = Per<Torque, AngularVelocity>;
@@ -121,14 +121,18 @@ fn scale_bytes() {
     let cases: [(Scale, &[u8]); 4] = [
         (Scale::Coherent, &[0x00]),
         (Scale::Pow10(-3), &[0x10, 0xfd]),
-        (Scale::Factor(0.5), &[0x20, 0, 0, 0, 0, 0, 0, 0xe0, 0x3f]),
+        // a degree, π/180
+        (
+            Scale::Exact(Magnitude::new(1, 180, 0, 0, 1)),
+            &[0x30, 0xfe, 0x80, 0xfe, 0x80, 0x02, 0, 0, 0x83, 0xfc, 0, 0],
+        ),
         (
             Scale::Affine {
                 factor: 1.0,
                 offset: 273.15,
             },
             &[
-                0x30, 0, 0, 0, 0, 0, 0, 0xf0, 0x3f, 0x66, 0x66, 0x66, 0x66, 0x66, 0x12, 0x71, 0x40,
+                0x20, 0, 0, 0, 0, 0, 0, 0xf0, 0x3f, 0x66, 0x66, 0x66, 0x66, 0x66, 0x12, 0x71, 0x40,
             ],
         ),
     ];

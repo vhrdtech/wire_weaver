@@ -6,7 +6,8 @@ use shrink_wrap::prelude::*;
 use ww_si::units::{self, AngularVelocity, Per, Torque};
 use ww_si::ww_numeric::NumericValue;
 use ww_si::{
-    AnyQuantity, AnyQuantityOwned, DegreeCelsius, Dim, Prefix, Quantity, Ratio, SIExpr, Scale, Volt,
+    AnyQuantity, AnyQuantityOwned, DegreeCelsius, Dim, Magnitude, Prefix, Quantity, Ratio, SIExpr,
+    Scale, Volt,
 };
 
 type Viscous = Per<Torque, AngularVelocity>;
@@ -69,7 +70,7 @@ fn any_quantity() {
         name: "Rpm",
         symbol: "rpm",
         dim: Dim::new(-1, 0, 0, 0, 0, 0, 0),
-        scale: Scale::Factor(core::f64::consts::TAU / 60.0),
+        scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
     };
     let q = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
     assert_eq!(q.to_string(), "3 krpm");

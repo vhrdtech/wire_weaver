@@ -749,6 +749,12 @@ pub enum MarkerDef<'i> {
     RangeU64,
     /// `exact_units::RangeDec<MIN, MAX, EXP>`: a `Fixed` whose float number is in `MIN·10^EXP..=MAX·10^EXP`.
     RangeDec,
+    /// `exact_units::Wrapping`: a `Fixed` without bounds whose arithmetic wraps modulo 2^bits of its storage (binary
+    /// angles, free-running counters).
+    Wrapping,
+    /// `exact_units::Saturating`: a `Fixed` without bounds whose arithmetic stops at the ends of its storage (Q
+    /// formats).
+    Saturating,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].

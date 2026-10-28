@@ -99,19 +99,21 @@ impl SeriesSeed<'_> {
         self.generics.impl_params(Some(quote! { #trait_<'i> }))
     }
 
-    /// A block summing the `MAX_ITEM_BITS` or `MAX_FIXED_BITS` (`which`) of `fields`, starting from `start`; an
-    /// opaque field is unbounded.
-    fn bound_sum(
-        &self,
-        fields: &[SeriesField],
-        which: TokenStream,
-        start: TokenStream,
-    ) -> TokenStream {
+    /// A block summing the `MAX_ITEM_BITS` (`item`) or `MAX_FIXED_BITS` of `fields`, starting from `start`; an
+    /// opaque field is bounded by its type's `MAX_SIZE`.
+    fn bound_sum(&self, fields: &[SeriesField], item: bool, start: TokenStream) -> TokenStream {
         let trait_ = self.sc(quote! { SeriesColumns });
         let add = self.sc(quote! { bound::add });
+        let ser = self.cp.item(quote! { SerializeShrinkWrap });
+        let (which, opaque_bound) = if item {
+            (quote! { MAX_ITEM_BITS }, self.sc(quote! { bound::opaque_run_item_bits }))
+        } else {
+            (quote! { MAX_FIXED_BITS }, self.sc(quote! { bound::opaque_run_fixed_bits }))
+        };
         let terms = fields.iter().map(|f| {
             if f.opaque {
-                quote! { None }
+                let ty = &f.ty;
+                quote! { #opaque_bound(<#ty as #ser>::MAX_SIZE) }
             } else {
                 let ty = &f.ty;
                 quote! { <#ty as #trait_<'i>>::#which }
@@ -1165,11 +1167,11 @@ impl SeriesSeed<'_> {
         });
         let members = fields.iter().map(|f| &f.member);
 
-        let max_item = self.bound_sum(&fields, quote! { MAX_ITEM_BITS }, quote! { Some(0) });
+        let max_item = self.bound_sum(&fields, true, quote! { Some(0) });
         let head = self.sc(quote! { bound::STRUCT_HEAD_BITS });
         let max_fixed = self.bound_sum(
             &fields,
-            quote! { MAX_FIXED_BITS },
+            false,
             if evolvable {
                 quote! { Some(#head) }
             } else {
@@ -1456,12 +1458,12 @@ impl SeriesSeed<'_> {
         let add = self.sc(quote! { bound::add });
         let variant_items = data.iter().map(|(v, fields)| {
             let on = v.cfg_attrs();
-            let sum = self.bound_sum(fields, quote! { MAX_ITEM_BITS }, quote! { Some(0) });
+            let sum = self.bound_sum(fields, true, quote! { Some(0) });
             quote! { #on { __widest = #max(__widest, #sum); } }
         });
         let variant_fixed = data.iter().map(|(v, fields)| {
             let on = v.cfg_attrs();
-            let sum = self.bound_sum(fields, quote! { MAX_FIXED_BITS }, quote! { Some(0) });
+            let sum = self.bound_sum(fields, false, quote! { Some(0) });
             quote! { #on { __fixed = #add(__fixed, #sum); } }
         });
         let max_item = quote! {

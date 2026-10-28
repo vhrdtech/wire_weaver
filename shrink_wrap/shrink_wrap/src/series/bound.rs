@@ -1,13 +1,15 @@
 //! Worst-case sizes of [SeriesColumns](super::SeriesColumns) groups (SW-62): what
 //! [MAX_ITEM_BITS](super::SeriesColumns::MAX_ITEM_BITS) and [MAX_FIXED_BITS](super::SeriesColumns::MAX_FIXED_BITS)
 //! are made of, for the impls here, the derive and hand-written ones. `None` is unbounded (a string, an opaque
-//! field), and stays `None` through every operation; so does an overflow.
+//! field of a type without a `MAX_SIZE`), and stays `None` through every operation; so does an overflow.
 //!
 //! The bounds hold for every [CodecPolicy](super::CodecPolicy): a fixed codec can be worse than writing a column
 //! plain (the packed coder over blocks of one residual, the prefix code at its longest), so they are the worst of
 //! all codecs, not of the one `SMALLEST` would pick. A run is bounded per item by a change at every item: a change
 //! after a gap of `g` items costs `1 + nib(g)` plus the value, spread over `g + 1` items, which is never more than
 //! a change at every item (`nib(0)` is 4 bits).
+
+use crate::MaxSize;
 
 /// `a + b`.
 pub const fn add(a: Option<usize>, b: Option<usize>) -> Option<usize> {
@@ -98,6 +100,28 @@ pub const fn tag_run_fixed_bits(max_tag: u32) -> usize {
 /// A change of an enum's tag run, discriminants up to `max_tag`: `1`, `nib(gap)`, `nib(tag)`.
 pub const fn tag_run_item_bits(max_tag: u32) -> usize {
     1 + nib_bits(0) + nib_bits(max_tag)
+}
+
+/// A value of an opaque run whose bytes are bounded by `max_size` (`MAX_SIZE` of its type): `nib(len)`, the padding
+/// to the next byte, the bytes. `None` for an unbounded type.
+const fn opaque_value_bits(max_size: Option<MaxSize>) -> Option<usize> {
+    match MaxSize::buffer_len_of(max_size) {
+        Some(len) if len <= u32::MAX as usize => match len.checked_mul(8) {
+            Some(bits) => add(Some(nib_bits(len as u32) + 7), Some(bits)),
+            None => None,
+        },
+        _ => None,
+    }
+}
+
+/// The first value and the end bit of an opaque run of values bounded by `max_size`.
+pub const fn opaque_run_fixed_bits(max_size: Option<MaxSize>) -> Option<usize> {
+    add(opaque_value_bits(max_size), Some(1))
+}
+
+/// A change of an opaque run of values bounded by `max_size`: `1`, `nib(gap)`, the value.
+pub const fn opaque_run_item_bits(max_size: Option<MaxSize>) -> Option<usize> {
+    add(Some(1 + nib_bits(0)), opaque_value_bits(max_size))
 }
 
 #[cfg(test)]

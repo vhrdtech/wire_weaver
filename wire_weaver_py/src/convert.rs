@@ -20,6 +20,8 @@
 //! | `Range`, `RangeInclusive`         | `(start, end)` (`range` with step 1 accepted)                       |
 //! | `Series<T>`                       | `list` of `T`, any iterable accepted (columns as numpy arrays: `decode_columns`) |
 //! | `ww_si` quantity (`Volt`, ..)      | `Quantity` (a `Quantity` of the same unit, or a number in the unit itself accepted) |
+//! | `exact_units::Fixed`              | `Quantity` (a `Quantity` converted exactly into its scale and storage, or the stored number accepted) |
+//! | `Index`, `IndexFrom1`, `Seq`      | `dict` of the number, as a struct (the number alone accepted)       |
 
 use crate::quantity::Quantity;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -28,7 +30,9 @@ use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyDict, PyFloat, PyInt, PyList, PyRange, PyString, PyTuple,
 };
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
-use wire_weaver_client::quantity::{DynQuantity, Prefix, is_any_quantity, unit_of};
+use wire_weaver_client::quantity::{
+    DynQuantity, Prefix, fixed_of, is_any_quantity, stored_number, unit_of,
+};
 use wire_weaver_client::ww_numeric::{NumericAnyTypeOwned, NumericBaseType, NumericValue};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
@@ -70,6 +74,24 @@ fn to_value_at(
             .to_value(ty, bundle)
             .map_err(PyValueError::new_err);
     }
+    // an exact_units wrapper: a Quantity converts exactly into a Fixed, a number is what it stores (CLT-54)
+    if fixed_of(ty, bundle).is_some()
+        && let Ok(q) = obj.cast::<Quantity>()
+    {
+        return q
+            .get()
+            .q
+            .to_value(ty, bundle)
+            .map_err(PyValueError::new_err);
+    }
+    if (obj.is_instance_of::<PyInt>() && !obj.is_instance_of::<PyBool>())
+        || obj.is_instance_of::<PyFloat>()
+    {
+        let text = obj.str()?.to_string();
+        if let Some(value) = stored_number(&text, ty, bundle) {
+            return value.map_err(PyValueError::new_err);
+        }
+    }
     if let Some(unit) = unit_of(ty, bundle) {
         let q = if let Ok(q) = obj.cast::<Quantity>() {
             Some(q.get().q.clone())
@@ -79,17 +101,13 @@ fn to_value_at(
                 Ok(n) => NumericValue::I32(n),
                 Err(_) => NumericValue::I64(n),
             };
-            Some(DynQuantity {
-                prefix: Prefix::Unit,
-                value,
-                unit,
-            })
+            Some(DynQuantity::new(Prefix::Unit, value, unit))
         } else if obj.is_instance_of::<PyFloat>() {
-            Some(DynQuantity {
-                prefix: Prefix::Unit,
-                value: NumericValue::F64(obj.extract()?),
+            Some(DynQuantity::new(
+                Prefix::Unit,
+                NumericValue::F64(obj.extract()?),
                 unit,
-            })
+            ))
         } else {
             None
         };

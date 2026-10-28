@@ -568,6 +568,13 @@ fn numeric(expr: &Expr, base: &NumericBaseType) -> Result<NumericValue, NumError
         return Ok(N::U128(v));
     }
     let i = int_lit(expr).ok_or(NumError::Shape)?;
+    Ok(int_value(i, base)?)
+}
+
+/// The integer `i` as a number of type `base`, an error naming the type when it doesn't fit (or `base` is a float).
+pub fn int_value(i: i128, base: &NumericBaseType) -> Result<NumericValue> {
+    use NumericBaseType as B;
+    use NumericValue as N;
     let range = || anyhow!("{i} is out of range for {}", base_name(base));
     macro_rules! fit {
         ($t:ty) => {
@@ -592,7 +599,7 @@ fn numeric(expr: &Expr, base: &NumericBaseType) -> Result<NumericValue, NumError
         B::UB(bits) => {
             let v = fit!(u64);
             if bits.0 < 64 && v >> bits.0 != 0 {
-                return Err(range().into());
+                return Err(range());
             }
             unsigned_value(bits.0, v)
         }
@@ -600,16 +607,17 @@ fn numeric(expr: &Expr, base: &NumericBaseType) -> Result<NumericValue, NumError
             let v = fit!(i64);
             let half = 1i64 << (bits.0 - 1);
             if bits.0 < 64 && !(-half..half).contains(&v) {
-                return Err(range().into());
+                return Err(range());
             }
             signed_value(bits.0, v)
         }
-        other => return Err(anyhow!("{other:?} numbers can't be written yet").into()),
+        B::F32 | B::F64 => bail!("{i} as {}: not an integer type", base_name(base)),
+        other => bail!("{other:?} numbers can't be written yet"),
     })
 }
 
 /// `u8`, `ub4`, `ib10`.
-fn base_name(base: &NumericBaseType) -> String {
+pub fn base_name(base: &NumericBaseType) -> String {
     match base {
         NumericBaseType::UB(bits) => format!("ub{}", bits.0),
         NumericBaseType::IB(bits) => format!("ib{}", bits.0),

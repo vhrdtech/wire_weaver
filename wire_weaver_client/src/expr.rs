@@ -1,8 +1,12 @@
 //! Values and calls written as Rust expressions (TOOL-9), [ww_self::expr] with `ww_si` quantities: `q!(3300 mV)`,
 //! `q!(3.3 V)`, `q!(1.2e-4 N*m/(rad/s))`, `q!("20 °C")` (a string for symbols Rust can't read), or a plain number in
-//! the unit itself, wherever the type is a `Quantity<U>` or an `AnyQuantity`.
+//! the unit itself, wherever the type is a `Quantity<U>` or an `AnyQuantity`. Into an `exact_units::Fixed` (CLT-54)
+//! `q!(5 ms)` is converted exactly into its scale and storage, a plain number is the stored number (`5000` into a
+//! `Fixed<Second, Micro, u32>` is 5 ms); an `Index`, `IndexFrom1` or `Seq` is written as its plain number.
 
-use crate::quantity::{DynQuantity, is_any_quantity, parse_quantity, unit_of};
+use crate::quantity::{
+    DynQuantity, fixed_of, is_any_quantity, parse_quantity_in, stored_number, unit_of,
+};
 use anyhow::{Result, anyhow};
 use ww_self::expr::syn::{self, Expr, Lit};
 use ww_self::expr::{self, Hook};
@@ -24,7 +28,14 @@ const QUANTITIES: Hook = &quantity;
 /// A `ww_si` quantity from `q!(..)` or a plain number, `None` for anything else (a struct literal of the quantity
 /// still works the usual way).
 fn quantity(expr: &Expr, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<Result<ValueOwned>> {
-    let unit = unit_of(ty, bundle);
+    // an exact_units wrapper: a plain number is what it stores
+    if let Expr::Lit(_) | Expr::Unary(_) = expr
+        && let Some(value) = stored_number(&quote_text(expr), ty, bundle)
+    {
+        return Some(value.map_err(|e| anyhow!(e)));
+    }
+    let fixed = fixed_of(ty, bundle);
+    let unit = unit_of(ty, bundle).or_else(|| fixed.as_ref().map(|f| f.unit.clone()));
     if unit.is_none() && !is_any_quantity(ty, bundle) {
         return None;
     }
@@ -40,7 +51,7 @@ fn quantity(expr: &Expr, ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<Resu
         _ => return None,
     };
     Some(
-        parse_quantity(&text, unit.as_ref())
+        parse_quantity_in(&text, unit.as_ref(), fixed.as_ref().map(|f| &f.prefix))
             .and_then(|q: DynQuantity| q.to_value(ty, bundle))
             .map_err(|e| anyhow!(e)),
     )

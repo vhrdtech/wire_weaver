@@ -395,6 +395,44 @@ def test_quantities():
     assert api.sensor.decode(api.sensor.encode(s)) == s
 
 
+def test_fixed_and_counts():
+    # CLT-54: an exact_units::Fixed reads as a Quantity, its scale, storage and bounds fixed by the type
+    api = ww.load_api(str(QUANTITIES_CRATE), "Quantities")
+    uptime = 1_730_000_000_000_000
+    u = api.uptime.decode(uptime.to_bytes(8, "little"))
+    assert isinstance(u, ww.Quantity)
+    assert (str(u), u.value, u.prefix, u.exponent, u.storage, u.fixed) == (
+        "1730000000000000 µs", uptime, "Micro", -6, "u64", True)
+    assert (u.symbol, u.unit, u.bounds) == ("s", "Second", None)
+    assert u.to_si() == 1_730_000_000.0
+    # written back as it is, or a number as stored
+    assert api.uptime.encode(u) == uptime.to_bytes(8, "little")
+    assert api.uptime.decode(api.uptime.encode(5000)).value == 5000
+    # another quantity converts exactly into the stored scale: 5 ms is 5000 µs
+    t = api.timeout.decode(api.timeout.encode(5))
+    assert str(t) == "5 ms"
+    assert str(api.uptime.decode(api.uptime.encode(t))) == "5000 µs"
+    with pytest.raises(ValueError, match=r"5001 µs can.t be written into Fixed<Second, Milli, u16, Range<1, 5000>>: not a whole"):
+        api.window.encode(api.uptime.decode(api.uptime.encode(5001)))
+    with pytest.raises(ValueError, match=r"6000 is out of .*Fixed<Second, Milli, u16, Range<1, 5000>> \(1..=5000\)"):
+        api.window.encode(6000)
+    with pytest.raises(ValueError, match=r"70000 is out of range for u16"):
+        api.timeout.encode(70000)
+    w = api.window.decode(api.window.encode(100))
+    assert (str(w), w.bounds) == ("100 ms", (1, 5000))
+    # a binary prefix
+    b = api.buffer.decode(api.buffer.encode(4))
+    assert (str(b), b.prefix, b.exponent, f"{b}") == ("4 KiB", "Ki", None, "4 KiB")
+    assert b.to_si() == 4096 * 8  # bits
+    # indices and sequence numbers: structs of their number, the number alone accepted, checked as the device checks
+    assert api.input.decode(api.input.encode(2)) == {"number": 2}
+    with pytest.raises(ValueError, match="counts from 1"):
+        api.input.encode(0)
+    with pytest.raises(ValueError, match="5 is out of"):
+        api.input.encode(5)
+    assert api.frame.encode(65535).hex() == "ffff"
+
+
 CUSTOMARY_CRATE = Path(__file__).parents[2] / "tests" / "customary_api"
 
 

@@ -237,7 +237,19 @@ mod tests {
         );
         let name = ty.human_name(false, root.bundle()).unwrap();
         assert!(name.contains("PoundForce"), "{name}");
-        // TODO(CLT-54): a Fixed field shown and converted with its unit in dynamic clients, Python and C
+        // shown and converted with its unit (CLT-54): never 2000 read as N·s
+        let q = DynQuantity::from_value(&value, &ty, root.bundle()).expect("a quantity");
+        assert_eq!(q.to_string(), BURN.to_string());
+        assert_eq!(q.to_string(), "2000 m(lbf·s)");
+        assert_eq!(format!("{q:#}"), "2 lbf·s");
+        let si = q.convert(&n_s()).unwrap();
+        assert_eq!(si.to_string(), "8896443230521 p(N·s)");
+        // a value in N·s written into the lbf·s field converts exactly, or is refused
+        let n_s_value = DynQuantity::new(Prefix::Unit, NumericValue::I32(4), n_s());
+        let err = n_s_value.to_value(&ty, root.bundle()).unwrap_err();
+        assert!(err.ends_with("not a whole number of m(lbf·s)"), "{err}");
+        let back = si.to_value(&ty, root.bundle()).unwrap();
+        assert_eq!(back, value);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -251,7 +263,7 @@ mod tests {
             assert_eq!(q.to_string(), "2000 m(lbf·s)", "{name}");
             let si = q.convert(&n_s()).unwrap();
             assert_eq!(
-                (si.prefix, si.value),
+                (si.prefix.si().unwrap(), si.value),
                 (Prefix::Pico, NumericValue::I64(8_896_443_230_521)),
                 "{name}"
             );
@@ -268,11 +280,11 @@ mod tests {
 
     #[test]
     fn dynamic_refuses_what_is_not_exact() {
-        let psi = DynQuantity {
-            prefix: Prefix::Unit,
-            value: NumericValue::I32(1),
-            unit: DynUnit::from_name("Psi").unwrap(),
-        };
+        let psi = DynQuantity::new(
+            Prefix::Unit,
+            NumericValue::I32(1),
+            DynUnit::from_name("Psi").unwrap(),
+        );
         let pa = DynUnit::from_name("Pascal").unwrap();
         // 6894.757293168361.. Pa: no prefix holds it whole
         let err = psi.convert(&pa).unwrap_err();

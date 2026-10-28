@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `exact_units` numbers in `ww` (CLT-54): `ww introspect` shows a `Fixed` with what its numbers are in and its bounds after the type (`Fixed<Second, Micro, u64, Unbounded> [µs]`, `Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]`); `ww get` / `ww observe` print `Fixed` values with their unit (`1730000000000000 µs`, `4 KiB`) and indices and sequence numbers with what they count (`#3 (Sample)`, `seq 41 (Frame)`); `ww set` / `ww call` take `q!(5 ms)` into a `Fixed` exactly (an error naming the type when it isn't whole in its scale, overflows its storage or leaves its bounds) and a plain number as the stored one.
 - `ww api check --require-current` (EVO-12): fails without a snapshot of the crate's current version or when the source differs from it, and checks the bump from the previous version's snapshot to it, the same as `Check::require_current` in an API crate's test.
 - `ww api check --strict` fails when the crate has no snapshot to compare with, naming the `ww api save` to run, instead of passing unchecked (EVO-11). Each breaking change is followed by the rule it breaks and its docs section, and a failed check says which version to put in `Cargo.toml`. `ww api check`, `diff` and `save` run on `wire_weaver_evolution`, the same checker an API crate runs from its own test.
 - `--rtt` with a chip probe-rs doesn't know fails before touching the probe, naming the chips that start like it (`did you mean: STM32G0B1RE`).

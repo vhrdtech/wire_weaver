@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 10792aade214c1d53a05ba4273d1f1afab194243d9817f9f82357c14630c978e
+// shrink_wrap sha256: bb27a19101fa92406169f1d704c68c0e88c28ececb9915571731fc45c8bbbe4c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -745,7 +745,7 @@
     ], fields: Named([
         (ident: Some("seq"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "The powers of π, ln 2 and ln 10 in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in",
         "neper (`ln10/20`) `ln10 = 2`. Treated as independent symbols, like the primes.",
     ], ident: "Irrational", generics: [], fields: Named([
@@ -753,13 +753,13 @@
         (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
     ], ident: "PrimePower", generics: [], fields: Named([
         (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
     ], ident: "MagnitudeRest", generics: [], fields: Named([
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
@@ -772,7 +772,7 @@
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
-    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+    InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2 and 5, every",
         "exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz)). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
         "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
@@ -790,6 +790,8 @@
         "",
         "On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits",
         "(Milli `fa 00`), the rest behind an option bit, its irrational powers behind one more, an empty prime slot one bit.",
+        "`self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant",
+        "([Prefix](crate::Prefix)\'s `Exact`).",
     ], ident: "Magnitude", generics: [], fields: Named([
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",

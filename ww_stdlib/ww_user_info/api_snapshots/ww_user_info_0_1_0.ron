@@ -1,6 +1,6 @@
 // ww_user_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: b9f38d64ef9141c0e4a2d42d19b82d577a80d66d61d6e77b8aa276827c7c6d37
+// shrink_wrap sha256: 63b76832fae2a571d0dbfe06331d6cffd4fcf67f76c61fc1b381b1f2ab77d627
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A name and notes the user gives a unit (STD-24), shown by `ww list`.",
     "",
@@ -25,7 +25,7 @@
         (ident: Some("persistent"), default: None, since: None, ty: Bool, docs: [
             "A written value survives a power cycle.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,

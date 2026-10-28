@@ -22,6 +22,7 @@ pub const MAX_COUNTED: usize = 4;
         borrowed,
         owned(feature = "std"),
         derive_owned(Clone, Debug, PartialEq, Eq, Hash),
+        cfg_attr_owned(feature = "serde", derive(serde::Serialize, serde::Deserialize)),
         final_structure
     )
 )]
@@ -59,6 +60,7 @@ pub struct Counted<'i> {
         borrowed,
         owned(feature = "std"),
         derive_owned(Clone, Debug, PartialEq, Eq, Hash),
+        cfg_attr_owned(feature = "serde", derive(serde::Serialize, serde::Deserialize)),
         final_structure,
         validate = Self::validate
     )

@@ -1,6 +1,6 @@
 // ww_recorder 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0adaa4bf675cc5d911104850ff7dc443f666c080aaca8173877aaae3bd856e47
+// shrink_wrap sha256: c040bd2e3708b1da584c92119e2b02aea8741d94282505eda386972ae895719d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Control a recorder over WireWeaver (STD-34): a device that logs many tracks (streams of any type) to an SD card",
     "or flash on its own, with sessions, recordings and markers.",
@@ -39,7 +39,7 @@
         (ident: Some("global_id"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [
             "The `ww_global` id of the type\'s crate (the number of its `GlobalTypeId`), when it has one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A track\'s identity, see [Track::info]. Numbers only: the device has no resource or type names at hand, a host",
         "makes them (`can[1].rx`, `ww_can_bus::Frame`) from the device\'s API.",
@@ -58,7 +58,7 @@
         (ident: Some("rate"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Nominal items per second, 0 unknown.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -134,7 +134,7 @@
         (ident: Some("dropped"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [
             "Units refused or lost on the way: producer overflow, disabled track, full ring.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The recorder\'s state, see [Status::state].",
         "",
@@ -170,14 +170,14 @@
         ]), discriminant: 6, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
+        201,
+        216,
+        13,
+        38,
+        84,
+        139,
+        83,
+        180,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
         190,
@@ -208,7 +208,7 @@
             "Bytes of the ring holding data now, and its capacity. Equal once the ring went round.",
         ], slot: None, series_opaque: false),
         (ident: Some("ring_capacity_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Kind of medium, see [CardFacts::kind].",
     ], ident: "CardKind", generics: [], variants: [
@@ -271,7 +271,7 @@
             "[Settings::flush_bytes].",
         ], slot: None, series_opaque: false),
         (ident: Some("rating"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The card, see [Recorder::card].",
     ], ident: "CardFacts", generics: [], fields: Named([
@@ -310,7 +310,7 @@
         (ident: Some("check"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 14)), docs: [
             "Result of the last card check, `None` before one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What a format starts from, see [Recorder::prepare_format].",
     ], ident: "FormatAction", generics: [], variants: [
@@ -349,7 +349,7 @@
         (ident: Some("ring_bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
             "Bytes the ring gets with the default region.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What started a recording, see [Recorder::recording_start] and [RecordingInfo].",
         "",
@@ -402,7 +402,7 @@
         (ident: Some("bytes"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [
             "Bytes of the ring the span covers, all tracks.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a marker is for, see [Recorder::marker].",
         "",
@@ -455,7 +455,7 @@
         (ident: Some("csv"), default: None, since: None, ty: Bool, docs: [
             "Fixed-width CSV files next to the native ones, for tracks that have one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Settings of the recorder, see [Recorder::settings].",
     ], ident: "Settings", generics: [], fields: Named([
@@ -477,7 +477,7 @@
         (ident: Some("usb_view"), default: None, since: None, ty: OutOfLine(type_idx: 24), docs: [
             "How the log is split in the USB view. Takes effect at the next [Recorder::refresh_usb] or mount.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Totals, see [Recorder::counters]. Numbers are variable length: an idle recorder\'s answer is a few bytes.",
     ], ident: "RecorderCounters", generics: [], fields: Named([
@@ -512,7 +512,7 @@
         ])), docs: [
             "Device time of the oldest data still in the ring, `None` if empty or unknown.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One track of the log, `Recorder::track[n]`.",

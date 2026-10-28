@@ -4,8 +4,8 @@
 
 use shrink_wrap::prelude::*;
 use ww_si::exact_units::Magnitude;
-use ww_si::ww_numeric::NumericValue;
 use ww_si::units;
+use ww_si::ww_numeric::NumericValue;
 use ww_si::{Prefix, Quantity, Ratio, Second, Volt};
 
 type Byte = Quantity<units::Byte>;
@@ -33,9 +33,15 @@ fn binary_prefix_converts_exactly() {
     assert_eq!(b.to_u32_in(Prefix::Unit), Some(3072));
     // 3 KiB = 3.072 kB, truncated
     assert_eq!(b.to_u32_in(Prefix::Kilo), Some(3));
-    assert_eq!(b.with_prefix(Prefix::Unit), Some(Byte::new(Prefix::Unit, 3072u16)));
+    assert_eq!(
+        b.with_prefix(Prefix::Unit),
+        Some(Byte::new(Prefix::Unit, 3072u16))
+    );
     assert_eq!(b.with_prefix(Prefix::Kilo), None);
-    assert_eq!(Byte::new(Prefix::Mebi, 1u8).to_u32_in(Prefix::Kibi), Some(1024));
+    assert_eq!(
+        Byte::new(Prefix::Mebi, 1u8).to_u32_in(Prefix::Kibi),
+        Some(1024)
+    );
     assert_eq!(b, Byte::new(Prefix::Unit, 3072u32));
     assert!(b > Byte::new(Prefix::Kilo, 3u8));
     assert!(b < Byte::new(Prefix::Kilo, 4u8));
@@ -52,7 +58,10 @@ fn exact_fraction_converts_exactly() {
     let full = Ratio::new(duty16(), 65535u16);
     assert_eq!(full.to_u32_in(Prefix::Unit), Some(1));
     assert_eq!(full, Ratio::new(Prefix::Unit, 1u8));
-    assert_eq!(full.with_prefix(Prefix::Unit), Some(Ratio::new(Prefix::Unit, 1u16)));
+    assert_eq!(
+        full.with_prefix(Prefix::Unit),
+        Some(Ratio::new(Prefix::Unit, 1u16))
+    );
     // 32768/65535 = 0.50000763 is 500 ‰, truncated, and not a whole number of them
     assert_eq!(d.to_i32_in(Prefix::Milli), Some(500));
     assert_eq!(d.with_prefix(Prefix::Milli), None);

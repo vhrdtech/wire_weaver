@@ -138,7 +138,9 @@ impl Prefix {
             Prefix::Yocto => -24,
             Prefix::Ronto => -27,
             Prefix::Quecto => -30,
-            Prefix::Kibi | Prefix::Mebi | Prefix::Gibi | Prefix::Tebi | Prefix::Exact(_) => return None,
+            Prefix::Kibi | Prefix::Mebi | Prefix::Gibi | Prefix::Tebi | Prefix::Exact(_) => {
+                return None;
+            }
         })
     }
 
@@ -404,8 +406,9 @@ mod series_store {
             match Prefix::ALL.get(code as usize) {
                 Some(p) => *p,
                 // only codes of prefixes are stored, an empty slot is 0 (`Unit`)
-                None => ExactScale::from_index(code - EXACT_CODE)
-                    .map_or(Prefix::Unit, Prefix::Exact),
+                None => {
+                    ExactScale::from_index(code - EXACT_CODE).map_or(Prefix::Unit, Prefix::Exact)
+                }
             }
         }
     }

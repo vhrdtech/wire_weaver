@@ -333,7 +333,11 @@ pub(crate) fn to_u32_scaled(value: &NumericValue, from: Prefix, to: Prefix) -> O
 
 /// `value` in units of `from` in units of `to` modulo `2^32` (two's complement below zero); floats rounded and from
 /// -2^31 up to below 2^32 only.
-pub(crate) fn to_u32_wrapping_scaled(value: &NumericValue, from: Prefix, to: Prefix) -> Option<u32> {
+pub(crate) fn to_u32_wrapping_scaled(
+    value: &NumericValue,
+    from: Prefix,
+    to: Prefix,
+) -> Option<u32> {
     let r = match pow10_between(from, to) {
         Some(exp) => match value.to_integer() {
             Some(x) => return Some(x.to_u32_wrapping_pow10(exp)),

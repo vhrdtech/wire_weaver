@@ -100,18 +100,25 @@ impl SeriesSeed<'_> {
     }
 
     /// A block summing the `MAX_ITEM_BITS` (`item`) or `MAX_FIXED_BITS` of `fields`, starting from `start`; an
-    /// opaque field is bounded by its type's `MAX_SIZE`.
+    /// opaque field is bounded by its type's `MAX_SIZE` (a user `#[wire(W)]` one by `WireAs::PLAIN_MAX_SIZE`).
     fn bound_sum(&self, fields: &[SeriesField], item: bool, start: TokenStream) -> TokenStream {
         let trait_ = self.sc(quote! { SeriesColumns });
         let add = self.sc(quote! { bound::add });
         let ser = self.cp.item(quote! { SerializeShrinkWrap });
         let (which, opaque_bound) = if item {
-            (quote! { MAX_ITEM_BITS }, self.sc(quote! { bound::opaque_run_item_bits }))
+            (
+                quote! { MAX_ITEM_BITS },
+                self.sc(quote! { bound::opaque_run_item_bits }),
+            )
         } else {
-            (quote! { MAX_FIXED_BITS }, self.sc(quote! { bound::opaque_run_fixed_bits }))
+            (
+                quote! { MAX_FIXED_BITS },
+                self.sc(quote! { bound::opaque_run_fixed_bits }),
+            )
         };
         let terms = fields.iter().map(|f| {
-            if f.opaque {
+            // a user `#[wire(W)]` field is a `WiredOpaque`, bounded by its own consts (`WireAs::PLAIN_MAX_SIZE`)
+            if f.opaque && !f.wired {
                 let ty = &f.ty;
                 quote! { #opaque_bound(<#ty as #ser>::MAX_SIZE) }
             } else {

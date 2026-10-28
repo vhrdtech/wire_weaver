@@ -192,12 +192,7 @@ impl<U: Unit> PartialEq for Quantity<U> {
 /// through `f64` when one is a float.
 impl<U: Unit> PartialOrd for Quantity<U> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        compare(
-            self.prefix,
-            &self.value,
-            other.prefix,
-            &other.value,
-        )
+        compare(self.prefix, &self.value, other.prefix, &other.value)
     }
 }
 

@@ -147,8 +147,14 @@ mod tests {
         let dt = DeviceTime::new(&first).unwrap();
         let mut dt2 = dt.clone();
         assert_eq!(dt2.to_ns(&first).unwrap(), 1_000_000_000);
-        assert_eq!(dt2.to_ns(&Second::new(tick, 32769u32)).unwrap(), 1_000_030_517);
-        assert_eq!(dt.to_device(1_000_030_600).unwrap(), Second::new(tick, 32769u32));
+        assert_eq!(
+            dt2.to_ns(&Second::new(tick, 32769u32)).unwrap(),
+            1_000_030_517
+        );
+        assert_eq!(
+            dt.to_device(1_000_030_600).unwrap(),
+            Second::new(tick, 32769u32)
+        );
     }
 
     #[test]

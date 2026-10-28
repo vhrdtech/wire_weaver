@@ -3,12 +3,12 @@
 //! a `#[series(opaque)]` field); a value without a handle is an error when it is read.
 
 use core::mem::MaybeUninit;
-use shrink_wrap::Error;
 use shrink_wrap::prelude::*;
 use shrink_wrap::series::{
     CodecPolicy, SeriesCells, SeriesColumns, SeriesOwned, SeriesStore, empty_cells,
     write_store_series,
 };
+use shrink_wrap::{Error, MaxSize};
 
 /// The value a handle stands for.
 #[derive_shrink_wrap(
@@ -49,6 +49,9 @@ impl WireAs<ScaleId> for Scale {
             .map(|i| ScaleId(i as u8))
             .ok_or(Error::SubtypeOutOfRange)
     }
+
+    // the largest of SCALES, checked in `plain_max_size_bounds_buffers_and_series`
+    const PLAIN_MAX_SIZE: Option<MaxSize> = Some(MaxSize::bytes(7));
 }
 
 /// The store and cells of the `u8` index.
@@ -287,4 +290,29 @@ fn series_store_and_cells_keep_the_handle() {
         ),
         Ok(false)
     );
+}
+
+#[test]
+fn plain_max_size_bounds_buffers_and_series() {
+    let largest = SCALES.iter().map(|s| bytes(s).len()).max().unwrap();
+    assert_eq!(
+        Some(MaxSize::bytes(largest)),
+        <Scale as WireAs<ScaleId>>::PLAIN_MAX_SIZE
+    );
+    assert!(MaxSize::buffer_len_of(Scale::MAX_SIZE).unwrap() > largest);
+
+    // the handle's bound, not the full `Scale`'s
+    let len = |m| MaxSize::buffer_len_of(m).unwrap();
+    assert!(len(Reading::MAX_SIZE) < len(ReadingTwin::MAX_SIZE));
+    assert!(len(Prefix::MAX_SIZE) < len(PrefixTwin::MAX_SIZE));
+    for (id, _) in SCALES.iter().enumerate() {
+        let r = Reading {
+            value: u16::MAX,
+            scale: ScaleId(id as u8),
+        };
+        assert!(bytes(&r).len() <= len(Reading::MAX_SIZE));
+    }
+    let bits = |b: Option<usize>| b.unwrap();
+    assert!(bits(Reading::MAX_ITEM_BITS) < bits(ReadingTwin::MAX_ITEM_BITS));
+    assert!(bits(Prefix::MAX_FIXED_BITS) < bits(PrefixTwin::MAX_FIXED_BITS));
 }

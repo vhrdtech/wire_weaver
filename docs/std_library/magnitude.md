@@ -54,12 +54,14 @@ then Miller-Rabin and Pollard's rho), so any fraction a datasheet writes works. 
 compile; no unit definition has one. Besides the prefixes, `Pow10<E>` and `Rational`:
 
 - `Pow2<E>`: binary steps. The Q formats are aliases over it, with the unit defaulting to `Ratio`: `Q15<U>` is
-  `Fixed<U, Pow2<-15>, i16>`, `Q31<U>` is `Fixed<U, Pow2<-31>, i32>`, `UQ16_16<U>` is `Fixed<U, Pow2<-16>, u32>`.
+  `Fixed<U, Pow2<-15>, i16, Saturating>`, `Q31<U>` is `Fixed<U, Pow2<-31>, i32, Saturating>`, `UQ16_16<U>` is
+  `Fixed<U, Pow2<-16>, u32, Saturating>`: their arithmetic saturates.
 - `FullScale<V, BITS>`: `V / 2^BITS`, one step of a converter whose `2^BITS` codes span `V` (LSB = Vref / 2ᴺ). A
   12-bit ADC at 3.3 V is `Fixed<Volt, FullScale<Rational<33, 10>, 12>, u16>`.
 - `FullScaleMax<V, BITS>`: `V / (2^BITS - 1)`, where the largest code is `V` (a PWM duty, a DAC reaching its
   reference). `FullScaleMax<One, 16>` is `Duty16`'s 1/65535.
-- Binary angles: `Bam16` is `Fixed<Turn, Pow2<-16>, u16>` (65536 steps a turn), `Bam32` the same over `u32`.
+- Binary angles: `Bam16` is `Fixed<Turn, Pow2<-16>, u16, Wrapping>` (65536 steps a turn, arithmetic wraps at a
+  turn), `Bam32` the same over `u32`.
 
 ## Conversions at compile time
 
@@ -67,12 +69,13 @@ compile; no unit definition has one. Besides the prefixes, `Pow10<E>` and `Ratio
 integers, and the multiply must fit a 64-bit integer when both storages have up to 32 bits, else 128 bits. If it
 doesn't, the conversion doesn't compile; it is never rounded. At run time the conversion is the multiply and divide
 by those constants: nothing between equal scales, a division in the storage's own width when the factor is
-1/n, `None` when the result isn't whole or doesn't fit `T2`. Float storages scale by the factor, π included.
+1/n, `None` when the result isn't whole or doesn't fit `T2`. Float storages scale by the factor, π included. A
+conversion that rounds names how: [Rounding and overflow](rounding.md).
 
 ```rust
 use exact_units::{Fixed, Q15, prefix::{FullScale, Milli, Pow2, Rational}, units::Volt};
 
-let half: Q15 = Fixed::new(16384);
+let half: Q15 = Fixed::of(16384);
 assert_eq!(half.to::<Pow2<-14>, i16>().map(Fixed::get), Some(8192));
 type Adc = Fixed<Volt, FullScale<Rational<33, 10>, 12>, u16>;
 assert_eq!(Adc::new(4096).to::<Milli, u16>().map(Fixed::get), Some(3300));

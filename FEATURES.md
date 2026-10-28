@@ -1476,8 +1476,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
   refuses; `Quantity` → `Fixed` is breaking with a hint that it is the intended move.
 - 📋 **EVO-17 Units compared by meaning** · `v0.5` — the checker compares magnitudes by value (`Milli` → `Pow10<-3>` is
-  compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
-  vs N·s) breaking.
+  compatible), reports origin, level, kind, sentinel and overflow policy (`Unbounded` → `Wrapping`, same bytes)
+  changes, and calls the same bytes in a different scale (lbf·s vs N·s) breaking.
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 
@@ -1719,6 +1719,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Q31`, `UQ16_16`, binary angles `Bam16`, `Bam32`. Replaces `ExactScale` in `Scale::Exact` (104 bytes in memory, a
   decimal prefix 2 bytes on the wire). [Exact magnitudes](docs/std_library/magnitude.md), conformance
   `stdlib.si.magnitude.*` (derive, dynamic, Python; C waits on API-26).
+- ✅ **STD-63 Named rounding and overflow policies** · `v0.5` — `to()` stays exact or `None`; lossy conversions name
+  their rounding (`Rounding`: truncate, floor, ceil, nearest ties-to-even, nearest ties-away) and overflow policy
+  (`Overflow`: checked, saturate, wrap): `Fixed::to_rounded`, `to_saturating`, `to_wrapping`, `requantize`, exact (the
+  true quotient rounded once), π/ln factors through a 64-bit fixed point (`Magnitude::fixed_point`). Arithmetic's
+  policy is in the bounds marker: `Wrapping` (`Bam16`, `Bam32`), `Saturating` (`Q15`, `Q31`, `UQ16_16`), `Unbounded`
+  checked; same bytes, `Fixed::of` / `with_overflow`. Bounds prove conversions infallible: `into_rounded`, `From` of a
+  `Range`-bounded value for a whole factor, a compile error where the proof fails. Run-time `requantize` /
+  `Requantizer` for dynamic clients. [Rounding and overflow](docs/std_library/rounding.md),
+  `exact_units/tests/rounding.rs`, conformance `requantize.*` (derive, dynamic; Python and C wait on CLT-54).
+  `Seq` wrapping comes with STD-58.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
@@ -1948,10 +1958,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
   (`Quantity<U, B>`, range in coherent units; a break: `B` explicit in the model), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
-- 📋 **STD-63 Named rounding and overflow policies** · `v0.5` — lossy conversions name their rounding (truncate, nearest
-  ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
-  saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
-  and C agree bit for bit (conformance).
 - 📋 **STD-64 Points and origins** · `v0.5` — `Point<Origin, Fixed<..>>`: a position against an origin with an exact
   offset and an optional modulus, so K / °C / °F / °R, register formulas (`raw/256 + 25 °C`), gauge vs absolute
   pressure and wrapping angles are one algebra; adding two points doesn't compile.

@@ -133,6 +133,14 @@ is compatible depends on what the old version writes:
 At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.
 
+### Overflow policies of `Fixed`
+
+The bounds marker `B` of an `exact_units::Fixed` that is `Unbounded`, `Wrapping` or `Saturating` (STD-63) has no
+bytes of its own: changing one into another keeps the bytes and the value they mean, and changes what arithmetic on
+the value does (a `Bam16` wraps at a turn, a `Q15` stops at its ends). Every reader still reads every value. Whether
+the checker reports such a change, and how, is open: EVO-17. A change of the unit or the scale is a change of
+meaning, not of policy.
+
 ### Compressed sequences: `Series<T>`
 
 A `Series` has bytes of its own, so `Vec<T>` -> `Series<T>` or `Series<u32>` -> `Series<u64>` is breaking (`ww api

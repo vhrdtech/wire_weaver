@@ -58,7 +58,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`transparent` wrappers](serdes/derive_reference.md#transparent)**: A one-field struct (`Count(u64)`, `Volts<U>` with a `PhantomData` unit) is exactly its field on the wire, size class and `Series` columns included, so a new type costs no bytes.
 - **[An enum's tag in a niche](serdes/derive_reference.md#niche-enums-only)**: `niche` lets an enum with a small field stay as small as the field.
 - **[Narrow tag-only catch-all](serdes/derive_reference.md#no_future_version-future_version-name-enums-only)**: `#[future_version] Unknown(u16)` keeps a small enum small and still reads values from newer versions.
-- **[Fields written as another type](serdes/derive_reference.md#wirew-a-field-written-as-another-type)**: `#[wire(W)]` keeps a small handle in Rust and writes the full value it stands for, also in a `Series`.
+- **[Fields written as another type](serdes/derive_reference.md#wirew-field-attribute)**: `#[wire(W)]` keeps a small handle in Rust and writes the full value it stands for, also in a `Series`.
 - **[Unit-typed fields cost nothing](serdes/code_size.md#transparent-fields)**: A `transparent` wrapper field (a `Fixed` number with its unit) compiles to the same code as its plain field, not only the same bytes.
 - **[Growing writer](serdes/shrink_wrap.md)**: `BufWriterOwned` for hosts, when the size isn't known up front.
 - **[Writing in place](serdes/showcase.md)**: Builders that write a value straight into the output buffer, and patching a field after the rest is written.

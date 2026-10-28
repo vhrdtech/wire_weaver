@@ -1,6 +1,6 @@
 // ww_sd 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 81e1514762799a57e4aaa1eaaf1c0a58570ea036031c4eb0d9c44704e982bf5c
+// shrink_wrap sha256: 7ae34c0035bb9e7c78a1c1fb51c311fbb4f39e587196cbac09937e5b5b95142f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to an SD card over WireWeaver (STD-40): its state, its registers as the card sent them, the init",
     "sequence with what each step answered, and single raw commands with their response, status bits and timing.",
@@ -63,7 +63,7 @@
         (ident: Some("unrestricted"), default: None, since: None, ty: Bool, docs: [
             "Built with `raw-sd-unrestricted`: CMD42 and CMD27 go through (with a lease).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Capacity class of a card (OCR `CCS`, CSD version, size), see [CardState::kind].",
     ], ident: "CardKind", generics: [], variants: [
@@ -106,7 +106,7 @@
         (ident: Some("low_voltage"), default: None, since: None, ty: Bool, docs: [
             "Signalling at 1.8 V (UHS-I) instead of 3.3 V.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The card and how it is driven, see [SdCard::state].",
     ], ident: "CardState", generics: [], fields: Named([
@@ -122,7 +122,7 @@
         (ident: Some("leased"), default: None, since: None, ty: Bool, docs: [
             "A lease of `ww_block` is held: the card\'s user is stopped.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The card\'s registers, raw, see [SdCard::registers]. All MSB first, as the card sends them; the CRC7 byte at the",
         "end of CID and CSD is as the controller delivered it (often zero).",
@@ -145,7 +145,7 @@
         (ident: Some("ssr"), default: None, since: None, ty: Option(some_ty: MaxLen(max_len: Fixed(64), ty: Vec(NumericAny(Base(U8))))), docs: [
             "SD Status (ACMD13, 64 bytes), `None` if it couldn\'t be read.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -225,7 +225,7 @@
         (ident: Some("us"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Microseconds over all repeats.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the init sequence did, see [SdCard::reinit].",
     ], ident: "InitReport", generics: [], fields: Named([
@@ -238,7 +238,7 @@
         (ident: Some("total_us"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Microseconds for the whole sequence.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "The response a command expects, see [RawCommand::response]. The controller needs it to receive the response.",
     ], ident: "ResponseType", generics: [], variants: [
@@ -294,12 +294,12 @@
         (ident: Some("timeout_ms"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "How long to wait for the response, the data and the end of busy, in ms; `None`: the driver\'s default.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Card status bits of an R1 response (SD Physical Layer spec, card status), see [RawResponse::status].",
     ], ident: "CardStatus", generics: [], fields: Named([
         (ident: Some("bits"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How long a command took, see [RawResponse::timing]. Microseconds from sending the command.",
     ], ident: "Timing", generics: [], fields: Named([
@@ -312,7 +312,7 @@
         (ident: Some("busy_us"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "To the end of busy (R1b, writes, erases), `None` when the card wasn\'t busy.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a raw command got back, see [SdCard::command].",
     ], ident: "RawResponse", generics: [], fields: Named([
@@ -329,7 +329,7 @@
             "Data read in the data phase, empty for none. On a data CRC error, what arrived.",
         ], slot: None, series_opaque: false),
         (ident: Some("timing"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Raw access to an SD card: registers, init, single commands.",

@@ -370,7 +370,7 @@ impl Encoder<'_> {
                 ))
             }
             // DER-18: the field's columns, at the same level (no head of its own), with its tag
-            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+            TypeOwned::Struct(item_struct) if item_struct.is_transparent() => {
                 let def = item_struct.transparent_field()?;
                 let path = &item_struct.ident;
                 let column = items

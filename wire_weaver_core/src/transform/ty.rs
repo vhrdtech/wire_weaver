@@ -906,10 +906,12 @@ fn convert_item_struct(
         generics: scratch.generic_scope.clone(),
         fields,
         sparse: args.sparse,
-        transparent: args.transparent,
         path,
-        marker: marker_def(item_struct, current_crate.crate_name())
-            .context(current_crate.err_context())?,
+        extra: ItemStructOwned::extra_of(
+            args.transparent,
+            marker_def(item_struct, current_crate.crate_name())
+                .context(current_crate.err_context())?,
+        ),
     });
     Ok(ty)
 }
@@ -1531,7 +1533,7 @@ mod alias_tests {
                 _ => None,
             })
             .unwrap();
-        assert!(s.transparent);
+        assert!(s.is_transparent());
         // what an older reader takes it for: the same bytes inside a parent
         assert_eq!(s.size, shrink_wrap::ElementSize::UnsizedFinalStructure);
         assert_eq!(

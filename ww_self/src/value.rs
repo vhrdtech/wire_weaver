@@ -566,7 +566,7 @@ fn des_ty(
             api_bundle,
             b,
         )?)),
-        TypeOwned::Struct(struct_def) if struct_def.transparent => {
+        TypeOwned::Struct(struct_def) if struct_def.is_transparent() => {
             let fields = des_transparent_field(rd, struct_def, api_bundle, b)?;
             Ok(ValueOwned::Struct { fields })
         }
@@ -1085,7 +1085,7 @@ fn ser_inner(
                 ser_field(wr, value, ty, api_bundle)?;
             }
         }
-        TypeOwned::Struct(item_struct) if item_struct.transparent => {
+        TypeOwned::Struct(item_struct) if item_struct.is_transparent() => {
             let ValueOwned::Struct { fields } = value else {
                 return Err(mismatch());
             };

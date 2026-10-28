@@ -1057,9 +1057,8 @@ pub fn substitute(
             generics: vec![],
             fields: sub.fields(&s.fields, 0)?,
             sparse: s.sparse,
-            transparent: s.transparent,
             instance_of: Some(instance_of),
-            marker: s.marker.clone(),
+            extra: s.extra.clone(),
         }),
         TypeOwned::Enum(e) => {
             let mut variants = Vec::with_capacity(e.variants.len());
@@ -1299,8 +1298,7 @@ mod tests {
                 generics,
                 fields: FieldsOwned::Named(fields),
                 sparse: false,
-                transparent: false,
-                marker: None,
+                extra: None,
             }),
             crate_idx: UNib32(0),
         }
@@ -2152,8 +2150,7 @@ mod tests {
             generics: vec![],
             fields: FieldsOwned::Named(vec![field(&long, TypeOwned::Tuple(vec![]))]),
             sparse: false,
-            transparent: false,
-            marker: None,
+            extra: None,
         });
         let ty = TypeOwned::Vec(Box::new(s));
         let b = bundle(vec![], ty.clone());

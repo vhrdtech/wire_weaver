@@ -680,9 +680,25 @@ pub struct ItemStruct<'i> {
     /// [signatures](crate::signature).
     #[default = None]
     pub instance_of: Option<InstanceOf<'i>>,
+    /// What only few structs have: `transparent` (DER-18) and a unit or scale marker's definition (INT-13), `None` for
+    /// a plain struct. Boxed behind this one flag, so a plain struct writes the single bit it wrote before these
+    /// existed: its bytes, and so the [signature](crate::signature) a deployed device and an older snapshot computed,
+    /// stay as they were. Properties a struct may get later are appended to [ItemStructExtra], not here, for the same
+    /// reason. Read through [ItemStructOwned::is_transparent] and [ItemStructOwned::marker].
+    #[default = None]
+    pub extra: Option<RefBox<'i, ItemStructExtra<'i>>>,
+}
+
+/// The rarely set properties of an [ItemStruct], see [ItemStruct::extra]. Evolvable: append new ones with a default.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct ItemStructExtra<'i> {
     /// `#[derive_shrink_wrap(transparent, ..)]` (DER-18): on the wire the struct is its one field (`fields` has
     /// exactly one, zero-bit fields like `PhantomData` and `()` are left out), with that field's size class:
-    /// [Self::size] is recorded as [UnsizedFinalStructure](ElementSize::UnsizedFinalStructure), so a reader that
+    /// [ItemStruct::size] is recorded as [UnsizedFinalStructure](ElementSize::UnsizedFinalStructure), so a reader that
     /// doesn't know this flag reads the same bytes inside a parent, and a decoder that knows it takes the size class
     /// and Series columns of the field ([ItemStructOwned::transparent_field]). Only a top-level value of a transparent
     /// struct around an `Unsized` type differs for such an older reader (it expects the field's size).
@@ -693,10 +709,10 @@ pub struct ItemStruct<'i> {
     /// walker, from the `exact_units::unit!` / `scale!` line that declared the marker, or from the variant for
     /// `exact_units`' own generic markers (`Per<A, B>`, `Pow10<E>`, ...).
     #[default = None]
-    pub marker: Option<RefBox<'i, MarkerDef<'i>>>,
+    pub marker: Option<MarkerDef<'i>>,
 }
 
-/// The definition of a unit, scale or bounds marker, see [ItemStruct::marker]. Evolvable: a reader that doesn't know a
+/// The definition of a unit, scale or bounds marker, see [ItemStructExtra::marker]. Evolvable: a reader that doesn't know a
 /// newer kind of marker (origins, levels, kinds) gets `Unknown` and treats the struct as a marker it can't convert.
 #[derive_shrink_wrap(
     owned(feature = "std"),

@@ -361,6 +361,9 @@ impl VisitMut for Canonical<'_, '_> {
     fn visit_item_struct(&mut self, node: &mut ItemStructOwned) {
         // host-derived, not part of what was sent
         node.instance_of = None;
+        // what a marker means, not what is on the wire (INT-13): a marker defined since keeps the signature it had
+        // before, so a device built earlier still finds a newer snapshot's definition of `Second` and what uses it
+        node.extra = ItemStructOwned::extra_of(node.is_transparent(), None);
         self.remap(&mut node.crate_idx, Self::crate_idx);
         visit_mut::visit_item_struct(self, node)
     }

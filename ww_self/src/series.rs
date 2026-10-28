@@ -600,7 +600,7 @@ impl Decoder<'_, '_> {
             }
             // DER-18: the columns are the field's, at the same level (no head of its own), its tag restarts the
             // fields after it as the field's own would
-            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+            TypeOwned::Struct(item_struct) if item_struct.is_transparent() => {
                 let def = item_struct.transparent_field()?;
                 let (kind, _) = fields_of(&item_struct.fields);
                 let (column, tag) = self.group(rd, &def.ty, restarts, level)?;

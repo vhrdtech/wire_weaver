@@ -430,7 +430,7 @@ twin.
   value out of range is kept as the error, and the type returns the first error as before.
 - `transparent` is part of the type's wire contract, like a [size assumption](size_assumptions.md): turning it on or
   off for a released type changes its bytes wherever it isn't already `sized`.
-- In the API model (`ww_self::ItemStruct::transparent`) the dynamic client, Python and the `ww` CLI read it the same
+- In the API model (`ww_self::ItemStructExtra::transparent`) the dynamic client, Python and the `ww` CLI read it the same
   way. A reader built before the flag existed (`ww_self` without `transparent`) sees a struct of one field: it reads
   the same bytes inside a parent, but not a value of a wrapper around an evolvable (`Unsized`) type on its own, where
   it expects a length the derive doesn't write.

@@ -245,13 +245,13 @@ const EXACT_UNITS: &str = "exact_units";
 pub(crate) fn marker_def(
     item_struct: &syn::ItemStruct,
     crate_name: &str,
-) -> Result<Option<Box<MarkerDefOwned>>> {
+) -> Result<Option<MarkerDefOwned>> {
     let crate_name = crate_name.replace('-', "_");
     let ident = item_struct.ident.to_string();
     if crate_name == EXACT_UNITS
         && let Some((_, def)) = BUILT_IN.iter().find(|(name, _)| *name == ident)
     {
-        return Ok(Some(Box::new(def.clone())));
+        return Ok(Some(def.clone()));
     }
     let Some(line) = marker_line(&item_struct.attrs)? else {
         return Ok(None);
@@ -367,7 +367,7 @@ pub(crate) fn marker_def(
             }
         ),
     };
-    Ok(Some(Box::new(def)))
+    Ok(Some(def))
 }
 
 /// The exact magnitude a `num / den, pow10 a, pow2 b, pi c` line means.
@@ -651,7 +651,7 @@ mod tests {
                 TypeLocationOwned::InLine {
                     ty: TypeOwned::Struct(s),
                     ..
-                } => Some((s.ident.clone(), *s.marker.clone()?)),
+                } => Some((s.ident.clone(), s.marker()?.clone())),
                 _ => None,
             })
             .collect()

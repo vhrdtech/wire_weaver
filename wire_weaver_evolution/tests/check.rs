@@ -399,15 +399,15 @@ fn old_format_snapshot_passes_against_unchanged_source() {
         .run()
         .unwrap();
     assert_eq!(outcome.verdict().unwrap(), "no changes", "{outcome}");
-    // ItemStruct::transparent (DER-18) came later still
+    // ItemStruct::extra (DER-18 transparent, INT-13 marker) came later still
     assert_eq!(
         unrecorded(&outcome),
-        ["ItemEnum::future_version", "ItemStruct::transparent"]
+        ["ItemEnum::future_version", "ItemStruct::extra"]
     );
     has_all(
         &outcome.to_string(),
         &[
-            "not compared: ItemEnum::future_version, ItemStruct::transparent, which a snapshot saved by an older \
+            "not compared: ItemEnum::future_version, ItemStruct::extra, which a snapshot saved by an older \
             wire_weaver",
         ],
     );

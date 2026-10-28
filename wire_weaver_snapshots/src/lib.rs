@@ -145,6 +145,45 @@ mod tests {
         }
     }
 
+    /// Signatures saved before INT-13 stay: a plain struct (`ww_date_time::DateTime`, as `ww_board_info` 0.1.0 refers
+    /// to it) and a trait using a unit marker that has a definition since (`ww_timebase::Clock`, `ww_si::Second`, as
+    /// the nucleo_g0b1re_api fixture refers to it). Deployed devices refer to these definitions by signature.
+    #[test]
+    fn signatures_from_before_marker_definitions() {
+        use ww_self::signature::{trait_signature, type_signature};
+        use ww_self::{ApiLevelLocationOwned, TypeLocationOwned, TypeOwned};
+        let snapshot_of = |crate_id: &str| {
+            all()
+                .iter()
+                .find(|(v, _)| {
+                    v.crate_id == crate_id && v.version.major.0 == 0 && v.version.minor.0 == 1
+                })
+                .map(|(_, b)| *b)
+                .unwrap()
+        };
+        let resolve = |v: &FullVersionOwned| get(v);
+
+        let date_time = snapshot_of("ww_date_time");
+        let idx = date_time
+            .types
+            .iter()
+            .position(|t| {
+                matches!(t, TypeLocationOwned::InLine { ty: TypeOwned::Struct(s), .. } if s.ident == "DateTime")
+            })
+            .unwrap();
+        let signature = type_signature(date_time, idx as u32, &resolve).unwrap();
+        assert_eq!(signature, [0x1d, 0x27, 0xf8, 0x6f, 0xf9, 0xee, 0x85, 0x38]);
+
+        let timebase = snapshot_of("ww_timebase");
+        let idx = timebase
+            .traits
+            .iter()
+            .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
+            .unwrap();
+        let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
+        assert_eq!(signature, [0x0b, 0x01, 0x4a, 0x04, 0x13, 0x1f, 0x79, 0xb2]);
+    }
+
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.
     #[test]
     fn snapshots_can_be_inlined() {

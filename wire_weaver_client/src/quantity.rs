@@ -531,7 +531,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
         // what the generic marker is: its definition (INT-13), or its name in a bundle of ww_si 0.2 without one
         let is = |def: MarkerDefOwned, name: &str| {
             matches!(bundle.get_ty(inst.type_idx.0), Ok((TypeOwned::Struct(g), _))
-                if g.marker.as_deref() == Some(&def))
+                if g.marker() == Some(&def))
                 || is_ww_si(inst.type_idx.0, units, name, bundle)
         };
         if let [GenericArgOwned::Type(a), GenericArgOwned::Type(b)] = inst.args.as_slice() {
@@ -562,7 +562,7 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
         return DynUnit::Known(expr);
     }
     // any other crate's unit by the definition the bundle carries
-    if let Some(MarkerDefOwned::Unit(def)) = s.marker.as_deref() {
+    if let Some(MarkerDefOwned::Unit(def)) = s.marker() {
         return DynUnit::Named {
             name: s.ident.clone(),
             symbol: def.symbol.clone(),

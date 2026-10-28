@@ -3,7 +3,7 @@
 //! expression, the sorted product of the named units in it, so that a client knows the units of any crate without a
 //! table of its own.
 //!
-//! A marker struct carries its [definition](crate::ItemStruct::marker): a named [unit](crate::MarkerDef::Unit) or
+//! A marker struct carries its [definition](crate::ItemStructExtra::marker): a named [unit](crate::MarkerDef::Unit) or
 //! [scale](crate::MarkerDef::Scale), or one of `exact_units`' generic markers (`Per<A, B>`, `Pow10<E>`, ...) whose
 //! arguments say the rest. [unit_of] and [scale_of] walk a type through them, in a bundle as received or
 //! [prepared](crate::generics::prepare).
@@ -194,7 +194,7 @@ fn write_superscript(f: &mut fmt::Formatter<'_>, e: i16) -> fmt::Result {
     Ok(())
 }
 
-/// The unit `ty` is, through the [definitions](crate::ItemStruct::marker) in `bundle`: a named unit, or `Per`,
+/// The unit `ty` is, through the [definitions](crate::ItemStructExtra::marker) in `bundle`: a named unit, or `Per`,
 /// `Times`, `Sqrt` of units. An error for a type that is not a unit marker, or a marker without a definition (a crate
 /// whose markers are hand-written, or a unit with an offset like °C, TODO(STD-74)).
 pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CanonicalUnit> {
@@ -245,7 +245,7 @@ fn marker_name(s: &ItemStructOwned, bundle: &ApiBundleOwned) -> Result<MarkerNam
 }
 
 fn definition<'a>(s: &'a ItemStructOwned, bundle: &ApiBundleOwned) -> Result<&'a MarkerDefOwned> {
-    s.marker.as_deref().ok_or_else(|| {
+    s.marker().ok_or_else(|| {
         anyhow!(
             "{} has no unit or scale definition",
             marker_name(s, bundle)

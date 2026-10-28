@@ -206,8 +206,7 @@ impl Gen<'_> {
                 generics,
                 fields,
                 sparse: false,
-                transparent: false,
-                marker: None,
+                extra: None,
             })
         } else {
             let mut variants = vec![VariantOwned {

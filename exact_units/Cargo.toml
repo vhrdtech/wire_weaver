@@ -30,6 +30,7 @@ quantities = [
     "dimensionless",
     "information",
     "counting",
+    "customary",
 ]
 # Second, Hertz, HertzPerSecond, Baud
 time = []
@@ -51,6 +52,8 @@ radiation = []
 dimensionless = []
 # Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own
 information = []
+# imperial, US customary and other units outside the SI: inch, pound, psi, gallon (US and imperial), Btu, hp, ...
+customary = []
 # Item, Sample, Frame, Packet, Cycle, Block, Sector, Chunk, Char, Code: counted bases, each a dimension of its own
 counting = []
 

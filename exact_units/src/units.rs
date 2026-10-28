@@ -17,6 +17,11 @@ use core::marker::PhantomData;
 #[cfg(feature = "shrink_wrap")]
 use shrink_wrap::RefBox;
 
+#[cfg(feature = "customary")]
+mod customary;
+#[cfg(feature = "customary")]
+pub use customary::*;
+
 crate::unit! {
     @table
     /// Every named unit of this crate that is enabled, in the order of the docs.
@@ -341,8 +346,10 @@ impl<A: Unit, B: Unit> Unit for Times<A, B> {
 /// The named unit of this crate called `name` (the marker's name, `"Volt"`), if its feature is enabled: what a
 /// dynamic client needs to show a `Quantity<Volt>` it only knows from introspection data.
 pub fn by_name(name: &str) -> Option<&'static UnitExpr> {
-    ALL.iter()
-        .copied()
+    let all = ALL.iter();
+    #[cfg(feature = "customary")]
+    let all = all.chain(CUSTOMARY);
+    all.copied()
         .find(|expr| matches!(expr, UnitExpr::Named { name: n, .. } if *n == name))
 }
 

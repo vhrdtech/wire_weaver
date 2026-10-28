@@ -5,6 +5,15 @@
 * Feature `serde` (INT-13): `DimOwned`, `CountedOwned` and `Magnitude` are `serde::Serialize` / `Deserialize`, for API snapshots in RON (`ww_self::UnitDef`). A `Magnitude` is written as its parts, exponents doubled (`(pow10: -6)`, `(pow10: 0, pi: 2, primes: [(3, -2)])`), and read back through `Magnitude::from_parts_x2`, so a file can't hold a non-canonical one.
 * `Offset::checked_add`, `None` where `add` panics (offsets read from an API model); `Offset` is `serde::Serialize` / `Deserialize` with feature `serde` (a negative zero is refused).
 * `Magnitude::from_parts_x2(pow10_x2, pow2_x2, Irrational, primes)`: the magnitude of the parts `pow10_pow2_x2`, `irrational_x2` and `primes` give, an error (new `MagnitudeError::NotPrime`) for a number that isn't a prime other than 2 and 5.
+* `units` imperial, US customary and other units outside the SI (STD-72, feature `customary`, part of
+  `quantities`): 166 markers, each the exact rational of SI its legal definition gives (1959 yard and pound, NIST SP
+  811 and Handbook 44, UK Weights and Measures Act 1985, g_n), the source cited in its docs; `units::CUSTOMARY` lists
+  them and `units::by_name` finds them. No ambiguous bare name: `GallonUs` / `GallonImperial`, `OunceAvdp` /
+  `OunceTroy` / `FluidOunceUs`, `TonShort` / `TonLong` / `Tonne`, `BtuIt` / `BtuTh` / `Btu39f`.., `CalorieIt` /
+  `CalorieTh` / `CalorieFoodIt`, `HorsepowerMechanical` / `HorsepowerMetric` / `HorsepowerElectric` /
+  `HorsepowerBoiler`, `Thou` vs `MilNato` / `MilWarsawPact`, `FootInternational` / `FootUsSurvey`,
+  `InchOfMercuryConventional` / `InchOfMercury32f`; `PoundAvdp` (mass), `PoundForce`, `Slug` (mass), `Poundal`,
+  `Kip`, `Psi`, `FootPoundForce`.
 * `unit!` and `scale!` (INT-13): unit and scale markers declared as data, one line each (`pub struct Rpm = "rpm",
   [rad 1, s -1], Exact(1 / 30, pi 1);`, `pub struct Lsb70 = "", Exact(70 / 1000);`), expanding to the marker struct
   and its `Unit` / `FixedScale` (and `DecimalPrefix`) impl. WireWeaver's walker reads the same lines, so an API's own

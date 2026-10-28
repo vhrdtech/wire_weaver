@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 27ce55113d23aabd14a6bc350bd6352b851c6bd483c543fab3ba805da17e8dc9
+// shrink_wrap sha256: 5cac2b2bdca23c1a7b73d7dc8558f344287d3eb96c02e29bcfd415b788f6fb90
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -95,15 +95,25 @@
         101,
         149,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
         149,
@@ -128,11 +138,13 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A range of durations, both ends included.",
     ], ident: "I2cTimeRange", generics: [], fields: Named([
-        (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("min"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -147,41 +159,47 @@
         (ident: Some("monitor_supported"), default: None, since: None, ty: Bool, docs: [
             "[I2cMode::MonitorOnly] and the `monitor` flag of [I2cMode::Master] work.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 1, args: [
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ]))), docs: [
             "Discrete IO levels the adapter can set (e.g. 1.8 V, 3.3 V, 5 V); empty if it has no level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
         (ident: Some("pullups"), default: None, since: None, ty: Bool, docs: [
             "`I2c::i2c_set_pullups` works.",
         ], slot: None, series_opaque: false),
-        (ident: Some("min_freq"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 2)),
+        (ident: Some("min_freq"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Lowest SCL frequency.",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 2)),
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Highest SCL frequency.",
         ], slot: None, series_opaque: false),
-        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 2)),
+        (ident: Some("speeds"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]))), docs: [
             "The only SCL frequencies the controller can do (e.g. 20, 100, 400 and 750 kHz), ascending; empty when it",
             "does any between [Self::min_freq] and [Self::max_freq] (as fine as its clock divider allows).",
         ], slot: None, series_opaque: false),
-        (ident: Some("stretch_timeout"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 4)), docs: [
+        (ident: Some("stretch_timeout"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 5)), docs: [
             "Range of the master\'s clock stretch timeout ([I2cMode::Master]\'s `stretch_timeout`); `None` when it can\'t",
             "be changed (the device still enforces its own, and answers it in `I2c::i2c_configure`).",
         ], slot: None, series_opaque: false),
@@ -217,12 +235,14 @@
         (docs: [
             "Master at `speed` SCL; `monitor` also streams the adapter\'s own transfers to `I2cMonitor`.",
         ], ident: "Master", fields: Named([
-            (ident: Some("speed"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 2)),
+            (ident: Some("speed"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 3)),
+                Type(OutOfLine(type_idx: 1)),
             ]), docs: [], slot: None, series_opaque: false),
             (ident: Some("monitor"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-            (ident: Some("stretch_timeout"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 3)),
+            (ident: Some("stretch_timeout"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ])), docs: [
                 "The longest a slave may hold SCL low at once (clock stretching) before the device aborts the transfer",
                 "with [I2cError::ClockStretch], within [I2cCapabilities::stretch_timeout]. It bounds every wait on the",
@@ -238,9 +258,10 @@
         "Everything the bus is configured with, see `I2c::i2c_configure`: what is asked for going in, what was actually",
         "set coming back.",
     ], ident: "I2cConfig", generics: [], fields: Named([
-        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("mode"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Bus voltage on adapters with level translators ([I2cCapabilities::io_levels]); `None` leaves it as it is going",
             "in (the only choice on a device without them), and is the answer of a device without them.",
@@ -263,7 +284,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "Not acknowledged: the address, or a data byte of a write (`at`), in operation `op`.",
@@ -326,11 +347,13 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "When a transfer started (start condition) and ended (stop condition), in device time.",
     ], ident: "I2cTransactionTimeRange", generics: [], fields: Named([
-        (ident: Some("start"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("start"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
-        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -348,7 +371,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_read`.",
     ], ident: "I2cReadEnvelope", generics: [], fields: Named([
-        (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+        (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(2), crate_idx: 0, docs: [
@@ -368,7 +391,7 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of `I2c::i2c_transaction`.",
     ], ident: "I2cTransactionResult", generics: [], fields: Named([
-        (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+        (ident: Some("duration"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
         (ident: Some("read"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The bytes of every [I2cOp::Read], concatenated in order.",
         ], slot: None, series_opaque: false),
@@ -378,13 +401,15 @@
     ], ident: "I2cLinesState", generics: [], fields: Named([
         (ident: Some("is_scl_high"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("is_sda_high"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("scl"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("scl"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Measured SCL voltage, on adapters that can measure it.",
         ], slot: None, series_opaque: false),
-        (ident: Some("sda"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("sda"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Measured SDA voltage, on adapters that can measure it.",
         ], slot: None, series_opaque: false),
@@ -401,8 +426,9 @@
         (ident: Some("queue_len"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Answers the queue holds, 0 if there is none ([I2cSlaveAnswers::Queue] unsupported).",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_stretch"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("max_stretch"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "Longest [I2cSlaveUnderrun::Stretch], `None` if the device can\'t stretch while it waits for the host.",
         ], slot: None, series_opaque: false),
@@ -412,8 +438,9 @@
         (ident: Some("ten_bit_addresses"), default: None, since: None, ty: Bool, docs: [
             "A 10-bit slave address works.",
         ], slot: None, series_opaque: false),
-        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 2)),
+        (ident: Some("max_freq"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 3)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Fastest SCL the slave keeps up with.",
         ], slot: None, series_opaque: false),
@@ -431,8 +458,9 @@
             "sends [I2cSlaveEvent::ReadWaiting] as soon as it starts to wait. See the crate docs for the limits of",
             "stretching.",
         ], ident: "Stretch", fields: Named([
-            (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 3)),
+            (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ]), docs: [], slot: None, series_opaque: false),
             (ident: Some("fill"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
@@ -460,21 +488,22 @@
             "The answer queue (`I2c::slave_answers`): each master read takes the next answer; `empty` says what happens",
             "when there is none.",
         ], ident: "Queue", fields: Named([
-            (ident: Some("empty"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
+            (ident: Some("empty"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Slave mode, see `I2c::slave_events`.",
     ], ident: "I2cSlaveConfig", generics: [], fields: Named([
-        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [
+        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [
             "This device\'s address on the bus.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 0)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "As in [I2cConfig::io_level].",
         ], slot: None, series_opaque: false),
-        (ident: Some("answers"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [
+        (ident: Some("answers"), default: None, since: None, ty: OutOfLine(type_idx: 20), docs: [
             "Where the answers to the master\'s reads come from.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -498,15 +527,16 @@
         "One transaction addressed to this device: from the start (or repeated start) to the stop (or the next repeated",
         "start).",
     ], ident: "I2cSlaveTransfer", generics: [], fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Time of the stop (or repeated start); the start condition\'s is the time in the event head.",
         ], slot: None, series_opaque: false),
         (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
             "Master read (true) or write (false).",
         ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [
             "How it ended; [I2cRecordKind::Truncated] when more than [MAX_RECORD_LEN] bytes went by, also when it ended",
             "with a repeated start.",
         ], slot: None, series_opaque: false),
@@ -520,8 +550,9 @@
             "Bytes of a read sent as the fill byte because no answer was there (or came too late); 0 when all came from",
             "an answer or the map.",
         ], slot: None, series_opaque: false),
-        (ident: Some("stretched"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("stretched"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ])), docs: [
             "How long this device held SCL low in the transaction, waiting for an answer or for room; `None` if it",
             "didn\'t.",
@@ -533,7 +564,7 @@
         (docs: [
             "A transaction addressed to this device ended.",
         ], ident: "Transfer", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "The master reads and no answer is queued: the device holds SCL low ([I2cSlaveUnderrun::Stretch]) until an",
@@ -546,7 +577,7 @@
         "fail, and the next successful read is reported whatever the rule.",
     ], ident: "I2cWatchEvent", generics: [], fields: Named([
         (ident: Some("slot"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 9)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("result"), default: None, since: None, ty: Result(ok_ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 10)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `I2cWatch` can do.",
@@ -557,8 +588,9 @@
         (ident: Some("max_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Longest read of one watch, at most [MAX_WATCH_LEN].",
         ], slot: None, series_opaque: false),
-        (ident: Some("min_period"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("min_period"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Shortest period of one watch.",
         ], slot: None, series_opaque: false),
@@ -585,41 +617,43 @@
             "When `data[i] & bytes[i].mask == bytes[i].value` for every byte starts or stops being true (an alert bit set,",
             "a status reaching a state); one [I2cMatchByte] per byte read.",
         ], ident: "Matches", fields: Named([
-            (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 26))), docs: [], slot: None, series_opaque: false),
+            (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 27))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One autonomous read, see `I2cWatch::watch_add`.",
     ], ident: "I2cWatchConfig", generics: [], fields: Named([
-        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [
+        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [
             "Plain read, or a register read (write the register address, repeated start, read).",
         ], slot: None, series_opaque: false),
         (ident: Some("len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Bytes to read, at most [MAX_WATCH_LEN].",
         ], slot: None, series_opaque: false),
-        (ident: Some("period"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("period"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "How often to read.",
         ], slot: None, series_opaque: false),
-        (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 27), docs: [
+        (ident: Some("report"), default: None, since: None, ty: OutOfLine(type_idx: 28), docs: [
             "When to send a result.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One transaction seen by `I2cMonitor`: from a start to the stop (or to the next repeated start).",
     ], ident: "I2cRecord", generics: [], fields: Named([
-        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 1, args: [
-            Type(OutOfLine(type_idx: 3)),
+        (ident: Some("end"), default: None, since: None, ty: Instance(type_idx: 2, args: [
+            Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 1)),
         ]), docs: [
             "Time of the stop (or repeated start); the start condition\'s is the time in the event head.",
         ], slot: None, series_opaque: false),
-        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
+        (ident: Some("addr"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
         (ident: Some("read"), default: None, since: None, ty: Bool, docs: [
             "Read (true) or write (false).",
         ], slot: None, series_opaque: false),
-        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 21), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 22), docs: [], slot: None, series_opaque: false),
         (ident: Some("nack_at"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U16))), docs: [
             "The first byte on the bus that was not acknowledged: `Some(0)` the address, `Some(n)` the n-th data byte",
             "(`bytes[n - 1]`); the same count as [I2cError::Nack]\'s `at`.",
@@ -640,12 +674,12 @@
         "operation starts with a repeated start and the address again (see `I2c::i2c_transaction`). A device never frees",
         "a stuck bus on its own: it answers [I2cError::BusStuck], and the host decides to call `I2c::i2c_wiggle_clock`.",
     ], crate_idx: 0, trait_name: "I2c", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 5)), errors: None), multiplicity: Flat, since: None, ident: "i2c_capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 6)), errors: None), multiplicity: Flat, since: None, ident: "i2c_capabilities", docs: [
             "What this adapter supports: modes, frequencies, IO levels, buffer sizes, 10-bit addresses, pull-ups.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 7)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 8)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -660,12 +694,13 @@
             "`InvalidArgument`; `Refused` when e.g. the bus already sits at a higher voltage than `io_level`.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 10)),
+            (ident: "addr", ty: OutOfLine(type_idx: 11)),
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
-            (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 3)),
+            (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ]))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "WrongState",
@@ -691,13 +726,14 @@
             "(waiting for another master to free the bus) `Timeout`.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 10)),
-            (ident: "kind", ty: OutOfLine(type_idx: 12)),
+            (ident: "addr", ty: OutOfLine(type_idx: 11)),
+            (ident: "kind", ty: OutOfLine(type_idx: 13)),
             (ident: "len", ty: NumericAny(Base(U16))),
-            (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 1, args: [
-                Type(OutOfLine(type_idx: 3)),
+            (ident: "delay_after", ty: Option(some_ty: Instance(type_idx: 2, args: [
+                Type(OutOfLine(type_idx: 4)),
+                Type(OutOfLine(type_idx: 1)),
             ]))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -719,7 +755,7 @@
             "[I2cReadKind::RepeatedStart] read is the transaction `[Write(write), Read(len)]`, so a `Nack` in its read part",
             "has `op: 1`.",
         ], optional: None, meta: None),
-        (id: 4, kind: Method(args: [], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(128), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        (id: 4, kind: Method(args: [], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(128), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
                 "NoPower",
@@ -734,9 +770,9 @@
             "`0x78..=0x7F`) are skipped. An address that doesn\'t answer is no error; a stuck bus stops the scan.",
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
-            (ident: "addr", ty: OutOfLine(type_idx: 10)),
-            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 14)))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "addr", ty: OutOfLine(type_idx: 11)),
+            (ident: "ops", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 15)))),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -764,13 +800,13 @@
             "exceed [MAX_READ_LEN] or the device\'s limit, or for more than [I2cCapabilities::max_ops] operations;",
             "`InvalidArgument` for no operations or an `I2cOp::Read(0)`.",
         ], optional: None, meta: None),
-        (id: 6, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "i2c_lines_state", docs: [
+        (id: 6, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "i2c_lines_state", docs: [
             "Levels of SCL and SDA now. Both are high on an idle bus; a line held low means a slave is stuck mid-byte,",
             "pull-ups are missing or unpowered, or something shorts it.",
         ], optional: None, meta: None),
         (id: 7, kind: Method(args: [
             (ident: "count", ty: NumericAny(Base(U8))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 16), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 17), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "WrongState",
@@ -787,7 +823,7 @@
         ], optional: None, meta: None),
         (id: 8, kind: Method(args: [
             (ident: "enabled", ty: Bool),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "Refused",
@@ -799,12 +835,12 @@
         (id: 9, kind: Method(args: [], return_ty: Some(Bool), errors: None), multiplicity: Flat, since: None, ident: "i2c_pullups", docs: [
             "Whether the adapter\'s pull-ups are on (false if it has none).",
         ], optional: None, meta: None),
-        (id: 10, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "slave_capabilities", docs: [
+        (id: 10, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 18)), errors: None), multiplicity: Flat, since: None, ident: "slave_capabilities", docs: [
             "What slave mode supports: register map size, answer queue depth, clock stretching, address NACK.",
         ], optional: Some((group: Some("slave"))), meta: None),
-        (id: 11, kind: StreamFn(ty: OutOfLine(type_idx: 23), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 20)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        (id: 11, kind: StreamFn(ty: OutOfLine(type_idx: 24), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 21)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
                 "Unsupported",
@@ -828,7 +864,7 @@
         (id: 12, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "data", ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8))))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_write", docs: [
             "Writes `data` into the register map from `offset`, while the slave runs or before it starts (the map keeps",
@@ -838,7 +874,7 @@
         (id: 13, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "len", ty: NumericAny(Base(U16))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "BufferTooBig", nested: None),
         ])), multiplicity: Flat, since: None, ident: "slave_map_read", docs: [
             "Reads `len` bytes of the register map from `offset` as the master sees it: what the master wrote, or what",
@@ -865,16 +901,16 @@
         "ones and see no more delay than one watch read. A watch to an address under a `delay_after` waits like any",
         "transfer. Results go out on the `changes` stream.",
     ], crate_idx: 0, trait_name: "I2cWatch", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 24), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "changes", docs: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 25), delivery: Counted, args: [], return_ty: None, errors: None, batched: None, batch_item_ty: None), multiplicity: Flat, since: None, ident: "changes", docs: [
             "Results the watches report, in the order they were read. A counted stream, unit: result; the head\'s time is",
             "when the read started, and the host learns exactly how many results the device dropped.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 25)), errors: None), multiplicity: Flat, since: None, ident: "watch_capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 26)), errors: None), multiplicity: Flat, since: None, ident: "watch_capabilities", docs: [
             "How many watches, how fast, how long.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "watch", ty: OutOfLine(type_idx: 28)),
-        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "watch", ty: OutOfLine(type_idx: 29)),
+        ], return_ty: Some(Result(ok_ty: NumericAny(Base(U32)), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "WrongState",
@@ -888,8 +924,8 @@
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "slot", ty: NumericAny(Base(U32))),
-            (ident: "watch", ty: OutOfLine(type_idx: 28)),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+            (ident: "watch", ty: OutOfLine(type_idx: 29)),
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "WrongState",
@@ -902,7 +938,7 @@
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
             (ident: "slot", ty: NumericAny(Base(U32))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "InvalidWatchSlot", nested: None),
         ])), multiplicity: Flat, since: None, ident: "watch_remove", docs: [
             "Removes a watch.",
@@ -917,11 +953,12 @@
         "The same as [I2cMode::MonitorOnly] (or the `monitor` flag of [I2cMode::Master], to watch the adapter\'s own",
         "transfers too), for devices that only sniff and implement no `I2c`.",
     ], crate_idx: 0, trait_name: "I2cMonitor", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 29), delivery: Counted, args: [
-            (ident: "io_level", ty: Option(some_ty: Instance(type_idx: 1, args: [
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 30), delivery: Counted, args: [
+            (ident: "io_level", ty: Option(some_ty: Instance(type_idx: 2, args: [
                 Type(OutOfLine(type_idx: 0)),
+                Type(OutOfLine(type_idx: 1)),
             ]))),
-        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 9))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: Tuple([]), err_ty: OutOfLine(type_idx: 10))), errors: Some([
             (ident: "Common", nested: Some([
                 "InUse",
                 "Unsupported",

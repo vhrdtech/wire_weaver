@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4b1ce2174c65aa094aaf15f3d6363dae157bf103d684bc4d85bcc05de1817f6d
+// shrink_wrap sha256: 0536e6e5ea30b4f238474e8024b208974c8489a4924e5404976050685a6a4d4a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -85,6 +85,16 @@
         20,
         62,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,",
         "it takes no space on the wire or in RAM; `Quantity<units::Volt>` is written [Volt].",
@@ -121,6 +131,7 @@
         "```",
     ], ident: "Quantity", generics: [
         (ident: "U", kind: Type),
+        (ident: "B", kind: Type),
     ], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
@@ -138,8 +149,9 @@
     ], ident: "Timed", generics: [
         (ident: "T", kind: Type),
     ], fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 5, args: [
+        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 6, args: [
             Type(OutOfLine(type_idx: 4)),
+            Type(OutOfLine(type_idx: 5)),
         ]), docs: [
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),

@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2414e16ad1b9906af54d1f2c381ddade00a5f0edb7ee67b91e4b584fe49e5963
+// shrink_wrap sha256: 5ecf3d9cc3ec554a55d8a4fe3f85fd4b7e4e21179fa131e191c4b462f1dae4da
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -64,15 +64,25 @@
         20,
         62,
     ]),
+    SkippedFullVersion(crate_idx: 1, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One addressed (or skip-ROM) transaction: reset, select, write, read, optional strong pull-up.",
@@ -82,8 +92,9 @@
         ], slot: None, series_opaque: false),
         (ident: Some("write"), default: None, since: None, ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         (ident: Some("read_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("strong_pullup"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
+        (ident: Some("strong_pullup"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
             Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Drive the bus high this long after the last byte (parasite-powered parts converting or writing).",
         ], slot: None, series_opaque: false),
@@ -105,7 +116,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No device answered the reset.",
@@ -133,7 +144,7 @@
         "One page of `OneWire::search` results.",
     ], ident: "SearchPage", generics: [], fields: Named([
         (ident: Some("roms"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 0))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("next"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
+        (ident: Some("next"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 7)), docs: [
             "Where to continue, `None` when all devices were found.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -153,19 +164,22 @@
         (ident: Some("pins"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(MaxLen(max_len: Fixed(16), ty: String))), docs: [
             "Pins the bus can be put on, by name.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 8)),
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 2)),
         ]))), docs: [
             "Discrete IO levels [OneWireConfig::io_level] can be set to (e.g. 3.3 V, 5 V); empty if the adapter has no",
             "level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 8)),
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 8)),
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the adapter has one.",
         ], slot: None, series_opaque: false),
@@ -186,9 +200,10 @@
         (ident: Some("pin"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Index into [OneWireCapabilities::pins].",
         ], slot: None, series_opaque: false),
-        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 2, args: [
-            Type(OutOfLine(type_idx: 8)),
+        (ident: Some("speed"), default: None, since: None, ty: OutOfLine(type_idx: 11), docs: [], slot: None, series_opaque: false),
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",
@@ -212,8 +227,8 @@
         "A 1-Wire master: reset the bus, find the devices on it, and run addressed transactions.",
     ], crate_idx: 0, trait_name: "OneWire", items: [
         (id: 0, kind: Method(args: [
-            (ident: "t", ty: OutOfLine(type_idx: 3)),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 5))), errors: Some([
+            (ident: "t", ty: OutOfLine(type_idx: 4)),
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(256), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Busy",
@@ -229,7 +244,7 @@
             "while the bus is not configured (see `OneWire::configure`), `InvalidArgument` for `write.len() + read_len`",
             "over [OW_MAX] or a `strong_pullup` on a device without [OneWireCapabilities::strong_pullup].",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 5))), errors: Some([
+        (id: 1, kind: Method(args: [], return_ty: Some(Result(ok_ty: Bool, err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "WrongState",
@@ -240,9 +255,9 @@
             "Reset pulse; true when a device answered with a presence pulse.",
         ], optional: None, meta: None),
         (id: 2, kind: Method(args: [
-            (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 6))),
+            (ident: "from", ty: Option(some_ty: OutOfLine(type_idx: 7))),
             (ident: "family", ty: Option(some_ty: NumericAny(Base(U8)))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 7), err_ty: OutOfLine(type_idx: 5))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 8), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "WrongState",
@@ -256,12 +271,12 @@
             "`None`. `family`, when given, only returns ids whose first byte matches. `NoPresence` when nothing answered",
             "the reset before this page\'s search, `CrcMismatch` when a found id\'s own CRC8 did not check out.",
         ], optional: None, meta: None),
-        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 9)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 3, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "What this bus supports: pins it can be put on, IO levels, overdrive, strong pull-up.",
         ], optional: None, meta: None),
         (id: 4, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 11)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 11), err_ty: OutOfLine(type_idx: 5))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 12)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "InvalidArgument",
@@ -278,7 +293,7 @@
         ], optional: None, meta: None),
         (id: 5, kind: Method(args: [
             (ident: "direction", ty: Bool),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 5))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 6))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
                 "NoPower",

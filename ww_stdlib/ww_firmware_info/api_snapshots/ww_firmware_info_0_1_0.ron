@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8cd604c5aa08a96d6c5c619020322da02365961da88a9063c6dbace3e4d88b27
+// shrink_wrap sha256: eb9b6148607505f8c1eaf499730e97978d92cd568cf461b1be5793ddc6322276
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -163,15 +163,25 @@
         20,
         62,
     ]),
+    SkippedFullVersion(crate_idx: 3, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 4, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Exception frame and fault status registers of a Cortex-M core.",
@@ -233,12 +243,12 @@
         (docs: [
             "ARMv6-M to ARMv8-M cores (RP2040, RP2350 Cortex-M33, STM32).",
         ], ident: "CortexM", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "RISC-V cores (RP2350 Hazard3, ESP32-C).",
         ], ident: "RiscV", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 10), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -250,12 +260,13 @@
         (ident: Some("build_id"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Build id of the firmware that crashed: the record may be older than an update. Empty when unknown.",
         ], slot: None, series_opaque: false),
-        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 7, args: [
+        (ident: Some("uptime"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 8, args: [
             Type(OutOfLine(type_idx: 6)),
+            Type(OutOfLine(type_idx: 7)),
         ])), docs: [
             "Device time of the crash since its boot.",
         ], slot: None, series_opaque: false),
-        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 10)), docs: [
+        (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
             "Registers saved by the fault handler, for a fault or panic.",
         ], slot: None, series_opaque: false),
         (ident: Some("stack"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U32)))), docs: [
@@ -295,7 +306,7 @@
         "Capturing the record is firmware infrastructure (a fault or panic handler writing into RAM that survives a",
         "reset); this trait only reports it.",
     ], crate_idx: 0, trait_name: "LastReset", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "last_reset", docs: [
             "Cause of the last reset and, after a crash, the record saved before it.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [], return_ty: Some(NumericAny(Base(U32))), errors: None), multiplicity: Flat, since: None, ident: "boot_count", docs: [

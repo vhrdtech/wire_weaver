@@ -8,6 +8,7 @@
 use crate::*;
 use core::cmp::Ordering;
 use exact_units::Magnitude;
+use crate::bounds::Limit;
 use ww_numeric::Integer;
 
 pub(crate) use exact_units::num::{scale_f32, scale_f64};
@@ -166,6 +167,57 @@ fn compare_slow(
     a_prefix
         .scale_f64(a.to_f64())
         .partial_cmp(&b_prefix.scale_f64(b.to_f64()))
+}
+
+/// Compares `value` in units of `prefix` with a bound's `limit`: exactly for integers (the SI fast path in
+/// [Integer::cmp_pow10]), through `f64` for floats and an irrational scale; `None` for `NaN` and `UN` / `IN`.
+#[inline]
+pub(crate) fn cmp_limit(prefix: Prefix, value: &NumericValue, limit: &Limit) -> Option<Ordering> {
+    if let Some(x) = value.to_integer() {
+        return match prefix.si_pow10() {
+            Some(exp) => Some(x.cmp_pow10(exp, limit.value, limit.exp)),
+            None => cmp_limit_slow(prefix, x, limit),
+        };
+    }
+    if value.is_float() {
+        return prefix
+            .scale_f64(value.to_f64())
+            .partial_cmp(&limit_f64(limit));
+    }
+    None
+}
+
+#[inline(never)]
+fn cmp_limit_slow(prefix: Prefix, x: Integer, limit: &Limit) -> Option<Ordering> {
+    // x · m <=> l · 10^exp is x · num <=> l · den for m / 10^exp = num / den
+    let exact = Magnitude::checked_pow10(limit.exp)
+        .and_then(|l| prefix.magnitude().checked_div(l).ok())
+        .and_then(|r| r.to_ratio())
+        .and_then(|(num, den)| {
+            let (num, den) = (i128::try_from(num).ok()?, i128::try_from(den).ok()?);
+            let (x, l) = (integer_i128(x)?, integer_i128(limit.value)?);
+            Some(x.checked_mul(num)?.cmp(&l.checked_mul(den)?))
+        });
+    if exact.is_some() {
+        return exact;
+    }
+    prefix
+        .scale_f64(integer_f64(x))
+        .partial_cmp(&limit_f64(limit))
+}
+
+fn integer_i128(x: Integer) -> Option<i128> {
+    let m = i128::try_from(x.magnitude()).ok()?;
+    Some(if x.is_negative() { -m } else { m })
+}
+
+fn integer_f64(x: Integer) -> f64 {
+    let m = x.magnitude() as f64;
+    if x.is_negative() { -m } else { m }
+}
+
+fn limit_f64(limit: &Limit) -> f64 {
+    scale_f64(integer_f64(limit.value), limit.exp)
 }
 
 /// `x` in units of `from` in units of `to`, exactly, truncated toward zero; `None` on overflow and for an

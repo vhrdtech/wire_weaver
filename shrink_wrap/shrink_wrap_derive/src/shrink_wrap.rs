@@ -1391,10 +1391,26 @@ mod wire_tests {
             quote! { struct S { #[wire(u128)] a: u128 } },
             quote! { struct S { #[wire(U65)] a: u128 } },
             quote! { struct S { #[wire(I1)] a: i8 } },
-            quote! { struct S { #[wire(Foo)] a: u8 } },
+            quote! { struct S { #[wire(String)] a: u8 } },
         ] {
             let e = error_of(item).unwrap();
             assert!(e.contains("W is an integer type"), "{e}");
+        }
+    }
+
+    #[test]
+    fn wire_user_type_goes_on_a_field_without_a_lifetime() {
+        assert_eq!(error_of(quote! { struct S { #[wire(Foo)] a: u8 } }), None);
+        assert_eq!(
+            error_of(quote! { struct S { #[wire(Foo)] a: Handle } }),
+            None
+        );
+        for item in [
+            quote! { struct S<'i> { #[wire(Foo)] a: &'i str } },
+            quote! { struct S<'i> { #[wire(Foo)] a: Handle<'i> } },
+        ] {
+            let e = error_of(item).unwrap();
+            assert!(e.contains("without a lifetime"), "{e}");
         }
     }
 

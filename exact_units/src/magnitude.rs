@@ -75,13 +75,21 @@ pub struct Irrational {
     derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-// 6 bytes, so an `Option` of it is 8: half the size of a `Magnitude`
+// 6 bytes, so an `Option` of it is 8: half the size of a `Magnitude`. Packed, so `defmt::Format` is written out below
+// (a derive would take references to its fields).
 #[repr(C, packed(2))]
 pub struct PrimePower {
     #[cfg_attr(feature = "shrink_wrap", wire(UNib32))]
     pub prime: u32,
     pub exp: i8,
+}
+
+#[cfg(feature = "defmt")]
+impl defmt::Format for PrimePower {
+    fn format(&self, f: defmt::Formatter) {
+        let (prime, exp) = (self.prime, self.exp);
+        defmt::write!(f, "PrimePower {{ prime: {}, exp: {} }}", prime, exp)
+    }
 }
 
 /// Why a [Magnitude] can't be made.

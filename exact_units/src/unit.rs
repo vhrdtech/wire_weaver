@@ -735,6 +735,53 @@ impl UnitExpr {
         }
     }
 
+    /// The exact factor to coherent SI of the whole expression: `None` when a named unit in it has an
+    /// `Affine` scale, or a product leaves what a [Magnitude](crate::Magnitude) holds. A pound-force second is
+    /// 0.45359237 · 9.80665 N·s.
+    pub const fn magnitude(&self) -> Option<crate::Magnitude> {
+        use crate::Magnitude;
+        match self {
+            UnitExpr::Named { scale, .. } => match *scale {
+                Scale::Coherent => Some(Magnitude::ONE),
+                Scale::Pow10(e) => Magnitude::checked_pow10(e),
+                Scale::Exact(m) => Some(m),
+                Scale::Affine { .. } => None,
+            },
+            UnitExpr::Mul(a, b) => match (a.magnitude(), b.magnitude()) {
+                (Some(a), Some(b)) => ok(a.checked_mul(b)),
+                _ => None,
+            },
+            UnitExpr::Div(a, b) => match (a.magnitude(), b.magnitude()) {
+                (Some(a), Some(b)) => ok(a.checked_div(b)),
+                _ => None,
+            },
+            UnitExpr::Pow(a, n) => match a.magnitude() {
+                Some(a) => {
+                    // powi panics out of range: go through checked products
+                    let mut r = Magnitude::ONE;
+                    let mut i = 0;
+                    while i < n.unsigned_abs() {
+                        r = match r.checked_mul(a) {
+                            Ok(r) => r,
+                            Err(_) => return None,
+                        };
+                        i += 1;
+                    }
+                    if *n < 0 {
+                        ok(Magnitude::ONE.checked_div(r))
+                    } else {
+                        Some(r)
+                    }
+                }
+                None => None,
+            },
+            UnitExpr::Sqrt(a) => match a.magnitude() {
+                Some(a) => ok(a.checked_sqrt()),
+                None => None,
+            },
+        }
+    }
+
     /// The offset to coherent SI: only a named unit with an `Affine` scale has one.
     pub const fn offset(&self) -> f64 {
         match self {
@@ -760,6 +807,14 @@ impl UnitExpr {
     /// The type name: `Volt`, `Per<Torque, AngularVelocity>`.
     pub fn name(&self) -> impl fmt::Display + '_ {
         tree::name_of(self)
+    }
+}
+
+/// `Result::ok` in `const` code.
+const fn ok(r: Result<crate::Magnitude, crate::MagnitudeError>) -> Option<crate::Magnitude> {
+    match r {
+        Ok(m) => Some(m),
+        Err(_) => None,
     }
 }
 

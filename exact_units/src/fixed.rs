@@ -339,6 +339,41 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
         )
     }
 
+    /// The same value in another unit `U2` of the same dimension, scale `P2` and storage `T2`, if that is exact: a
+    /// pound-force second in newton seconds. `None` as for [to](Self::to); never a value reinterpreted in the other
+    /// unit. Both units need an exact factor to SI ([Scale::Exact](crate::Scale), a power of ten or coherent), and
+    /// the factor `U · P / (U2 · P2)` is worked out at compile time, so a conversion costs what [to](Self::to) costs.
+    ///
+    /// ```
+    /// # #[cfg(feature = "customary")] {
+    /// use exact_units::{Fixed, prefix::{One, Pico}, units::{Newton, PoundForce, Second, Times}};
+    ///
+    /// // 1 lbf·s is 4.4482216152605 N·s exactly
+    /// let impulse = Fixed::<Times<PoundForce, Second>, One, i64>::new(2);
+    /// assert_eq!(
+    ///     impulse.convert::<Times<Newton, Second>, Pico, i64>(),
+    ///     Some(Fixed::new(8_896_443_230_521))
+    /// );
+    /// // 8.896443230521 N·s is not a whole number of N·s
+    /// assert_eq!(impulse.convert::<Times<Newton, Second>, One, i64>(), None);
+    /// // in a float it scales
+    /// let f = impulse.convert::<Times<Newton, Second>, One, f64>().unwrap();
+    /// assert!((f.get() - 8.896443230521).abs() < 1e-12);
+    /// # }
+    /// ```
+    ///
+    /// Units of different dimensions don't convert, a pound of force is not a pound of mass:
+    ///
+    /// ```compile_fail
+    /// use exact_units::{Fixed, prefix::One, units::{PoundAvdp, PoundForce}};
+    /// let _ = Fixed::<PoundForce, One, i32>::new(1).convert::<PoundAvdp, One, i32>();
+    /// ```
+    #[inline(always)]
+    pub fn convert<U2: Unit, P2: FixedScale, T2: Storage>(self) -> Option<Fixed<U2, P2, T2>> {
+        let c = const { Conversion::between::<U, P, U2, P2, T, T2>() };
+        c.apply::<T, T2>(self.value).map(Fixed::new)
+    }
+
     /// The value `x · scale` (in the unit `U` itself) in this prefix and storage, if it is exact (as [to](Self::to))
     /// and within `B`: how a number with a run-time scale becomes a `Fixed`, `Repr::Int(3)` with `Pow10(-3)` is
     /// 3000 of `Micro`.
@@ -680,7 +715,30 @@ impl Conversion {
     /// The conversion `P` → `P2`, `T` → `T2`; `rounding` allows a factor that isn't a fraction of integers between
     /// integer storages, by its fixed point.
     const fn of<P: FixedScale, P2: FixedScale, T: Storage, T2: Storage>(rounding: bool) -> Self {
-        let m = P::SCALE.div(P2::SCALE);
+        Self::by::<T, T2>(P::SCALE.div(P2::SCALE), rounding)
+    }
+
+    /// From unit `U` in scale `P` to `U2` in `P2`: both units' exact factors to SI and the same dimension, else a
+    /// compile error.
+    const fn between<U: Unit, P: FixedScale, U2: Unit, P2: FixedScale, T: Storage, T2: Storage>()
+    -> Self {
+        assert!(
+            U::DIM.same(U2::DIM),
+            "a Fixed converts only between units of the same dimension (a pound-force is not a pound)"
+        );
+        assert!(
+            !U::EXPR.has_offset() && !U2::EXPR.has_offset(),
+            "a unit with an offset converts as a Point, not a Fixed"
+        );
+        let (Some(from), Some(to)) = (U::EXPR.magnitude(), U2::EXPR.magnitude()) else {
+            panic!(
+                "a Fixed converts only between units with an exact factor to SI"
+            )
+        };
+        Self::by::<T, T2>(from.mul(P::SCALE).div(to.mul(P2::SCALE)), false)
+    }
+
+    const fn by<T: Storage, T2: Storage>(m: Magnitude, rounding: bool) -> Self {
         let ratio = m.to_ratio();
         let float = T::IS_FLOAT || T2::IS_FLOAT;
         let fixed_point = if ratio.is_none() && !float && rounding {
@@ -1044,6 +1102,78 @@ mod tests {
     use crate::units::{Byte, Ratio, Second, Volt};
     use core::time::Duration;
     use shrink_wrap::{Nibble, UNib32, UVlq64};
+
+    #[cfg(feature = "customary")]
+    #[test]
+    fn convert_between_units() {
+        use crate::units::{
+            GallonUs, Inch, Litre, Meter, MileInternational, Newton, Pascal, PoundForce, Psi,
+            Speed, Times,
+        };
+        // 1 in = 25.4 mm
+        let x = Fixed::<Inch, One, i32>::new(10);
+        assert_eq!(x.convert::<Meter, Micro, i32>(), Some(Fixed::new(254_000)));
+        assert_eq!(x.convert::<Meter, Milli, i16>(), Some(Fixed::new(254)));
+        assert_eq!(
+            Fixed::<Inch, One, i32>::new(1).convert::<Meter, Milli, i32>(),
+            None
+        );
+        // and back: 254 mm is 10 in, 255 mm is not a whole number of inches
+        assert_eq!(
+            Fixed::<Meter, Milli, u16>::new(254).convert::<Inch, One, u8>(),
+            Some(Fixed::new(10))
+        );
+        assert_eq!(
+            Fixed::<Meter, Milli, u16>::new(255).convert::<Inch, One, u8>(),
+            None
+        );
+        // 1 mi = 1609.344 m
+        assert_eq!(
+            Fixed::<MileInternational, One, u32>::new(1).convert::<Meter, Milli, u32>(),
+            Some(Fixed::new(1_609_344))
+        );
+        // 1 gal (US) = 3.785411784 L, Litre a power of ten of m³
+        assert_eq!(
+            Fixed::<GallonUs, One, u32>::new(1).convert::<Litre, Pico, u64>(),
+            Some(Fixed::new(3_785_411_784_000))
+        );
+        // psi: 6894.757293168361.. Pa, not a terminating decimal
+        assert_eq!(
+            Fixed::<Psi, One, u32>::new(1).convert::<Pascal, Micro, u64>(),
+            None
+        );
+        let pa = Fixed::<Psi, One, u32>::new(1)
+            .convert::<Pascal, One, f64>()
+            .unwrap();
+        assert!((pa.get() - 6894.757293168361).abs() < 1e-9);
+        // compound units: lbf·s to N·s, and m/s to Per<Meter, Second> (the same unit)
+        assert_eq!(
+            Fixed::<Times<PoundForce, Second>, Milli, i64>::new(1000)
+                .convert::<Times<Newton, Second>, Pow10<-13>, i64>(),
+            Some(Fixed::new(44_482_216_152_605))
+        );
+        assert_eq!(
+            Fixed::<Speed, Milli, i32>::new(-5)
+                .convert::<crate::units::Per<Meter, Second>, Milli, i32>(),
+            Some(Fixed::new(-5))
+        );
+    }
+
+    #[test]
+    fn unit_magnitude() {
+        use crate::unit::{Scale, UnitExpr};
+        use crate::{Dim, Magnitude};
+        assert_eq!(<Volt as Unit>::EXPR.magnitude(), Some(Magnitude::ONE));
+        static F: UnitExpr = UnitExpr::Named {
+            name: "Affine",
+            symbol: "m~",
+            dim: Dim::new(0, 1, 0, 0, 0, 0, 0),
+            scale: Scale::Affine { factor: 0.3, offset: 0.0 },
+        };
+        static M: UnitExpr = UnitExpr::Mul(&F, <Second as Unit>::EXPR);
+        assert_eq!(F.magnitude(), None);
+        assert_eq!(M.magnitude(), None);
+    }
 
     #[test]
     fn exact_to() {

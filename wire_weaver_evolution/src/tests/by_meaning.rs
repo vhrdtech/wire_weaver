@@ -11,12 +11,11 @@ fn ww_si_dep() -> String {
 }
 
 /// Units and origins of the API's own crate, declared as a user would (`unit!` / `origin!` lines the walker reads).
-/// The pound-force is exact from its definition, lb·g_n = 0.45359237 kg · 9.80665 m/s² = 4.4482216152605 N (NIST SP
-/// 811 B.8); written here for the test, imperial units are STD-72's.
+/// The pound-force is the catalogue's (STD-72). The inch of mercury is NIST SP 811's value by convention at 32 °F.
 const OWN_MARKERS: &str = r#"
     ww_si::unit! {
-        /// Pound-force.
-        pub struct PoundForce = "lbf", [kg 1, m 1, s -2], Exact(44482216152605 / 1, pow10 -13);
+        /// Inch of mercury at 32 °F, of the crate's own.
+        pub struct OwnInHg = "inHg", [kg 1, m -1, s -2], Exact(338638 / 1, pow10 -2), conventional("NIST SP 811", 2008);
         /// Metres per second as a unit of its own.
         pub struct MeterPerSecond = "m/s", [m 1, s -1];
         /// Kilometres per hour: 1000 m / 3600 s.
@@ -45,7 +44,7 @@ fn api_with(ty: &str, markers: &str) -> String {
         use ww_si::exact_units::{{Saturating, Wrapping}};
         use ww_si::origins::{{Angle, Celsius}};
         use ww_si::prefix::{{Centi, Milli, One, Pow10}};
-        use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Per, Radian, Second, Times, Volt}};
+        use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Pascal, Per, PoundForce, Radian, Second, Times, Volt}};
 
         #[ww_api_root]
         pub trait Api {{
@@ -123,7 +122,7 @@ fn mars_climate_orbiter() {
     let report_ = report(lbf_s, n_s);
     assert_meaning(
         &report_,
-        "Api::set: argument `shared`: U of Fixed: marker units::Times<PoundForce, units::Second> on the old \
+        "Api::set: argument `shared`: U of Fixed: marker units::Times<units::PoundForce, units::Second> on the old \
          version, units::Times<units::Newton, units::Second> on the new version: the same bytes in another scale, 1 \
          on the old version is 4.448222 (exactly 1·",
     );
@@ -131,7 +130,7 @@ fn mars_climate_orbiter() {
     assert_meaning(
         &report_,
         "Api::uptime: U of Fixed: marker units::Times<units::Newton, units::Second> on the new version, \
-         units::Times<PoundForce, units::Second> on the old version: the same bytes in another scale, 1 on the new \
+         units::Times<units::PoundForce, units::Second> on the old version: the same bytes in another scale, 1 on the new \
          version is 0.224809 (exactly 1·",
     );
     // the same through the field of a type
@@ -184,23 +183,56 @@ fn mars_climate_orbiter_at_connect_time() {
 /// A unit of the crate's own redefined under the same name: every use means something else, and so does the type.
 #[test]
 fn unit_redefined_under_the_same_name() {
-    let ty = "Fixed<Times<PoundForce, Second>, One, i32>";
-    let wrong = OWN_MARKERS.replace("Exact(44482216152605 / 1, pow10 -13)", "Pow10(0)");
+    let ty = "Fixed<MilliVolt, One, i32>";
+    let wrong = OWN_MARKERS.replace("a -1], Pow10(-3)", "a -1], Pow10(0)");
     let report_ = report_of(&api_with(ty, &wrong), &api(ty));
     assert_meaning(
         &report_,
-        "Api::set: argument `shared`: U of Fixed: units::Times<PoundForce, units::Second> redefined: the same \
-         bytes in another scale, 1 on the old version is 0.224809",
+        "Api::set: argument `shared`: U of Fixed: MilliVolt redefined: the same bytes in another scale, 1 on the old \
+         version is 1000",
     );
     assert_meaning(
         &report_,
-        "unit PoundForce redefined: the same bytes in another scale",
+        "unit MilliVolt redefined: the same bytes in another scale",
     );
     // a new symbol alone is not a new meaning
-    let renamed = OWN_MARKERS.replace("\"lbf\"", "\"lbf_\"");
+    let renamed = OWN_MARKERS.replace("\"mV\"", "\"mV_\"");
     assert_eq!(
         report_of(&api_with(ty, &renamed), &api(ty)).change,
         Change::Compatible
+    );
+}
+
+/// A unit fixed by a physical property (STD-72): its value by convention updated (a newer edition, other digits) is
+/// the same unit, listed apart; a unit that was defined becoming one by convention, or back, is another meaning.
+#[test]
+fn conventional_units() {
+    let ty = "Fixed<OwnInHg, Milli, i32>";
+    let updated = OWN_MARKERS.replace(
+        "Exact(338638 / 1, pow10 -2), conventional(\"NIST SP 811\", 2008)",
+        "Exact(3386389 / 1, pow10 -3), conventional(\"NIST SP 811\", 2024)",
+    );
+    let report_ = report_of(&api(ty), &api_with(ty, &updated));
+    assert_eq!(report_.change, Change::Compatible, "{report_:#?}");
+    assert!(
+        report_
+            .compatible
+            .iter()
+            .any(|c| c
+                == "type OwnInHg: 1 inHg = 3386.38 in SI, conventional (NIST SP 811, 2008) -> 1 inHg = 3386.389 \
+                    in SI, conventional (NIST SP 811, 2024), conventional value updated"),
+        "{:#?}",
+        report_.compatible
+    );
+    let defined = OWN_MARKERS.replace(", conventional(\"NIST SP 811\", 2008)", "");
+    assert_meaning(
+        &report_of(&api(ty), &api_with(ty, &defined)),
+        "unit OwnInHg redefined: conventional (NIST SP 811, 2008) on the old version, defined on the new version",
+    );
+    // another unit by convention is another unit
+    assert_meaning(
+        &report(ty, "Fixed<ww_si::units::InchOfMercury60f, Milli, i32>"),
+        "the same bytes in another scale",
     );
 }
 
@@ -215,7 +247,11 @@ fn same_value_spelled_differently_is_compatible() {
         "Fixed<Volt, Milli, i32>",
         "Fixed<Per<Joule, Coulomb>, Pow10<-3>, i32>",
     );
-    // unit and scale together: mV as a unit of its own, or V in steps of 10⁻³
+}
+
+/// Unit and scale together: mV as a unit of its own, or V in steps of 10⁻³.
+#[test]
+fn unit_and_scale_compared_together() {
     assert_same_value("Fixed<Volt, Milli, i32>", "Fixed<MilliVolt, One, i32>");
 }
 
@@ -233,6 +269,11 @@ fn another_scale_or_dimension_is_breaking() {
         &report("Fixed<Volt, Milli, i32>", "Fixed<MilliVolt, Milli, i32>"),
         "1 on the old version is 1000 (exactly 1·10³) on the new version",
     );
+}
+
+/// Another dimension in the same bytes: breaking.
+#[test]
+fn another_dimension_is_breaking() {
     assert_meaning(
         &report("Fixed<Joule, One, i32>", "Fixed<Newton, One, i32>"),
         "another dimension",
@@ -254,6 +295,12 @@ fn origins_by_meaning() {
         &report(&point("Celsius"), &point("ww_si::origins::AbsoluteZero")),
         "another zero",
     );
+}
+
+/// An origin against another reference, or a point in another step: breaking.
+#[test]
+fn origins_reference_and_step() {
+    let point = |origin: &str| format!("Point<{origin}, Fixed<Kelvin, Centi, i16>>");
     assert_meaning(
         &report(
             "Point<ww_si::origins::Vacuum, Fixed<ww_si::units::Pascal, One, i32>>",
@@ -303,6 +350,12 @@ fn wrapping_and_saturating() {
     for b in ["Wrapping", "Saturating"] {
         assert_eq!(report("u16", &fixed(b)).change, Change::Compatible, "{b}");
     }
+}
+
+/// A bound to `Saturating` is a bound widened.
+#[test]
+fn bound_to_saturating_is_widened() {
+    let fixed = |b: &str| format!("Fixed<Radian, Pow10<-4>, u16, {b}>");
     let report_ = report(&fixed("ww_si::Range<0, 100>"), &fixed("Saturating"));
     assert_eq!(report_.change, Change::Breaking, "{report_:#?}");
 }

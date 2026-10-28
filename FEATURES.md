@@ -1562,13 +1562,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it: the unit and scale of a `Fixed` multiplied into one step (dimension and exact factor), so another spelling of
   the same step is compatible (`Milli` → `Pow10<-3>`, `Volt, Milli` → `MilliVolt, One`, listed as `same value`), and
   the same bytes in a different scale are breaking with the factor in the finding (lbf·s vs N·s, the Mars Climate
-  Orbiter: `1 on the old version is 4.448222 (exactly 1·…)`), also at connect time; another dimension is breaking.
-  A unit, scale or origin of the crate's own redefined under the same name is breaking, a new symbol is not. Origins
-  by dimension, reference, zero and period (`Celsius` = an own origin at 273.15 K, `Angle<Degree>` = `Angle<Radian>`).
-  `Saturating` is `Unbounded`'s values, `Wrapping` on one side only is breaking (`Rule::Meaning`). Levels, kinds and
-  sentinels get their checks with STD-67, STD-68 and STD-66 (rules written down); until then a marker kind the
-  checker doesn't know is the same only when its definition is (`docs/evolution/units_by_meaning.md`;
-  `wire_weaver_evolution` tests `tests::by_meaning`).
+  Orbiter, with STD-72's `PoundForce`: `1 on the old version is 4.448222`), also at connect time; another dimension is
+  breaking. A unit, scale or origin of the crate's own redefined under the same name is breaking, a new symbol is not.
+  Origins by dimension, reference, zero and period (`Celsius` = an own origin at 273.15 K, `Angle<Degree>` =
+  `Angle<Radian>`). `Saturating` is `Unbounded`'s values, `Wrapping` on one side only is breaking (`Rule::Meaning`). A
+  unit by convention (STD-72 provenance) with its value updated is listed as `conventional value updated`, defined ↔
+  conventional is breaking. Levels, kinds and sentinels get their checks with STD-67, STD-68 and STD-66 (rules written
+  down); until then a marker kind the checker doesn't know is the same only when its definition is
+  (`docs/evolution/units_by_meaning.md`; `wire_weaver_evolution` tests `tests::by_meaning`).
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 

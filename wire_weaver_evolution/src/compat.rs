@@ -14,7 +14,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 
-use exact_units::{DimOwned, Magnitude};
+use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance};
 use shrink_wrap::ElementSize;
 use ww_self::signature;
 use ww_self::units::{self, CanonicalUnit};
@@ -22,7 +22,8 @@ use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
     GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, MarkerDefOwned,
-    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
+    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, UnitDefOwned, ValueOwned,
+    VariantOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -822,11 +823,58 @@ impl<'a> TypeCheck<'a> {
         let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
         let what = |kind: &str| format!("{kind} {} redefined", r.ident);
         match (w_def, r_def) {
-            (Unit(w_unit), Unit(r_unit)) => self.check_steps(
-                &what("unit"),
-                &step(&w_unit.dim, w_unit.magnitude),
-                &step(&r_unit.dim, r_unit.magnitude),
-            ),
+            (Unit(w_unit), Unit(r_unit)) => {
+                let changed = what("unit");
+                let (w_step, r_step) = (
+                    step(&w_unit.dim, w_unit.magnitude),
+                    step(&r_unit.dim, r_unit.magnitude),
+                );
+                match (&w_unit.provenance, &r_unit.provenance) {
+                    (Provenance::Defined, Provenance::Defined) => {
+                        self.check_steps(&changed, &w_step, &r_step)
+                    }
+                    // a value by convention updated (newer CODATA digits): the same unit, reported apart (STD-72)
+                    (Provenance::Conventional { .. }, Provenance::Conventional { .. }) => {
+                        if !w_step.dim.as_dim().same(r_step.dim.as_dim()) {
+                            return self.check_steps(&changed, &w_step, &r_step);
+                        }
+                        if w_unit.magnitude != r_unit.magnitude
+                            || w_unit.provenance != r_unit.provenance
+                        {
+                            let shown = |u: &UnitDefOwned| {
+                                format!(
+                                    "1 {} = {} in SI, {}",
+                                    u.symbol,
+                                    round6(u.magnitude.to_f64()),
+                                    provenance(&u.provenance)
+                                )
+                            };
+                            self.note_compatible(Unwrapped {
+                                path: self.path.clone(),
+                                writer_name: self.writer_name,
+                                written: shown(w_unit),
+                                read: shown(r_unit),
+                                same: "conventional value updated",
+                            });
+                        }
+                        Ok(())
+                    }
+                    // a provenance of a newer exact_units, the same on both sides
+                    (w_p, r_p) if w_p == r_p => self.check_steps(&changed, &w_step, &r_step),
+                    (w_p, r_p) => {
+                        self.rule = Some(Rule::Meaning);
+                        Err(format!(
+                            "{changed}: {} on the {}, {} on the {}: a value by convention is not the unit's \
+                             definition, the {} would take one for the other",
+                            provenance(w_p),
+                            self.writer_name,
+                            provenance(r_p),
+                            self.reader_name,
+                            self.reader_name
+                        ))
+                    }
+                }
+            }
             (Scale(w_scale), Scale(r_scale)) => self.check_steps(
                 &what("scale"),
                 &step(&one(), w_scale.magnitude),
@@ -902,7 +950,7 @@ impl<'a> TypeCheck<'a> {
                 );
                 let renamed =
                     marker_name(self.writer, w, true) != marker_name(self.reader, r, true);
-                by_meaning.push((param, names, renamed, w_meaning, r_meaning));
+                by_meaning.push((param, names, renamed, (w, w_meaning), (r, r_meaning)));
                 continue;
             }
             self.check_marker(w_arg, r_arg)
@@ -914,7 +962,8 @@ impl<'a> TypeCheck<'a> {
         let (mut w_step, mut r_step) = (Step::one(), Step::one());
         // the markers that changed by name, or else those whose definition changed under the same name
         let (mut steps, mut redefined) = (vec![], vec![]);
-        for (param, (w_name, r_name), renamed, w_meaning, r_meaning) in &by_meaning {
+        for (param, (w_name, r_name), renamed, (w_ty, w_meaning), (r_ty, r_meaning)) in &by_meaning
+        {
             let at = |e: String| format!("{param} of {of}: {e}");
             match (w_meaning, r_meaning) {
                 (Meaning::Origin(w), Meaning::Origin(r)) => {
@@ -928,12 +977,20 @@ impl<'a> TypeCheck<'a> {
                     )));
                 }
                 (w, r) => {
-                    w_step.mul(w).map_err(at)?;
-                    r_step.mul(r).map_err(at)?;
                     let (mut w_alone, mut r_alone) = (Step::one(), Step::one());
                     w_alone.mul(w).map_err(at)?;
                     r_alone.mul(r).map_err(at)?;
-                    if !w_alone.same(&r_alone) {
+                    w_step.mul(w).map_err(at)?;
+                    if w_alone.same(&r_alone) {
+                        r_step.mul(r).map_err(at)?;
+                    } else if !*renamed
+                        && w_alone.dim.as_dim().same(r_alone.dim.as_dim())
+                        && self.conventional_updated(w_ty, r_ty)
+                    {
+                        // a conventional value updated, reported at the unit's definition: the same step
+                        r_step.mul(w).map_err(at)?;
+                    } else {
+                        r_step.mul(r).map_err(at)?;
                         redefined.push(format!("{param} of {of}: {r_name} redefined"));
                     }
                     if *renamed {
@@ -1052,8 +1109,28 @@ impl<'a> TypeCheck<'a> {
     /// What marker `ty` of the writer (`side` 0) or the reader (1) means, from its definition (INT-13); `None` for a
     /// marker without one (a bound, a hand-written marker, a model from before INT-13).
     fn meaning(&self, side: usize, ty: &TypeOwned) -> Option<Meaning> {
+        meaning(self.defs(side), ty)
+    }
+
+    /// Whether the unit marker `w` of the writer and `r` of the reader, of the same names, use a unit of a value by
+    /// convention (STD-72) that differs between them: a newer value of the same unit, not another meaning. A defined
+    /// unit that changed too is reported at its own definition.
+    fn conventional_updated(&self, w: &TypeOwned, r: &TypeOwned) -> bool {
+        let (w_units, r_units) = (
+            conventional_units(self.defs(0), w),
+            conventional_units(self.defs(1), r),
+        );
+        w_units.iter().any(|(name, w_unit)| {
+            r_units
+                .iter()
+                .any(|(r_name, r_unit)| r_name == name && r_unit != w_unit)
+        })
+    }
+
+    /// The writer's (`side` 0) or the reader's (1) bundle with every skipped definition in-line, made once.
+    fn defs(&self, side: usize) -> &ApiBundleOwned {
         let bundle = [self.writer, self.reader][side];
-        let defs = match bundle
+        match bundle
             .types
             .iter()
             .any(|t| matches!(t, TypeLocationOwned::SkippedFullVersion { .. }))
@@ -1064,8 +1141,7 @@ impl<'a> TypeCheck<'a> {
                 inlined
             }),
             false => bundle,
-        };
-        meaning(defs, ty)
+        }
     }
 
     fn note_compatible(&mut self, unwrapped: Unwrapped) {
@@ -1902,6 +1978,55 @@ fn meaning(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Meaning> {
     units::origin_of(ty, bundle)
         .ok()
         .map(|o| Meaning::Origin(Box::new(o)))
+}
+
+/// The units of a value by convention (STD-72) the unit marker `ty` is made of, by name, with their definitions.
+fn conventional_units<'a>(
+    bundle: &'a ApiBundleOwned,
+    ty: &TypeOwned,
+) -> Vec<(String, &'a UnitDefOwned)> {
+    fn walk<'a>(
+        bundle: &'a ApiBundleOwned,
+        ty: &TypeOwned,
+        depth: usize,
+        out: &mut Vec<(String, &'a UnitDefOwned)>,
+    ) {
+        let (TypeOwned::Instance { type_idx, .. } | TypeOwned::OutOfLine { type_idx }) = ty else {
+            return;
+        };
+        let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx.0) else {
+            return;
+        };
+        if let Some(MarkerDefOwned::Unit(unit)) = s.marker()
+            && matches!(unit.provenance, Provenance::Conventional { .. })
+        {
+            out.push((s.qualified_name(), unit));
+        }
+        let args = match (ty, &s.instance_of) {
+            (TypeOwned::Instance { args, .. }, _) => args,
+            (_, Some(inst)) => &inst.args,
+            _ => return,
+        };
+        if depth < 16 {
+            for arg in args {
+                if let GenericArgOwned::Type(arg) = arg {
+                    walk(bundle, arg, depth + 1, out);
+                }
+            }
+        }
+    }
+    let mut out = vec![];
+    walk(bundle, ty, 0, &mut out);
+    out
+}
+
+/// `defined` or `conventional (NIST SP 811, 2008)`.
+fn provenance(p: &Provenance) -> String {
+    match p {
+        Provenance::Defined => "defined".into(),
+        Provenance::Conventional { source, year } => format!("conventional ({source}, {year})"),
+        Provenance::Unknown(_) => "a provenance of a newer version".into(),
+    }
 }
 
 /// One step of a number: the units and scales of an instance multiplied, in coherent SI.

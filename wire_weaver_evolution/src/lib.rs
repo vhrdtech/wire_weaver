@@ -748,7 +748,27 @@ mod tests {
     }
 
     /// [load] with `dependencies`, lines of the `[dependencies]` section.
+    /// The API crate of `lib_rs` with `dependencies`, loaded from source once per test: a load parses its
+    /// dependencies' source too (~0.3 s with `ww_si`), and tests compare the same version in both directions.
     fn load_with(version: &str, lib_rs: &str, dependencies: &str) -> ApiBundleOwned {
+        thread_local! {
+            static LOADED: std::cell::RefCell<std::collections::HashMap<(String, String, String), ApiBundleOwned>> =
+                Default::default();
+        }
+        let key = (
+            version.to_string(),
+            lib_rs.to_string(),
+            dependencies.to_string(),
+        );
+        if let Some(bundle) = LOADED.with(|l| l.borrow().get(&key).cloned()) {
+            return bundle;
+        }
+        let bundle = load_uncached(version, lib_rs, dependencies);
+        LOADED.with(|l| l.borrow_mut().insert(key, bundle.clone()));
+        bundle
+    }
+
+    fn load_uncached(version: &str, lib_rs: &str, dependencies: &str) -> ApiBundleOwned {
         let dir: PathBuf = std::env::temp_dir()
             .join("ww_evolution_tests")
             .join(format!(

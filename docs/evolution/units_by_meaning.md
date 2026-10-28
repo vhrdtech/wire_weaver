@@ -28,7 +28,8 @@ coherent SI. The checker multiplies them out on both sides and compares the resu
 * **Another dimension** (`Fixed<Joule, ..>` -> `Fixed<Newton, ..>`): breaking, `another dimension`.
 
 The Mars Climate Orbiter was lost to the second case: the ground software wrote impulse in lbf·s, the spacecraft read
-it as N·s. The same numbers, each 4.45 times too small on the reader. As an API:
+it as N·s. The same numbers, each 4.45 times too small on the reader. As an API, with the pound-force of `ww_si`'s
+`customary` units (STD-72):
 
 ```rust
 // old version
@@ -40,9 +41,9 @@ fn set_impulse(impulse: Fixed<Times<Newton, Second>, One, i32>);
 The checker reports it in both directions, depending on who writes:
 
 ```text
-Api::set_impulse: argument `impulse`: U of Fixed: marker units::Times<PoundForce, units::Second> on the old version,
-units::Times<units::Newton, units::Second> on the new version: the same bytes in another scale, 1 on the old version
-is 4.448222 (exactly 1·…) on the new version, which would read it as 1
+Api::set_impulse: argument `impulse`: U of Fixed: marker units::Times<units::PoundForce, units::Second> on the old
+version, units::Times<units::Newton, units::Second> on the new version: the same bytes in another scale, 1 on the old
+version is 4.448222 (exactly 1·8896443230521/2000000000000) on the new version, which would read it as 1
 ```
 
 and a client in N·s refuses that resource of a device in lbf·s at connect time instead of reading its numbers as
@@ -51,11 +52,26 @@ they are.
 ## Units and scales of your own
 
 A unit or scale your API crate declares itself (`exact_units::unit!`, `exact_units::scale!`) is compared by its
-definition too, also when only the definition changed and every use kept its name: `PoundForce` defined as 1 N by
-mistake and fixed to 4.448222 N is `unit PoundForce redefined: the same bytes in another scale`, both for the
-marker itself and for every `Fixed` that uses it. Its symbol (`"lbf"`) is how it is shown, not what it means: a new
-symbol alone is compatible. A marker that became another kind of marker under the same name (a unit turned scale) is
+definition too, also when only the definition changed and every use kept its name: a `MilliVolt` defined as 1 V by
+mistake and fixed to 10⁻³ V is `unit MilliVolt redefined: the same bytes in another scale`, both for the marker
+itself and for every `Fixed` that uses it. Its symbol (`"mV"`) is how it is shown, not what it means: a new symbol
+alone is compatible. A marker that became another kind of marker under the same name (a unit turned scale) is
 breaking.
+
+## Units by convention
+
+A unit fixed by a physical property, not by a definition (an inch of mercury at 32 °F, a Btu at 60 °F), has a scale
+that is the value a source prints: `conventional("NIST SP 811", 2008)` on its `unit!` line, its provenance in the
+model (STD-72, see [imperial and US customary units](../std_library/customary.md)).
+
+* **Its value updated** (a newer edition, other digits, the same name): compatible, the same unit. Listed apart as
+  `conventional value updated`, with both values and sources: `type OwnInHg: 1 inHg = 3386.38 in SI, conventional
+  (NIST SP 811, 2008) -> 1 inHg = 3386.389 in SI, conventional (NIST SP 811, 2024), conventional value updated`. The
+  uses of the unit are not reported again.
+* **Defined became conventional, or back**: breaking, under `Rule::Meaning`. A value by convention is not the unit's
+  definition, and the reader would take one for the other.
+* **Another unit by convention** (`InchOfMercury32f` -> `InchOfMercury60f`): another unit, compared by its step as
+  above.
 
 ## Origins
 

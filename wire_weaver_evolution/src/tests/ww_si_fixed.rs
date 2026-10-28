@@ -246,10 +246,9 @@ fn prepared_bundles() {
 }
 
 /// Scales without a name (`Pow10<E>`, `Rational<NUM, DEN>`) are markers with const arguments. Scales are compared
-/// by the exact factor they stand for (EVO-17): another factor is breaking, another name for the same one is
-/// compatible and reported as such.
+/// by the exact factor they stand for (EVO-17): another factor is breaking.
 #[test]
-fn exact_scales_are_compared_by_value() {
+fn exact_scales_of_another_value_are_breaking() {
     for (old, new, marker) in [
         (
             "Fixed<Second, Pow10<-4>, u32>",
@@ -266,6 +265,11 @@ fn exact_scales_are_compared_by_value() {
         assert_rule(&report(&same(old), &same(new)), Rule::Meaning, marker);
         assert_eq!(report(&same(new), &same(new)).change, Change::None, "{new}");
     }
+}
+
+/// Another name for the same scale is compatible, and reported as the same value (EVO-17, si-evo's finding).
+#[test]
+fn exact_scales_of_the_same_value_are_compatible() {
     for (old, new) in [
         ("Fixed<Second, Milli, u32>", "Fixed<Second, Pow10<-3>, u32>"),
         (

@@ -175,6 +175,10 @@ client reads the `Fixed` field with its unit (`2000 m(lbf·s)`, `{:#}` `2 lbf·s
 refuses 4 N·s written into it (not a whole number of m(lbf·s)), as for the others
 ([in clients](exact_units.md#in-ww-python-and-dynamic-clients)).
 
+- **Evolution checker:** an API that changes `Fixed<Times<PoundForce, Second>, ..>` to `Fixed<Times<Newton, Second>,
+  ..>` keeps the bytes, and the checker calls it breaking with the factor (`1 on the old version is 4.448222`), also
+  at connect time; see [units compared by meaning](../evolution/units_by_meaning.md) (EVO-17).
+
 ## Sources
 
 Every definition is from one of these documents, each read in full; a unit's docs say which and where:

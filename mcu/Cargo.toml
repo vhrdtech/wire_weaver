@@ -9,3 +9,7 @@ members = [
 [workspace.dependencies]
 wire_weaver = { version = "0.5.0", path = "../wire_weaver", default-features = false, features = ["defmt"] }
 ww_device = { version = "0.5.0", path = "../ww_device" }
+
+# exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../shrink_wrap/shrink_wrap" }

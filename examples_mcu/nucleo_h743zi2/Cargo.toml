@@ -128,3 +128,7 @@ debug = false
 debug-assertions = false
 opt-level = 0
 overflow-checks = false
+
+# exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }

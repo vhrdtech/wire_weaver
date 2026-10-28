@@ -132,9 +132,13 @@ impl CargoSources {
         let locked = self
             .resolve(&lock, dependent, package, spec)
             .with_context(|| format!("resolving {package} in {}", lock.path.display()))?;
-        self.package_dir(locked)?.ok_or_else(|| {
+        if let Some(dir) = self.package_dir(locked)? {
+            return Ok(dir);
+        }
+        patched_dir(&lock.path, package)?.ok_or_else(|| {
             anyhow!(
-                "{} {} has no source in {}: a path dependency there (a [patch]?) but not in the manifest",
+                "{} {} has no source in {}: a path dependency there but not in the manifest, nor a [patch] of \
+                 the workspace there",
                 locked.name,
                 locked.version,
                 lock.path.display()
@@ -405,6 +409,35 @@ impl CargoSources {
     }
 }
 
+/// Directory of `package` as a `[patch.<source>]` of the workspace whose `Cargo.lock` is `lock_path` puts it: a git
+/// or registry dependency that Cargo resolves to a path there (wire_weaver patches the shrink_wrap that exact_units
+/// takes by git to its own).
+fn patched_dir(lock_path: &Path, package: &str) -> Result<Option<PathBuf>> {
+    let root = lock_path.parent().unwrap_or(Path::new("."));
+    let manifest_path = root.join("Cargo.toml");
+    let Ok(contents) = fs::read_to_string(&manifest_path) else {
+        return Ok(None);
+    };
+    let manifest: toml::Table = toml::from_str(&contents)
+        .with_context(|| format!("Failed to parse {}", manifest_path.display()))?;
+    let Some(patch) = manifest.get("patch").and_then(|p| p.as_table()) else {
+        return Ok(None);
+    };
+    for deps in patch.values().filter_map(|deps| deps.as_table()) {
+        for (name, dep) in deps {
+            let Some(dep) = dep.as_table() else { continue };
+            let renamed = dep.get("package").and_then(|p| p.as_str());
+            if renamed.unwrap_or(name) != package {
+                continue;
+            }
+            if let Some(path) = dep.get("path").and_then(|p| p.as_str()) {
+                return Ok(Some(root.join(path)));
+            }
+        }
+    }
+    Ok(None)
+}
+
 #[derive(Deserialize)]
 struct NameOnly {
     package: Option<PackageName>,
@@ -446,4 +479,20 @@ fn collect_packages(dir: &Path, packages: &mut HashMap<String, PathBuf>) -> Resu
         queue = next;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn patch_of_the_workspace_puts_a_git_dependency_at_a_path() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let lock = root.join("Cargo.lock");
+        assert_eq!(
+            patched_dir(&lock, "shrink_wrap").unwrap(),
+            Some(root.join("./shrink_wrap/shrink_wrap"))
+        );
+        assert_eq!(patched_dir(&lock, "no_such_package").unwrap(), None);
+    }
 }

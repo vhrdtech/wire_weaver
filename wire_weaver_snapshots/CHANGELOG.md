@@ -13,6 +13,7 @@
 
 ### 🚀 Features
 
+- The `exact_units` snapshot is saved in `other_repos/` (the crate lives in its own repository now) and copied into `api_snapshots/` like the others; it is unchanged.
 - Snapshots of `ww_can_bus`, `ww_dfu`, `ww_gpio`, `ww_i2c`, `ww_pin_diag`, `ww_spi` and `ww_uart` saved again with their `#[claim(exclusive)]` traits (SRV-34).
 - `inline_skipped_or_cached(bundle, cache_dir)` (EVO-9): `inline_skipped` that also looks up definitions by signature
   in the definition cache.

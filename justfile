@@ -66,10 +66,6 @@ dfu-transcripts:
 gid-lock:
     GID_LOCK=update cargo nextest run -p ww_global assigned_ids
 
-# Regenerate the tables of docs/std_library/customary.md from exact_units' sourced catalogue (STD-72)
-customary-docs:
-    CUSTOMARY_DOCS=update cargo nextest run -p exact_units --all-features docs_page_tables
-
 # Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
@@ -119,12 +115,6 @@ check-core:
     # check ww_device with features used on embedded targets
     @cargo check -p ww_device --features=defmt,embassy-time
     @cargo check -p ww_device --features=defmt,embassy-net,ws,udp
-    # exact_units on a firmware: no unit group, defmt, a few groups; without and with the wire format
-    @cargo check -p exact_units --no-default-features
-    @cargo check -p exact_units --no-default-features --features=defmt
-    @cargo check -p exact_units --no-default-features --features=time,information,counting,dimensionless
-    @cargo check -p exact_units --no-default-features --features=std
-    @cargo check -p exact_units --no-default-features --features=shrink_wrap,defmt,time
     # check ww_si with no number type and with a few (NumericValue variants are features)
     @cargo check -p ww_si --no-default-features
     @cargo check -p ww_si --no-default-features --features=f32,u16,defmt
@@ -245,12 +235,14 @@ deploy:
 save-snapshots *args:
     cargo build -q -p wire_weaver_cli
     # ww_client_server is the protocol itself, not used in APIs
-    for crate in ww_global ww_tap exact_units ww_stdlib/*/; do \
+    for crate in ww_global ww_tap ww_stdlib/*/; do \
         [ "$(basename $crate)" = ww_client_server ] || target/debug/ww api save $crate {{ args }} || exit 1; \
     done
+    # exact_units lives in its own repository: from the source ww_si uses, saved here
+    target/debug/ww api save ww_stdlib/ww_si --dep exact_units --snapshots-dir wire_weaver_snapshots/other_repos {{ args }}
     rm -rf wire_weaver_snapshots/api_snapshots
     mkdir -p wire_weaver_snapshots/api_snapshots
-    cp ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron exact_units/api_snapshots/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
+    cp ww_global/api_snapshots/*.ron ww_tap/api_snapshots/*.ron wire_weaver_snapshots/other_repos/*.ron ww_stdlib/*/api_snapshots/*.ron wire_weaver_snapshots/api_snapshots/
 
 pre-commit:
     cargo sort -w -g

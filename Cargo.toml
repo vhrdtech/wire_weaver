@@ -3,7 +3,6 @@
 resolver = "3"
 members = [
     #    "wire_weaver_tool",
-    "exact_units",
     "examples/*",
     "shrink_wrap/*",
     "stm32_dfu_host",
@@ -95,8 +94,10 @@ tracing-subscriber = "0.3"
 widestring = "1"
 windows-sys = "0.61"
 
+# exact_units lives in its own repository; from git until it is on crates.io
+exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
+
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
-exact_units = { version = "0.1.0", path = "./exact_units", default-features = false }
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
 shrink_wrap_derive = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap_derive" }
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }
@@ -236,6 +237,10 @@ traits_api = { version = "0.1.0", path = "./tests/traits_api" }
 uart_api = { version = "0.1.0", path = "./examples/uart_api" }
 uid_api = { version = "0.1.0", path = "./tests/uid_api" }
 user_info_api = { version = "0.1.0", path = "./tests/user_info_api" }
+
+# exact_units takes shrink_wrap from this repository by git: use the one here, so there is one shrink_wrap
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "./shrink_wrap/shrink_wrap" }
 
 [patch.crates-io]
 wire_weaver = { path = "./wire_weaver" }

@@ -12,7 +12,9 @@ mod unit_hint;
 mod util;
 
 pub use api::{PropertyMacroArgs, StreamAndImplMacroArgs};
-pub use crate_walker::{CratePaths, load, load_dep, load_dep_with_paths, load_with_hints};
+pub use crate_walker::{
+    CratePaths, dependency_dir, load, load_dep, load_dep_with_paths, load_with_hints,
+};
 pub use errors::ErrorListError;
 pub use snapshot::{load_crate, load_crate_with_hints, skip_known};
 pub use unit_hint::UnitHint;

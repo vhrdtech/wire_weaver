@@ -6,6 +6,7 @@
 
 ### 🐛 Fixes
 
+- The crate walker finds a git or registry dependency that the workspace `[patch]`es to a path (`[patch."https://github.com/vhrdtech/wire_weaver"] shrink_wrap = { path = .. }`) instead of failing with "has no source": `exact_units` takes `shrink_wrap` by git, and wire_weaver builds it with its own.
 - The crate walker shares a module's parsed source between the contexts it hands out instead of copying it for every type found there: a module with hundreds of `unit!` markers (`exact_units`' customary units) was walked in quadratic time, a snapshot test loading `ww_si` and `exact_units` took 1 s instead of 0.7 s.
 
 - Snapshots follow glob re-exports of a module (`mod thermal { .. } pub use thermal::*;`), after every other item so existing snapshots keep their order: `exact_units`' origins were missing from its snapshot.
@@ -18,6 +19,7 @@
 
 ### 🚀 Features
 
+- `dependency_dir(crate_path, dep_name)`: the directory of a dependency as Cargo builds it (path, git or registry source), for saving the snapshot of a crate kept in another repository (`exact_units`, STD-61).
 - A field `#[wire(W)]` with a user type `W` (shrink_wrap DER-23) is `series_opaque` in the API model, as the derive writes it in a `Series` (an opaque run of `W`'s bytes, `series::WiredOpaque`); the integer wire types of DER-19 stay columns. Test `user_wire_fields_are_series_opaque`.
 - The crate walker notes a plain integer struct/enum field, trait method argument or `property!`/`stream!`/`sink!`/`ww_impl!` item whose name ends in a known unit suffix (`_us`, `_ms`, `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`), with the `exact_units::Fixed<U, P, T>` it could become instead (TOOL-22): new `UnitHint` (`item`, `ty`, `suggestion`, `renamed`), `load_with_hints` and `load_crate_with_hints` return the hints found alongside the bundle, `load` and `load_crate` unchanged. Silenced per item with `#[no_unit_hint]` (bare on a field, bare or naming arguments `#[no_unit_hint(a, b)]` on a method, bare on a resource macro item); `shrink_wrap_derive` now strips `#[no_unit_hint]` off fields without warning.
 - The walker puts the definition of every `origin!` into the model (`MarkerDef::Origin`, INT-13): its unit, reference and modulus resolved through their own definitions, `offset` and `step` read from `Offset::ZERO` / `int` / `ratio` / `decimal` and `Magnitude::ONE` / `ratio` / `pow10` with integer literals (anything else is an error naming the origin), an origin `above` another written out whole with the offsets added; `exact_units::origins::Angle<U>` is `MarkerDef::Angle`. A hand-written `impl Origin` with `const OFFSET` is an error naming the marker, as for units and scales. The parity test checks every `exact_units` origin against its compiled `Origin::DEF`.

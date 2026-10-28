@@ -721,6 +721,12 @@ mod tests {
         load_crate(&Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_path)).unwrap()
     }
 
+    /// exact_units, from the source ww_si uses: it lives in its own repository.
+    fn load_exact_units() -> ApiBundleOwned {
+        let ww_si = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
+        load_crate(&crate::dependency_dir(&ww_si, "exact_units").unwrap()).unwrap()
+    }
+
     fn type_idx(bundle: &ApiBundleOwned, name: &str) -> u32 {
         bundle
             .types
@@ -776,7 +782,7 @@ mod tests {
         let snapshots = [
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
-            load("../exact_units"),
+            load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
         assert!(type_signature(&uart, quantity, &no_resolve).is_err());
@@ -803,7 +809,7 @@ mod tests {
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
             load("../ww_stdlib/ww_error"),
-            load("../exact_units"),
+            load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
@@ -840,7 +846,7 @@ mod tests {
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
             load("../ww_stdlib/ww_error"),
-            load("../exact_units"),
+            load_exact_units(),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
@@ -1022,17 +1028,24 @@ mod tests {
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        // as `just save-snapshots`: ww_global, the link tap's records, exact_units, ww_stdlib
+        // as `just save-snapshots`: ww_global, the link tap's records, exact_units, ww_stdlib; each crate with the
+        // directory its snapshots are saved in
+        let own = |path: std::path::PathBuf| (path.join("api_snapshots"), path);
+        let ww_si = root.join("ww_stdlib").join("ww_si");
         let mut crate_paths = vec![
-            root.join("ww_global"),
-            root.join("ww_tap"),
-            root.join("exact_units"),
+            own(root.join("ww_global")),
+            own(root.join("ww_tap")),
+            // in its own repository: from the source ww_si uses, saved here
+            (
+                root.join("wire_weaver_snapshots").join("other_repos"),
+                crate::dependency_dir(&ww_si, "exact_units").unwrap(),
+            ),
         ];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
             // ww_client_server is the protocol itself, not used in APIs
             if path.join("Cargo.toml").exists() && !path.ends_with("ww_client_server") {
-                crate_paths.push(path);
+                crate_paths.push(own(path));
             }
         }
         let hint =
@@ -1040,10 +1053,10 @@ mod tests {
         let embedded = wire_weaver_snapshots::files();
         let copies = root.join("wire_weaver_snapshots").join("api_snapshots");
         let mut saved_count = 0;
-        for crate_path in crate_paths {
+        for (snapshots_dir, crate_path) in crate_paths {
             let bundle = load_crate(&crate_path).unwrap();
             let file_name = format!("{}.ron", bundle.ext_crates[0].filename_friendly());
-            let saved = std::fs::read_to_string(crate_path.join("api_snapshots").join(&file_name))
+            let saved = std::fs::read_to_string(snapshots_dir.join(&file_name))
                 .unwrap_or_else(|e| panic!("{file_name}: {e}, {hint}"));
             let mut saved: ApiBundleOwned = ron::from_str(&saved).unwrap();
             // records which ww_self saved it, doesn't make a snapshot out of date
@@ -1053,7 +1066,7 @@ mod tests {
                 ron::to_string(&bundle).unwrap(),
                 "{file_name} is out of date, {hint}"
             );
-            for entry in std::fs::read_dir(crate_path.join("api_snapshots")).unwrap() {
+            for entry in std::fs::read_dir(&snapshots_dir).unwrap() {
                 let path = entry.unwrap().path();
                 let file_name = path.file_name().unwrap().to_str().unwrap();
                 let (_, rendered) = embedded

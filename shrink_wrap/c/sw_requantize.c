@@ -1,8 +1,8 @@
 /*
  * Requantize in C99 (CLT-54), see sw_requantize.h: a port of exact_units::Requantizer::apply
- * (exact_units/src/fixed/rounding.rs), the same number bit for bit. Integers go through sign and magnitude in 128
- * bits (two 64-bit halves, products by 32-bit halves), so nothing depends on __int128 or implementation-defined
- * casts of negative numbers.
+ * (src/fixed/rounding.rs in https://github.com/romixlab/exact_units), the same number bit for bit. Integers go
+ * through sign and magnitude in 128 bits (two 64-bit halves, products by 32-bit halves), so nothing depends on
+ * __int128 or implementation-defined casts of negative numbers.
  */
 #include "sw_requantize.h"
 

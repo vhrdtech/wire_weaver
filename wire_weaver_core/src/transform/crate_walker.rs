@@ -101,6 +101,18 @@ pub fn load_dep_with_paths(
     Ok((bundle, paths))
 }
 
+/// Directory of the dependency `dep_name` of the crate at `crate_path`, as Cargo builds it: a path dependency, or
+/// the git or registry source the nearest `Cargo.lock` pins (`[patch]`es of that workspace included). For a crate
+/// kept in another repository (exact_units), whose snapshot is saved from the source a crate here uses.
+pub fn dependency_dir(crate_path: &Path, dep_name: &str) -> Result<PathBuf> {
+    let mut scratch = Scratch::default();
+    let manifest = ManifestContext::load(crate_path)?;
+    scratch.sources.entry_dir = Some(manifest.crate_path.clone());
+    let features = manifest.default_features();
+    let (dep, _) = manifest.load_dependent_manifest(dep_name, &features, &mut scratch)?;
+    Ok(dep.crate_path.clone())
+}
+
 /// How code generated in a crate names the crates an API's types and traits are defined in (API-60), for those it
 /// can't name directly.
 ///

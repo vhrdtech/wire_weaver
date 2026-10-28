@@ -113,3 +113,7 @@ codegen-units = 1
 debug = 2 # full debug info for defmt and probe-rs, doesn't end up in flash
 lto = 'fat'
 opt-level = "z" # 3 - speed, s - size, z - even less size
+
+# exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }

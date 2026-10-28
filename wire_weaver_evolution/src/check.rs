@@ -35,6 +35,7 @@ pub struct Check {
     against: Option<PathBuf>,
     strict: bool,
     require_current: bool,
+    snapshots_dir: Option<PathBuf>,
 }
 
 /// Environment variable that makes [Check::assert] save the snapshot of the current version first, when set to
@@ -49,6 +50,7 @@ impl Check {
             against: None,
             strict: false,
             require_current: false,
+            snapshots_dir: None,
         }
     }
 
@@ -71,6 +73,20 @@ impl Check {
     pub fn require_current(mut self, require_current: bool) -> Self {
         self.require_current = require_current;
         self
+    }
+
+    /// Snapshots of the crate are in `dir` instead of its `api_snapshots/`: for a crate whose source isn't where its
+    /// snapshots are kept (exact_units, from its own repository, saved in wire_weaver_snapshots).
+    pub fn snapshots_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.snapshots_dir = Some(dir.into());
+        self
+    }
+
+    /// Where the crate's snapshots are.
+    fn crate_snapshots_dir(&self) -> PathBuf {
+        self.snapshots_dir
+            .clone()
+            .unwrap_or_else(|| self.path.join(SNAPSHOTS_DIR))
     }
 
     fn is_snapshot(&self) -> bool {
@@ -96,7 +112,7 @@ impl Check {
         } else {
             let (new, hints) = wire_weaver_core::load_crate_with_hints(&self.path)
                 .map_err(|e| format!("{e:#}"))?;
-            let dir = self.path.join(SNAPSHOTS_DIR);
+            let dir = self.crate_snapshots_dir();
             (new, Recorded::default(), "source".to_string(), dir, hints)
         };
         let old = match &self.against {
@@ -138,7 +154,7 @@ impl Check {
     fn run_current(&self) -> Result<Outcome, String> {
         let (source, hints) =
             wire_weaver_core::load_crate_with_hints(&self.path).map_err(|e| format!("{e:#}"))?;
-        let dir = self.path.join(SNAPSHOTS_DIR);
+        let dir = self.crate_snapshots_dir();
         let own = source.crate_version(0).map_err(|e| e.to_string())?;
         let current = current_snapshot(&dir, &source)?;
         let previous = latest_snapshot(&dir, &source, &own.version, false)?;
@@ -202,7 +218,7 @@ impl Check {
         }
         let bundle = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
         let own = bundle.crate_version(0).map_err(|e| e.to_string())?;
-        let dir = self.path.join(SNAPSHOTS_DIR);
+        let dir = self.crate_snapshots_dir();
         let path = dir.join(format!("{}.ron", own.filename_friendly()));
         // with the hash of the shrink_wrap bytes the RON stands for: the build of wire_weaver_snapshots re-encodes the
         // RON and fails when it differs, which proves the round trip lossless

@@ -1060,7 +1060,9 @@ mod tests {
 
     /// Every marker of `exact_units` as the walker reads it from source, by name.
     fn exact_units_markers() -> BTreeMap<String, MarkerDefOwned> {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../exact_units");
+        // the source of the exact_units this crate is built with: it lives in its own repository
+        let here = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = crate::dependency_dir(here, "exact_units").unwrap();
         let bundle = crate::transform::snapshot::load_crate(&root).unwrap();
         bundle
             .types

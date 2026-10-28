@@ -114,6 +114,15 @@ pub enum ApiCommand {
         /// Save even if traits or types changed without a sufficient version bump
         #[arg(long)]
         force: bool,
+
+        /// Save the snapshot of this dependency of the crate at `path`, from the source Cargo builds it from (a git
+        /// or registry dependency too): for a crate kept in another repository
+        #[arg(long, value_name = "CRATE", requires = "snapshots_dir")]
+        dep: Option<String>,
+
+        /// Save into this directory instead of the crate's `api_snapshots/`
+        #[arg(long, value_hint = ValueHint::DirPath)]
+        snapshots_dir: Option<PathBuf>,
     },
     /// Check that the crate version is bumped enough for the changes made since the latest saved snapshot
     ///
@@ -215,7 +224,12 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             },
             output,
         ),
-        ApiCommand::Save { path, force } => save::save(path, force),
+        ApiCommand::Save {
+            path,
+            force,
+            dep,
+            snapshots_dir,
+        } => save::save(path, force, dep, snapshots_dir),
         ApiCommand::Check {
             path,
             against,

@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+- `ww api save --dep CRATE --snapshots-dir DIR`: saves the snapshot of a dependency of the crate given, from the source Cargo builds it from, into `DIR` instead of the crate's `api_snapshots/`; `just save-snapshots` saves `exact_units` (its own repository now) this way from `ww_si`.
 - `exact_units` numbers in `ww` (CLT-54): `ww introspect` shows a `Fixed` with what its numbers are in and its bounds after the type (`Fixed<Second, Micro, u64, Unbounded> [µs]`, `Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]`); `ww observe`, `ww stream`, `ww tap` and `ww explain` print `Fixed` values with their unit (`1730000000000000 µs`, `4 KiB`) and indices and sequence numbers with what they count (`#3 (Sample)`, `seq 41 (Frame)`); `ww explain` values (`'uptime = q!(5 ms)'`) take `q!(5 ms)` into a `Fixed` exactly (an error naming the type when it isn't whole in its scale, overflows its storage or leaves its bounds) and a plain number as the stored one.
 - `ww api check` prints unit-suffix hints (TOOL-22) as `note: ..` lines after the verdict; `ww api scaffold` prints the same hints to stderr, next to the generated handler stubs. Neither affects the exit code.
 - `ww api check --require-current` (EVO-12): fails without a snapshot of the crate's current version or when the source differs from it, and checks the bump from the previous version's snapshot to it, the same as `Check::require_current` in an API crate's test.

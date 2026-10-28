@@ -177,3 +177,7 @@ opt-level = "z"
 [profile.fw-3]
 inherits = "fw-z"
 opt-level = 3
+
+# exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }

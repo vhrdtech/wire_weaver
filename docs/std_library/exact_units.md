@@ -22,7 +22,8 @@ assert_eq!(core::time::Duration::from(t), core::time::Duration::from_micros(1500
 
 `Micros::<u32>::new(1500)` is 4 bytes on the wire, `dc 05 00 00`, the bytes of the `u32` 1500.
 
-The crate is `no_std` and needs no allocator. [ww_si](ww_si.md) is built on it and re-exports everything, so
+The crate lives in its own repository, [romixlab/exact_units](https://github.com/romixlab/exact_units): it doesn't depend on WireWeaver, the wire
+format is its optional `shrink_wrap` feature. It is `no_std` and needs no allocator. [ww_si](ww_si.md) is built on it and re-exports everything, so
 `ww_si::Fixed` and `exact_units::Fixed` are the same type; an API that already uses `ww_si` writes `ww_si::..`.
 
 ## Fixed or Quantity

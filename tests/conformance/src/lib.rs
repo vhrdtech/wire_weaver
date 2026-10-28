@@ -145,10 +145,15 @@ pub fn run_requantize(name: &str, convert: fn(&corpus::RequantizeCase) -> Result
     for case in &corpus.requantize {
         let r = match (case.gap(name), convert(case)) {
             (None, Ok(())) | (Some(_), Err(_)) => continue,
-            (Some(gap), Ok(())) => format!("passes now: remove its gap mark ({gap}) and close what it names"),
+            (Some(gap), Ok(())) => {
+                format!("passes now: remove its gap mark ({gap}) and close what it names")
+            }
             (None, Err(e)) => e,
         };
-        failures.push(format!("requantize case '{}', consumer {name}: {r}", case.name));
+        failures.push(format!(
+            "requantize case '{}', consumer {name}: {r}",
+            case.name
+        ));
     }
     assert!(
         failures.is_empty(),

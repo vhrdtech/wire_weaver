@@ -57,7 +57,7 @@ pub use store::{
     write_store_series,
 };
 
-pub use wired::Wired;
+pub use wired::{Wired, WiredRef};
 pub use xor_float::XorBits;
 
 /// Bit-level writes shared by [BufWriter], `BufWriterOwned` and [BitCounter], so a codec is written once. The

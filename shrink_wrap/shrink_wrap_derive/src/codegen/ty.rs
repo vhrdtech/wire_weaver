@@ -170,10 +170,18 @@ impl Type {
         tokens: &mut TokenStream,
     ) {
         let write_fn = match self {
-            Type::Wire { plain, wire, .. } => {
+            Type::Wire {
+                plain, wire, user, ..
+            } => {
                 // range-checked: a value the wire type can't hold is an error, never cut
                 let wire_as = Self::wire_as(plain, wire, cp);
-                let value = field_path.by_value();
+                let value = if *user {
+                    // a user type `T` isn't always `Copy`
+                    let value = field_path.by_ref();
+                    quote! { ::core::clone::Clone::clone(#value) }
+                } else {
+                    field_path.by_value()
+                };
                 let mut write = TokenStream::new();
                 wire.buf_write(
                     FieldPath::Value(quote! { __wire }),

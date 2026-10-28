@@ -45,9 +45,9 @@ pub use exact_units;
 #[cfg(feature = "information")]
 pub use exact_units::Bytes;
 pub use exact_units::{
-    Bounds, Counted, DecimalPrefix, Dim, ExactScale, Fixed, FixedScale, MAX_COUNTED,
-    MAX_UNIT_DEPTH, OutOfBounds, Prefix, Range, RangeDec, RangeU64, Repr, SIExpr, Scale, Storage,
-    Unbounded, Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, prefix, units,
+    Bounds, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH, Magnitude,
+    OutOfBounds, Prefix, Range, RangeDec, RangeU64, Repr, SIExpr, Scale, Storage, Unbounded, Unit,
+    UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, prefix, units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{CountedOwned, DimOwned, SIExprOwned};

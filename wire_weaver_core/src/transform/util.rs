@@ -309,7 +309,22 @@ pub(crate) fn use_tree_leaves(tree: &UseTree) -> Vec<(Vec<&Ident>, UseLeaf<'_>)>
         UseTree::Path(use_path) => use_tree_leaves(&use_path.tree)
             .into_iter()
             .map(|(mut path, leaf)| {
-                path.insert(0, &use_path.ident);
+                // `use a::b::{self}` imports `b` itself, `use a::b::{self as c}` names it `c`
+                let leaf = match leaf {
+                    UseLeaf::Name(name) if path.is_empty() && name == "self" => {
+                        UseLeaf::Name(&use_path.ident)
+                    }
+                    UseLeaf::Rename { name, rename } if path.is_empty() && name == "self" => {
+                        UseLeaf::Rename {
+                            name: &use_path.ident,
+                            rename,
+                        }
+                    }
+                    leaf => {
+                        path.insert(0, &use_path.ident);
+                        leaf
+                    }
+                };
                 (path, leaf)
             })
             .collect(),
@@ -347,9 +362,13 @@ pub(crate) fn use_tree_names(tree: &UseTree) -> Vec<(Vec<&Ident>, &Ident)> {
     match tree {
         UseTree::Path(use_path) => use_tree_names(&use_path.tree)
             .into_iter()
-            .map(|(mut path, name)| {
-                path.insert(0, &use_path.ident);
-                (path, name)
+            .map(|(mut path, name)| match path.is_empty() && name == "self" {
+                // `use a::b::{self}` imports `b` itself
+                true => (path, &use_path.ident),
+                false => {
+                    path.insert(0, &use_path.ident);
+                    (path, name)
+                }
             })
             .collect(),
         UseTree::Name(use_name) => vec![(vec![], &use_name.ident)],
@@ -612,5 +631,41 @@ mod stream_fn_attr_tests {
         ] {
             assert!(parse(s).is_err(), "{s}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn leaves(tree: &str) -> Vec<String> {
+        let item: syn::ItemUse = syn::parse_str(&format!("use {tree};")).unwrap();
+        use_tree_leaves(&item.tree)
+            .into_iter()
+            .map(|(path, leaf)| {
+                let path: Vec<_> = path.iter().map(|i| i.to_string()).collect();
+                let leaf = match leaf {
+                    UseLeaf::Name(n) => n.to_string(),
+                    UseLeaf::Rename { name, rename } => format!("{name} as {rename}"),
+                    UseLeaf::Glob => "*".into(),
+                };
+                format!("{}::{leaf}", path.join("::"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn self_in_a_group_imports_the_module() {
+        assert_eq!(
+            leaves("ww_si::units::{self, Volt}"),
+            ["ww_si::units", "ww_si::units::Volt"]
+        );
+        assert_eq!(leaves("ww_si::units::{self as u}"), ["ww_si::units as u"]);
+        let item: syn::ItemUse = syn::parse_str("use a::b::{self, C};").unwrap();
+        let names: Vec<_> = use_tree_names(&item.tree)
+            .into_iter()
+            .map(|(p, n)| (p.len(), n.to_string()))
+            .collect();
+        assert_eq!(names, [(1, "b".into()), (2, "C".into())]);
     }
 }

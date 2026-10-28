@@ -16,7 +16,7 @@ some framework code defines bytes on the wire although it lives in a "free to br
 | Layer                 | Crates                                                                                                                                                              | Versioning                                                                  |
 |-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | 1. Wire format        | `shrink_wrap`, `shrink_wrap_derive`                                                                                                                                 | own version, changes rarely                                                 |
-| 2. Shared API & types | `ww_stdlib/*`: base types (`ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`) and traits (`ww_gpio`, `ww_i2c`, `ww_client_server`, ...); framework base types `ww_global` and `ww_self` (repo root) | own version per crate, the version is the API identity                      |
+| 2. Shared API & types | `exact_units` (repo root, the units and `Fixed` under `ww_si`); `ww_stdlib/*`: base types (`ww_numeric`, `ww_si`, `ww_date_time`, `ww_version`) and traits (`ww_gpio`, `ww_i2c`, `ww_client_server`, ...); framework base types `ww_global` and `ww_self` (repo root) | own version per crate, the version is the API identity                      |
 | 3. Framework          | `wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`, `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, ...  | shared `[workspace.package] version`, free to break Rust API                |
 | 4. User API           | `my_device_api` and friends (see [folder structure](../api/folder_structure.md))                                                                                    | own version, the version is the API identity, checked on every connection |
 
@@ -80,7 +80,12 @@ crates (layer 4):
   change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
   releases that are supposed to be wire-compatible additions; prefer deprecating and adding.
 
-Base type crates (`ww_numeric`, `ww_si`, ...) are used by other `ww_stdlib` crates as well, so their breaking
+`exact_units` is the bottom of this layer: the unit markers, `Dim`, `ExactScale`, `SIExpr` and `Fixed`, which `ww_si`
+re-exports. A unit's identity on the wire includes its crate (a counted base is `exact_units` + its marker name), so
+moving a marker to another crate is a wire change, and a break in `exact_units` is a break in `ww_si` and everything
+built on it.
+
+Base type crates (`exact_units`, `ww_numeric`, `ww_si`, ...) are used by other `ww_stdlib` crates as well, so their breaking
 changes cascade the same way `shrink_wrap` ones do, just over a smaller set of crates - check reverse dependencies in
 the root `Cargo.toml` before breaking one. `ww_version` and `ww_global` are special: `FullVersion`,
 `CompactVersion` and `ApiHashPair` are exchanged during link setup, before any version could be checked, so they are

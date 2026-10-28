@@ -102,6 +102,10 @@ jobs:
       # a firmware's SeriesStore sizes, with the number types up to 32 bits only
       - run: cargo nextest run -p ww_numeric --no-default-features --features u32,i32,f32 --test store --test integer --profile ci
       - run: cargo nextest run -p ww_si --no-default-features --features time,electrical,u32,i32,f32 --test store --test narrow --profile ci
+      # exact_units without shrink_wrap (no wire format, plain Rust types) and with it but without std
+      - run: cargo nextest run -p exact_units --no-default-features --features std --profile ci
+      - run: cargo nextest run -p exact_units --no-default-features --features shrink_wrap,quantities --profile ci
+      - run: cargo clippy -p exact_units --all-targets --no-default-features --features std -- -D warnings
       # nextest does not run doctests
       - run: cargo test --workspace --doc
 
@@ -216,6 +220,10 @@ jobs:
           target: thumbv6m-none-eabi,thumbv7em-none-eabihf
       - run: cargo check --workspace --exclude ww_ecc_flash
         working-directory: mcu
+      # exact_units on an M0 without std, every unit group and defmt (from the root workspace)
+      - run: cargo check -p exact_units --no-default-features --features quantities,defmt --target thumbv6m-none-eabi
+      # and with the wire format
+      - run: cargo check -p exact_units --no-default-features --features shrink_wrap,quantities,defmt --target thumbv6m-none-eabi
       - run: cargo check -p ww_ecc_flash --features nmi-handler --target thumbv6m-none-eabi
         working-directory: mcu
       - run: cargo check -p ww_ecc_flash --features stm32h7 --target thumbv7em-none-eabihf

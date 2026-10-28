@@ -2,8 +2,8 @@
 //! integer storage, for timestamps and durations above all (`t0 + i * dt`). The operators (`+`, `*`, ..) compute in
 //! floats instead, see [Quantity].
 
-use crate::unit::Unit;
 use crate::{Prefix, Quantity};
+use exact_units::Unit;
 use ww_numeric::Integer;
 
 // Everything in ww_numeric::Integer: no wider arithmetic than the enabled number types need (u32 with types up to 32

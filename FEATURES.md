@@ -776,9 +776,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   for methods without effects, carried in introspection: the hub lets peers with only the `observe` right call them
   (SRV-37), GUIs may call them freely. The API author's promise, not something the hub can check. Design: hub
   federation (SRV-33).
-- 📋 **API-60 Feature-gated derives and standalone crates in the walker** · `v0.5` — the crate walker and snapshots read
-  `#[cfg_attr(feature = "..", derive_shrink_wrap(..))]` and walk a dependency that isn't an API crate (`exact_units`,
-  STD-61).
 - ✅ **SRV-1 `no_std`, no-alloc server**, IO-free generated code.
 - ✅ **SRV-2 Sans-IO `DeviceLink`**, async `Server` with `wait()`/`handle()` for a user-owned event loop, and
   `blocking::Server`.
@@ -1745,6 +1742,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   float types. `to_i32_in` / `to_u32_in` / `to_u32_wrapping_in`; `to_i128_in` only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, `opt-level = "z"`). `docs/std_library/ww_si.md#conversions-and-comparisons`,
   `ww_stdlib/ww_si/tests/narrow.rs` and `ww_stdlib/ww_numeric/tests/integer.rs` (run with 32-bit types only too).
+- ✅ **STD-61 `exact_units`: the compile-time unit core as a crate of its own** · `v0.5` — a standalone `no_std`
+  crate, no dependencies without features (Roman, 27 Oct 2026): `Dim` (SI, rad, bit, counted bases, root flag), unit
+  markers and `Unit` (with `Sqrt<U>`), `ExactScale` (with a power of π), `Fixed`, bounds, const `sqrt_f64`;
+  `shrink_wrap` (wire format, `SIExpr`, through `#[wire(..)]` fields the same bytes as before), `std` and `defmt`
+  behind features. `ww_si` re-exports it and keeps the runtime side (`Quantity`, `AnyQuantity`, `Timed`); units are
+  named `exact_units::..` in the model (a counted base costs 6 bytes more on the wire). Walked and snapshotted like an
+  API crate. [exact_units](docs/std_library/exact_units.md), `exact_units/tests`, CI legs without features and on
+  thumbv6m.
+- ✅ **STD-55 `exact_units::Fixed<U, P, T, B = Unbounded>`: unit, scale and bounds fixed at compile time** · `v0.5` —
+  a value of unit `U` at scale `P` stored as `T`, on the wire exactly `T` (DER-18 `transparent`; no prefix, no
+  `NumericValue` tag, so a `u64` doesn't turn on `ww_numeric`'s `u64` for everyone); scale markers (every prefix
+  name, `Kibi`.., `Pow10<E>`, `Rational<N, D>`), bounds (`Unbounded`, `Range`, `RangeU64`, `RangeDec`) checked on
+  decode and construction; information and counting units, exact `to`, `Quantity::to_fixed` / `from_fixed`,
+  `core::time::Duration`, checked / wrapping / saturating ops, `Display` (`1500 µs`); in the API model as an instance
+  of one generic definition with `B` explicit, so introspection shows the unit. Same code as a plain field on
+  Cortex-M (DER-20). [exact_units](docs/std_library/exact_units.md), conformance `stdlib.si.fixed.*`,
+  `tests/quantities`.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
@@ -1978,12 +1992,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   id, and its `cnt` format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
   be behind (STD-25): bring the firmware's `cnt` and build id up to what the tool needs, or make the tool say which
   format it got and what is missing instead of failing.
-- 📋 **STD-55 `ww_si::Fixed<U, P, T, B = Unbounded>`: unit, scale and bounds fixed at compile time** · `v0.5` — a
-  value of unit `U` at scale `P` stored as `T`, on the wire exactly `T` (no prefix, no `NumericValue` tag, so a
-  `u64` doesn't turn on `ww_numeric`'s `u64` for everyone); scale markers (every prefix name, `Kibi`.., `Pow10<E>`,
-  `Rational<N, D>`), bounds (`Unbounded`, `Range`, `RangeU64`, `RangeDec`) checked on decode and construction;
-  information and counting units, exact conversions to and from `Quantity`, `core::time::Duration`, const ops; in
-  the API model as an instance of one generic definition, so introspection shows the unit.
 - 📋 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
   `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
   `ww_client_server` and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.
@@ -1991,10 +1999,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
   (`Quantity<U, B>`, range in coherent units; a break: `B` explicit in the model), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
-- 📋 **STD-61 `exact_units`: the compile-time unit core as a crate of its own** · `v0.5` — a standalone `no_std` crate
-  usable without WireWeaver (Roman, 27 Oct 2026): dimensions, unit markers, exact magnitudes, `Fixed`, bounds;
-  `shrink_wrap` and `defmt` behind features, ww_si its WireWeaver face with the runtime side. The defining crate is
-  part of each unit's identity in the model, so it moves before anything ships.
 - 📋 **STD-62 One exact magnitude for every scale** · `v0.5` — every scale (prefixes, `Pow10<E>`, `Rational<N, D>` with
   `u64` parameters, `Kibi`.., Q formats, full-scale fractions, binary angles) is one canonical, exact form with a power
   of π, equal however it is written; conversion factors are computed at compile time, and one that doesn't fit is a

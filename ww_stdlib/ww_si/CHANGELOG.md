@@ -29,6 +29,15 @@
   `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Scale` has a new variant `Exact` (an `ExactScale`), which
   `Degree` now uses (was a factor), so its `SIExpr` bytes change too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
   dimension, `Byte` is 8 `Bit` (a scale, the dimension is bit).
+* Against earlier builds from main (STD-61): the compile-time core is the new crate `exact_units`, which `ww_si`
+  re-exports (`ww_si::exact_units`, and every moved name at the same place as before: `ww_si::Dim`, `ww_si::units`,
+  `ww_si::Fixed`, ..), so most code compiles unchanged. Moved: `Dim`, `Counted`, `Scale`, `ExactScale`, `UnitExpr`,
+  the `Unit` trait, `UnitMul` / `UnitDiv`, the unit markers, `Prefix`, `SIExpr` / `SIExprOwned`, `tree` (without
+  `quantity`), `Fixed` with its scales, storage and bounds. `Fixed::to_quantity` / `Fixed::try_from_quantity` are
+  `Quantity::from_fixed` (or `Quantity::from(fixed)`) / `Quantity::to_fixed` (a crate can't add inherent methods to a
+  type of another). The counted markers of this crate (`Item`, `Sample`, ..) are now known by the crate
+  `exact_units`, so a `Dim` with one is 6 bytes longer on the wire and isn't the same base as one named by `ww_si`.
+  In introspection the moved types are `exact_units::..`, which `wire_weaver_client` reads as units.
 
 ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,
 `Series` and `Series<Timed<..>>`), the API model and Rust API are not: devices and hosts are rebuilt with 0.2 together.
@@ -82,7 +91,7 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   factor, affine for °C), `UnitExpr` (a named unit or a product / quotient / power tree, with `dim()`, `factor()`,
   `symbol()`, `name()`) and the `Unit` trait (`DIM`, `EXPR`, `SI_EXPR`): an API crate can declare its own marker.
 * Units known only at run time (STD-37), the same model as the markers on the wire:
-  * `Dim` is nine `I4` exponents (-8..=7), `root: bool` and `counted: [Option<Counted>; 4]`, `final_structure` (Volt
+  * `Dim` is nine `i8` exponents (-8..=7, an `I4` each on the wire), `root: bool` and `counted: [Option<Counted>; 4]`, `final_structure` (Volt
     is `d2 1f 00 00 00 00`, 41 bits): `Dim::new(s, m, kg, a, k, mol, cd)` (`const`, a compile error out of range),
     `checked_new`, `exps()`, `checked_mul` / `checked_div` / `checked_pow` for run-time trees (`None` out of range
     or for a fifth counted base). `Scale` goes on the wire too (a nibble, then its numbers).
@@ -134,7 +143,8 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   * `new` / `get`, the operators `+ - * /` by `T` (and the assigning ones, `Sum`) for unbounded values; `try_new`,
     `bounded` (`const`, a compile error out of bounds), `unbounded`, `to_bounds` for bounded ones; `checked_*`,
     `saturating_*`, `wrapping_*`; `to::<P2, T2>()` (exact conversion only, `None` otherwise: 1500 µs isn't a whole
-    number of ms), `to_quantity` (only for number types `NumericValue` has enabled), `try_from_quantity`;
+    number of ms), `Quantity::from_fixed` / `From<Fixed> for Quantity` (only for number types `NumericValue` has
+    enabled), `Quantity::to_fixed`;
     `core::time::Duration` both ways for s, ds, cs, ms, µs, ns; `PartialEq`, `Ord`, `Hash`; `Display` (`1500 µs`,
     `{:#}` in the unit: `0.0015 s`, a scale without a prefix as `15·10⁻⁴ s`), `Debug`, `defmt::Format`;
     `series(cells)`, so a `Series` of `Fixed` fields has the columns of the plain fields.
@@ -146,6 +156,9 @@ ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire ar
   `apply_f64`, `to_f64`, `as_pow10`, `Display` (`·10⁻⁴`, `·π/180`). A non-canonical one from the wire is refused.
   `Scale::Exact(ExactScale)` is the same on a unit known at run time: `Degree` is exactly `π/180` rad, and the new unit
   `Turn` (`rev`, alias `ww_si::Turn`) is `2π` rad.
+* `units::Sqrt<U>`: the square root of a unit (V/√Hz is `Per<Volt, Sqrt<Hertz>>`), a `Dim` with `root`, shown `√Hz`,
+  named `Sqrt<Hertz>`; `UnitExpr::Sqrt` and `SIExpr::Sqrt` (a new last variant, part of the EVO-16 break) carry it
+  at run time. `exact_units::num::sqrt_f64` is a `const` square root, rounded exactly like `f64::sqrt`.
 * `to_hertz` / `from_hertz` on `Quantity<Per<Cycle, Second>>` and `to_hertz` on a `Fixed` of it: cycles per second
   become hertz only through this named step.
 * Written once for every quantity: `from_parts` (`const`), `new`, `base`, `milli`, `micro`, `nano`, `pico`, `centi`,

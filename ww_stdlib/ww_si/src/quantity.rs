@@ -4,11 +4,11 @@ use crate::ops::{
     compare, scale_f32, scale_f64, to_i32_scaled, to_u32_scaled, to_u32_wrapping_scaled,
 };
 use crate::tree::{self, write_unit};
-use crate::unit::{Unit, UnitExpr};
 use crate::{Prefix, Quantity};
 use core::cmp::Ordering;
 use core::fmt;
 use core::marker::PhantomData;
+use exact_units::{Unit, UnitExpr};
 use ww_numeric::{NumericBaseType, NumericValue};
 
 impl<U: Unit> Quantity<U> {
@@ -229,7 +229,7 @@ impl<U: Unit> defmt::Format for Quantity<U> {
         let unit = U::EXPR;
         if let UnitExpr::Named { symbol, .. } = unit {
             if symbol.is_empty() {
-                defmt_ratio_prefix(self.prefix, f);
+                Prefix::defmt_ratio(self.prefix, f);
             } else {
                 defmt::write!(f, " {=str}{=str}", self.prefix.symbol(), symbol);
             }
@@ -255,19 +255,6 @@ pub(crate) fn defmt_number(value: &NumericValue, f: defmt::Formatter<'_>) {
     }
 }
 
-/// A ratio's prefix as %, ‰, ppm, for `defmt`.
-#[cfg(feature = "defmt")]
-pub(crate) fn defmt_ratio_prefix(prefix: Prefix, f: defmt::Formatter<'_>) {
-    match prefix {
-        Prefix::Unit => {}
-        Prefix::Centi => defmt::write!(f, " %"),
-        Prefix::Milli => defmt::write!(f, " ‰"),
-        Prefix::Micro => defmt::write!(f, " ppm"),
-        Prefix::Nano => defmt::write!(f, " ppb"),
-        p => defmt::write!(f, "e{=i8}", i8::from(p)),
-    }
-}
-
 #[cfg(feature = "defmt")]
 struct DefmtName(&'static UnitExpr);
 
@@ -279,6 +266,22 @@ impl defmt::Format for DefmtName {
             UnitExpr::Mul(a, b) => defmt::write!(f, "({}·{})", DefmtName(a), DefmtName(b)),
             UnitExpr::Div(a, b) => defmt::write!(f, "({}/{})", DefmtName(a), DefmtName(b)),
             UnitExpr::Pow(a, n) => defmt::write!(f, "({}^{=i8})", DefmtName(a), n),
+            UnitExpr::Sqrt(a) => defmt::write!(f, "√({})", DefmtName(a)),
         }
+    }
+}
+
+/// Cycles per second are hertz: the counted [Cycle](crate::units::Cycle) and the hertz of a clock are different dimensions (Hz is s⁻¹),
+/// so going from one to the other is this named step, never an implicit conversion.
+#[cfg(all(feature = "counting", feature = "time"))]
+impl crate::Quantity<crate::units::Per<crate::units::Cycle, crate::units::Second>> {
+    /// The same number and prefix in Hz: 8 Mcycle/s is 8 MHz.
+    pub const fn to_hertz(self) -> crate::Hertz {
+        crate::Quantity::from_parts(self.prefix, self.value)
+    }
+
+    /// The same number and prefix in cycles per second.
+    pub const fn from_hertz(f: crate::Hertz) -> Self {
+        crate::Quantity::from_parts(f.prefix, f.value)
     }
 }

@@ -50,6 +50,8 @@ pub enum DynUnit {
     Times(Box<DynUnit>, Box<DynUnit>),
     /// `A` to an integer power (`UnitExpr::Pow`, `SIExpr::Pow`).
     Pow(Box<DynUnit>, i8),
+    /// `units::Sqrt<A>`, `√A` (`UnitExpr::Sqrt`, `SIExpr::Sqrt`).
+    Sqrt(Box<DynUnit>),
 }
 
 impl DynUnit {
@@ -64,6 +66,7 @@ impl DynUnit {
                 DynUnit::Per(Box::new(Self::from_expr(a)), Box::new(Self::from_expr(b)))
             }
             UnitExpr::Pow(a, n) => DynUnit::Pow(Box::new(Self::from_expr(a)), *n),
+            UnitExpr::Sqrt(a) => DynUnit::Sqrt(Box::new(Self::from_expr(a))),
         }
     }
 
@@ -101,6 +104,7 @@ impl DynUnit {
                 SIExpr::Mul(a, b) => DynUnit::Times(child(a), child(b)),
                 SIExpr::Div(a, b) => DynUnit::Per(child(a), child(b)),
                 SIExpr::Pow(a, n) => DynUnit::Pow(child(a), *n),
+                SIExpr::Sqrt(a) => DynUnit::Sqrt(child(a)),
             }
         }
         conv(expr, 0)
@@ -130,6 +134,7 @@ impl DynUnit {
                 SIExprOwned::Mul(Box::new(a.to_si_expr()?), Box::new(b.to_si_expr()?))
             }
             DynUnit::Pow(a, n) => SIExprOwned::Pow(Box::new(a.to_si_expr()?), *n),
+            DynUnit::Sqrt(a) => SIExprOwned::Sqrt(Box::new(a.to_si_expr()?)),
         })
     }
 
@@ -202,6 +207,7 @@ impl<'a> Tree<'a> for Part<'a> {
                 DynUnit::Per(a, b) => tree::Node::Div(Part::Dyn(a), Part::Dyn(b)),
                 DynUnit::Times(a, b) => tree::Node::Mul(Part::Dyn(a), Part::Dyn(b)),
                 DynUnit::Pow(a, n) => tree::Node::Pow(Part::Dyn(a), *n),
+                DynUnit::Sqrt(a) => tree::Node::Sqrt(Part::Dyn(a)),
             }),
         }
     }
@@ -471,7 +477,7 @@ fn instance_of<'a>(ty: &'a TypeOwned, bundle: &'a ApiBundleOwned) -> Option<&'a 
     }
 }
 
-/// `bundle.types[type_idx]` is `ww_si::<path>::<ident>` of ww_si 0.2 or later.
+/// `bundle.types[type_idx]` is `ww_si::<path>::<ident>` of ww_si 0.2 or later, or `exact_units::<path>::<ident>`.
 fn is_ww_si(type_idx: u32, path: Option<&[&str]>, ident: &str, bundle: &ApiBundleOwned) -> bool {
     let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx) else {
         return false;
@@ -479,7 +485,8 @@ fn is_ww_si(type_idx: u32, path: Option<&[&str]>, ident: &str, bundle: &ApiBundl
     is_ww_si_struct(s, path, ident, bundle)
 }
 
-/// `s` is `ww_si::<path>::<ident>` of ww_si 0.2 or later.
+/// `s` is `ww_si::<path>::<ident>` of ww_si 0.2 or later, or `exact_units::<path>::<ident>`: the unit markers
+/// moved there (STD-61), a device built against an older ww_si still names them in ww_si.
 fn is_ww_si_struct(
     s: &ItemStructOwned,
     path: Option<&[&str]>,
@@ -495,10 +502,12 @@ fn is_ww_si_struct(
         (Some(a), Some(b)) => a.iter().map(String::as_str).eq(b.iter().copied()),
         _ => false,
     };
-    version.crate_id == "ww_si"
-        && (v.major.0, v.minor.0) >= (0, 2)
-        && s.ident == ident
-        && path_matches
+    let known_crate = match version.crate_id.as_str() {
+        "ww_si" => (v.major.0, v.minor.0) >= (0, 2),
+        "exact_units" => true,
+        _ => false,
+    };
+    known_crate && s.ident == ident && path_matches
 }
 
 fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
@@ -525,6 +534,11 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
             if is_ww_si(inst.type_idx.0, units, "Times", bundle) {
                 return DynUnit::Times(a, b);
             }
+        }
+        if let [GenericArgOwned::Type(a)] = inst.args.as_slice()
+            && is_ww_si(inst.type_idx.0, units, "Sqrt", bundle)
+        {
+            return DynUnit::Sqrt(Box::new(unit(a, bundle, depth + 1)));
         }
         return by_type_name();
     }

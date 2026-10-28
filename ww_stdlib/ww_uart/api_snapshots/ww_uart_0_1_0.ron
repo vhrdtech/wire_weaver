@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 671bf911d0df691904d937e11643a49fffc3f0835fd18282c61d319f427c970c
+// shrink_wrap sha256: 420156a8851149c7418a3547f23e31e813363e2c43233232e121b872eb765450
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -41,24 +41,24 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
-        183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Line errors seen in a chunk.",
@@ -95,24 +95,24 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        5,
-        106,
-        216,
-        48,
-        38,
-        78,
-        104,
-        9,
+        160,
+        239,
+        149,
+        227,
+        90,
+        10,
+        69,
+        211,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        94,
-        190,
-        166,
-        249,
-        222,
-        38,
-        16,
-        236,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Uart` implementation supports, see `Uart::capabilities`.",
@@ -242,7 +242,7 @@
             "the chunk, a shorter one doesn\'t. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -406,6 +406,7 @@
     ], compact_id: Some(36), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_uart", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

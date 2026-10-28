@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 5a1b61f90c55c4f691876d060e9cff79cfcb551ad345b36f0d782ad32c00b9e4
+// shrink_wrap sha256: 73c2fdd84c271bb443ff35f354750e3399c957ff4e03f8fdb23ce5fd1110c385
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -19,24 +19,24 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Clock", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
-        183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A format a sync line can carry, see `ClockInfo::sync_formats`.",
@@ -139,7 +139,7 @@
             (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -218,7 +218,7 @@
             "within the last few seconds). `None` without one, and from devices that don\'t tell.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "DateTime", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "DateTime", signature: [
         29,
         39,
         248,
@@ -368,6 +368,7 @@
     ], compact_id: Some(24), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_timebase", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

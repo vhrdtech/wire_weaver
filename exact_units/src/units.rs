@@ -1,24 +1,26 @@
-//! Unit markers: zero-size types that name a unit in a type (`Quantity<units::Volt>`), never sent themselves. Every
-//! one has an alias of its quantity at the crate root under the same name (`ww_si::Volt`), which is what APIs write.
+//! Unit markers: zero-size types that name a unit in a type (`Fixed<units::Volt, Milli, u16>`), never sent themselves.
+//! `ww_si` has an alias of the run-time quantity of each under the same name (`ww_si::Volt`).
 //!
-//! Compound units outside the list are [Per] and [Times] of markers: `Quantity<Per<Torque, AngularVelocity>>` is in
+//! Compound units outside the list are [Per] and [Times] of markers: `Fixed<Per<Torque, AngularVelocity>, One, f32>` is in
 //! N·m/(rad/s). [by_name] and [ALL] give the [UnitExpr] of every named marker of this crate, for dynamic clients that
 //! see a unit only by its name in introspection data.
 //!
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs; their [Unit] impls come
 //! from one table below, the `SI:` dimension of each line is checked against the product table at compile time.
 
+#[cfg(feature = "shrink_wrap")]
 use crate::SIExpr;
 #[allow(unused_imports)] // `Scale` with no quantity group enabled
 use crate::unit::{Dim, Scale, Unit, UnitExpr};
 use core::marker::PhantomData;
+#[cfg(feature = "shrink_wrap")]
 use shrink_wrap::RefBox;
 
 // Time
 
 /// Time in seconds, s.
 ///
-/// As a device timestamp it is the device's time since its clock started, see [Second](crate::Second).
+/// As a device timestamp it is the device's time since its clock started, see `ww_si::Second`.
 #[cfg(feature = "time")]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Second;
@@ -283,7 +285,7 @@ pub struct Word;
 
 // Counting: each marker is a base dimension of its own (a counted base, named by its crate and marker name), so
 // samples don't add to bytes, and become bytes only through a `Per<Byte, Sample>`. An API that counts something else
-// declares its own marker with `ww_si::counted!(Name)`, see [Unit].
+// declares its own marker with `exact_units::counted!(Name)`, see [Unit].
 
 /// A count of things, item: a queue's length, a number of filters, channels, presses, repeats, steps.
 #[cfg(feature = "counting")]
@@ -352,9 +354,25 @@ pub struct Times<A, B> {
     _b: PhantomData<B>,
 }
 
+/// `√U`, the square root of a unit: an amplitude spectral density in V/√Hz is `Per<Volt, Sqrt<Hertz>>`. Its
+/// dimension has the root flag ([Dim::sqrt](crate::Dim::sqrt)): the exponents of V²/Hz, so the algebra stays integer.
+/// `Sqrt<Sqrt<U>>` doesn't compile (a fourth root isn't a [Dim]).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Sqrt<U> {
+    _u: PhantomData<U>,
+}
+
+impl<U: Unit> Unit for Sqrt<U> {
+    const DIM: Dim<'static> = U::DIM.sqrt();
+    const EXPR: &'static UnitExpr = &UnitExpr::Sqrt(U::EXPR);
+    #[cfg(feature = "shrink_wrap")]
+    const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Sqrt(RefBox::Ref { value: U::SI_EXPR });
+}
+
 impl<A: Unit, B: Unit> Unit for Per<A, B> {
     const DIM: Dim<'static> = A::DIM.div(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Div(A::EXPR, B::EXPR);
+    #[cfg(feature = "shrink_wrap")]
     const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Div(
         RefBox::Ref { value: A::SI_EXPR },
         RefBox::Ref { value: B::SI_EXPR },
@@ -364,6 +382,7 @@ impl<A: Unit, B: Unit> Unit for Per<A, B> {
 impl<A: Unit, B: Unit> Unit for Times<A, B> {
     const DIM: Dim<'static> = A::DIM.mul(B::DIM);
     const EXPR: &'static UnitExpr = &UnitExpr::Mul(A::EXPR, B::EXPR);
+    #[cfg(feature = "shrink_wrap")]
     const SI_EXPR: &'static SIExpr<'static> = &SIExpr::Mul(
         RefBox::Ref { value: A::SI_EXPR },
         RefBox::Ref { value: B::SI_EXPR },
@@ -493,20 +512,6 @@ pub fn by_name(name: &str) -> Option<&'static UnitExpr> {
 
 /// Cycles per second are hertz: the counted [Cycle] and the hertz of a clock are different dimensions (Hz is s⁻¹),
 /// so going from one to the other is this named step, never an implicit conversion.
-#[cfg(all(feature = "counting", feature = "time"))]
-impl crate::Quantity<Per<Cycle, Second>> {
-    /// The same number and prefix in Hz: 8 Mcycle/s is 8 MHz.
-    pub const fn to_hertz(self) -> crate::Hertz {
-        crate::Quantity::from_parts(self.prefix, self.value)
-    }
-
-    /// The same number and prefix in cycles per second.
-    pub const fn from_hertz(f: crate::Hertz) -> Self {
-        crate::Quantity::from_parts(f.prefix, f.value)
-    }
-}
-
-/// Cycles per second are hertz, as for a [Quantity](crate::Quantity).
 #[cfg(all(feature = "counting", feature = "time"))]
 impl<P, T: crate::Storage, B: crate::Bounds<T>> crate::Fixed<Per<Cycle, Second>, P, T, B> {
     /// The same number in Hz.

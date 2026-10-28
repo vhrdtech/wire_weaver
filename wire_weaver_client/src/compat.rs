@@ -438,10 +438,10 @@ mod tests {
                 panic!("expected incompatible");
             };
             for part in [
-                "ww_si::units::Volt 0.2.0",
+                "exact_units::units::Volt 0.1.0",
                 &hex::encode(host_signature),
                 &hex::encode(older_signature),
-                "different revisions of ww_si",
+                "different revisions of exact_units",
                 "Rebuild (reflash) both from one revision",
             ] {
                 assert!(

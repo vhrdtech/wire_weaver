@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ad6d14f22ff74dfa01e751ffb514d6c2720bfe3b89ba097c804dc9a3c67b6e59
+// shrink_wrap sha256: fa559a6421969dfec90473c84286cbefbfd5f48a15290e820818870119223795
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -55,24 +55,24 @@
         (ident: Some("bytes"), default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
-        183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One addressed (or skip-ROM) transaction: reset, select, write, read, optional strong pull-up.",
@@ -88,7 +88,7 @@
             "Drive the bus high this long after the last byte (parasite-powered parts converting or writing).",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -138,14 +138,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        94,
-        190,
-        166,
-        249,
-        222,
-        38,
-        16,
-        236,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a bus supports, see `OneWire::capabilities`.",
@@ -296,6 +296,7 @@
     ], compact_id: Some(72), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_onewire", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

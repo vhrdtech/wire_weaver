@@ -4522,6 +4522,7 @@ name = "shrink_wrap_c"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "exact_units",
  "hex-literal",
  "proptest",
  "shrink_wrap",

@@ -731,9 +731,7 @@ impl Conversion {
             "a unit with an offset converts as a Point, not a Fixed"
         );
         let (Some(from), Some(to)) = (U::EXPR.magnitude(), U2::EXPR.magnitude()) else {
-            panic!(
-                "a Fixed converts only between units with an exact factor to SI"
-            )
+            panic!("a Fixed converts only between units with an exact factor to SI")
         };
         Self::by::<T, T2>(from.mul(P::SCALE).div(to.mul(P2::SCALE)), false)
     }
@@ -1168,7 +1166,11 @@ mod tests {
             name: "Affine",
             symbol: "m~",
             dim: Dim::new(0, 1, 0, 0, 0, 0, 0),
-            scale: Scale::Affine { factor: 0.3, offset: 0.0 },
+            scale: Scale::Affine {
+                factor: 0.3,
+                offset: 0.0,
+            },
+            provenance: crate::Provenance::Defined,
         };
         static M: UnitExpr = UnitExpr::Mul(&F, <Second as Unit>::EXPR);
         assert_eq!(F.magnitude(), None);

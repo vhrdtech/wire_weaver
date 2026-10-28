@@ -66,7 +66,7 @@ pub use si_prefix::Prefix;
 pub use tree::MAX_UNIT_DEPTH;
 #[doc(hidden)]
 pub use unit::exp as __dim_exp;
-pub use unit::{Counted, Dim, MAX_COUNTED, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
+pub use unit::{Counted, Dim, MAX_COUNTED, Provenance, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
 #[cfg(all(feature = "std", feature = "shrink_wrap"))]
 pub use unit::{CountedOwned, DimOwned};
 

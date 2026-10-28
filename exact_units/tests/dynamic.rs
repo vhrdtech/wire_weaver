@@ -213,6 +213,7 @@ fn pow() {
         symbol: "m",
         dim: Dim::new(0, 1, 0, 0, 0, 0, 0),
         scale: Scale::Coherent,
+        provenance: exact_units::Provenance::Defined,
     };
     static SQUARE: UnitExpr = UnitExpr::Pow(&METER, 2);
     static SPEED: UnitExpr = UnitExpr::Named {
@@ -220,6 +221,7 @@ fn pow() {
         symbol: "m/s",
         dim: Dim::new(-1, 1, 0, 0, 0, 0, 0),
         scale: Scale::Coherent,
+        provenance: exact_units::Provenance::Defined,
     };
     static SPEED_SQ: UnitExpr = UnitExpr::Pow(&SPEED, 2);
     static PER_SQ: UnitExpr = UnitExpr::Div(&METER, &SQUARE);

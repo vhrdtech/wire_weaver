@@ -1,16 +1,19 @@
 //! The SI prefixes as a value: what a prefix fixed in a type stands for at run time, and what a quantity whose prefix
 //! is chosen at run time carries on the wire.
 
-use crate::{ExactScale, Magnitude};
+use crate::Magnitude;
 #[cfg(feature = "shrink_wrap")]
 use shrink_wrap::prelude::*;
 
-/// A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or
-/// any other exact scale ([Exact](Prefix::Exact): `1/65535`, `10⁻⁴`, `π/2¹⁵`).
+/// A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or one
+/// of three families of exact scales that aren't named: [Pow10](Prefix::Pow10) (`10⁻⁴`), [Pow2](Prefix::Pow2) (`2⁻¹⁵`,
+/// a Q format) and [FullScale](Prefix::FullScale) (`1/65535`, a 16-bit duty).
 ///
-/// One byte in memory. On the wire a `UNib32`: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one nibble,
-/// `Exact` its tag and the full [Magnitude], so every reader gets the exact scale. An `Exact` never holds a named
-/// prefix's scale ([from_magnitude](Self::from_magnitude) gives the named one), so equal scales are equal prefixes.
+/// Two bytes in memory. On the wire a `UNib32` tag: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one
+/// nibble, the other named ones a byte, and the three families one more byte for their parameter, so a scale takes 2
+/// bytes at most and is self-contained. A family never holds a named prefix's scale (its parameter type refuses it,
+/// also when read), so equal scales are equal prefixes. Other exact scales (`1/5`, `π/1000`) aren't a `Prefix`: a
+/// value with one is an `AnyQuantity`.
 #[cfg_attr(
     feature = "shrink_wrap",
     derive_shrink_wrap(
@@ -22,7 +25,7 @@ use shrink_wrap::prelude::*;
         niche
     )
 )]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Prefix {
     Unit,
@@ -62,8 +65,168 @@ pub enum Prefix {
     /// 2⁴⁰
     Tebi,
 
-    /// An exact scale that isn't a named prefix, by a one-byte handle; the full magnitude on the wire.
-    Exact(#[cfg_attr(feature = "shrink_wrap", wire(Magnitude))] ExactScale),
+    /// `10^e` that isn't an SI prefix: `10⁻⁴`, `10⁵`.
+    Pow10(#[cfg_attr(feature = "shrink_wrap", wire(i8))] Pow10Exp),
+    /// `2^e` that isn't a binary prefix: `2⁻¹⁵` (a Q15 step, an RTC tick), `2⁸`.
+    Pow2(#[cfg_attr(feature = "shrink_wrap", wire(i8))] Pow2Exp),
+    /// `1/(2^n − 1)`: the step of an `n`-bit full scale, `1/65535` for a 16-bit duty.
+    FullScale(#[cfg_attr(feature = "shrink_wrap", wire(u8))] FullScaleBits),
+}
+
+/// The exponent of [Prefix::Pow10]: -63..=63, not an SI prefix's (`-3` is `Milli`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct Pow10Exp(i8);
+
+impl Pow10Exp {
+    /// `None` for an SI prefix's exponent and out of -63..=63.
+    pub const fn new(e: i8) -> Option<Self> {
+        if Prefix::si_from_pow10(e).is_none() && -63 <= e && e <= 63 {
+            Some(Pow10Exp(e))
+        } else {
+            None
+        }
+    }
+
+    pub const fn get(self) -> i8 {
+        self.0
+    }
+}
+
+/// The exponent of [Prefix::Pow2]: -63..=63, not 0 or a binary prefix's (10, 20, 30, 40).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct Pow2Exp(i8);
+
+impl Pow2Exp {
+    /// `None` for 0, a binary prefix's exponent and out of -63..=63.
+    pub const fn new(e: i8) -> Option<Self> {
+        if !matches!(e, 0 | 10 | 20 | 30 | 40) && -63 <= e && e <= 63 {
+            Some(Pow2Exp(e))
+        } else {
+            None
+        }
+    }
+
+    pub const fn get(self) -> i8 {
+        self.0
+    }
+}
+
+/// The bits of [Prefix::FullScale], 2..=32 (1 bit would be `Unit`).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct FullScaleBits(u8);
+
+impl FullScaleBits {
+    /// `None` out of 2..=32.
+    pub const fn new(n: u8) -> Option<Self> {
+        if 2 <= n && n <= 32 {
+            Some(FullScaleBits(n))
+        } else {
+            None
+        }
+    }
+
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+
+    /// `1/(2^n − 1)`, built from the primes of `2^n − 1` (no trial division).
+    pub const fn magnitude(self) -> Magnitude {
+        let b = (self.0 - 2) as usize;
+        let start = if b == 0 { 0 } else { FULL_ENDS[b - 1] as usize };
+        let (_, tail) = FULL_PRIMES.split_at(start);
+        let (primes, _) = tail.split_at(FULL_ENDS[b] as usize - start);
+        Magnitude::recip_of_primes(primes)
+    }
+
+    /// The bits whose full scale step is `m`, `None` when `m` isn't one.
+    pub fn of(m: &Magnitude) -> Option<Self> {
+        match m.to_ratio() {
+            Some((1, den)) if (den + 1).is_power_of_two() => {
+                FullScaleBits::new((den + 1).trailing_zeros() as u8)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// The primes of `2^n - 1` for `n` in 2..=32, a power repeated, back to back; [FULL_ENDS] marks where each ends.
+const FULL_PRIMES: [u32; 97] = [
+    3, // 2
+    7, // 3
+    3, 5,  // 4
+    31, // 5
+    3, 3, 7,   // 6
+    127, // 7
+    3, 5, 17, // 8
+    7, 73, // 9
+    3, 11, 31, // 10
+    23, 89, // 11
+    3, 3, 5, 7, 13,   // 12
+    8191, // 13
+    3, 43, 127, // 14
+    7, 31, 151, // 15
+    3, 5, 17, 257,    // 16
+    131071, // 17
+    3, 3, 3, 7, 19, 73,     // 18
+    524287, // 19
+    3, 5, 5, 11, 31, 41, // 20
+    7, 7, 127, 337, // 21
+    3, 23, 89, 683, // 22
+    47, 178481, // 23
+    3, 3, 5, 7, 13, 17, 241, // 24
+    31, 601, 1801, // 25
+    3, 2731, 8191, // 26
+    7, 73, 262657, // 27
+    3, 5, 29, 43, 113, 127, // 28
+    233, 1103, 2089, // 29
+    3, 3, 7, 11, 31, 151, 331,        // 30
+    2147483647, // 31
+    3, 5, 17, 257, 65537, // 32
+];
+
+/// The end of each `n`'s primes in [FULL_PRIMES], `n` = 2 first.
+const FULL_ENDS: [u8; 31] = [
+    1, 2, 4, 5, 8, 9, 12, 14, 17, 19, 24, 25, 28, 31, 35, 36, 42, 43, 49, 53, 57, 59, 66, 69, 72,
+    75, 81, 84, 91, 92, 97,
+];
+
+#[cfg(feature = "shrink_wrap")]
+mod wire {
+    use super::{FullScaleBits, Pow2Exp, Pow10Exp};
+    use shrink_wrap::{Error, WireAs};
+
+    impl WireAs<Pow10Exp> for i8 {
+        fn from_plain(value: Pow10Exp) -> Result<Self, Error> {
+            Ok(value.get())
+        }
+
+        fn into_plain(self) -> Result<Pow10Exp, Error> {
+            Pow10Exp::new(self).ok_or(Error::SubtypeOutOfRange)
+        }
+    }
+
+    impl WireAs<Pow2Exp> for i8 {
+        fn from_plain(value: Pow2Exp) -> Result<Self, Error> {
+            Ok(value.get())
+        }
+
+        fn into_plain(self) -> Result<Pow2Exp, Error> {
+            Pow2Exp::new(self).ok_or(Error::SubtypeOutOfRange)
+        }
+    }
+
+    impl WireAs<FullScaleBits> for u8 {
+        fn from_plain(value: FullScaleBits) -> Result<Self, Error> {
+            Ok(value.get())
+        }
+
+        fn into_plain(self) -> Result<FullScaleBits, Error> {
+            FullScaleBits::new(self).ok_or(Error::SubtypeOutOfRange)
+        }
+    }
 }
 
 impl Prefix {
@@ -100,17 +263,16 @@ impl Prefix {
         Prefix::Tebi,
     ];
 
-    /// The power of ten the scale is, for an SI prefix and an `Exact` power of ten (`Some(-4)`), `None` for any other
-    /// scale.
-    pub fn pow10(&self) -> Option<i8> {
+    /// The power of ten the scale is, for an SI prefix and `Pow10` (`Some(-4)`), `None` for any other scale.
+    pub const fn pow10(&self) -> Option<i8> {
         match self {
-            Prefix::Exact(s) => s.magnitude().as_pow10(),
+            Prefix::Pow10(e) => Some(e.get()),
             p => p.si_pow10(),
         }
     }
 
-    /// The power of ten of an SI prefix, `None` for a binary one and for `Exact` (even an `Exact` power of ten, see
-    /// [pow10](Self::pow10)): the fast path of arithmetic across prefixes, no [Magnitude] built.
+    /// The power of ten of an SI prefix, `None` for any other (even `Pow10`, see [pow10](Self::pow10)): the fast path
+    /// of arithmetic across prefixes, no [Magnitude] built.
     pub const fn si_pow10(&self) -> Option<i8> {
         Some(match self {
             Prefix::Quetta => 30,
@@ -138,14 +300,18 @@ impl Prefix {
             Prefix::Yocto => -24,
             Prefix::Ronto => -27,
             Prefix::Quecto => -30,
-            Prefix::Kibi | Prefix::Mebi | Prefix::Gibi | Prefix::Tebi | Prefix::Exact(_) => {
-                return None;
-            }
+            Prefix::Kibi
+            | Prefix::Mebi
+            | Prefix::Gibi
+            | Prefix::Tebi
+            | Prefix::Pow10(_)
+            | Prefix::Pow2(_)
+            | Prefix::FullScale(_) => return None,
         })
     }
 
-    /// The SI prefix that is `10^e`, `None` when there is none (`10⁻⁴`: [from_magnitude](Self::from_magnitude)
-    /// gives it as `Exact`).
+    /// The SI prefix that is `10^e`, `None` when there is none (`10⁻⁴`: [from_pow10](Self::from_pow10) gives it as
+    /// `Pow10`).
     pub const fn si_from_pow10(e: i8) -> Option<Prefix> {
         Some(match e {
             30 => Prefix::Quetta,
@@ -177,12 +343,30 @@ impl Prefix {
         })
     }
 
-    /// `10^e` as a prefix: the SI one, else `Exact`. `None` without a handle for it (`|e| > 30` without `std`).
-    pub fn from_pow10(e: i8) -> Option<Prefix> {
+    /// `10^e` as a prefix: the SI one, else `Pow10`. `None` for `|e| > 63`.
+    pub const fn from_pow10(e: i8) -> Option<Prefix> {
         match Self::si_from_pow10(e) {
             Some(p) => Some(p),
-            None => Self::from_magnitude(&Magnitude::checked_pow10(e)?),
+            None => match Pow10Exp::new(e) {
+                Some(e) => Some(Prefix::Pow10(e)),
+                None => None,
+            },
         }
+    }
+
+    /// `2^e` as a prefix: `Unit`, a binary one, else `Pow2`. `None` for `|e| > 63`.
+    pub const fn from_pow2(e: i8) -> Option<Prefix> {
+        Some(match e {
+            0 => Prefix::Unit,
+            10 => Prefix::Kibi,
+            20 => Prefix::Mebi,
+            30 => Prefix::Gibi,
+            40 => Prefix::Tebi,
+            e => match Pow2Exp::new(e) {
+                Some(e) => Prefix::Pow2(e),
+                None => return None,
+            },
+        })
     }
 
     /// The scale, exact: `10⁻³` for `Milli`, `2¹⁰` for `Kibi`.
@@ -192,7 +376,9 @@ impl Prefix {
             Prefix::Mebi => Magnitude::pow2(20),
             Prefix::Gibi => Magnitude::pow2(30),
             Prefix::Tebi => Magnitude::pow2(40),
-            Prefix::Exact(s) => s.magnitude(),
+            Prefix::Pow10(e) => Magnitude::pow10(e.get()),
+            Prefix::Pow2(e) => Magnitude::pow2(e.get()),
+            Prefix::FullScale(n) => n.magnitude(),
             // an SI prefix
             p => Magnitude::pow10(p.si_pow10().unwrap_or(0)),
         }
@@ -212,18 +398,33 @@ impl Prefix {
         }
     }
 
-    /// The prefix whose scale is `m`: the named one when there is one, else `Exact`. `None` when `m` has no handle
-    /// (see [ExactScale]: without `std` for a scale outside its computed ones).
+    /// The prefix whose scale is `m`: the named one when there is one, else `Pow10`, `Pow2` or `FullScale`. `None`
+    /// for any other scale (`1/5`, `π/1000`): a value with it is an `AnyQuantity`.
     pub fn from_magnitude(m: &Magnitude) -> Option<Prefix> {
-        match Self::named_of(m) {
-            Some(p) => Some(p),
-            None => ExactScale::of(m).map(Prefix::Exact),
+        if let Some(p) = Self::named_of(m) {
+            return Some(p);
         }
+        if let Some(e) = m.as_pow10() {
+            return Self::from_pow10(e);
+        }
+        let (pow10_x2, pow2_x2) = m.pow10_pow2_x2();
+        let irr = m.irrational_x2();
+        if pow10_x2 == 0
+            && pow2_x2 % 2 == 0
+            && m.primes().next().is_none()
+            && (irr.pi, irr.ln2, irr.ln10) == (0, 0, 0)
+        {
+            return Self::from_pow2(pow2_x2 / 2);
+        }
+        FullScaleBits::of(m).map(Prefix::FullScale)
     }
 
-    /// Whether this is one of the named prefixes (not `Exact`).
+    /// Whether this is one of the named prefixes (not `Pow10`, `Pow2` or `FullScale`).
     pub const fn is_named(&self) -> bool {
-        !matches!(self, Prefix::Exact(_))
+        !matches!(
+            self,
+            Prefix::Pow10(_) | Prefix::Pow2(_) | Prefix::FullScale(_)
+        )
     }
 
     /// The variant's name, `"Milli"`: how a dynamic client sees it in a decoded value.
@@ -258,7 +459,9 @@ impl Prefix {
             Prefix::Mebi => "Mebi",
             Prefix::Gibi => "Gibi",
             Prefix::Tebi => "Tebi",
-            Prefix::Exact(_) => "Exact",
+            Prefix::Pow10(_) => "Pow10",
+            Prefix::Pow2(_) => "Pow2",
+            Prefix::FullScale(_) => "FullScale",
         }
     }
 
@@ -284,8 +487,8 @@ impl Prefix {
         }
     }
 
-    /// The symbol: `m`, `µ`, `k`, `da`, `Ki`; empty for `Unit` and `Exact`, which [Display](core::fmt::Display)
-    /// writes as its magnitude (`·1/65535`).
+    /// The symbol: `m`, `µ`, `k`, `da`, `Ki`; empty for `Unit` and the families, which [Display](core::fmt::Display)
+    /// writes as their magnitude (`·1/65535`).
     pub const fn symbol(&self) -> &'static str {
         match self {
             Prefix::Unit => "",
@@ -317,7 +520,7 @@ impl Prefix {
             Prefix::Mebi => "Mi",
             Prefix::Gibi => "Gi",
             Prefix::Tebi => "Ti",
-            Prefix::Exact(_) => "",
+            Prefix::Pow10(_) | Prefix::Pow2(_) | Prefix::FullScale(_) => "",
         }
     }
 
@@ -331,7 +534,9 @@ impl Prefix {
             Prefix::Milli => defmt::write!(f, " ‰"),
             Prefix::Micro => defmt::write!(f, " ppm"),
             Prefix::Nano => defmt::write!(f, " ppb"),
-            Prefix::Exact(s) => defmt::write!(f, " {}", s),
+            p @ (Prefix::Pow10(_) | Prefix::Pow2(_) | Prefix::FullScale(_)) => {
+                defmt::write!(f, " {}", p.magnitude())
+            }
             p => match p.si_pow10() {
                 Some(e) => defmt::write!(f, "e{=i8}", e),
                 None => defmt::write!(f, " {=str}", p.symbol()),
@@ -340,12 +545,13 @@ impl Prefix {
     }
 }
 
-/// The symbol, or for `Exact` its magnitude: `m`, `Ki`, `·1/65535`.
+/// The symbol, or for the families the magnitude: `m`, `Ki`, `·10⁻⁴`, `·1/65535`.
 impl core::fmt::Display for Prefix {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Prefix::Exact(s) => core::fmt::Display::fmt(s, f),
-            p => f.write_str(p.symbol()),
+        if self.is_named() {
+            f.write_str(self.symbol())
+        } else {
+            core::fmt::Display::fmt(&self.magnitude(), f)
         }
     }
 }
@@ -355,34 +561,68 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prefix_is_one_byte() {
-        assert_eq!(size_of::<Prefix>(), 1);
-        assert_eq!(size_of::<Option<Prefix>>(), 1);
+    fn prefix_is_two_bytes() {
+        assert_eq!(size_of::<Prefix>(), 2);
+        assert_eq!(size_of::<Option<Prefix>>(), 2);
     }
 
     #[test]
-    fn named_and_exact_scales() {
+    fn named_and_family_scales() {
         for p in Prefix::ALL {
             assert_eq!(Prefix::from_magnitude(&p.magnitude()), Some(p));
             assert_eq!(Prefix::named_of(&p.magnitude()), Some(p));
         }
         let duty = Prefix::from_magnitude(&Magnitude::ratio(1, 65535)).unwrap();
-        assert!(matches!(duty, Prefix::Exact(_)));
+        assert_eq!(duty, Prefix::FullScale(FullScaleBits::new(16).unwrap()));
         assert_eq!(std::format!("{duty}"), "·1/65535");
         assert_eq!(Prefix::from_pow10(-4).unwrap().pow10(), Some(-4));
         assert_eq!(Prefix::from_pow10(-3), Some(Prefix::Milli));
+        assert_eq!(Prefix::from_pow2(10), Some(Prefix::Kibi));
+        assert_eq!(
+            Prefix::from_magnitude(&Magnitude::pow2(-15)),
+            Some(Prefix::Pow2(Pow2Exp::new(-15).unwrap()))
+        );
         assert_eq!(Prefix::Kibi.scale_f64(2.0), 2048.0);
         assert_eq!(Prefix::Kibi.pow10(), None);
+        // 1/3 is the step of a 2-bit full scale; 1/5 is none of the families: an AnyQuantity
+        assert_eq!(
+            Prefix::from_magnitude(&Magnitude::ratio(1, 3)),
+            Some(Prefix::FullScale(FullScaleBits::new(2).unwrap()))
+        );
+        assert_eq!(Prefix::from_magnitude(&Magnitude::ratio(1, 5)), None);
+        assert_eq!(
+            Prefix::from_magnitude(&Magnitude::PI.mul(Magnitude::pow2(-15))),
+            None
+        );
+    }
+
+    #[test]
+    fn every_family_member_round_trips() {
+        for e in i8::MIN..=i8::MAX {
+            if let Some(p) = Prefix::from_pow10(e) {
+                assert_eq!(Prefix::from_magnitude(&p.magnitude()), Some(p), "10^{e}");
+            }
+            if let Some(p) = Prefix::from_pow2(e) {
+                assert_eq!(Prefix::from_magnitude(&p.magnitude()), Some(p), "2^{e}");
+            }
+        }
+        for n in 2..=32 {
+            let p = Prefix::FullScale(FullScaleBits::new(n).unwrap());
+            assert_eq!(p.magnitude(), Magnitude::ratio(1, (1u64 << n) - 1));
+            assert_eq!(Prefix::from_magnitude(&p.magnitude()), Some(p));
+        }
+        assert_eq!(Pow10Exp::new(-3), None);
+        assert_eq!(Pow2Exp::new(20), None);
+        assert_eq!(FullScaleBits::new(33), None);
     }
 }
 
-/// A `Series` store and observe cells keep a prefix as one byte (the derive's would keep the tag and the `Exact`
-/// handle apart, two): the discriminant of a named prefix, `29 +` the handle's index for `Exact`. Rows of one named
-/// prefix are written column-wise (its tag run), rows with an `Exact` one item by item.
+/// A `Series` store and observe cells keep a prefix as a `u16`: its discriminant in the high byte, a family's
+/// parameter in the low one. Rows of one named prefix are written column-wise (its tag run), rows with a family
+/// item by item.
 #[cfg(feature = "shrink_wrap")]
 mod series_store {
-    use super::Prefix;
-    use crate::ExactScale;
+    use super::{FullScaleBits, Pow2Exp, Pow10Exp, Prefix};
     use core::mem::MaybeUninit;
     use core::ops::Range;
     use shrink_wrap::Error;
@@ -390,55 +630,61 @@ mod series_store {
         BitSink, Level, SeriesCells, SeriesPolicy, SeriesStore, write_enum_tags,
     };
 
-    const EXACT_CODE: u8 = Prefix::ALL.len() as u8;
+    /// The first code of a family: named prefixes are below it.
+    const FAMILY_CODE: u16 = (Prefix::ALL.len() as u16) << 8;
 
     impl Prefix {
         #[inline(always)]
-        fn code(&self) -> u8 {
-            match self {
-                Prefix::Exact(s) => EXACT_CODE + s.index(),
-                p => p.discriminant() as u8,
-            }
+        fn code(&self) -> u16 {
+            let param = match self {
+                Prefix::Pow10(e) => e.get() as u8,
+                Prefix::Pow2(e) => e.get() as u8,
+                Prefix::FullScale(n) => n.get(),
+                _ => 0,
+            };
+            ((self.discriminant() as u16) << 8) | param as u16
         }
 
         #[inline(always)]
-        fn from_code(code: u8) -> Prefix {
-            match Prefix::ALL.get(code as usize) {
-                Some(p) => *p,
-                // only codes of prefixes are stored, an empty slot is 0 (`Unit`)
-                None => {
-                    ExactScale::from_index(code - EXACT_CODE).map_or(Prefix::Unit, Prefix::Exact)
-                }
-            }
+        fn from_code(code: u16) -> Prefix {
+            let param = code as u8;
+            let family = match (code >> 8) as usize {
+                29 => Pow10Exp::new(param as i8).map(Prefix::Pow10),
+                30 => Pow2Exp::new(param as i8).map(Prefix::Pow2),
+                31 => FullScaleBits::new(param).map(Prefix::FullScale),
+                tag => Prefix::ALL.get(tag).copied(),
+            };
+            // only codes of prefixes are stored, an empty slot is 0 (`Unit`)
+            family.unwrap_or(Prefix::Unit)
         }
     }
 
     impl SeriesStore for Prefix {
-        type Store<const N: usize> = <u8 as SeriesStore>::Store<N>;
+        type Store<const N: usize> = <u16 as SeriesStore>::Store<N>;
 
         fn empty_store<const N: usize>() -> Self::Store<N> {
-            u8::empty_store::<N>()
+            u16::empty_store::<N>()
         }
 
         fn init_store<const N: usize>(
             slot: &mut MaybeUninit<Self::Store<N>>,
         ) -> &mut Self::Store<N> {
-            u8::init_store::<N>(slot)
+            u16::init_store::<N>(slot)
         }
 
         #[inline(always)]
         fn set<const N: usize>(store: &mut Self::Store<N>, i: usize, item: &Self) {
-            u8::set::<N>(store, i, &item.code());
+            u16::set::<N>(store, i, &item.code());
         }
 
         #[inline(always)]
         fn get<const N: usize>(store: &Self::Store<N>, i: usize) -> Self {
-            Prefix::from_code(u8::get::<N>(store, i))
+            Prefix::from_code(u16::get::<N>(store, i))
         }
 
         fn columnar<const N: usize>(store: &Self::Store<N>, rows: Range<usize>) -> bool {
-            let first = u8::get::<N>(store, rows.start);
-            first < EXACT_CODE && rows.into_iter().all(|i| u8::get::<N>(store, i) == first)
+            let first = u16::get::<N>(store, rows.start);
+            first < FAMILY_CODE && rows.into_iter().all(|i| u16::get::<N>(store, i) == first)
         }
 
         fn write_store<S: BitSink, P: SeriesPolicy + ?Sized, const N: usize>(
@@ -449,18 +695,18 @@ mod series_store {
             _level: Level,
         ) -> Result<(), Error> {
             // a named prefix is a unit variant: its tag run is all there is
-            let tag = u8::get::<N>(store, rows.start) as u32;
+            let tag = (u16::get::<N>(store, rows.start) >> 8) as u32;
             write_enum_tags(sink, core::iter::repeat_n(tag, rows.len()))
         }
     }
 
-    // SAFETY: the cells of `u8`, read back through `from_code`, which maps any byte to a prefix
+    // SAFETY: the cells of `u16`, read back through `from_code`, which maps any value to a prefix
     unsafe impl SeriesCells for Prefix {
-        type Cells<const R: usize> = <u8 as SeriesCells>::Cells<R>;
+        type Cells<const R: usize> = <u16 as SeriesCells>::Cells<R>;
 
         #[inline(always)]
         fn put<const R: usize>(cells: &Self::Cells<R>, i: usize, item: &Self) {
-            u8::put::<R>(cells, i, &item.code());
+            u16::put::<R>(cells, i, &item.code());
         }
 
         fn copy_rows<const R: usize, const N: usize>(
@@ -470,7 +716,7 @@ mod series_store {
             to: usize,
             n: usize,
         ) {
-            u8::copy_rows::<R, N>(cells, from, store, to, n);
+            u16::copy_rows::<R, N>(cells, from, store, to, n);
         }
     }
 }

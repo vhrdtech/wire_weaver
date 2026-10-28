@@ -7,7 +7,7 @@
 //! [UNib32], [UVlq32], [UVlq64]) for `u8`..`u128` and `usize`, signed ones (`i8`..`i64`, `I2`..`I64`) for `i8`..`i128`
 //! and `isize`.
 //!
-//! A user type can be the wire type too (DER-23): `#[wire(Magnitude)] scale: ScaleId` keeps a one-byte handle in
+//! A user type can be the wire type too (DER-23): `#[wire(Scale)] scale: ScaleId` keeps a one-byte handle in
 //! Rust and writes the full value it stands for. Such a `W` implements [WireAs] for the field's type; in a
 //! [Series](crate::series::Series) the field is an opaque run of `W`'s bytes ([WiredOpaque](crate::series::WiredOpaque)).
 //! When the plain values reach only part of `W` (a handle of known scales, each a small `Magnitude`), the impl says so

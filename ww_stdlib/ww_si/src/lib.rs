@@ -22,6 +22,8 @@
 //! shown and converted like the typed quantity of the same unit.
 
 mod algebra;
+mod bounds;
+pub use bounds::{Limit, QuantityBounds};
 mod dynamic;
 pub mod tree;
 pub use dynamic::AnyQuantity;
@@ -102,12 +104,14 @@ use ww_numeric::NumericValue;
     owned(feature = "std"),
     derive(Copy, Clone),
     final_structure,
-    series(cells)
+    series(cells),
+    validate = Self::validate
 )]
-pub struct Quantity<U: Unit> {
+pub struct Quantity<U: Unit, B: QuantityBounds = Unbounded> {
     pub prefix: Prefix,
     pub value: NumericValue,
     _unit: PhantomData<U>,
+    _bounds: PhantomData<B>,
 }
 
 /// Time in seconds with a prefix (s, ms, µs, ns), and a device timestamp, see below.

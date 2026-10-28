@@ -23,7 +23,8 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, FixedScale, Index, IndexFrom1, Magnitude, Micros, Point,
-        Prefix, Quantity, Range, RangeDec, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit, Volt,
+        Prefix, Quantity, Range, RangeDec, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit,
+        Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -542,8 +543,8 @@ mod tests {
         let d = read_quantity(&client, &root, "duty").await;
         assert_eq!(d.unit, DynUnit::Known(units::Ratio::EXPR));
         assert_eq!(
-            (d.prefix, d.value),
-            (values().duty.prefix, NumericValue::U16(32768))
+            (d.prefix.clone(), d.value),
+            (values().duty.prefix.into(), NumericValue::U16(32768))
         );
         assert_eq!(d.to_string(), values().duty.to_string());
         assert_eq!(d.to_string(), "32768·1/65535");
@@ -558,8 +559,8 @@ mod tests {
         let (client, root) = connect(&device).await;
         let d = read_quantity(&client, &root, "duty").await;
         assert_eq!(
-            (d.prefix, d.value),
-            (Prefix::Unknown(1000), NumericValue::U16(5))
+            (d.prefix.clone(), d.value),
+            (Prefix::Unknown(1000).into(), NumericValue::U16(5))
         );
         assert_eq!(d.to_string(), "5·<scale 1000>");
         assert!(d.to_f64().is_nan());
@@ -1029,10 +1030,10 @@ mod tests {
         let mut v = read_quantity(&client, &root, "rail").await;
         assert_eq!(
             (v.prefix, v.value),
-            (Prefix::Milli, NumericValue::U16(1800))
+            (Prefix::Milli.into(), NumericValue::U16(1800))
         );
         // 3.3 V in µV is in, one µV more is not
-        v.prefix = Prefix::Micro;
+        v.prefix = Prefix::Micro.into();
         v.value = NumericValue::U32(3_300_000);
         rail.write(client.cmd(), &v.to_value(&ty, root.bundle()).unwrap())
             .await
@@ -1173,7 +1174,7 @@ mod tests {
             ("4 KiB".into(), "4096 B".into())
         );
         assert_eq!(buffer.prefix.name(), "Ki");
-        assert_eq!(buffer.prefix.magnitude(), Magnitude::pow2(10));
+        assert_eq!(buffer.prefix.magnitude(), Some(Magnitude::pow2(10)));
         // information's coherent unit is the bit
         assert_eq!(buffer.to_si_f64(), Some(4096.0 * 8.0));
         let window = read_quantity(&client, &root, "window").await;

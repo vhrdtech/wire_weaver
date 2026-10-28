@@ -37,14 +37,14 @@ impl Quantity {
     /// 1/65535; `None` for a named prefix.
     #[getter]
     fn prefix_param(&self) -> Option<i8> {
-        self.q.prefix.param()
+        self.q.prefix.si().and_then(|p| p.param())
     }
 
     /// The prefix as a power of ten: `-3` for milli, `-4` for `Pow10` 10⁻⁴; `None` for a scale that is no power of
     /// ten (a binary prefix, `Pow2`, `FullScale`).
     #[getter]
     fn exponent(&self) -> Option<i8> {
-        self.q.prefix.magnitude().as_pow10()
+        self.q.prefix.magnitude()?.as_pow10()
     }
 
     /// The prefix's scale as a float: `0.001` for milli, `1024.0` for kibi, `1/65535` for `FullScale` 16; `nan` for

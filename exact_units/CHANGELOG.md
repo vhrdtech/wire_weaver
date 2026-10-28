@@ -14,6 +14,10 @@
   `HorsepowerBoiler`, `Thou` vs `MilNato` / `MilWarsawPact`, `FootInternational` / `FootUsSurvey`,
   `InchOfMercuryConventional` / `InchOfMercury32f`; `PoundAvdp` (mass), `PoundForce`, `Slug` (mass), `Poundal`,
   `Kip`, `Psi`, `FootPoundForce`.
+* `Fixed::convert::<U2, P2, T2>()` (STD-72): the same value in another unit of the same dimension, exactly or `None`
+  (`lbf·s` to `pN·s`, `in` to `mm`), never reinterpreted; the factor `U · P / (U2 · P2)` worked out at compile time
+  like `Fixed::to`. Units of different dimensions, with an offset or with a `Scale::Factor` don't compile.
+  `UnitExpr::magnitude()`: the exact factor to SI of a unit tree, `None` with a `Factor` or `Affine` scale.
 * `unit!` and `scale!` (INT-13): unit and scale markers declared as data, one line each (`pub struct Rpm = "rpm",
   [rad 1, s -1], Exact(1 / 30, pi 1);`, `pub struct Lsb70 = "", Exact(70 / 1000);`), expanding to the marker struct
   and its `Unit` / `FixedScale` (and `DecimalPrefix`) impl. WireWeaver's walker reads the same lines, so an API's own

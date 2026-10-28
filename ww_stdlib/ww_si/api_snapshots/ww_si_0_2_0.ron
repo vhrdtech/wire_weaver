@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0536e6e5ea30b4f238474e8024b208974c8489a4924e5404976050685a6a4d4a
+// shrink_wrap sha256: f742e37432f74b1a84b4f1b25225831cb503bbb9e88a38e341db10af1cfaad9c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -75,6 +75,11 @@
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A [Fixed]\'s scale that no run-time [Prefix] stands for in this build: without `std`, a scale that is neither a named",
+        "prefix nor one of the computed [ExactScale](exact_units::ExactScale)s (`Rational<33, 10>` over 4096, an ADC step);",
+        "with `std`, only once the interner of exact scales is full.",
+    ], ident: "UnknownScale", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         167,
         149,
@@ -149,9 +154,9 @@
     ], ident: "Timed", generics: [
         (ident: "T", kind: Type),
     ], fields: Named([
-        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 6, args: [
-            Type(OutOfLine(type_idx: 4)),
+        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 7, args: [
             Type(OutOfLine(type_idx: 5)),
+            Type(OutOfLine(type_idx: 6)),
         ]), docs: [
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),

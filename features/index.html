@@ -16,7 +16,7 @@
       
       
       
-        <link rel="prev" href="../articles/series/">
+        <link rel="prev" href="../articles/units_budget/">
       
       
       
@@ -497,6 +497,8 @@
   
     
       
+      
+        
       
         
       
@@ -4999,6 +5001,8 @@
       
         
       
+        
+      
     
     
     
@@ -5058,6 +5062,33 @@
     
   
   Everything Series
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../articles/units_budget/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  What Fixed costs on a microcontroller
 
     
   </span>
@@ -7673,8 +7704,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
   past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
   firmware's pipes.</li>
-<li>📋 <strong>TEST-27 Firmware cost of exact_units</strong> · <code>v0.5</code> — a harness measuring <code>Fixed</code>, points and rounding conversions
-  against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.</li>
 <li>📋 <strong>TEST-28 Units coverage against the standards</strong> · <code>v0.5</code> — a dev-only test (not shipped) walks the public unit
   lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
   each unit representable exactly in <code>exact_units</code>, or lists it on a short written "cannot, because" list for review.
@@ -7687,6 +7716,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>just test</code> / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
   compiles to identical code on every core and firmware profile measured (M0, M4F, M33; <code>opt-level</code> <code>z</code> and <code>3</code>), and
   a pair that differs fails with the per-symbol diff.</li>
+<li>✅ <strong>TEST-27 Units firmware budget</strong> · <code>v0.5</code> — what <code>ww_si::Fixed</code> costs on an MCU against the plain fields it
+  replaces, one harness any later piece (<code>Point</code>, rounding conversions, <code>Level</code>) re-runs with <code>just units-budget</code>:
+  <code>examples_mcu/mcu_qemu/src/unit_budget.rs</code> (<code>qemu-unit-budget</code>, <code>stm32h725ig-unit-budget-cycles</code>) with plain/<code>Fixed</code>
+  pairs that must write the same bytes, and <code>examples_mcu/fw_budget</code> printing instructions (Cortex-M3 under QEMU),
+  flash and stack, at the shipped firmware's profile (<code>fw-z</code>, fat LTO, <code>opt-level = "z"</code>, and <code>fw-3</code>). Baseline of
+  27 Oct 2026: struct encode/decode, a <code>Series</code> column and a <code>Range</code> check within ±7 % of the plain instructions at
+  <code>fw-z</code>, +0 bytes of flash (+68 at <code>fw-3</code>), equal stack frames. Hardware check left: DWT cycles on the STM32H725 for the pairs that differ
+  (the board was not behind the probe). Proved by ELF instead (<code>just units-elf</code>): the pairs compared instruction by
+  instruction on thumbv6m, thumbv7em and thumbv8m.main at <code>fw-z</code> and <code>fw-3</code>: range check and <code>Series</code> encode
+  identical everywhere, <code>Series</code> decode at <code>fw-3</code>; struct encode/decode differ by the derive's per-field write for a
+  <code>Fixed</code> (a few instructions). See <code>docs/articles/units_budget.md</code>.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
@@ -7813,7 +7853,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../articles/series/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Everything Series">
+          <a href="../articles/units_budget/" class="md-footer__link md-footer__link--prev" aria-label="Previous: What Fixed costs on a microcontroller">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -7823,7 +7863,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
                 Previous
               </span>
               <div class="md-ellipsis">
-                Everything Series
+                What Fixed costs on a microcontroller
               </div>
             </div>
           </a>

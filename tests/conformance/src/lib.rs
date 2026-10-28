@@ -16,6 +16,7 @@ pub mod explain;
 pub mod frozen;
 pub mod json;
 pub mod report;
+pub mod requantize;
 
 use corpus::{Case, Direction};
 
@@ -134,4 +135,26 @@ pub fn run_all<C: Consumer>(consumer: &C) -> Vec<(String, Outcome)> {
         failures.join("\n")
     );
     outcomes
+}
+
+/// Every requantize case (STD-63) through `convert` of consumer `name`, with the gap rules of [run]; panics with
+/// every failure, one line each.
+pub fn run_requantize(name: &str, convert: fn(&corpus::RequantizeCase) -> Result<(), String>) {
+    let corpus = corpus::load();
+    let mut failures = vec![];
+    for case in &corpus.requantize {
+        let r = match (case.gap(name), convert(case)) {
+            (None, Ok(())) | (Some(_), Err(_)) => continue,
+            (Some(gap), Ok(())) => format!("passes now: remove its gap mark ({gap}) and close what it names"),
+            (None, Err(e)) => e,
+        };
+        failures.push(format!("requantize case '{}', consumer {name}: {r}", case.name));
+    }
+    assert!(
+        failures.is_empty(),
+        "{} of {} requantize cases fail:\n{}",
+        failures.len(),
+        corpus.requantize.len(),
+        failures.join("\n")
+    );
 }

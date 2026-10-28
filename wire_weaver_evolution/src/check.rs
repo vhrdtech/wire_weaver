@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+pub use wire_weaver_core::UnitHint;
 use ww_self::{ApiBundleOwned, snapshot};
 use ww_version::VersionOwned;
 
@@ -82,7 +83,7 @@ impl Check {
         if self.require_current && !is_snapshot && self.against.is_none() {
             return self.run_current();
         }
-        let (new, new_recorded, new_label, dir) = if is_snapshot {
+        let (new, new_recorded, new_label, dir, hints) = if is_snapshot {
             let dir = self.path.parent().unwrap_or(Path::new(".")).to_path_buf();
             let new = read(&self.path)?;
             (
@@ -90,11 +91,13 @@ impl Check {
                 new.recorded,
                 self.path.display().to_string(),
                 dir,
+                vec![],
             )
         } else {
-            let new = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
+            let (new, hints) = wire_weaver_core::load_crate_with_hints(&self.path)
+                .map_err(|e| format!("{e:#}"))?;
             let dir = self.path.join(SNAPSHOTS_DIR);
-            (new, Recorded::default(), "source".to_string(), dir)
+            (new, Recorded::default(), "source".to_string(), dir, hints)
         };
         let old = match &self.against {
             Some(against) => read(against)?,
@@ -112,6 +115,7 @@ impl Check {
                             strict: self.strict,
                             current_required: false,
                             previous: None,
+                            hints,
                         }));
                     }
                 }
@@ -126,12 +130,14 @@ impl Check {
             old: old.bundle,
             new,
             current_required: false,
+            hints,
         })))
     }
 
     /// [run](Self::run) with [require_current](Self::require_current).
     fn run_current(&self) -> Result<Outcome, String> {
-        let source = wire_weaver_core::load_crate(&self.path).map_err(|e| format!("{e:#}"))?;
+        let (source, hints) =
+            wire_weaver_core::load_crate_with_hints(&self.path).map_err(|e| format!("{e:#}"))?;
         let dir = self.path.join(SNAPSHOTS_DIR);
         let own = source.crate_version(0).map_err(|e| e.to_string())?;
         let current = current_snapshot(&dir, &source)?;
@@ -146,6 +152,7 @@ impl Check {
                 strict: true,
                 current_required: true,
                 previous: previous.map(|s| s.path),
+                hints,
             }));
         };
         let report = compare_recorded(
@@ -176,6 +183,7 @@ impl Check {
             old: old.bundle,
             new,
             current_required: true,
+            hints,
         })))
     }
 
@@ -311,6 +319,9 @@ pub struct Comparison {
     /// Checked with [Check::require_current]: either the source against the snapshot of its version (`new_label` is
     /// `source`), or that snapshot against the previous version's.
     pub current_required: bool,
+    /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file: a note, never part of the
+    /// verdict.
+    pub hints: Vec<UnitHint>,
 }
 
 /// No snapshot of the crate at or before its version.
@@ -327,6 +338,8 @@ pub struct NoSnapshot {
     /// older one, if any.
     pub current_required: bool,
     pub previous: Option<PathBuf>,
+    /// Unit-suffix hints found in the source (TOOL-22), empty for a snapshot file.
+    pub hints: Vec<UnitHint>,
 }
 
 /// What [Check::save] did.
@@ -377,6 +390,14 @@ impl Outcome {
         match self {
             Outcome::Compared(c) => c.verdict(),
             Outcome::NoSnapshot(n) => n.verdict(),
+        }
+    }
+
+    /// Unit-suffix hints found in the source (TOOL-22), never affecting the verdict.
+    pub fn hints(&self) -> &[UnitHint] {
+        match self {
+            Outcome::Compared(c) => &c.hints,
+            Outcome::NoSnapshot(n) => &n.hints,
         }
     }
 }
@@ -499,13 +520,19 @@ impl fmt::Display for Outcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Outcome::Compared(c) => c.fmt(f),
-            Outcome::NoSnapshot(n) => write!(
-                f,
-                "{} {}: no snapshot to compare with in {}",
-                n.crate_id,
-                triplet(&n.version),
-                n.dir.display()
-            ),
+            Outcome::NoSnapshot(n) => {
+                write!(
+                    f,
+                    "{} {}: no snapshot to compare with in {}",
+                    n.crate_id,
+                    triplet(&n.version),
+                    n.dir.display()
+                )?;
+                for hint in &n.hints {
+                    write!(f, "\n  note: {hint}")?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -541,6 +568,9 @@ impl fmt::Display for Comparison {
                 "\n  not compared: {}, which a snapshot saved by an older wire_weaver doesn't have",
                 fields.join(", ")
             )?;
+        }
+        for hint in &self.hints {
+            write!(f, "\n  note: {hint}")?;
         }
         Ok(())
     }

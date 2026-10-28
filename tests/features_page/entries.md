@@ -303,6 +303,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-14 | Watching the link | `ww monitor`, `ww stats`, `ww capture` and `ww explain FILE`: the link decoded live, counted, saved and read back; `--monitor` and `--capture` do it for any command's own connection. | cli_reference.md#ww-monitor
 - TOOL-20 | `ww` through a debug probe | `ww --rtt CHIP` runs every command against a board with no USB of its own, over RTT through its ST-LINK or other probe, with probe serials and chip names completed in the shell. | cli.md#through-a-debug-probe-rtt
 - TOOL-16 | Devices on one clock | `ww sync` keeps several devices on the host's UTC and shows how closely each follows and how far apart in phase they are. | cli_reference.md#ww-sync
+- TOOL-22 | Plain-unit hints | `ww api check` and `ww api scaffold` point out a plain number whose name ends in `_ms`, `_hz`, `_bytes` and the like, and what fixed unit type it could become instead. | evolution/checker_tool.md#unit-suffix-hints-tool-22
 - TOOL-21 | Pins live per connector | `ww pins tui` shows every pin of a board on its connector, read live, with keys to drive, pull and release them. | cli_reference.md#ww-pins-tui
 - TOOL-15 | Pin tests from the command line | `ww pins test` finds shorts and pulls on any board serving `PinDiag`; plan files make it a pass/fail test. | cli_reference.md#ww-pins
 - TOOL-12 | Settings from a flash dump | `ww settings dump` decodes a settings store without the device. | cli_reference.md#ww-settings

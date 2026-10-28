@@ -293,6 +293,51 @@ variant either.
 All of this was checked against real bytes: old and new versions read each other's data, with the new field
 reading as zero from old data. The client uses the same rules when comparing its API with a device's.
 
+## Unit-suffix hints (TOOL-22)
+
+`ww api check` also notes a plain integer field, method argument or property whose name ends in a known unit
+suffix (`_us`, `_ms`, `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`), with the
+[`exact_units::Fixed<U, P, T>`](../std_library/exact_units.md) it could become instead: a note, never an error,
+printed after the verdict and never affecting it, even when there is no snapshot to compare with yet:
+
+```
+$ ww api check my_device_api
+my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1.0 (source): no changes
+no changes
+  note: shared_us: u64 could be exact_units::Fixed<Second, Micro, u64> (exact_units::Micros<u64>), renamed to
+  `shared`; silence with #[no_unit_hint]
+```
+
+A field that really is a plain number (a count of nothing in particular, an index, a value whose unit isn't fixed)
+silences the note with `#[no_unit_hint]` right on it:
+
+```rust
+struct SteerPoint {
+    #[no_unit_hint]
+    retry_count_s: u8, // not a duration: s is the slot letter here, not seconds
+}
+```
+
+On a trait method the same bare attribute silences every argument, or names only the ones to leave out:
+
+```rust
+#[ww_trait]
+trait Device {
+    #[no_unit_hint(poll_hz)]
+    fn configure(&self, timeout_ms: u32, poll_hz: u32); // timeout_ms still gets the note
+}
+```
+
+and on a `property!`/`stream!`/`sink!`/`ww_impl!` item it silences the resource's own name:
+
+```rust
+#[no_unit_hint]
+property!(ro, rate_hz: u32); // a raw register value here, not a frequency
+```
+
+`ww api scaffold` shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
+handlers are written against `Fixed` from the start where the note applies.
+
 ## Limitations
 
 * Snapshots of all published versions have to be kept in `api_snapshots/`, the checker can only see what is saved

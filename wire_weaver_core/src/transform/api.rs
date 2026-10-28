@@ -3,6 +3,7 @@ use super::{
     errors::{ListedOn, get_errors_attr, reject_errors_attr},
     meta::{MetaSite, get_meta},
     ty::{convert_named_def, convert_ty, convert_ty_path, convert_ty_path_segment},
+    unit_hint::{is_silenced, suggest},
     util::{
         collect_docs, get_batched_attr, get_delivery_attr, get_flow_attr, get_optional_attr,
         get_since_attr, get_stream_fn_attr,
@@ -187,9 +188,19 @@ fn convert_api_item_fn(
             return Err(anyhow!("Unsupported fn arg ident {:?}", pat_type.pat)
                 .context(current_crate.err_context()));
         };
+        let arg_name = arg_ident.ident.to_string();
+        if !is_silenced(&item_fn.attrs, &arg_name)
+            && let Some(hint) = suggest(
+                &format!("{}::{arg_name}", item_fn.sig.ident),
+                &arg_name,
+                &pat_type.ty,
+            )
+        {
+            scratch.unit_hints.push(hint);
+        }
         let ty = convert_ty(&pat_type.ty, current_crate, scratch)?;
         args.push(ArgumentOwned {
-            ident: arg_ident.ident.to_string(),
+            ident: arg_name,
             ty,
         });
     }
@@ -394,6 +405,12 @@ fn convert_api_item_property(
         .context(format!("wrong code snippet: '{}'", item_macro.mac.tokens))
         .context("parsing ww_property! arguments")
         .context(current_crate.err_context())?;
+    let property_name = args.resource_name.to_string();
+    if !is_silenced(&item_macro.attrs, &property_name)
+        && let Some(hint) = suggest(&property_name, &property_name, &args.ty)
+    {
+        scratch.unit_hints.push(hint);
+    }
     let ty = convert_ty(&args.ty, current_crate, scratch)?;
     let write_err_ty = if let Some(write_err_ty) = &args.write_err_ty {
         Some(convert_ty_path(write_err_ty, current_crate, scratch)?)

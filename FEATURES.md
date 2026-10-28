@@ -1638,6 +1638,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `held by ww, pid ..` and `held by probe-rs (pid ..)`; `ww hub take rtt:..` and two `ww info` at once through the
     hub. Found and fixed on the way: a stale control block of the previous firmware won the RAM scan, `ww hub take`
     timed out while the hub scanned.
+- ✅ **TOOL-22 Hint for plain fields that carry a unit** — `ww api check` and the walker `ww api scaffold` uses
+  note a plain integer field, method argument or property whose name ends in a known unit suffix (`_us`, `_ms`,
+  `_ns`, `_s`, `_hz`, `_khz`, `_ppb`, `_ppm`, `_bytes`, `_bits`, `_kib`) with the `exact_units::Fixed<U, P, T>` it
+  could become instead (`wire_weaver_core::transform::unit_hint`, `Scratch::unit_hints`): a note, never an error,
+  printed on `ww api check` and on `ww api scaffold`'s stderr, never affecting the verdict or the generated code.
+  Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming arguments
+  (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
+  `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`. Open (later, once STD-64/STD-66/INT-13 land): reading a
+  doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100 %", "127 = not available"),
+  and suggesting `Bounds`/niche forms, not only the name suffix; tested on the scout's repos.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
@@ -1704,11 +1714,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   carries, also by a command that never introspects the device. Open: `GlobalCompact` paths, multi requests; `Series` columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   `ww call` on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python `explain()` and
   expression input.
-- 📋 **TOOL-22 Hint for plain fields that carry a unit** · `v0.5` — `ww api check` notes a plain numeric field,
-  argument or property whose name (`*_us`, `*_ms`, `*_bytes`, `*_ppb`, ..) or doc comment ("in µs", "bytes",
-  "0..=65535 = 0..100 %", "127 = not available") states a unit, scale, range or sentinel, with the `Fixed` (STD-55),
-  `Bounds` or niche (STD-66) form it could be: no meaning left in comments. A note, never an error, silenced per item;
-  tested on the scout's repos.
 
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.

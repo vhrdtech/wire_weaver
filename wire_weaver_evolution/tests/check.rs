@@ -490,6 +490,74 @@ fn any_field_a_snapshot_lacks_is_not_recorded() {
     );
 }
 
+/// TOOL-22: a plain integer field whose name ends in a known unit suffix is noted, never an error, and the note
+/// names the `exact_units::Fixed` it could become and the name without its suffix; silenced per field by
+/// `#[no_unit_hint]`.
+#[test]
+fn unit_suffix_hint_is_noted_and_silenced() {
+    let api = r#"
+#[derive_shrink_wrap]
+pub struct SteerPoint {
+    pub shared_us: u64,
+}
+"#;
+    let c = TestCrate::new("unit-hint");
+    c.write("0.1.0", api);
+    let (outcome, _) = check(c.path(), false);
+    let hints = outcome.hints();
+    assert_eq!(hints.len(), 1, "{hints:?}");
+    let hint = hints[0].to_string();
+    for expected in [
+        "SteerPoint::shared_us",
+        "exact_units::Fixed<Second, Micro, u64>",
+        "exact_units::Micros<u64>",
+        "renamed to `shared`",
+        "#[no_unit_hint]",
+    ] {
+        assert!(hint.contains(expected), "'{expected}' not in: {hint}");
+    }
+    assert!(outcome.to_string().contains(&hint));
+
+    let silenced = api.replace(
+        "    pub shared_us: u64,",
+        "    #[no_unit_hint]\n    pub shared_us: u64,",
+    );
+    c.write("0.1.0", &silenced);
+    let (outcome, _) = check(c.path(), false);
+    assert!(outcome.hints().is_empty(), "{:?}", outcome.hints());
+}
+
+/// TOOL-22 also hints at a method argument and a property by name, silenced the same way: bare `#[no_unit_hint]`
+/// on the method silences every argument, naming arguments silences only those.
+#[test]
+fn unit_suffix_hint_on_arguments_and_properties() {
+    let api = r#"
+#[ww_api_root]
+pub trait Api {
+    fn configure(timeout_ms: u32, retries: u8);
+    property!(ro rate_hz: u32);
+}
+"#;
+    let c = TestCrate::new("unit-hint-api");
+    c.write("0.1.0", api);
+    let (outcome, _) = check(c.path(), false);
+    let names: Vec<_> = outcome.hints().iter().map(|h| h.item.clone()).collect();
+    assert_eq!(names, vec!["configure::timeout_ms", "rate_hz"], "{names:?}");
+
+    let silenced = api
+        .replace(
+            "    fn configure(timeout_ms: u32, retries: u8);",
+            "    #[no_unit_hint]\n    fn configure(timeout_ms: u32, retries: u8);",
+        )
+        .replace(
+            "    property!(ro rate_hz: u32);",
+            "    #[no_unit_hint]\n    property!(ro rate_hz: u32);",
+        );
+    c.write("0.1.0", &silenced);
+    let (outcome, _) = check(c.path(), false);
+    assert!(outcome.hints().is_empty(), "{:?}", outcome.hints());
+}
+
 /// `text` without `, field: <value>` anywhere, the value up to the next `,` or closing bracket at its depth.
 fn strip_field(text: &str, field: &str) -> String {
     let needle = format!(", {field}: ");

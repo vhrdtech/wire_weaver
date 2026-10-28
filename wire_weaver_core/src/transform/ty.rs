@@ -1,6 +1,7 @@
 use super::{
     crate_walker::{CrateContext, Scratch, TypeInProgress},
     markers::{marker_def, origin_def},
+    unit_hint::{is_silenced, suggest},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
         use_tree_path_to,
@@ -814,7 +815,13 @@ fn convert_item_enum(
                 Some((variant.ident.to_string(), future_version_bits(variant)));
             continue;
         }
-        let fields = convert_fields(&variant.fields, current_crate, scratch, false)?;
+        let fields = convert_fields(
+            &variant.fields,
+            current_crate,
+            scratch,
+            false,
+            &format!("{ty_name}::{}", variant.ident),
+        )?;
         if let Some((_, explicit_discriminant)) = &variant.discriminant {
             if let Expr::Lit(expr_lit) = explicit_discriminant
                 && let Lit::Int(lit_int) = &expr_lit.lit
@@ -870,7 +877,13 @@ fn convert_item_struct(
     item_struct: &ItemStruct,
 ) -> Result<TypeOwned> {
     let args = derive_shrink_wrap_args(&item_struct.attrs, current_crate)?;
-    let mut fields = convert_fields(&item_struct.fields, current_crate, scratch, args.sparse)?;
+    let mut fields = convert_fields(
+        &item_struct.fields,
+        current_crate,
+        scratch,
+        args.sparse,
+        &ty_name,
+    )?;
     if args.transparent {
         transparent_field(&ty_name, &mut fields).context(current_crate.err_context())?;
     }
@@ -941,6 +954,7 @@ fn convert_fields(
     current_crate: &CrateContext,
     scratch: &mut Scratch,
     sparse: bool,
+    item_path: &str,
 ) -> Result<FieldsOwned> {
     match fields {
         Fields::Named(_) | Fields::Unnamed(_) => {
@@ -950,6 +964,14 @@ fn convert_fields(
                 // zero bits on the wire (DER-15): not a field of the model, its parameter stays in the generics
                 if is_phantom_data(&f.ty) {
                     continue;
+                }
+                if let Some(ident) = &f.ident {
+                    let name = ident.to_string();
+                    if !is_silenced(&f.attrs, &name)
+                        && let Some(hint) = suggest(&format!("{item_path}::{name}"), &name, &f.ty)
+                    {
+                        scratch.unit_hints.push(hint);
+                    }
                 }
                 let since = get_since_attr(&f.attrs, current_crate)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;

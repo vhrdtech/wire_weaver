@@ -34,6 +34,11 @@ use ww_version::FullVersionOwned;
 ///   (their definitions belong to those crates' snapshots), with a signature of the left out definition
 ///   (see [ww_self::signature]). Entries only needed by skipped definitions are dropped.
 pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
+    load_crate_with_hints(crate_path).map(|(bundle, _hints)| bundle)
+}
+
+/// [load_crate], also returning the unit-suffix hints found (TOOL-22), for `ww api check` to show.
+pub fn load_crate_with_hints(crate_path: &Path) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
     let mut scratch = Scratch::default();
     scratch.dedup_traits = true;
     // loaded first, so gets crate_idx 0; with every feature, so types whose serdes is behind one are in (API-60)
@@ -79,6 +84,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
         Ok((entry, items))
     })?;
 
+    let unit_hints = scratch.unit_hints;
     let scratch = scratch.root_bundle;
     let mut bundle = ApiBundleOwned {
         magic: ww_self::MAGIC,
@@ -98,7 +104,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     };
     skip_foreign(&mut bundle)?;
     drop_unused(&mut bundle, true);
-    Ok(bundle)
+    Ok((bundle, unit_hints))
 }
 
 /// The types `item` of `cx` (the crate root or a module) puts into a snapshot: itself, what it re-exports, or the

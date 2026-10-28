@@ -29,7 +29,15 @@ pub(crate) fn check(
         }
         Err(e) => return Err(anyhow!(e)),
     }
+    print_hints(outcome.hints());
     Ok(())
+}
+
+/// TOOL-22: unit-suffix hints, never affecting the verdict.
+fn print_hints(hints: &[wire_weaver_evolution::UnitHint]) {
+    for hint in hints {
+        println!("  {} {hint}", style("note:").cyan());
+    }
 }
 
 /// Old and new versions of a crate to compare, as `ww api check` does; `None` (with a note printed) if there is no

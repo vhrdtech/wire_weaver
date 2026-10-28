@@ -3,8 +3,8 @@ use crate::ast::item_struct::Field;
 use crate::ast::object_size::ObjectSize;
 use crate::ast::ty::Type;
 use crate::transform::syn_util::{
-    collect_docs_attrs, take_default_attr, take_flag_attr, take_id_attr, take_series_attr,
-    take_since_attr, take_wire_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_default_attr, take_flag_attr,
+    take_flag_like_attr, take_id_attr, take_series_attr, take_since_attr, take_wire_attr,
 };
 use crate::transform::transform_ty::transform_type;
 use proc_macro2::{Ident, Span};
@@ -383,6 +383,9 @@ pub(crate) fn transform_field(
     let id = take_id_attr(&mut field.attrs).unwrap_or(def_order_idx);
     let since = take_since_attr(&mut field.attrs)?;
     let docs = collect_docs_attrs(&mut field.attrs);
+    // TOOL-22: a hint for `wire_weaver_core`'s walker, nothing to do with wire layout here.
+    take_flag_like_attr(&mut field.attrs, "no_unit_hint");
+    collect_unknown_attributes(&mut field.attrs);
 
     if flag.is_some() {
         if !matches!(ty, Type::Bool) {

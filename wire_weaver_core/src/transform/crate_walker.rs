@@ -46,12 +46,22 @@ pub(crate) const WIRE_WEAVER_REEXPORTS: &[&str] = &["shrink_wrap", "ww_error", "
 pub fn load(
     crate_path: &Path,
     trait_name: Option<String>,
-    _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
+    offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
 ) -> Result<ApiBundleOwned> {
+    load_with_hints(crate_path, trait_name, offline_mode).map(|(bundle, _hints)| bundle)
+}
+
+/// [load], also returning the unit-suffix hints found (TOOL-22), for `ww api scaffold` to show.
+pub fn load_with_hints(
+    crate_path: &Path,
+    trait_name: Option<String>,
+    _offline_mode: bool, // TODO: try CARGO_NET_OFFLINE instead
+) -> Result<(ApiBundleOwned, Vec<super::UnitHint>)> {
     let mut scratch = Scratch::default();
     let manifest = ManifestContext::load(crate_path)?;
     let features = manifest.default_features();
-    load_inner(manifest, features, trait_name, &mut scratch)
+    let bundle = load_inner(manifest, features, trait_name, &mut scratch)?;
+    Ok((bundle, scratch.unit_hints))
 }
 
 /// Load API definition and all referenced data types for a given dependency of 'current crate'.
@@ -223,6 +233,9 @@ pub(crate) struct Scratch {
     /// A crate was loaded again with more features than it was read with first, so what was converted from it
     /// before may be missing what they switch on ([Scratch::walk]).
     features_grew: bool,
+    /// Unit-suffix hints found so far (TOOL-22), not part of the bundle: `load`/`load_crate` drop them,
+    /// `load_with_hints`/`load_crate_with_hints` return them alongside it.
+    pub(crate) unit_hints: Vec<super::UnitHint>,
 }
 
 /// Crate and module-qualified name (`units::Volt`) of a user-defined type.

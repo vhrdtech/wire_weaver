@@ -4,19 +4,21 @@
 
 #[cfg(test)]
 mod tests {
-    use quantities_api::Rpm;
+    use quantities_api::{DegreePerSecond, Mdps70, Rpm};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use wire_weaver_client::quantity::{DynQuantity, DynUnit, is_quantity, unit_of};
-    use wire_weaver_client::ww_self::{ApiItemKindOwned, FieldsValueOwned, TypeOwned, ValueOwned};
+    use wire_weaver_client::ww_self::{
+        self, ApiItemKindOwned, FieldsValueOwned, GenericArgOwned, TypeOwned, ValueOwned,
+    };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
-    use ww_si::prefix::{Micro, Milli, One};
+    use ww_si::prefix::{FullScale, Micro, Milli, One, Rational};
     use ww_si::units::{self, AngularVelocity, Per, Torque};
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
-        Ampere, AnyQuantity, Dim, Fixed, Micros, Prefix, Quantity, Range, SIExpr, Scale, Second,
-        Timed, Unbounded, Unit, Volt,
+        Ampere, AnyQuantity, Dim, Fixed, FixedScale, Magnitude, Micros, Prefix, Quantity, Range,
+        SIExpr, Scale, Second, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -24,6 +26,8 @@ mod tests {
     type Timeout = Fixed<units::Second, Milli, u16>;
     type Window = Fixed<units::Second, Milli, u16, Range<1, 5000>>;
     type Size = Fixed<units::Byte, One, u32>;
+    type Adc = Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>;
+    type Gyro = Fixed<DegreePerSecond, Mdps70, i16>;
 
     struct Values {
         voltage: Volt,
@@ -215,6 +219,20 @@ mod tests {
                 GetResult::Value(self.values.lock().unwrap().timeout)
             }
 
+            fn get_adc(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Adc, ()> {
+                GetResult::Value(Adc::new(2048))
+            }
+
+            fn get_gyro(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Gyro, ()> {
+                GetResult::Value(Gyro::new(-100))
+            }
+
             fn set_window(
                 &mut self,
                 _cx: &mut Context<'_, impl BlockingEventOut>,
@@ -352,22 +370,101 @@ mod tests {
         assert_eq!(b.to_si_f64(), Some(values().damping.to_si_f64()));
     }
 
+    /// A unit of the API's own crate, declared with `unit!`: the bundle carries its definition (INT-13), so the client
+    /// shows and converts it as the typed quantity does, without a table of its own.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn unknown_marker_by_name_and_docs() {
-        let (device, _values) = start("quantities/rpm");
+    async fn own_unit_from_its_definition() {
+        let (device, values) = start("quantities/rpm");
         let (client, root) = connect(&device).await;
         let speed = read_quantity(&client, &root, "speed").await;
+        let typed = values.lock().unwrap().speed;
         assert_eq!(
             speed.unit,
-            DynUnit::Unknown {
+            DynUnit::Named {
                 name: "Rpm".into(),
-                docs: vec!["Revolutions per minute: π/30 rad/s".into()],
+                symbol: "rpm".into(),
+                dim: Rpm::DIM.into(),
+                scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
             }
         );
-        assert_eq!(speed.to_string(), "1500 Rpm");
-        assert_eq!(speed.unit.dim(), None);
-        assert_eq!(speed.to_si_f64(), None);
-        assert_eq!(speed.to_f64(), 1500.0);
+        assert_eq!(speed.to_string(), "1500 rpm");
+        assert_eq!(speed.to_string(), typed.to_string());
+        assert_eq!(speed.unit.dim().unwrap().to_string(), "s⁻¹·rad");
+        assert_eq!(speed.to_si_f64(), Some(typed.to_si_f64()));
+        assert!((speed.to_si_f64().unwrap() - 50.0 * std::f64::consts::PI).abs() < 1e-9);
+    }
+
+    /// Units resolved through the bundle's definitions to a canonical expression: the same named units to the same
+    /// powers are the same unit however they are written, units of one dimension convert by an exact factor.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn canonical_units_of_the_model() {
+        let (device, _values) = start("quantities/canonical");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let unit = |ty: &TypeOwned| {
+            let Ok(TypeOwned::Struct(q)) = ty.get_in_line(bundle) else {
+                panic!("Quantity<U>");
+            };
+            let [GenericArgOwned::Type(u)] = q.instance_of.as_ref().unwrap().args.as_slice() else {
+                panic!("Quantity<U>");
+            };
+            ww_self::units::unit_of(u, bundle).unwrap()
+        };
+        let (_, speed) = read(&client, &root, "speed").await;
+        let (_, damping) = read(&client, &root, "damping").await;
+        let (_, voltage) = read(&client, &root, "voltage").await;
+        let (rpm, damping, volt) = (unit(&speed), unit(&damping), unit(&voltage));
+        assert_eq!(rpm.to_string(), "rpm");
+        assert_eq!(
+            rpm.powers[0].marker,
+            ww_self::units::MarkerName {
+                crate_id: "quantities_api".into(),
+                name: "Rpm".into()
+            }
+        );
+        assert_eq!(rpm.magnitude, Magnitude::new(1, 30, 0, 0, 1));
+        // N·m / (rad/s), two named units: sorted by marker name, a compound symbol to a power in parentheses
+        assert_eq!(damping.to_string(), "(rad/s)⁻¹·N·m");
+        assert!(
+            damping
+                .dim
+                .as_dim()
+                .same(Per::<Torque, AngularVelocity>::DIM)
+        );
+        assert_eq!(volt.to_string(), "V");
+        // a different unit of another dimension: no factor between them
+        assert_ne!(rpm, volt);
+        assert_eq!(rpm.factor_to(&volt), None);
+        assert_eq!(rpm.factor_to(&rpm), Some(Magnitude::ONE));
+        // scales: a prefix, a full-scale step, a scale marker of the API's crate
+        let mut scales = Vec::new();
+        for name in ["timeout", "adc", "gyro"] {
+            let (_, ty) = read(&client, &root, name).await;
+            let Ok(TypeOwned::Struct(f)) = ty.get_in_line(bundle) else {
+                panic!("Fixed");
+            };
+            let [GenericArgOwned::Type(u), GenericArgOwned::Type(s), ..] =
+                f.instance_of.as_ref().unwrap().args.as_slice()
+            else {
+                panic!("Fixed<U, S, ..>");
+            };
+            scales.push((
+                ww_self::units::unit_of(u, bundle).unwrap(),
+                ww_self::units::scale_of(s, bundle).unwrap(),
+            ));
+        }
+        let [(_, timeout), (_, adc), (gyro_unit, gyro_scale)]: [_; 3] = scales.try_into().unwrap();
+        assert_eq!(timeout, Magnitude::pow10(-3));
+        assert_eq!(adc, <FullScale<Rational<33, 10>, 12> as FixedScale>::SCALE);
+        assert_eq!(adc, Magnitude::ratio(33, 40960));
+        assert_eq!(gyro_scale, Magnitude::ratio(7, 100));
+        assert_eq!(gyro_scale, <Mdps70 as FixedScale>::SCALE);
+        assert_eq!(gyro_unit.to_string(), "°·s⁻¹");
+        assert_eq!(gyro_unit.magnitude, Magnitude::new(1, 180, 0, 0, 1));
+        let one = ww_self::units::CanonicalUnit::one();
+        assert_eq!(one.to_string(), "1");
+        // a dimensionless ratio converts into rpm by nothing: the dimensions differ
+        assert_eq!(one.factor_to(&rpm), None);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -550,11 +647,32 @@ mod tests {
         );
         assert_eq!(got.to_string(), "0.00012 N·m/(rad/s)");
 
-        // a unit known by name only has nothing to send
+        // the API's own unit goes along with the dimension and factor its definition gives (INT-13)
         let speed = read_quantity(&client, &root, "speed").await;
+        sensor
+            .write(client.cmd(), &speed.to_value(&sensor_ty, bundle).unwrap())
+            .await
+            .unwrap();
+        let any = read_quantity(&client, &root, "sensor").await;
+        assert_eq!(any, speed);
+        let bytes = values.lock().unwrap().sensor.clone();
+        let got = AnyQuantity::from_ww_bytes(&bytes).unwrap();
         assert_eq!(
-            speed.to_value(&sensor_ty, bundle).unwrap_err(),
-            "a quantity in Rpm has no dimension and scale to send in an AnyQuantity"
+            got.to_quantity::<Rpm>(),
+            Some(Quantity::<Rpm>::base(1500u16))
+        );
+
+        // a marker without a definition has nothing to send
+        let unknown = DynQuantity {
+            unit: DynUnit::Unknown {
+                name: "Furlong".into(),
+                docs: vec![],
+            },
+            ..speed
+        };
+        assert_eq!(
+            unknown.to_value(&sensor_ty, bundle).unwrap_err(),
+            "a quantity in Furlong has no dimension and scale to send in an AnyQuantity"
         );
     }
 

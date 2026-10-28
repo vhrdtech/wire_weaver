@@ -6,8 +6,8 @@
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
-use ww_si::prefix::{Milli, One};
-use ww_si::units::{AngularVelocity, Byte, Per, Second, Torque};
+use ww_si::prefix::{FullScale, Milli, One, Rational};
+use ww_si::units::{self, AngularVelocity, Byte, Degree, Per, Second, Torque};
 use ww_si::{Ampere, AnyQuantity, Fixed, Micros, Quantity, Range, Timed, Unbounded, Volt};
 
 #[ww_trait]
@@ -29,9 +29,21 @@ trait Quantities {
     fn sizes() -> Series<'i, Timed<Fixed<Byte, One, u32>>>;
     /// Through an alias, `B` left out
     fn ticks() -> Series<'i, Timed<Micros<u32>>>;
+    /// A 12-bit ADC at 3.3 V: one step is 3.3/4096 V
+    property!(ro adc: Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>);
+    /// A gyro at 70 mdps per step, a scale marker of this crate (INT-13)
+    property!(ro gyro: Fixed<DegreePerSecond, Mdps70, i16>);
 }
 
 ww_si::unit! {
     /// Revolutions per minute: π/30 rad/s
     pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
+}
+
+/// Degrees per second, a gyro's rate
+pub type DegreePerSecond = Per<Degree, Second>;
+
+ww_si::scale! {
+    /// One step of a gyro, 70 mdps
+    pub struct Mdps70 = "", Exact(70 / 1000);
 }

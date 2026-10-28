@@ -6,8 +6,12 @@
 //! ([instance_of](ww_self::ItemStructOwned::instance_of)). [unit_of] finds the unit marker there and looks it up:
 //!
 //! - a marker of `ww_si::units` by its name in [ww_si::units::by_name] (symbol, dimension and scale known),
-//! - `units::Per<A, B>` and `units::Times<A, B>` as a tree of their parts (`N·m/(rad/s)`),
-//! - any other marker (a user's own `struct Rpm;`) by its name and docs only.
+//! - `units::Per<A, B>`, `units::Times<A, B>` and `units::Sqrt<A>` as a tree of their parts (`N·m/(rad/s)`),
+//! - a unit of any other crate (a user's `unit! { pub struct Rpm = "rpm", .. }`) by the
+//!   [definition](ww_self::ItemStructOwned::marker) the bundle carries (INT-13): symbol, dimension and exact factor,
+//! - a marker without a definition (hand-written, from a bundle of before INT-13) by its name and docs only.
+//!
+//! [ww_self::units] resolves the same types to a canonical expression, for comparing units across crates.
 //!
 //! A value of `ww_si::AnyQuantity` (STD-37) carries its unit as an `SIExpr`: a named unit `ww_si` has becomes the same
 //! [DynUnit] as the typed quantity's, a device's own named unit keeps the dimension and scale it sent.
@@ -19,8 +23,8 @@ use std::fmt;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use ww_numeric::NumericValue;
 use ww_self::{
-    ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, ItemStructOwned, TypeOwned,
-    ValueOwned,
+    ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, ItemStructOwned,
+    MarkerDefOwned, TypeOwned, ValueOwned,
 };
 use ww_si::tree::{self, Tree};
 use ww_si::{AnyQuantity, AnyQuantityOwned, SIExpr, SIExprOwned, Scale};
@@ -34,15 +38,16 @@ pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 pub enum DynUnit {
     /// A named unit of `ww_si::units`: symbol, dimension and scale are known.
     Known(&'static UnitExpr),
-    /// A named unit sent by a device in an `AnyQuantity` that `ww_si` doesn't have (its own `Rpm`): symbol,
-    /// dimension and scale as the device sent them.
+    /// A named unit `ww_si` doesn't have (a device's own `Rpm`): symbol, dimension and scale as the device sent them
+    /// in an `AnyQuantity`, or as the bundle defines the marker of a `Quantity<U>` (INT-13, an `Exact` scale).
     Named {
         name: String,
         symbol: String,
         dim: DimOwned,
         scale: Scale,
     },
-    /// A marker `ww_si` doesn't know, a user's own (`struct Rpm;`): its name and docs, nothing else.
+    /// A marker without a definition in the bundle (hand-written, or from a bundle of before INT-13): its name and
+    /// docs, nothing else.
     Unknown { name: String, docs: Vec<String> },
     /// `units::Per<A, B>`, `A / B`.
     Per(Box<DynUnit>, Box<DynUnit>),
@@ -523,31 +528,49 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
     };
     if let Some(inst) = &s.instance_of {
         let units = Some(&["units"][..]);
+        // what the generic marker is: its definition (INT-13), or its name in a bundle of ww_si 0.2 without one
+        let is = |def: MarkerDefOwned, name: &str| {
+            matches!(bundle.get_ty(inst.type_idx.0), Ok((TypeOwned::Struct(g), _))
+                if g.marker.as_deref() == Some(&def))
+                || is_ww_si(inst.type_idx.0, units, name, bundle)
+        };
         if let [GenericArgOwned::Type(a), GenericArgOwned::Type(b)] = inst.args.as_slice() {
             let (a, b) = (
                 Box::new(unit(a, bundle, depth + 1)),
                 Box::new(unit(b, bundle, depth + 1)),
             );
-            if is_ww_si(inst.type_idx.0, units, "Per", bundle) {
+            if is(MarkerDefOwned::Per, "Per") {
                 return DynUnit::Per(a, b);
             }
-            if is_ww_si(inst.type_idx.0, units, "Times", bundle) {
+            if is(MarkerDefOwned::Times, "Times") {
                 return DynUnit::Times(a, b);
             }
         }
         if let [GenericArgOwned::Type(a)] = inst.args.as_slice()
-            && is_ww_si(inst.type_idx.0, units, "Sqrt", bundle)
+            && is(MarkerDefOwned::Sqrt, "Sqrt")
         {
             return DynUnit::Sqrt(Box::new(unit(a, bundle, depth + 1)));
         }
         return by_type_name();
     }
+    // a unit of ww_si / exact_units is the same `UnitExpr` a typed quantity has (its definition in the model is the
+    // same, a test of wire_weaver_core checks), so both compare equal
     if let TypeOwned::OutOfLine { type_idx } = ty
         && is_ww_si(type_idx.0, Some(&["units"]), &s.ident, bundle)
         && let Some(expr) = ww_si::units::by_name(&s.ident)
     {
         return DynUnit::Known(expr);
     }
+    // any other crate's unit by the definition the bundle carries
+    if let Some(MarkerDefOwned::Unit(def)) = s.marker.as_deref() {
+        return DynUnit::Named {
+            name: s.ident.clone(),
+            symbol: def.symbol.clone(),
+            dim: def.dim.clone(),
+            scale: Scale::Exact(def.magnitude),
+        };
+    }
+    // a marker without a definition: hand-written, from a bundle older than INT-13, or with an offset (TODO(STD-74))
     DynUnit::Unknown {
         name: s.ident.clone(),
         docs: s.docs.clone(),

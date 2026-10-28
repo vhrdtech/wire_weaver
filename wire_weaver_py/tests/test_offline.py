@@ -4,6 +4,7 @@ Device communication is covered by the Rust `tests/dynamic` crate, which runs th
 generated server.
 """
 
+import math
 from pathlib import Path
 
 import pytest
@@ -374,11 +375,10 @@ def test_quantities():
     with pytest.raises(ValueError, match="in Volt where one in Per<Torque, AngularVelocity> is expected"):
         api.damping.encode(q)
 
-    # a unit marker ww_si doesn't know: by name and docs
+    # a unit of the API's own crate (`unit!`): known from the definition the model carries (INT-13)
     s = api.speed.decode(api.speed.encode(1500))
-    assert (str(s), s.symbol, s.unit, s.dim, s.docs) == ("1500 Rpm", "Rpm", "Rpm", None, ["Revolutions per minute"])
-    with pytest.raises(ValueError, match="not known to ww_si"):
-        s.to_si()
+    assert (str(s), s.symbol, s.unit, s.dim) == ("1500 rpm", "rpm", "Rpm", {"rad": 1, "s": -1})
+    assert s.to_si() == pytest.approx(50 * math.pi)
 
     # a value with its unit (AnyQuantity, STD-37): AnyQuantity::from(Volt::milli(3300u16)) as the derived type writes it
     any_volt = "12e40c" + "00566f6c7456d21f00000000000114" + "79"
@@ -391,5 +391,5 @@ def test_quantities():
     # any quantity goes in with its unit, the compound one too
     assert api.sensor.decode(api.sensor.encode(b)) == b
     assert str(api.sensor.decode(api.sensor.encode(b))) == "0.00012 N·m/(rad/s)"
-    with pytest.raises(ValueError, match="no dimension and scale to send"):
-        api.sensor.encode(s)
+    # the API's own unit too, with the dimension and factor of its definition
+    assert api.sensor.decode(api.sensor.encode(s)) == s

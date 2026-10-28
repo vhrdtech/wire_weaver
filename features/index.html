@@ -3632,6 +3632,8 @@
       
         
       
+        
+      
     
     
     
@@ -3799,6 +3801,33 @@
     
   
   exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
 
     
   </span>
@@ -7149,8 +7178,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
 <li>📋 <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — the checker compares magnitudes by value (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code> is
-  compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
-  vs N·s) breaking.</li>
+  compatible), reports origin, level, kind, sentinel and overflow policy (<code>Unbounded</code> → <code>Wrapping</code>, same bytes)
+  changes, and calls the same bytes in a different scale (lbf·s vs N·s) breaking.</li>
 </ul>
 <h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7405,6 +7434,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Q31</code>, <code>UQ16_16</code>, binary angles <code>Bam16</code>, <code>Bam32</code>. Replaces <code>ExactScale</code> in <code>Scale::Exact</code> (104 bytes in memory, a
   decimal prefix 2 bytes on the wire). <a href="../docs/std_library/magnitude/">Exact magnitudes</a>, conformance
   <code>stdlib.si.magnitude.*</code> (derive, dynamic, Python; C waits on API-26).</li>
+<li>✅ <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — <code>to()</code> stays exact or <code>None</code>; lossy conversions name
+  their rounding (<code>Rounding</code>: truncate, floor, ceil, nearest ties-to-even, nearest ties-away) and overflow policy
+  (<code>Overflow</code>: checked, saturate, wrap): <code>Fixed::to_rounded</code>, <code>to_saturating</code>, <code>to_wrapping</code>, <code>requantize</code>, exact (the
+  true quotient rounded once), π/ln factors through a 64-bit fixed point (<code>Magnitude::fixed_point</code>). Arithmetic's
+  policy is in the bounds marker: <code>Wrapping</code> (<code>Bam16</code>, <code>Bam32</code>), <code>Saturating</code> (<code>Q15</code>, <code>Q31</code>, <code>UQ16_16</code>), <code>Unbounded</code>
+  checked; same bytes, <code>Fixed::of</code> / <code>with_overflow</code>. Bounds prove conversions infallible: <code>into_rounded</code>, <code>From</code> of a
+  <code>Range</code>-bounded value for a whole factor, a compile error where the proof fails. Run-time <code>requantize</code> /
+  <code>Requantizer</code> for dynamic clients. <a href="../docs/std_library/rounding/">Rounding and overflow</a>,
+  <code>exact_units/tests/rounding.rs</code>, conformance <code>requantize.*</code> (derive, dynamic; Python and C wait on CLT-54).
+  <code>Seq</code> wrapping comes with STD-58.</li>
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
   <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
@@ -7645,10 +7684,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
 <li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
   (<code>Quantity&lt;U, B&gt;</code>, range in coherent units; a break: <code>B</code> explicit in the model), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
-<li>📋 <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — lossy conversions name their rounding (truncate, nearest
-  ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
-  saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
-  and C agree bit for bit (conformance).</li>
 <li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
   (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
 <li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges
@@ -7834,7 +7869,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (the board was not behind the probe). Proved by ELF instead (<code>just units-elf</code>): the pairs compared instruction by
   instruction on thumbv6m, thumbv7em and thumbv8m.main at <code>fw-z</code> and <code>fw-3</code>: range check and <code>Series</code> encode
   identical everywhere, <code>Series</code> decode at <code>fw-3</code>; struct encode/decode differ by the derive's per-field write for a
-  <code>Fixed</code> (a few instructions). See <code>docs/articles/units_budget.md</code>.</li>
+  <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (<code>docs/std_library/rounding.md</code>, "Cost on a device"). See <code>docs/articles/units_budget.md</code>.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>

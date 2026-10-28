@@ -3647,6 +3647,8 @@
       
         
       
+        
+      
     
     
     
@@ -3919,6 +3921,33 @@
     
   
   exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
 
     
   </span>
@@ -5518,6 +5547,8 @@
       
         
       
+        
+      
     
     
     
@@ -5632,22 +5663,25 @@ then Miller-Rabin and Pollard's rho), so any fraction a datasheet writes works. 
 compile; no unit definition has one. Besides the prefixes, <code>Pow10&lt;E&gt;</code> and <code>Rational</code>:</p>
 <ul>
 <li><code>Pow2&lt;E&gt;</code>: binary steps. The Q formats are aliases over it, with the unit defaulting to <code>Ratio</code>: <code>Q15&lt;U&gt;</code> is
-  <code>Fixed&lt;U, Pow2&lt;-15&gt;, i16&gt;</code>, <code>Q31&lt;U&gt;</code> is <code>Fixed&lt;U, Pow2&lt;-31&gt;, i32&gt;</code>, <code>UQ16_16&lt;U&gt;</code> is <code>Fixed&lt;U, Pow2&lt;-16&gt;, u32&gt;</code>.</li>
+  <code>Fixed&lt;U, Pow2&lt;-15&gt;, i16, Saturating&gt;</code>, <code>Q31&lt;U&gt;</code> is <code>Fixed&lt;U, Pow2&lt;-31&gt;, i32, Saturating&gt;</code>, <code>UQ16_16&lt;U&gt;</code> is
+  <code>Fixed&lt;U, Pow2&lt;-16&gt;, u32, Saturating&gt;</code>: their arithmetic saturates.</li>
 <li><code>FullScale&lt;V, BITS&gt;</code>: <code>V / 2^BITS</code>, one step of a converter whose <code>2^BITS</code> codes span <code>V</code> (LSB = Vref / 2ᴺ). A
   12-bit ADC at 3.3 V is <code>Fixed&lt;Volt, FullScale&lt;Rational&lt;33, 10&gt;, 12&gt;, u16&gt;</code>.</li>
 <li><code>FullScaleMax&lt;V, BITS&gt;</code>: <code>V / (2^BITS - 1)</code>, where the largest code is <code>V</code> (a PWM duty, a DAC reaching its
   reference). <code>FullScaleMax&lt;One, 16&gt;</code> is <code>Duty16</code>'s 1/65535.</li>
-<li>Binary angles: <code>Bam16</code> is <code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16&gt;</code> (65536 steps a turn), <code>Bam32</code> the same over <code>u32</code>.</li>
+<li>Binary angles: <code>Bam16</code> is <code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16, Wrapping&gt;</code> (65536 steps a turn, arithmetic wraps at a
+  turn), <code>Bam32</code> the same over <code>u32</code>.</li>
 </ul>
 <h2 id="conversions-at-compile-time">Conversions at compile time<a class="headerlink" href="#conversions-at-compile-time" title="Permanent link">&para;</a></h2>
 <p><code>Fixed::to::&lt;P2, T2&gt;()</code> works out <code>P / P2</code> as a constant. Between integer storages the factor must be a fraction of
 integers, and the multiply must fit a 64-bit integer when both storages have up to 32 bits, else 128 bits. If it
 doesn't, the conversion doesn't compile; it is never rounded. At run time the conversion is the multiply and divide
 by those constants: nothing between equal scales, a division in the storage's own width when the factor is
-1/n, <code>None</code> when the result isn't whole or doesn't fit <code>T2</code>. Float storages scale by the factor, π included.</p>
+1/n, <code>None</code> when the result isn't whole or doesn't fit <code>T2</code>. Float storages scale by the factor, π included. A
+conversion that rounds names how: <a href="../rounding/">Rounding and overflow</a>.</p>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Q15</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::{</span><span class="n">FullScale</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">Pow2</span><span class="p">,</span><span class="w"> </span><span class="n">Rational</span><span class="p">},</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">};</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">half</span><span class="p">:</span><span class="w"> </span><span class="nc">Q15</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">16384</span><span class="p">);</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">half</span><span class="p">:</span><span class="w"> </span><span class="nc">Q15</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="p">::</span><span class="n">of</span><span class="p">(</span><span class="mi">16384</span><span class="p">);</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">half</span><span class="p">.</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Pow2</span><span class="o">&lt;-</span><span class="mi">14</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">i16</span><span class="o">&gt;</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">get</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">8192</span><span class="p">));</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">type</span><span class="w"> </span><span class="nc">Adc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">FullScale</span><span class="o">&lt;</span><span class="n">Rational</span><span class="o">&lt;</span><span class="mi">33</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="mi">12</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">;</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Adc</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">4096</span><span class="p">).</span><span class="n">to</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="n">Fixed</span><span class="p">::</span><span class="n">get</span><span class="p">),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">3300</span><span class="p">));</span>

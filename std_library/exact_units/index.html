@@ -3647,6 +3647,8 @@
       
         
       
+        
+      
     
     
     
@@ -3952,6 +3954,33 @@
     
   
   exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
 
     
   </span>
@@ -5584,6 +5613,8 @@
       
         
       
+        
+      
     
     
     
@@ -5727,7 +5758,11 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 <h2 id="arithmetic-and-conversions">Arithmetic and conversions<a class="headerlink" href="#arithmetic-and-conversions" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>checked_add</code>, <code>checked_sub</code>, <code>checked_mul</code>, <code>checked_div</code> give <code>None</code> on overflow or out of bounds;
-  <code>saturating_*</code> and <code>wrapping_*</code> (a device clock that wraps) as for the integers.</li>
+  <code>saturating_*</code> and <code>wrapping_*</code> (a device clock that wraps) as for the integers. <code>Wrapping</code> and <code>Saturating</code> as
+  <code>B</code> make <code>+</code>, <code>-</code>, <code>*</code> and <code>/</code> do the same.</li>
+<li><code>to</code> converts only exactly; <code>to_rounded</code>, <code>to_saturating</code>, <code>to_wrapping</code> and <code>requantize</code> name a rounding and an
+  overflow policy, <code>into_rounded</code> and <code>From</code> are the infallible ones the bounds prove: see
+  <a href="../rounding/">Rounding and overflow</a>.</li>
 <li><code>PartialEq</code>, <code>Ord</code> and <code>Hash</code> compare the numbers; values of different scales are different types, convert them
   with <code>to</code> first.</li>
 <li><code>core::time::Duration</code> both ways for s, ds, cs, ms, µs and ns: <code>Micros::&lt;u32&gt;::try_from(Duration::from_millis(3))</code>
@@ -5774,26 +5809,28 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 </tr>
 <tr>
 <td><code>Q15&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-15&gt;, i16&gt;</code> (<code>U</code> = <code>Ratio</code>)</td>
+<td><code>Fixed&lt;U, Pow2&lt;-15&gt;, i16, Saturating&gt;</code> (<code>U</code> = <code>Ratio</code>)</td>
 </tr>
 <tr>
 <td><code>Q31&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-31&gt;, i32&gt;</code></td>
+<td><code>Fixed&lt;U, Pow2&lt;-31&gt;, i32, Saturating&gt;</code></td>
 </tr>
 <tr>
 <td><code>UQ16_16&lt;U&gt;</code></td>
-<td><code>Fixed&lt;U, Pow2&lt;-16&gt;, u32&gt;</code></td>
+<td><code>Fixed&lt;U, Pow2&lt;-16&gt;, u32, Saturating&gt;</code></td>
 </tr>
 <tr>
 <td><code>Bam16</code></td>
-<td><code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16&gt;</code></td>
+<td><code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16, Wrapping&gt;</code></td>
 </tr>
 <tr>
 <td><code>Bam32</code></td>
-<td><code>Fixed&lt;Turn, Pow2&lt;-32&gt;, u32&gt;</code></td>
+<td><code>Fixed&lt;Turn, Pow2&lt;-32&gt;, u32, Wrapping&gt;</code></td>
 </tr>
 </tbody>
 </table>
+<p>The Q formats saturate and the binary angles wrap in arithmetic; they are made with <code>Fixed::of</code>, see
+<a href="../rounding/#the-policy-of-a-type">Rounding and overflow</a>.</p>
 <h2 id="in-an-api">In an API<a class="headerlink" href="#in-an-api" title="Permanent link">&para;</a></h2>
 <p><code>Fixed</code> goes into properties, method arguments, <code>Timed</code> values and <code>Series</code> like any type. The bounds may be left out
 in Rust source; the walker fills in <code>Unbounded</code>, and the API model, snapshots, <code>ww</code>, Python and the scaffold always

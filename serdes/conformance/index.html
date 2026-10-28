@@ -1371,6 +1371,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-requantize-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A requantize case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3749,6 +3760,8 @@
       
         
       
+        
+      
     
     
     
@@ -3916,6 +3929,33 @@
     
   
   exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
 
     
   </span>
@@ -5404,6 +5444,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-requantize-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A requantize case
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#frozen-golden-bytes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5639,6 +5690,32 @@ an encode:</p>
 <li><code>wire_change</code> (default none): <code>"EVO-n / reason"</code>, the escape the <a href="#frozen-golden-bytes">frozen golden bytes guard</a>
   accepts for a deliberate change to this case's <code>bytes</code>, <code>direction</code> or <code>bytes_from</code>.</li>
 </ul>
+<h2 id="a-requantize-case">A requantize case<a class="headerlink" href="#a-requantize-case" title="Permanent link">&para;</a></h2>
+<p>The <code>requantize</code> list holds conversions instead of bytes (STD-63, <a href="../../std_library/rounding/">Rounding and overflow</a>): a
+stored number of one scale and storage converted to another with a named rounding and overflow policy, which every
+consumer has to give bit for bit.</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;requantize.bam16_to_bam8.full_turn.wrap&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BAM16 -&gt; BAM8&quot;</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;factor&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pow10&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;rest&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;pow2&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-16</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;irrational&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;factors&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="kc">null</span><span class="p">]}},</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;to&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;u8&quot;</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">65408</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;rounding&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;nearest_even&quot;</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">&quot;overflow&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;wrap&quot;</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">&quot;result&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><code>conversion</code>: the typed conversion the derive runs, by its id in <code>tests/conformance/src/requantize.rs</code>
+  (<code>Fixed::requantize::&lt;P2, T2&gt;</code>); the derive also checks that <code>factor</code> is the quotient of its scales.</li>
+<li><code>factor</code>: the quotient of the scales, a <code>magnitude</code> value, which is all a dynamic client has: it reads the factor
+  through the model and runs <code>exact_units::Requantizer</code> with the target storage <code>to</code>.</li>
+<li><code>rounding</code> (<code>truncate</code>, <code>floor</code>, <code>ceil</code>, <code>nearest_even</code>, <code>nearest_away</code>), <code>overflow</code> (<code>checked</code>, <code>saturate</code>,
+  <code>wrap</code>) and <code>result</code>, <code>null</code> for no value.</li>
+<li><code>gaps</code>, <code>note</code> and <code>wire_change</code> as for a case: a <code>result</code> is as frozen as golden bytes.</li>
+</ul>
+<p>Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
+Python and C have no unit conversions yet and carry a gap mark naming CLT-54 on every case.</p>
 <h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
 <p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
 <code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>

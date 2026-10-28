@@ -2487,6 +2487,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#overflow-policies-of-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overflow policies of <code>Fixed</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#compressed-sequences-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3905,6 +3916,8 @@
       
         
       
+        
+      
     
     
     
@@ -4072,6 +4085,33 @@
     
   
   exact_units: units in the model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/rounding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: rounding
 
     
   </span>
@@ -5611,6 +5651,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#overflow-policies-of-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Overflow policies of <code>Fixed</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#compressed-sequences-seriest" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5909,6 +5960,12 @@ is compatible depends on what the old version writes:</p>
 </ul>
 <p>At connect time the client does not refuse a device whose bounds differ from its own: a longer value is rejected when
 it is sent, by whichever side has the smaller bound.</p>
+<h3 id="overflow-policies-of-fixed">Overflow policies of <code>Fixed</code><a class="headerlink" href="#overflow-policies-of-fixed" title="Permanent link">&para;</a></h3>
+<p>The bounds marker <code>B</code> of an <code>exact_units::Fixed</code> that is <code>Unbounded</code>, <code>Wrapping</code> or <code>Saturating</code> (STD-63) has no
+bytes of its own: changing one into another keeps the bytes and the value they mean, and changes what arithmetic on
+the value does (a <code>Bam16</code> wraps at a turn, a <code>Q15</code> stops at its ends). Every reader still reads every value. Whether
+the checker reports such a change, and how, is open: EVO-17. A change of the unit or the scale is a change of
+meaning, not of policy.</p>
 <h3 id="compressed-sequences-seriest">Compressed sequences: <code>Series&lt;T&gt;</code><a class="headerlink" href="#compressed-sequences-seriest" title="Permanent link">&para;</a></h3>
 <p>A <code>Series</code> has bytes of its own, so <code>Vec&lt;T&gt;</code> -&gt; <code>Series&lt;T&gt;</code> or <code>Series&lt;u32&gt;</code> -&gt; <code>Series&lt;u64&gt;</code> is breaking (<code>ww api
 check</code> reports it), unlike the borrowed / owned form (<code>Series&lt;'i, T&gt;</code> / <code>SeriesOwned&lt;T&gt;</code>), which is the same type.

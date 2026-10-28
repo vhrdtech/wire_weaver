@@ -18,7 +18,8 @@ use syn::{
 };
 use ww_self::units::{marker_name_of, origin_of, scale_of, unit_of};
 use ww_self::{
-    ApiBundleOwned, ConventionalUnitDefOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned, ScaleDefOwned, UnitDefOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned,
+    ScaleDefOwned, UnitDefOwned,
 };
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
@@ -714,11 +715,13 @@ pub(crate) fn marker_def(
                 magnitude,
             };
             match line.provenance {
-                Some((source, year)) => MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned {
-                    unit,
-                    source,
-                    year,
-                }),
+                Some((source, year)) => {
+                    MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned {
+                        unit,
+                        source,
+                        year,
+                    })
+                }
                 None => MarkerDefOwned::Unit(unit),
             }
         }

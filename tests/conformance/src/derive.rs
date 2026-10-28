@@ -980,7 +980,7 @@ fn celsius() -> ww_self::MarkerDefOwned {
             symbol: "K".into(),
             dim: dim(ww_si::Dim::new(0, 0, 0, 0, 1, 0, 0)),
             magnitude: ww_si::Magnitude::ONE,
-            },
+        },
         symbol: "°C".into(),
         reference: None,
         offset: ww_si::Offset::decimal(27315, -2),

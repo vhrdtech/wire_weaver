@@ -2,7 +2,8 @@ use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ArgumentOwned, Batching, ClaimMode, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned,
     FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructExtraOwned,
-    ItemStructOwned, Length, MarkerDefOwned, UnitDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    ItemStructOwned, Length, MarkerDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    UnitDefOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;

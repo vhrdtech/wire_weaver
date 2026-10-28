@@ -838,9 +838,7 @@ impl<'a> TypeCheck<'a> {
                     if !w_step.dim.as_dim().same(r_step.dim.as_dim()) {
                         return self.check_steps(&changed, &w_step, &r_step);
                     }
-                    if w_unit.magnitude != r_unit.magnitude
-                        || w_prov != r_prov
-                    {
+                    if w_unit.magnitude != r_unit.magnitude || w_prov != r_prov {
                         let shown = |u: &UnitDefOwned, p: &Provenance| {
                             format!(
                                 "1 {} = {} in SI, {}",

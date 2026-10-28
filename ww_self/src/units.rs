@@ -14,8 +14,8 @@
 //! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`).
 
 use crate::{
-    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
-    UnitDefOwned, ValueOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned,
+    OriginDefOwned, TypeOwned, UnitDefOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use exact_units::{DimOwned, Magnitude, Offset};
@@ -339,15 +339,17 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
             Ok(CanonicalUnit::one())
         }
         MarkerDefOwned::Unit(def)
-        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. }) => Ok(CanonicalUnit {
-            powers: vec![UnitPower {
-                marker: marker_name(s, bundle)?,
-                symbol: def.symbol.clone(),
-                exp_x2: 2,
-            }],
-            dim: def.dim.clone(),
-            magnitude: def.magnitude,
-        }),
+        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. }) => {
+            Ok(CanonicalUnit {
+                powers: vec![UnitPower {
+                    marker: marker_name(s, bundle)?,
+                    symbol: def.symbol.clone(),
+                    exp_x2: 2,
+                }],
+                dim: def.dim.clone(),
+                magnitude: def.magnitude,
+            })
+        }
         MarkerDefOwned::Per => arg(0)?.checked_mul(arg(1)?, -1),
         MarkerDefOwned::Times => arg(0)?.checked_mul(arg(1)?, 1),
         MarkerDefOwned::Sqrt => arg(0)?.checked_sqrt(),

@@ -752,6 +752,14 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.fixed.duty16", ww_si::Duty16::new(0xBEEF)),
         case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
         case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
+        case(
+            "stdlib.si.fixed.customary",
+            ww_si::Fixed::<
+                ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>,
+                ww_si::prefix::Milli,
+                i32,
+            >::new(-2000),
+        ),
         case("stdlib.si.magnitude.one", ww_si::Magnitude::ONE),
         case("stdlib.si.magnitude.milli", ww_si::Magnitude::pow10(-3)),
         case("stdlib.si.magnitude.kibi", ww_si::Magnitude::pow2(10)),
@@ -787,6 +795,10 @@ pub fn table() -> Vec<Typed> {
         case(
             "stdlib.si.si_expr.volt",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
+        ),
+        case(
+            "stdlib.si.si_expr.pound_force",
+            si_expr(<ww_si::units::PoundForce as ww_si::Unit>::EXPR),
         ),
         case(
             "stdlib.si.si_expr.sqrt",

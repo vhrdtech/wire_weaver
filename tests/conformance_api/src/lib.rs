@@ -127,6 +127,8 @@ trait Conformance {
     property!(rw fixed_pow10: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>);
     property!(rw duty16: ww_si::Duty16);
     property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
+    // an imperial unit (STD-72): the same i32, lbf·s only in the type
+    property!(rw fixed_customary: ww_si::Fixed<ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>, ww_si::prefix::Milli, i32>);
     property!(rw magnitude: ww_si::Magnitude);
     // ww_si::Point (STD-64): the number alone, the origin is in the type
     property!(rw point_celsius: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>);

@@ -129,6 +129,7 @@ nav = [
             { "Data types" = [
                     "std_library/ww_si.md",
                     "std_library/exact_units.md",
+                    { "exact_units: imperial and US customary" = "std_library/customary.md" },
                     { "exact_units: magnitudes" = "std_library/magnitude.md" },
                     { "exact_units: points" = "std_library/points.md" },
                     { "exact_units: units in the model" = "std_library/units_in_the_model.md" },

@@ -349,17 +349,7 @@ fn ids_and_symbols_unique_and_sourced() {
             assert!(!why.is_empty(), "{}", u.id);
         }
     }
-    for s in [
-        Src::Yd1959,
-        Src::Sp811,
-        Src::Hb44,
-        Src::Wma1985,
-        Src::Cgpm1901,
-        Src::SiBrochure8,
-        Src::Fr2020,
-        Src::Eec80181,
-        Src::Cfr21_101_9,
-    ] {
+    for s in Src::CITED {
         assert!(s.url().starts_with("https://") && !s.title().is_empty());
         assert!(
             UNITS.iter().any(|u| u.sources.iter().any(|c| c.0 == s)),

@@ -354,9 +354,9 @@ pub fn write_unit<'t, E: Tree<'t>>(
     unit: &E,
     f: &mut fmt::Formatter<'_>,
 ) -> fmt::Result {
-    if let Prefix::Exact(s) = prefix {
+    if !prefix.is_named() {
         // a factor without a symbol: after the number, then the unit
-        write!(f, "{s}")?;
+        write!(f, "{}", prefix.magnitude())?;
         return write_unit(Prefix::Unit, unit, f);
     }
     if is_ratio(unit) {

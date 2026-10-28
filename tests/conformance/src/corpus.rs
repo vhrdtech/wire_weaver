@@ -15,7 +15,50 @@ pub struct Corpus {
     #[serde(rename = "_about")]
     pub about: Vec<String>,
     pub cases: Vec<Case>,
+    /// Conversions of a stored number to another scale and storage (STD-63), checked by [crate::requantize].
+    #[serde(default)]
+    pub requantize: Vec<RequantizeCase>,
 }
+
+/// A number in one scale and storage converted to another with a named rounding and overflow policy: every consumer
+/// gives `result` (STD-63).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequantizeCase {
+    /// Unique among the requantize cases, `requantize.what`.
+    pub name: String,
+    /// The typed conversion of the derive, by its id in `tests/conformance/src/requantize.rs`.
+    pub conversion: String,
+    /// The quotient of the scales, from over to, in the corpus form of a `magnitude` case.
+    pub factor: serde_json::Value,
+    /// The target storage: `u8`..`u64`, `i8`..`i64`, `f32`, `f64`.
+    pub to: String,
+    /// The stored number converted (an integer, or a float for a float storage).
+    pub value: serde_json::Value,
+    /// `truncate`, `floor`, `ceil`, `nearest_even`, `nearest_away`.
+    pub rounding: String,
+    /// `checked`, `saturate`, `wrap`.
+    pub overflow: String,
+    /// The stored number after it, `null` for no value (a checked overflow).
+    pub result: serde_json::Value,
+    /// Consumers that can't run this case yet: consumer -> why, with the FEATURES.md id that will fix it.
+    #[serde(default)]
+    pub gaps: BTreeMap<String, String>,
+    #[serde(default)]
+    pub note: Option<String>,
+    /// A deliberate change of `result` (TEST-24): `"STD-n / reason"`, as `wire_change` of a case.
+    #[serde(default)]
+    pub wire_change: Option<String>,
+}
+
+impl RequantizeCase {
+    pub fn gap(&self, consumer: &str) -> Option<&str> {
+        self.gaps.get(consumer).map(String::as_str)
+    }
+}
+
+/// The consumers a requantize case goes through: the explainer shows bytes, it converts nothing.
+pub const REQUANTIZE_CONSUMERS: [&str; 4] = ["derive", "dynamic", "python", "c"];
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

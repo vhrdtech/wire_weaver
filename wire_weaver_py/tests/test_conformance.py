@@ -100,3 +100,15 @@ def test_case(api, case):
         assert result is not None, "can't be run: give it a gap mark with the reason"
         ok, message = result
         assert ok, message
+
+
+REQUANTIZE = CORPUS.get("requantize", [])
+
+
+@pytest.mark.parametrize("case", REQUANTIZE, ids=[c["name"] for c in REQUANTIZE])
+def test_requantize(case):
+    """A stored number converted to another scale and storage (STD-63): Python has no unit conversions yet, so every
+    case carries a gap mark; once `ww.requantize` exists, the cases run here and the marks go."""
+    gap = case.get("gaps", {}).get("python")
+    assert not hasattr(ww, "requantize"), "ww.requantize exists now: run the requantize cases here and drop their marks"
+    assert gap is not None, "Python converts nothing yet: give it a gap mark with the reason"

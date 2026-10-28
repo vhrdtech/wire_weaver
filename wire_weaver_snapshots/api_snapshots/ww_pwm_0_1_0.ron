@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 309daaa625de8fb34b4fae34ebd191fa2e45e975dab4c448d039d6d6f54ecb9a
+// shrink_wrap sha256: ae2d49d1c9f1a95e0cdf62bc28579f8d9bb19d0b6dcfddcd5256e3ec80820759
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -49,24 +49,24 @@
     (id: 3, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "PwmCaptureChannel", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        126,
-        49,
-        17,
-        249,
-        31,
-        128,
-        106,
-        217,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
+        149,
+        186,
+        120,
+        228,
+        162,
         183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+        17,
+        232,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
@@ -95,7 +95,7 @@
             "0..=65535 = 0..100 %.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -183,14 +183,14 @@
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to measure, see `PwmCaptureChannel::capture` and `PwmCaptureChannel::set_capture`.",
@@ -341,6 +341,7 @@
     ], compact_id: Some(97), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_pwm", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

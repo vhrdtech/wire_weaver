@@ -1,7 +1,8 @@
 //! Bounds of a [Fixed](super::Fixed): [Unbounded] by default, or a range checked on construction and on every read.
 
 use super::storage::Storage;
-use crate::ops::pow10_f64;
+use crate::num::pow10_f64;
+#[cfg(feature = "shrink_wrap")]
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
 
 /// The range a value of `T` must be in, both ends inclusive, `None` for no limit: a zero-size marker, never sent. A
@@ -108,6 +109,10 @@ range! {
     i16 i16::MIN, i16::MAX, x => x as i16;
     i32 i32::MIN, i32::MAX, x => x as i32;
     i64 i64::MIN, i64::MAX, x => x as i64;
+}
+
+#[cfg(feature = "shrink_wrap")]
+range! {
     UNib32 u32::MIN, u32::MAX, x => UNib32(x as u32);
     UVlq32 u32::MIN, u32::MAX, x => UVlq32(x as u32);
     UVlq64 u64::MIN, u64::MAX, x => UVlq64(x as u64);
@@ -124,6 +129,7 @@ impl<const MIN: u64, const MAX: u64> Bounds<u64> for RangeU64<MIN, MAX> {
     const MAX: Option<u64> = Some(MAX);
 }
 
+#[cfg(feature = "shrink_wrap")]
 impl<const MIN: u64, const MAX: u64> Bounds<UVlq64> for RangeU64<MIN, MAX> {
     const MIN: Option<UVlq64> = match <Self as Bounds<u64>>::MIN {
         Some(x) => Some(UVlq64(x)),
@@ -186,6 +192,10 @@ bounded! {
     i16 x => x;
     i32 x => x;
     i64 x => x;
+}
+
+#[cfg(feature = "shrink_wrap")]
+bounded! {
     UNib32 x => x.0;
     UVlq32 x => x.0;
     UVlq64 x => x.0;

@@ -5,10 +5,10 @@
 //! ratio) and through `f64` to floats. The slow path lives in functions of its own, so the 104-byte `Magnitude`s
 //! stay out of the fast path's stack frame.
 
+use crate::bounds::Limit;
 use crate::*;
 use core::cmp::Ordering;
 use exact_units::Magnitude;
-use crate::bounds::Limit;
 use ww_numeric::Integer;
 
 pub(crate) use exact_units::num::{scale_f32, scale_f64};

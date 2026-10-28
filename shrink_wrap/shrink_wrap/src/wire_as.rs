@@ -25,7 +25,7 @@ pub trait WireAs<T>: Sized {
 
     /// The most `from_plain` of any `T` writes, when it is less than `Self::MAX_SIZE` (as `Self` alone, without the
     /// size slot of an `Unsized` field); `None`: `Self::MAX_SIZE`. A promise checked by the impl's own tests: a value
-    /// past it fails to write into a buffer sized by it ([Error::OutOfBounds]).
+    /// past it fails to write into a buffer sized by it (an `Error::OutOfBoundsWrite..`).
     const PLAIN_MAX_SIZE: Option<MaxSize> = None;
 }
 

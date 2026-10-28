@@ -504,7 +504,7 @@ mod wire {
 
         /// The largest computed scale, 1/(2^30 − 1) (checked by a test), not a full `Magnitude`'s 97 B: firmware
         /// knows only the computed scales, and buffers and `Series::max_bytes` are sized by this. A scale interned on
-        /// `std` may write more and then fails to fit a buffer sized by it ([Error::OutOfBounds]).
+        /// `std` may write more and then fails to fit a buffer sized by it (an `Error::OutOfBoundsWrite..`).
         const PLAIN_MAX_SIZE: Option<MaxSize> = Some(MaxSize::bytes(super::COMPUTED_MAX_BYTES));
     }
 

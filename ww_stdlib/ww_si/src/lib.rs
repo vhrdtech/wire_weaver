@@ -54,6 +54,8 @@ pub use exact_units::{
 pub use exact_units::{CountedOwned, DimOwned, ProvenanceOwned, SIExprOwned};
 #[cfg(feature = "dimensionless")]
 pub use exact_units::{Duty16, Ppb};
+#[cfg(feature = "counting")]
+pub use exact_units::{Index, IndexFrom1, Seq};
 #[cfg(feature = "time")]
 pub use exact_units::{Micros, Millis, Nanos};
 

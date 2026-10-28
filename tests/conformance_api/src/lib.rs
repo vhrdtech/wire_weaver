@@ -134,6 +134,10 @@ trait Conformance {
     property!(rw point_celsius: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>);
     property!(rw point_bounded: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Deci, i16, ww_si::Range<-400, 1250>>>);
     property!(rw offset: ww_si::Offset);
+    // ww_si::Index, IndexFrom1, Seq (STD-58): the number alone, the table it counts in is in the type
+    property!(rw with_index: WithIndex);
+    property!(rw index_from_1: ww_si::IndexFrom1<ww_si::units::Item, u8, ww_si::Range<1, 4>>);
+    property!(rw seq_pair: SeqPair);
     property!(rw si_expr: ww_si::SIExpr<'i>);
     // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
     property!(rw marker_def: ww_self::MarkerDef<'i>);
@@ -589,6 +593,20 @@ pub struct WrappedSized {
     pub digit: Digit,
     pub count: Count,
     pub volts: Volts<Marker>,
+}
+
+/// An index into a table of samples next to a byte (STD-58): its `u32` alone.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct WithIndex {
+    pub slot: ww_si::Index<ww_si::units::Sample, u32>,
+    pub tag: u8,
+}
+
+/// Two nibble sequence numbers, the second the one after the first (STD-58): a nibble each.
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq, Clone, Copy))]
+pub struct SeqPair {
+    pub last: ww_si::Seq<ww_si::units::Frame, Nibble>,
+    pub next: ww_si::Seq<ww_si::units::Frame, Nibble>,
 }
 
 /// `WrappedSized` with the plain fields.

@@ -406,8 +406,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of today's `ww_si` types (`I4` exponents, `UNib32` scale parts). Read by the crate walker inside `cfg_attr` (API-60).
 - ✅ **DER-23 A field written as a user type**: `#[wire(W)]` (DER-19) with any `W: WireAs<T>`, not only integers: a
   field keeps a handle in Rust and writes the value it stands for (`exact_units::Prefix::Exact(#[wire(Magnitude)]
-  ExactScale)`: one byte in Rust, the full magnitude on the wire, STD-59). In a `Series` the field is `W`'s column
-  (`series::WiredRef`, `WireAsRef` lends the value) while store and cells keep the handle. Tests
+  ExactScale)`: one byte in Rust, the full magnitude on the wire, STD-59). In a `Series` the field is an opaque run of
+  `W`'s bytes (`series::WiredOpaque`, the model marks it series-opaque) while store and cells keep the handle. Tests
   `shrink_wrap/tests/wire_as_user.rs`.
 
 ## API model and codegen (`API`)

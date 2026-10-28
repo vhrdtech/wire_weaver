@@ -8,8 +8,8 @@
 //! and `isize`.
 //!
 //! A user type can be the wire type too (DER-23): `#[wire(Magnitude)] scale: ExactScale` keeps a one-byte handle in
-//! Rust and writes the full value it stands for. Such a `W` implements [WireAs] for the field's type, and
-//! [WireAsRef] when the field is in a [Series](crate::series::Series).
+//! Rust and writes the full value it stands for. Such a `W` implements [WireAs] for the field's type; in a
+//! [Series](crate::series::Series) the field is an opaque run of `W`'s bytes ([WiredOpaque](crate::series::WiredOpaque)).
 
 use crate::{Error, Nibble, UNib32, UVlq32, UVlq64};
 
@@ -20,14 +20,6 @@ pub trait WireAs<T>: Sized {
 
     /// The plain value of what was read, [Error::SubtypeOutOfRange] when it doesn't fit in `T`.
     fn into_plain(self) -> Result<T, Error>;
-}
-
-/// A [WireAs] whose wire value of a plain `T` lives somewhere it can be borrowed from (a `static` table): what a
-/// `#[wire(W)] field: T` with a user type `W` needs to be in a [Series](crate::series::Series) (DER-23), whose columns
-/// are `W`'s, written from references, while its store and cells keep the plain `T`.
-pub trait WireAsRef<T>: WireAs<T> {
-    /// The wire value of `value`, the same that [WireAs::from_plain] gives.
-    fn wire_ref(value: &T) -> &Self;
 }
 
 /// A plain unsigned integer that unsigned wire types take (`u8`..`u128`, `usize`), through `u64`.

@@ -46,6 +46,7 @@ mod tests {
     struct Values {
         voltage: Volt,
         rail: Rail,
+        duty: Quantity<units::Ratio>,
         damping: Damping,
         speed: Quantity<Rpm>,
         /// The `AnyQuantity` property, serialized.
@@ -79,6 +80,10 @@ mod tests {
         Values {
             voltage: Volt::milli(3300u16),
             rail: Rail::try_new(Prefix::Milli, 1800u16).unwrap(),
+            duty: Quantity::new(
+                Prefix::from_magnitude(&Magnitude::ratio(1, 65535)).unwrap(),
+                32768u16,
+            ),
             damping: Damping::from_f32(1.2e-4),
             speed: Quantity::<Rpm>::base(1500u16),
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
@@ -166,6 +171,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Rail, ()> {
                 GetResult::Value(self.values.lock().unwrap().rail)
+            }
+
+            fn get_duty(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Quantity<units::Ratio>, ()> {
+                GetResult::Value(self.values.lock().unwrap().duty)
             }
 
             fn history(
@@ -520,6 +532,22 @@ mod tests {
         assert_eq!(v.to_si_f64(), Some(3.3));
         assert_eq!(v.unit.dim().unwrap().to_string(), "kg·m²·s⁻³·A⁻¹");
         assert_eq!(v.unit.name(), "Volt");
+    }
+
+    /// An `Exact` prefix (STD-59) comes through the dynamic client with its scale, shown as the typed quantity shows it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn exact_prefix_property() {
+        let (device, _values) = start("quantities/exact");
+        let (client, root) = connect(&device).await;
+        let d = read_quantity(&client, &root, "duty").await;
+        assert_eq!(d.unit, DynUnit::Known(units::Ratio::EXPR));
+        assert_eq!(
+            (d.prefix, d.value),
+            (values().duty.prefix, NumericValue::U16(32768))
+        );
+        assert_eq!(d.to_string(), values().duty.to_string());
+        assert_eq!(d.to_string(), "32768·1/65535");
+        assert_eq!(d.to_f64(), 32768.0 / 65535.0);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

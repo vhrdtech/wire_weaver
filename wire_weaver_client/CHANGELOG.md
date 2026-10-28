@@ -4,6 +4,7 @@
 
 - `quantity::DynQuantity::prefix` is a `DynPrefix` (`Si(Prefix)` or `Exact { symbol, magnitude }`, a `Fixed`'s binary or own scale, CLT-54) and `DynQuantity` has a new field `storage: Option<Storage>` (`Some` for a `Fixed`): build one with `DynQuantity::new(prefix, value, unit)`, compare a prefix with `Prefix::Milli.into()` or `q.prefix.si()`.
 - `ww_si::Prefix` has binary and `Exact` prefixes (STD-59): `clock_sync::DeviceTime` works for a device clock in any rational prefix of a second (an RTC counting `2⁻¹⁵` s), `client::seconds` scales by `Prefix::scale_f64`.
+- `ww_si::Prefix` has binary prefixes, the scale families `Pow10`, `Pow2`, `FullScale` and `Unknown(u16)` (STD-59, DER-25): `clock_sync::DeviceTime` works for a device clock in any of them but `Unknown` (an RTC counting `2⁻¹⁵` s), `client::seconds` scales by `Prefix::scale_f64`.
 - `quantity::DynUnit::Named::dim` is a `ww_si::DimOwned` (angle, information and counted bases, STD-60), `DynUnit::dim()` answers `Option<Dim<'_>>`: compare with `same` or through `exps()` / `counted_bases()`.
 - At connect time a resource whose transparent wrapper's unit, prefix or bound differs from the device's (EVO-15, `ww_si::Fixed<Second, Micro, u64>` on the client, `Fixed<Second, Milli, u64>` on the device) is incompatible: the bytes are the same, but the value means another quantity, or one side refuses values the other writes. A plain `T` on one side and a wrapper of `T` on the other stays compatible.
 - `multi::call_array` / `call_array_blocking` take any `CallPath` builder: the generic parameters are `<C, F>` instead of `<T, F>` (a turbofish `call_array::<u8, _>` drops the `u8`), and they answer `Vec<C::Output>`, which is `Vec<Result<T, ErrorOwned>>` as before for methods without `Result` (CLT-48). The hidden `multi::CallPath` trait has `Item` (wire value) next to `Output` and an `output` method.
@@ -35,7 +36,7 @@
 
 ### 🐛 Fixes
 
-- `quantity::DynQuantity::from_value` reads a `ww_si::Quantity` with an `Exact` prefix (STD-59): the value is decoded by the derived type, so `ww` shows `32768·1/65535` where it showed the raw struct.
+- `quantity::DynQuantity::from_value` reads a `ww_si::Quantity` in a binary prefix or a scale family (STD-59): the value is decoded by the derived type, so `ww` shows `32768·1/65535` where it showed the raw struct; one in a scale of a newer version shows as `5·<scale 1000>`, `to_si_f64` is `None`.
 - `quantity::unit_of` / `is_quantity` / `DynQuantity::from_value` recognise `ww_si::Quantity<U, B>` (STD-59: the bounds `B` are the second argument in the model, `Unbounded` included) as well as a device's `Quantity<U>` built before it; with only one argument accepted, every quantity of a new device read as a plain struct.
 - A `MultiCall`/`MultiRead`/`MultiWrite` tuple may name the same resource more than once, e.g. two `i2c_write` calls (CLT-49): it failed with `Error::MultiReq("resources are identical ..")`, now the id repeats in the request's index list and the answers come in tuple order. No device change needed.
 - An accumulation window of `W` costs at most `W` (CLT-53): the tx task waited for it with tokio's timer, which rounds up to whole milliseconds, so a 1 ms window cost ~2.2 ms per request. It now waits on a fine timer (a thread per process for deadlines under 2 ms away), within tens of µs.

@@ -6,6 +6,8 @@
 
 ### 🚀 Features
 
+- The crate walker reads `exact_units::unit!` / `scale!` invocations (also through a re-export, `ww_si::unit!`) as the marker structs they declare (INT-13), so the snapshot of `exact_units` and APIs using a user's own markers keep finding them; a line the macro wouldn't accept is an error.
+
 - The crate walker reads `#[wire(W)]` and `#[cfg_attr(pred, wire(W))]` on struct and enum variant fields (DER-19): the API model (`ww_self`) has the wire type `W` as the field's type, so the dynamic client, Python and C read and write such fields as they do a field of type `W`.
 
 ### 🐛 Fixes

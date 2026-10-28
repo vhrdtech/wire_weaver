@@ -276,6 +276,17 @@ impl Type {
             Type::String | Type::Vec(_) | Type::RefBox(_) => quote! { None },
             // the flag is a field of its own (IsSome / IsOk), only the value is written here
             Type::Option(_, ty) => Self::write_max_size(ty, cp),
+            // a user `W` may promise less for the plain values it takes (`WireAs::PLAIN_MAX_SIZE`)
+            Type::Wire {
+                plain,
+                wire,
+                user: true,
+                ..
+            } => {
+                let size = cp.item(quote! { wire_as::plain_write_max_size });
+                let (plain, wire) = (plain.def(true, cp), wire.def(true, cp));
+                quote! { #size::<#wire, #plain>() }
+            }
             Type::Wire { wire, .. } => wire.max_size_expr(cp),
             Type::Result(_, ok_err_ty) => {
                 let ok = Self::write_max_size(&ok_err_ty.0, cp);

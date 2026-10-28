@@ -2218,7 +2218,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (the board was not behind the probe). Proved by ELF instead (`just units-elf`): the pairs compared instruction by
   instruction on thumbv6m, thumbv7em and thumbv8m.main at `fw-z` and `fw-3`: range check and `Series` encode
   identical everywhere, `Series` decode at `fw-3`; struct encode/decode differ by the derive's per-field write for a
-  `Fixed` (a few instructions). See `docs/articles/units_budget.md`.
+  `Fixed` (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at `z` and `3` (`docs/std_library/rounding.md`, "Cost on a device"). See `docs/articles/units_budget.md`.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

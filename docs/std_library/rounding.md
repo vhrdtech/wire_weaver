@@ -133,5 +133,28 @@ follow with CLT-54.
 ## Cost on a device
 
 A conversion is the constants worked out at compile time and, at run time, one multiply, one divide (or shift) and a
-compare for the rounding: a factor of 1/n divides in the storage's own width, a factor with π multiplies by a 64-bit
-constant. Nothing of the policy is decided at run time unless `requantize` with a run-time policy is used.
+compare for the rounding: a factor of 1/n divides in the storage's own width (a power of 2 is an arithmetic shift and
+a mask), a factor with π multiplies by a 64-bit constant and rounds from the bits shifted out. Nothing of the policy is
+decided at run time unless `requantize` with a run-time policy is used.
+
+On Cortex-M that costs what the same conversion written by hand costs. Instructions per function (hand-written /
+typed, `=` where LLVM emits the same code for both), from the ELF of a `no_std` staticlib (`lto = "fat"`), Rust
+1.98.1, measured on 28 Oct 2026:
+
+| Conversion                                          | M0 `z`  | M0 `3`  | M4F `z` | M4F `3` |
+|-----------------------------------------------------|---------|---------|---------|---------|
+| mV `i16` → dV `i16`, `NearestEven`, checked         | 27 / 29 | 30 / 34 | 24 / 23 | 27 / 23 |
+| mV `i16` → dV `i8`, `Floor`, saturating             | =       | =       | =       | =       |
+| `Q15` → `Q7`, `NearestEven`, saturating             | 21 / 19 | 29 / 26 | 15 / 15 | 15 / 15 |
+| `Bam16` → `Bam8`, `NearestEven`, wrapping           | 19 / 17 | 25 / 23 | 13 / 13 | 15 / 13 |
+| `Bam16 + Bam16` (wraps), `Q15 + Q15` (saturates)    | =       | =       | =       | =       |
+| 0 to 3300 mV `i16` → dV `u8`, `into_rounded`        | 23 / 27 | 26 / 36 | 17 / 17 | 25 / 27 |
+| 0 to 3300 mV `i16` → µV `i32`, `From`               | 12 / 16 | 12 / 12 | 10 / 12 | 10 / 10 |
+| m° `i32` → µrad `i32` (π), `NearestEven`, checked   | 94 / 94 | 96 / 96 | 50 / 46 | 51 / 48 |
+
+Both sides of the bounded rows check the 0 to 3300 range first (`try_new` on the typed side). Where the typed side
+is longer the arithmetic is the same: LLVM hoists the divide above the range check and picks selects where the hand
+version branches. The π row's hand version is the same correctly rounded 64-bit fixed point; the usual hand-written
+32.32 approximation with a round half up is 13 instructions on M0 and 11 on M4F, and not correctly rounded. The
+gate that keeps such pairs equal is TEST-29.
+

@@ -286,7 +286,11 @@ fn wire_int_signed(ty: &Type, wire: bool) -> Option<bool> {
 fn wire_field_type(plain: Type, wire: Type, cfg: Option<syn::Meta>) -> Result<Type, String> {
     let plain_signed = wire_int_signed(&plain, false);
     let wire_signed = wire_int_signed(&wire, true);
-    let user = wire_signed.is_none() && is_user_type(&wire);
+    // a user `W`, or an integer `W` for a user `T` (`#[wire(i8)] e: Exp10`): both through `W: WireAs<T>`
+    let user = (wire_signed.is_none() && is_user_type(&wire))
+        || (wire_signed.is_some()
+            && plain_signed.is_none()
+            && matches!(plain, Type::External(_, false)));
     if user {
         if !matches!(plain, Type::External(_, false)) && plain_signed.is_none() {
             return Err(

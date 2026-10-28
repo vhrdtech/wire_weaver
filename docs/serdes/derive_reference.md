@@ -618,8 +618,11 @@ shows the field as `W`, so the dynamic client, Python and C read it as a `W` fie
   `W` is `u8`..`u64`, `i8`..`i64`, `Nibble`, `U1`..`U64`, `I2`..`I64`, `UNib32`, `UVlq32` or `UVlq64`, of the
   field's signedness; shrink_wrap implements `WireAs` for every plain integer.
 - **A handle as the value it stands for** (DER-23): `W` is a user type without a lifetime that implements
-  `WireAs<T>` for the field's type. `exact_units::Prefix::Exact(#[wire(Magnitude)] ExactScale)` keeps a one-byte
-  index in Rust and writes the full exact magnitude. `T` is cloned to be written (free for a `Copy` handle).
+  `WireAs<T>` for the field's type: a one-byte index in Rust that writes the full value it stands for. `T` is
+  cloned to be written (free for a `Copy` handle).
+- **A checked type as an integer**: `W` is an integer type from the first item and `T` a user type without a
+  lifetime, with `impl WireAs<T> for W`. `exact_units::Prefix::Pow10(#[wire(i8)] Pow10Exp)` writes a plain `i8` and
+  turns an exponent that isn't allowed (an SI prefix's) into `Error::SubtypeOutOfRange` when it is read.
 
 ```rust
 use shrink_wrap::{Error, prelude::*};

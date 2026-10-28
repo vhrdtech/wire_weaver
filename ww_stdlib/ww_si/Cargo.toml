@@ -107,3 +107,6 @@ defmt = { workspace = true, optional = true }
 exact_units = { workspace = true, features = ["shrink_wrap"] }
 shrink_wrap.workspace = true
 ww_numeric.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

@@ -37,13 +37,23 @@ fn same(ty: &str) -> String {
     api(ty, ty, ty)
 }
 
+/// `src` loaded as an API depending on ww_si: each source once per test thread, a load walks ww_si's and
+/// exact_units' source (~0.1 s).
+fn load(src: &str) -> ApiBundleOwned {
+    thread_local! {
+        static LOADED: std::cell::RefCell<std::collections::HashMap<String, ApiBundleOwned>> =
+            Default::default();
+    }
+    LOADED.with_borrow_mut(|loaded| {
+        loaded
+            .entry(src.to_string())
+            .or_insert_with(|| load_with("0.1.0", src, &ww_si_dep()))
+            .clone()
+    })
+}
+
 fn report(old: &str, new: &str) -> Report {
-    let dep = ww_si_dep();
-    compare(
-        &load_with("0.1.0", old, &dep),
-        &load_with("0.1.0", new, &dep),
-    )
-    .unwrap()
+    compare(&load(old), &load(new)).unwrap()
 }
 
 fn assert_rule(report: &Report, rule: Rule, contains: &str) {

@@ -780,6 +780,10 @@ pub fn table() -> Vec<Typed> {
                 32768u32,
             ),
         ),
+        case(
+            "stdlib.si.quantity.unknown_scale",
+            ww_si::Quantity::<ww_si::units::Ratio>::new(ww_si::Prefix::Unknown(1000), 5u32),
+        ),
         case("stdlib.si.quantity.bounded", quantity_rail(3300)),
         case("stdlib.si.quantity.bounded.rejected", quantity_rail(3300)),
         case("stdlib.si.magnitude.one", ww_si::Magnitude::ONE),

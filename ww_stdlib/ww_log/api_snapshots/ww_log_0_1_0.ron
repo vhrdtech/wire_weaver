@@ -57,7 +57,7 @@
         (docs: [
             "Each frame rzCOBS-encoded and ended by a `0x00` (defmt\'s default).",
         ], ident: "Rzcobs", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How to decode `LogDefmt::frames`, see `LogDefmt::DEFMT`.",
     ], ident: "DefmtInfo", generics: [], fields: Named([
@@ -87,7 +87,7 @@
         ], ident: "Common", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One or more whole defmt frames, back to back, in [DefmtInfo::encoding]. Never half a frame: a decoder fed one",
         "item after the other never has to resync, also with raw encoding and after a loss.",

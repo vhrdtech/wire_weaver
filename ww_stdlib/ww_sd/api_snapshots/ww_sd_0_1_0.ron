@@ -37,7 +37,7 @@
         (docs: [
             "SPI mode: some commands don\'t exist, responses are R1-based.",
         ], ident: "Spi", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Width of the data bus, see [CardState::bus] and [SdCard::reinit].",
     ], ident: "BusWidth", generics: [], variants: [
@@ -46,7 +46,7 @@
         (docs: [
             "eMMC only.",
         ], ident: "Eight", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What the host controller can do, see [SdCard::capabilities].",
     ], ident: "Capabilities", generics: [], fields: Named([
@@ -79,7 +79,7 @@
         (docs: [
             "Up to 128 TB.",
         ], ident: "Sduc", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Bus speed mode (CMD6 function group 1), see [BusState::speed].",
     ], ident: "SpeedMode", generics: [], variants: [
@@ -94,7 +94,7 @@
         (docs: [], ident: "Sdr50", fields: Unit, discriminant: 4, since: None),
         (docs: [], ident: "Sdr104", fields: Unit, discriminant: 5, since: None),
         (docs: [], ident: "Ddr50", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The bus after init, see [CardState::bus].",
     ], ident: "BusState", generics: [], fields: Named([
@@ -176,7 +176,7 @@
         ], ident: "Restricted", fields: Named([
             (ident: Some("index"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "How a command went on the bus, see [RawResponse::outcome] and [InitStep::outcome].",
         "",
@@ -206,7 +206,7 @@
         ], ident: "Other", fields: Named([
             (ident: Some("code"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One step of an [InitReport]: a command and what the card answered last.",
     ], ident: "InitStep", generics: [], fields: Named([
@@ -261,7 +261,7 @@
         (docs: [
             "Interface condition (CMD8).",
         ], ident: "R7", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "The data phase of a raw command, see [RawCommand::data].",
     ], ident: "DataPhase", generics: [], variants: [
@@ -278,7 +278,7 @@
             (ident: Some("block_len"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
             (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A raw command, see [SdCard::command].",
     ], ident: "RawCommand", generics: [], fields: Named([

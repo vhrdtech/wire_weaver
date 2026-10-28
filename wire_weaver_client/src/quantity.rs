@@ -580,8 +580,12 @@ impl DynQuantity {
         let (Some(from), Some(to)) = (self.unit.magnitude(), unit.magnitude()) else {
             return Err(refuse("a unit without an exact factor to SI"));
         };
-        let factor = Some(self.prefix.magnitude())
-            .and_then(|p| p.checked_mul(from).ok())
+        let Some(scale) = self.prefix.magnitude() else {
+            return Err(refuse("a scale from a newer version"));
+        };
+        let factor = scale
+            .checked_mul(from)
+            .ok()
             .and_then(|m| m.checked_div(to).ok())
             .ok_or_else(|| refuse("the factor leaves what a Magnitude holds"))?;
         if self.value.is_float() {
@@ -630,8 +634,9 @@ impl DynQuantity {
     }
 
     /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad, 20 °C is 293.15 K), `None` when the
-    /// unit has an unknown marker in it.
+    /// unit has an unknown marker in it or the prefix is a scale from a newer version (`Prefix::Unknown`).
     pub fn to_si_f64(&self) -> Option<f64> {
+        self.prefix.magnitude()?;
         Some(self.to_f64() * self.unit.factor()? + self.unit.offset())
     }
 }

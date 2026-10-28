@@ -1125,6 +1125,11 @@ fn ser_inner(
             let ValueOwned::Enum { variant, fields } = value else {
                 return Err(mismatch());
             };
+            // a variant from a newer version, passed on as the derive writes its catch-all: the tag alone
+            if let Some(discriminant) = unknown_discriminant(item_enum, variant, fields) {
+                write_discriminant(wr, item_enum, discriminant)?;
+                return Ok(());
+            }
             let variant_def = item_enum
                 .variants
                 .iter()
@@ -1169,6 +1174,28 @@ fn ser_inner(
         )?,
     }
     Ok(())
+}
+
+/// `N` of a value `<unknown N>` the enum's `#[future_version]` catch-all holds (as the dynamic decoder gives it), not
+/// a known variant's discriminant.
+fn unknown_discriminant(
+    item_enum: &ItemEnumOwned,
+    variant: &str,
+    fields: &FieldsValueOwned,
+) -> Option<u32> {
+    let Some(FutureVersionOwned::Variant { bits, .. }) = &item_enum.future_version else {
+        return None;
+    };
+    let n: u32 = variant
+        .strip_prefix("<unknown ")?
+        .strip_suffix('>')?
+        .parse()
+        .ok()?;
+    let fits = bits.is_none_or(|bits| n < 1u32 << bits);
+    (matches!(fields, FieldsValueOwned::Unit)
+        && fits
+        && !item_enum.variants.iter().any(|v| v.discriminant.0 == n))
+    .then_some(n)
 }
 
 /// Flag of an `Option` or `Result` value: is some or is ok.
@@ -1608,6 +1635,18 @@ mod tests {
             )
         };
         assert_eq!(read(Some(16)).unwrap(), unknown("<unknown 300>"));
+        // and written back as the derive writes its catch-all: the tag alone
+        let narrow = mode(ElementSize::Unsized, catch_all(Some(16)), 3);
+        let again = unknown("<unknown 300>")
+            .ser_shrink_wrap_dyn(&narrow, &bundle)
+            .unwrap();
+        assert_eq!(
+            ValueOwned::des_shrink_wrap_dyn(&again, &narrow, &bundle).unwrap(),
+            unknown("<unknown 300>")
+        );
+        let too_big = unknown("<unknown 300>")
+            .ser_shrink_wrap_dyn(&mode(ElementSize::Unsized, catch_all(Some(8)), 3), &bundle);
+        assert!(too_big.is_err());
         let err = read(Some(8)).unwrap_err().to_string();
         assert!(
             err.contains("does not have a variant with discriminant 300"),

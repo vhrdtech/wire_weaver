@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2a5bd22372435fb54b47ee7565e79414df48c47aaf2a5dcb3238dba45c3daf3f
+// shrink_wrap sha256: 4cbc143f3ab830b957bedfaab828ba8178739ddfa55db024c6f43db89ea3d8e0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1014,11 +1014,15 @@
         "of three families of exact scales that aren\'t named: [Pow10](Prefix::Pow10) (`10⁻⁴`), [Pow2](Prefix::Pow2) (`2⁻¹⁵`,",
         "a Q format) and [FullScale](Prefix::FullScale) (`1/65535`, a 16-bit duty).",
         "",
-        "Two bytes in memory. On the wire a `UNib32` tag: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one",
+        "Four bytes in memory (two for the tag, two for [Unknown](Prefix::Unknown)\'s). On the wire a `UNib32` tag: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one",
         "nibble, the other named ones a byte, and the three families one more byte for their parameter, so a scale takes 2",
         "bytes at most and is self-contained. A family never holds a named prefix\'s scale (its parameter type refuses it,",
         "also when read), so equal scales are equal prefixes. Other exact scales (`1/5`, `π/1000`) aren\'t a `Prefix`: a",
         "value with one is an `AnyQuantity`.",
+        "",
+        "Scale kinds added after `exact_units` 0.1 are tag-only (DER-25): their numbers are packed into the `UNib32` tag,",
+        "never bytes after it, so an older reader gets [Unknown(tag)](Prefix::Unknown), skips the self-describing value",
+        "and reads the rest of the message.",
     ], ident: "Prefix", generics: [], variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -1072,7 +1076,7 @@
         ], ident: "FullScale", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 31, since: None),
-    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: Some(16))))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a named unit\'s scale comes from. On the wire (in an API model\'s `UnitDef`) an evolvable enum, so a later",
         "kind of source can be added.",
@@ -1092,7 +1096,7 @@
                 "Its edition.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch: 1/36 yd.",
         "",

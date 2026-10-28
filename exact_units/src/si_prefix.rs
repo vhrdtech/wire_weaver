@@ -577,10 +577,13 @@ impl Prefix {
 /// `·1/65535`, `·<scale 1000>`.
 impl core::fmt::Display for Prefix {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match (self.is_named(), self.magnitude()) {
-            (true, _) => f.write_str(self.symbol()),
-            (false, Some(m)) => core::fmt::Display::fmt(&m, f),
-            (false, None) => write!(f, "·<scale {}>", self.discriminant()),
+        if let Prefix::Unknown(tag) = self {
+            return write!(f, "·<scale {tag}>");
+        }
+        match self.magnitude() {
+            _ if self.is_named() => f.write_str(self.symbol()),
+            Some(m) => core::fmt::Display::fmt(&m, f),
+            None => Ok(()),
         }
     }
 }

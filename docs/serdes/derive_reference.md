@@ -372,7 +372,7 @@ no `no_std` downside to turning it on for an API's error types.
 
 Structs only (not `sparse`, `fixed_layout` or `head_tail`), SW-58. `path` is a function
 `fn(&T) -> Result<(), shrink_wrap::Error>` called on every value just read, before it is returned; its error is the
-result of the read.
+result of the read. That includes every item read from a `Series` (with `series`).
 
 Use it for a range or invariant that the field types can't express, while keeping the derived type, which is what the
 API model describes to dynamic clients (`ww introspect`). With both a borrowed and an owned type generated, the

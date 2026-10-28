@@ -224,7 +224,7 @@ fn borrowed_owned_and_tuple() {
 }
 
 /// The `Bounds` of `ww_si::In` will check on decode: `validate` with `transparent`.
-#[derive_shrink_wrap(borrowed, owned, transparent, validate = Percent::check, derive(Clone, Copy, Debug, PartialEq))]
+#[derive_shrink_wrap(borrowed, owned, transparent, series, validate = Percent::check, derive(Clone, Copy, Debug, PartialEq))]
 struct Percent {
     value: u8,
 }
@@ -252,6 +252,61 @@ fn validate_checks_on_decode() {
     assert_eq!(
         Vec::<Percent>::from_ww_bytes_owned(&vec![50u8, 101].to_ww_bytes_owned().unwrap()),
         Err(ShrinkWrapError::SubtypeOutOfRange)
+    );
+}
+
+/// `validate` runs on every item read from a `Series` too, transparent or not: a column can't sneak a value past it.
+#[derive_shrink_wrap(borrowed, owned, series, validate = Span::check, derive(Clone, Copy, Debug, PartialEq))]
+struct Span {
+    lo: u8,
+    hi: u8,
+}
+
+impl Span {
+    fn check(&self) -> Result<(), ShrinkWrapError> {
+        if self.lo <= self.hi {
+            Ok(())
+        } else {
+            Err(ShrinkWrapError::SubtypeOutOfRange)
+        }
+    }
+}
+
+#[test]
+fn validate_checks_series_items() {
+    let ok = [Percent { value: 7 }, Percent { value: 100 }];
+    let bytes = Series::new(&ok).to_ww_bytes_owned().unwrap();
+    let back = SeriesOwned::<Percent>::from_ww_bytes_owned(&bytes).unwrap();
+    assert_eq!(back.iter().copied().collect::<Vec<_>>(), ok);
+    // the same bytes as a Series of u8, where 101 is fine
+    let bytes = Series::new(&[7u8, 101]).to_ww_bytes_owned().unwrap();
+    assert_eq!(
+        SeriesOwned::<Percent>::from_ww_bytes_owned(&bytes).err(),
+        Some(ShrinkWrapError::SubtypeOutOfRange)
+    );
+
+    let ok = [Span { lo: 1, hi: 2 }, Span { lo: 3, hi: 3 }];
+    let bytes = Series::new(&ok).to_ww_bytes_owned().unwrap();
+    assert_eq!(
+        SeriesOwned::<Span>::from_ww_bytes_owned(&bytes)
+            .unwrap()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>(),
+        ok
+    );
+    // an item written by a type without the check
+    #[derive_shrink_wrap(borrowed, owned, series, derive(Clone, Copy, Debug))]
+    struct LooseSpan {
+        lo: u8,
+        hi: u8,
+    }
+    let bytes = Series::new(&[LooseSpan { lo: 1, hi: 2 }, LooseSpan { lo: 5, hi: 4 }])
+        .to_ww_bytes_owned()
+        .unwrap();
+    assert_eq!(
+        SeriesOwned::<Span>::from_ww_bytes_owned(&bytes).err(),
+        Some(ShrinkWrapError::SubtypeOutOfRange)
     );
 }
 

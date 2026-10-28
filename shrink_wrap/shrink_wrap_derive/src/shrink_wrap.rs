@@ -384,12 +384,13 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.display_and_error_rust(true, message));
                 }
                 if args.series {
-                    let seed = borrowed.series_seed(
+                    let mut seed = borrowed.series_seed(
                         true,
                         &ww_item_struct.generics,
                         args.series_store,
                         args.series_cells,
                     );
+                    seed.validate = args.validate.as_ref();
                     ts.append_all(match transparent {
                         Some(idx) => seed.series_transparent(
                             &ww_item_struct.fields,
@@ -419,12 +420,13 @@ fn generate_inner(
                     ts.append_all(cg_item_struct.display_and_error_rust(false, message));
                 }
                 if args.series && !(matches!(ty_kind, TyKind::Ambiguous) && do_generate_borrowed) {
-                    let seed = owned.series_seed(
+                    let mut seed = owned.series_seed(
                         false,
                         &ww_item_struct.generics,
                         args.series_store,
                         args.series_cells,
                     );
+                    seed.validate = args.validate.as_ref();
                     ts.append_all(match transparent {
                         Some(idx) => seed.series_transparent(
                             &ww_item_struct.fields,
@@ -889,6 +891,7 @@ impl<'a> CGSeed<'a> {
             cp: self.crate_path,
             store,
             cells,
+            validate: None,
         }
     }
 

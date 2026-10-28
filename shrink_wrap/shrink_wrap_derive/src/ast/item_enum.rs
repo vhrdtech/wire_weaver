@@ -29,6 +29,19 @@ pub(crate) struct FutureVersion {
     pub(crate) ident: Ident,
     /// Attributes the derive doesn't read, as [Variant::attrs].
     pub(crate) attrs: Vec<syn::Attribute>,
+    /// The field's type: `u32`, or `u8` / `u16` written to keep the enum small (DER-25).
+    pub(crate) ty: Ident,
+}
+
+impl FutureVersion {
+    /// The largest discriminant the field holds.
+    pub(crate) fn max(&self) -> u32 {
+        match self.ty.to_string().as_str() {
+            "u8" => u8::MAX.into(),
+            "u16" => u16::MAX.into(),
+            _ => u32::MAX,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

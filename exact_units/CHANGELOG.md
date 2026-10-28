@@ -33,6 +33,14 @@
     compile time, exact or `None`; gauge to absolute doesn't compile, `against(zero)` takes the reference at run time.
   * Wrapping: a period of 2^BITS steps (`Bam16`) in the storage's wrapping arithmetic, any other by `rem_euclid`; a
     period that isn't a whole number of steps doesn't compile.
+* Named rounding and overflow policies (STD-63, docs `std_library/rounding.md`): `Rounding` (`Truncate`, `Floor`,
+  `Ceil`, `NearestEven`, `NearestAway`) and `Overflow` (`Checked`, `Saturate`, `Wrap`); `Fixed::to_rounded`,
+  `to_saturating`, `to_wrapping` and `requantize` (both chosen at run time), exact, with π / ln factors through
+  `Magnitude::fixed_point` (64 bits); `to` stays exact or `None`. `into_rounded` and `From<Fixed<.., Range<..>>>` for
+  a whole factor are infallible, proven by the bounds at compile time (`Bounds::INT_RANGE`). Bounds markers
+  `Wrapping` and `Saturating` set what `+ - * /` do; `Q15`, `Q31`, `UQ16_16` saturate, `Bam16`, `Bam32` wrap (made
+  with `Fixed::of`, another policy with `with_overflow`). `requantize` / `Requantizer` with the factor and the
+  storage (`StorageKind`) known at run time give the typed result bit for bit (conformance `requantize.*`).
 
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the

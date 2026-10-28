@@ -66,6 +66,14 @@ impl ItemEnum {
                 unnamed_attrs,
             });
         }
+        if let Some(fv) = &future_version
+            && let Some(v) = variants.iter().find(|v| v.discriminant > fv.max())
+        {
+            return Err(format!(
+                "variant `{}` has discriminant {}, which the #[future_version] {}({}) can't hold: widen its field",
+                v.ident, v.discriminant, fv.ident, fv.ty
+            ));
+        }
         let mut attrs = item_enum.attrs.clone();
         let docs = collect_docs_attrs(&mut attrs);
         // if add_evolve_docs {
@@ -104,12 +112,12 @@ impl ItemEnum {
             return match arg {
                 FutureVersionArg::Default => Ok(()),
                 FutureVersionArg::Off => Err(format!(
-                    "no_future_version, but the enum has #[future_version] {}(u32): remove one of them",
-                    fv.ident
+                    "no_future_version, but the enum has #[future_version] {}({}): remove one of them",
+                    fv.ident, fv.ty
                 )),
                 FutureVersionArg::Named(name) => Err(format!(
-                    "future_version = {name}, but the enum has #[future_version] {}(u32): remove one of them",
-                    fv.ident
+                    "future_version = {name}, but the enum has #[future_version] {}({}): remove one of them",
+                    fv.ident, fv.ty
                 )),
             };
         }
@@ -155,6 +163,7 @@ impl ItemEnum {
             docs,
             ident,
             attrs: vec![],
+            ty: Ident::new("u32", Span::call_site()),
         });
         Ok(())
     }
@@ -169,7 +178,8 @@ fn future_version_variant(
     let ident = &variant.ident;
     let err = |what: &str| {
         Err(format!(
-            "#[future_version] variant `{ident}` {what}: expected `#[future_version] {ident}(u32)` as the last variant"
+            "#[future_version] variant `{ident}` {what}: expected `#[future_version] {ident}(u32)` (or `u16`, `u8`) as \
+             the last variant"
         ))
     };
     if !is_last {
@@ -181,10 +191,18 @@ fn future_version_variant(
     let syn::Fields::Unnamed(fields) = &variant.fields else {
         return err("must have one unnamed u32 field");
     };
-    let is_u32 = |ty: &syn::Type| matches!(ty, syn::Type::Path(p) if p.qself.is_none() && p.path.is_ident("u32"));
-    if fields.unnamed.len() != 1 || !is_u32(&fields.unnamed[0].ty) {
-        return err("must have one unnamed u32 field");
-    }
+    // DER-25: a narrower field keeps the enum small, discriminants beyond it fail to read as without the variant
+    let ty = match &fields.unnamed.first().map(|f| &f.ty) {
+        Some(syn::Type::Path(p)) if fields.unnamed.len() == 1 && p.qself.is_none() => p
+            .path
+            .get_ident()
+            .filter(|i| ["u8", "u16", "u32"].contains(&i.to_string().as_str()))
+            .cloned(),
+        _ => None,
+    };
+    let Some(ty) = ty else {
+        return err("must have one unnamed u32, u16 or u8 field");
+    };
     if attrs.iter().any(|a| a.path().is_ident("cfg")) {
         return err("cannot have #[cfg]");
     }
@@ -193,6 +211,7 @@ fn future_version_variant(
         docs,
         ident: ident.clone(),
         attrs,
+        ty,
     })
 }
 
@@ -436,9 +455,13 @@ mod tests {
         let item = parse(quote! { enum E { A, B, #[future_version] Unknown(u32) } }).unwrap();
         assert_eq!(item.variants.len(), 2);
         assert_eq!(item.future_version.unwrap().ident, "Unknown");
+        // DER-25: a narrower field, as long as it holds every known discriminant
+        let item = parse(quote! { enum E { A, B, #[future_version] Unknown(u16) } }).unwrap();
+        assert_eq!(item.future_version.unwrap().max(), u16::MAX.into());
         let err = [
             quote! { enum E { #[future_version] Unknown(u32), A } },
-            quote! { enum E { A, #[future_version] Unknown(u8) } },
+            quote! { enum E { A, #[future_version] Unknown(i8) } },
+            quote! { enum E { A, B = 300, #[future_version] Unknown(u8) } },
             quote! { enum E { A, #[future_version] Unknown } },
             quote! { enum E { A, #[future_version] Unknown { d: u32 } } },
             quote! { enum E { A, #[future_version] Unknown(u32, u8) } },

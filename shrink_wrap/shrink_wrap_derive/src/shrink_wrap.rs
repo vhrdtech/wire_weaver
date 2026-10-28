@@ -653,8 +653,8 @@ fn series_evolvable(size_assumption: &Option<ObjectSize>) -> bool {
     matches!(size_assumption, None | Some(ObjectSize::Unsized))
 }
 
-fn future_version_ident(item: &ItemEnum) -> Option<&Ident> {
-    item.future_version.as_ref().map(|fv| &fv.ident)
+fn future_version_ident(item: &ItemEnum) -> Option<&crate::ast::item_enum::FutureVersion> {
+    item.future_version.as_ref()
 }
 
 /// `sparse` (DER-13) is a struct encoding of its own: none of the other encodings or size assumptions go with it.

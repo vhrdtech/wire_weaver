@@ -11,6 +11,9 @@
 //!   square root (V/√Hz). [Magnitude]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).
 //! - [Point]`<O, Fixed<..>>`: a position against an [Origin] (°C, °F, gauge pressure, an angle that wraps at a
 //!   turn): point + vector = point, point − point = vector, conversions between origins exact or refused.
+//! - [Index]`<Of, T, B>`, [IndexFrom1] and [Seq]`<Of, T>` (feature `counting`): a position in a table of `Of`, 0- or
+//!   1-based, and a wrapping sequence number in serial number order; index − index is an amount, index + index
+//!   doesn't compile.
 //! - `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.
 //!
 //! `no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`'s),
@@ -27,6 +30,8 @@ extern crate std;
 
 mod declare;
 mod fixed;
+#[cfg(feature = "counting")]
+mod index;
 mod magnitude;
 pub mod num;
 mod point;
@@ -51,6 +56,8 @@ pub use fixed::{
 pub use fixed::{Duty16, Ppb, Q15, Q31, UQ16_16};
 #[cfg(feature = "time")]
 pub use fixed::{Micros, Millis, Nanos};
+#[cfg(feature = "counting")]
+pub use index::{Index, IndexFrom1, Seq};
 pub use magnitude::{
     Irrational, MAX_FACTORS, Magnitude, MagnitudeError, MagnitudeRest, PrimePower,
 };

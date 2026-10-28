@@ -52,6 +52,8 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Per`, `Times`, `Sqrt`                                         | `exact_units`' unit combinators, their arguments are the instance's |
 | `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`       | `exact_units`' generic scales, their const arguments say the value |
 | `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`                                            |
+| `Origin(OriginDef { unit, symbol, reference, offset, .. })`    | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
+| `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
 
 `magnitude` is the exact factor to the coherent SI unit of `dim`: 1 for a volt, π/30 for `rpm` (in rad/s), 8 for a
 byte (in bits). Each marker is named by its crate and its path in it (`quantities_api`, `Rpm`), the identity it has
@@ -59,8 +61,8 @@ across bundles.
 
 Not there yet:
 
-- Units with an offset (`DegreeCelsius`) have no definition; they move to origins with STD-64, which appends the
-  origin's offset and modulus.
+- `ww_si`'s `DegreeCelsius` as the unit of a `Quantity` (an affine unit, not an exact factor) has no definition; a
+  temperature in °C is a [`Point`](points.md) against `origins::Celsius`, and the runtime side follows with STD-74.
 - Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
   `MarkerDef` when their markers exist.
 - `ww` and Python show a `Quantity` of any crate's unit (`1500 rpm`); a `Fixed` with its unit and scale follows with
@@ -81,6 +83,38 @@ It is shown with its symbols, `(rad/s)⁻¹·N·m` for `Per<Torque, AngularVeloc
 A bundle from a device is untrusted: both walk at most `MAX_UNIT_NESTING` (16) levels of `Per`, `Times`, `Sqrt` and
 full-scale markers, and an overflowing dimension or factor is an error, not a panic.
 
+## Origins
+
+The origin of a [`Point<O, F>`](points.md) is a marker as well, its definition a `MarkerDef::Origin(OriginDef)`:
+
+| Field       | Is                                                                                         | °C        |
+|-------------|--------------------------------------------------------------------------------------------|-----------|
+| `unit`      | the unit of the points' numbers and offsets, written out as a `UnitDef`                     | K         |
+| `symbol`    | written after a point's number                                                              | `"°C"`    |
+| `reference` | what `offset` is measured from: `None` for the unit's own zero, else a `MarkerRef`          | `None`    |
+| `offset`    | where the origin lies from the reference's zero, an exact `Offset` in `unit`                | 273.15    |
+| `modulus`   | the period for points that wrap, `None` for points that don't                              | `None`    |
+| `step`      | the step the shown number counts, in `unit`                                                 | 1         |
+| `shown`     | where the shown number's zero lies: `offset`, or that of the origin it is declared above    | 273.15    |
+
+A definition is flat on purpose: it holds no `Type` of the model, only values and `MarkerRef { crate_id, name }`
+(gauge pressure's `exact_units::point::AmbientPressure`), so a pass that renumbers the model's types never has to
+look inside one. A crate's own origin is declared with `origin!` and written out by the walker:
+
+```rust
+ww_si::origin! {
+    /// The board's temperature sensor reads 0 at 25 °C
+    pub struct BoardTemp { above: Celsius, offset: Offset::int(25) }
+}
+```
+
+`BoardTemp` comes out as unit K, symbol `"°C"`, offset 298.15 K and `shown` 273.15 K: the register `raw / 256 + 25 °C`
+is shown in °C. `origins::Angle<U>` has no fields of its own: it is a `MarkerDef::Angle`, and its unit argument says
+the rest. `ww_self::units::origin_of(ty, bundle)` gives the `OriginDef` of either, an `Angle<Degree>` as unit `°`,
+modulus 360; `marker_name_of` names an origin (or any marker) by its crate and name.
+
+As for units, a hand-written `impl Origin` compiles but the walker refuses an API that uses it.
+
 ## On the wire
 
 `ItemStruct::extra` is an `Option<RefBox<ItemStructExtra>>`, appended with `#[default = None]`: a plain struct writes
@@ -100,4 +134,5 @@ the dynamic client and Python.
 
 No firmware cost in code: markers are zero-size types, and `unit!` / `scale!` expand to the same constants a
 hand-written impl has. The introspection data a firmware stores grows only by the definitions of its own crate's
-markers (the definition of `Rpm` is 22 bytes, see the case `model.marker_def.unit`); stdlib markers are left out as skipped definitions.
+markers (the definition of `Rpm` is 22 bytes, see the case `model.marker_def.unit`, an origin's about 40, see
+`model.marker_def.origin`); stdlib markers are left out as skipped definitions.

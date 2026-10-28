@@ -8,7 +8,7 @@
 //! - [units]: zero-size unit markers (SI, angle, information, counted things) with their [Dim] and [Scale], and the
 //!   products and quotients the compiler checks (`Volt · Ampere` is `Watt`).
 //! - [Dim]: the dimension as data: SI base exponents, angle, information, up to [MAX_COUNTED] counted bases and a
-//!   square root (V/√Hz). [ExactScale]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).
+//!   square root (V/√Hz). [Magnitude]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).
 //! - `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.
 //!
 //! `no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`'s),
@@ -24,9 +24,9 @@
 extern crate std;
 
 mod fixed;
+mod magnitude;
 pub mod num;
 mod products;
-mod scale;
 #[cfg(feature = "shrink_wrap")]
 mod si_expr;
 mod si_prefix;
@@ -44,7 +44,9 @@ pub use fixed::{
 pub use fixed::{Duty16, Ppb};
 #[cfg(feature = "time")]
 pub use fixed::{Micros, Millis, Nanos};
-pub use scale::ExactScale;
+pub use magnitude::{
+    Irrational, MAX_FACTORS, Magnitude, MagnitudeError, MagnitudeRest, PrimePower,
+};
 #[cfg(feature = "shrink_wrap")]
 pub use si_expr::SIExpr;
 #[cfg(all(feature = "std", feature = "shrink_wrap"))]

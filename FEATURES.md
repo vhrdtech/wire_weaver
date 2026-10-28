@@ -429,8 +429,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   dynamic client and the evolution checker (an appended discriminant beyond it is breaking), `exact_units::Prefix`,
   and the conformance case `stdlib.si.quantity.unknown_scale` (derive, dynamic, Python; C gap API-26).
 
-## API model and codegen (`API`)
-
 - ✅ **API-1 Methods, properties, streams and sinks**, nested traits (`docs/api/overview.md`).
 - ✅ **API-2 Arrays of resources** with `ValidIndices` and a built-in array size getter returning a range or list.
 - ✅ **API-3 Global traits** from `ww_stdlib` (`impl Trait`) and trait attachments (`examples/all_gpio`).
@@ -2071,7 +2069,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
   id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
   `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.
-- ✅ **STD-59 Runtime `ww_si` improvements** — `Quantity` on `exact_units`' units, one unit system.
+- ✅ **STD-59 Runtime `ww_si` improvements** · `v0.5` — `Quantity` on `exact_units`' units, one unit system.
   `Prefix` without a table (Roman, 28 Oct 2026): named SI and binary prefixes (`Kibi` .. `Tebi`), the families
   `Pow10(i8)`, `Pow2(i8)` and `FullScale(bits)` (`32768·1/65535`, a Q format, `Pow10<-4>`), and `Unknown(u16)` for
   scale kinds of a newer version (DER-25): 4 B in RAM on host, M0, M4F and M33, `Volt` 12 B as before; named prefixes

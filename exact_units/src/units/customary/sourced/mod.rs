@@ -2,12 +2,13 @@
 //! definition gives, with the source of that definition, the value NIST SP 811 prints for it, and the groups of
 //! names that are ambiguous on their own (a bare "gallon", "ton" or "BTU" never names a unit here).
 //!
-//! Test-only for now: data and checks, no public API, nothing in a firmware. It moves into exact_units (STD-61) as
-//! that crate's customary table; the markers, `Fixed` use and the Mars Climate Orbiter test come with STD-62 and
-//! STD-64.
+//! Test-only: the data the markers of [customary](super) are checked against (`markers`), with the citations, the
+//! values SP 811 prints and the ambiguity groups the docs table is made of. The source extracts are kept with the
+//! STD-72 design notes.
 
 mod catalogue;
 mod mag;
+mod markers;
 mod sources;
 mod tests;
 

@@ -22,8 +22,6 @@
 //! shown and converted like the typed quantity of the same unit.
 
 mod algebra;
-#[cfg(test)]
-mod customary;
 mod dynamic;
 pub mod tree;
 pub use dynamic::AnyQuantity;

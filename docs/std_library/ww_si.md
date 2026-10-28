@@ -418,8 +418,8 @@ bytes:
 | `Dim` of `Per<Byte, Sample>` (bit Sample⁻¹)  | `00 00 00 00 14`, `ww_si`, `Sample`, `f0 65`  |
 | `Scale::Coherent`                            | `0`                                           |
 | `Scale::Pow10(-3)`                           | `1` `fd`                                      |
-| `Scale::Factor(0.5)`                         | `2` and the `f64`, 8 bytes                    |
-| `Scale::Exact` of a degree (π/180)           | `41 91 ff ff 01`                              |
+| `Scale::Affine` of °C                        | `2` and two `f64`, 17 B                       |
+| `Scale::Exact` of a degree (π/180)           | `30 fe 80 fe 80 02 00 00 83 fc 00 00`         |
 | `SIExpr::of::<units::Volt>()`                | `00 56 6f 6c 74 56 d2 1f 00 00 00 00 00 01 14`, 15 B |
 | `SIExpr::of::<Per<Torque, AngularVelocity>>()` | 53 B                                        |
 | `AnyQuantity::from(Volt::milli(3300u16))`    | `12 e4 0c`, the 15 B of the unit, `79`: 19 B  |

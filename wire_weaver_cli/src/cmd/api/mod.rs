@@ -174,7 +174,9 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             skip_docs,
             types,
         } => {
-            let bundle = wire_weaver_core::load(&path, name, false)?;
+            let mut bundle = wire_weaver_core::load(&path, name, false)?;
+            // as `ww introspect` sees it: generic instances concrete, so a `Fixed` shows its unit (CLT-54)
+            wire_weaver_client::ww_self::generics::prepare(&mut bundle)?;
             print!("{}", crate::api_tree::render(&bundle, skip_docs));
             if types {
                 println!();

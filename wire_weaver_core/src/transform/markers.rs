@@ -185,7 +185,6 @@ pub(crate) enum DimLine {
 pub(crate) enum UnitScaleLine {
     Coherent,
     Pow10(i8),
-    Factor(f64),
     Affine { factor: f64, offset: f64 },
     Exact(MagnitudeLine),
 }
@@ -263,7 +262,6 @@ impl Parse for UnitLine {
             let kind: Ident = input.parse()?;
             match kind.to_string().as_str() {
                 "Pow10" => UnitScaleLine::Pow10(in_parens(input, parse_i8)?),
-                "Factor" => UnitScaleLine::Factor(in_parens(input, parse_f64)?),
                 "Exact" => UnitScaleLine::Exact(in_parens(input, MagnitudeLine::parse)?),
                 "Affine" => {
                     let content;
@@ -290,7 +288,7 @@ impl Parse for UnitLine {
                 _ => {
                     return Err(syn::Error::new(
                         kind.span(),
-                        "a unit's scale is Pow10(e), Exact(num / den, ..), Factor(f) or Affine { factor, offset }",
+                        "a unit's scale is Pow10(e), Exact(num / den, ..) or Affine { factor, offset }",
                     ));
                 }
             }
@@ -522,6 +520,7 @@ mod tests {
             r#"unit! { pub struct A = "a", [s 1], Exact(1 / 2, pi 1, pow10 2); }"#,
             r#"unit! { pub struct A = "a", [s 1], Pow2(1); }"#,
             r#"scale! { pub struct A = "a", Factor(2.0); }"#,
+            r#"unit! { pub struct A = "a", [s 1], Factor(2.0); }"#,
             r#"unit! { pub struct A = "a", [s 1] }"#,
         ] {
             let mut file = syn::parse_file(src).unwrap();

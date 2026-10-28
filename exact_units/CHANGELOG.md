@@ -7,6 +7,9 @@
   and its `Unit` / `FixedScale` (and `DecimalPrefix`) impl. WireWeaver's walker reads the same lines, so an API's own
   markers are known to its clients. Every marker of `units` and the named prefixes of `prefix` are declared this way;
   their impls are the same consts as before. A hand-written `impl Unit` still compiles.
+* `units::ElectronVolt`, `Byte` and `Word` have an exact scale (`Scale::Exact`, eV = 1602176634·10⁻²⁸ exactly since
+  SI 2019) instead of an `f64` `Scale::Factor`; `unit!` has no `Factor(f)` form: an exact factor is a `Magnitude`, one
+  known only at run time is a value, not a unit.
 
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the

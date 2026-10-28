@@ -16,7 +16,9 @@
 //! number.
 
 use crate::fixed::write_decimal;
-use crate::{Bounds, Fixed, FixedScale, Magnitude, OutOfBounds, Repr, Storage, Unit, UnitExpr};
+use crate::{
+    Bounds, Fixed, FixedScale, Magnitude, OutOfBounds, Repr, Storage, Unit, UnitExpr, Unlimited,
+};
 use core::cmp::Ordering;
 use core::fmt;
 use core::hash::{Hash, Hasher};
@@ -488,11 +490,13 @@ fn wrap_float<
     if r < F::default() { r + m } else { r }
 }
 
-impl<O: Origin<Unit = U>, U, P, T: Storage> Point<O, Fixed<U, P, T>> {
-    /// The point whose number is `raw` steps of `P` from the origin.
+impl<O: Origin<Unit = U>, U, P, T: Storage, B: Unlimited<T>> Point<O, Fixed<U, P, T, B>> {
+    /// The point whose number is `raw` steps of `P` from the origin, for every bounds marker without limits
+    /// ([Unbounded](crate::Unbounded), [Wrapping](crate::Wrapping) as in a [Bam16](crate::Bam16) heading,
+    /// [Saturating](crate::Saturating)).
     #[inline(always)]
     pub const fn from_raw(raw: T) -> Self {
-        Self::new(Fixed::new(raw))
+        Self::new(Fixed::of(raw))
     }
 }
 

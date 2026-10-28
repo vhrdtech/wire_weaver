@@ -1570,9 +1570,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   conventional is breaking. Levels, kinds and sentinels get their checks with STD-67, STD-68 and STD-66 (rules written
   down); until then a marker kind the checker doesn't know is the same only when its definition is
   (`docs/evolution/units_by_meaning.md`; `wire_weaver_evolution` tests `tests::by_meaning`).
-
-## Tooling: CLI, GUI, Python (`TOOL`)
-
 - ✅ **TOOL-1 `ww` CLI**: `list` with filters, `introspect` as a resource tree (`--raw-as-sent`, `--types`), dynamic shell
   completions (`docs/cli.md`).
 - ✅ **TOOL-2 `ww api save` / `check` / `diff`** for API bundles and snapshots.
@@ -1809,14 +1806,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of one generic definition with `B` explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). [exact_units](docs/std_library/exact_units.md), conformance `stdlib.si.fixed.*`,
   `tests/quantities`.
-- ✅ **STD-72 Imperial and US customary units, complete** · `v0.5` — feature `customary` (in `ww_si`'s `quantities`):
+- ✅ **STD-72 Imperial and US customary units, complete** · `v0.5` — feature `customary`, opt-in (not in `quantities` or `std`, free for an API without it; host clients turn it on):
   166 markers in `exact_units::units`, each the exact rational of SI from its legal definition (1959 yard and pound,
   NIST SP 811 and Handbook 44, UK WMA 1985, g_n), the source cited per unit and checked against a sourced catalogue
   with SP 811's printed values. No bare ambiguous name (47 groups: US / imperial gallon, fl oz, pint, quart, bushel;
   international / US survey foot and mile; short / long / metric ton; avoirdupois / troy; Btu and calorie variants;
   horsepower variants; thou vs angular mil; inHg / mmHg conventional or at a temperature); `PoundAvdp` and `Slug`
   mass, `PoundForce`, `Kip`, `Poundal` force; °F and °R are origins (STD-64). Measured units carry
-  `Provenance::Conventional`. `Fixed::convert` between units of one dimension, exact or `None`, factor at compile
+  `Provenance::Conventional`, in the API model a `MarkerDef::ConventionalUnit` (defined units keep their bytes). `Fixed::convert` between units of one dimension, exact or `None`, factor at compile
   time; `DynQuantity::convert` and Python `Quantity.convert` the same at run time. The Mars Climate Orbiter case
   (lbf·s read as N·s) in `tests/customary` (typed, dynamic) and Python: converts exactly or is refused; the `Fixed`
   field too, with its unit in the dynamic client (CLT-54). [Imperial and US customary](docs/std_library/customary.md),

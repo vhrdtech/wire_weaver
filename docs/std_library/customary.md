@@ -5,7 +5,8 @@ level: basic
 # Imperial and US customary units
 
 `exact_units` has a marker for every imperial, US customary and other non-SI unit still in use (feature `customary`,
-part of `ww_si`'s `quantities`): inches, pounds, gallons, psi, Btu, horsepower, slugs, knots, mils. Each one's scale
+opt-in: not part of `quantities` or `std`, so an API without them pays nothing for them; `ww_si`'s `customary` turns it
+on): inches, pounds, gallons, psi, Btu, horsepower, slugs, knots, mils. Each one's scale
 is the exact rational of SI its legal definition gives, with the source cited in its docs, so a value in pound-force
 seconds converts to newton seconds exactly, or doesn't convert at all.
 
@@ -126,7 +127,8 @@ temperature. The markers say which one they are:
 The same for Btu and calories: the International Table and thermochemical ones are defined, those at a temperature or
 "mean" are measured. A measured unit's scale is the value NIST SP 811 prints, exact in this crate by convention only;
 `UnitExpr::Named`'s `provenance` is `Provenance::Conventional` for them, `Defined` for every other unit. An API
-model carries it too (`ww_self::UnitDef::provenance`), for these and for an API crate's own `unit!` lines with
+model carries it too (as `ww_self::MarkerDef::ConventionalUnit`, a unit with its source, while a defined unit stays a
+plain `MarkerDef::Unit` and pays nothing for it), for these and for an API crate's own `unit!` lines with
 `conventional(..)`, so a client knows which scales are conventions:
 
 <!-- generated: conventional -->

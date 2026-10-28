@@ -251,7 +251,7 @@ layer checks on connect that both ends speak the same protocol.
 - **[Link tap](transport/tap.md)**: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.
 - **[USB throughput on small MCUs](transport/usb_internals.md)**: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr), [Server / device side](features.md#server-device-side-srv), [Tooling: CLI, GUI, Python](features.md#tooling-cli-gui-python-tool) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Transports and protocols](features.md#transports-and-protocols-tr), [Server / device side](features.md#server-device-side-srv), [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 
 ## Introspection
 
@@ -327,7 +327,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Values from text](python_advanced.md)**: Typed values written as text and turned into bytes at runtime.
 - **[Dev GUI](dev_tool.md)**: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [Tooling: CLI, GUI, Python](features.md#tooling-cli-gui-python-tool), [Client / host side](features.md#client-host-side-clt) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Client / host side](features.md#client-host-side-clt) in the feature tracker.</p>
 
 ## Standard library
 
@@ -361,7 +361,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - **[Rounding by name](std_library/rounding.md)**: A conversion that loses part of a step says how it rounds and what happens past the end of the storage (saturate, wrap or no value), and gives the same number on the device, in Rust and in a dynamic client; Q formats saturate and binary angles wrap by their type.
 - **[Exact scales](std_library/magnitude.md)**: Every scale, from µ and Ki to 1/65535, a 12-bit ADC step, Q15 or a degree in radians, is one exact factor: equal however written, and a conversion between two is worked out at compile time and never rounds.
-- **[Imperial and US customary units](std_library/customary.md)**: Every inch, pound, gallon, psi, Btu and horsepower as the exact factor its legal definition gives, ambiguous names like gallon or ton never bare, and pounds of force never mistaken for pounds of mass: lbf·s converts to N·s exactly or is refused.
+- **[Imperial and US customary units](std_library/customary.md)**: Every inch, pound, gallon, psi, Btu and horsepower as the exact factor its legal definition gives, ambiguous names like gallon or ton never bare, and pounds of force never mistaken for pounds of mass: lbf·s converts to N·s exactly or is refused; a unit that is only a value a standard prints (inHg at 32 °F) says so to clients. Opt-in, so an API without them pays nothing.
 - **[Points and origins](std_library/points.md)**: A temperature in °C or °F, a register formula like raw/256 + 25 °C, gauge pressure or a heading that wraps is a point against an origin: point minus point is an amount, adding two points doesn't compile, and conversions between origins are exact.
 - **[Indices and sequence numbers](std_library/indices.md)**: A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap.
 - **[Quantities without wide integers](std_library/ww_si.md#conversions-and-comparisons)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
@@ -388,7 +388,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
 - **[Tape blocks](transport/tap.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Tooling: CLI, GUI, Python](features.md#tooling-cli-gui-python-tool) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 
 ## Examples
 

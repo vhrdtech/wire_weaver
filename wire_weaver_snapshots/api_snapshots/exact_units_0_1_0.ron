@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 4cbc143f3ab830b957bedfaab828ba8178739ddfa55db024c6f43db89ea3d8e0
+// shrink_wrap sha256: 8fb363b9823fbf4a48338bab97ee37a3e1436b73c59823826bf72840120e1e4c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -33,177 +33,177 @@
         "As a device timestamp it is the device\'s time since its clock started, see `ww_si::Second`.",
     ], ident: "Second", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "s", dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "s", dim: (s: 1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Frequency in hertz, Hz (s⁻¹).",
     ], ident: "Hertz", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Hz", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Hz", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Frequency drift in hertz per second, Hz/s (s⁻²).",
     ], ident: "HertzPerSecond", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Hz/s", dim: (s: -2, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Hz/s", dim: (s: -2, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Symbol rate in baud, Bd (s⁻¹): one symbol per second, for a UART one bit per second on the line. A frequency of",
         "its own kind, so it is not mixed up with a clock in [Hertz].",
     ], ident: "Baud", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Bd", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Bd", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Electric current in amperes, A.",
     ], ident: "Ampere", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "A", dim: (s: 0, m: 0, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "A", dim: (s: 0, m: 0, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Voltage, electric potential or electromotive force in volts, V (kg·m²·s⁻³·A⁻¹, W/A).",
     ], ident: "Volt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "V", dim: (s: -3, m: 2, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "V", dim: (s: -3, m: 2, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Resistance, reactance or impedance in ohms, Ω (kg·m²·s⁻³·A⁻², V/A).",
     ], ident: "Ohm", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Ω", dim: (s: -3, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Ω", dim: (s: -3, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Capacitance in farads, F (kg⁻¹·m⁻²·s⁴·A², C/V).",
     ], ident: "Farad", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "F", dim: (s: 4, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "F", dim: (s: 4, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Admittance, conductance or susceptance in siemens, S (kg⁻¹·m⁻²·s³·A², A/V).",
     ], ident: "Siemens", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "S", dim: (s: 3, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "S", dim: (s: 3, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inductance in henries, H (kg·m²·s⁻²·A⁻², Wb/A).",
     ], ident: "Henry", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "H", dim: (s: -2, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "H", dim: (s: -2, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Electric charge in coulombs, C (s·A).",
     ], ident: "Coulomb", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C", dim: (s: 1, m: 0, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C", dim: (s: 1, m: 0, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Power in watts, W (kg·m²·s⁻³, J/s, V·A).",
     ], ident: "Watt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Magnetic flux in webers, Wb (kg·m²·s⁻²·A⁻¹, V·s).",
     ], ident: "Weber", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Wb", dim: (s: -2, m: 2, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Wb", dim: (s: -2, m: 2, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Magnetic flux density in teslas, T (kg·s⁻²·A⁻¹, Wb/m²).",
     ], ident: "Tesla", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "T", dim: (s: -2, m: 0, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "T", dim: (s: -2, m: 0, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Length in meters, m.",
     ], ident: "Meter", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mass in grams, g (10⁻³ kg): 5 kg is `Gram::kilo(5u8)`.",
     ], ident: "Gram", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "g", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "g", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Force or weight in newtons, N (kg·m·s⁻²).",
     ], ident: "Newton", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N", dim: (s: -2, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N", dim: (s: -2, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pressure or stress in pascals, Pa (kg·m⁻¹·s⁻², N/m²).",
     ], ident: "Pascal", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Energy, work or heat in joules, J (kg·m²·s⁻², N·m, W·s).",
     ], ident: "Joule", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Torque or moment of force in newton-meters, N·m, counted as joules per radian (kg·m²·s⁻²·rad⁻¹): not the",
         "dimension of a [Joule], and a torque times an [AngularVelocity] is a [Watt].",
     ], ident: "Torque", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N·m", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N·m", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Volume in litres, L (10⁻³ m³).",
     ], ident: "Litre", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "L", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "L", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Volumetric flow in cubic meters per second, m³/s.",
     ], ident: "VolumetricFlow", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m³/s", dim: (s: -1, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m³/s", dim: (s: -1, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Speed in meters per second, m/s.",
     ], ident: "Speed", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acceleration in meters per second squared, m/s².",
     ], ident: "Acceleration", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s²", dim: (s: -2, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s²", dim: (s: -2, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Jerk in meters per second cubed, m/s³.",
     ], ident: "Jerk", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s³", dim: (s: -3, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s³", dim: (s: -3, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Snap or jounce in meters per second to the fourth, m/s⁴.",
     ], ident: "Snap", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s⁴", dim: (s: -4, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m/s⁴", dim: (s: -4, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Yank, the rate of change of force, in newtons per second, N/s (kg·m·s⁻³).",
     ], ident: "Yank", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N/s", dim: (s: -3, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N/s", dim: (s: -3, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angle in radians, rad: a base dimension of its own here, so an angle doesn\'t mix with a [Ratio].",
     ], ident: "Radian", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact]).",
     ], ident: "Degree", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "°", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: -2, pi: 2, primes: [
         (3, -4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angle in turns (revolutions), rev (2π rad, exactly). A binary angle where 65536 is a full turn is",
         "`Fixed<Turn, Rational<1, 65536>, u16>`.",
     ], ident: "Turn", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rev", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 2, pi: 2), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rev", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 2, pi: 2)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Solid angle in steradians, sr (rad²).",
     ], ident: "Steradian", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sr", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sr", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angular velocity in radians per second, rad/s (rad·s⁻¹): not a [Hertz], a turn is 2π rad.",
     ], ident: "AngularVelocity", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad/s", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad/s", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angular acceleration in radians per second squared, rad/s² (rad·s⁻²).",
     ], ident: "AngularAcceleration", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad/s²", dim: (s: -2, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad/s²", dim: (s: -2, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thermodynamic temperature in kelvins, K.",
     ], ident: "Kelvin", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Temperature in degrees Celsius, °C (K − 273.15). No products: a product with an offset scale means nothing.",
     ], ident: "DegreeCelsius", generics: [], fields: Unit, sparse: false, path: Some([
@@ -213,42 +213,42 @@
         "Amount of substance in moles, mol.",
     ], ident: "Mole", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mol", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mol", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Catalytic activity in katals, kat (mol·s⁻¹).",
     ], ident: "Katal", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kat", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kat", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Luminous intensity in candelas, cd.",
     ], ident: "Candela", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cd", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cd", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Luminous flux in lumens, lm (cd·sr, cd·rad²).",
     ], ident: "Lumen", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lm", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lm", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Illuminance in lux, lx (cd·rad²·m⁻², lm/m²).",
     ], ident: "Lux", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lx", dim: (s: 0, m: -2, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lx", dim: (s: 0, m: -2, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Radioactivity in becquerels, Bq (s⁻¹).",
     ], ident: "Becquerel", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Bq", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Bq", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Absorbed dose in grays, Gy (m²·s⁻², J/kg).",
     ], ident: "Gray", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Gy", dim: (s: -2, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Gy", dim: (s: -2, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Equivalent dose in sieverts, Sv (m²·s⁻², J/kg).",
     ], ident: "Sievert", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Sv", dim: (s: -2, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Sv", dim: (s: -2, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Energy in electron-volts, eV (1.602176634·10⁻¹⁹ J).",
     ], ident: "ElectronVolt", generics: [], fields: Unit, sparse: false, path: Some([
@@ -258,79 +258,79 @@
         (19, 2),
         (389, 2),
         (12043, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A fraction: a duty cycle, a probability, a scale factor, an efficiency (dimensionless, 1). 0.5 is half, not a",
         "level in decibels. Written with `%`, `‰`, `ppm`, `ppb` for `Centi`, `Milli`, `Micro`, `Nano`. Any quantity times a ratio keeps its",
         "unit (48 V · 0.5 = 24 V).",
     ], ident: "Ratio", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in bits, bit: the base of information, so a size never mixes with a [Ratio] or a count of things.",
     ], ident: "Bit", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "bit", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "bit", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in bytes, B (8 [Bit]): a data size, a buffer\'s capacity, an offset. A rate is `Per<Byte, Second>`.",
     ], ident: "Byte", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "B", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 6), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "B", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.",
     ], ident: "Word", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "word", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 10), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "word", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 10)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of things, item: a queue\'s length, a number of filters, channels, presses, repeats, steps.",
     ], ident: "Item", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "item", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Item", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "item", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Item", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of samples, sample: an ADC\'s, a logic analyzer\'s; a sample rate is `Per<Sample, Second>`.",
     ], ident: "Sample", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sample", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Sample", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sample", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Sample", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of frames, frame (a bus\'s, a video\'s).",
     ], ident: "Frame", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "frame", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Frame", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "frame", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Frame", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of packets, packet.",
     ], ident: "Packet", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "packet", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Packet", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "packet", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Packet", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of cycles, cycle: clock cycles, time quanta; time only with a clock (`Per<Cycle, Second>`).",
     ], ident: "Cycle", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cycle", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Cycle", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cycle", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Cycle", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of blocks, block: of a block device, whose size differs per device (bytes through `Per<Byte, Block>`).",
     ], ident: "Block", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "block", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Block", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "block", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Block", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of sectors, sector: of a flash or a disk (bytes through `Per<Byte, Sector>`).",
     ], ident: "Sector", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sector", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Sector", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "sector", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Sector", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of chunks, chunk: of a transfer or a file format (bytes through `Per<Byte, Chunk>`).",
     ], ident: "Chunk", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "chunk", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Chunk", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "chunk", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Chunk", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of characters, char: of a UART line (an idle time in characters).",
     ], ident: "Char", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "char", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Char", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "char", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Char", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of raw codes of a converter, code: an ADC\'s or DAC\'s output before scaling (LSB).",
     ], ident: "Code", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "code", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Code", exp: 1)), None, None, None)), magnitude: (pow10: 0), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "code", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Code", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`A / B`, a unit outside the named list: `Per<Torque, AngularVelocity>` is N·m/(rad/s). Not normalized,",
         "`Per<Meter, Second>` is not [Speed] (convert with `to_si_f64` / `from_f32`).",
@@ -1107,7 +1107,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "in", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 2, primes: [
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot (international): 1/3 yd = 0.3048 m.",
         "",
@@ -1120,7 +1120,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ft", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 6, primes: [
         (3, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Yard: 0.9144 m.",
         "",
@@ -1132,7 +1132,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "yd", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 6, primes: [
         (3, 4),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mile (international, statute): 5280 ft = 1760 yd.",
         "",
@@ -1146,7 +1146,7 @@
         (3, 4),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thou (mil, 0.001 in): 0.001 in.",
         "",
@@ -1156,7 +1156,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "thou", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -14, pow2: 2, primes: [
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Microinch: 10⁻⁶ in.",
         "",
@@ -1165,7 +1165,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "µin", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -20, pow2: 2, primes: [
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Hand: 4 in (custom, bracketed in HB 44).",
         "",
@@ -1174,7 +1174,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "hh", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 6, primes: [
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Link (Gunter\'s, international foot): 0.66 ft.",
         "",
@@ -1186,7 +1186,7 @@
         (3, 4),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Rod, pole or perch (international foot): 16.5 ft.",
         "",
@@ -1198,7 +1198,7 @@
         (3, 4),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Chain (Gunter\'s, international foot): 66 ft = 22 yd.",
         "",
@@ -1211,7 +1211,7 @@
         (3, 4),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Furlong (international foot): 660 ft = 220 yd.",
         "",
@@ -1224,7 +1224,7 @@
         (3, 4),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fathom (international foot): 6 ft.",
         "",
@@ -1235,7 +1235,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "fath", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 8, primes: [
         (3, 4),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cable\'s length (US, 120 fathoms): 720 ft = 120 fathoms.",
         "",
@@ -1246,7 +1246,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cable (US)", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 12, primes: [
         (3, 6),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "League (land, international foot): 3 mi = 15 840 ft.",
         "",
@@ -1258,7 +1258,7 @@
         (3, 6),
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot (US survey): 1200/3937 m. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1272,7 +1272,7 @@
         (3, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mile (US survey): 5280 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1286,7 +1286,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Link (US survey): 0.66 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1299,7 +1299,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Rod (US survey): 16.5 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1313,7 +1313,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Chain (US survey): 66 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1327,7 +1327,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Furlong (US survey): 660 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1340,7 +1340,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fathom (US survey): 6 survey ft. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1353,7 +1353,7 @@
         (3, 4),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "League (US survey): 3 survey mi. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1366,7 +1366,7 @@
         (11, 2),
         (31, -2),
         (127, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Nautical mile (international): 1852 m (IHO, Monaco 1929).",
         "",
@@ -1378,7 +1378,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "nmi", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 4, primes: [
         (463, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Nautical mile (US, before 1 Jul 1954): 1853.248 m (≈ 6080.20 ft). Legacy: replaced by the international nautical mile on 1 Jul 1954.",
         "",
@@ -1389,7 +1389,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "nmi (US 1954)", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 12, primes: [
         (23, 2),
         (1259, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Nautical mile (UK Admiralty): 6080 ft. Legacy: replaced by the international nautical mile in the UK in 1970.",
         "",
@@ -1400,7 +1400,7 @@
         (3, 2),
         (19, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Point (computer, DTP, 1/72 in): 1/72 in.",
         "",
@@ -1410,7 +1410,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "pt (DTP)", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: -4, primes: [
         (3, -4),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pica (computer, DTP, 1/6 in): 1/6 in.",
         "",
@@ -1420,7 +1420,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "pc (DTP)", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, primes: [
         (3, -2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Point (printer\'s): 0.013 837 in.",
         "",
@@ -1433,7 +1433,7 @@
         (101, 2),
         (127, 2),
         (137, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pica (printer\'s): 12 printer\'s points.",
         "",
@@ -1446,7 +1446,7 @@
         (101, 2),
         (127, 2),
         (137, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Square inch: in².",
         "",
@@ -1456,7 +1456,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "in²", dim: (s: 0, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 4, primes: [
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Square foot: 144 in².",
         "",
@@ -1467,7 +1467,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ft²", dim: (s: 0, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 12, primes: [
         (3, 4),
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Square yard: 9 ft².",
         "",
@@ -1478,7 +1478,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "yd²", dim: (s: 0, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 12, primes: [
         (3, 8),
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Square mile (international): 640 acres.",
         "",
@@ -1491,7 +1491,7 @@
         (3, 8),
         (11, 4),
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Square mile (US survey): 640 survey acres. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1504,7 +1504,7 @@
         (11, 4),
         (31, -4),
         (127, -4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acre (international foot): 43 560 ft² = 4840 yd².",
         "",
@@ -1517,7 +1517,7 @@
         (3, 8),
         (11, 4),
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acre (US survey): 43 560 survey ft². Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1530,7 +1530,7 @@
         (11, 4),
         (31, -4),
         (127, -4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Rood: 1210 yd².",
         "",
@@ -1541,7 +1541,7 @@
         (3, 8),
         (11, 4),
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Circular mil: area of a circle 1 mil across, π/4 mil².",
         "",
@@ -1551,7 +1551,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cmil", dim: (s: 0, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -28, pi: 2, primes: [
         (127, 4),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cubic inch: in³.",
         "",
@@ -1562,7 +1562,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "in³", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -24, pow2: 6, primes: [
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cubic foot: 1728 in³.",
         "",
@@ -1573,7 +1573,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ft³", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -24, pow2: 18, primes: [
         (3, 6),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cubic yard: 27 ft³.",
         "",
@@ -1584,7 +1584,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "yd³", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -24, pow2: 18, primes: [
         (3, 12),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acre-foot (international foot): 43 560 ft³.",
         "",
@@ -1596,7 +1596,7 @@
         (3, 10),
         (11, 4),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Acre-foot (US survey): 43 560 survey ft³. Legacy: survey foot deprecated after 31 Dec 2022.",
         "",
@@ -1609,7 +1609,7 @@
         (11, 4),
         (31, -6),
         (127, -6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cord (firewood): 128 ft³.",
         "",
@@ -1621,7 +1621,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cd", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -24, pow2: 32, primes: [
         (3, 6),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Register ton: 100 ft³.",
         "",
@@ -1632,7 +1632,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "RT", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -20, pow2: 18, primes: [
         (3, 6),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gallon (US liquid): 231 in³.",
         "",
@@ -1645,7 +1645,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quart (US liquid): 57.75 in³ = 1/4 gal.",
         "",
@@ -1658,7 +1658,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pint (US liquid): 28.875 in³ = 1/8 gal.",
         "",
@@ -1671,7 +1671,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cup (US measuring): 8 fl oz.",
         "",
@@ -1684,7 +1684,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gill (US): 1/4 pt.",
         "",
@@ -1697,7 +1697,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid ounce (US): 1/16 pt = 1/128 gal.",
         "",
@@ -1710,7 +1710,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Tablespoon (US measuring): 1/2 fl oz.",
         "",
@@ -1723,7 +1723,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Teaspoon (US measuring): 1/3 tbsp.",
         "",
@@ -1735,7 +1735,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid dram (US): 1/8 fl oz.",
         "",
@@ -1747,7 +1747,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Minim (US): 1/60 fl dr.",
         "",
@@ -1758,7 +1758,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bushel (US, struck): 2150.42 in³.",
         "",
@@ -1771,7 +1771,7 @@
         (19, 2),
         (127, 6),
         (5659, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Peck (US): 1/4 bu.",
         "",
@@ -1783,7 +1783,7 @@
         (19, 2),
         (127, 6),
         (5659, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quart (US dry): 1/32 bu.",
         "",
@@ -1795,7 +1795,7 @@
         (19, 2),
         (127, 6),
         (5659, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pint (US dry): 1/64 bu.",
         "",
@@ -1807,7 +1807,7 @@
         (19, 2),
         (127, 6),
         (5659, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (petroleum, 42 US gal): 42 gal.",
         "",
@@ -1820,7 +1820,7 @@
         (7, 4),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (US federal fermented liquor tax, 31 gal): 31 gal.",
         "",
@@ -1833,7 +1833,7 @@
         (11, 2),
         (31, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel for liquids (US state laws, 31.5 gal): 31.5 gal.",
         "",
@@ -1845,7 +1845,7 @@
         (7, 4),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (cistern, 36 gal): 36 gal.",
         "",
@@ -1857,7 +1857,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (US federal proof spirits, 40 gal): 40 gal.",
         "",
@@ -1869,7 +1869,7 @@
         (7, 2),
         (11, 2),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (US standard, dry commodities): 7056 in³.",
         "",
@@ -1880,7 +1880,7 @@
         (3, 4),
         (7, 4),
         (127, 6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Barrel (US standard, cranberry): 5826 in³.",
         "",
@@ -1891,7 +1891,7 @@
         (3, 2),
         (127, 6),
         (971, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cup (US nutrition labeling): 240 mL.",
         "",
@@ -1900,7 +1900,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cup (FDA)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: 6, primes: [
         (3, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid ounce (US nutrition labeling): 30 mL.",
         "",
@@ -1909,7 +1909,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "fl oz (FDA)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, primes: [
         (3, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Tablespoon (US nutrition labeling): 15 mL.",
         "",
@@ -1918,14 +1918,14 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "tbsp (FDA)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: -2, primes: [
         (3, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Teaspoon (US nutrition labeling): 5 mL.",
         "",
         "- 21 CFR 101.9: (b)(5)(viii): for nutrition labeling, tsp 5 mL, tbsp 15 mL, cup 240 mL, fl oz 30 mL, oz 28 g",
     ], ident: "TeaspoonFda", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "tsp (FDA)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: -2), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "tsp (FDA)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: -2)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gallon (imperial): 4.546 09 dm³.",
         "",
@@ -1936,7 +1936,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "gal (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quart (imperial): 1/4 gal.",
         "",
@@ -1946,7 +1946,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "qt (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: -4, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pint (imperial): 0.568 261 25 dm³.",
         "",
@@ -1956,7 +1956,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "pt (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: -6, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gill (imperial): 1/4 pint.",
         "",
@@ -1967,7 +1967,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "gi (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: -10, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid ounce (imperial): 1/20 pint.",
         "",
@@ -1978,7 +1978,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "fl oz (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -18, pow2: -8, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid drachm (imperial): 1/8 fl oz.",
         "",
@@ -1988,7 +1988,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "fl dr (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -18, pow2: -14, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Fluid scruple (imperial): 1/3 fl drachm = 20 minims.",
         "",
@@ -1998,7 +1998,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "fl s (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -18, pow2: -14, primes: [
         (3, -2),
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Minim (imperial): 1/60 fl drachm.",
         "",
@@ -2009,7 +2009,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "min (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -20, pow2: -16, primes: [
         (3, -2),
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Peck (imperial): 2 gal.",
         "",
@@ -2019,7 +2019,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "pk (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 2, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bushel (imperial): 8 gal.",
         "",
@@ -2029,7 +2029,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "bu (imp)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 6, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quarter (imperial, 8 bushels): 8 bushels.",
         "",
@@ -2038,7 +2038,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "qr (imp vol)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 12, primes: [
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Water ton (English, 224 imperial gal): 224 imperial gal.",
         "",
@@ -2048,7 +2048,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ton (water)", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -16, pow2: 10, primes: [
         (7, 2),
         (454609, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Grain: 1/7000 lb.",
         "",
@@ -2061,7 +2061,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Dram (avoirdupois): 1/16 oz = 27 11/32 gr.",
         "",
@@ -2074,7 +2074,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ounce (avoirdupois): 1/16 lb = 437.5 gr.",
         "",
@@ -2088,7 +2088,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound (avoirdupois): 0.453 592 37 kg.",
         "",
@@ -2103,7 +2103,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Stone: 14 lb.",
         "",
@@ -2116,7 +2116,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quarter (British, 28 lb): 28 lb.",
         "",
@@ -2129,7 +2129,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Cental: 100 lb.",
         "",
@@ -2141,7 +2141,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Hundredweight (short, net): 100 lb.",
         "",
@@ -2154,7 +2154,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Hundredweight (long, gross): 112 lb.",
         "",
@@ -2168,7 +2168,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ton (short, net): 2000 lb.",
         "",
@@ -2181,7 +2181,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ton (long, gross): 2240 lb.",
         "",
@@ -2195,7 +2195,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Tonne (metric ton): 1000 kg.",
         "",
@@ -2203,7 +2203,7 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Tonne", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "t", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "t", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ounce (US nutrition labeling, 28 g): 28 g.",
         "",
@@ -2212,7 +2212,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "oz (FDA)", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 4, primes: [
         (7, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pennyweight: 24 gr.",
         "",
@@ -2226,7 +2226,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ounce (troy): 480 gr = 0.031 103 476 8 kg.",
         "",
@@ -2240,7 +2240,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound (troy): 12 oz t = 5760 gr.",
         "",
@@ -2253,7 +2253,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Scruple (apothecaries): 20 gr.",
         "",
@@ -2265,7 +2265,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Dram, drachm (apothecaries): 3 scruples = 60 gr.",
         "",
@@ -2278,7 +2278,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ounce (apothecaries): 480 gr.",
         "",
@@ -2292,7 +2292,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound (apothecaries): 12 oz ap = 5760 gr.",
         "",
@@ -2305,7 +2305,7 @@
         (11, 2),
         (97, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Slug: lbf·s²/ft.",
         "",
@@ -2321,7 +2321,7 @@
         (127, -2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound-force: lb · g_n.",
         "",
@@ -2337,7 +2337,7 @@
         (97, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ounce-force (avoirdupois): oz · g_n.",
         "",
@@ -2352,7 +2352,7 @@
         (97, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Kip (1000 lbf): 1000 lbf.",
         "",
@@ -2365,7 +2365,7 @@
         (97, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ton-force (short, 2000 lbf): 2000 lbf.",
         "",
@@ -2378,7 +2378,7 @@
         (97, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Poundal: lb·ft/s².",
         "",
@@ -2393,7 +2393,7 @@
         (97, 2),
         (127, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Kilogram-force (kilopond): kg · g_n.",
         "",
@@ -2404,7 +2404,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kgf", dim: (s: -2, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: -2, primes: [
         (7, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound-force per square inch: lbf/in².",
         "",
@@ -2418,7 +2418,7 @@
         (127, -4),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Kip per square inch: kip/in².",
         "",
@@ -2432,7 +2432,7 @@
         (127, -4),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pound-force per square foot: lbf/ft².",
         "",
@@ -2447,7 +2447,7 @@
         (127, -4),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of mercury (conventional): 1 in · 13 595.1 kg/m³ · g_n.",
         "",
@@ -2462,7 +2462,7 @@
         (127, 2),
         (28019, 2),
         (45317, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot of mercury (conventional): 1 ft · 13 595.1 kg/m³ · g_n.",
         "",
@@ -2477,7 +2477,7 @@
         (127, 2),
         (28019, 2),
         (45317, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Millimetre of mercury (conventional): 1 mm · 13 595.1 kg/m³ · g_n.",
         "",
@@ -2491,7 +2491,7 @@
         (7, 2),
         (28019, 2),
         (45317, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Millimetre of mercury (EU legal, blood pressure): 133.322 Pa.",
         "",
@@ -2503,7 +2503,7 @@
         (7, 2),
         (89, 2),
         (107, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Torr: 1/760 atm.",
         "",
@@ -2516,7 +2516,7 @@
         (7, 2),
         (19, -2),
         (193, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of mercury (32 °F): measured: mercury density at 32 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
@@ -2524,9 +2524,9 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "InchOfMercury32f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "inHg (32 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "inHg (32 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 2, primes: [
         (169319, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of mercury (60 °F): measured: mercury density at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
@@ -2534,9 +2534,9 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "InchOfMercury60f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "inHg (60 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: -2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "inHg (60 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: -2, primes: [
         (67537, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of water (conventional): 1 in · 1000 kg/m³ · g_n.",
         "",
@@ -2548,7 +2548,7 @@
         (7, 2),
         (127, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot of water (conventional): 1 ft · 1000 kg/m³ · g_n.",
         "",
@@ -2561,7 +2561,7 @@
         (7, 2),
         (127, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Millimetre of water (conventional): 1 mm · 1000 kg/m³ · g_n.",
         "",
@@ -2572,7 +2572,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mmH2O (conv)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: -2, primes: [
         (7, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of water (39.2 °F): measured: water density at 39.2 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
@@ -2580,9 +2580,9 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "InchOfWater39f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "inH2O (39.2 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "inH2O (39.2 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 2, primes: [
         (124541, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inch of water (60 °F): measured: water density at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
@@ -2590,9 +2590,9 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "InchOfWater60f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "inH2O (60 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "inH2O (60 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 4, primes: [
         (6221, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot of water (39.2 °F): measured: water density at 39.2 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
@@ -2600,10 +2600,10 @@
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "FootOfWater39f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ftH2O (39.2 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "ftH2O (39.2 °F)", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 2, primes: [
         (199, 2),
         (751, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Atmosphere (standard): 101 325 Pa.",
         "",
@@ -2614,7 +2614,7 @@
         (3, 2),
         (7, 2),
         (193, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Atmosphere (technical, kgf/cm²): 1 kgf/cm².",
         "",
@@ -2625,7 +2625,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "at", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: -2, primes: [
         (7, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot pound-force: ft · lbf.",
         "",
@@ -2640,7 +2640,7 @@
         (127, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot poundal: ft · pdl.",
         "",
@@ -2655,7 +2655,7 @@
         (97, 2),
         (127, 4),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (International Table): 1.055 055 852 62 kJ; cal_IT/(g·°C) · lb · °F.",
         "",
@@ -2669,7 +2669,7 @@
         (97, 2),
         (1163, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (thermochemical): cal_th/(g·°C) · lb · °F.",
         "",
@@ -2684,48 +2684,48 @@
         (97, 2),
         (523, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (mean): measured. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "BtuMean", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Btu_mean", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "Btu_mean", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, primes: [
         (17, 2),
         (6211, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (39 °F): measured: water at 39 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Btu39f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Btu_39", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "Btu_39", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, primes: [
         (105967, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (59 °F): measured: water at 59 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Btu59f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Btu_59", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: 4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "Btu_59", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: 4, primes: [
         (3, 4),
         (293, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "British thermal unit (60 °F): measured: water at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Btu60f", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Btu_60", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "Btu_60", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 4, primes: [
         (3, 2),
         (11, 2),
         (17, 2),
         (47, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (International Table): 4.1868 J.",
         "",
@@ -2736,7 +2736,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cal_IT", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 4, primes: [
         (3, 4),
         (1163, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (thermochemical): 4.184 J.",
         "",
@@ -2746,37 +2746,37 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cal_th", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: 6, primes: [
         (523, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (mean): measured. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "CalorieMean", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cal_mean", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: 2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "cal_mean", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: 2, primes: [
         (383, 2),
         (547, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (15 °C): measured: water at 15 °C. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Calorie15c", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cal_15", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "cal_15", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 2, primes: [
         (20929, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (20 °C): measured: water at 20 °C. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "Calorie20c", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cal_20", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "cal_20", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, primes: [
         (19, 2),
         (31, 2),
         (71, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Kilocalorie (International Table): 1000 cal_IT.",
         "",
@@ -2787,7 +2787,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kcal_IT", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: 4, primes: [
         (3, 4),
         (1163, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Kilocalorie (thermochemical): 1000 cal_th.",
         "",
@@ -2797,7 +2797,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kcal_th", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 6, primes: [
         (523, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (food, kilogram calorie IT): 1 kcal_IT.",
         "",
@@ -2807,7 +2807,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Cal_IT", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: 4, primes: [
         (3, 4),
         (1163, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Calorie (food, kilogram calorie thermochemical): 1 kcal_th.",
         "",
@@ -2816,7 +2816,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Cal_th", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 6, primes: [
         (523, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Therm (EC): 105.506 MJ.",
         "",
@@ -2828,7 +2828,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "thm (EC)", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6, pow2: 2, primes: [
         (71, 2),
         (743, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Therm (US): 105.4804 MJ (Federal Register 27 Jul 1968).",
         "",
@@ -2839,7 +2839,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "thm (US)", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 4, pow2: 4, primes: [
         (19, 2),
         (13879, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Quad (10¹⁵ Btu_IT): 10¹⁵ Btu_IT.",
         "",
@@ -2852,7 +2852,7 @@
         (97, 2),
         (1163, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ton of TNT (energy equivalent): 10⁹ cal_th = 4.184 GJ.",
         "",
@@ -2862,7 +2862,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "tTNT", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 12, pow2: 6, primes: [
         (523, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower hour (mechanical): hp · 3600 s.",
         "",
@@ -2877,7 +2877,7 @@
         (127, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (mechanical, 550 ft·lbf/s): 550 ft·lbf/s.",
         "",
@@ -2892,7 +2892,7 @@
         (127, 2),
         (6073, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (metric, PS): 75 kgf·m/s.",
         "",
@@ -2904,7 +2904,7 @@
         (3, 2),
         (7, 2),
         (28019, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (electric): 746 W.",
         "",
@@ -2913,28 +2913,28 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "hp (elec)", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 2, primes: [
         (373, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (boiler): evaporation rate of water; no exact definition fits SP 811\'s value. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "HorsepowerBoiler", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "hp (boiler)", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: -2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "hp (boiler)", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: -2, primes: [
         (23, 2),
         (853, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Horsepower (water): measured. Measured, not defined: the value NIST SP 811 B.8 prints.",
         "",
         "- NIST SP 811: B.8 row of this unit",
     ], ident: "HorsepowerWater", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "hp (water)", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(ConventionalUnit((unit: (symbol: "hp (water)", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, primes: [
         (3, 2),
         (149, 2),
         (1669, 2),
-    ]), provenance: Conventional(source: "NIST SP 811", year: 2008)))))))), crate_idx: 0),
+    ])), source: "NIST SP 811", year: 2008))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Btu_IT per hour: Btu_IT/h.",
         "",
@@ -2948,7 +2948,7 @@
         (97, 2),
         (1163, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Ton of refrigeration (12 000 Btu_IT/h): 12 000 Btu_IT/h.",
         "",
@@ -2962,7 +2962,7 @@
         (97, 2),
         (1163, 2),
         (6073, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mile per hour: mi/h.",
         "",
@@ -2972,7 +2972,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mph", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -10, pow2: 10, primes: [
         (11, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Knot: 1 nmi/h = 1852/3600 m/s.",
         "",
@@ -2982,7 +2982,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kn", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, primes: [
         (3, -4),
         (463, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot per second: ft/s.",
         "",
@@ -2992,7 +2992,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ft/s", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 6, primes: [
         (3, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Foot per second squared: ft/s².",
         "",
@@ -3002,7 +3002,7 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "ft/s²", dim: (s: -2, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -8, pow2: 6, primes: [
         (3, 2),
         (127, 2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Minute of arc: 1/60°.",
         "",
@@ -3011,7 +3011,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "′", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -4, pi: 2, primes: [
         (3, -6),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Second of arc: 1/60′.",
         "",
@@ -3020,21 +3020,21 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "″", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pow2: -6, pi: 2, primes: [
         (3, -8),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gon (grade): 0.9°.",
         "",
         "- NIST SP 811: B.8 rows gon: 9.0 E-01 degree (bold)",
     ], ident: "Gon", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "gon", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -2, pi: 2), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "gon", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -2, pi: 2)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mil (angle, NATO, 1/6400 turn): 0.056 25° = 1/6400 turn.",
         "",
         "- NIST SP 811: B.8 rows mil (angle): 5.625 E-02 degree (bold)",
     ], ident: "MilNato", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mil (NATO)", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -10, pi: 2), provenance: Defined))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mil (NATO)", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -10, pi: 2)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mil (angle, Warsaw Pact, 1/6000 turn): 1/6000 turn.",
         "",
@@ -3043,7 +3043,7 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mil (WP)", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6, pi: 2, primes: [
         (3, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Streck (angle, Swedish, 1/6300 turn): 1/6300 turn.",
         "",
@@ -3053,18 +3053,18 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "streck", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 2, pi: 2, primes: [
         (3, -4),
         (7, -2),
-    ]), provenance: Defined))))))), crate_idx: 0),
+    ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thermodynamic temperature, from absolute zero: `Point<AbsoluteZero, Fixed<Kelvin, Milli, u32>>` is a",
         "temperature in mK.",
     ], ident: "AbsoluteZero", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "K", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "K", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Degrees Celsius: 0 °C is 273.15 K, a degree is 1 K (SI Brochure 2.3.4).",
     ], ident: "Celsius", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "°C", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°C", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
         (3, 4),
         (607, 2),
     ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: -2, pow2: -2, primes: [
@@ -3076,7 +3076,7 @@
         "`Fixed<Kelvin, Rational<5, 9>, T>`.",
     ], ident: "Rankine", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "°R", reference: None, offset: (), modulus: None, step: (pow10: 2, pow2: -2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°R", reference: None, offset: (), modulus: None, step: (pow10: 2, pow2: -2, primes: [
         (3, -4),
     ]), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
@@ -3084,7 +3084,7 @@
         "Numbers in steps of °F are `Fixed<Kelvin, Rational<5, 9>, T>`, tenths `Rational<1, 18>`.",
     ], ident: "Fahrenheit", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "°F", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°F", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
         (3, -4),
         (43, 2),
         (1069, 2),
@@ -3099,19 +3099,19 @@
         "Absolute pressure, from vacuum.",
     ], ident: "Vacuum", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "Pa", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Gauge pressure, from the ambient pressure (a tyre, a compressor): converts to [Vacuum] only with the",
         "ambient pressure at run time ([Point::against](crate::Point::against)), never at compile time.",
     ], ident: "Gauge", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "Pa (gauge)", reference: Some((crate_id: "exact_units", name: "AmbientPressure")), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa (gauge)", reference: Some((crate_id: "exact_units", name: "AmbientPressure")), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Pressure above one standard atmosphere, 101325 Pa (ISO 2533): gauge pressure with its reference stated,",
         "so it converts to [Vacuum] at compile time.",
     ], ident: "AboveStandardAtmosphere", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0), provenance: Defined), symbol: "Pa (above 1 atm)", reference: None, offset: (magnitude: Some((pow10: 4, pow2: -4, primes: [
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa (above 1 atm)", reference: None, offset: (magnitude: Some((pow10: 4, pow2: -4, primes: [
         (3, 2),
         (7, 2),
         (193, 2),

@@ -1163,8 +1163,9 @@ fn unit(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> DynUnit {
     {
         return DynUnit::Known(expr);
     }
-    // any other crate's unit by the definition the bundle carries
-    if let Some(MarkerDefOwned::Unit(def)) = s.marker() {
+    // any other crate's unit by the definition the bundle carries, also a unit by convention (exact_units'
+    // `customary`, which a host doesn't need to enable for it)
+    if let Some(def) = s.marker().and_then(MarkerDefOwned::unit_def) {
         return DynUnit::Named {
             name: s.ident.clone(),
             symbol: def.symbol.clone(),

@@ -14,7 +14,7 @@
 //! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`).
 
 use crate::{
-    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
     UnitDefOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
@@ -253,7 +253,6 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
                     symbol: symbol.clone(),
                     dim: unit.dim,
                     magnitude: unit.magnitude,
-                    provenance: exact_units::ProvenanceOwned::Defined,
                 },
                 symbol,
                 reference: None,
@@ -332,13 +331,15 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
     match definition(s, bundle)? {
         // `Ratio`: the unit of a plain number, no factor of a product (`Times<Per<Ratio, Second>, Meter>` is m·s⁻¹)
         MarkerDefOwned::Unit(def)
+        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. })
             if def.symbol.is_empty()
                 && def.dim.as_dim().is_one()
                 && def.magnitude == Magnitude::ONE =>
         {
             Ok(CanonicalUnit::one())
         }
-        MarkerDefOwned::Unit(def) => Ok(CanonicalUnit {
+        MarkerDefOwned::Unit(def)
+        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. }) => Ok(CanonicalUnit {
             powers: vec![UnitPower {
                 marker: marker_name(s, bundle)?,
                 symbol: def.symbol.clone(),

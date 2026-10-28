@@ -761,6 +761,9 @@ pub enum MarkerDef<'i> {
     /// `exact_units::Saturating`: a `Fixed` without bounds whose arithmetic stops at the ends of its storage (Q
     /// formats).
     Saturating,
+    /// A unit by convention (STD-72, `exact_units`' `customary` units like inHg): a [Self::Unit] with the source of
+    /// its value. A reader from before it gets `Unknown` and treats the struct as a marker it can't convert.
+    ConventionalUnit(ConventionalUnitDef<'i>),
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].
@@ -775,11 +778,22 @@ pub struct UnitDef<'i> {
     /// The exact factor to the coherent SI unit of [Self::dim]: 1 for `Volt`, `π/30` for `Rpm` (rad/s), 8 for a
     /// byte (bit).
     pub magnitude: exact_units::Magnitude,
-    /// Whether [Self::magnitude] is the unit's definition or a value a source prints for a unit fixed by a physical
-    /// property (`conventional("NIST SP 811", 2008)` on a `unit!` line: inHg, a Btu at 60 °F). `Defined` in
-    /// bundles made before it was carried (STD-72).
-    #[default = Default::default()]
-    pub provenance: exact_units::Provenance<'i>,
+}
+
+/// A unit fixed by a physical property (`conventional("NIST SP 811", 2008)` on a `unit!` line: inHg at 32 °F, a Btu
+/// at 60 °F): [Self::unit]'s magnitude is the value a source prints, not a definition, and a newer edition may
+/// differ (STD-72). A variant of its own, so a defined unit's bytes don't pay for it.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct ConventionalUnitDef<'i> {
+    pub unit: UnitDef<'i>,
+    /// The document the value is from: `"NIST SP 811"`.
+    pub source: &'i str,
+    /// Its edition.
+    pub year: u16,
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

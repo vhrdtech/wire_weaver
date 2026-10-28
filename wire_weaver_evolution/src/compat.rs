@@ -822,59 +822,60 @@ impl<'a> TypeCheck<'a> {
         };
         let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
         let what = |kind: &str| format!("{kind} {} redefined", r.ident);
-        match (w_def, r_def) {
-            (Unit(w_unit), Unit(r_unit)) => {
-                let changed = what("unit");
-                let (w_step, r_step) = (
-                    step(&w_unit.dim, w_unit.magnitude),
-                    step(&r_unit.dim, r_unit.magnitude),
-                );
-                match (&w_unit.provenance, &r_unit.provenance) {
-                    (Provenance::Defined, Provenance::Defined) => {
-                        self.check_steps(&changed, &w_step, &r_step)
-                    }
-                    // a value by convention updated (newer CODATA digits): the same unit, reported apart (STD-72)
-                    (Provenance::Conventional { .. }, Provenance::Conventional { .. }) => {
-                        if !w_step.dim.as_dim().same(r_step.dim.as_dim()) {
-                            return self.check_steps(&changed, &w_step, &r_step);
-                        }
-                        if w_unit.magnitude != r_unit.magnitude
-                            || w_unit.provenance != r_unit.provenance
-                        {
-                            let shown = |u: &UnitDefOwned| {
-                                format!(
-                                    "1 {} = {} in SI, {}",
-                                    u.symbol,
-                                    round6(u.magnitude.to_f64()),
-                                    provenance(&u.provenance)
-                                )
-                            };
-                            self.note_compatible(Unwrapped {
-                                path: self.path.clone(),
-                                writer_name: self.writer_name,
-                                written: shown(w_unit),
-                                read: shown(r_unit),
-                                same: "conventional value updated",
-                            });
-                        }
-                        Ok(())
-                    }
-                    // a provenance of a newer exact_units, the same on both sides
-                    (w_p, r_p) if w_p == r_p => self.check_steps(&changed, &w_step, &r_step),
-                    (w_p, r_p) => {
-                        self.rule = Some(Rule::Meaning);
-                        Err(format!(
-                            "{changed}: {} on the {}, {} on the {}: a value by convention is not the unit's \
-                             definition, the {} would take one for the other",
-                            provenance(w_p),
-                            self.writer_name,
-                            provenance(r_p),
-                            self.reader_name,
-                            self.reader_name
-                        ))
-                    }
+        if let (Some(w_unit), Some(r_unit)) = (w_def.unit_def(), r_def.unit_def()) {
+            let changed = what("unit");
+            let (w_step, r_step) = (
+                step(&w_unit.dim, w_unit.magnitude),
+                step(&r_unit.dim, r_unit.magnitude),
+            );
+            let (w_prov, r_prov) = (w_def.provenance(), r_def.provenance());
+            return match (&w_prov, &r_prov) {
+                (Provenance::Defined, Provenance::Defined) => {
+                    self.check_steps(&changed, &w_step, &r_step)
                 }
-            }
+                // a value by convention updated (newer CODATA digits): the same unit, reported apart (STD-72)
+                (Provenance::Conventional { .. }, Provenance::Conventional { .. }) => {
+                    if !w_step.dim.as_dim().same(r_step.dim.as_dim()) {
+                        return self.check_steps(&changed, &w_step, &r_step);
+                    }
+                    if w_unit.magnitude != r_unit.magnitude
+                        || w_prov != r_prov
+                    {
+                        let shown = |u: &UnitDefOwned, p: &Provenance| {
+                            format!(
+                                "1 {} = {} in SI, {}",
+                                u.symbol,
+                                round6(u.magnitude.to_f64()),
+                                provenance(p)
+                            )
+                        };
+                        self.note_compatible(Unwrapped {
+                            path: self.path.clone(),
+                            writer_name: self.writer_name,
+                            written: shown(w_unit, &w_prov),
+                            read: shown(r_unit, &r_prov),
+                            same: "conventional value updated",
+                        });
+                    }
+                    Ok(())
+                }
+                // a provenance of a newer exact_units, the same on both sides
+                (w_p, r_p) if w_p == r_p => self.check_steps(&changed, &w_step, &r_step),
+                (w_p, r_p) => {
+                    self.rule = Some(Rule::Meaning);
+                    Err(format!(
+                        "{changed}: {} on the {}, {} on the {}: a value by convention is not the unit's \
+                         definition, the {} would take one for the other",
+                        provenance(w_p),
+                        self.writer_name,
+                        provenance(r_p),
+                        self.reader_name,
+                        self.reader_name
+                    ))
+                }
+            };
+        }
+        match (w_def, r_def) {
             (Scale(w_scale), Scale(r_scale)) => self.check_steps(
                 &what("scale"),
                 &step(&one(), w_scale.magnitude),
@@ -1997,10 +1998,8 @@ fn conventional_units<'a>(
         let Ok((TypeOwned::Struct(s), _)) = bundle.get_ty(type_idx.0) else {
             return;
         };
-        if let Some(MarkerDefOwned::Unit(unit)) = s.marker()
-            && matches!(unit.provenance, Provenance::Conventional { .. })
-        {
-            out.push((s.qualified_name(), unit));
+        if let Some(MarkerDefOwned::ConventionalUnit(c)) = s.marker() {
+            out.push((s.qualified_name(), &c.unit));
         }
         let args = match (ty, &s.instance_of) {
             (TypeOwned::Instance { args, .. }, _) => args,

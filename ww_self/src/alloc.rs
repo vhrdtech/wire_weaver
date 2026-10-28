@@ -2,7 +2,7 @@ use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ArgumentOwned, Batching, ClaimMode, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned,
     FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructExtraOwned,
-    ItemStructOwned, Length, MarkerDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    ItemStructOwned, Length, MarkerDefOwned, UnitDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
@@ -839,6 +839,30 @@ pub fn qualified_name(path: Option<&[String]>, ident: &str) -> String {
         .collect();
     name.push_str(ident);
     name
+}
+
+impl MarkerDefOwned {
+    /// The unit of a [Unit](MarkerDefOwned::Unit) or [ConventionalUnit](MarkerDefOwned::ConventionalUnit), `None`
+    /// for any other marker.
+    pub fn unit_def(&self) -> Option<&UnitDefOwned> {
+        match self {
+            MarkerDefOwned::Unit(def) => Some(def),
+            MarkerDefOwned::ConventionalUnit(c) => Some(&c.unit),
+            _ => None,
+        }
+    }
+
+    /// Where a unit's magnitude comes from: `Conventional` for a
+    /// [ConventionalUnit](MarkerDefOwned::ConventionalUnit), `Defined` for any other marker.
+    pub fn provenance(&self) -> exact_units::ProvenanceOwned {
+        match self {
+            MarkerDefOwned::ConventionalUnit(c) => exact_units::ProvenanceOwned::Conventional {
+                source: c.source.clone(),
+                year: c.year,
+            },
+            _ => exact_units::ProvenanceOwned::Defined,
+        }
+    }
 }
 
 impl ItemStructOwned {

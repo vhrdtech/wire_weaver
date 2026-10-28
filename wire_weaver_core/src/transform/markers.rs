@@ -10,7 +10,7 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset, ProvenanceOwned};
+use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{
@@ -18,7 +18,7 @@ use syn::{
 };
 use ww_self::units::{marker_name_of, origin_of, scale_of, unit_of};
 use ww_self::{
-    ApiBundleOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned, ScaleDefOwned, UnitDefOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned, ScaleDefOwned, UnitDefOwned,
 };
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
@@ -402,9 +402,8 @@ pub(crate) fn origin_def(
                 unit: UnitDefOwned {
                     symbol: unit.to_string(),
                     dim: unit.dim,
-                    magnitude: unit.magnitude,
                     // a unit expression has no provenance of its own yet: origins are over defined units (K, °)
-                    provenance: ProvenanceOwned::Defined,
+                    magnitude: unit.magnitude,
                 },
                 symbol: symbol.clone(),
                 reference,
@@ -709,16 +708,19 @@ pub(crate) fn marker_def(
                 // TODO(STD-74): °C over K goes to origins; the model carries the offset as exact_units::Offset then
                 UnitScaleLine::Affine { .. } => return Ok(None),
             };
-            let provenance = match line.provenance {
-                Some((source, year)) => ProvenanceOwned::Conventional { source, year },
-                None => ProvenanceOwned::Defined,
-            };
-            MarkerDefOwned::Unit(UnitDefOwned {
+            let unit = UnitDefOwned {
                 symbol: line.symbol,
                 dim,
                 magnitude,
-                provenance,
-            })
+            };
+            match line.provenance {
+                Some((source, year)) => MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned {
+                    unit,
+                    source,
+                    year,
+                }),
+                None => MarkerDefOwned::Unit(unit),
+            }
         }
         MarkerLineDef::Scale(line) => {
             let m = match &line.factor {
@@ -1103,7 +1105,8 @@ mod tests {
                     continue;
                 }
             };
-            let Some(MarkerDefOwned::Unit(def)) = markers.remove(*name) else {
+            let marker = markers.remove(*name);
+            let Some(def) = marker.as_ref().and_then(MarkerDefOwned::unit_def) else {
                 panic!("{name}: no unit definition in the model");
             };
             assert_eq!(def.symbol, *symbol, "{name}");
@@ -1115,9 +1118,9 @@ mod tests {
             );
             assert_eq!(def.magnitude, magnitude, "{name}");
             let compiled = match provenance {
-                exact_units::Provenance::Defined => ProvenanceOwned::Defined,
+                exact_units::Provenance::Defined => exact_units::ProvenanceOwned::Defined,
                 exact_units::Provenance::Conventional { source, year } => {
-                    ProvenanceOwned::Conventional {
+                    exact_units::ProvenanceOwned::Conventional {
                         source: source.to_string(),
                         year: *year,
                     }
@@ -1126,7 +1129,7 @@ mod tests {
                     panic!("{name}: a compiled unit is never unknown")
                 }
             };
-            assert_eq!(def.provenance, compiled, "{name}");
+            assert_eq!(marker.as_ref().unwrap().provenance(), compiled, "{name}");
         }
         macro_rules! scales {
             ($($name:ident)*) => {

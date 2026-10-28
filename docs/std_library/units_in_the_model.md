@@ -54,6 +54,7 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`                                            |
 | `Origin(OriginDef { unit, symbol, reference, offset, .. })`    | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
+| `ConventionalUnit(ConventionalUnitDef { unit, source, year })` | a unit that is a value a standard prints: `inHg` at 32 °F ([customary](customary.md)) |
 
 `magnitude` is the exact factor to the coherent SI unit of `dim`: 1 for a volt, π/30 for `rpm` (in rad/s), 8 for a
 byte (in bits). Each marker is named by its crate and its path in it (`quantities_api`, `Rpm`), the identity it has

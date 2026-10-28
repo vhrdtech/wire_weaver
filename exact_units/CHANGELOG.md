@@ -8,7 +8,7 @@ same paths as before.
 
 No dependencies without features: the wire format is the feature `shrink_wrap` (on by default), every derive sits
 behind `cfg_attr(feature = "shrink_wrap", ..)`, and the types are plain Rust otherwise (`Dim`'s exponents `i8`,
-`ExactScale`'s `num` / `den` `u32`, written as `I4` / `UNib32` through shrink_wrap's `#[wire(..)]`, DER-19). A
+`Magnitude`'s primes `u32`, written as `I4` / `UNib32` through shrink_wrap's `#[wire(..)]`, DER-19). A
 firmware that only needs units in its types builds without it; the bytes don't depend on the feature.
 
 * `Fixed<U, P, T, B = Unbounded>` (STD-55): a number whose unit, scale and storage are fixed at compile time, on the
@@ -21,7 +21,7 @@ firmware that only needs units in its types builds without it; the bytes don't d
     checked on every read from the wire, NaN is out of bounds, a bound that doesn't fit the storage is a compile
     error.
   * `new` / `get`, `+ - * /` by `T`, `try_new`, `bounded` (`const`), `checked_*`, `saturating_*`, `wrapping_*`,
-    `to::<P2, T2>()` (exact only), `from_scaled(Repr, ExactScale)`, `core::time::Duration` both ways, `PartialEq`,
+    `to::<P2, T2>()` (exact only), `from_scaled(Repr, Magnitude)`, `core::time::Duration` both ways, `PartialEq`,
     `Ord`, `Hash`, `Display` (`1500 µs`, `{:#}` `0.0015 s`), `Debug`, `defmt::Format`, series columns of the plain
     field.
   * Aliases `Micros<T>`, `Millis<T>`, `Nanos<T>`, `Bytes<T>`, `Ppb<T>`, `Duty16`.
@@ -31,7 +31,26 @@ firmware that only needs units in its types builds without it; the bytes don't d
   (`Counted { crate_name, name, exp }`); `counted!(Name)` for an API crate's own counted marker. The counted markers
   here (`Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`) are known by the
   crate `exact_units`, 6 bytes longer on the wire than under the name `ww_si`.
-* `Scale` (coherent, power of ten, factor, affine, `Exact`) and `ExactScale { num, den, pow10, pow2, pi }`.
+* `Scale` (coherent, power of ten, factor, affine, `Exact`) and `Magnitude` (STD-62): one canonical exact factor for
+  every scale, `10^a · 2^b · π^c · ln2^d · ln10^e · ∏ pᵢ^kᵢ` over primes other than 2 and 5 (`PrimePower`, at most
+  `MAX_FACTORS` = 12), whole or half exponents (`√2`), so equal magnitudes are equal however spelled (`Milli`,
+  `Pow10<-3>`, `Rational<1, 1000>`). `const` `ratio(u64, u64)` (factored at compile time: trial division, Miller-Rabin,
+  Pollard's rho), `pow10`, `pow2`, `new(num, den, pow10, pow2, pi)`, `PI`, `LN2`, `LN10`, `mul`, `div`, `recip`, `powi`,
+  `sqrt` and their `checked_` forms (`MagnitudeError`: `Zero`, `PrimeTooLarge` above `u32::MAX`, `TooManyFactors`,
+  `ExponentRange` outside ±63½, `NotSquare`), `to_ratio`, `to_f64`, `as_pow10`, `exp_x2`, `irrational_x2`, `primes`,
+  `apply_int`, `apply_f64`, `Display` (`·π/180`, `·√2`, `·ln10/20`). 104 bytes, plain `const` data, so a `&'static
+  Magnitude` can be held at run time. On the wire (`final_structure`, `Irrational` and `MagnitudeRest` inside) a
+  decimal prefix is 2 bytes, `Kibi` 5, a degree 11; a magnitude that isn't canonical is refused on decode. Conformance
+  cases `stdlib.si.magnitude.*`.
+* Scale markers `Pow2<E>`, `FullScale<V, BITS>` (`V / 2^BITS`, an ADC step), `FullScaleMax<V, BITS>` (`V / (2^BITS -
+  1)`); `Rational<NUM, DEN>` takes `u64`. Aliases `Q15<U = Ratio>`, `Q31<U>`, `UQ16_16<U>`, `Bam16`, `Bam32` (STD-62).
+* `Fixed::to::<P2, T2>()` works out `P / P2` at compile time (STD-62): between integer storages a factor that isn't a
+  fraction of integers, or whose multiply doesn't fit 64 bits (both storages up to 32 bits) or 128 bits, is a
+  compile error; a factor 1/n divides in the storage's own width, equal scales cost nothing. `Storage` has `BITS`,
+  `MIN_INT`, `MAX_INT`, `to_i64`, `from_i64` and `div_whole` for it. On thumbv6m and thumbv7em at `opt-level` 3 the
+  conversions measured (ms ↔ µs, equal scales, `Duty16`, `Q15`, a `Rational<70, 1000>` gyro scale) are the code of
+  the same conversion written by hand, except ms → µs in `u32` (a range check instead of `umull`, +4 instructions on
+  M4F); at `z` within ±3 instructions (table in `docs/std_library/magnitude.md`).
 * `SIExpr<'i>` / `SIExprOwned` (feature `shrink_wrap`: `Named`, `Mul`, `Div`, `Pow`, and the new `Sqrt`), `UnitExpr::Sqrt`, `tree` (the walk
   behind every unit `Display` and name), `Prefix`.
 * `num`: `const` helpers for scales, `pow10_f64`, `powi_f64`, `scale_f64`, `scale_f32`, and `sqrt_f64`, a `const`

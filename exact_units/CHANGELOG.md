@@ -69,6 +69,18 @@
   On Cortex-M M0 and M4F a typed conversion costs what the same conversion written by hand costs (measured, table
   on the docs page).
 
+* `Index<Of, T, B>`, `IndexFrom1<Of, T, B>` and `Seq<Of, T>` (STD-58, feature `counting`, docs
+  `std_library/indices.md`): positions in a table of `Of` and wrapping sequence numbers, the point side of counted
+  things, `transparent` (the bytes of `T`).
+  * `Index`: 0-based; index ± `Fixed<Of, One, T>` = index, index − index = the distance as a `Fixed`, index + index
+    and index · x don't compile; `try_new`, `at`, `checked_add`, `checked_sub`, `checked_distance` for bounded ones,
+    decode refuses a number outside `B`.
+  * `IndexFrom1`: 1-based as people count; 0 and a number outside `B` refused on construction and decode;
+    `to_index`, `from_index`.
+  * `Seq`: `next`, `wrapping_add`, `wrapping_sub`, ± an amount, `distance` (a `Fixed<Of, One, T, Wrapping>`), RFC 1982
+    `is_before`, `is_after`, `serial_cmp` within half the range; no `Ord`, no `Seq + Seq`.
+  * `Display` is the number, `Debug` names the table (`Index<Sample>(3 u32)`), `defmt::Format`.
+
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the
 same paths as before.

@@ -3751,6 +3751,8 @@
       
         
       
+        
+      
     
     
     
@@ -3837,6 +3839,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
 
     
   </span>
@@ -5567,7 +5596,7 @@ crates (layer 4):</p>
   change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
   releases that are supposed to be wire-compatible additions; prefer deprecating and adding.</li>
 </ul>
-<p><code>exact_units</code> is the bottom of this layer: the unit markers, <code>Dim</code>, <code>ExactScale</code>, <code>SIExpr</code> and <code>Fixed</code>, which <code>ww_si</code>
+<p><code>exact_units</code> is the bottom of this layer: the unit markers, <code>Dim</code>, <code>Magnitude</code>, <code>SIExpr</code> and <code>Fixed</code>, which <code>ww_si</code>
 re-exports. A unit's identity on the wire includes its crate (a counted base is <code>exact_units</code> + its marker name), so
 moving a marker to another crate is a wire change, and a break in <code>exact_units</code> is a break in <code>ww_si</code> and everything
 built on it.</p>

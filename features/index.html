@@ -3626,6 +3626,8 @@
       
         
       
+        
+      
     
     
     
@@ -3712,6 +3714,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
 
     
   </span>
@@ -7290,6 +7319,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
   <code>tests/quantities</code>.</li>
+<li>✅ <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — <code>exact_units::Magnitude</code>, a canonical product of prime
+  powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
+  (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Pow2&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with <code>u64</code> parameters factored at compile time, <code>Kibi</code>..,
+  <code>FullScale&lt;V, BITS&gt;</code>, <code>FullScaleMax&lt;V, BITS&gt;</code>) is one, equal however it is written (<code>Milli</code> = <code>Pow10&lt;-3&gt;</code> =
+  <code>Rational&lt;1, 1000&gt;</code>); closed under <code>*</code>, <code>/</code>, powers and roots, a product that needs more than 12 primes or leaves
+  ±63½ is a compile error. <code>Fixed::to</code> computes its factor at compile time: not a fraction of integers, or a multiply
+  that doesn't fit 64 bits (storages up to 32 bits) / 128 bits, doesn't compile, never a rounding. Q formats <code>Q15</code>,
+  <code>Q31</code>, <code>UQ16_16</code>, binary angles <code>Bam16</code>, <code>Bam32</code>. Replaces <code>ExactScale</code> in <code>Scale::Exact</code> (104 bytes in memory, a
+  decimal prefix 2 bytes on the wire). <a href="../docs/std_library/magnitude/">Exact magnitudes</a>, conformance
+  <code>stdlib.si.magnitude.*</code> (derive, dynamic, Python; C waits on API-26).</li>
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
   <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
@@ -7530,10 +7569,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
 <li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
   (<code>Quantity&lt;U, B&gt;</code>, range in coherent units; a break: <code>B</code> explicit in the model), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
-<li>📋 <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — every scale (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with
-  <code>u64</code> parameters, <code>Kibi</code>.., Q formats, full-scale fractions, binary angles) is one canonical, exact form with a power
-  of π, equal however it is written; conversion factors are computed at compile time, and one that doesn't fit is a
-  compile error, never a rounding.</li>
 <li>📋 <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — lossy conversions name their rounding (truncate, nearest
   ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
   saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python

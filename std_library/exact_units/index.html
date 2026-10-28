@@ -19,7 +19,7 @@
         <link rel="prev" href="../ww_si/">
       
       
-        <link rel="next" href="../ww_error/">
+        <link rel="next" href="../magnitude/">
       
       
         
@@ -3641,6 +3641,8 @@
       
         
       
+        
+      
     
     
     
@@ -3872,6 +3874,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../magnitude/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5491,6 +5520,8 @@
       
         
       
+        
+      
     
     
     
@@ -5604,11 +5635,16 @@ another). <code>Quantity::to_fixed</code> and <code>Quantity::from_fixed</code> 
 <li>the binary prefixes <code>Kibi</code>, <code>Mebi</code>, <code>Gibi</code>, <code>Tebi</code>;</li>
 <li><code>Pow10&lt;E&gt;</code>, a power of ten without a name: tenths of a millisecond are <code>Fixed&lt;Second, Pow10&lt;-4&gt;, u32&gt;</code>, shown as
   <code>15·10⁻⁴ s</code>;</li>
-<li><code>Rational&lt;NUM, DEN&gt;</code>, a fraction: <code>Duty16</code> is <code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code>, where 65535 is 100 %.</li>
+<li><code>Pow2&lt;E&gt;</code>, a power of two: the Q formats and binary angles;</li>
+<li><code>Rational&lt;NUM, DEN&gt;</code> (<code>u64</code>), a fraction: <code>Duty16</code> is <code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code>, where 65535 is 100 %;</li>
+<li><code>FullScale&lt;V, BITS&gt;</code> and <code>FullScaleMax&lt;V, BITS&gt;</code>, one step of a converter whose <code>2^BITS</code> codes (or largest code)
+  span <code>V</code>.</li>
 </ul>
-<p>Every scale is an <code>ExactScale</code> (<code>num / den · 10^pow10 · 2^pow2 · π^pi</code>), written with integers only, so a conversion
-with <code>to::&lt;P2, T2&gt;()</code> is exact or refused (<code>None</code>), never rounded through a float. 4 KiB as <code>Fixed&lt;Byte, Kibi, u16&gt;</code>
-is <code>Fixed&lt;Byte, One, u32&gt;</code> 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.</p>
+<p>Every scale is a <a href="../magnitude/"><code>Magnitude</code></a>, a canonical product of prime powers with powers of π, ln 2 and ln 10,
+so <code>Milli</code>, <code>Pow10&lt;-3&gt;</code> and <code>Rational&lt;1, 1000&gt;</code> are the same scale. A conversion with <code>to::&lt;P2, T2&gt;()</code> is exact or
+refused (<code>None</code>), never rounded through a float, and its factor is worked out at compile time: one that isn't a
+fraction of integers, or whose multiply doesn't fit, doesn't compile. 4 KiB as <code>Fixed&lt;Byte, Kibi, u16&gt;</code> is
+<code>Fixed&lt;Byte, One, u32&gt;</code> 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.</p>
 <h2 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h2>
 <p><code>T</code> is <code>u8</code> .. <code>u64</code>, <code>i8</code> .. <code>i64</code>, <code>f32</code>, <code>f64</code>, or one of <code>shrink_wrap</code>'s variable-length integers <code>UNib32</code>,
 <code>UVlq32</code>, <code>UVlq64</code> and <code>Nibble</code> (trait <code>Storage</code>, <code>UnsignedStorage</code> for the unsigned ones).</p>
@@ -5671,6 +5707,26 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 <tr>
 <td><code>Duty16</code></td>
 <td><code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code></td>
+</tr>
+<tr>
+<td><code>Q15&lt;U&gt;</code></td>
+<td><code>Fixed&lt;U, Pow2&lt;-15&gt;, i16&gt;</code> (<code>U</code> = <code>Ratio</code>)</td>
+</tr>
+<tr>
+<td><code>Q31&lt;U&gt;</code></td>
+<td><code>Fixed&lt;U, Pow2&lt;-31&gt;, i32&gt;</code></td>
+</tr>
+<tr>
+<td><code>UQ16_16&lt;U&gt;</code></td>
+<td><code>Fixed&lt;U, Pow2&lt;-16&gt;, u32&gt;</code></td>
+</tr>
+<tr>
+<td><code>Bam16</code></td>
+<td><code>Fixed&lt;Turn, Pow2&lt;-16&gt;, u16&gt;</code></td>
+</tr>
+<tr>
+<td><code>Bam32</code></td>
+<td><code>Fixed&lt;Turn, Pow2&lt;-32&gt;, u32&gt;</code></td>
 </tr>
 </tbody>
 </table>
@@ -5763,13 +5819,13 @@ the wire format, and the bytes are the same whichever crate turns it on.</p>
         
         
           
-          <a href="../ww_error/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_error">
+          <a href="../magnitude/" class="md-footer__link md-footer__link--next" aria-label="Next: exact_units: magnitudes">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ww_error
+                exact_units: magnitudes
               </div>
             </div>
             <div class="md-footer__button md-icon">

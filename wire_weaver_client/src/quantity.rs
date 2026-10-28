@@ -23,8 +23,8 @@ use std::fmt;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, RefBox, SerializeShrinkWrapOwned};
 use ww_numeric::NumericValue;
 use ww_self::{
-    ApiBundleOwned, FieldsValueOwned, GenericArgOwned, InstanceOfOwned, ItemStructOwned,
-    MarkerDefOwned, TypeOwned, ValueOwned,
+    ApiBundleOwned, GenericArgOwned, InstanceOfOwned, ItemStructOwned, MarkerDefOwned, TypeOwned,
+    ValueOwned,
 };
 use ww_si::tree::{self, Tree};
 use ww_si::{AnyQuantity, AnyQuantityOwned, SIExpr, SIExprOwned, Scale};
@@ -248,30 +248,13 @@ impl DynQuantity {
             });
         }
         let unit = unit_of(ty, bundle)?;
-        let ValueOwned::Struct {
-            fields: FieldsValueOwned::Named(fields),
-        } = value
-        else {
-            return None;
-        };
-        let mut prefix = None;
-        let mut number = None;
-        for (name, value) in fields {
-            match (name.as_str(), value) {
-                (
-                    "prefix",
-                    ValueOwned::Enum {
-                        variant,
-                        fields: FieldsValueOwned::Unit,
-                    },
-                ) => prefix = Prefix::from_name(variant),
-                ("value", ValueOwned::Enum { fields, .. }) => number = numeric_value(fields),
-                _ => {}
-            }
-        }
+        // decoded by the derived type: the unit is only in the type, every `Quantity<U>` has the same bytes, and an
+        // `Exact` prefix (STD-59) comes back with its scale
+        let bytes = value.ser_shrink_wrap_dyn(ty, bundle).ok()?;
+        let q = ww_si::Quantity::<ww_si::units::Ratio>::from_ww_bytes(&bytes).ok()?;
         Some(DynQuantity {
-            prefix: prefix?,
-            value: number?,
+            prefix: q.prefix,
+            value: q.value,
             unit,
         })
     }
@@ -436,18 +419,6 @@ impl fmt::Display for DynQuantity {
             &tree::quantity(self.prefix, &self.value, &Part::Dyn(&self.unit)),
             f,
         )
-    }
-}
-
-/// A `NumericValue` as the dynamic decoder gives it: an enum value, the variant named after the number type, the
-/// number in it.
-fn numeric_value(fields: &FieldsValueOwned) -> Option<NumericValue> {
-    match fields {
-        FieldsValueOwned::Unnamed(items) => match items.as_slice() {
-            [ValueOwned::Numeric(n)] => Some(*n),
-            _ => None,
-        },
-        _ => None,
     }
 }
 

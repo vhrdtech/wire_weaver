@@ -28,6 +28,7 @@ from ._wire_weaver import (
     Property,
     Quantity,
     RemoteError,
+    Requantizer,
     SessionLost,
     Sink,
     Stream,
@@ -37,6 +38,7 @@ from ._wire_weaver import (
     hub,
     list_devices,
     load_api,
+    requantize,
 )
 
 __all__ = [
@@ -50,6 +52,7 @@ __all__ = [
     "Property",
     "Quantity",
     "RemoteError",
+    "Requantizer",
     "SessionLost",
     "Sink",
     "Stream",
@@ -59,4 +62,5 @@ __all__ = [
     "hub",
     "list_devices",
     "load_api",
+    "requantize",
 ]

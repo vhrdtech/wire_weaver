@@ -107,10 +107,32 @@ def test_case(api, case):
 REQUANTIZE = CORPUS.get("requantize", [])
 
 
+def number(j):
+    """A corpus number: integers beyond 64 bits are strings."""
+    return int(j) if isinstance(j, str) else j
+
+
+def convert(api, case):
+    """(ok, message) of `ww.requantize` on the case, the factor as the dynamic client has it: the corpus form
+    encoded through the API model's `magnitude` property, those bytes the Magnitude."""
+    try:
+        factor = api["magnitude"].encode(case["factor"])
+        got = ww.requantize(number(case["value"]), factor, case["to"], case["rounding"], case["overflow"])
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    want = number(case["result"])
+    if same(got, want):
+        return True, ""
+    return False, f"gave {got!r}, expected {want!r}"
+
+
 @pytest.mark.parametrize("case", REQUANTIZE, ids=[c["name"] for c in REQUANTIZE])
-def test_requantize(case):
-    """A stored number converted to another scale and storage (STD-63): Python has no unit conversions yet, so every
-    case carries a gap mark; once `ww.requantize` exists, the cases run here and the marks go."""
+def test_requantize(api, case):
+    """A stored number converted to another scale and storage (STD-63) by `ww.requantize`, with the gap rules of
+    the cases above."""
     gap = case.get("gaps", {}).get("python")
-    assert not hasattr(ww, "requantize"), "ww.requantize exists now: run the requantize cases here and drop their marks"
-    assert gap is not None, "Python converts nothing yet: give it a gap mark with the reason"
+    ok, message = convert(api, case)
+    if gap is not None:
+        assert not ok, f"passes now: remove its gap mark ({gap}) and close what it names"
+    else:
+        assert ok, message

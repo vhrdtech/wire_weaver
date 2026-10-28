@@ -755,6 +755,12 @@ pub enum MarkerDef<'i> {
     Origin(OriginDef<'i>),
     /// `exact_units::origins::Angle<U>`: an angle from the zero of the unit `U` that wraps every turn.
     Angle,
+    /// `exact_units::Wrapping`: a `Fixed` without bounds whose arithmetic wraps modulo 2^bits of its storage (binary
+    /// angles, free-running counters).
+    Wrapping,
+    /// `exact_units::Saturating`: a `Fixed` without bounds whose arithmetic stops at the ends of its storage (Q
+    /// formats).
+    Saturating,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].

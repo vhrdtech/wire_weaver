@@ -54,11 +54,15 @@ pub(crate) struct Args {
     pub(crate) series_store: bool,
     /// `series(cells)` also implements `SeriesCells` (API-50, observe cells).
     pub(crate) series_cells: bool,
+    /// `niche` (DER-24), enums: no `#[repr]` on the generated enum, so Rust may keep the tag in a field's niche
+    /// (`Prefix` with a one-byte handle is one byte). Same bytes on the wire; `discriminant()` is a `match`.
+    pub(crate) niche: bool,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut discriminants_enum = false;
+        let mut niche = false;
         let mut borrowed = None;
         let mut owned = None;
         let mut cfg_attr = Vec::new();
@@ -152,6 +156,9 @@ impl Parse for Args {
                 "discriminants" => {
                     discriminants_enum = true;
                 }
+                "niche" => {
+                    niche = true;
+                }
                 "no_future_version" => {
                     set_future_version(&mut future_version, FutureVersionArg::Off, &ident)?;
                 }
@@ -226,6 +233,7 @@ impl Parse for Args {
             series,
             series_store,
             series_cells,
+            niche,
         })
     }
 }

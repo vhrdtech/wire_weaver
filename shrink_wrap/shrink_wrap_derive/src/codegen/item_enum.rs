@@ -37,6 +37,8 @@ pub(crate) struct CGItemEnum<'i> {
     /// The type with the item's own name: its variants and their fields keep the attributes the derive doesn't
     /// read.
     pub(crate) base: bool,
+    /// `niche` (DER-24): no `#[repr]`, no discriminant values on the variants, `discriminant()` a `match`.
+    pub(crate) niche: bool,
 }
 
 impl<'i> CGItemEnum<'i> {
@@ -93,6 +95,7 @@ impl<'i> CGItemEnum<'i> {
             cp: self.crate_path,
             serde_defaults: serde_defaults.as_ref(),
             attrs: self.base,
+            niche: self.niche,
         };
         let lifetime = self.generics.def(is_ref && !self.ambiguous);
         let where_clause = self.generics.where_clause(&[]);
@@ -134,8 +137,13 @@ impl<'i> CGItemEnum<'i> {
             let docs = &fv.docs;
             let attrs = maybe_attrs(self.base, &fv.attrs);
             let ident = &fv.ident;
-            quote! { #docs #(#attrs)* #ident(u32) = #native_repr::MAX, }
+            if self.niche {
+                quote! { #docs #(#attrs)* #ident(u32), }
+            } else {
+                quote! { #docs #(#attrs)* #ident(u32) = #native_repr::MAX, }
+            }
         });
+        let repr = maybe_quote(!self.niche, || quote! { #[repr(#native_repr)] });
 
         let ts = quote! {
             #cfg
@@ -143,7 +151,7 @@ impl<'i> CGItemEnum<'i> {
             #derive
             #(#[cfg_attr(#cfg_attr)])*
             #(#attrs)*
-            #[repr(#native_repr)]
+            #repr
             pub enum #enum_name #lifetime #where_clause { #variants #future_version }
 
             #assert_size
@@ -194,17 +202,42 @@ impl<'i> CGItemEnum<'i> {
         let native_repr = self.native_repr();
         let (impl_generics, ty_generics, where_clause) = self.plain_impl_generics(is_ref);
         let tag = quote! { unsafe { *<*const _>::from(self).cast::<#native_repr>() } };
-        let body = match self.future_version {
-            Some(fv) => {
+        let body = if self.niche {
+            // no repr to read the tag through: each variant's wire discriminant
+            let arms = self.variants.iter().map(|v| {
+                let ident = &v.ident;
+                let cfg = v.cfg_attrs();
+                let discriminant = v.discriminant_lit();
+                let pattern = match &v.fields {
+                    Fields::Named(_) => quote! { Self::#ident { .. } },
+                    Fields::Unnamed(_) => quote! { Self::#ident(..) },
+                    Fields::Unit => quote! { Self::#ident },
+                };
+                quote! { #cfg #pattern => #discriminant, }
+            });
+            let future_version = self.future_version.map(|fv| {
                 let ident = &fv.ident;
-                quote! {
-                    match self {
-                        Self::#ident(discriminant) => *discriminant as #native_repr,
-                        _ => #tag,
-                    }
+                quote! { Self::#ident(discriminant) => *discriminant as #native_repr, }
+            });
+            quote! {
+                match self {
+                    #(#arms)*
+                    #future_version
                 }
             }
-            None => tag,
+        } else {
+            match self.future_version {
+                Some(fv) => {
+                    let ident = &fv.ident;
+                    quote! {
+                        match self {
+                            Self::#ident(discriminant) => *discriminant as #native_repr,
+                            _ => #tag,
+                        }
+                    }
+                }
+                None => tag,
+            }
         };
         quote! {
             #cfg
@@ -517,6 +550,8 @@ struct CGEnumFieldsDef<'a> {
     serde_defaults: Option<&'a SerdeDefaults>,
     /// Keep the variants' and their fields' attributes the derive doesn't read.
     attrs: bool,
+    /// DER-24: no discriminant values, the enum has no repr
+    niche: bool,
 }
 
 impl ToTokens for CGEnumFieldsDef<'_> {
@@ -524,6 +559,7 @@ impl ToTokens for CGEnumFieldsDef<'_> {
         for variant in self.variants {
             let ident = &variant.ident;
             let discriminant = variant.discriminant_lit();
+            let discriminant = maybe_quote(!self.niche, || quote! { = #discriminant });
             let variant_docs = &variant.docs;
             let variant_attrs = maybe_attrs(self.attrs, &variant.attrs);
             let variant_docs = quote! { #variant_docs #(#variant_attrs)* };
@@ -554,7 +590,7 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                         .iter()
                         .map(|f| f.ty.def(self.is_ref, self.cp))
                         .collect();
-                    quote!(#variant_docs #ident { #(#fields_docs #field_names: #field_types),* } = #discriminant,)
+                    quote!(#variant_docs #ident { #(#fields_docs #field_names: #field_types),* } #discriminant,)
                 }
                 Fields::Unnamed(fields_unnamed) => {
                     let fields_unnamed = fields_unnamed
@@ -574,9 +610,9 @@ impl ToTokens for CGEnumFieldsDef<'_> {
                             quote! { #(#attrs)* #ty }
                         })
                         .collect();
-                    quote!(#variant_docs #ident ( #(#field_types),* ) = #discriminant,)
+                    quote!(#variant_docs #ident ( #(#field_types),* ) #discriminant,)
                 }
-                Fields::Unit => quote!(#variant_docs #ident = #discriminant,),
+                Fields::Unit => quote!(#variant_docs #ident #discriminant,),
             };
             tokens.append_all(variant);
         }

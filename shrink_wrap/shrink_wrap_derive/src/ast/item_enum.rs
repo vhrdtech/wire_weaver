@@ -18,6 +18,8 @@ pub(crate) struct ItemEnum {
     /// The enum's other outer attributes (`#[derive(..)]`, `#[cfg_attr(..)]`, `#[allow(..)]`), kept as written on the
     /// generated type that has the item's own name. A `#[repr(..)]` is left out: `ww_repr` sets the enum's repr.
     pub(crate) attrs: Vec<syn::Attribute>,
+    /// `niche` (DER-24): the generated enum has no `#[repr]`.
+    pub(crate) niche: bool,
 }
 
 /// `#[future_version] Unknown(u32)`: holds a discriminant this version doesn't know, read from a newer version.

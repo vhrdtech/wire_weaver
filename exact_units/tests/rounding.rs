@@ -292,6 +292,42 @@ fn degrees_to_radians() {
     }
 }
 
+exact_units::scale! {
+    /// Steps of 1e-9 °: a radian is 5.7·10¹⁰ of them, a factor of more than 2³².
+    struct NanoDegree = "n°", Exact(1 / 180000000000, pi 1);
+}
+
+/// `x` from `P` to `P2` in an i32 by every policy, through the 32-bit path and through the 64-bit one.
+fn narrow_against_wide<P: FixedScale, P2: FixedScale>() {
+    let xs = (i32::MIN..=i32::MAX)
+        .step_by(1_048_583)
+        .chain([i32::MIN, i32::MIN + 1, -1, 0, 1, i32::MAX - 1, i32::MAX])
+        .chain(-5_000..=5_000);
+    for x in xs {
+        for r in MODES {
+            for o in [Overflow::Checked, Overflow::Saturate, Overflow::Wrap] {
+                let narrow = Fixed::<Radian, P, i32>::new(x)
+                    .requantize::<P2, i32>(r, o)
+                    .map(Fixed::get);
+                let wide = Fixed::<Radian, P, i64>::new(x as i64)
+                    .requantize::<P2, i32>(r, o)
+                    .map(Fixed::get);
+                assert_eq!(narrow, wide, "{x} {r:?} {o:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn narrow_fixed_point() {
+    // storages of up to 32 bits settle in 64 bits: the same results as in 128
+    narrow_against_wide::<MilliDegree, Micro>();
+    narrow_against_wide::<Micro, MilliDegree>();
+    // a factor past 2³²: the product's quotient doesn't fit the short path
+    narrow_against_wide::<One, NanoDegree>();
+    narrow_against_wide::<NanoDegree, One>();
+}
+
 #[test]
 fn policies_by_kind() {
     // binary angles wrap: 3/4 turn + 1/2 turn is 1/4 turn

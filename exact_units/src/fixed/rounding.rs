@@ -39,33 +39,31 @@ macro_rules! round_div {
         #[inline(always)]
         #[allow(unused_comparisons)]
         pub(crate) const fn $name(p: $t, d: $t, r: Rounding) -> $t {
-            let q = p / d;
-            let rem = p % d;
-            if rem == 0 {
-                return q;
-            }
-            // `rem != 0` makes `d >= 2`, so `|q| < |p|` and the neighbour below doesn't overflow
-            let neg = p < 0;
-            let away = if neg { q - 1 } else { q + 1 };
-            match r {
-                Rounding::Truncate => q,
-                Rounding::Floor => if neg { away } else { q },
-                Rounding::Ceil => if neg { q } else { away },
+            // floor quotient and a remainder in 0..d: an arithmetic shift and a mask where d is a power of 2 (LLVM
+            // doesn't always see that in `div_euclid` at opt-level 3)
+            let (q, rem) = if d & (d - 1) == 0 {
+                (p >> d.trailing_zeros(), p & (d - 1))
+            } else {
+                (p.div_euclid(d), p.rem_euclid(d))
+            };
+            // with `rem != 0`, `d >= 2` and q < p / d, so `q + 1` doesn't overflow
+            let up = match r {
+                Rounding::Truncate => p < 0 && rem != 0,
+                Rounding::Floor => false,
+                Rounding::Ceil => rem != 0,
                 Rounding::NearestEven | Rounding::NearestAway => {
-                    // |rem| against d - |rem|: no overflow where 2 |rem| would
-                    let a = if neg { 0 - rem } else { rem };
-                    let b = d - a;
-                    if a > b {
-                        away
-                    } else if a < b {
-                        q
-                    } else if matches!(r, Rounding::NearestAway) || q % 2 != 0 {
-                        away
+                    // against half a step, a constant once d is: a tie only for an even d
+                    let half = d / 2;
+                    if rem != half || d % 2 != 0 {
+                        rem > half
+                    } else if matches!(r, Rounding::NearestAway) {
+                        p >= 0
                     } else {
-                        q
+                        q % 2 != 0
                     }
                 }
-            }
+            };
+            q + up as $t
         }
     )*};
 }
@@ -221,6 +219,72 @@ pub(crate) const fn mul_fixed_point(x: i128, m: u64, shift: i32, r: Rounding) ->
         neg,
         low: q + up as u128,
         fits: true,
+    }
+}
+
+/// [mul_fixed_point] for storages of up to 32 bits on both sides: the result's low 64 bits are all that wrapping
+/// into the target needs, so it settles in 64 bits, not 128.
+#[inline(always)]
+pub(crate) const fn mul_fixed_point_narrow(x: i64, m: u64, shift: i32, r: Rounding) -> Scaled64 {
+    if shift <= -34 && shift >= -96 {
+        // |x| < 2³², so |x| · m < 2⁹⁶ and the product shifted by k - 1 >= 33 is below 2⁶³: twice the quotient plus
+        // the bit for half a step; the bits below it only say whether there is more than that
+        let neg = x < 0;
+        let p = x.unsigned_abs() as u128 * m as u128;
+        let k = shift.unsigned_abs();
+        let t = (p >> (k - 1)) as u64;
+        let q = t >> 1;
+        let half = t & 1 == 1;
+        let below = p & ((1 << (k - 1)) - 1) != 0;
+        let up = match r {
+            Rounding::Truncate => false,
+            Rounding::Floor => neg && (half || below),
+            Rounding::Ceil => !neg && (half || below),
+            Rounding::NearestAway => half,
+            Rounding::NearestEven => half && (below || q & 1 == 1),
+        };
+        // below 2⁶² + 1
+        let y = (q + up as u64) as i64;
+        return Scaled64 {
+            value: if neg { -y } else { y },
+            exact: true,
+            neg,
+        };
+    }
+    let s = mul_fixed_point(x as i128, m, shift, r);
+    let exact = s.exact();
+    Scaled64 {
+        value: match exact {
+            Some(y) if y >= i64::MIN as i128 && y <= i64::MAX as i128 => y as i64,
+            _ => s.wrapped() as i64,
+        },
+        exact: matches!(exact, Some(y) if y >= i64::MIN as i128 && y <= i64::MAX as i128),
+        neg: s.neg,
+    }
+}
+
+/// [Scaled] within 64 bits: the value modulo 2⁶⁴, whether it is the value, and its sign.
+#[derive(Copy, Clone)]
+pub(crate) struct Scaled64 {
+    value: i64,
+    exact: bool,
+    neg: bool,
+}
+
+impl Scaled64 {
+    /// Into `T` (of up to 32 bits) by `o`.
+    #[inline(always)]
+    pub(crate) fn settle<T: Storage>(self, o: Overflow) -> Option<T> {
+        match (o, self.exact) {
+            (Overflow::Wrap, _) => Some(T::from_int_wrapping(self.value as i128)),
+            (_, true) => settle_i64(self.value, o),
+            (Overflow::Checked, false) => None,
+            (Overflow::Saturate, false) => Some(T::from_int_wrapping(if self.neg {
+                T::MIN_INT
+            } else {
+                T::MAX_INT
+            })),
+        }
     }
 }
 

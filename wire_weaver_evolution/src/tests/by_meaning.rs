@@ -34,9 +34,6 @@ const OWN_MARKERS: &str = r#"
         /// A register reading 0 at 25 °C.
         pub struct BoardTemp { above: Celsius, offset: Offset::int(25) }
     }
-
-    pub struct Wrapping;
-    pub struct Saturating;
 "#;
 
 /// An API using `ty` for a method argument (the host writes it), a read-only property (the device writes it) and a
@@ -45,6 +42,7 @@ fn api_with(ty: &str, markers: &str) -> String {
     format!(
         r#"
         use ww_si::{{Fixed, Offset, Point}};
+        use ww_si::exact_units::{{Saturating, Wrapping}};
         use ww_si::origins::{{Angle, Celsius}};
         use ww_si::prefix::{{Centi, Milli, One, Pow10}};
         use ww_si::units::{{Coulomb, Degree, Joule, Kelvin, Meter, Newton, Per, Radian, Second, Times, Volt}};
@@ -290,8 +288,8 @@ fn angles_by_meaning() {
     );
 }
 
-/// `Wrapping` and `Saturating` bounds (STD-63), recognised by name as bounds are: a wrapping number on one side only
-/// is breaking, saturating is the same values as unbounded. A plain number can become either.
+/// `Wrapping` and `Saturating` (STD-63) in the place of a bound: a wrapping number on one side only is breaking,
+/// saturating is the same values with the same meaning as unbounded. A plain number can become either.
 #[test]
 fn wrapping_and_saturating() {
     let fixed = |b: &str| format!("Fixed<Radian, Pow10<-4>, u16, {b}>");

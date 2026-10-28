@@ -189,7 +189,7 @@ fn quantity_to_fixed_is_breaking_with_a_hint() {
             &same("Quantity<Second>"),
             &same("Fixed<Second, Milli, u32>"),
         ),
-        "Api::set: argument `shared`: Quantity<units::Second> on the old version, Fixed<units::Second, \
+        "Api::set: argument `shared`: Quantity<units::Second, Unbounded> on the old version, Fixed<units::Second, \
          prefix::Milli, u32, Unbounded> on the new version: a Quantity sends its prefix and number type with every \
          value, a Fixed only the number: moving to Fixed is intended, but needs a major version",
     );

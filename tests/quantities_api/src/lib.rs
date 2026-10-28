@@ -2,16 +2,21 @@
 //! compound unit (`Per`), a unit marker of this crate, declared with `unit!` so clients know it (INT-13), and a value whose unit is only known
 //! at run time (`AnyQuantity`, STD-37), and values with unit, prefix and storage fixed at compile time (`Fixed`,
 //! STD-55), written with and without their default bounds, and points against an origin of this crate and an angle
-//! (STD-64).
+//! (STD-64). `Fixed` values, indices and sequence numbers as clients show, parse and check them (CLT-54): a property, a
+//! method argument and return, a stream item.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::origins::{Angle, Celsius};
-use ww_si::prefix::{Centi, FullScale, Milli, One, Rational};
-use ww_si::units::{self, AngularVelocity, Byte, Degree, Meter, Per, Ratio, Second, Times, Torque};
+use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Rational};
+use ww_si::units::{
+    self, AngularVelocity, Byte, Degree, Frame, Item, Meter, Per, Ratio, Sample, Second, Times,
+    Torque,
+};
 use ww_si::{
-    Ampere, AnyQuantity, Fixed, Micros, Offset, Point, Quantity, Range, Timed, Unbounded, Volt,
+    Ampere, AnyQuantity, Fixed, Index, IndexFrom1, Micros, Offset, Point, Quantity, Range, Seq,
+    Timed, Unbounded, Volt,
 };
 
 #[ww_trait]
@@ -43,6 +48,20 @@ trait Quantities {
     property!(ro board_temp: Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>);
     /// A heading in 0.01° that wraps at 360°
     property!(ro heading: Point<Angle<Degree>, Fixed<Degree, Centi, u16>>);
+    /// Time since boot in µs: past what an `f64` holds exactly
+    property!(rw uptime: Fixed<Second, Micro, u64>);
+    /// A buffer's size, in a binary prefix
+    property!(rw buffer: Fixed<Byte, Kibi, u16>);
+    /// Waits `delay`, at most 5 s, and returns it in ms
+    fn wait(delay: Fixed<Second, Micro, u32, Range<0, 5000000>>) -> Fixed<Second, Milli, u32>;
+    /// ADC readings in mV
+    stream!(samples: Fixed<units::Volt, Milli, i16>);
+    /// The input, 1 to 4 as printed on the board
+    property!(rw input: IndexFrom1<Item, u8, Range<1, 4>>);
+    /// Position in the capture buffer
+    property!(rw sample: Index<Sample, u32>);
+    /// The last frame's sequence number
+    property!(rw frame: Seq<Frame, u16>);
 }
 
 ww_si::origin! {

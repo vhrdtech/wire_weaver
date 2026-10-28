@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Quantity.prefix` is a `str` of any scale (`"Ki"` for a binary one) and `Quantity.exponent` is `None` for a scale that is no power of ten (CLT-54).
 - `Quantity.dim` has `rad` and `bit` and counted bases by name (`{"Sample": 1, "s": -1}`), STD-60: a torque per angular velocity is `{"kg": 1, "m": 2, "s": -1, "rad": -2}`. A square root (V/√Hz) has halves: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`.
 - Credit sinks on the stream protocol (API-34): a device with the same WireWeaver is needed; `Sink.progress` counts units (one per value, the bytes of a byte sink's payload), no longer bytes.
 
@@ -16,6 +17,7 @@
 
 ### 🚀 Features
 
+- `exact_units::Fixed` values decode as `ww.Quantity` (CLT-54): `value` as stored, `prefix` (`"Micro"`, `"Ki"`), `storage` as the type names it (`"u64"`), `symbol`, `unit`, `to_si()`, new `fixed` (true for a `Fixed`) and `bounds` (`(1, 5000)` or `None`); `str()` is exact (`1730000000000000 µs`, `4 KiB`). `encode` takes a `Quantity`, converted exactly into the `Fixed`'s scale and storage or `ValueError` naming the type, or a number as stored. `Index`, `IndexFrom1` and `Seq` take their number alone too, checked against bounds and an `IndexFrom1`'s 0.
 - A `Quantity` in a unit of the API's own crate declared with `unit!` (INT-13) has its symbol, `dim` and `to_si()` from the definition the API carries (`1500 rpm`, `{"rad": 1, "s": -1}`) and goes into an `AnyQuantity`; before it was known by name and docs only.
 - `Quantity.convert(unit)` (STD-72): the quantity in another unit, given by its type name (`"Times<Newton, Second>"`) or as another quantity: exactly or `ValueError`, never the number read in another unit (the Mars Climate Orbiter case).
 - The ww hub from Python and notebooks (TOOL-18): `python -m wire_weaver.hub` serves the hub (found by `connect()`'s hub routing the same way as a Rust `ww` executable, CLT-39: `sys.executable -m wire_weaver.hub` is registered at import), `connect()` takes `hub_device` (a device key through the hub, `WW_HUB`/`WW_HUB_OPENS` route the USB/RTT filters the same as the Rust client), and `wire_weaver.hub()` connects to the running hub's own API (`ww_hub_api`) through the dynamic client, starting one if none runs: `hub().registry.devices()`, `.clients()`, `for e in hub().registry.events: ...`. The wheel now carries `wire_weaver_client` with its `hub` feature and `ww_hub`.

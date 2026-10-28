@@ -5,9 +5,12 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use wire_weaver_client::quantity::{DynQuantity, DynUnit};
+use wire_weaver_client::ww_self::units::Bound as Bound_;
 
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
-/// value in the unit itself (3.3), `to_si()` in coherent SI.
+/// value in the unit itself (3.3), `to_si()` in coherent SI. Read from a `ww_si::Quantity`, an `AnyQuantity` or an
+/// `exact_units::Fixed` (CLT-54), whose scale, storage and bounds are fixed by its type: `1730000000000000 µs` exactly
+/// from a `u64`, `4 KiB`.
 #[pyclass(module = "wire_weaver", name = "Quantity", frozen, eq)]
 #[derive(PartialEq)]
 pub(crate) struct Quantity {
@@ -22,16 +25,49 @@ impl Quantity {
         numeric_to_py(py, &self.q.value)
     }
 
-    /// The SI prefix's name: `"Milli"`, `"Unit"` for none.
+    /// The SI prefix's name: `"Milli"`, `"Unit"` for none; another scale of a `Fixed` by its symbol (`"Ki"`), or its
+    /// factor without one (`"2⁻¹⁵"`).
     #[getter]
-    fn prefix(&self) -> &'static str {
+    fn prefix(&self) -> String {
         self.q.prefix.name()
     }
 
-    /// The prefix as a power of ten: `-3` for milli.
+    /// The prefix as a power of ten: `-3` for milli; `None` for a scale that is no power of ten (`Ki`).
     #[getter]
-    fn exponent(&self) -> i8 {
-        self.q.prefix.into()
+    fn exponent(&self) -> Option<i8> {
+        self.q.prefix.magnitude().as_pow10()
+    }
+
+    /// Whether this is an `exact_units::Fixed`: its number is stored in `storage` at the scale `prefix`, and what is
+    /// written into it is converted exactly (`5 ms` into µs is 5000) or refused.
+    #[getter]
+    fn fixed(&self) -> bool {
+        self.q.storage.is_some()
+    }
+
+    /// The numbers a `Fixed` allows, as stored: `(1, 5000)` for `Range<1, 5000>`, an end `None` when open; `None`
+    /// without bounds.
+    #[getter]
+    fn bounds<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let Some(storage) = &self.q.storage else {
+            return Ok(None);
+        };
+        let bounds = &storage.bounds;
+        if bounds.is_none() {
+            return Ok(None);
+        }
+        let end = |b: Option<Bound_>| -> PyResult<Bound<'py, PyAny>> {
+            Ok(match b {
+                None => py.None().into_bound(py),
+                Some(Bound_::Int(i)) => i.into_pyobject(py)?.into_any(),
+                Some(Bound_::Float(x)) => x.into_pyobject(py)?.into_any(),
+            })
+        };
+        Ok(Some(
+            (end(bounds.min)?, end(bounds.max)?)
+                .into_pyobject(py)?
+                .into_any(),
+        ))
     }
 
     /// The unit's symbol, without the prefix: `"V"`, `"N·m/(rad/s)"`, empty for a ratio; a unit `ww_si` doesn't know
@@ -82,10 +118,14 @@ impl Quantity {
         Ok(Some(dict))
     }
 
-    /// The number type the device stores it in: `"U16"`, `"F32"`.
+    /// The number type the device stores it in: `"U16"`, `"F32"` for a `Quantity`, which may hold any; a `Fixed`'s
+    /// as its type names it, `"u64"`.
     #[getter]
     fn storage(&self) -> String {
-        format!("{:?}", self.q.value.ty())
+        match &self.q.storage {
+            Some(storage) => storage.name(),
+            None => format!("{:?}", self.q.value.ty()),
+        }
     }
 
     /// Doc lines of a unit `ww_si` doesn't know, empty otherwise.

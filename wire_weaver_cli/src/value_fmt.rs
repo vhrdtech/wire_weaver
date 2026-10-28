@@ -2,13 +2,14 @@
 //! `ww observe`. With the type known it is a Rust expression `ww_self::expr` reads back (quantities aside).
 
 use crate::untrusted::escape;
-use wire_weaver_client::quantity::DynQuantity;
+use wire_weaver_client::quantity::{DynCount, DynQuantity};
 use wire_weaver_client::ww_self::{
     ApiBundleOwned, FieldOwned, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned,
 };
 
 /// `{ name: "b200", version: { major: 0, .. }, commit: 0xa1b2c3 }`: struct and enum names are not in the value,
-/// byte vectors and arrays are shown as hex, `ww_si` quantities with their unit (`3300 mV`, CLT-31). `ty` is the
+/// byte vectors and arrays are shown as hex, `ww_si` quantities and `exact_units::Fixed` values with their unit
+/// (`3300 mV`, `1500 µs`, CLT-31, CLT-54), indices and sequence numbers with what they count (`#3 (Sample)`). `ty` is the
 /// value's type in `bundle` (`None`: not known); where the value doesn't match it, the rest is written without types.
 pub(crate) fn fmt_value(
     value: &ValueOwned,
@@ -29,6 +30,11 @@ impl Fmt<'_> {
             && let Some(q) = DynQuantity::from_value(value, ty, self.bundle)
         {
             return q.to_string();
+        }
+        if let Some(ty) = ty
+            && let Some(c) = DynCount::from_value(value, ty, self.bundle)
+        {
+            return c.to_string();
         }
         if let Some(TypeOwned::MaxLen { ty: inner, .. } | TypeOwned::Box(inner)) = ty {
             return self.value(value, Some(inner));
@@ -189,6 +195,15 @@ mod tests {
     fn typed(property: &str, value: impl SerializeShrinkWrapOwned) -> String {
         let mut bundle = quantities_bundle();
         wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        typed_in(&bundle, property, value)
+    }
+
+    /// [typed] in a prepared `bundle`.
+    fn typed_in(
+        bundle: &ApiBundleOwned,
+        property: &str,
+        value: impl SerializeShrinkWrapOwned,
+    ) -> String {
         let item = bundle
             .root
             .items
@@ -199,8 +214,8 @@ mod tests {
             panic!("property");
         };
         let bytes = value.to_ww_bytes_owned().unwrap();
-        let value = ValueOwned::des_shrink_wrap_dyn(&bytes, ty, &bundle).unwrap();
-        fmt_value(&value, Some(ty), &bundle)
+        let value = ValueOwned::des_shrink_wrap_dyn(&bytes, ty, bundle).unwrap();
+        fmt_value(&value, Some(ty), bundle)
     }
 
     #[test]
@@ -222,6 +237,56 @@ mod tests {
                 ww_si::Quantity::<ww_si::units::Hertz>::from_f32(1500.0)
             ),
             "1500 rpm"
+        );
+    }
+
+    /// CLT-54: `Fixed` values with their unit, exactly past what an `f64` holds; indices and sequence numbers with
+    /// what they count; `ww introspect` with the unit and bounds after the type.
+    #[test]
+    fn fixed_values_and_counts() {
+        use ww_si::prefix::{Kibi, Micro};
+        use ww_si::units::{Byte, Frame, Item, Second};
+        use ww_si::{Fixed, IndexFrom1, Range, Seq};
+        let mut bundle = quantities_bundle();
+        wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        assert_eq!(
+            typed_in(
+                &bundle,
+                "uptime",
+                Fixed::<Second, Micro, u64>::new(1_730_000_000_000_000)
+            ),
+            "1730000000000000 µs"
+        );
+        assert_eq!(
+            typed_in(&bundle, "buffer", Fixed::<Byte, Kibi, u16>::new(4)),
+            "4 KiB"
+        );
+        assert_eq!(
+            typed_in(
+                &bundle,
+                "input",
+                IndexFrom1::<Item, u8, Range<1, 4>>::try_new(2).unwrap()
+            ),
+            "#2 (Item, from 1)"
+        );
+        assert_eq!(
+            typed_in(&bundle, "frame", Seq::<Frame, u16>::new(41)),
+            "seq 41 (Frame)"
+        );
+        let tree = console::strip_ansi_codes(&crate::api_tree::render(&bundle, true)).to_string();
+        assert!(
+            tree.contains("rw property uptime: Fixed<Second, Micro, u64, Unbounded> [µs]\n"),
+            "{tree}"
+        );
+        assert!(
+            tree.contains(
+                "rw property window: Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]\n"
+            ),
+            "{tree}"
+        );
+        assert!(
+            tree.contains("fn wait(delay: Fixed<Second, Micro, u32, Range<0, 5000000>> [µs, 0..=5000000]) -> Fixed<Second, Milli, u32, Unbounded> [ms]"),
+            "{tree}"
         );
     }
 

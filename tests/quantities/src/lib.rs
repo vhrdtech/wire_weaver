@@ -8,18 +8,22 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
-    use wire_weaver_client::quantity::{DynQuantity, DynUnit, is_quantity, unit_of};
+    use wire_weaver_client::quantity::{
+        CountKind, DynCount, DynPrefix, DynQuantity, DynUnit, is_quantity, unit_of,
+    };
     use wire_weaver_client::ww_self::{
         self, ApiItemKindOwned, FieldsValueOwned, GenericArgOwned, TypeOwned, ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
     use ww_si::origins::Angle;
-    use ww_si::prefix::{Centi, FullScale, Micro, Milli, One, Rational};
-    use ww_si::units::{self, AngularVelocity, Degree, Meter, Per, Ratio, Times, Torque};
+    use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Rational};
+    use ww_si::units::{
+        self, AngularVelocity, Degree, Frame, Item, Meter, Per, Ratio, Sample, Times, Torque,
+    };
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
-        Ampere, AnyQuantity, Dim, Fixed, FixedScale, Magnitude, Micros, Point, Prefix, Quantity,
-        Range, SIExpr, Scale, Second, Timed, Unbounded, Unit, Volt,
+        Ampere, AnyQuantity, Dim, Fixed, FixedScale, Index, IndexFrom1, Magnitude, Micros, Point,
+        Prefix, Quantity, Range, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -32,6 +36,11 @@ mod tests {
     type Belt = Fixed<Times<Per<Ratio, units::Second>, Meter>, Milli, u16>;
     type BoardTemperature = Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>;
     type Heading = Point<Angle<Degree>, Fixed<Degree, Centi, u16>>;
+    type Uptime = Fixed<units::Second, Micro, u64>;
+    type Buffer = Fixed<units::Byte, Kibi, u16>;
+    type Delay = Fixed<units::Second, Micro, u32, Range<0, 5000000>>;
+    type Waited = Fixed<units::Second, Milli, u32>;
+    type Input = IndexFrom1<Item, u8, Range<1, 4>>;
 
     struct Values {
         voltage: Volt,
@@ -41,6 +50,13 @@ mod tests {
         sensor: Vec<u8>,
         timeout: Timeout,
         window: Window,
+        uptime: Uptime,
+        buffer: Buffer,
+        /// The last `delay` the `wait` method got.
+        delay: Option<Delay>,
+        input: Input,
+        sample: Index<Sample, u32>,
+        frame: Seq<Frame, u16>,
     }
 
     /// A pressure sensor input in bar, a unit `ww_si` doesn't have: sent with its dimension and scale.
@@ -65,6 +81,12 @@ mod tests {
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
             timeout: Fixed::new(250),
             window: Window::bounded(100),
+            uptime: Uptime::new(1_730_000_000_000_000),
+            buffer: Buffer::new(4),
+            delay: None,
+            input: Input::try_new(2).unwrap(),
+            sample: Index::new(1000),
+            frame: Seq::new(41),
         }
     }
 
@@ -289,6 +311,112 @@ mod tests {
             }
         }
 
+        /// CLT-54: values the clients convert into and out of their scale and storage.
+        impl Server {
+            fn set_uptime(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Uptime,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().uptime = value;
+                SetResult::Set
+            }
+
+            fn get_uptime(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Uptime, ()> {
+                GetResult::Value(self.values.lock().unwrap().uptime)
+            }
+
+            fn set_buffer(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Buffer,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().buffer = value;
+                SetResult::Set
+            }
+
+            fn get_buffer(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Buffer, ()> {
+                GetResult::Value(self.values.lock().unwrap().buffer)
+            }
+
+            fn wait(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                delay: Delay,
+            ) -> RpcResult<Waited> {
+                self.values.lock().unwrap().delay = Some(delay);
+                Ready(Waited::new(delay.get() / 1000))
+            }
+
+            fn samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) -> RpcResult<()> {
+                Ready(())
+            }
+
+            fn close_samples(&mut self, _cx: &mut Context<'_, impl BlockingEventOut>) {}
+
+            fn sideband_samples(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                sideband: ww_client_server::StreamSideband,
+            ) -> Option<ww_client_server::StreamSideband> {
+                Some(sideband)
+            }
+
+            fn set_input(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Input,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().input = value;
+                SetResult::Set
+            }
+
+            fn get_input(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Input, ()> {
+                GetResult::Value(self.values.lock().unwrap().input)
+            }
+
+            fn set_sample(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Index<Sample, u32>,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().sample = value;
+                SetResult::Set
+            }
+
+            fn get_sample(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Index<Sample, u32>, ()> {
+                GetResult::Value(self.values.lock().unwrap().sample)
+            }
+
+            fn set_frame(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Seq<Frame, u16>,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().frame = value;
+                SetResult::Set
+            }
+
+            fn get_frame(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Seq<Frame, u16>, ()> {
+                GetResult::Value(self.values.lock().unwrap().frame)
+            }
+        }
+
         pub mod api_impl {
             wire_weaver::ww_codegen!(
                 quantities_api :: Quantities for super::Server,
@@ -363,8 +491,8 @@ mod tests {
         let v = read_quantity(&client, &root, "voltage").await;
         assert_eq!(v.unit, DynUnit::Known(units::Volt::EXPR));
         assert_eq!(
-            (v.prefix, v.value),
-            (Prefix::Milli, NumericValue::U16(3300))
+            (v.prefix.clone(), v.value),
+            (Prefix::Milli.into(), NumericValue::U16(3300))
         );
         assert_eq!(v.to_string(), "3300 mV");
         assert_eq!(format!("{v:#}"), "3.3 V");
@@ -606,7 +734,7 @@ mod tests {
         let (device, values) = start("quantities/write");
         let (client, root) = connect(&device).await;
         let mut v = read_quantity(&client, &root, "voltage").await;
-        v.prefix = Prefix::Micro;
+        v.prefix = Prefix::Micro.into();
         v.value = NumericValue::I32(-1500);
         let voltage = root.child("voltage").unwrap();
         let (_, ty) = read(&client, &root, "voltage").await;
@@ -650,13 +778,22 @@ mod tests {
                 .same_repr(&Volt::micro(-1500i32))
         );
         let v = write("voltage", "q!(3.3 kV)").await.unwrap();
-        assert_eq!((v.prefix, v.value), (Prefix::Kilo, NumericValue::F32(3.3)));
+        assert_eq!(
+            (v.prefix, v.value),
+            (Prefix::Kilo.into(), NumericValue::F32(3.3))
+        );
         let v = write("voltage", "5").await.unwrap();
-        assert_eq!((v.prefix, v.value), (Prefix::Unit, NumericValue::I32(5)));
+        assert_eq!(
+            (v.prefix, v.value),
+            (Prefix::Unit.into(), NumericValue::I32(5))
+        );
         let b = write("damping", "q!(1.2e-4 N*m/(rad/s))").await.unwrap();
         assert_eq!(b.to_string(), "0.00012 N·m/(rad/s)");
         let s = write("sensor", r#"q!("20 mA")"#).await.unwrap();
-        assert_eq!((s.prefix, s.unit.symbol().as_str()), (Prefix::Milli, "A"));
+        assert_eq!(
+            (s.prefix, s.unit.symbol().as_str()),
+            (Prefix::Milli.into(), "A")
+        );
 
         assert_eq!(
             write("voltage", "q!(3 A)").await.unwrap_err().to_string(),
@@ -812,7 +949,7 @@ mod tests {
     async fn fixed_values_are_numbers() {
         let (device, values) = start("quantities/fixed_values");
         let (client, root) = connect(&device).await;
-        // the generic decoder shows a transparent struct as the struct of its one field (CLT-54 shows a quantity)
+        // the generic decoder shows a transparent struct as the struct of its one field (DynQuantity shows a quantity)
         let fixed = |v: ValueOwned| ValueOwned::Struct {
             fields: FieldsValueOwned::Named(vec![("value".into(), v)]),
         };
@@ -871,5 +1008,242 @@ mod tests {
             assert_eq!(got, expected, "{name}");
         }
         let _: Micros<u32> = Fixed::<units::Second, Micro, u32>::new(0);
+    }
+
+    /// CLT-54: a `Fixed` property read as a quantity, shown as the typed `Fixed` shows itself, whatever its scale (an
+    /// SI prefix, a binary one, a full-scale step, a scale of the API's crate), its storage and bounds known.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_shown_as_typed() {
+        let (device, _values) = start("quantities/fixed_shown");
+        let (client, root) = connect(&device).await;
+        let typed: [(&str, String, String); 7] = [
+            (
+                "timeout",
+                Timeout::new(250).to_string(),
+                format!("{:#}", Timeout::new(250)),
+            ),
+            (
+                "window",
+                Window::bounded(100).to_string(),
+                format!("{:#}", Window::bounded(100)),
+            ),
+            (
+                "adc",
+                Adc::new(2048).to_string(),
+                format!("{:#}", Adc::new(2048)),
+            ),
+            (
+                "gyro",
+                Gyro::new(-100).to_string(),
+                format!("{:#}", Gyro::new(-100)),
+            ),
+            (
+                "belt",
+                Belt::new(1500).to_string(),
+                format!("{:#}", Belt::new(1500)),
+            ),
+            (
+                "uptime",
+                values().uptime.to_string(),
+                format!("{:#}", values().uptime),
+            ),
+            (
+                "buffer",
+                values().buffer.to_string(),
+                format!("{:#}", values().buffer),
+            ),
+        ];
+        for (name, shown, alternate) in typed {
+            let q = read_quantity(&client, &root, name).await;
+            assert_eq!(q.to_string(), shown, "{name}");
+            assert_eq!(format!("{q:#}"), alternate, "{name}");
+        }
+        // more than f64 holds, shown exactly
+        let uptime = read_quantity(&client, &root, "uptime").await;
+        assert_eq!(uptime.to_string(), "1730000000000000 µs");
+        assert_eq!(format!("{uptime:#}"), "1730000000 s");
+        assert_eq!(uptime.value, NumericValue::U64(1_730_000_000_000_000));
+        assert_eq!(uptime.storage.as_ref().unwrap().name(), "u64");
+        let buffer = read_quantity(&client, &root, "buffer").await;
+        assert_eq!(
+            (buffer.to_string(), format!("{buffer:#}")),
+            ("4 KiB".into(), "4096 B".into())
+        );
+        assert_eq!(buffer.prefix.name(), "Ki");
+        assert_eq!(buffer.prefix.magnitude(), Magnitude::pow2(10));
+        // information's coherent unit is the bit
+        assert_eq!(buffer.to_si_f64(), Some(4096.0 * 8.0));
+        let window = read_quantity(&client, &root, "window").await;
+        assert_eq!(window.prefix, DynPrefix::Si(Prefix::Milli));
+        assert_eq!(window.storage.unwrap().bounds.to_string(), "1..=5000");
+        let (_, ty) = read(&client, &root, "adc").await;
+        assert!(is_quantity(&ty, root.bundle()));
+    }
+
+    /// CLT-54: text written into a `Fixed` converts exactly into its scale and storage, or is refused naming the
+    /// type; a plain number is the stored number.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_written_exactly() {
+        use wire_weaver_client::expr::parse_value;
+        let (device, values) = start("quantities/fixed_write");
+        let (client, root) = connect(&device).await;
+        let write = async |name: &str, text: &str| {
+            let (_, ty) = read(&client, &root, name).await;
+            let value = parse_value(text, &ty, root.bundle())?;
+            root.child(name)
+                .unwrap()
+                .write(client.cmd(), &value)
+                .await
+                .unwrap();
+            anyhow::Ok(read_quantity(&client, &root, name).await)
+        };
+        let uptime = || values.lock().unwrap().uptime.get();
+        assert_eq!(
+            write("uptime", "q!(5 ms)").await.unwrap().to_string(),
+            "5000 µs"
+        );
+        assert_eq!(uptime(), 5000);
+        write("uptime", "q!(0.1 ms)").await.unwrap();
+        assert_eq!(uptime(), 100, "a decimal as written, not as a float");
+        write("uptime", "q!(1730000000 s)").await.unwrap();
+        assert_eq!(uptime(), 1_730_000_000_000_000);
+        // a plain number is what the field stores
+        write("uptime", "5000").await.unwrap();
+        assert_eq!(uptime(), 5000);
+        let err = write("uptime", "q!(1.5 ns)").await.unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "1.5 ns can't be written into Fixed<Second, Micro, u64, Unbounded>: not a whole number of µs"
+        );
+        let err = write("timeout", "q!(70 s)").await.unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "70 s can't be written into Fixed<Second, Milli, u16, Unbounded>: 70000 is out of range for u16"
+        );
+        let err = write("window", "q!(6 s)").await.unwrap_err().to_string();
+        assert_eq!(
+            err,
+            "6 s can't be written into Fixed<Second, Milli, u16, Range<1, 5000>>: 6000 is out of 1..=5000"
+        );
+        let err = write("window", "0").await.unwrap_err().to_string();
+        assert!(err.contains("0 is out of"), "{err}");
+        // binary prefixes, and a unit of the same dimension that converts exactly
+        assert_eq!(
+            write("buffer", "q!(1 MiB)").await.unwrap().to_string(),
+            "1024 KiB"
+        );
+        assert_eq!(
+            write("buffer", "q!(8192 B)").await.unwrap().to_string(),
+            "8 KiB"
+        );
+        assert_eq!(values.lock().unwrap().buffer.get(), 8);
+        let err = write("buffer", "q!(1000 B)").await.unwrap_err().to_string();
+        assert!(err.ends_with("not a whole number of KiB"), "{err}");
+        let err = write("buffer", "q!(4 V)").await.unwrap_err().to_string();
+        assert!(err.contains("expected a quantity in Byte"), "{err}");
+        // a quantity read from one Fixed written into another of the same unit
+        let (_, timeout) = read(&client, &root, "timeout").await;
+        let q = read_quantity(&client, &root, "uptime").await;
+        let value = q.to_value(&timeout, root.bundle()).unwrap();
+        root.child("timeout")
+            .unwrap()
+            .write(client.cmd(), &value)
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().timeout, Timeout::new(5));
+    }
+
+    /// CLT-54: a `Fixed` as a method's argument and return value.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_method_argument() {
+        use wire_weaver_client::expr::parse_value;
+        let (device, values) = start("quantities/fixed_method");
+        let (client, root) = connect(&device).await;
+        let method = root.child("wait").unwrap();
+        let ApiItemKindOwned::Method {
+            args,
+            return_ty: Some(return_ty),
+            ..
+        } = &method.item().unwrap().kind
+        else {
+            panic!("a method");
+        };
+        let bundle = root.bundle();
+        let arg = parse_value("q!(2.5 ms)", &args[0].ty, bundle).unwrap();
+        let ret = method.call(client.cmd(), &[arg]).await.unwrap().unwrap();
+        assert_eq!(values.lock().unwrap().delay, Some(Delay::bounded(2500)));
+        let ret = DynQuantity::from_value(&ret, return_ty, bundle).unwrap();
+        assert_eq!(ret.to_string(), "2 ms");
+        assert_eq!(ret.to_string(), Waited::new(2).to_string());
+        // checked before it is sent: past the bounds
+        let err = parse_value("q!(6 s)", &args[0].ty, bundle)
+            .unwrap_err()
+            .to_string();
+        assert!(err.ends_with("6000000 is out of 0..=5000000"), "{err}");
+    }
+
+    /// CLT-54: a `Fixed` stream item.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fixed_stream_item() {
+        let (device, _values) = start("quantities/fixed_stream");
+        let (client, root) = connect(&device).await;
+        let samples = root.child("samples").unwrap();
+        let mut stream = samples.stream(client.cmd()).await.unwrap();
+        let mut scratch = [0u8; 128];
+        let reading = Fixed::<units::Volt, Milli, i16>::new(-1200);
+        let event = server::api_impl::stream_data_ser()
+            .samples(&reading, &mut scratch)
+            .unwrap();
+        device.send(event);
+        let value = stream.recv().await.unwrap();
+        let ApiItemKindOwned::Stream { ty, .. } = &samples.item().unwrap().kind else {
+            panic!("a stream");
+        };
+        let q = DynQuantity::from_value(&value, ty, root.bundle()).unwrap();
+        assert_eq!(q.to_string(), "-1200 mV");
+        assert_eq!(q.to_string(), reading.to_string());
+        assert_eq!(format!("{q:#}"), "-1.2 V");
+    }
+
+    /// CLT-54: indices and sequence numbers shown with what they count; writes checked as the device checks them.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn indices_and_sequence_numbers() {
+        use wire_weaver_client::expr::parse_value;
+        let (device, values) = start("quantities/counts");
+        let (client, root) = connect(&device).await;
+        let count = async |name: &str| {
+            let (value, ty) = read(&client, &root, name).await;
+            DynCount::from_value(&value, &ty, root.bundle()).expect("a count")
+        };
+        let input = count("input").await;
+        assert_eq!(
+            (input.kind, input.to_string()),
+            (CountKind::IndexFrom1, "#2 (Item, from 1)".into())
+        );
+        assert_eq!(count("sample").await.to_string(), "#1000 (Sample)");
+        assert_eq!(count("frame").await.to_string(), "seq 41 (Frame)");
+        let write = async |name: &str, text: &str| {
+            let (_, ty) = read(&client, &root, name).await;
+            let value = parse_value(text, &ty, root.bundle())?;
+            root.child(name)
+                .unwrap()
+                .write(client.cmd(), &value)
+                .await
+                .unwrap();
+            anyhow::Ok(())
+        };
+        write("input", "4").await.unwrap();
+        assert_eq!(values.lock().unwrap().input.get(), 4);
+        let err = write("input", "0").await.unwrap_err().to_string();
+        assert!(err.ends_with("it counts from 1"), "{err}");
+        let err = write("input", "5").await.unwrap_err().to_string();
+        assert!(err.contains("5 is out of"), "{err}");
+        write("frame", "65535").await.unwrap();
+        assert_eq!(values.lock().unwrap().frame.get(), 65535);
+        assert!(write("frame", "65536").await.is_err());
+        write("sample", "7").await.unwrap();
+        assert_eq!(values.lock().unwrap().sample.get(), 7);
+        let (_, ty) = read(&client, &root, "sample").await;
+        assert!(!is_quantity(&ty, root.bundle()), "an index is no quantity");
     }
 }

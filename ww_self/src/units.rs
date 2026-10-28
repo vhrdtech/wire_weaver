@@ -208,6 +208,24 @@ pub fn scale_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<Magnitude> {
     scale_in(ty, bundle, 0)
 }
 
+/// The symbol a scale marker writes before a unit's symbol: `m` for `prefix::Milli`, `Ki` for `Kibi`, a user's
+/// `scale!` symbol; empty for a scale without one (`Pow2<-15>`, `Rational<1, 3>`), which is shown as its factor.
+pub fn scale_symbol_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<String> {
+    let (s, _) = marker(ty, bundle)?;
+    Ok(match definition(s, bundle)? {
+        MarkerDefOwned::Scale(def) => def.symbol.clone(),
+        _ => String::new(),
+    })
+}
+
+/// The number type a wrapper stores (the `T` of a `Fixed`, `Index`, `IndexFrom1` or `Seq`).
+pub fn storage_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<ww_numeric::NumericBaseType> {
+    match ty.get_in_line(bundle)? {
+        TypeOwned::NumericAny(any) => Ok(crate::value::numeric_base(any).clone()),
+        other => bail!("{} is not a number type", ty_name(other, bundle)),
+    }
+}
+
 /// The origin `ty` is (the `O` of a `Point<O, F>`): an `exact_units::origin!` marker, whose definition is written out
 /// whole, or `Angle<U>`, an angle from the zero of the unit `U` that wraps every turn.
 pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwned> {

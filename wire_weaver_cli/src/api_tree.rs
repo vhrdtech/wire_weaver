@@ -376,11 +376,23 @@ impl TreePrinter<'_> {
     }
 
     fn ty(&self, ty: &TypeOwned) -> String {
-        match ty.human_name_in(false, self.bundle, self.params) {
+        let name = match ty.human_name_in(false, self.bundle, self.params) {
             Ok(name) => style(escape(&name))
                 .true_color(0xA6, 0xBB, 0x77)
                 .to_string(),
-            Err(e) => style(format!("<{e}>")).red().to_string(),
+            Err(e) => return style(format!("<{e}>")).red().to_string(),
+        };
+        // a Fixed with what its numbers are in, and its bounds (CLT-54): `Fixed<Second, Micro, u32, Unbounded> [µs]`
+        match wire_weaver_client::quantity::fixed_of(ty, self.bundle) {
+            Some(fixed) => {
+                let bounds = &fixed.storage.bounds;
+                let unit = match bounds.is_none() {
+                    true => format!("[{}]", fixed.symbol()),
+                    false => format!("[{}, {bounds}]", fixed.symbol()),
+                };
+                format!("{name} {}", style(escape(&unit)).dim())
+            }
+            None => name,
         }
     }
 

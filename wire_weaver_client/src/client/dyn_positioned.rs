@@ -145,7 +145,10 @@ impl DynBatching {
                             "batched stream: 't' is not a quantity".into(),
                         ))
                     })?;
-                let t = Second::from_parts(second.prefix, second.value);
+                let (prefix, number) = second.si_parts().map_err(|e| {
+                    StreamError::Other(Error::Other(format!("batched stream: {e}")))
+                })?;
+                let t = Second::from_parts(prefix, number);
                 Ok(BatchItem {
                     t: Some(self.time.unwrap(t)),
                     value,

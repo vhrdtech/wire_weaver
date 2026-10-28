@@ -1334,14 +1334,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   the same path for every index. Host-tested (`tests/methods` `multi_call_same_method_twice`: 3-tuple at the root,
   2-tuple in an array item, `Same` and `Different` args, Ok and device `Err` mixed, infallible too),
   `docs/api/multi_requests.md#several-resources-at-the-same-level`.
+- ✅ **CLT-54 `exact_units::Fixed` in dynamic clients, `ww` and Python** · `v0.5` — a `Fixed<U, P, T, B>` (STD-55)
+  read from introspection data alone (`quantity::fixed_of`: unit, scale as a `DynPrefix` with the binary and a
+  crate's own scales, `Storage { base, bounds }`), shown as the typed `Fixed` shows itself (`1730000000000000 µs`
+  exactly from a `u64`, `4 KiB`), `ww introspect` with `[ms, 1..=5000]` after the type; written exactly into the
+  stored scale and type from `q!(5 ms)` or another quantity of the dimension (not whole, overflow or out of bounds:
+  an error naming the type), a plain number as the stored one; `Index` / `IndexFrom1` / `Seq` (STD-58) shown
+  `#3 (Sample)`, `seq 41 (Frame)` and checked (bounds, an `IndexFrom1`'s 0) in the dynamic codec. Python
+  `ww.Quantity` for a `Fixed` (`value`, `prefix`, `storage`, `fixed`, `bounds`, `to_si()`), writes take a `Quantity`
+  or the stored number; `ww.requantize` and C `sw_requantize.c` bit for bit with `exact_units`. `tests/quantities`
+  (property, method argument and return, stream item, counts through `in_process`), `tests/customary` (the MCO
+  `Fixed` field), `wire_weaver_py/tests/test_offline.py`, conformance `stdlib.si.*` green in every consumer (C's
+  model-built cases wait on API-26). A GUI's slider limits come from `Storage::bounds`; the widget is TOOL-6's.
+  [In clients](docs/std_library/exact_units.md#in-ww-python-and-dynamic-clients).
 - 📋 **CLT-52 Host sends waiting requests by priority** — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   `TODO(CLT-52)` in `event_loop/core/tx.rs`.
-- 📋 **CLT-54 `ww_si::Fixed` in dynamic clients, `ww` and Python** · `v0.5` — a `Fixed<U, P, T, B>` (STD-55) shown
-  with its unit and scale (`1730000000000000 µs`), written from `5 ms` exactly into the stored scale and type (not
-  exact or out of range: an error naming the type), bounds shown and checked before a write, slider limits in a GUI,
-  `Index` / `IndexFrom1` / `Seq` (STD-58) and the dimensions of STD-60 shown; the C consumer of the conformance matrix.
 
 ## Transports and protocols (`TR`)
 
@@ -1634,7 +1643,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   G0B1RE once its firmware serves `PinDiag`. Skill tree signal and skill: tpm P2618#23oct-1334.
 - 🚧 **TOOL-6 Dev GUI / web tool** · `v0.5.x` — `wire_weaver_tool` (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
-  server UI. See `docs/dev_tool.md`.
+  server UI. See `docs/dev_tool.md`. A `Fixed` field's widget shows its unit and takes its slider limits from
+  `quantity::fixed_of(..).storage.bounds` (CLT-54).
 - 💡 **TOOL-7 Generated Python wheel for a specific API** — nothing is generated for Python yet:
   `examples/blinky_py` is a hand-written pyo3 wrapper around the Rust client, and `wire_weaver_py` is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the `TODO` in
@@ -1772,8 +1782,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   mass, `PoundForce`, `Kip`, `Poundal` force; °F and °R are origins (STD-64). Measured units carry
   `Provenance::Conventional`. `Fixed::convert` between units of one dimension, exact or `None`, factor at compile
   time; `DynQuantity::convert` and Python `Quantity.convert` the same at run time. The Mars Climate Orbiter case
-  (lbf·s read as N·s) in `tests/customary` (typed, dynamic) and Python: converts exactly or is refused; a `Fixed`
-  field with its unit in dynamic clients waits on CLT-54. [Imperial and US customary](docs/std_library/customary.md),
+  (lbf·s read as N·s) in `tests/customary` (typed, dynamic) and Python: converts exactly or is refused; the `Fixed`
+  field too, with its unit in the dynamic client (CLT-54). [Imperial and US customary](docs/std_library/customary.md),
   conformance `stdlib.si.fixed.customary`, `stdlib.si.si_expr.pound_force` (derive, dynamic, Python; C waits on
   API-26).
 - ✅ **STD-58 `Index`, `IndexFrom1` and `Seq`** · `v0.5` — `exact_units` (feature `counting`, re-exported by
@@ -1782,8 +1792,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `IndexFrom1<Of, T, B>`, 1-based as people count, refuses 0 on construction and decode, `to_index` / `from_index`;
   `Seq<Of, T>`, a wrapping sequence number (`next`, `wrapping_add`, `distance` as a `Wrapping` amount, RFC 1982
   `is_before` / `serial_cmp` within half the range, no `Ord`, no `Seq + Seq`). All `transparent`, the bytes of `T`; in
-  the model instances of `Index` / `IndexFrom1` `[Of, T, B]` and `Seq` `[Of, T]`, shown and checked by clients with
-  CLT-54. [Indices and sequence numbers](docs/std_library/indices.md), conformance `stdlib.si.index.*`,
+  the model instances of `Index` / `IndexFrom1` `[Of, T, B]` and `Seq` `[Of, T]`, shown and checked by clients
+  (CLT-54). [Indices and sequence numbers](docs/std_library/indices.md), conformance `stdlib.si.index.*`,
   `stdlib.si.index_from_1.*`, `stdlib.si.seq.*` (derive, dynamic, Python; C waits on API-26).
 - ✅ **STD-64 Points and origins** · `v0.5` — `exact_units::Point<O, Fixed<..>>`: a position against an origin, a
   zero-size marker declared with `origin!` carrying its unit, an exact `Offset` (sign and `Magnitude`), its reference

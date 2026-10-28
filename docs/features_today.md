@@ -196,6 +196,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - **[Observing properties](api/observing.md#the-host-side)**: Typed subscriptions and a cache of the latest values, shared by everyone watching.
 - **[`Series` without generated code](serdes/series.md#introspection-and-dynamic-clients)**: `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns.
 - **[Quantities without generated code](std_library/ww_si.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`.
+- **[Exact units without generated code](std_library/exact_units.md#in-ww-python-and-dynamic-clients)**: `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding.
 - **[Link setup timeout](cli.md)**: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.
 - **[Calls that work on any device](std_library/device_contract.md)**: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span>
 - **[Calls fail fast while disconnected](transport/hub.md#reconnect-after-a-hub-restart-clt-40)**: A call made while the link is down fails at once with `Disconnected` instead of waiting for a reconnect.

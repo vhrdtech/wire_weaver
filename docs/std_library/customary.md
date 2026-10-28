@@ -170,8 +170,10 @@ assert str(si) == "8896443230521 p(N·s)"
 q.convert("Times<PoundAvdp, Second>")  # ValueError: dimension .. is not ..
 ```
 
-`tests/customary` runs the case through a device: a `Fixed`, a `Quantity` and an `AnyQuantity` in lbf·s. A `Fixed`
-field shown and converted with its unit in the dynamic client, Python and C is CLT-54.
+`tests/customary` runs the case through a device: a `Fixed`, a `Quantity` and an `AnyQuantity` in lbf·s. The dynamic
+client reads the `Fixed` field with its unit (`2000 m(lbf·s)`, `{:#}` `2 lbf·s`), converts it to N·s exactly, and
+refuses 4 N·s written into it (not a whole number of m(lbf·s)), as for the others
+([in clients](exact_units.md#in-ww-python-and-dynamic-clients)).
 
 ## Sources
 

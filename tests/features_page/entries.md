@@ -187,6 +187,7 @@ from the description the device sends of itself; the `ww` tool and Python are bu
 - CLT-28 | Observing properties | Typed subscriptions and a cache of the latest values, shared by everyone watching. | api/observing.md#the-host-side
 - CLT-29 | `Series` without generated code | `ww`, Python and any dynamic client read and write a `Series<T>` from introspection alone, Python reads it as numpy columns. | serdes/series.md#introspection-and-dynamic-clients
 - CLT-31 | Quantities without generated code | `ww` and Python show a `ww_si` value with its unit (`3300 mV`), Python as a quantity object with `to_si()`. | std_library/ww_si.md#in-ww-python-and-dynamic-clients
+- CLT-54 | Exact units without generated code | `ww` and Python show a `Fixed` value as the device stores it (`1730000000000000 µs`, `4 KiB`) and write `5 ms` into it exactly, or refuse with the type named instead of rounding. | std_library/exact_units.md#in-ww-python-and-dynamic-clients
 - CLT-30 | Link setup timeout | Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time. | cli.md
 - CLT-10 | Calls that work on any device | Shared traits called whatever a device's own API version. | std_library/device_contract.md
 - CLT-36 | Calls fail fast while disconnected | A call made while the link is down fails at once with `Disconnected` instead of waiting for a reconnect. | transport/hub.md#reconnect-after-a-hub-restart-clt-40

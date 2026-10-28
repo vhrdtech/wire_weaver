@@ -88,6 +88,11 @@ The values of [`const` items](api/properties.md#const-items) outside of arrays o
 and shown after their type, `const property SERIAL: String = "E661A410"` (byte vectors as hex, struct and enum names
 left out); `--no-values` skips the reads.
 
+An [`exact_units::Fixed`](std_library/exact_units.md#in-ww-python-and-dynamic-clients) shows what its numbers are in
+and its bounds after the type, `rw property window: Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]`, and its
+values with their unit, exactly as stored (`1730000000000000 µs`, `4 KiB`); indices and sequence numbers show what they
+count (`#3 (Sample)`, `seq 41 (Frame)`). `ww observe`, `ww stream`, `ww tap` and `ww explain` print values the same way.
+
 With `-t`, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
 fields, enums with their variants and discriminants, and each type's size kind (`unsized`, `final structure`,
 `self-describing`, `sized`) and enum repr:
@@ -274,7 +279,7 @@ Literals take the type of their field: `5` is a `u16`, a `ub3` or an `f32` as th
 range is an error naming the field (`argument a: 200 is out of range for ub7`). Struct literals (`Name { a: 1 }`,
 `..Default::default()` for the rest), enum variants (`Mode::Fast` or `Fast`), `Some`/`None`, `Ok`/`Err`, tuples,
 arrays (`[0; 4]`, `vec![..]`, `b"bytes"`, `0xa102` for bytes), ranges and negative numbers work. The values `ww`
-prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back; quantities go in `q!(..)`: `q!(3300 mV)`, `q!(1.2e-4 N*m/(rad/s))` (`*` for `·`, `u` for `µ`, a string for other symbols: `q!("20 °C")`), and a plain number is in the unit itself.
+prints (`ww introspect`, `ww observe`) are written the same way and can be pasted back; quantities go in `q!(..)`: `q!(3300 mV)`, `q!(1.2e-4 N*m/(rad/s))` (`*` for `·`, `u` for `µ`, a string for other symbols: `q!("20 °C")`), and a plain number is in the unit itself. Into an [`exact_units::Fixed`](std_library/exact_units.md#in-ww-python-and-dynamic-clients) a quantity converts exactly into its scale and number type (`q!(5 ms)` into `Fixed<Second, Micro, u64>` is 5000) or is an error naming the type (`not a whole number of µs`, `70000 is out of range for u16`, `6000 is out of 1..=5000`); a plain number there is the stored number, as are an index's and a sequence number's (an `IndexFrom1` refuses 0).
 
 A whole message as it goes over the link, envelope and payload: `ww explain request HEX` for a request,
 `ww explain event HEX` for an event (`--for PATH` names the method or property it answers; a stream's data names its

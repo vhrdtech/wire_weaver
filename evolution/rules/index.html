@@ -2518,6 +2518,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#transparent-wrappers-units-and-scales" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transparent wrappers, units and scales
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bounds
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5504,6 +5526,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#transparent-wrappers-units-and-scales" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transparent wrappers, units and scales
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bounds
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#finalstructure-selfdescribing-and-sized-types" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5778,6 +5822,49 @@ parameters are compared by position and kind:</p>
 <li>A use with other arguments (<code>Window&lt;4&gt;</code> -&gt; <code>Window&lt;8&gt;</code>, <code>Pair&lt;u8, u16&gt;</code> -&gt; <code>Pair&lt;u8, u32&gt;</code>) is another type, as
   <code>[u16; 4]</code> -&gt; <code>[u16; 8]</code> is.</li>
 </ul>
+<h3 id="transparent-wrappers-units-and-scales">Transparent wrappers, units and scales<a class="headerlink" href="#transparent-wrappers-units-and-scales" title="Permanent link">&para;</a></h3>
+<p>A <a href="../../serdes/derive_reference/#transparent"><code>transparent</code></a> struct (DER-18) is exactly its one field on the wire,
+<code>ww_si::Fixed&lt;U, P, T, B&gt;</code> (STD-55) is one: a <code>T</code> with its unit <code>U</code>, prefix or scale <code>P</code> and bound <code>B</code> in the type.
+The checker compares it by what it means, not only by its bytes:</p>
+<ul>
+<li><strong><code>T</code> -&gt; a wrapper of <code>T</code>, or back</strong> (<code>shared_us: u64</code> -&gt; <code>shared: Fixed&lt;Second, Micro, u64&gt;</code>): compatible, the
+  bytes are the same. The checker lists it as <code>u64 -&gt; Fixed&lt;Second, Micro, u64, Unbounded&gt;, same bytes</code>. Renaming the
+  field with it (dropping the <code>_us</code>) is compatible as well (fields are matched by position), but Python and <code>ww</code>
+  scripts that name the field change with it.</li>
+<li><strong>Another unit, prefix or scale</strong> (<code>Fixed&lt;Second, Micro, u64&gt;</code> -&gt; <code>Fixed&lt;Second, Milli, u64&gt;</code>): breaking, although
+  the bytes are the same: a reader of the old version would take a value in ms for µs. The same for one wrapper
+  replaced by another wrapper of the same bytes (<code>Fixed&lt;..&gt;</code> -&gt; a <code>Count&lt;u64&gt;</code> of your own).</li>
+<li><strong>Another <code>T</code></strong> (<code>u32</code> -&gt; <code>u64</code>, inside the wrapper or across it): breaking, as for plain numbers.</li>
+<li><strong><code>Quantity&lt;U&gt;</code> -&gt; <code>Fixed&lt;U, ..&gt;</code></strong>: breaking, a <code>Quantity</code> sends its prefix and number type with every value, a
+  <code>Fixed</code> only the number. It is the intended move for values whose prefix and type never change, so the checker says
+  so in the finding: plan it for a major version.</li>
+</ul>
+<p><code>Fixed&lt;Second, Micro, u64&gt;</code> and <code>Fixed&lt;Second, Micro, u64, Unbounded&gt;</code> are the same type (the model always records
+<code>B</code>), and so is an alias of either (<code>Micros&lt;u64&gt;</code>). <code>Fixed</code> in your API is a <code>ww_si</code> type the API model skips; the
+checker reads its definition from the <code>ww_si</code> snapshot built into it, so a field changed from <code>u64</code> to <code>Fixed</code> is
+checked the same way as a wrapper of your own.</p>
+<p>This holds for every generic type, not only <code>Fixed</code>: a type parameter that no field uses (one only in <code>PhantomData</code>,
+which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name, with
+its own arguments (<code>Pow10&lt;-4&gt;</code> -&gt; <code>Pow10&lt;-3&gt;</code>, <code>Rational&lt;1, 65535&gt;</code> -&gt; <code>Rational&lt;1, 65536&gt;</code>). A marker's own
+definition (a unit struct) is not compared field by field, it has none. Two names for the same scale count as a change
+too: <code>Milli</code> -&gt; <code>Pow10&lt;-3&gt;</code> is reported, keep the name a field had.</p>
+<h3 id="bounds">Bounds<a class="headerlink" href="#bounds" title="Permanent link">&para;</a></h3>
+<p>A bound (<code>B</code> of <code>Fixed</code>: <code>Unbounded</code>, <code>Range&lt;MIN, MAX&gt;</code>, <code>RangeU64&lt;MIN, MAX&gt;</code>, <code>RangeDec&lt;MIN, MAX, EXP&gt;</code>) doesn't
+change the bytes, but a reader refuses a value outside its bound (on decode, before a handler runs). So a bound is part
+of the contract, and any change of it breaks one side, depending on who writes the item:</p>
+<ul>
+<li><strong>Narrowed</strong> (<code>Range&lt;0, 300&gt;</code> -&gt; <code>Range&lt;0, 100&gt;</code>, <code>Unbounded</code> or plain <code>T</code> -&gt; <code>Range&lt;..&gt;</code>): the new version refuses
+  values the old one writes. For a method argument or a writable property that is an old host's call refused by a new
+  device; for a property or stream the device writes, an old device's value refused by a new host.</li>
+<li><strong>Widened</strong> (<code>Range&lt;0, 100&gt;</code> -&gt; <code>Range&lt;0, 300&gt;</code>, <code>Range&lt;..&gt;</code> -&gt; <code>Unbounded</code> or plain <code>T</code>): the old version refuses
+  values the new one writes: a new host's argument refused by an old device, a new device's value refused by an old
+  host.</li>
+</ul>
+<p>Both are breaking, unlike a <a href="#maximum-lengths-maxlent-n">max length</a> raised, and the checker says which side writes
+and which refuses: <code>Api::uptime: B of Fixed: bound 0..=600 on the new version, 0..=300 on the old version: values the
+new version writes outside 0..=300 are refused by the old version</code>. Bounds are compared by value: <code>RangeDec&lt;-5, 25,
+-1&gt;</code> and <code>RangeDec&lt;-50, 250, -2&gt;</code> are both <code>-0.5..=2.5</code>, the same bound. They are recognised by name and arguments
+wherever they come from; a bound marker of your own with other names is compared as any marker, by name.</p>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Sized</code> can become <code>SelfDescribing</code> and back (<code>sized</code> &lt;-&gt; <code>self_describing</code>): neither gets a size slot from its

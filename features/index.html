@@ -5872,8 +5872,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>UnsizedFinalStructure</code> even around a <code>u64</code> and couldn't sit in a <code>sized</code> parent. Also fixed: a generic parameter
   named <code>P</code>, <code>I</code>, <code>S</code> or <code>C</code> clashing with the derive's own in series code (<code>PhantomData&lt;(U, P)&gt;</code> included), and
   <code>#[repr(..)]</code> of a derived struct being dropped (<code>docs/serdes/derive_reference.md#transparent</code>; tests
-  <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). Not yet in the
-  evolution checker: EVO-15.</li>
+  <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). The evolution
+  checker compares wrappers by meaning: EVO-15.</li>
 <li>✅ <strong>DER-20 Unit-typed fields cost what plain fields cost</strong>: a <code>transparent</code> wrapper (DER-18, e.g.
   <code>exact_units::Fixed</code>) inside a derived struct is written and read on exactly the path of its inner plain field:
   the latched <code>write_*_latch</code> / <code>des_shrink_wrap_latch</code> calls with one error check per type (SW-34, SW-38), not the
@@ -7008,15 +7008,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (crate and marker name); a non-canonical <code>Dim</code> is refused on decode. Volt is <code>d2 1f 00 00 00 00</code>. <code>Scale</code> gains
   <code>Exact</code> (an <code>ExactScale</code>, a degree is exactly π/180) in the same break. Conformance cases <code>stdlib.si.dim.*</code>
   (<code>tests/conformance/corpus.json</code>), <a href="../docs/std_library/ww_si/#units-known-only-at-run-time">ww_si</a>.</li>
+<li>✅ <strong>EVO-15 Transparent wrappers in the checker</strong> · <code>v0.5</code> — <code>T</code> and a <code>transparent</code> wrapper of <code>T</code> (DER-18,
+  <code>ww_si::Fixed</code>) are compatible, reported as the same bytes (<code>u64 -&gt; Fixed&lt;Second, Micro, u64, Unbounded&gt;, same
+  bytes</code>); a change of a <code>Fixed</code>'s unit or prefix is breaking although the bytes stay (a reader takes µs for ms,
+  <code>Rule::Meaning</code>): any type parameter no field uses is a marker compared by name; a bound narrowed or widened is
+  breaking for the side it refuses (<code>Rule::Bound</code>, compared by value); <code>Quantity</code> → <code>Fixed</code> is breaking with a hint
+  that it is the intended move. A skipped <code>ww_si</code> definition is read from the embedded snapshot, also on prepared
+  bundles (the client at connect time)
+  (<code>docs/evolution/rules.md#transparent-wrappers-units-and-scales</code>, <code>#bounds</code>; <code>wire_weaver_evolution</code> tests
+  <code>tests::transparent</code>, <code>tests::ww_si_fixed</code>).</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
-<li>📋 <strong>EVO-15 Transparent wrappers in the checker</strong> · <code>v0.5</code> — <code>T</code> and a <code>transparent</code> wrapper of <code>T</code> (DER-18,
-  <code>ww_si::Fixed</code>) are compatible, reported as the same bytes; a change of a <code>Fixed</code>'s unit or scale is breaking
-  although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
-  refuses; <code>Quantity</code> → <code>Fixed</code> is breaking with a hint that it is the intended move.</li>
 <li>📋 <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — the checker compares magnitudes by value (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code> is
   compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
   vs N·s) breaking.</li>

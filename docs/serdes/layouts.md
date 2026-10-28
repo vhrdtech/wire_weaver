@@ -206,6 +206,7 @@ is never filled later.
 
 The derive gives an enum the repr of its `ww_repr`'s native type, so a `ww_repr = unib32` enum has a `u32` tag in
 memory: four bytes for a fieldless enum, eight for one with a one-byte field. `niche` leaves the repr out, so Rust can
-put the tag in a field's spare values: `exact_units::Prefix` (29 named prefixes and `Exact` with a one-byte handle of
-200 values) is one byte, and a quantity that holds one doesn't grow. The wire bytes don't change; see
+put the tag in a field's spare values: `exact_units::Prefix` (29 named prefixes, three families with a one-byte
+parameter whose types have spare values, and `Unknown(u16)`) is four bytes instead of eight, and a quantity that holds
+one doesn't grow. The wire bytes don't change; see
 [the derive reference](derive_reference.md#niche-enums-only) for the rules.

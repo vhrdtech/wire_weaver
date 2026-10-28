@@ -1,9 +1,9 @@
 //! Number helpers behind quantities: powers of ten, exact comparison across prefixes.
 //!
-//! Between two SI prefixes a value is rescaled by a power of ten, the fast path. A binary or `Exact` prefix takes the
-//! slow path: the ratio of the two scales as a [Magnitude], applied exactly to integers (refused for an irrational
-//! ratio) and through `f64` to floats. The slow path lives in functions of its own, so the 104-byte `Magnitude`s
-//! stay out of the fast path's stack frame.
+//! Between two SI prefixes a value is rescaled by a power of ten, the fast path. A binary prefix or a `Pow10`, `Pow2`
+//! or `FullScale` scale takes the slow path: the ratio of the two scales as a [Magnitude], applied exactly to integers
+//! (refused for an irrational ratio) and through `f64` to floats. The slow path lives in functions of its own, so the
+//! 104-byte `Magnitude`s stay out of the fast path's stack frame.
 
 use crate::bounds::Limit;
 use crate::*;

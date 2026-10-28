@@ -57,7 +57,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`#[wire(W)]` fields](serdes/derive_reference.md#wirew-field-attribute)**: Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read.
 - **[`transparent` wrappers](serdes/derive_reference.md#transparent)**: A one-field struct (`Count(u64)`, `Volts<U>` with a `PhantomData` unit) is exactly its field on the wire, size class and `Series` columns included, so a new type costs no bytes.
 - **[An enum's tag in a niche](serdes/derive_reference.md#niche-enums-only)**: `niche` lets an enum with a small field stay as small as the field.
-- **[Narrow tag-only catch-all](serdes/derive_reference.md#no_future_version-future_version-name-enums-only)**: `#[future_version] Unknown(u16)` keeps a small enum small and still reads values from newer versions. <span class="ww-status">in progress</span>
+- **[Narrow tag-only catch-all](serdes/derive_reference.md#no_future_version-future_version-name-enums-only)**: `#[future_version] Unknown(u16)` keeps a small enum small and still reads values from newer versions.
 - **[Fields written as another type](serdes/derive_reference.md#wirew-a-field-written-as-another-type)**: `#[wire(W)]` keeps a small handle in Rust and writes the full value it stands for, also in a `Series`.
 - **[Unit-typed fields cost nothing](serdes/code_size.md#transparent-fields)**: A `transparent` wrapper field (a `Fixed` number with its unit) compiles to the same code as its plain field, not only the same bytes.
 - **[Growing writer](serdes/shrink_wrap.md)**: `BufWriterOwned` for hosts, when the size isn't known up front.
@@ -339,7 +339,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Units and numbers](std_library/ww_si.md)**: `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values.
 - **[Units checked by the compiler](std_library/ww_si.md#unit-algebra)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself.
 - **[Units known at run time](std_library/ww_si.md#units-known-only-at-run-time)**: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.
-- **[Quantities as exact as `Fixed`](std_library/ww_si.md#quantity-fixed-or-anyquantity)**: A run-time `Quantity` takes binary prefixes (KiB) and any exact scale (1/65535, BAM), and carries bounds checked on decode. <span class="ww-status">in progress</span>
+- **[Quantities as exact as `Fixed`](std_library/ww_si.md#quantity-fixed-or-anyquantity)**: A run-time `Quantity` takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode.
 - **[Numbers with a fixed unit](std_library/exact_units.md)**: `Fixed<Micro, Second, u32>`: the unit, scale and bounds are in the type, the wire carries exactly the `u32`, and it prints as `1500 µs`.
 - **[Units without WireWeaver](std_library/exact_units.md)**: `exact_units`, a `no_std` crate with no dependencies, gives dimensions, unit markers, exact scales and `Fixed` to any project; the wire format is a feature.
 - **[Angles, bytes and samples are dimensions](std_library/ww_si.md#dimensions)**: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.

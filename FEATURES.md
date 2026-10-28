@@ -410,25 +410,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
 - ✅ **DER-23 A field written as a user type**: `#[wire(W)]` (DER-19) with any `W: WireAs<T>`, not only integers: a
-  field keeps a handle in Rust and writes the value it stands for (`exact_units::Prefix::Exact(#[wire(Magnitude)]
-  ExactScale)`: one byte in Rust, the full magnitude on the wire, STD-59). In a `Series` the field is an opaque run of
+  field keeps a handle in Rust and writes the value it stands for (a one-byte handle in Rust, a full `Magnitude` on
+  the wire; `exact_units::Prefix`'s families use the integer form, `Pow10(#[wire(i8)] Pow10Exp)`). In a `Series` the field is an opaque run of
   `W`'s bytes (`series::WiredOpaque`, the model marks it series-opaque) while store and cells keep the handle. Tests
   `shrink_wrap/tests/wire_as_user.rs`.
 - ✅ **DER-24 An enum's tag in a niche**: `niche` leaves the `#[repr]` the derive gives an enum (`u32` for `unib32`)
-  out, so Rust keeps the tag in a field's spare values (`exact_units::Prefix` with `Exact(ExactScale)` is 1 B, not 8).
+  out, so Rust keeps the tag in a field's spare values (`exact_units::Prefix` with its families and `Unknown(u16)` is 4 B, not 8).
   The same bytes, `discriminant()` a `match`. Whether `niche` becomes the default for every enum is open (Roman).
   Tests `shrink_wrap/tests/niche.rs`.
-- 🚧 **DER-25 Narrow tag-only catch-all for `niche` enums** · `v0.5` — `#[future_version] Unknown(u16)` (or `u8`) on
+- ✅ **DER-25 Narrow tag-only catch-all for `niche` enums** — `#[future_version] Unknown(u16)` (or `u8`) on
   a `self_describing` / `niche` enum (DER-24) such as `Prefix`: the catch-all holds the tag only, so it doesn't widen
   the enum the way SW-47's `Unknown(u32)` would (`Prefix` 4 B instead of 8). The rule it enforces (Roman, 28 Oct
   2026): every variant added after the enum's first release is tag-only, its numbers packed into the `UNib32` tag,
   never bytes after it, so an older reader yields `Unknown(tag)`, skips the self-describing value and decodes the
-  rest of the message. Done: the derive (a known discriminant beyond the field is a compile error, a read one fails
-  as without the catch-all, series tag store of the field's type), the width in the API model
-  (`FutureVersion::Variant::bits`, `None` for `u32` so older models keep their bytes), the dynamic client and the
-  evolution checker (an appended discriminant beyond it is breaking). Missing: `Prefix` itself and a conformance case
-  reading a future packed tag with the current decoder (`Unknown`, rest of the message intact) across
-  derive/dynamic/Python/C.
+  rest of the message. The derive (a known discriminant beyond the field is a compile error, a read one fails as
+  without the catch-all, series tag store of the field's type; also as `cfg_attr(feature = .., future_version)`), the
+  width in the API model (`FutureVersion::Variant::bits`, `None` for `u32` so older models keep their bytes), the
+  dynamic client and the evolution checker (an appended discriminant beyond it is breaking), `exact_units::Prefix`,
+  and the conformance case `stdlib.si.quantity.unknown_scale` (derive, dynamic, Python; C gap API-26).
 
 ## API model and codegen (`API`)
 
@@ -2072,14 +2071,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ids resolved on the host from the firmware's ELF by build id. Done: the type, `Display` (`#17` for an unresolved
   id), `ww pins` finds the ELF by build id (`ww_pin_probe::device::Names`). Missing: an accessor for
   `defmt::Str`'s index (upstream, `Table::get_str`), reading the ids from the ELF's table with it.
-- 🚧 **STD-59 Runtime `ww_si` improvements** · `v0.5` — `Quantity` on `exact_units`' units, one unit system.
-  Done: `Prefix` with binary prefixes (`Kibi` .. `Tebi`) and `Exact(ExactScale)` carrying a full exact magnitude, so a
-  `Quantity` holds every value a `Fixed` holds (`32768·1/65535`); named prefixes keep their one nibble on the wire;
-  `Quantity<U, B = Unbounded>` with bounds checked on construction and decode, `B` explicit in the model;
-  `Quantity::try_from_fixed` and Fixed/Quantity parity proptests; conformance cases (derive, dynamic, Python; C gap
-  API-26); docs ([`ww_si`](std_library/ww_si.md#quantity-fixed-or-anyquantity)). Missing: a `Series` of `Quantity`
-  reserves the largest `Exact` per item, so stream batches hold fewer items than before (decision pending: `Exact` as
-  an index into the model's magnitude table, or the batcher checking real sizes); the client-side bounds check (CLT-54).
+- ✅ **STD-59 Runtime `ww_si` improvements** — `Quantity` on `exact_units`' units, one unit system.
+  `Prefix` without a table (Roman, 28 Oct 2026): named SI and binary prefixes (`Kibi` .. `Tebi`), the families
+  `Pow10(i8)`, `Pow2(i8)` and `FullScale(bits)` (`32768·1/65535`, a Q format, `Pow10<-4>`), and `Unknown(u16)` for
+  scale kinds of a newer version (DER-25): 4 B in RAM on host, M0, M4F and M33, `Volt` 12 B as before; named prefixes
+  keep their one nibble on the wire, a family takes one byte more. Other scales (a BAM's π/2¹⁵) go to `AnyQuantity`,
+  which holds any `Fixed` exactly. `Quantity<U, B = Unbounded>` with bounds checked on construction and decode, `B`
+  explicit in the model; `Quantity::try_from_fixed` and Fixed/Quantity parity proptests; conformance cases (derive,
+  dynamic, Python; C gap API-26); docs ([`ww_si`](std_library/ww_si.md#quantity-fixed-or-anyquantity)). The
+  client-side bounds check is CLT-54.
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric

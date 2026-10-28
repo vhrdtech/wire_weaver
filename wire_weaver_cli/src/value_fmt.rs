@@ -214,6 +214,15 @@ mod tests {
             ),
             "0.00012 N·m/(rad/s)"
         );
+        // a unit of the API's own crate, known from its definition in the model (INT-13); a Quantity's bytes don't
+        // hold the unit, so any unit writes them
+        assert_eq!(
+            typed(
+                "speed",
+                ww_si::Quantity::<ww_si::units::Hertz>::from_f32(1500.0)
+            ),
+            "1500 rpm"
+        );
     }
 
     #[test]

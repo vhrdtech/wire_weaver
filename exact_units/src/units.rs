@@ -217,7 +217,7 @@ crate::unit! {
 
     /// Energy in electron-volts, eV (1.602176634·10⁻¹⁹ J).
     #[cfg(feature = "radiation")]
-    pub struct ElectronVolt = "eV", [kg 1, m 2, s -2], Factor(1.602176634e-19);
+    pub struct ElectronVolt = "eV", [kg 1, m 2, s -2], Exact(1602176634 / 1, pow10 -28);
 
     // Dimensionless
 
@@ -235,11 +235,11 @@ crate::unit! {
 
     /// Information in bytes, B (8 [Bit]): a data size, a buffer's capacity, an offset. A rate is `Per<Byte, Second>`.
     #[cfg(feature = "information")]
-    pub struct Byte = "B", [bit 1], Factor(8.0);
+    pub struct Byte = "B", [bit 1], Exact(8 / 1);
 
     /// Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.
     #[cfg(feature = "information")]
-    pub struct Word = "word", [bit 1], Factor(32.0);
+    pub struct Word = "word", [bit 1], Exact(32 / 1);
 
     // Counting: each marker is a base dimension of its own (a counted base, named by its crate and marker name), so
     // samples don't add to bytes, and become bytes only through a `Per<Byte, Sample>`. An API that counts something else

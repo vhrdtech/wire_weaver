@@ -2,7 +2,7 @@
 
 ### ⚠️ Breaking
 
-- `ww_si::Prefix` has binary and `Exact` prefixes (STD-59): `clock_sync::DeviceTime` works for a device clock in any rational prefix of a second (an RTC counting `2⁻¹⁵` s), `client::seconds` scales by `Prefix::scale_f64`.
+- `ww_si::Prefix` has binary prefixes, the scale families `Pow10`, `Pow2`, `FullScale` and `Unknown(u16)` (STD-59, DER-25): `clock_sync::DeviceTime` works for a device clock in any of them but `Unknown` (an RTC counting `2⁻¹⁵` s), `client::seconds` scales by `Prefix::scale_f64`.
 - `quantity::DynUnit::Named::dim` is a `ww_si::DimOwned` (angle, information and counted bases, STD-60), `DynUnit::dim()` answers `Option<Dim<'_>>`: compare with `same` or through `exps()` / `counted_bases()`.
 - At connect time a resource whose transparent wrapper's unit, prefix or bound differs from the device's (EVO-15, `ww_si::Fixed<Second, Micro, u64>` on the client, `Fixed<Second, Milli, u64>` on the device) is incompatible: the bytes are the same, but the value means another quantity, or one side refuses values the other writes. A plain `T` on one side and a wrapper of `T` on the other stays compatible.
 - `multi::call_array` / `call_array_blocking` take any `CallPath` builder: the generic parameters are `<C, F>` instead of `<T, F>` (a turbofish `call_array::<u8, _>` drops the `u8`), and they answer `Vec<C::Output>`, which is `Vec<Result<T, ErrorOwned>>` as before for methods without `Result` (CLT-48). The hidden `multi::CallPath` trait has `Item` (wire value) next to `Output` and an `output` method.
@@ -33,7 +33,7 @@
 
 ### 🐛 Fixes
 
-- `quantity::DynQuantity::from_value` reads a `ww_si::Quantity` with an `Exact` prefix (STD-59): the value is decoded by the derived type, so `ww` shows `32768·1/65535` where it showed the raw struct.
+- `quantity::DynQuantity::from_value` reads a `ww_si::Quantity` in a binary prefix or a scale family (STD-59): the value is decoded by the derived type, so `ww` shows `32768·1/65535` where it showed the raw struct; one in a scale of a newer version shows as `5·<scale 1000>`, `to_si_f64` is `None`.
 - `quantity::unit_of` / `is_quantity` / `DynQuantity::from_value` recognise `ww_si::Quantity<U, B>` (STD-59: the bounds `B` are the second argument in the model, `Unbounded` included) as well as a device's `Quantity<U>` built before it; with only one argument accepted, every quantity of a new device read as a plain struct.
 - A `MultiCall`/`MultiRead`/`MultiWrite` tuple may name the same resource more than once, e.g. two `i2c_write` calls (CLT-49): it failed with `Error::MultiReq("resources are identical ..")`, now the id repeats in the request's index list and the answers come in tuple order. No device change needed.
 - RTT: the RAM scan attaches to every control block it finds and takes the one with `ww_up` / `ww_down`, and retries within its window while the one found has none: probe-rs takes the first `SEGGER RTT` of a RAM region, which after a flash can be the previous firmware's, left in RAM (Nucleo G0B1RE, 23 Oct 2026: `no channel named 'ww_up'` with garbage names). `hub::take` waits for the hub to open the device up to 15 s instead of the 1 s default request timeout: over RTT the open (RAM scan, link setup) takes longer, and `ww hub take rtt:..` said `Client(Timeout)` although the hub had taken it. A probe another program claimed (`ProbeCouldNotBeCreated(Usb(..))`, e.g. `probe-rs attach` on an ST-LINK) now names its holder from `/proc` and keeps the USB cause instead of only `The debug probe could not be created`.

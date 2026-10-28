@@ -26,18 +26,19 @@ When the API fixes the prefix and number type anyway (a timeout in ms as `u16`, 
 [`Fixed`](exact_units.md) has them in the type and sends the number alone: `Micros<u32>` is the 4 bytes of the `u32`.
 The units, dimensions, `Fixed` and `SIExpr` live in the [exact_units](exact_units.md) crate, which `ww_si` builds on
 and re-exports (`ww_si::units`, `ww_si::Dim`, `ww_si::Fixed` are its items); `ww_si` adds the run-time quantities:
-`Quantity`, `AnyQuantity`, `Timed` and the timestamp tools. `Quantity::to_fixed` and `Quantity::from_fixed` convert
-between the two.
+`Quantity`, `AnyQuantity`, `Timed` and the timestamp tools. [Which one to pick](#quantity-fixed-or-anyquantity), and
+how they convert into each other, is below.
 
 ## One type for every quantity
 
 Every quantity is the same generic struct, and every unit a zero-size marker type in `ww_si::units`:
 
 ```rust
-pub struct Quantity<U: Unit> {
+pub struct Quantity<U: Unit, B: QuantityBounds = Unbounded> {
     pub prefix: Prefix,
     pub value: NumericValue,
     _unit: PhantomData<U>,      // no bits on the wire, no bytes in RAM
+    _bounds: PhantomData<B>,    // the allowed range, see "Bounds" below
 }
 
 pub type Volt = Quantity<units::Volt>;
@@ -52,6 +53,56 @@ A marker knows its unit through the `Unit` trait: its dimension (`Dim`, exponent
 bit and up to four counted bases, see [dimensions](#dimensions)), its name and symbol, and how a value becomes coherent SI (`Scale`: coherent, a power of ten, a factor, or a factor
 and an offset for °C). `Volt::unit()` returns it; `ww_si::units::by_name("Volt")` finds it by the marker's name, which
 is what a client that only sees introspection data uses.
+
+## Quantity, Fixed or AnyQuantity
+
+All three carry a value with its unit; they differ in what is fixed when the API is written and what travels with
+every value:
+
+| | Unit | Prefix and number type | On the wire | Pick it for |
+|---|---|---|---|---|
+| `Fixed<U, P, T, B>` | in the type | in the type | the number alone: `Micros<u32>` is 4 B | the API knows the scale and the storage: a timeout in ms as `u16`, a duty cycle in 1/65535, an ADC step |
+| `Quantity<U, B>` | in the type | per value | a prefix and number type nibble, then the number: `Volt::milli(3300u16)` is 3 B | the API knows the unit, each device picks the scale and storage (`u16` of mV here, `f32` of V there) |
+| `AnyQuantity` | per value | per value | the prefix, number and the whole unit: 19 B for 3300 mV | the unit is set at run time: configured sensor inputs, generic loggers |
+
+The units are one system in all three: the markers of `ww_si::units` (from [exact_units](exact_units.md)), with real
+dimensions. A value only converts into another of the same dimension: `Byte`, `Sample` and `Ratio` are each a
+dimension of their own (information, a counted base, one) and never convert into each other, whatever their numbers.
+
+Conversions, both ways and exact:
+
+- `Quantity::try_from_fixed(f)` takes any `Fixed` as a `Quantity` with its prefix and number as they are: a named
+  prefix where the scale has one (`Milli`, `Kibi`), else [`Prefix::Exact`](#prefixes) (`Pow10<-4>`, the 1/65535 of a
+  `Duty16`, a BAM's π/2¹⁵), so every `Fixed` value has a `Quantity` that is the same number. `Quantity::from_fixed(f)`
+  is the infallible form for decimal prefixes.
+- `q.to_fixed::<P, T, B>()` gives the `Fixed` back if the value is exact in scale `P`, fits `T` and is within `B`,
+  else `None`: `Volt::milli(3300u16).to_fixed::<Milli, u16, Unbounded>()` is `Some`, to `Unit` it is `None`.
+- `AnyQuantity::from(q)` puts the unit into the value; `AnyQuantity::to_quantity::<U>()` takes it out again when the
+  unit is `U`'s ([below](#units-known-only-at-run-time)).
+
+Adding, comparing and converting give the same result, or the same refusal, for a `Fixed` and the `Quantity` it
+converts to: a property test runs both sides over every scale (`ww_si/tests/parity.rs`).
+
+## Bounds
+
+`B` is the range a value must be in, in the unit's coherent value, whatever prefix a value comes with: a supply rail
+of 0 to 3.3 V is `Quantity<units::Volt, RangeDec<0, 33, -1>>`, and `3300 mV`, `3.3 V` and `3 V` are in it, `3301 mV`
+is not. The markers are the ones `Fixed` uses (`Range`, `RangeU64`, `RangeDec`, `Unbounded`, the default).
+
+```rust
+use ww_si::{units, Prefix, Quantity, RangeDec};
+
+type Rail = Quantity<units::Volt, RangeDec<0, 33, -1>>;
+assert!(Rail::try_new(Prefix::Milli, 3300u16).is_ok());
+assert!(Rail::try_new(Prefix::Milli, 3301u16).is_err());     // OutOfBounds
+let v = Rail::try_new(Prefix::Unit, 3u8).unwrap().unbounded(); // a plain Volt again
+```
+
+A bounded quantity is made with `try_new`, or from a plain one with `bounded::<B>()`; the constructors without a check
+(`milli`, `from_f32`, ..) are only on the unbounded `Quantity<U>`. Decoding checks the bounds too, also every item of
+a `Series`: a device never sees an out-of-range value in a handler. The bounds are in the API model (`Unbounded`
+too, named in every instance), so `ww` and the GUI show the limits of a `Quantity` the same way as of a `Fixed`.
+Bounds cost no bytes on the wire: a bounded quantity has the bytes of the unbounded one.
 
 ## Features
 
@@ -430,6 +481,25 @@ reading: `ww_adc` has `ChannelInfo::unit: SIExpr<'i>` and plain numbers in its r
 
 ## Prefixes
 
-`Prefix` covers every SI prefix from `Quecto` (10⁻³⁰) to `Quetta` (10³⁰), `From<Prefix> for i8` gives the power
-of ten and `symbol()` its symbol (`m`, `µ`, `k`). The most used ones (`Unit`, `Milli`, `Micro`, `Nano`, `Pico`,
-`Kilo`, `Mega`, `Giga`) take one nibble on the wire.
+`Prefix` covers every SI prefix from `Quecto` (10⁻³⁰) to `Quetta` (10³⁰), the binary ones `Kibi` to `Tebi` (2¹⁰ to
+2⁴⁰), and `Exact` for any other exact scale: a power of ten without a name (10⁻⁴), a full-scale fraction (1/65535), a
+binary angle step (π/2¹⁵). So a `Quantity` holds every value a `Fixed` can, exactly.
+
+| Value | `{}` | `{:#}` | Bytes |
+|---|---|---|---|
+| `Volt::milli(3300u16)` | `3300 mV` | `3.3 V` | `12 e4 0c` |
+| `Quantity::<units::Byte>::new(Prefix::Kibi, 64u16)` | `64 KiB` | `65536 B` | `93 20 40 00` |
+| `Second` of 12345 at `Exact` 10⁻⁴ | `12345·10⁻⁴ s` | `1.2345 s` | `d3 f8 02 39 30` |
+| `Ratio` of 32768 at `Exact` 1/65535 | `32768·1/65535` | | |
+| `Radian` of 16384 at `Exact` π/2¹⁵ | `16384·π/32768 rad` | `1.5707963267948966 rad` | |
+
+The most used prefixes (`Unit`, `Milli`, `Micro`, `Nano`, `Pico`, `Kilo`, `Mega`, `Giga`) take one nibble on the wire,
+the other named ones two; `Exact` takes two and then its whole scale (a `Magnitude`, see
+[magnitude](magnitude.md)), so every reader gets the exact scale and ordinary values pay nothing for it. In RAM a
+`Prefix` is one byte: `Exact` holds a one-byte handle (`ExactScale`) to its scale, computed from the handle for the
+common scales and interned (with `std`) for the rest; `Prefix::from_magnitude(&m)` gives the named prefix where there
+is one, else `Exact`.
+
+`pow10()` is the power of ten (`Some(-3)` for `Milli`, `Some(-4)` for an `Exact` 10⁻⁴, `None` for `Kibi` or 1/65535),
+`magnitude()` the exact scale of any prefix, `symbol()` the symbol (`m`, `µ`, `k`, `Ki`). Arithmetic across two
+decimal prefixes stays on powers of ten; only a binary or `Exact` prefix goes through `Magnitude`.

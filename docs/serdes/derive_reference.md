@@ -207,7 +207,7 @@ An evolvable enum gets `Unknown(u32)` for discriminants from a newer version (se
 | `future_version = Newer`                                                   | yes, as `Newer(u32)`: needed when `Unknown` is a variant of its own                    |
 | every discriminant of the repr taken (`ww_repr = u1` with two variants)    | no                                                                                     |
 | `final_structure`, `self_describing`, `sized`                              | only when written: they can't skip a newer variant's fields                            |
-| written `#[future_version] X(u32)`                                         | as written                                                                             |
+| written `#[future_version] X(u8)`, `X(u16)` or `X(u32)`                     | as written                                                                             |
 
 `no_future_version` leaves it out, for an enum that is complete by nature or whose readers must fail on a value they
 don't know (a request kind a device can't act on). `future_version = <Name>` names the variant, when `Unknown` is
@@ -231,12 +231,16 @@ enum Reason {
 
 Rules for the variant, written or generated:
 
-- it is last, has one `u32` field (the discriminant), no discriminant of its own and no `#[cfg]`;
+- it is last, has one `u8`, `u16` or `u32` field (the discriminant), no discriminant of its own and no `#[cfg]`
+  (DER-25). A smaller field keeps a small enum small: with `niche`, `Prefix`'s `Unknown(u16)` makes it 4 bytes
+  instead of 8. A known discriminant beyond the field's type is a compile error, a read one beyond it fails with
+  `Error::EnumFutureVersionOrMalformedData`, as without the variant;
 - the enum's bytes, `ELEMENT_SIZE` and `MAX_SIZE` are the same as without it;
 - new variants may carry data only in an `Unsized` enum: its size slot skips their fields. A `sized` or
   `self_describing` enum has no size slot, there only new unit variants can be read past;
 - writing `Unknown(d)` writes the discriminant `d` without fields, so a newer reader gets the variant back if it has
-  no fields. A `d` that doesn't fit `ww_repr` or is a known variant's gives `Error::SubtypeOutOfRange`.
+  no fields. A `d` that doesn't fit `ww_repr` or is a known variant's gives `Error::SubtypeOutOfRange`. In a
+  `Series` it isn't written at all (`Error::EnumFutureVersionOrMalformedData`): the walk can't know its fields.
 
 Either directive is an error next to a written `#[future_version]` variant, and `future_version = <Name>` is an
 error on an enum that can't get one (not `Unsized`, or every discriminant taken).

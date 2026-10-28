@@ -814,7 +814,8 @@ fn convert_item_enum(
             .iter()
             .any(|a| a.path().is_ident("future_version"))
         {
-            written_future_version = Some(variant.ident.to_string());
+            written_future_version =
+                Some((variant.ident.to_string(), future_version_bits(variant)));
             continue;
         }
         let fields = convert_fields(&variant.fields, current_crate, scratch, false)?;
@@ -1273,13 +1274,13 @@ fn get_inner_angle_bracketed_ty<'i>(
 /// discriminant that doesn't say `no_future_version`.
 fn future_version(
     args: &Args,
-    written: Option<String>,
+    written: Option<(String, Option<u8>)>,
     size: &ElementSize,
     repr: &Repr,
     variants: &[VariantOwned],
 ) -> FutureVersionOwned {
-    if let Some(ident) = written {
-        return FutureVersionOwned::Variant { ident };
+    if let Some((ident, bits)) = written {
+        return FutureVersionOwned::Variant { ident, bits };
     }
     let max_discriminant = match repr {
         Repr::Nibble => 15,
@@ -1300,6 +1301,23 @@ fn future_version(
             .future_version
             .clone()
             .unwrap_or_else(|| "Unknown".into()),
+        bits: None,
+    }
+}
+
+/// Width of a written `#[future_version]` variant's field when narrower than `u32` (DER-25), the derive checks it
+/// is `u8`, `u16` or `u32`.
+fn future_version_bits(variant: &syn::Variant) -> Option<u8> {
+    let Fields::Unnamed(fields) = &variant.fields else {
+        return None;
+    };
+    let Some(Type::Path(path)) = fields.unnamed.first().map(|f| &f.ty) else {
+        return None;
+    };
+    match path.path.get_ident().map(|i| i.to_string()).as_deref() {
+        Some("u8") => Some(8),
+        Some("u16") => Some(16),
+        _ => None,
     }
 }
 

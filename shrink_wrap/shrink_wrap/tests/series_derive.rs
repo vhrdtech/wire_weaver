@@ -513,3 +513,28 @@ fn generic_enum_and_const_parameters() {
         .collect();
     round_trip(&windows);
 }
+
+/// DER-25: a `u16` catch-all in a series: known variants round-trip, an unknown one is not written (its fields,
+/// if any, are unknown).
+#[derive_shrink_wrap(borrowed, series, ww_repr = unib32, derive(Clone, Copy, Debug, PartialEq))]
+enum Step {
+    Idle,
+    Move(i16),
+    #[future_version]
+    Unknown(u16),
+}
+
+#[test]
+fn enum_future_version_u16() {
+    let items = [Step::Idle, Step::Move(-3), Step::Move(4), Step::Idle];
+    let bytes = Series::new(&items).to_ww_bytes_owned().unwrap();
+    let back: Vec<Step> = Series::<Step>::from_ww_bytes(&bytes)
+        .unwrap()
+        .iter()
+        .collect();
+    assert_eq!(back, items);
+    assert_eq!(
+        Series::new(&[Step::Idle, Step::Unknown(1000)]).to_ww_bytes_owned(),
+        Err(ShrinkWrapError::EnumFutureVersionOrMalformedData)
+    );
+}

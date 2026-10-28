@@ -910,7 +910,14 @@ pub enum FutureVersion<'i> {
     Off,
     /// The catch-all variant, `Unknown(u32)` by default (`future_version = <Name>` or a written
     /// `#[future_version] <Name>(u32)`). It is not one of [ItemEnum::variants].
-    Variant { ident: &'i str },
+    Variant {
+        ident: &'i str,
+        /// Width of its field when narrower than `u32`, 8 or 16 (DER-25: `#[future_version] Unknown(u16)`): a
+        /// reader fails on a discriminant beyond it, as without the catch-all. `None` for `u32`, and in a model
+        /// written before DER-25 (the bytes of such a model are unchanged).
+        #[default = None]
+        bits: Option<u8>,
+    },
 }
 
 #[derive_shrink_wrap(

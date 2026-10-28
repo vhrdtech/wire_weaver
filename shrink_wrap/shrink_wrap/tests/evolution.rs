@@ -464,3 +464,65 @@ fn future_version_by_default() {
     };
     assert_eq!(name(Full::A, Closed::A), "a");
 }
+
+/// DER-25: a `u16` catch-all keeps the enum small (with `niche`, no `u32` repr); a newer tag beyond `u16` is an error, as without one.
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq, Clone, Copy), ww_repr = unib32, self_describing, niche)]
+enum ScaleV1 {
+    One,
+    Kilo,
+    Pow10(i8),
+    #[future_version]
+    Unknown(u16),
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq), ww_repr = unib32, self_describing)]
+enum ScaleV2 {
+    One,
+    Kilo,
+    Pow10(i8),
+    Mega = 1000,
+    Huge = 70000,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct ReadingV1 {
+    scale: ScaleV1,
+    value: u8,
+}
+
+#[derive_shrink_wrap(borrowed, derive(Debug, PartialEq))]
+struct ReadingV2 {
+    scale: ScaleV2,
+    value: u8,
+}
+
+#[test]
+fn future_version_u16() {
+    assert_eq!(size_of::<ScaleV1>(), 4);
+    let mut buf = [0u8; 16];
+    for v in [ScaleV1::One, ScaleV1::Pow10(-4), ScaleV1::Unknown(1000)] {
+        let bytes = v.to_ww_bytes(&mut buf).unwrap();
+        assert_eq!(ScaleV1::from_ww_bytes(bytes).unwrap(), v);
+    }
+    let bytes = ReadingV2 {
+        scale: ScaleV2::Mega,
+        value: 7,
+    }
+    .to_ww_bytes(&mut buf)
+    .unwrap();
+    assert_eq!(
+        ReadingV1::from_ww_bytes(bytes).unwrap(),
+        ReadingV1 {
+            scale: ScaleV1::Unknown(1000),
+            value: 7
+        }
+    );
+    let bytes = ScaleV1::Unknown(1000).to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(ScaleV2::from_ww_bytes(bytes).unwrap(), ScaleV2::Mega);
+    // beyond u16: not representable, read fails as without a catch-all
+    let bytes = ScaleV2::Huge.to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(
+        ScaleV1::from_ww_bytes(bytes),
+        Err(ShrinkWrapError::EnumFutureVersionOrMalformedData)
+    );
+}

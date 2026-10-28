@@ -656,7 +656,10 @@ fn des_enum(
                 // can only be read past a unit variant. Without the catch-all the derive fails on it as well; a model
                 // from before EVO-10 doesn't say, an Unsized enum is read past then.
                 let catch_all = match &enum_def.future_version {
-                    Some(FutureVersionOwned::Variant { .. }) => true,
+                    // DER-25: a narrower catch-all doesn't hold a discriminant beyond its field
+                    Some(FutureVersionOwned::Variant { bits, .. }) => {
+                        bits.is_none_or(|bits| discriminant < 1u32 << bits)
+                    }
                     Some(FutureVersionOwned::Off) => false,
                     None => matches!(enum_def.size, ElementSize::Unsized),
                 };
@@ -1564,6 +1567,7 @@ mod tests {
         };
         let catch_all = Some(FutureVersionOwned::Variant {
             ident: "Unknown".into(),
+            bits: None,
         });
         for size in [ElementSize::Unsized, ElementSize::SelfDescribing] {
             let newer = mode(size, catch_all.clone(), 4);
@@ -1584,5 +1588,30 @@ mod tests {
                 _ => assert!(before.is_err()),
             }
         }
+        // DER-25: a `u8` catch-all fails on a discriminant beyond it, as without one; a `u16` one holds it
+        let catch_all = |bits| {
+            Some(FutureVersionOwned::Variant {
+                ident: "Unknown".into(),
+                bits,
+            })
+        };
+        let mut newer = mode(ElementSize::Unsized, catch_all(None), 4);
+        if let TypeOwned::Enum(e) = &mut newer {
+            e.variants[3].discriminant = UNib32(300);
+        }
+        let bytes = unknown("D").ser_shrink_wrap_dyn(&newer, &bundle).unwrap();
+        let read = |bits| {
+            ValueOwned::des_shrink_wrap_dyn(
+                &bytes,
+                &mode(ElementSize::Unsized, catch_all(bits), 3),
+                &bundle,
+            )
+        };
+        assert_eq!(read(Some(16)).unwrap(), unknown("<unknown 300>"));
+        let err = read(Some(8)).unwrap_err().to_string();
+        assert!(
+            err.contains("does not have a variant with discriminant 300"),
+            "{err}"
+        );
     }
 }

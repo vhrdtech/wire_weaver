@@ -54,6 +54,7 @@ copying. Every message between host and device is made of it, and it works on it
 - DER-19 | `#[wire(W)]` fields | Keep a plain `i8` or `u64` in Rust and send it as `I4` or `UNib32`: range-checked on write, widened on read. | serdes/derive_reference.md#wirew-field-attribute
 - DER-18 | `transparent` wrappers | A one-field struct (`Count(u64)`, `Volts<U>` with a `PhantomData` unit) is exactly its field on the wire, size class and `Series` columns included, so a new type costs no bytes. | serdes/derive_reference.md#transparent
 - DER-24 | An enum's tag in a niche | `niche` lets an enum with a small field stay as small as the field. | serdes/derive_reference.md#niche-enums-only
+- DER-25 | Narrow tag-only catch-all | `#[future_version] Unknown(u16)` keeps a small enum small and still reads values from newer versions. | serdes/derive_reference.md#no_future_version-future_version-name-enums-only
 - DER-23 | Fields written as another type | `#[wire(W)]` keeps a small handle in Rust and writes the full value it stands for, also in a `Series`. | serdes/derive_reference.md#wirew-a-field-written-as-another-type
 - DER-20 | Unit-typed fields cost nothing | A `transparent` wrapper field (a `Fixed` number with its unit) compiles to the same code as its plain field, not only the same bytes. | serdes/code_size.md#transparent-fields
 - SW-11 | Growing writer | `BufWriterOwned` for hosts, when the size isn't known up front. | serdes/shrink_wrap.md

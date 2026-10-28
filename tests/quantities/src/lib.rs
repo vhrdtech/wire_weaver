@@ -23,10 +23,11 @@ mod tests {
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, FixedScale, Index, IndexFrom1, Magnitude, Micros, Point,
-        Prefix, Quantity, Range, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit, Volt,
+        Prefix, Quantity, Range, RangeDec, SIExpr, Scale, Second, Seq, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
+    type Rail = Quantity<units::Volt, RangeDec<0, 33, -1>>;
     /// `B` left out, as in the API's `timeout`
     type Timeout = Fixed<units::Second, Milli, u16>;
     type Window = Fixed<units::Second, Milli, u16, Range<1, 5000>>;
@@ -44,6 +45,7 @@ mod tests {
 
     struct Values {
         voltage: Volt,
+        rail: Rail,
         damping: Damping,
         speed: Quantity<Rpm>,
         /// The `AnyQuantity` property, serialized.
@@ -76,6 +78,7 @@ mod tests {
     fn values() -> Values {
         Values {
             voltage: Volt::milli(3300u16),
+            rail: Rail::try_new(Prefix::Milli, 1800u16).unwrap(),
             damping: Damping::from_f32(1.2e-4),
             speed: Quantity::<Rpm>::base(1500u16),
             sensor: sensor().to_ww_bytes(&mut [0u8; 64]).unwrap().to_vec(),
@@ -147,6 +150,22 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Volt, ()> {
                 GetResult::Value(self.values.lock().unwrap().voltage)
+            }
+
+            fn set_rail(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                value: Rail,
+            ) -> SetResult<()> {
+                self.values.lock().unwrap().rail = value;
+                SetResult::Set
+            }
+
+            fn get_rail(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Rail, ()> {
+                GetResult::Value(self.values.lock().unwrap().rail)
             }
 
             fn history(
@@ -556,10 +575,11 @@ mod tests {
         let bundle = root.bundle();
         let unit = |ty: &TypeOwned| {
             let Ok(TypeOwned::Struct(q)) = ty.get_in_line(bundle) else {
-                panic!("Quantity<U>");
+                panic!("Quantity<U, B>");
             };
-            let [GenericArgOwned::Type(u)] = q.instance_of.as_ref().unwrap().args.as_slice() else {
-                panic!("Quantity<U>");
+            let [GenericArgOwned::Type(u), _] = q.instance_of.as_ref().unwrap().args.as_slice()
+            else {
+                panic!("Quantity<U, B>");
             };
             ww_self::units::unit_of(u, bundle).unwrap()
         };
@@ -942,6 +962,45 @@ mod tests {
             fixed_name(&root, "ticks"),
             "Timed<Fixed<Second, Micro, u32, Unbounded>>"
         );
+    }
+
+    /// A `Quantity`'s bounds are its second argument in the model, `Unbounded` filled in where the source left it out
+    /// (D13), and the device refuses a value outside them whatever its prefix (STD-59).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn quantity_bounds_in_the_model() {
+        let (device, values) = start("quantities/quantity_bounds");
+        let (client, root) = connect(&device).await;
+        assert_eq!(fixed_name(&root, "voltage"), "Quantity<Volt, Unbounded>");
+        assert_eq!(
+            fixed_name(&root, "rail"),
+            "Quantity<Volt, RangeDec<0, 33, -1>>"
+        );
+        assert_eq!(
+            fixed_name(&root, "history"),
+            "Timed<Quantity<Ampere, Unbounded>>"
+        );
+
+        let rail = root.child("rail").unwrap();
+        let (_, ty) = read(&client, &root, "rail").await;
+        let mut v = read_quantity(&client, &root, "rail").await;
+        assert_eq!(
+            (v.prefix, v.value),
+            (Prefix::Milli, NumericValue::U16(1800))
+        );
+        // 3.3 V in µV is in, one µV more is not
+        v.prefix = Prefix::Micro;
+        v.value = NumericValue::U32(3_300_000);
+        rail.write(client.cmd(), &v.to_value(&ty, root.bundle()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(values.lock().unwrap().rail.to_f64(), 3.3);
+        v.value = NumericValue::U32(3_300_001);
+        assert!(
+            rail.write(client.cmd(), &v.to_value(&ty, root.bundle()).unwrap())
+                .await
+                .is_err()
+        );
+        assert_eq!(values.lock().unwrap().rail.to_f64(), 3.3);
     }
 
     /// On the wire a `Fixed` is its number: the dynamic client reads and writes it as one.

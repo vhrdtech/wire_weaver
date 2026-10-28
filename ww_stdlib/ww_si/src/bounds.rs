@@ -14,6 +14,14 @@ use ww_numeric::{Integer, Magnitude, NumericValue};
 /// [Unbounded] (the default), [Range] (integers), [RangeU64] and [RangeDec] (`MIN · 10^EXP ..= MAX · 10^EXP`):
 /// `Quantity<units::Volt, RangeDec<0, 33, -1>>` is `0 V ..= 3.3 V`. The markers are those of [Fixed](crate::Fixed),
 /// where the range is in units of the `Fixed`'s prefix: there it bounds the stored number, here the value.
+///
+/// `MIN` above `MAX` is a compile error where the bound is used:
+///
+/// ```compile_fail
+/// use ww_si::{Prefix, Quantity, RangeDec, units};
+///
+/// let _ = Quantity::<units::Volt, RangeDec<5, 1, 0>>::try_new(Prefix::Unit, 2u8);
+/// ```
 pub trait QuantityBounds: Copy + Default + 'static {
     const MIN: Option<Limit>;
     const MAX: Option<Limit>;
@@ -23,12 +31,18 @@ pub trait QuantityBounds: Copy + Default + 'static {
     #[inline(always)]
     fn contains(prefix: Prefix, value: &NumericValue) -> bool {
         if let Some(min) = Self::MIN
-            && !matches!(cmp_limit(prefix, value, &min), Some(Ordering::Greater | Ordering::Equal))
+            && !matches!(
+                cmp_limit(prefix, value, &min),
+                Some(Ordering::Greater | Ordering::Equal)
+            )
         {
             return false;
         }
         if let Some(max) = Self::MAX
-            && !matches!(cmp_limit(prefix, value, &max), Some(Ordering::Less | Ordering::Equal))
+            && !matches!(
+                cmp_limit(prefix, value, &max),
+                Some(Ordering::Less | Ordering::Equal)
+            )
         {
             return false;
         }

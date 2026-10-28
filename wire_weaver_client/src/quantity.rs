@@ -1076,16 +1076,20 @@ fn numeric_value(fields: &FieldsValueOwned) -> Option<NumericValue> {
     }
 }
 
-/// The unit of `ty` if it is a `ww_si::Quantity<U>` of ww_si 0.2 or later, in a [prepared](ww_self::generics::prepare)
-/// bundle.
+/// The unit of `ty` if it is a `ww_si::Quantity<U, B>` of ww_si 0.2 or later, in a
+/// [prepared](ww_self::generics::prepare) bundle. `B`, its bounds (STD-59), is the second argument; a device built
+/// before them sends `Quantity<U>`.
 pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Option<DynUnit> {
     let inst = instance_of(ty, bundle)?;
     if !is_ww_si(inst.type_idx.0, None, "Quantity", bundle) {
         return None;
     }
-    let [GenericArgOwned::Type(u)] = inst.args.as_slice() else {
+    let (GenericArgOwned::Type(u), _bounds) = (inst.args.first()?, inst.args.get(1)) else {
         return None;
     };
+    if inst.args.len() > 2 {
+        return None;
+    }
     Some(unit(u, bundle, 0))
 }
 

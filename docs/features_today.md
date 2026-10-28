@@ -260,6 +260,7 @@ A device can send a description of its own API, so tools and scripts work with i
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
 - **[Bit-sized numbers in the model](std_library/ww_self.md)**: `U7`, `I12`, nibbles and the like, read and written by the dynamic client and Python.
+- **[Units in the model](std_library/units_in_the_model.md)**: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so `ww`, the dynamic client and Python convert and show them without a built-in table.
 - **[Moved flag bits](std_library/ww_self.md)**: Relocated `#[flag]` fields in the model and in dynamic values.
 
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>

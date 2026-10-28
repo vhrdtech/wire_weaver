@@ -1448,9 +1448,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 💡 **INT-12 Bounds as a type of the API model** — `Type::Bounded { ty, min, max }` (like `MaxLen`), checked by every
   consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
   of `ww_si` markers (STD-55) that only `ww_si`-aware clients check; a new `Type` variant needs a model version step.
-- 📋 **INT-13 Unit definitions in the API model** · `v0.5` — every unit, scale, origin, level, kind and sentinel an API
-  uses carries its definition in `ww_self` (dimension, exact magnitude, offset, modulus, symbol), named by crate and
-  marker, so clients know a user crate's units without a built-in table, with a canonical sorted unit expression.
+- ✅ **INT-13 Unit definitions in the API model** · `v0.5` — every unit, scale and origin marker an API uses carries
+  its definition in `ww_self` (`ItemStructExtra::marker`, a `MarkerDef`: symbol, `Dim`, exact `Magnitude`; an origin's
+  unit, reference, exact offset, modulus and step), named by crate and marker (D16b), so clients know a user crate's
+  units (`unit!`, `scale!`, `origin!`) without a built-in table. `ww_self::units::unit_of` gives a canonical sorted
+  unit expression (F#-style: `Per<Meter, Second>` equals `Times<Per<Ratio, Second>, Meter>`) with exact
+  `factor_to`, `scale_of` and `origin_of` the factor of a scale and the definition of an origin. The walker and
+  snapshots fill it, appended with `#[default = None]` so plain structs keep their bytes and signatures and older
+  clients skip it. Conformance `model.marker_def.*` / `model.item_struct_extra.*` through derive, dynamic client and
+  Python (C: API-26). Firmware: no code cost (markers stay zero-size), introspection bytes only for the crate's own
+  markers (`Rpm` 22 B, an origin ~40 B; TEST-27). Levels (STD-67), kinds (STD-68) and sentinels (STD-66) append
+  their `MarkerDef` variants when their markers exist. [Units in the API model](docs/std_library/units_in_the_model.md).
 
 ## Evolution, versioning and compatibility (`EVO`)
 

@@ -247,6 +247,7 @@ A device can send a description of its own API, so tools and scripts work with i
 ## Advanced
 
 - INT-4 | Bit-sized numbers in the model | `U7`, `I12`, nibbles and the like, read and written by the dynamic client and Python. | std_library/ww_self.md
+- INT-13 | Units in the model | A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so `ww`, the dynamic client and Python convert and show them without a built-in table. | std_library/units_in_the_model.md
 - INT-3 | Moved flag bits | Relocated `#[flag]` fields in the model and in dynamic values. | std_library/ww_self.md
 
 ## Nomicon

@@ -807,6 +807,8 @@ pub fn table() -> Vec<Typed> {
             }),
         ),
         case("model.marker_def.per", ww_self::MarkerDefOwned::Per),
+        case("model.marker_def.origin", celsius()),
+        case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case(
             "model.item_struct_extra.transparent",
             ww_self::ItemStructExtraOwned {
@@ -886,6 +888,23 @@ fn rpm() -> ww_self::MarkerDefOwned {
         symbol: "rpm".into(),
         dim: dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)),
         magnitude: ww_si::Magnitude::new(1, 30, 0, 0, 1),
+    })
+}
+
+/// °C as `origin!` declares it, from 0 K: no reference, no modulus.
+fn celsius() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Origin(ww_self::OriginDefOwned {
+        unit: ww_self::UnitDefOwned {
+            symbol: "K".into(),
+            dim: dim(ww_si::Dim::new(0, 0, 0, 0, 1, 0, 0)),
+            magnitude: ww_si::Magnitude::ONE,
+        },
+        symbol: "°C".into(),
+        reference: None,
+        offset: ww_si::Offset::decimal(27315, -2),
+        modulus: None,
+        step: ww_si::Magnitude::ONE,
+        shown: ww_si::Offset::decimal(27315, -2),
     })
 }
 

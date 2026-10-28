@@ -530,7 +530,7 @@ impl Magnitude {
     }
 
     /// One over the product of `primes` (each a prime, repeated for a power), without factoring: how
-    /// [ExactScale](crate::ExactScale) builds `1/(2^b - 1)` from a short table instead of trial division.
+    /// [FullScaleBits](crate::FullScaleBits) builds `1/(2^n - 1)` from a short table instead of trial division.
     pub(crate) const fn recip_of_primes(primes: &[u32]) -> Self {
         let mut w = Work::ONE;
         let mut i = 0;

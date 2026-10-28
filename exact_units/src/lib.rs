@@ -29,7 +29,6 @@
 extern crate std;
 
 mod declare;
-mod exact_scale;
 mod fixed;
 #[cfg(feature = "counting")]
 mod index;
@@ -44,7 +43,6 @@ pub mod tree;
 mod unit;
 pub mod units;
 
-pub use exact_scale::{COMPUTED as EXACT_SCALES_COMPUTED, EXACT_SCALES, ExactScale};
 #[cfg(feature = "information")]
 pub use fixed::Bytes;
 #[cfg(feature = "angle")]
@@ -71,7 +69,7 @@ pub use point::{
 pub use si_expr::SIExpr;
 #[cfg(all(feature = "std", feature = "shrink_wrap"))]
 pub use si_expr::SIExprOwned;
-pub use si_prefix::Prefix;
+pub use si_prefix::{FullScaleBits, Pow2Exp, Pow10Exp, Prefix};
 pub use tree::MAX_UNIT_DEPTH;
 #[doc(hidden)]
 pub use unit::exp as __dim_exp;

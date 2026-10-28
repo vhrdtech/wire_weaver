@@ -340,6 +340,35 @@ fn opaque_fields() {
     }
 }
 
+/// `#[series(opaque)]` on a named field of an enum variant: its run takes the items of that variant.
+#[derive_shrink_wrap(borrowed, owned, series(no_store), self_describing, ww_repr = unib32, derive(Clone, Copy, Debug, PartialEq))]
+enum Reply {
+    Empty,
+    Status {
+        #[series(opaque)]
+        status: Result<u8, Prefix>,
+        n: u8,
+    },
+}
+
+#[test]
+fn opaque_field_of_a_variant() {
+    let items: Vec<Reply> = (0..9u8)
+        .map(|k| match k % 3 {
+            0 => Reply::Empty,
+            1 => Reply::Status {
+                status: Ok(k),
+                n: k,
+            },
+            _ => Reply::Status {
+                status: Err(Prefix::Milli),
+                n: 1,
+            },
+        })
+        .collect();
+    round_trip(&items);
+}
+
 /// A variant compiled out is `EnumVariantDisabled` on reading; `Unknown` of a newer writer can't be written.
 #[derive_shrink_wrap(borrowed, owned, series, ww_repr = u4, derive(Clone, Debug, PartialEq))]
 enum Mode {

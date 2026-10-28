@@ -6,6 +6,8 @@
 
 ### 🐛 Fixes
 
+- The crate walker shares a module's parsed source between the contexts it hands out instead of copying it for every type found there: a module with hundreds of `unit!` markers (`exact_units`' customary units) was walked in quadratic time, a snapshot test loading `ww_si` and `exact_units` took 1 s instead of 0.7 s.
+
 - Snapshots follow glob re-exports of a module (`mod thermal { .. } pub use thermal::*;`), after every other item so existing snapshots keep their order: `exact_units`' origins were missing from its snapshot.
 - The crate walker and snapshots read `self` in a `use` group (`use ww_si::units::{self, Second}`, `{self as u}`) as an import of the module itself: `units::Volt` after such an import failed with "units: Dependency not found".
 - An API snapshot also takes in the types of a module a crate re-exports (`pub use fixed::prefix`) and types re-exported through a private module (`pub use fixed::Range` with `pub use bounds::Range` in `fixed`): the `exact_units` snapshot had no scale markers (`prefix::Milli`, `Pow10`, `Rational`, `FullScale`) and no bounds (`Range`, `Unbounded`), so devices sent their definitions.

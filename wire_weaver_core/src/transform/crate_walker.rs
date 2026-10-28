@@ -316,8 +316,10 @@ pub(crate) struct CrateContext {
     version: FullVersionOwned,
     /// Features the crate is built with, `#[cfg_attr(..)]` in `lib_rs_ast` are expanded with them (API-60).
     features: Rc<Features>,
-    /// `src/lib.rs`, or a module of the crate when resolving paths through it.
-    pub(crate) lib_rs_ast: File,
+    /// `src/lib.rs`, or a module of the crate when resolving paths through it. Shared: a context is cloned for
+    /// every type found in it, and copying the module's tree each time made a module of hundreds of `unit!`
+    /// markers quadratic.
+    pub(crate) lib_rs_ast: Rc<File>,
     /// Directory where files of the child modules of `lib_rs_ast` are.
     mod_dir: PathBuf,
     /// Modules from the crate root to `lib_rs_ast`, each with whether it is `pub`; empty for the crate root.
@@ -399,7 +401,7 @@ impl CrateContext {
             manifest,
             version,
             features: Rc::new(features),
-            lib_rs_ast: lib_rs,
+            lib_rs_ast: Rc::new(lib_rs),
             mod_path: vec![],
         };
         // the root crate is always first in ext_crates, even when no types are referenced from it; the others are
@@ -574,7 +576,7 @@ impl CrateContext {
             manifest: self.manifest.clone(),
             version: self.version.clone(),
             features: self.features.clone(),
-            lib_rs_ast: ast,
+            lib_rs_ast: Rc::new(ast),
             mod_dir,
             mod_path,
         }))

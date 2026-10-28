@@ -90,12 +90,14 @@ pub(crate) enum Type {
     /// `MaxLen<T, N>`: a `Vec`/`RefVec` or string `T` with at most `N` elements, `N` kept as written.
     MaxLen(Expr, Box<Type>),
 
-    /// `#[wire(W)] field: T` (DER-19): a plain integer `T` in Rust, written as the integer type `W` on the wire.
-    /// `cfg` is the predicate of `#[cfg_attr(pred, wire(W))]`.
+    /// `#[wire(W)] field: T` (DER-19): a plain integer `T` in Rust, written as the integer type `W` on the wire; or
+    /// any `T` written as a user type `W` (`user`, DER-23), through `W: WireAs<T>`. `cfg` is the predicate of
+    /// `#[cfg_attr(pred, wire(W))]`.
     Wire {
         plain: Box<Type>,
         wire: Box<Type>,
         cfg: Option<syn::Meta>,
+        user: bool,
     },
 }
 

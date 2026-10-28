@@ -557,7 +557,7 @@ pub struct Wired {
 | `#[cfg(..)]`            | enum variants            | compiles the variant out ([above](#cfg-on-enum-variants))                                                        |
 | `#[display("..")]`      | variants, with `display` | the message instead of the doc line ([above](#display))                                                          |
 | `#[series(opaque)]`     | named fields, with `series` | the field is an opaque run of its own bytes in a `Series` ([above](#series))                                  |
-| `#[wire(W)]`            | integer fields           | the plain integer is written as `W` ([above](#wirew-field-attribute))                                           |
+| `#[wire(W)]`            | struct and variant fields | the field keeps its Rust type, the bytes are `W`'s ([above](#wirew-field-attribute))                                |
 
 ### Behind `cfg_attr`, and attributes the derive doesn't read
 
@@ -582,3 +582,56 @@ Special field types the macro handles itself: [`TailSize<N>`](special_types.md#t
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed
 and owned side) and `MaxLen<T, N>` (checked on serialize and deserialize, see
 [bounded lists and strings](../types.md#bounded-lists-and-strings-maxlent-n)).
+
+### `#[wire(W)]`: a field written as another type
+
+`#[wire(W)] field: T` keeps the field a `T` in Rust and writes the bytes of `W`, the same as a field of type `W`
+(DER-19). `W: shrink_wrap::WireAs<T>` converts both ways: `from_plain` when the value is written, `into_plain` when it
+is read. A value the other side can't hold is `Error::SubtypeOutOfRange`, never cut and never a panic. The API model
+shows the field as `W`, so the dynamic client, Python and C read it as a `W` field.
+
+- **An integer as a narrower or variable-length integer**: `#[wire(I4)] offset: i8`, `#[wire(UNib32)] count: u64`.
+  `W` is `u8`..`u64`, `i8`..`i64`, `Nibble`, `U1`..`U64`, `I2`..`I64`, `UNib32`, `UVlq32` or `UVlq64`, of the
+  field's signedness; shrink_wrap implements `WireAs` for every plain integer.
+- **A handle as the value it stands for** (DER-23): `W` is a user type without a lifetime that implements
+  `WireAs<T>` for the field's type. `exact_units::Prefix::Exact(#[wire(Magnitude)] ExactScale)` keeps a one-byte
+  index in Rust and writes the full exact magnitude. `T` is cloned to be written (free for a `Copy` handle).
+
+```rust
+use shrink_wrap::{Error, prelude::*};
+
+#[derive_shrink_wrap(borrowed, owned, self_describing, derive(Debug, PartialEq, Clone, Copy))]
+pub struct Scale { num: u32, den: u32 }
+
+static SCALES: [Scale; 2] = [Scale { num: 1, den: 1 }, Scale { num: 1, den: 65535 }];
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct ScaleId(u8);
+
+impl WireAs<ScaleId> for Scale {
+    fn from_plain(id: ScaleId) -> Result<Self, Error> {
+        Ok(SCALES[id.0 as usize])
+    }
+    fn into_plain(self) -> Result<ScaleId, Error> {
+        let i = SCALES.iter().position(|s| *s == self).ok_or(Error::SubtypeOutOfRange)?;
+        Ok(ScaleId(i as u8))
+    }
+}
+
+#[derive_shrink_wrap(borrowed, owned, derive(Debug, PartialEq))]
+struct Reading {
+    #[wire(UNib32)]
+    count: u64,
+    #[wire(Scale)]
+    scale: ScaleId,
+}
+```
+
+In a `Series` the field is `W`'s column (`series::Wired<W, T>` for an integer, `series::WiredRef<W, T>` for a user
+type) and keeps `T` in a store and in cells, so a one-byte handle stays one byte per row. A user `W` there also
+implements `WireAsRef<T>`, which lends the wire value from where it lives (a `static` table): `W` itself derives
+`series`, `T` implements `SeriesStore` (and `SeriesCells` for `series(cells)`).
+
+`#[cfg_attr(pred, wire(W))]` works too (rustc leaves a field's `cfg_attr` to the derive), for crates with shrink_wrap
+optional; a compile error when `pred` is off while the type is serialized, so the bytes never depend on a cfg. Not
+yet: inside `Option`, arrays and lists, `fixed_layout` and `head_tail` (DER-21, a derive error says so).

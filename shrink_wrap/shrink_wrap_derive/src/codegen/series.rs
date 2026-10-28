@@ -41,7 +41,7 @@ struct SeriesField<'a> {
     tagged: bool,
     /// Has `SeriesCells`: not opaque, no string or byte list in it.
     cells: bool,
-    /// A `#[wire(W)]` field (DER-19): `ty` is `Wired<W, T>`, the field is a `T`.
+    /// A `#[wire(W)]` field (DER-19): `ty` is `Wired<W, T>` (`WiredRef<W, T>` for a user `W`), the field is a `T`.
     wired: bool,
     default: Option<&'a syn::Expr>,
 }
@@ -720,8 +720,15 @@ impl SeriesSeed<'_> {
             out.push(SeriesField {
                 member,
                 ty: match ty {
-                    Type::Wire { plain, wire, .. } => {
-                        let wired = self.sc(quote! { Wired });
+                    Type::Wire {
+                        plain, wire, user, ..
+                    } => {
+                        // a user type's column is `W`'s own, lent by `WireAsRef` (DER-23)
+                        let wired = if *user {
+                            self.sc(quote! { WiredRef })
+                        } else {
+                            self.sc(quote! { Wired })
+                        };
                         let plain = plain.def(self.is_ref, self.cp);
                         let wire = wire.def(self.is_ref, self.cp);
                         quote! { #wired<#wire, #plain> }
@@ -729,7 +736,11 @@ impl SeriesSeed<'_> {
                     ty => ty.def(self.is_ref, self.cp),
                 },
                 opaque,
-                tagged: !opaque && matches!(ty, Type::External(_, _) | Type::Option(_, _)),
+                tagged: !opaque
+                    && matches!(
+                        ty,
+                        Type::External(_, _) | Type::Option(_, _) | Type::Wire { user: true, .. }
+                    ),
                 cells: !opaque && has_cells(ty),
                 wired: matches!(ty, Type::Wire { .. }),
                 default,
@@ -738,11 +749,11 @@ impl SeriesSeed<'_> {
         Ok(out)
     }
 
-    /// A `&field` as what its column takes: `&Wired<W, T>` for a `#[wire(W)]` field.
+    /// A `&field` as what its column takes: `&Wired<W, T>` (or `&WiredRef<W, T>`) for a `#[wire(W)]` field.
     fn wrap(&self, f: &SeriesField, field_ref: TokenStream) -> TokenStream {
         if f.wired {
-            let wired = self.sc(quote! { Wired });
-            quote! { #wired::from_ref(#field_ref) }
+            let ty = &f.ty;
+            quote! { <#ty>::from_ref(#field_ref) }
         } else {
             field_ref
         }
@@ -777,7 +788,7 @@ impl SeriesSeed<'_> {
         let tags = fields.iter().map(|f| {
             if f.tagged {
                 let ty = &f.ty;
-                let v = value(f);
+                let v = self.wrap(f, value(f));
                 // a field that can't have a tag is a constant `None`, compared with nothing
                 quote! {
                     if <#ty as #trait_<'i>>::TAGGED { <#ty as #trait_<'i>>::series_tag(#v) } else { None }

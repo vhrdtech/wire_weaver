@@ -409,6 +409,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   it reads `Error::EnumVariantDisabled` (`docs/serdes/derive_reference.md`). First user: `ww_numeric::NumericValue`, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: `#[cfg]` on fields (it would change
   the wire format, should be a compile error), `ww_si` enums.
+- ✅ **DER-23 A field written as a user type**: `#[wire(W)]` (DER-19) with any `W: WireAs<T>`, not only integers: a
+  field keeps a handle in Rust and writes the value it stands for (`exact_units::Prefix::Exact(#[wire(Magnitude)]
+  ExactScale)`: one byte in Rust, the full magnitude on the wire, STD-59). In a `Series` the field is `W`'s column
+  (`series::WiredRef`, `WireAsRef` lends the value) while store and cells keep the handle. Tests
+  `shrink_wrap/tests/wire_as_user.rs`.
 - ✅ **API-1 Methods, properties, streams and sinks**, nested traits (`docs/api/overview.md`).
 - ✅ **API-2 Arrays of resources** with `ValidIndices` and a built-in array size getter returning a range or list.
 - ✅ **API-3 Global traits** from `ww_stdlib` (`impl Trait`) and trait attachments (`examples/all_gpio`).

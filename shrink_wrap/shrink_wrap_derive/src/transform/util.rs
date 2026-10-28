@@ -281,17 +281,36 @@ fn wire_int_signed(ty: &Type, wire: bool) -> Option<bool> {
     }
 }
 
-/// The type of a `#[wire(W)] field: T` (DER-19), checked: both integers of the same signedness.
+/// The type of a `#[wire(W)] field: T`, checked: both integers of the same signedness (DER-19), or a user type `W`
+/// without a lifetime for a field without one (DER-23), which `W: WireAs<T>` then checks.
 fn wire_field_type(plain: Type, wire: Type, cfg: Option<syn::Meta>) -> Result<Type, String> {
-    let Some(plain_signed) = wire_int_signed(&plain, false) else {
+    let plain_signed = wire_int_signed(&plain, false);
+    let wire_signed = wire_int_signed(&wire, true);
+    let user = wire_signed.is_none() && is_user_type(&wire);
+    if user {
+        if !matches!(plain, Type::External(_, false)) && plain_signed.is_none() {
+            return Err(
+                "#[wire(W)] with a user type W goes on a field of a type without a lifetime".into(),
+            );
+        }
+        return Ok(Type::Wire {
+            plain: Box::new(plain),
+            wire: Box::new(wire),
+            cfg,
+            user,
+        });
+    }
+    let Some(plain_signed) = plain_signed else {
         return Err(
-            "#[wire(W)] goes on a plain integer field (u8..u128, i8..i128, usize, isize)".into(),
+            "#[wire(W)] with an integer type W goes on a plain integer field (u8..u128, i8..i128, \
+                    usize, isize)"
+                .into(),
         );
     };
-    let Some(wire_signed) = wire_int_signed(&wire, true) else {
+    let Some(wire_signed) = wire_signed else {
         return Err(
-            "#[wire(W)]: W is an integer type of 64 bits or less: u8..u64, i8..i64, Nibble, \
-                    U1..U64, I2..I64, UNib32, UVlq32 or UVlq64"
+            "#[wire(W)]: W is an integer type of 64 bits or less (u8..u64, i8..i64, Nibble, U1..U64, I2..I64, \
+             UNib32, UVlq32 or UVlq64), or a user type without a lifetime that implements WireAs<T>"
                 .into(),
         );
     };
@@ -306,7 +325,26 @@ fn wire_field_type(plain: Type, wire: Type, cfg: Option<syn::Meta>) -> Result<Ty
         plain: Box::new(plain),
         wire: Box::new(wire),
         cfg,
+        user,
     })
+}
+
+/// A user type without a lifetime, not one of the integer or other built-in types: `Magnitude`, `crate::Scale<3>`.
+fn is_user_type(ty: &Type) -> bool {
+    match ty {
+        Type::External(path, false) => {
+            let name = path
+                .segments
+                .last()
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            !(path.segments.len() == 1 && matches!(name.as_str(), "usize" | "isize"))
+                && !(path.args.is_empty()
+                    && (name.strip_prefix('U').or_else(|| name.strip_prefix('I')))
+                        .is_some_and(|bits| bits.parse::<u8>().is_ok()))
+        }
+        _ => false,
+    }
 }
 
 pub(crate) fn transform_field(

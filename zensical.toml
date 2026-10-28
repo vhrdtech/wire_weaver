@@ -81,6 +81,7 @@ nav = [
             "evolution/rules.md",
             "evolution/checker_tool.md",
             { "Advanced" = [
+                    "evolution/units_by_meaning.md",
                     "evolution/crate_layers.md"
                 ]
             }

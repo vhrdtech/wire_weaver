@@ -295,6 +295,7 @@ round, and tell you before a release when a change would break that.
 - **[API identity](api/versioning.md)**: Every API and type has a signature; shared traits are referred to by hash.
 - **[API snapshots](evolution/crate_layers.md)**: Descriptions of the standard library are left out of what a device sends and filled in by the host.
 - **[Definitions from another revision](std_library/ww_self.md#the-definition-cache)**: A device built from an unpublished revision still connects, with a warning.
+- **[Units compared by meaning](evolution/units_by_meaning.md)**: `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.
 
 <p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
 

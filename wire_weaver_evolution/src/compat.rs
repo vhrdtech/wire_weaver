@@ -835,8 +835,15 @@ impl<'a> TypeCheck<'a> {
             (Origin(w_origin), Origin(r_origin)) => {
                 self.check_origin(&w.ident, w_origin, &r.ident, r_origin)
             }
+            // the markers without arguments of their own (`Per`, `Pow10`, `Range`, `Angle`, ...) are the same when
+            // of one kind; a kind this checker doesn't know yet (a level, a kind, a niche) only when the same
+            (w_def, r_def) if w_def == r_def => Ok(()),
             (w_def, r_def) if std::mem::discriminant(w_def) == std::mem::discriminant(r_def) => {
-                Ok(())
+                self.rule = Some(Rule::Meaning);
+                Err(format!(
+                    "marker {} redefined, the {} doesn't know this kind of marker and takes any change as another meaning",
+                    r.ident, self.reader_name
+                ))
             }
             _ => {
                 self.rule = Some(Rule::Meaning);

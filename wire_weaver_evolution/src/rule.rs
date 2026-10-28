@@ -25,8 +25,9 @@ pub enum Rule {
     Optional,
     /// An enum's catch-all for variants from a newer version (`#[future_version]`) is part of its Rust type.
     CatchAll,
-    /// A marker type argument of a generic type (a unit, a prefix or scale of `ww_si::Fixed`) is its meaning: the
-    /// same bytes, but read as another quantity.
+    /// A marker type argument of a generic type (a unit, a prefix or scale of `ww_si::Fixed`, an origin of a
+    /// `Point`, `Wrapping`) is its meaning: the same bytes, but read as another quantity. Compared by value where the
+    /// model defines it (EVO-17): lbf·s read as N·s.
     Meaning,
     /// A bound (`ww_si::Range` and friends) is part of the contract: values outside the reader's bound are refused.
     Bound,
@@ -55,8 +56,8 @@ impl Rule {
                  never added, removed or renamed"
             }
             Rule::Meaning => {
-                "a marker argument (unit, prefix or scale) is what the bytes mean: changing it keeps the bytes, \
-                 but a reader takes one quantity for another (µs for ms)"
+                "a marker argument (unit, scale, origin) is what the bytes mean: changing its value keeps the \
+                 bytes, but a reader takes one quantity for another (µs for ms, lbf·s for N·s)"
             }
             Rule::Bound => {
                 "a bound is part of the contract: narrowed, the new version refuses what the old one writes; \
@@ -76,7 +77,7 @@ impl Rule {
             Rule::FieldKind => "docs/evolution/rules.md#unsized-types",
             Rule::Optional => "docs/evolution/rules.md#optional-items",
             Rule::CatchAll => "docs/evolution/rules.md#unsized-types",
-            Rule::Meaning => "docs/evolution/rules.md#transparent-wrappers-units-and-scales",
+            Rule::Meaning => "docs/evolution/units_by_meaning.md",
             Rule::Bound => "docs/evolution/rules.md#bounds",
         }
     }

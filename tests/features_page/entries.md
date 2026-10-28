@@ -280,6 +280,7 @@ round, and tell you before a release when a change would break that.
 - EVO-2, EVO-3, EVO-4 | API identity | Every API and type has a signature; shared traits are referred to by hash. | api/versioning.md
 - EVO-5 | API snapshots | Descriptions of the standard library are left out of what a device sends and filled in by the host. | evolution/crate_layers.md
 - EVO-9 | Definitions from another revision | A device built from an unpublished revision still connects, with a warning. | std_library/ww_self.md#the-definition-cache
+- EVO-17 | Units compared by meaning | `Milli` → `Pow10<-3>` passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side. | evolution/units_by_meaning.md
 
 # Tools
 

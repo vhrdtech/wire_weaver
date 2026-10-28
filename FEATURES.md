@@ -1558,9 +1558,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through `ww_firmware_info`'s
   `bedrock_build_info` stream. Decide whether the link or version also needs it.
 - 📋 **EVO-8 Snapshots of crates.io crates** — depends on "Load API crates from crates.io" above.
-- 📋 **EVO-17 Units compared by meaning** · `v0.5` — the checker compares magnitudes by value (`Milli` → `Pow10<-3>` is
-  compatible), reports origin, level, kind, sentinel and overflow policy (`Unbounded` → `Wrapping`, same bytes)
-  changes, and calls the same bytes in a different scale (lbf·s vs N·s) breaking.
+- ✅ **EVO-17 Units compared by meaning** · `v0.5` — markers with a definition in the model (INT-13) are compared by
+  it: the unit and scale of a `Fixed` multiplied into one step (dimension and exact factor), so another spelling of
+  the same step is compatible (`Milli` → `Pow10<-3>`, `Volt, Milli` → `MilliVolt, One`, listed as `same value`), and
+  the same bytes in a different scale are breaking with the factor in the finding (lbf·s vs N·s, the Mars Climate
+  Orbiter: `1 on the old version is 4.448222 (exactly 1·…)`), also at connect time; another dimension is breaking.
+  A unit, scale or origin of the crate's own redefined under the same name is breaking, a new symbol is not. Origins
+  by dimension, reference, zero and period (`Celsius` = an own origin at 273.15 K, `Angle<Degree>` = `Angle<Radian>`).
+  `Saturating` is `Unbounded`'s values, `Wrapping` on one side only is breaking (`Rule::Meaning`). Levels, kinds and
+  sentinels get their checks with STD-67, STD-68 and STD-66 (rules written down); until then a marker kind the
+  checker doesn't know is the same only when its definition is (`docs/evolution/units_by_meaning.md`;
+  `wire_weaver_evolution` tests `tests::by_meaning`).
 
 ## Tooling: CLI, GUI, Python (`TOOL`)
 

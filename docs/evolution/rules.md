@@ -187,7 +187,10 @@ The checker compares it by what it means, not only by its bytes:
   field with it (dropping the `_us`) is compatible as well (fields are matched by position), but Python and `ww`
   scripts that name the field change with it.
 * **Another unit, prefix or scale** (`Fixed<Second, Micro, u64>` -> `Fixed<Second, Milli, u64>`): breaking, although
-  the bytes are the same: a reader of the old version would take a value in ms for µs. The same for one wrapper
+  the bytes are the same: a reader of the old version would take a value in ms for µs. Units and scales are compared
+  by value, so another name for the same one is compatible (`Milli` -> `Pow10<-3>`, `Fixed<Volt, Milli, ..>` ->
+  `Fixed<MilliVolt, One, ..>`), and lbf·s -> N·s is breaking with the factor in the finding (EVO-17, see
+  [units compared by meaning](units_by_meaning.md)). Origins of points are compared by where their zero lies. The same for one wrapper
   replaced by another wrapper of the same bytes (`Fixed<..>` -> a `Count<u64>` of your own).
 * **Another `T`** (`u32` -> `u64`, inside the wrapper or across it): breaking, as for plain numbers.
 * **`Quantity<U>` -> `Fixed<U, ..>`**: breaking, a `Quantity` sends its prefix and number type with every value, a
@@ -200,10 +203,9 @@ checker reads its definition from the `ww_si` snapshot built into it, so a field
 checked the same way as a wrapper of your own.
 
 This holds for every generic type, not only `Fixed`: a type parameter that no field uses (one only in `PhantomData`,
-which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name, with
-its own arguments (`Pow10<-4>` -> `Pow10<-3>`, `Rational<1, 65535>` -> `Rational<1, 65536>`). A marker's own
-definition (a unit struct) is not compared field by field, it has none. Two names for the same scale count as a change
-too: `Milli` -> `Pow10<-3>` is reported, keep the name a field had.
+which the model doesn't have) is a marker that gives the bytes a meaning. A marker with a definition in the model (a
+unit, scale or origin, INT-13) is compared by that definition; any other marker by name, with its own arguments
+(`Count<Apples>` -> `Count<Pears>`). A marker's definition is not compared field by field, it has no fields.
 
 ### Bounds
 
@@ -223,6 +225,10 @@ and which refuses: `Api::uptime: B of Fixed: bound 0..=600 on the new version, 0
 new version writes outside 0..=300 are refused by the old version`. Bounds are compared by value: `RangeDec<-5, 25,
 -1>` and `RangeDec<-50, 250, -2>` are both `-0.5..=2.5`, the same bound. They are recognised by name and arguments
 wherever they come from; a bound marker of your own with other names is compared as any marker, by name.
+
+In the place of a bound, `Saturating` is the same values as `Unbounded` (compatible), while `Wrapping` on one side
+only is breaking: a wrapping number is a position modulo its storage, the reader would take a wrap for a jump (see
+[units compared by meaning](units_by_meaning.md#bounds-wrapping-and-saturating)).
 
 ### FinalStructure, SelfDescribing and Sized types
 

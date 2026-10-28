@@ -1,4 +1,4 @@
-//! Exact magnitudes: `num / den · 10^pow10 · 2^pow2 · π^pi`, in the form si-in's `ExactScale` uses, so the catalogue
+//! Exact magnitudes: `num / den · 10^pow10 · 2^pow2 · π^pi`, in the form si-in's exact scales used, so the catalogue
 //! moves into exact_units (STD-61) without converting numbers.
 
 /// An exact positive magnitude, `num / den · 10^pow10 · 2^pow2 · π^pi`.

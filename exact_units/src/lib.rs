@@ -23,6 +23,7 @@
 #[cfg(all(test, not(feature = "std")))]
 extern crate std;
 
+mod declare;
 mod fixed;
 mod magnitude;
 pub mod num;
@@ -55,6 +56,8 @@ pub use si_expr::SIExpr;
 pub use si_expr::SIExprOwned;
 pub use si_prefix::Prefix;
 pub use tree::MAX_UNIT_DEPTH;
+#[doc(hidden)]
+pub use unit::exp as __dim_exp;
 pub use unit::{Counted, Dim, MAX_COUNTED, Scale, Unit, UnitDiv, UnitExpr, UnitMul};
 #[cfg(all(feature = "std", feature = "shrink_wrap"))]
 pub use unit::{CountedOwned, DimOwned};

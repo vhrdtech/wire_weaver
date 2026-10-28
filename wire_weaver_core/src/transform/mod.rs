@@ -3,6 +3,7 @@ mod cargo_source;
 mod cfg;
 mod crate_walker;
 mod errors;
+mod markers;
 mod meta;
 pub(crate) use crate_walker::WIRE_WEAVER_REEXPORTS;
 mod snapshot;

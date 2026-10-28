@@ -6498,6 +6498,7 @@ version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
  "exact_units",
+ "proptest",
  "shrink_wrap",
  "ww_numeric",
 ]

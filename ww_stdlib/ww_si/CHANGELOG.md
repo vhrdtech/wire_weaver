@@ -14,6 +14,7 @@
 
 * Re-exports `exact_units::Provenance` (STD-72).
 * Feature `customary` (STD-72): `exact_units`' imperial and US customary markers (`units::PoundForce`, `Inch`, `GallonUs`, ...), part of `quantities` and so of `std`.
+* `Quantity::try_from_fixed` (STD-59): any `Fixed` as a `Quantity`, whatever its scale: a named prefix where there is one (`Milli`, `Kibi`), else `Prefix::Exact` (`Pow10<-4>`, `FullScaleMax<One, 16>`, a BAM), so `to_fixed` gives the same value back. `UnknownScale` only where no prefix stands for the scale: without `std` a scale outside the computed `ExactScale`s (an ADC step `FullScale<Rational<33, 10>, 12>`), with `std` once the interner is full. `from_fixed` / `From<Fixed>` stay for decimal prefixes, infallible. A `Quantity` with an `Exact` prefix is shown as the `Fixed` is (`32768·1/65535`, `15·10⁻⁴ s`). Proptest `tests/parity.rs`: round trip, `checked_add` / `checked_sub`, comparison and conversion into another scale and storage give the same result or the same refusal on both sides, for mV `i16`, 10⁻⁴ s `u32`, KiB `u16`, a 16-bit duty, a BAM, a 12-bit ADC and mV `f32`.
 * Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],
 * Re-exports `exact_units::origin!` (STD-64), so an API declares its origins as `ww_si::origin! { .. }` and clients know them (INT-13).
   Exact(1 / 30, pi 1); }`.

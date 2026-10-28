@@ -12,6 +12,7 @@ use crate::codegen::item_struct::transparent_init;
 use crate::codegen::util::{CratePath, maybe_quote};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use syn::Path;
 
 /// What both impls need to know about the type.
 pub(crate) struct SeriesSeed<'a> {
@@ -29,6 +30,8 @@ pub(crate) struct SeriesSeed<'a> {
     pub(crate) store: bool,
     /// Also implement `SeriesCells` (API-50) next to the store: `series(cells)`.
     pub(crate) cells: bool,
+    /// `validate = path` (SW-58): called on every item read, as when the type is read on its own.
+    pub(crate) validate: Option<&'a Path>,
 }
 
 /// A field as a `Series` sees it: flags left out, they are part of their `Option`.
@@ -930,6 +933,11 @@ impl SeriesSeed<'_> {
     /// `transparent` (DER-18): the field's `SeriesColumns`, `SeriesStore` and `SeriesCells`, so the struct has its
     /// field's columns and tags wherever it is (a wrapped enum still restarts the fields after it). The store and
     /// cells are the field's own.
+    /// `validate = path` on the item just read in `next`, named `__value`.
+    fn validate_item(&self) -> Option<TokenStream> {
+        self.validate.map(|path| quote! { #path(&__value)?; })
+    }
+
     pub(crate) fn series_transparent(
         &self,
         fields: &[Field],
@@ -941,6 +949,7 @@ impl SeriesSeed<'_> {
         let ty = field.ty.def(self.is_ref, self.cp);
         let member = kind.member(&field.ident);
         let init = |value: TokenStream| transparent_init(fields, kind, idx, value);
+        let validate = self.validate_item();
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let ident = self.ident;
         let lifetime = self.lifetime();
@@ -996,7 +1005,9 @@ impl SeriesSeed<'_> {
                 #[inline]
                 fn next(reader: &mut Self::Reader, restart: bool) -> Result<Self, #error> {
                     let __field = <#ty as #trait_<'i>>::next(reader, restart)?;
-                    Ok(#next_init)
+                    let __value = #next_init;
+                    #validate
+                    Ok(__value)
                 }
 
                 #[inline]
@@ -1115,6 +1126,7 @@ impl SeriesSeed<'_> {
         )?;
         let n = fields.len();
         let n_u32 = n as u32;
+        let validate = self.validate_item();
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let ident = self.ident;
         let lifetime = self.lifetime();
@@ -1253,7 +1265,9 @@ impl SeriesSeed<'_> {
                     let (__sib, __readers) = reader;
                     __sib.begin();
                     #(#nexts)*
-                    Ok(Self { #(#members: #locals),* })
+                    let __value = Self { #(#members: #locals),* };
+                    #validate
+                    Ok(__value)
                 }
             }
         })

@@ -1,7 +1,7 @@
 //! The report, `docs/serdes/conformance_matrix.md`: every case and what each consumer does with it, from the corpus
 //! and its gap marks (the consumer tests check the marks are true, Python's too).
 
-use crate::corpus::{CONSUMERS, Corpus, Direction};
+use crate::corpus::{CONSUMERS, Corpus, Direction, REQUANTIZE_CONSUMERS};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -79,14 +79,53 @@ pub fn render(corpus: &Corpus) -> String {
             cells.join(" | ")
         );
     }
+    if !corpus.requantize.is_empty() {
+        let _ = writeln!(
+            out,
+            "\n## Requantize\n\nA stored number converted to another scale and storage with a named rounding and \
+             overflow policy (STD-63, [Rounding and overflow](../api/rounding.md)): every consumer gives the result, \
+             `none` for no value.\n\n| Case | Conversion | Value | Rounding | Overflow | Result | {} |\n|---|---|---|---|---|---|{}",
+            REQUANTIZE_CONSUMERS.join(" | "),
+            "---|".repeat(REQUANTIZE_CONSUMERS.len())
+        );
+        for case in &corpus.requantize {
+            let cells: Vec<String> = REQUANTIZE_CONSUMERS
+                .iter()
+                .map(|c| match case.gap(c) {
+                    None => "✅".into(),
+                    Some(reason) => format!("gap {}", gap_id(reason).unwrap_or("-")),
+                })
+                .collect();
+            let result = if case.result.is_null() {
+                "none".to_string()
+            } else {
+                case.result.to_string()
+            };
+            let _ = writeln!(
+                out,
+                "| `{}` | {} | {} | {} | {} | {result} | {} |",
+                case.name,
+                case.conversion,
+                case.value,
+                case.rounding,
+                case.overflow,
+                cells.join(" | ")
+            );
+        }
+    }
     // every reason once, with its cases
     let mut reasons: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
-    for case in &corpus.cases {
-        for (consumer, reason) in &case.gaps {
+    let gaps = corpus
+        .cases
+        .iter()
+        .map(|c| (&c.name, &c.gaps))
+        .chain(corpus.requantize.iter().map(|c| (&c.name, &c.gaps)));
+    for (name, case_gaps) in gaps {
+        for (consumer, reason) in case_gaps {
             reasons
                 .entry((consumer.as_str(), reason.as_str()))
                 .or_default()
-                .push(&case.name);
+                .push(name);
         }
     }
     let _ = writeln!(out, "\n## Gaps\n");

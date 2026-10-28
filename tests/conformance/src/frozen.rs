@@ -54,6 +54,18 @@ pub struct LenientCase {
 #[derive(Debug, Deserialize, Default)]
 pub struct LenientCorpus {
     pub cases: Vec<LenientCase>,
+    #[serde(default)]
+    pub requantize: Vec<LenientRequantize>,
+}
+
+/// A requantize case (STD-63) of a past commit: its result is as frozen as a case's golden bytes.
+#[derive(Debug, Deserialize)]
+pub struct LenientRequantize {
+    pub name: String,
+    #[serde(default)]
+    pub result: serde_json::Value,
+    #[serde(default)]
+    pub wire_change: Option<String>,
 }
 
 /// What to compare the corpus on disk against, or why there's nothing to compare.
@@ -202,6 +214,27 @@ pub fn check(old: &LenientCorpus, now: &Corpus, sha: &str) -> Vec<String> {
             ));
         }
     }
+    for was in &old.requantize {
+        let Some(is) = now.requantize.iter().find(|c| c.name == was.name) else {
+            failures.push(format!(
+                "requantize case '{}' existed at {sha} (baseline) and is gone now: cases don't disappear once in",
+                was.name
+            ));
+            continue;
+        };
+        let fresh_escape = is
+            .wire_change
+            .as_deref()
+            .is_some_and(|w| Some(w) != was.wire_change.as_deref());
+        if is.result != was.result && !fresh_escape {
+            failures.push(format!(
+                "requantize case '{}': result changed since {sha} (baseline): old {}, new {}. A conversion's \
+                 result doesn't change once in; mark it \"wire_change\": \"STD-n / reason\" (new or changed) \
+                 with a **Breaking:** CHANGELOG entry if this is deliberate",
+                was.name, was.result, is.result
+            ));
+        }
+    }
     failures
 }
 
@@ -237,11 +270,13 @@ mod tests {
     #[test]
     fn changed_bytes_fail() {
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", None)],
+            requantize: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
@@ -251,11 +286,13 @@ mod tests {
     #[test]
     fn unchanged_bytes_pass() {
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "00", None)],
+            requantize: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -263,11 +300,13 @@ mod tests {
     #[test]
     fn disappeared_case_fails() {
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("gone", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![],
+            requantize: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
@@ -279,11 +318,13 @@ mod tests {
         // the escape was already used for an earlier change (same mark at the baseline as now): a further bytes
         // change behind the same mark must not be exempt a second time.
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("x", "00", Some("EVO-1 / first change"))],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-1 / first change"))],
+            requantize: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
@@ -293,11 +334,13 @@ mod tests {
     #[test]
     fn new_wire_change_passes() {
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("x", "00", None)],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-2 / deliberate"))],
+            requantize: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -306,11 +349,13 @@ mod tests {
     fn changed_wire_change_reason_passes_again() {
         // a second, different deliberate change: a changed reason counts as fresh, same as a new one.
         let old = LenientCorpus {
+            requantize: vec![],
             cases: vec![lenient("x", "ff", Some("EVO-2 / first change"))],
         };
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "00", Some("EVO-3 / second change"))],
+            requantize: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -330,6 +375,7 @@ mod tests {
         let now = Corpus {
             about: vec![],
             cases: vec![case("x", "ff", None)],
+            requantize: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");

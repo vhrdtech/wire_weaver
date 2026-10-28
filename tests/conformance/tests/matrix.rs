@@ -1,7 +1,7 @@
 //! The conformance matrix (TEST-23): every case of `corpus.json` through each consumer, one test per consumer.
 //! Python runs the same corpus in `wire_weaver_py/tests/test_conformance.py`.
 
-use conformance::corpus::{self, CONSUMERS, Direction};
+use conformance::corpus::{self, CONSUMERS, Direction, REQUANTIZE_CONSUMERS};
 use conformance::derive::Derive;
 use conformance::dynamic::Dynamic;
 use std::collections::BTreeSet;
@@ -61,6 +61,43 @@ fn corpus() {
         extra.is_empty(),
         "derive.rs values without a case in corpus.json: {extra:?}"
     );
+}
+
+/// The requantize cases (STD-63) are well formed; Python and C, which convert nothing yet, carry a gap mark on each
+/// (Python checks its own in `test_conformance.py`).
+#[test]
+fn requantize_corpus() {
+    let corpus = corpus::load();
+    let mut names = BTreeSet::new();
+    for case in &corpus.requantize {
+        assert!(
+            names.insert(case.name.as_str()),
+            "requantize case '{}' twice",
+            case.name
+        );
+        for consumer in case.gaps.keys() {
+            assert!(
+                REQUANTIZE_CONSUMERS.contains(&consumer.as_str()) && consumer != "derive",
+                "requantize case '{}': gap of '{consumer}', not a consumer that can have gaps",
+                case.name
+            );
+        }
+        assert!(
+            case.gap("c").is_some(),
+            "requantize case '{}': C converts nothing yet, give it a gap mark",
+            case.name
+        );
+    }
+}
+
+#[test]
+fn requantize_derive() {
+    conformance::run_requantize("derive", conformance::requantize::derive);
+}
+
+#[test]
+fn requantize_dynamic() {
+    conformance::run_requantize("dynamic", conformance::requantize::dynamic);
 }
 
 #[test]

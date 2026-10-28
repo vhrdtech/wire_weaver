@@ -499,6 +499,9 @@ pub struct GatedV2 {
     pub last: bool,
     #[cfg_attr(all(), default = 3)]
     pub extra: u8,
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // transparent (DER-18): a struct that is its one field on the wire, each case has the bytes of its plain twin
 
 /// A wrapped `u64`, a tuple struct.

@@ -137,7 +137,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 - **[Resume checked on hardware](api/credit_sinks.md#resume)**: A UART sink on a real board put 1 MB on the line exactly once through link drops and a host restart.
 - **[Trait paths](api/addressing.md)**: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span>
 
-<p class="ww-features__more" markdown>Details and what is planned: [API model and codegen](features.md#api-model-and-codegen-api), [Server / device side](features.md#server-device-side-srv), [Documentation](features.md#documentation-doc), [Examples](features.md#examples-ex), [Testing, CI and performance](features.md#testing-ci-and-performance-test) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Wire format](features.md#wire-format-shrink_wrap-sw), [Server / device side](features.md#server-device-side-srv), [Documentation](features.md#documentation-doc), [Examples](features.md#examples-ex), [Testing, CI and performance](features.md#testing-ci-and-performance-test) in the feature tracker.</p>
 
 ## Device side
 

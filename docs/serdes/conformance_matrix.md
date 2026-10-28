@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 139 of 139 | 0 |
-| dynamic | 127 of 139 | 12 |
-| explain | 127 of 139 | 12 |
-| python | 127 of 139 | 12 |
-| c | 34 of 139 | 105 |
+| derive | 154 of 154 | 0 |
+| dynamic | 138 of 154 | 16 |
+| explain | 138 of 154 | 16 |
+| python | 138 of 154 | 16 |
+| c | 34 of 154 | 120 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -157,17 +157,33 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `stdlib.timebase.steer_point.steerer` | `steer_point` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.timebase.sync_status` | `sync_status` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.timebase.sync_status.steerers` | `sync_status` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.dim.volt` | `dim` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.dim.rad_bit` | `dim` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.dim.counted` | `dim` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.dim.rejected` | `dim` | reject | ✅ | gap SW-20 | gap SW-20 | gap SW-20 | gap API-26 |
+| `stdlib.si.dim.root` | `dim` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.dim.root.rejected` | `dim` | reject | ✅ | gap SW-20 | gap SW-20 | gap SW-20 | gap API-26 |
+| `stdlib.si.fixed.pow10` | `fixed_pow10` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.duty16` | `duty16` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.bounded` | `fixed_bounded` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.fixed.bounded.rejected` | `fixed_bounded` | reject | ✅ | gap CLT-54 | gap CLT-54 | gap CLT-54 | gap API-26 |
+| `stdlib.si.exact_scale.degree` | `exact_scale` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.exact_scale.rejected` | `exact_scale` | reject | ✅ | gap SW-20 | gap SW-20 | gap SW-20 | gap API-26 |
+| `stdlib.si.si_expr.volt` | `si_expr` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.si_expr.sqrt` | `si_expr` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.si_expr.rejected` | `si_expr` | reject | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 
 ## Gaps
 
-- **c**: no generated C for this type yet: C from the ww_self model (API-26). 91 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `wire.struct`, `wire.struct.out_of_range`, `wire.enum.tuple`, `wire.enum.named`, `wire.series`, `cfg_attr.v1`, `cfg_attr.v2`, `cfg_attr.new_reads_old`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`.
+- **c**: no generated C for this type yet: C from the ww_self model (API-26). 106 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `wire.struct`, `wire.struct.out_of_range`, `wire.enum.tuple`, `wire.enum.named`, `wire.series`, `cfg_attr.v1`, `cfg_attr.v2`, `cfg_attr.new_reads_old`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`, `stdlib.si.dim.volt`, `stdlib.si.dim.rad_bit`, `stdlib.si.dim.counted`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root`, `stdlib.si.dim.root.rejected`, `stdlib.si.fixed.pow10`, `stdlib.si.fixed.duty16`, `stdlib.si.fixed.bounded`, `stdlib.si.fixed.bounded.rejected`, `stdlib.si.exact_scale.degree`, `stdlib.si.exact_scale.rejected`, `stdlib.si.si_expr.volt`, `stdlib.si.si_expr.sqrt`, `stdlib.si.si_expr.rejected`.
 - **c**: reader only: the generated C has no writer yet (API-26). 8 cases: `fixed.numbers`, `fixed.bits`, `fixed.nested`, `fixed.option.none`, `fixed.option.some`, `fixed.enum.unit`, `fixed.enum.fields`, `head_tail.struct`.
 - **c**: the C runtime has no 128-bit numbers (SW-66). 2 cases: `int.u128.max`, `int.i128.min`.
 - **c**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.
 - **c**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **dynamic**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **dynamic**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
-- **dynamic**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
+- **dynamic**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 4 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.exact_scale.rejected`.
+- **dynamic**: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: `stdlib.si.fixed.bounded.rejected`.
 - **dynamic**: by design: the API model has the variants of every build, a host reads it (DER-8). 1 case: `enum.cfg.compiled_out`.
 - **dynamic**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **dynamic**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
@@ -176,7 +192,8 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **dynamic**: ww_link's LinkSetup is a link message, not a type of an API in the model; a dynamic consumer reads API types (SW-46 is the same for head_tail). 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **explain**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **explain**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
-- **explain**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
+- **explain**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 4 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.exact_scale.rejected`.
+- **explain**: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: `stdlib.si.fixed.bounded.rejected`.
 - **explain**: by design: the API model has the variants of every build, a host reads it (DER-8). 1 case: `enum.cfg.compiled_out`.
 - **explain**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **explain**: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: `option.option.some_none`.
@@ -185,7 +202,8 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 - **explain**: ww_link's LinkSetup is a link message, not a type of an API in the model. 2 cases: `link_setup.without_meta`, `link_setup.with_meta`.
 - **python**: TailBytes has no form in the API model yet (INT-9). 1 case: `tail_bytes`.
 - **python**: TailSize has no form in the API model yet (INT-9). 1 case: `struct.tail_size`.
-- **python**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 1 case: `struct.validate.rejected`.
+- **python**: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 4 cases: `struct.validate.rejected`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root.rejected`, `stdlib.si.exact_scale.rejected`.
+- **python**: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: `stdlib.si.fixed.bounded.rejected`.
 - **python**: by design: the API model has the variants of every build (DER-8). 1 case: `enum.cfg.compiled_out`.
 - **python**: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: `head_tail.struct`.
 - **python**: null is None and Some(None) alike in the Python value form (TOOL-13). 1 case: `option.option.some_none`.

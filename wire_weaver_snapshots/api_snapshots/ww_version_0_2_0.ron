@@ -7,7 +7,7 @@
         "See also [ApiHashPair]",
     ], ident: "ApiHash", generics: [], fields: Named([
         (ident: Some("hash"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Two hashes uniquely identifying client or device\'s API - with doc strings and without.",
         "The idea behind this is that if something important has changed without changing API or data types,",
@@ -29,7 +29,7 @@
             "Hash of the [ApiBundle] with all the doc strings kept.",
             "If there are no doc strings, this array is empty.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "SemVer version as defined by <https://semver.org> in ShrinkWrap format.",
         "The minimum size is 2 bytes, when major, minor, and patch are less than 8 and pre and build are None.",
@@ -47,11 +47,11 @@
             "Optional build metadata identifier. This comes after + in a SemVer version, as in 0.8.1+zstd.1.5.0.",
             "Not used in compatibility checks, only treated as additional metadata.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [], ident: "FullVersion", generics: [], fields: Named([
         (ident: Some("crate_id"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
         (ident: Some("version"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "GlobalTypeId", signature: [
         150,
         222,
@@ -70,14 +70,14 @@
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "Version as major.minor.patch triplet, useful when names are not required.",
     ], ident: "VersionTriplet", generics: [], fields: Named([
         (ident: Some("major"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("minor"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("patch"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_version", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_global", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),

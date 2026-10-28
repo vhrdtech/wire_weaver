@@ -2117,12 +2117,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.
 - 📋 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.5` — `Level<Kind, Ref>` on the point algebra:
   level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
-  convention).
+  convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave, decade,
+  shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and the
+  reference may be absent (a pure gain), a quantity or dimension one; gains compose (dB/km, Np/s ≠ Hz).
 - 📋 **STD-68 Kinds that share a dimension** · `v0.5` — relative humidity, duty cycle, state of charge, strain, volume
   fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
-  explicit casts between siblings.
+  explicit casts between siblings. W / VA / var and their energies, Gy / Sv; a kind survives a product with plain
+  units (var·h stays reactive energy, never kW·h). Kinds with arguments: gas volume and density at stated reference
+  conditions (`StandardVolume<Ref>`: DIN 1343, ISO 13443, US SCF), with an opt-in exact ideal-gas bridge to mol.
 - 📋 **STD-69 More counted units** · `v0.5` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
-  each a dimension of its own.
+  each a dimension of its own; `AVOGADRO` bridges `Particle` and mol exactly.
 - 📋 **STD-77 Runtime scale parts and reference values** · `v0.5` — what device standards do at run time, without a
   refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
   (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec `*_SF` scale-factor register), and a
@@ -2137,11 +2141,31 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
   only. Later, in `exact_units_interop` like STD-70.
 - 📋 **STD-73 One table of unit symbols and spellings** · `v0.5` — display and parsing of every unit from one table,
-  shared by Rust, si_dynamic, `ww` and Python, UCUM spelling where there is one.
+  shared by Rust, si_dynamic, `ww` and Python, UCUM spelling where there is one; symbols are case-sensitive and a
+  bare ambiguous one is refused (`pH`: picohenry or pH, `B`: bel or byte).
 - 📋 **STD-74 The runtime side catches up** · `v0.5` — `Quantity`, `AnyQuantity` and `SIExpr` get the exact magnitude,
-  the °C point / interval split, levels and sentinels.
+  the °C point / interval split, levels and sentinels, so `ww_si` never lags behind `exact_units`; the `Fixed` ↔
+  `Quantity` parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.
 - 📋 **STD-75 Non-linear scales by name** · `v0.5` — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
   conversion function each, or out of scope with the reason written down.
+- 📋 **STD-78 `serde` for units, three forms per field** · `v0.5` — an `exact_units` feature `serde` (Roman, 28 Oct
+  2026), the form chosen per field with `#[serde(with = ..)]` adapters: a plain number (the unit stated in the schema),
+  a human string `"5 ms"` (STD-73's table, exact) or a self-describing `{ value, unit }`. Deserializing accepts any
+  compatible unit and converts exactly; it refuses a wrong dimension, an inexact conversion, a value out of bounds and
+  an ambiguous name; sentinels map to their meaning. Tests per form, and a docs page "Storing units": a fixed unit per
+  column is a `Fixed` with the unit in the schema and integers at the fixed scale (SQL aggregates stay right); a unit
+  that varies per row is an `AnyQuantity` or a unit column; `Quantity` is a wire tool, normalized before storing; text
+  headers like `vbus [mV]`. For configs, web APIs and queues, telemetry, logs and metrics, data files, CAD / EDA (nm
+  in better_erc) and Python bindings, not firmware only.
+- 📋 **STD-79 JSON Schema with unit and range** — a `schemars` feature: each unit field's schema names its unit and
+  bounds. Later, an optional feature like STD-78.
+- 📋 **STD-80 Unit values on the command line** — a `clap` value parser (`--timeout 5ms`) on STD-73's table, exact,
+  refusing what STD-78 refuses. Later, optional feature.
+- 📋 **STD-81 Database columns with units** — `sqlx` and `diesel` column types for `Fixed` (integer at the fixed
+  scale) and `AnyQuantity`, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
+  features.
+- 📋 **STD-82 Unit metadata in Arrow and Polars** — a column's unit and scale as Arrow field metadata, read back
+  exactly, Polars through it. Later, optional feature.
 
 ## Examples (`EX`)
 
@@ -2213,7 +2237,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   traits (`ww_uart`, `ww_gpio`, `ww_si` types); the macro panicked on their `version = ".."` dependencies until
   API-14, try one on a crates.io-shaped copy.
 - 📋 **DOC-10 Units docs section** · `v0.5` — choosing `Fixed`, `Point`, `Level`, `Quantity` or `AnyQuantity`, imperial
-  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.
+  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose; links STD-78's "Storing units" page.
 
 ## Testing, CI and performance (`TEST`)
 
@@ -2276,7 +2300,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **TEST-29 Units zero-cost gate** · `v0.5` — the ELF comparison of TEST-27 (`just units-elf`) becomes a gate in
   `just test` / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
   compiles to identical code on every core and firmware profile measured (M0, M4F, M33; `opt-level` `z` and `3`), and
-  a pair that differs fails with the per-symbol diff.
+  a pair that differs fails with the per-symbol diff; a `Quantity` with a named prefix that grows in RAM fails too.
 - ✅ **TEST-27 Units firmware budget** · `v0.5` — what `ww_si::Fixed` costs on an MCU against the plain fields it
   replaces, one harness any later piece (`Point`, rounding conversions, `Level`) re-runs with `just units-budget`:
   `examples_mcu/mcu_qemu/src/unit_budget.rs` (`qemu-unit-budget`, `stm32h725ig-unit-budget-cycles`) with plain/`Fixed`

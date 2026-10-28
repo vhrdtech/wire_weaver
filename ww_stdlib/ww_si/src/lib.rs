@@ -47,8 +47,8 @@ pub use exact_units::Bytes;
 pub use exact_units::{
     Bounds, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH, Magnitude,
     Offset, Origin, OutOfBounds, Point, PointDiff, Prefix, Range, RangeDec, RangeU64, Repr, SIExpr,
-    Scale, Storage, Unbounded, Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, origins,
-    prefix, scale, unit, units,
+    Scale, Storage, Unbounded, Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage, counted, origin,
+    origins, prefix, scale, unit, units,
 };
 #[cfg(feature = "std")]
 pub use exact_units::{CountedOwned, DimOwned, SIExprOwned};

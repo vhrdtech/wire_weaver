@@ -7,14 +7,19 @@
 //! error here too. An `origin!` declares one struct, `<attrs> <vis> struct <Name> { <keyed fields> }`; its fields
 //! are kept as they are in `#[ww_marker(origin, ..)]`.
 
+use super::crate_walker::{CrateContext, Scratch};
+use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude};
+use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{
     Attribute, Ident, Item, LitFloat, LitInt, LitStr, Token, Visibility, bracketed, parenthesized,
 };
-use ww_self::{MarkerDefOwned, ScaleDefOwned, UnitDefOwned};
+use ww_self::units::{marker_name_of, origin_of, scale_of, unit_of};
+use ww_self::{
+    ApiBundleOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned, ScaleDefOwned, UnitDefOwned,
+};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
 pub(crate) const MARKER_ATTR: &str = "ww_marker";
@@ -73,8 +78,8 @@ pub(crate) fn expand_marker_macros(items: &mut Vec<Item>) -> Result<()> {
     Ok(())
 }
 
-/// Marks each struct with a hand-written `impl Unit for X { const DIM .. }` or `impl FixedScale for X { const SCALE
-/// .. }` next to it with `#[ww_marker(hand, <trait>)]`: the walker can't read such a definition, and says so when the
+/// Marks each struct with a hand-written `impl Unit for X { const DIM .. }`, `impl FixedScale for X { const SCALE
+/// .. }` or `impl Origin for X { const OFFSET .. }` next to it with `#[ww_marker(hand, <trait>)]`: the walker can't read such a definition, and says so when the
 /// marker is used, instead of leaving it unitless.
 fn mark_hand_written(items: &mut [Item]) {
     let mut hand = Vec::new();
@@ -91,6 +96,7 @@ fn mark_hand_written(items: &mut [Item]) {
         let konst = match trait_name.as_str() {
             "Unit" => "DIM",
             "FixedScale" => "SCALE",
+            "Origin" => "OFFSET",
             _ => continue,
         };
         let defines = item_impl
@@ -248,16 +254,321 @@ impl OriginDecl {
     }
 }
 
+/// The fields of an `origin!`, in the order the macro takes them.
+pub(crate) enum OriginFields {
+    /// From the unit's zero, or from a reference.
+    Unit {
+        unit: syn::Type,
+        symbol: String,
+        offset: syn::Expr,
+        step: Option<syn::Expr>,
+        reference: Option<syn::Type>,
+        modulus: Option<syn::Type>,
+    },
+    /// `above: Parent, offset: ..`.
+    Above {
+        parent: syn::Type,
+        offset: syn::Expr,
+    },
+}
+
+impl Parse for OriginFields {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        fn key(input: ParseStream, name: &str) -> syn::Result<bool> {
+            let fork = input.fork();
+            match fork.parse::<Ident>() {
+                Ok(ident) if ident == name => {
+                    input.parse::<Ident>()?;
+                    input.parse::<Token![:]>()?;
+                    Ok(true)
+                }
+                _ => Ok(false),
+            }
+        }
+        fn comma(input: ParseStream) -> syn::Result<()> {
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+            Ok(())
+        }
+        let fields = if key(input, "above")? {
+            let parent = input.parse()?;
+            input.parse::<Token![,]>()?;
+            if !key(input, "offset")? {
+                return Err(input.error("`offset: ..` after `above`"));
+            }
+            let offset = input.parse()?;
+            comma(input)?;
+            OriginFields::Above { parent, offset }
+        } else {
+            if !key(input, "unit")? {
+                return Err(input.error("`unit: ..` or `above: ..`"));
+            }
+            let unit = input.parse()?;
+            input.parse::<Token![,]>()?;
+            if !key(input, "symbol")? {
+                return Err(input.error("`symbol: \"..\"` after `unit`"));
+            }
+            let symbol = input.parse::<LitStr>()?.value();
+            input.parse::<Token![,]>()?;
+            if !key(input, "offset")? {
+                return Err(input.error("`offset: ..` after `symbol`"));
+            }
+            let offset = input.parse()?;
+            comma(input)?;
+            let step = if key(input, "step")? {
+                let step = input.parse()?;
+                comma(input)?;
+                Some(step)
+            } else {
+                None
+            };
+            let reference = if key(input, "reference")? {
+                let reference = input.parse()?;
+                comma(input)?;
+                Some(reference)
+            } else {
+                None
+            };
+            let modulus = if key(input, "modulus")? {
+                let modulus = input.parse()?;
+                comma(input)?;
+                Some(modulus)
+            } else {
+                None
+            };
+            OriginFields::Unit {
+                unit,
+                symbol,
+                offset,
+                step,
+                reference,
+                modulus,
+            }
+        };
+        if !input.is_empty() {
+            return Err(input.error("step, reference and modulus, in that order, after offset"));
+        }
+        Ok(fields)
+    }
+}
+
+/// The definition of an `origin!` with `fields`, in `current_crate`: its unit, reference and modulus (or its parent)
+/// converted as types and resolved through their own definitions, so the model carries the origin whole.
+pub(crate) fn origin_def(
+    fields: &OriginFields,
+    current_crate: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<OriginDefOwned> {
+    let mut resolve = |ty: &syn::Type| -> Result<(ww_self::TypeOwned, ApiBundleOwned)> {
+        let ty = convert_ty(ty, current_crate, scratch)?;
+        Ok((ty, scratch.root_bundle.to_bundle()))
+    };
+    match fields {
+        OriginFields::Unit {
+            unit,
+            symbol,
+            offset,
+            step,
+            reference,
+            modulus,
+        } => {
+            let (unit_ty, bundle) = resolve(unit)?;
+            let unit = unit_of(&unit_ty, &bundle).context("the origin's unit")?;
+            let reference = match reference {
+                Some(r) if !last_ident_is(r, "UnitZero") => {
+                    let (ty, bundle) = resolve(r)?;
+                    let name = marker_name_of(&ty, &bundle).context("the origin's reference")?;
+                    Some(MarkerRefOwned {
+                        crate_id: name.crate_id,
+                        name: name.name,
+                    })
+                }
+                _ => None,
+            };
+            let modulus = match modulus {
+                Some(m) if !last_ident_is(m, "Linear") => {
+                    let period = modulo_arg(m).ok_or_else(|| {
+                        anyhow!("modulus `{}`: Linear or Modulo<S>", quote::quote!(#m))
+                    })?;
+                    let (ty, bundle) = resolve(period)?;
+                    Some(scale_of(&ty, &bundle).context("the origin's modulus")?)
+                }
+                _ => None,
+            };
+            let offset = offset_value(offset)?;
+            Ok(OriginDefOwned {
+                unit: UnitDefOwned {
+                    symbol: unit.to_string(),
+                    dim: unit.dim,
+                    magnitude: unit.magnitude,
+                },
+                symbol: symbol.clone(),
+                reference,
+                offset,
+                modulus,
+                step: step
+                    .as_ref()
+                    .map(step_value)
+                    .transpose()?
+                    .unwrap_or(Magnitude::ONE),
+                shown: offset,
+            })
+        }
+        OriginFields::Above { parent, offset } => {
+            let (ty, bundle) = resolve(parent)?;
+            let mut def = origin_of(&ty, &bundle).context("the origin it is above")?;
+            def.offset = def
+                .offset
+                .checked_add(offset_value(offset)?)
+                .ok_or_else(|| {
+                    anyhow!("the offsets don't add up to a fraction of 64-bit integers")
+                })?;
+            Ok(def)
+        }
+    }
+}
+
+fn last_ident_is(ty: &syn::Type, name: &str) -> bool {
+    matches!(ty, syn::Type::Path(p) if p.path.segments.last().is_some_and(|s| s.ident == name))
+}
+
+/// `S` of `Modulo<S>`.
+fn modulo_arg(ty: &syn::Type) -> Option<&syn::Type> {
+    let syn::Type::Path(p) = ty else {
+        return None;
+    };
+    let last = p.path.segments.last()?;
+    if last.ident != "Modulo" {
+        return None;
+    }
+    match &last.arguments {
+        syn::PathArguments::AngleBracketed(a) if a.args.len() == 1 => match &a.args[0] {
+            syn::GenericArgument::Type(t) => Some(t),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// The value of an `origin!`'s `offset`: `Offset::ZERO`, `Offset::int(n)`, `Offset::ratio(num, den)` or
+/// `Offset::decimal(num, exp)` with integer literals, as `exact_units` computes it.
+pub(crate) fn offset_value(e: &syn::Expr) -> Result<Offset> {
+    let (name, args) = const_call(e, "Offset")?;
+    let wrong = || {
+        anyhow!(
+            "offset `{}`: clients read only Offset::ZERO, Offset::int(n), Offset::ratio(num, den) and \
+             Offset::decimal(num, exp) with integer literals",
+            quote::quote!(#e)
+        )
+    };
+    let int = |i: usize| args.get(i).copied().ok_or_else(wrong).and_then(int_lit);
+    let o = match (name.as_str(), args.len()) {
+        ("ZERO", 0) => Offset::ZERO,
+        ("int", 1) => ratio_offset(int(0)?, 1)?,
+        ("ratio", 2) => ratio_offset(
+            int(0)?,
+            u64::try_from(int(1)?).map_err(|_| anyhow!("an offset's denominator is positive"))?,
+        )?,
+        ("decimal", 2) => {
+            let exp =
+                i8::try_from(int(1)?).map_err(|_| anyhow!("decimal exponent out of range"))?;
+            let p = Magnitude::checked_pow10(exp)
+                .ok_or_else(|| anyhow!("decimal exponent out of range"))?;
+            let o = ratio_offset(int(0)?, 1)?;
+            match o.magnitude() {
+                Some(m) => Offset::new(
+                    o.is_negative(),
+                    m.checked_mul(p).map_err(|e| anyhow!("offset: {e:?}"))?,
+                ),
+                None => o,
+            }
+        }
+        _ => return Err(wrong()),
+    };
+    Ok(o)
+}
+
+/// The value of an `origin!`'s `step`: `Magnitude::ONE`, `Magnitude::ratio(num, den)` or `Magnitude::pow10(e)`.
+pub(crate) fn step_value(e: &syn::Expr) -> Result<Magnitude> {
+    let (name, args) = const_call(e, "Magnitude")?;
+    let wrong = || {
+        anyhow!(
+            "step `{}`: clients read only Magnitude::ONE, Magnitude::ratio(num, den) and Magnitude::pow10(e) with \
+             integer literals",
+            quote::quote!(#e)
+        )
+    };
+    let int = |i: usize| args.get(i).copied().ok_or_else(wrong).and_then(int_lit);
+    let positive =
+        |i: usize| u64::try_from(int(i)?).map_err(|_| anyhow!("a step is a positive ratio"));
+    match (name.as_str(), args.len()) {
+        ("ONE", 0) => Ok(Magnitude::ONE),
+        ("ratio", 2) => {
+            Magnitude::checked_ratio(positive(0)?, positive(1)?).map_err(|e| anyhow!("step: {e:?}"))
+        }
+        ("pow10", 1) => i8::try_from(int(0)?)
+            .ok()
+            .and_then(Magnitude::checked_pow10)
+            .ok_or_else(|| anyhow!("step exponent out of range")),
+        _ => Err(wrong()),
+    }
+}
+
+fn ratio_offset(num: i128, den: u64) -> Result<Offset> {
+    if num == 0 {
+        return Ok(Offset::ZERO);
+    }
+    let n = u64::try_from(num.unsigned_abs())
+        .map_err(|_| anyhow!("offset {num} doesn't fit 64 bits"))?;
+    Ok(Offset::new(
+        num < 0,
+        Magnitude::checked_ratio(n, den).map_err(|e| anyhow!("offset {num}/{den}: {e:?}"))?,
+    ))
+}
+
+/// `Ty::NAME` or `Ty::name(args..)` (with any path before `Ty`): the name and the arguments.
+fn const_call<'a>(e: &'a syn::Expr, ty: &str) -> Result<(String, Vec<&'a syn::Expr>)> {
+    let (path, args) = match e {
+        syn::Expr::Path(p) => (&p.path, vec![]),
+        syn::Expr::Call(c) => match &*c.func {
+            syn::Expr::Path(p) => (&p.path, c.args.iter().collect()),
+            _ => bail!("`{}` is not `{ty}::..`", quote::quote!(#e)),
+        },
+        _ => bail!("`{}` is not `{ty}::..`", quote::quote!(#e)),
+    };
+    let n = path.segments.len();
+    if n < 2 || path.segments[n - 2].ident != ty {
+        bail!("`{}` is not `{ty}::..`", quote::quote!(#e));
+    }
+    Ok((path.segments[n - 1].ident.to_string(), args))
+}
+
+/// An integer literal, possibly negated.
+fn int_lit(e: &syn::Expr) -> Result<i128> {
+    match e {
+        syn::Expr::Lit(syn::ExprLit {
+            lit: syn::Lit::Int(i),
+            ..
+        }) => Ok(i.base10_parse()?),
+        syn::Expr::Unary(syn::ExprUnary {
+            op: syn::UnOp::Neg(_),
+            expr,
+            ..
+        }) => int_lit(expr).map(|v| -v),
+        _ => bail!("`{}` is not an integer literal", quote::quote!(#e)),
+    }
+}
+
 /// What a `#[ww_marker(..)]` attribute says.
 pub(crate) enum MarkerLineDef {
     Unit(UnitLine),
     Scale(ScaleLine),
     /// A hand-written `impl Unit` / `impl FixedScale` (the trait's name).
     Hand(String),
-    /// The keyed fields of an `origin!` (`unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2)` or
-    /// `above: Celsius, offset: ..`), as written: the model conversion reads them (INT-13).
-    #[allow(dead_code)] // read by the model conversion
-    Origin(TokenStream),
+    /// The keyed fields of an `origin!`: `unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2)` or
+    /// `above: Celsius, offset: ..`.
+    Origin(OriginFields),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -280,7 +591,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-const BUILT_IN: [(&str, MarkerDefOwned); 12] = [
+const BUILT_IN: [(&str, MarkerDefOwned); 13] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -293,6 +604,7 @@ const BUILT_IN: [(&str, MarkerDefOwned); 12] = [
     ("Range", MarkerDefOwned::Range),
     ("RangeU64", MarkerDefOwned::RangeU64),
     ("RangeDec", MarkerDefOwned::RangeDec),
+    ("Angle", MarkerDefOwned::Angle),
 ];
 
 /// The crate whose markers [BUILT_IN] names.
@@ -302,9 +614,13 @@ const EXACT_UNITS: &str = "exact_units";
 /// for any other struct. A marker with a hand-written `impl Unit` / `impl FixedScale` is an error naming it.
 ///
 /// [ItemStructOwned::marker]: ww_self::ItemStructOwned::marker
+///
+/// An `origin!` is resolved by `origin`: its unit, reference, modulus and parent are types to convert, see
+/// [origin_def].
 pub(crate) fn marker_def(
     item_struct: &syn::ItemStruct,
     crate_name: &str,
+    origin: &mut dyn FnMut(&OriginFields) -> Result<OriginDefOwned>,
 ) -> Result<Option<MarkerDefOwned>> {
     let crate_name = crate_name.replace('-', "_");
     let ident = item_struct.ident.to_string();
@@ -417,15 +733,16 @@ pub(crate) fn marker_def(
                 magnitude: magnitude(&m).with_context(|| format!("scale marker {ident}"))?,
             })
         }
-        // TODO(INT-13): MarkerDef::Origin from the fields; until then an origin is a plain struct in the model
-        MarkerLineDef::Origin(_) => return Ok(None),
+        MarkerLineDef::Origin(fields) => MarkerDefOwned::Origin(
+            origin(&fields).with_context(|| format!("origin marker {ident}"))?,
+        ),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
-            if trait_name == "Unit" {
-                "unit"
-            } else {
-                "scale"
+            match trait_name.as_str() {
+                "Unit" => "unit",
+                "Origin" => "origin",
+                _ => "scale",
             }
         ),
     };
@@ -697,7 +1014,7 @@ fn parse_f64(input: ParseStream) -> syn::Result<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use exact_units::{FixedScale, Scale, UnitExpr, prefix};
+    use exact_units::{FixedScale, Origin, Scale, UnitExpr, origins, prefix};
     use shrink_wrap::{SerializeShrinkWrap, SerializeShrinkWrapOwned};
     use std::collections::BTreeMap;
     use ww_self::{TypeLocationOwned, TypeOwned};
@@ -778,6 +1095,52 @@ mod tests {
                 "{name}"
             );
         }
+        let Some(MarkerDefOwned::Scale(two_pi)) = markers.remove("TwoPi") else {
+            panic!("TwoPi: no scale definition in the model");
+        };
+        assert_eq!(two_pi.magnitude, <origins::TwoPi as FixedScale>::SCALE);
+        macro_rules! origins {
+            ($($name:ident)*) => {
+                [$((stringify!($name), <origins::$name as Origin>::DEF)),*]
+            };
+        }
+        for (name, compiled) in origins!(
+            AbsoluteZero Celsius Rankine Fahrenheit Vacuum Gauge AboveStandardAtmosphere
+        ) {
+            let Some(MarkerDefOwned::Origin(def)) = markers.remove(name) else {
+                panic!("{name}: no origin definition in the model");
+            };
+            let UnitExpr::Named {
+                symbol, dim, scale, ..
+            } = compiled.unit
+            else {
+                panic!("{name}: a named unit");
+            };
+            assert_eq!(def.unit.symbol, *symbol, "{name}");
+            assert_eq!(
+                dim_bytes(&def.unit.dim),
+                dim.to_ww_bytes(&mut [0; 64]).unwrap(),
+                "{name}"
+            );
+            assert_eq!(*scale, Scale::Coherent, "{name}");
+            assert_eq!(def.unit.magnitude, Magnitude::ONE, "{name}");
+            assert_eq!(def.symbol, compiled.symbol, "{name}");
+            assert_eq!(
+                def.reference.is_some(),
+                !compiled.reference.is_empty(),
+                "{name}"
+            );
+            assert_eq!(
+                (def.offset, def.modulus, def.step, def.shown),
+                (
+                    compiled.offset,
+                    compiled.modulus,
+                    compiled.step,
+                    compiled.shown
+                ),
+                "{name}"
+            );
+        }
         for (name, def) in BUILT_IN {
             assert_eq!(markers.remove(name), Some(def), "{name}");
         }
@@ -789,6 +1152,65 @@ mod tests {
         let mut file = syn::parse_file(src).unwrap();
         expand_marker_macros(&mut file.items).unwrap();
         file.items
+    }
+
+    fn no_origin(_: &OriginFields) -> Result<OriginDefOwned> {
+        bail!("no origins here")
+    }
+
+    #[test]
+    fn origin_fields_and_values() {
+        let fields: OriginFields = syn::parse_str(
+            "unit: Kelvin, symbol: \"°F\", offset: Offset::ratio(45967, 180), step: Magnitude::ratio(5, 9)",
+        )
+        .unwrap();
+        let OriginFields::Unit {
+            symbol,
+            offset,
+            step: Some(step),
+            reference: None,
+            modulus: None,
+            ..
+        } = fields
+        else {
+            panic!()
+        };
+        assert_eq!(symbol, "°F");
+        assert_eq!(offset_value(&offset).unwrap(), Offset::ratio(45967, 180));
+        assert_eq!(step_value(&step).unwrap(), Magnitude::ratio(5, 9));
+        let e = |s: &str| syn::parse_str::<syn::Expr>(s).unwrap();
+        for (expr, value) in [
+            ("Offset::ZERO", Offset::ZERO),
+            ("exact_units::Offset::int(-40)", Offset::int(-40)),
+            (
+                "$crate::Offset::decimal(-27315, -2)",
+                Offset::decimal(-27315, -2),
+            ),
+            ("Offset::decimal(0, 3)", Offset::ZERO),
+        ] {
+            let expr = expr.replace("$crate::", "crate::");
+            assert_eq!(offset_value(&e(&expr)).unwrap(), value, "{expr}");
+        }
+        assert_eq!(
+            step_value(&e("Magnitude::pow10(-3)")).unwrap(),
+            Magnitude::pow10(-3)
+        );
+        assert_eq!(step_value(&e("Magnitude::ONE")).unwrap(), Magnitude::ONE);
+        let err = offset_value(&e("Offset::int(25).add(Offset::ZERO)")).unwrap_err();
+        assert!(err.to_string().contains("is not `Offset::..`"), "{err}");
+        let err = offset_value(&e("Offset::int(N)")).unwrap_err();
+        assert!(err.to_string().contains("not an integer literal"), "{err}");
+        let err = step_value(&e("Magnitude::ratio(-1, 9)")).unwrap_err();
+        assert!(err.to_string().contains("positive"), "{err}");
+        let above: OriginFields =
+            syn::parse_str("above: Celsius, offset: Offset::int(25),").unwrap();
+        assert!(matches!(above, OriginFields::Above { .. }));
+        let wrong = syn::parse_str::<OriginFields>("unit: Kelvin, offset: Offset::ZERO");
+        assert!(wrong.is_err());
+        let wrong = syn::parse_str::<OriginFields>(
+            "unit: Kelvin, symbol: \"K\", offset: Offset::ZERO, modulus: Linear, step: Magnitude::ONE",
+        );
+        assert!(wrong.is_err());
     }
 
     #[test]
@@ -813,7 +1235,11 @@ mod tests {
         let Some(MarkerLineDef::Origin(fields)) = marker_line(&celsius.attrs).unwrap() else {
             panic!()
         };
-        assert!(fields.to_string().starts_with("unit : Kelvin"));
+        let OriginFields::Unit { symbol, offset, .. } = fields else {
+            panic!()
+        };
+        assert_eq!(symbol, "°C");
+        assert_eq!(offset_value(&offset).unwrap(), Offset::decimal(27315, -2));
         let Item::Mod(inner) = &items[1] else {
             panic!()
         };
@@ -947,14 +1373,22 @@ mod tests {
                 _ => None,
             })
             .collect();
-        let err = marker_def(structs[0], "my-api").unwrap_err().to_string();
+        let err = marker_def(structs[0], "my-api", &mut no_origin)
+            .unwrap_err()
+            .to_string();
         assert!(
             err.contains("Rpm") && err.contains("my_api") && err.contains("unit!"),
             "{err}"
         );
-        let err = marker_def(structs[1], "my_api").unwrap_err().to_string();
+        let err = marker_def(structs[1], "my_api", &mut no_origin)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("Lsb") && err.contains("scale!"), "{err}");
-        assert!(marker_def(structs[2], "my_api").unwrap().is_none());
+        assert!(
+            marker_def(structs[2], "my_api", &mut no_origin)
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]

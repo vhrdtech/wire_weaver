@@ -425,28 +425,11 @@ impl DynQuantity {
             });
         }
         let unit = unit_of(ty, bundle)?;
-        let ValueOwned::Struct {
-            fields: FieldsValueOwned::Named(fields),
-        } = value
-        else {
-            return None;
-        };
-        let mut prefix = None;
-        let mut number = None;
-        for (name, value) in fields {
-            match (name.as_str(), value) {
-                (
-                    "prefix",
-                    ValueOwned::Enum {
-                        variant,
-                        fields: FieldsValueOwned::Unit,
-                    },
-                ) => prefix = Prefix::from_name(variant),
-                ("value", ValueOwned::Enum { fields, .. }) => number = numeric_value(fields),
-                _ => {}
-            }
-        }
-        Some(DynQuantity::new(prefix?, number?, unit))
+        // decoded by the derived type: the unit is only in the type, every `Quantity<U>` has the same bytes, and a
+        // `Pow10`, `Pow2` or `FullScale` prefix (STD-59) comes back with its scale
+        let bytes = value.ser_shrink_wrap_dyn(ty, bundle).ok()?;
+        let q = ww_si::Quantity::<ww_si::units::Ratio>::from_ww_bytes(&bytes).ok()?;
+        Some(DynQuantity::new(q.prefix, q.value, unit))
     }
 
     /// The value of `ty` (a `ww_si::Quantity` of the same unit, an `AnyQuantity` with this unit, or a `Fixed` of a unit

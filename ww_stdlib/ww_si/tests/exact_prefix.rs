@@ -1,5 +1,5 @@
-//! Quantities with a binary or `Exact` prefix (STD-59): the same conversions, comparisons and arithmetic as with an
-//! SI prefix, exact through the prefixes' magnitudes.
+//! Quantities with a binary prefix or a `Pow10`, `Pow2` or `FullScale` scale (STD-59): the same conversions,
+//! comparisons and arithmetic as with an SI prefix, exact through the prefixes' magnitudes.
 #![cfg(feature = "std")]
 
 use shrink_wrap::prelude::*;
@@ -21,9 +21,10 @@ fn duty16() -> Prefix {
 }
 
 #[test]
-fn prefix_stays_one_byte() {
-    assert_eq!(size_of::<Prefix>(), 1);
-    assert_eq!(size_of::<Option<Prefix>>(), 1);
+fn prefix_is_two_bytes() {
+    // a tag and the scale's parameter, inline
+    assert_eq!(size_of::<Prefix>(), 2);
+    assert_eq!(size_of::<Option<Prefix>>(), 2);
 }
 
 #[test]

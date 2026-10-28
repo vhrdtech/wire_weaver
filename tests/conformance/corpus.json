@@ -1115,28 +1115,28 @@
       "note": "64 KiB: a binary prefix is a named one, one nibble like Milli (STD-59)"
     },
     {
-      "name": "stdlib.si.quantity.exact.duty16",
-      "type": "quantity_ratio",
-      "value": {"prefix": {"Exact": {"pow10": -2, "rest": {"pow2": 2, "irrational": null, "factors": [{"prime": 3, "exp": -2}, {"prime": 17, "exp": -2}, {"prime": 257, "exp": -2}, null, null, null, null, null, null, null, null, null]}}}, "value": {"U32": 32768}},
-      "bytes": "d3fe800243fe8920fe8984fe000300800000",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "32768 · 1/65535: an Exact prefix carries its full Magnitude, the scale a Duty16 has (STD-59)"
-    },
-    {
-      "name": "stdlib.si.quantity.exact.pow10",
+      "name": "stdlib.si.quantity.pow10",
       "type": "quantity_second",
-      "value": {"prefix": {"Exact": {"pow10": -8, "rest": null}}, "value": {"U32": 12345}},
-      "bytes": "d3f80339300000",
+      "value": {"prefix": {"Pow10": -4}, "value": {"U32": 12345}},
+      "bytes": "d3fc3039300000",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "12345 · 10⁻⁴ s: a power of ten with no SI prefix is Exact, as Fixed's Pow10<-4> (STD-59)"
+      "note": "12345 · 10⁻⁴ s: a power of ten with no SI prefix, the scale of Fixed's Pow10<-4>, inline after the tag (STD-59)"
     },
     {
-      "name": "stdlib.si.quantity.exact.bam",
-      "type": "quantity_angle",
-      "value": {"prefix": {"Exact": {"pow10": 0, "rest": {"pow2": -30, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}}}, "value": {"U32": 16384}},
-      "bytes": "d30080e280020000000300400000",
+      "name": "stdlib.si.quantity.pow2",
+      "type": "quantity_second",
+      "value": {"prefix": {"Pow2": -15}, "value": {"U32": 32768}},
+      "bytes": "e3f13000800000",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
-      "note": "16384 · π/2¹⁵ rad = π/2: a binary angle (BAM) scale as Exact (STD-59)"
+      "note": "32768 · 2⁻¹⁵ s = 1 s: a power of two with no binary prefix, a 32768 Hz clock tick (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.fullscale",
+      "type": "quantity_ratio",
+      "value": {"prefix": {"FullScale": 16}, "value": {"U32": 32768}},
+      "bytes": "f3103000800000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "32768 · 1/65535: a full-scale step 1/(2^16 − 1), the scale of a 16-bit duty, FullScaleMax<One, 16> (STD-59)"
     },
     {
       "name": "stdlib.si.quantity.bounded",

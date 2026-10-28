@@ -81,6 +81,12 @@ impl<'i> SIExpr<'i> {
         tree::factor(self)
     }
 
+    /// The exact factor to coherent SI of the whole tree, as [UnitExpr::magnitude]; `None` like [dim](Self::dim),
+    /// with an `Affine` or `Factor` scale in it, or a product a [Magnitude](crate::Magnitude) doesn't hold.
+    pub fn magnitude(&self) -> Option<crate::Magnitude> {
+        tree::magnitude(self)
+    }
+
     /// The offset to coherent SI: only a named unit with an `Affine` scale (°C) has one.
     pub fn offset(&self) -> f64 {
         tree::offset(self)
@@ -203,6 +209,11 @@ mod owned {
         /// Like [SIExpr::factor].
         pub fn factor(&self) -> Option<f64> {
             tree::factor(&self)
+        }
+
+        /// Like [SIExpr::magnitude].
+        pub fn magnitude(&self) -> Option<crate::Magnitude> {
+            tree::magnitude(&self)
         }
 
         /// Like [SIExpr::offset].

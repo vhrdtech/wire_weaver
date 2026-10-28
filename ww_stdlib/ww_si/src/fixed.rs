@@ -6,9 +6,9 @@ use core::fmt;
 use exact_units::{Bounds, DecimalPrefix, Fixed, FixedScale, Repr, Storage, Unit};
 use ww_numeric::NumericValue;
 
-/// A [Fixed]'s scale that no run-time [Prefix] stands for in this build: without `std`, a scale that is neither a named
-/// prefix nor one of the computed [ExactScale](exact_units::ExactScale)s (`Rational<33, 10>` over 4096, an ADC step);
-/// with `std`, only once the interner of exact scales is full.
+/// A [Fixed]'s scale that no run-time [Prefix] stands for: neither a named prefix nor `Pow10`, `Pow2` or `FullScale`
+/// (`Rational<33, 10>` over 4096, an ADC step; a binary angle, π·2⁻¹⁵ rad). Such a value goes into an
+/// [AnyQuantity](crate::AnyQuantity) exactly instead, the scale in its unit (`AnyQuantityOwned::from_fixed`).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct UnknownScale;
 
@@ -23,14 +23,7 @@ impl core::error::Error for UnknownScale {}
 impl<U: Unit> Quantity<U> {
     /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`.
     pub fn to_fixed<P: FixedScale, T: Storage, B: Bounds<T>>(&self) -> Option<Fixed<U, P, T, B>> {
-        let repr = if self.value.is_float() {
-            Repr::Float(self.value.to_f64())
-        } else {
-            let x = self.value.to_integer()?;
-            let m = i128::try_from(x.magnitude()).ok()?;
-            Repr::Int(if x.is_negative() { -m } else { m })
-        };
-        Fixed::from_scaled(repr, self.prefix.magnitude())
+        Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude())
     }
 
     /// The same value as a [Fixed] has it, prefix and number as they are. Only for number types `NumericValue` has
@@ -43,8 +36,9 @@ impl<U: Unit> Quantity<U> {
     }
 
     /// The same value with any scale, prefix and number as they are: a named prefix where the scale has one (`Milli`,
-    /// `Kibi`), else [Prefix::Exact] (`Pow10<-4>`, `FullScaleMax<One, 16>`, a BAM), so the value is exact and converts
-    /// back with [to_fixed](Self::to_fixed). [UnknownScale] only where no prefix stands for the scale, see there.
+    /// `Kibi`), else [Prefix::Pow10] (`Pow10<-4>`), [Prefix::Pow2] (`Pow2<-15>`) or [Prefix::FullScale]
+    /// (`FullScaleMax<One, 16>`), so the value is exact and converts back with [to_fixed](Self::to_fixed).
+    /// [UnknownScale] for any other scale, see there.
     pub fn try_from_fixed<P: FixedScale, T: Storage + Into<NumericValue>, B: Bounds<T>>(
         f: Fixed<U, P, T, B>,
     ) -> Result<Self, UnknownScale> {
@@ -53,6 +47,73 @@ impl<U: Unit> Quantity<U> {
             None => Prefix::from_magnitude(&P::SCALE).ok_or(UnknownScale)?,
         };
         Ok(Quantity::new(prefix, f.get()))
+    }
+}
+
+/// A number as [Fixed::from_scaled] takes it.
+fn repr(value: &NumericValue) -> Option<Repr> {
+    Some(if value.is_float() {
+        Repr::Float(value.to_f64())
+    } else {
+        let x = value.to_integer()?;
+        let m = i128::try_from(x.magnitude()).ok()?;
+        Repr::Int(if x.is_negative() { -m } else { m })
+    })
+}
+
+#[cfg(feature = "std")]
+mod any {
+    use super::*;
+    use crate::{AnyQuantityOwned, SIExprOwned};
+    use exact_units::{Dim, Scale};
+    use std::boxed::Box;
+    use std::string::ToString;
+
+    impl AnyQuantityOwned {
+        /// Any [Fixed] exactly, whatever its scale: as [Quantity::try_from_fixed] where a run-time [Prefix] stands
+        /// for it, else with [Prefix::Unit] and the scale in the unit, a dimensionless factor named after the scale
+        /// marker times `U` (`3·Bam16Rad·rad`, a binary angle). [to_fixed](Self::to_fixed) gives it back.
+        pub fn from_fixed<U: Unit, P: FixedScale, T: Storage + Into<NumericValue>, B: Bounds<T>>(
+            f: Fixed<U, P, T, B>,
+        ) -> Self {
+            if let Ok(q) = Quantity::try_from_fixed(f) {
+                return q.into();
+            }
+            let scale = SIExprOwned::Named {
+                name: P::NAME.to_string(),
+                symbol: P::SYMBOL.to_string(),
+                dim: Dim::ONE.into(),
+                scale: Scale::Exact(P::SCALE),
+            };
+            AnyQuantityOwned {
+                prefix: Prefix::Unit,
+                value: f.get().into(),
+                unit: SIExprOwned::Mul(Box::new(scale), Box::new(U::EXPR.into())),
+            }
+        }
+
+        /// The value as a [Fixed] of the unit `U`, if it is exact (as [Fixed::to]) and within `B`: from `U` itself, or
+        /// from any unit of `U`'s dimension whose factor to it is exact (a scale [from_fixed](Self::from_fixed) put
+        /// in, `Bit` for `Byte`). `None` for another dimension or an `Affine` unit other than `U`.
+        pub fn to_fixed<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>>(
+            &self,
+        ) -> Option<Fixed<U, P, T, B>> {
+            if let Some(q) = self.to_quantity::<U>() {
+                return q.to_fixed();
+            }
+            if self.unit.dim()? != U::EXPR.dim() {
+                return None;
+            }
+            let to_u = self
+                .unit
+                .magnitude()?
+                .checked_div(U::EXPR.magnitude()?)
+                .ok()?;
+            Fixed::from_scaled(
+                repr(&self.value)?,
+                self.prefix.magnitude().checked_mul(to_u).ok()?,
+            )
+        }
     }
 }
 

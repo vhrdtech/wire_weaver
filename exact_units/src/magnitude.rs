@@ -26,9 +26,11 @@ pub const MAX_FACTORS: usize = 12;
 ///
 /// On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits
 /// (Milli `fa 00`), the rest behind an option bit, its irrational powers behind one more, an empty prime slot one bit.
+/// `self_describing`: the bytes end by themselves, so a magnitude can be the field of an enum variant
+/// ([Prefix](crate::Prefix)'s `Exact`).
 #[cfg_attr(
     feature = "shrink_wrap",
-    derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure, validate = Self::validate)
+    derive_shrink_wrap(borrowed, owned(feature = "std"), self_describing, validate = Self::validate)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -42,7 +44,7 @@ pub struct Magnitude {
 /// The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.
 #[cfg_attr(
     feature = "shrink_wrap",
-    derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure)
+    derive_shrink_wrap(borrowed, owned(feature = "std"), self_describing)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -59,7 +61,7 @@ pub struct MagnitudeRest {
 /// neper (`ln10/20`) `ln10 = 2`. Treated as independent symbols, like the primes.
 #[cfg_attr(
     feature = "shrink_wrap",
-    derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure)
+    derive_shrink_wrap(borrowed, owned(feature = "std"), self_describing)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -72,7 +74,7 @@ pub struct Irrational {
 /// `prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).
 #[cfg_attr(
     feature = "shrink_wrap",
-    derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure)
+    derive_shrink_wrap(borrowed, owned(feature = "std"), self_describing)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 // 6 bytes, so an `Option` of it is 8: half the size of a `Magnitude`. Packed, so `defmt::Format` is written out below

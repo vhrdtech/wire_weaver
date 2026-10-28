@@ -1,39 +1,45 @@
 //! What a unit is: its dimension, how its values become coherent SI, and how it is written.
 
+#[cfg(feature = "shrink_wrap")]
 use crate::SIExpr;
 use crate::tree;
 use core::fmt;
+#[cfg(feature = "shrink_wrap")]
 use shrink_wrap::prelude::*;
 
 /// Most counted bases a [Dim] has at once (`Sample·Frame⁻¹` has two).
 pub const MAX_COUNTED: usize = 4;
 
 /// A counted base of a [Dim] and its exponent: what is counted, named by the crate and the marker that define it
-/// (`ww_si` `Sample`, an API crate's own `Bucket`), and how often it is in the dimension (`Sample/s` has `Sample` to
+/// (`exact_units` `Sample`, an API crate's own `Bucket`), and how often it is in the dimension (`Sample/s` has `Sample` to
 /// the 1st power).
 ///
 /// A base is told apart by crate and marker name together: two crates' `Sample` markers are different bases, and a
 /// marker stays the same base when it moves between modules of its crate. Shown by the marker name alone.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug, PartialEq, Eq, Hash),
-    derive_borrowed(Copy),
-    final_structure
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(
+        borrowed,
+        owned(feature = "std"),
+        derive_owned(Clone, Debug, PartialEq, Eq, Hash),
+        final_structure
+    )
 )]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Counted<'i> {
-    /// The crate that defines the marker, as Rust names it (`ww_si`, `my_api`): `CARGO_CRATE_NAME`.
+    /// The crate that defines the marker, as Rust names it (`exact_units`, `my_api`): `CARGO_CRATE_NAME`.
     pub crate_name: &'i str,
     /// The marker's name: `Sample`.
     pub name: &'i str,
-    pub exp: I4,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub exp: i8,
 }
 
 /// The dimension of a unit: exponents of the 7 SI base units s, m, kg, A, K, mol, cd, of angle (rad) and of
 /// information (bit), each from -8 to 7, and of up to [MAX_COUNTED] counted bases (`Sample`, `Block`, `Item`, ..).
 /// Volt is kg·m²·s⁻³·A⁻¹: `Dim::new(-3, 2, 1, -1, 0, 0, 0)`; rad/s is `Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)`;
-/// samples per second is `Dim::counted("ww_si", "Sample").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.
+/// samples per second is `Dim::counted("exact_units", "Sample").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.
 ///
 /// With `root` set, the dimension is the square root of the one the exponents describe: a noise density in V/√Hz
 /// is kg²·m⁴·s⁻⁵·A⁻² with `root` (`Volt` squared over hertz), shown as `kg·m²·s⁻⁵ᐟ²·A⁻¹`. Only half-integer
@@ -47,27 +53,39 @@ pub struct Counted<'i> {
 /// slots a bit for whether it is used, and a used one's crate name, name and exponent. Used slots come first, sorted
 /// by crate and name, with exponents that aren't 0, and `root` only with an odd exponent (a value that isn't so
 /// doesn't decode), so two equal dimensions have the same bytes: Volt is `d2 1f 00 00 00 00` (41 bits).
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Debug, PartialEq, Eq, Hash),
-    derive_borrowed(Copy),
-    final_structure,
-    validate = Self::validate
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(
+        borrowed,
+        owned(feature = "std"),
+        derive_owned(Clone, Debug, PartialEq, Eq, Hash),
+        final_structure,
+        validate = Self::validate
+    )
 )]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Dim<'i> {
-    pub s: I4,
-    pub m: I4,
-    pub kg: I4,
-    pub a: I4,
-    pub k: I4,
-    pub mol: I4,
-    pub cd: I4,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub s: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub m: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub kg: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub a: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub k: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub mol: i8,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub cd: i8,
     /// Plane angle, radian.
-    pub rad: I4,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub rad: i8,
     /// Information, bit.
-    pub bit: I4,
+    #[cfg_attr(feature = "shrink_wrap", wire(I4))]
+    pub bit: i8,
     /// The square root of what the exponents describe, see above.
     pub root: bool,
     /// Counted bases, see [Counted]: used slots first, sorted by crate and name.
@@ -80,18 +98,27 @@ const _: () = assert!(MAX_COUNTED == 4, "the array length in Dim");
 const FIXED: usize = 9;
 
 /// An exponent in `const` code, a compile error (a panic at run time) when out of -8..=7.
-pub(crate) const fn exp(e: i8) -> I4 {
-    match I4::new(e) {
-        Some(e) => e,
-        None => panic!("exponent of a dimension out of -8..=7"),
+pub(crate) const fn exp(e: i8) -> i8 {
+    if !in_range(e) {
+        panic!("exponent of a dimension out of -8..=7");
     }
+    e
 }
 
-const fn checked_exp(e: i16) -> Option<I4> {
+/// An exponent a [Dim] holds: -8..=7, a 4-bit signed number on the wire.
+const fn in_range(e: i8) -> bool {
+    e >= -8 && e <= 7
+}
+
+const fn checked_exp(e: i16) -> Option<i8> {
     if e < i8::MIN as i16 || e > i8::MAX as i16 {
         return None;
     }
-    I4::new(e as i8)
+    if in_range(e as i8) {
+        Some(e as i8)
+    } else {
+        None
+    }
 }
 
 /// Byte-wise order of two names, in `const` code.
@@ -158,7 +185,7 @@ impl<'i> Dim<'i> {
     pub const fn checked_new(exps: [i8; FIXED]) -> Option<Dim<'i>> {
         let mut i = 0;
         while i < FIXED {
-            if I4::new(exps[i]).is_none() {
+            if !in_range(exps[i]) {
                 return None;
             }
             i += 1;
@@ -173,7 +200,7 @@ impl<'i> Dim<'i> {
     }
 
     /// A count of the marker `name` of `crate_name` to the 1st power: the dimension of a counted unit marker
-    /// (`Dim::counted("ww_si", "Sample")`). In an API crate, [counted!](crate::counted) fills in the crate.
+    /// (`Dim::counted("exact_units", "Sample")`). In an API crate, [counted!](crate::counted) fills in the crate.
     pub const fn counted(crate_name: &'i str, name: &'i str) -> Dim<'i> {
         let mut d = Dim::new(0, 0, 0, 0, 0, 0, 0);
         d.counted[0] = Some(Counted {
@@ -206,15 +233,7 @@ impl<'i> Dim<'i> {
     /// The exponents of s, m, kg, A, K, mol, cd, rad, bit.
     pub const fn exps(&self) -> [i8; FIXED] {
         [
-            self.s.value(),
-            self.m.value(),
-            self.kg.value(),
-            self.a.value(),
-            self.k.value(),
-            self.mol.value(),
-            self.cd.value(),
-            self.rad.value(),
-            self.bit.value(),
+            self.s, self.m, self.kg, self.a, self.k, self.mol, self.cd, self.rad, self.bit,
         ]
     }
 
@@ -223,7 +242,7 @@ impl<'i> Dim<'i> {
     pub fn counted_bases(&self) -> impl Iterator<Item = (&'i str, i8)> + '_ {
         self.counted
             .iter()
-            .map_while(|c| c.map(|c| (c.name, c.exp.value())))
+            .map_while(|c| c.map(|c| (c.name, c.exp)))
     }
 
     /// Without any exponent: a ratio.
@@ -325,7 +344,7 @@ impl<'i> Dim<'i> {
         let mut i = 0;
         while i < FIXED {
             match checked_exp(fixed[i]) {
-                Some(e) => exps[i] = e.value(),
+                Some(e) => exps[i] = e,
                 None => return None,
             }
             i += 1;
@@ -354,7 +373,7 @@ impl<'i> Dim<'i> {
             return None;
         }
         match self.counted[i] {
-            Some(c) => Some((c, c.exp.value())),
+            Some(c) => Some((c, c.exp)),
             None => None,
         }
     }
@@ -436,7 +455,7 @@ impl<'i> Dim<'i> {
                         cmp_bases((x.crate_name, x.name), (y.crate_name, y.name)),
                         core::cmp::Ordering::Equal
                     );
-                    if !same || x.exp.value() != y.exp.value() {
+                    if !same || x.exp != y.exp {
                         return false;
                     }
                 }
@@ -461,7 +480,7 @@ impl<'i> Dim<'i> {
             let mut i = 0;
             while i < MAX_COUNTED {
                 if let Some(c) = self.counted[i] {
-                    odd |= c.exp.value() % 2 != 0;
+                    odd |= c.exp % 2 != 0;
                 }
                 i += 1;
             }
@@ -475,7 +494,7 @@ impl<'i> Dim<'i> {
             match self.counted[i] {
                 None => ended = true,
                 Some(c) => {
-                    if ended || c.exp.value() == 0 {
+                    if ended || c.exp == 0 {
                         return false;
                     }
                     if i > 0
@@ -493,6 +512,7 @@ impl<'i> Dim<'i> {
         true
     }
 
+    #[cfg(feature = "shrink_wrap")]
     fn validate(&self) -> Result<(), ShrinkWrapError> {
         if self.is_canonical() {
             Ok(())
@@ -507,15 +527,15 @@ impl<'i> Dim<'i> {
 impl fmt::Display for Dim<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let parts = [
-            ("kg", self.kg.value()),
-            ("m", self.m.value()),
-            ("s", self.s.value()),
-            ("A", self.a.value()),
-            ("K", self.k.value()),
-            ("mol", self.mol.value()),
-            ("cd", self.cd.value()),
-            ("rad", self.rad.value()),
-            ("bit", self.bit.value()),
+            ("kg", self.kg),
+            ("m", self.m),
+            ("s", self.s),
+            ("A", self.a),
+            ("K", self.k),
+            ("mol", self.mol),
+            ("cd", self.cd),
+            ("rad", self.rad),
+            ("bit", self.bit),
         ];
         let mut first = true;
         for (symbol, exp) in parts.into_iter().chain(self.counted_bases()) {
@@ -544,7 +564,7 @@ impl fmt::Display for Dim<'_> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "shrink_wrap"))]
 impl DimOwned {
     fn validate(&self) -> Result<(), ShrinkWrapError> {
         self.as_dim().validate()
@@ -576,7 +596,7 @@ impl DimOwned {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", feature = "shrink_wrap"))]
 impl From<Dim<'_>> for DimOwned {
     fn from(d: Dim<'_>) -> Self {
         DimOwned {
@@ -619,15 +639,18 @@ pub(crate) fn write_superscript(f: &mut fmt::Formatter<'_>, exp: i8) -> fmt::Res
 /// How a value in a unit becomes coherent SI (the unit of [Dim] with no factor): `si = value · factor + offset`.
 ///
 /// On the wire a nibble for the variant and its numbers: `Coherent` is `0`, `Pow10(-3)` is `1` and `fd`.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, PartialEq),
-    ww_repr = u4,
-    // part of a unit's description: a reader can't convert with a scale it doesn't know
-    no_future_version
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(
+        borrowed,
+        owned(feature = "std"),
+        ww_repr = u4,
+        // part of a unit's description: a reader can't convert with a scale it doesn't know
+        no_future_version
+    )
 )]
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Scale {
     /// The unit is coherent SI: V, A, N·m, rad.
     Coherent,
@@ -647,7 +670,7 @@ impl Scale {
     pub const fn factor(&self) -> f64 {
         match *self {
             Scale::Coherent => 1.0,
-            Scale::Pow10(exp) => crate::ops::pow10_f64(exp),
+            Scale::Pow10(exp) => crate::num::pow10_f64(exp),
             Scale::Factor(factor) => factor,
             Scale::Affine { factor, .. } => factor,
             Scale::Exact(scale) => scale.to_f64(),
@@ -682,6 +705,9 @@ pub enum UnitExpr {
     Div(&'static UnitExpr, &'static UnitExpr),
     /// A unit to an integer power: m³ as `Pow(Meter, 3)`. No marker of this crate is one, a user's marker can be.
     Pow(&'static UnitExpr, i8),
+    /// The square root of a unit: √Hz in V/√Hz, [Sqrt](crate::units::Sqrt). Its dimension has the root flag
+    /// ([Dim::sqrt]) unless every exponent is even.
+    Sqrt(&'static UnitExpr),
 }
 
 impl UnitExpr {
@@ -695,6 +721,7 @@ impl UnitExpr {
                 Some(d) => d,
                 None => panic!("exponent of a dimension out of -8..=7"),
             },
+            UnitExpr::Sqrt(a) => a.dim().sqrt(),
         }
     }
 
@@ -704,7 +731,8 @@ impl UnitExpr {
             UnitExpr::Named { scale, .. } => scale.factor(),
             UnitExpr::Mul(a, b) => a.factor() * b.factor(),
             UnitExpr::Div(a, b) => a.factor() / b.factor(),
-            UnitExpr::Pow(a, n) => crate::ops::powi_f64(a.factor(), *n),
+            UnitExpr::Pow(a, n) => crate::num::powi_f64(a.factor(), *n),
+            UnitExpr::Sqrt(a) => crate::num::sqrt_f64(a.factor()),
         }
     }
 
@@ -721,7 +749,7 @@ impl UnitExpr {
         match self {
             UnitExpr::Named { scale, .. } => matches!(scale, Scale::Affine { .. }),
             UnitExpr::Mul(a, b) | UnitExpr::Div(a, b) => a.has_offset() || b.has_offset(),
-            UnitExpr::Pow(a, _) => a.has_offset(),
+            UnitExpr::Pow(a, _) | UnitExpr::Sqrt(a) => a.has_offset(),
         }
     }
 
@@ -743,11 +771,11 @@ impl fmt::Display for UnitExpr {
     }
 }
 
-/// A unit marker: a zero-size type that is never sent, only named in types (`Quantity<units::Volt>`). The markers of
+/// A unit marker: a zero-size type that is never sent, only named in types (`Fixed<units::Volt, Milli, u16>`). The markers of
 /// this crate are in [units](crate::units); an API crate can declare its own the same way.
 ///
 /// ```
-/// use ww_si::{Dim, ExactScale, Quantity, Scale, Unit, UnitExpr};
+/// use exact_units::{Dim, ExactScale, Fixed, Scale, Unit, UnitExpr, prefix::One};
 ///
 /// /// Revolutions per minute.
 /// #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -765,17 +793,19 @@ impl fmt::Display for UnitExpr {
 ///     };
 /// }
 ///
-/// let speed = Quantity::<Rpm>::base(60u8);
+/// let speed = Fixed::<Rpm, One, u8>::new(60);
 /// assert_eq!(format!("{speed}"), "60 rpm");
-/// assert!((speed.to_si_f64() - core::f64::consts::TAU).abs() < 1e-12); // rad/s
+/// assert!((<Rpm as Unit>::EXPR.factor() * 60.0 - core::f64::consts::TAU).abs() < 1e-12); // rad/s
 /// ```
 pub trait Unit: Copy + Default + 'static {
     /// The dimension: SI base-unit exponents, angle, information and counted bases.
     const DIM: Dim<'static>;
     /// Name, symbol and scale, or the tree of a compound unit.
     const EXPR: &'static UnitExpr;
-    /// The same unit as it goes on the wire in an [AnyQuantity](crate::AnyQuantity). Made from [EXPR](Self::EXPR)
-    /// for a named unit; a compound marker of its own (not `Per` / `Times`) writes its tree here too.
+    /// The same unit as it goes on the wire in an `ww_si::AnyQuantity`. Made from [EXPR](Self::EXPR)
+    /// for a named unit; a compound marker of its own (not `Per` / `Times`) writes its tree here too. With the
+    /// `shrink_wrap` feature.
+    #[cfg(feature = "shrink_wrap")]
     const SI_EXPR: &'static SIExpr<'static> = &SIExpr::named(Self::EXPR);
 }
 

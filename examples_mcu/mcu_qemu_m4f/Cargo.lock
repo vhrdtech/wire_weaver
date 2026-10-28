@@ -291,6 +291,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
+name = "exact_units"
+version = "0.1.0"
+dependencies = [
+ "shrink_wrap",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1025,6 +1032,7 @@ dependencies = [
 name = "ww_si"
 version = "0.2.0"
 dependencies = [
+ "exact_units",
  "shrink_wrap",
  "ww_numeric",
 ]

@@ -46,6 +46,7 @@
 
 ### 🚀 Features
 
+- `quantity` reads the units of the new `exact_units` crate (STD-61): introspection names the markers, `Dim`, `SIExpr` and `Fixed` by `exact_units` (any version) or `ww_si` 0.2 and later, both are units. `DynUnit::Sqrt` is the square root of a unit (`units::Sqrt<Hertz>`, shown `√Hz`), also from an `SIExpr::Sqrt`.
 - Methods returning `Result<T, E>` go into `MultiCall` tuples and `call_array` (CLT-48), mixed with methods without `Result`: each position answers what its single `call()` would, `Result<T, CallError<E>>` (`Device` checked against the method's `#[errors]` list, `Unimplemented`, `Client(Error::RemoteError(..))` for the index's own error such as `BadIndex`). Methods without `Result` answer `Result<T, ErrorOwned>` as before. No device change needed. See `docs/api/multi_requests.md#methods-returning-result`.
 - The runtime compat check (`compat`) lets a device send an enum variant the client doesn't know when the client's enum has the `#[future_version]` catch-all (EVO-10): it reads it as `Unknown(n)` instead of the resource being marked incompatible; a moved variant is reported as `variant X moved`.
 - With the `rtt` feature: `list_probes()` (`ProbeInfo`: VID, PID, serial, probe-rs's name) lists the debug probes without opening them, `rtt_chips(prefix)` the probe-rs chip names, `rtt_chip_known(name)` whether probe-rs knows one, for `ClientConfig::rtt` (TOOL-20, used by `ww --rtt` and its shell completion).

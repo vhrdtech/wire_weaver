@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 011a1e9cc6d6f6220f4cc5cc0a1491449b88b4957171b90227cca10093688a6b
+// shrink_wrap sha256: abda4df3d2f14ffd9473228900a9c7509be4380e2c02a471218bcd6ac8eebc1e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -51,24 +51,24 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        94,
-        190,
-        166,
-        249,
-        222,
-        38,
-        16,
-        236,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
-        183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`min..=max`.",
@@ -94,14 +94,14 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        126,
-        49,
+        149,
+        186,
+        120,
+        228,
+        162,
+        183,
         17,
-        249,
-        31,
-        128,
-        106,
-        217,
+        232,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Up to `channels` channels sample at up to `max_rate`.",
@@ -180,16 +180,16 @@
         (ident: Some("when"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        5,
-        106,
-        216,
-        48,
-        38,
-        78,
-        104,
-        9,
+        160,
+        239,
+        149,
+        227,
+        90,
+        10,
+        69,
+        211,
     ]),
-    SkippedFullVersion(crate_idx: 2, type_name: "I2cAddress", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "I2cAddress", signature: [
         150,
         231,
         95,
@@ -312,7 +312,7 @@
             "Layout of [RawChunk::data].",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -336,14 +336,14 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a capture stands, see `LogicAnalyzer::status`.",
@@ -389,7 +389,7 @@
             "`samples` words as in [RawLayout].",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 4, type_name: "Level", signature: [
+    SkippedFullVersion(crate_idx: 5, type_name: "Level", signature: [
         2,
         251,
         226,
@@ -574,6 +574,7 @@
     ], compact_id: Some(121), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_logic_analyzer", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

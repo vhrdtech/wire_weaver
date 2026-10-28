@@ -1,6 +1,6 @@
 //! Scale markers: zero-size types that fix the scale of a [Fixed](crate::Fixed) in its type (`Fixed<Second, Micro,
 //! u32>`), never sent themselves. The decimal SI prefixes `Quecto` to `Quetta` with [One] for none, the binary `Kibi`
-//! to `Tebi` (2¹⁰ to 2⁴⁰), which exist only as markers (the run-time [Prefix] of a [Quantity](crate::Quantity) is
+//! to `Tebi` (2¹⁰ to 2⁴⁰), which exist only as markers (the run-time [Prefix] of a `ww_si::Quantity` is
 //! decimal), and exact factors without a name: [Pow10] and [Rational].
 //!
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs, like the unit markers.
@@ -20,7 +20,7 @@ pub trait FixedScale: Copy + Default + 'static {
     const RUNTIME: Option<Prefix>;
 }
 
-/// A decimal prefix, one a [Quantity](crate::Quantity) can have too.
+/// A decimal prefix, one a `ww_si::Quantity` can have too.
 pub trait DecimalPrefix: FixedScale {
     /// The run-time prefix of the same scale.
     const PREFIX: Prefix;

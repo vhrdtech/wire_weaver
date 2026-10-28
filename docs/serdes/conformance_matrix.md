@@ -10,11 +10,11 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 | Consumer | Cases run | Gaps |
 |---|---|---|
-| derive | 143 of 143 | 0 |
-| dynamic | 128 of 143 | 15 |
-| explain | 128 of 143 | 15 |
-| python | 128 of 143 | 15 |
-| c | 34 of 143 | 109 |
+| derive | 146 of 146 | 0 |
+| dynamic | 131 of 146 | 15 |
+| explain | 131 of 146 | 15 |
+| python | 131 of 146 | 15 |
+| c | 34 of 146 | 112 |
 
 | Case | Type | Direction | derive | dynamic | explain | python | c |
 |---|---|---|---|---|---|---|---|
@@ -161,10 +161,13 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 | `stdlib.si.fixed.bounded.rejected` | `fixed_bounded` | reject | ✅ | gap CLT-54 | gap CLT-54 | gap CLT-54 | gap API-26 |
 | `stdlib.si.exact_scale.degree` | `exact_scale` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 | `stdlib.si.exact_scale.rejected` | `exact_scale` | reject | ✅ | gap SW-20 | gap SW-20 | gap SW-20 | gap API-26 |
+| `stdlib.si.si_expr.volt` | `si_expr` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.si_expr.sqrt` | `si_expr` | both | ✅ | ✅ | ✅ | ✅ | gap API-26 |
+| `stdlib.si.si_expr.rejected` | `si_expr` | reject | ✅ | ✅ | ✅ | ✅ | gap API-26 |
 
 ## Gaps
 
-- **c**: no generated C for this type yet: C from the ww_self model (API-26). 95 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`, `stdlib.si.dim.volt`, `stdlib.si.dim.rad_bit`, `stdlib.si.dim.counted`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root`, `stdlib.si.dim.root.rejected`, `stdlib.si.fixed.pow10`, `stdlib.si.fixed.duty16`, `stdlib.si.fixed.bounded`, `stdlib.si.fixed.bounded.rejected`, `stdlib.si.exact_scale.degree`, `stdlib.si.exact_scale.rejected`.
+- **c**: no generated C for this type yet: C from the ww_self model (API-26). 98 cases: `vec.u16`, `vec.array_vec`, `vec.string`, `vec.bool`, `vec.option`, `vec.vec`, `option.none`, `option.some`, `option.str`, `option.option.some_some`, `option.option.some_none`, `result.ok`, `result.err`, `array.u16`, `array.bool`, `tuple`, `range`, `range_inclusive`, `struct.bits`, `struct.nested`, `struct.flags.relocated`, `struct.flags.relocated_other`, `struct.tuple`, `struct.tuple.none`, `struct.tuple.plain`, `struct.unit`, `struct.sized`, `struct.final_structure`, `struct.generic`, `struct.phantom`, `struct.validate.ok`, `struct.validate.rejected`, `struct.tail_size`, `struct.generic_const`, `struct.sparse.empty`, `struct.sparse.slots`, `struct.recursive.list`, `struct.recursive.box`, `enum.unit`, `enum.tuple`, `enum.struct`, `enum.explicit_discriminant`, `enum.unknown_variant`, `enum.appended_variant`, `enum.sub_byte.seven`, `enum.sub_byte.ten`, `enum.sized`, `enum.sized.wide_discriminant`, `enum.u2`, `enum.nibble.unit`, `enum.nibble.payload`, `enum.cfg.kept`, `enum.cfg.kept_after_gap`, `enum.cfg.compiled_out`, `evolution.v1`, `evolution.v2`, `evolution.new_reads_old`, `evolution.old_reads_new`, `series.u16`, `series.struct`, `transparent.u64`, `transparent.unib32`, `transparent.fields.plain`, `transparent.fields`, `transparent.sized.plain`, `transparent.sized`, `transparent.vec.unib32.plain`, `transparent.vec.unib32`, `transparent.vec.nibble.plain`, `transparent.vec.nibble`, `transparent.option.plain`, `transparent.option`, `transparent.array.plain`, `transparent.array`, `transparent.series.plain`, `transparent.series`, `transparent.series.struct.plain`, `transparent.series.struct`, `tail_bytes`, `stdlib.timebase.steer_point`, `stdlib.timebase.steer_point.steerer`, `stdlib.timebase.sync_status`, `stdlib.timebase.sync_status.steerers`, `stdlib.si.dim.volt`, `stdlib.si.dim.rad_bit`, `stdlib.si.dim.counted`, `stdlib.si.dim.rejected`, `stdlib.si.dim.root`, `stdlib.si.dim.root.rejected`, `stdlib.si.fixed.pow10`, `stdlib.si.fixed.duty16`, `stdlib.si.fixed.bounded`, `stdlib.si.fixed.bounded.rejected`, `stdlib.si.exact_scale.degree`, `stdlib.si.exact_scale.rejected`, `stdlib.si.si_expr.volt`, `stdlib.si.si_expr.sqrt`, `stdlib.si.si_expr.rejected`.
 - **c**: reader only: the generated C has no writer yet (API-26). 8 cases: `fixed.numbers`, `fixed.bits`, `fixed.nested`, `fixed.option.none`, `fixed.option.some`, `fixed.enum.unit`, `fixed.enum.fields`, `head_tail.struct`.
 - **c**: the C runtime has no 128-bit numbers (SW-66). 2 cases: `int.u128.max`, `int.i128.min`.
 - **c**: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: `disconnect_reason.hub_handover`, `disconnect_reason.from_newer`.

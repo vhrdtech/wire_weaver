@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 7aa0592062e1a60cecc527a357c090568e3ea922f19cea604d7562b0c8456c13
+// shrink_wrap sha256: 97003b2afbb5a28938fbc4dc9c25a93a5d4d7d05f890c19c4522b03f698dbcc8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -80,6 +80,16 @@
         20,
         62,
     ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Prefix", signature: [
         192,
         243,
@@ -91,14 +101,14 @@
         153,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One calibrated reading, see `Adc::read`.",
@@ -109,8 +119,9 @@
         (ident: Some("raw"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "The converter\'s raw code (for checking calibration).",
         ], slot: None, series_opaque: false),
-        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+        (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 4, args: [
             Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "When the sample was taken.",
         ], slot: None, series_opaque: false),
@@ -132,7 +143,7 @@
         (docs: [
             "{0}",
         ], ident: "Common", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "No channel with this index.",
@@ -160,11 +171,11 @@
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "For the user: \"IO0\", \"VBUS\", \"die temperature\".",
         ], slot: None, series_opaque: false),
-        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [
+        (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 8), docs: [
             "Physical unit of [Reading::value], [ChannelInfo::min] and [ChannelInfo::max]: a unit of ww_si",
             "(`SIExpr::of::<ww_si::units::Volt>()`) or the device\'s own, with its dimension and scale.",
         ], slot: None, series_opaque: false),
-        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [
+        (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "SI prefix of the values.",
         ], slot: None, series_opaque: false),
         (ident: Some("min"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [
@@ -179,14 +190,14 @@
         (ident: Some("calibrated"), default: None, since: None, ty: Bool, docs: [
             "Whether readings are calibrated for this unit (per-device factors) or nominal only.",
         ], slot: None, series_opaque: false),
-        (ident: Some("raw_to_value"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
+        (ident: Some("raw_to_value"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 9)), docs: [
             "How raw samples of streams and captures turn into values; `None` if they don\'t linearly.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s ADC offers, see `Adc::capabilities`.",
     ], ident: "AdcCapabilities", generics: [], fields: Named([
-        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 9))), docs: [
+        (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 10))), docs: [
             "Channel `n` of every method is `channels[n]`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -226,14 +237,16 @@
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Sample sets per second.",
         ], slot: None, series_opaque: false),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
-        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
+        (ident: Some("flush_interval"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
             Type(OutOfLine(type_idx: 1)),
+            Type(OutOfLine(type_idx: 2)),
         ])), docs: [
             "Send a block at least this often even if it isn\'t full (small rates would wait long otherwise); `None` lets",
             "the device choose (around 10 ms).",
@@ -242,8 +255,9 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What opening `AdcStream::samples` actually set.",
     ], ident: "StreamActual", generics: [], fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Sample sets per second.",
         ], slot: None, series_opaque: false),
@@ -258,21 +272,23 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcStream` can do.",
     ], ident: "StreamCapabilities", generics: [], fields: Named([
-        (ident: Some("max_total_rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("max_total_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Highest sample rate of all channels together (samples, not sets, per second), alone on the link.",
         ], slot: None, series_opaque: false),
         (ident: Some("max_channels"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Most channels in one stream.",
         ], slot: None, series_opaque: false),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 12))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 13))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture` can do.",
     ], ident: "CaptureCapabilities", generics: [], fields: Named([
-        (ident: Some("max_total_rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("max_total_rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Highest sample rate of all channels together (samples per second).",
         ], slot: None, series_opaque: false),
@@ -287,7 +303,7 @@
             "Which [Trigger]s work.",
         ], slot: None, series_opaque: false),
         (ident: Some("external_trigger"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 12))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 13))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "When a capture starts.",
@@ -317,8 +333,9 @@
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(NumericAny(Base(U8)))), docs: [
             "Channel indices, in the order samples are interleaved.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Sample sets per second.",
         ], slot: None, series_opaque: false),
@@ -328,14 +345,15 @@
         (ident: Some("pre_trigger"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Sample sets to keep from before the trigger.",
         ], slot: None, series_opaque: false),
-        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 18), docs: [], slot: None, series_opaque: false),
-        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 12), docs: [], slot: None, series_opaque: false),
+        (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 19), docs: [], slot: None, series_opaque: false),
+        (ident: Some("format"), default: None, since: None, ty: OutOfLine(type_idx: 13), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `AdcCapture::capture` actually set.",
     ], ident: "CaptureActual", generics: [], fields: Named([
-        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 3, args: [
-            Type(OutOfLine(type_idx: 11)),
+        (ident: Some("rate"), default: None, since: None, ty: Instance(type_idx: 4, args: [
+            Type(OutOfLine(type_idx: 12)),
+            Type(OutOfLine(type_idx: 2)),
         ]), docs: [
             "Sample sets per second.",
         ], slot: None, series_opaque: false),
@@ -355,18 +373,21 @@
         (docs: [
             "Triggered at `t`, taking the rest.",
         ], ident: "Triggered", fields: Named([
-            (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            (ident: Some("t"), default: None, since: None, ty: Instance(type_idx: 4, args: [
                 Type(OutOfLine(type_idx: 1)),
+                Type(OutOfLine(type_idx: 2)),
             ]), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "Done: data ready to read. `t_first` is the time of the first set, `t_trigger` the trigger\'s.",
         ], ident: "Done", fields: Named([
-            (ident: Some("t_first"), default: None, since: None, ty: Instance(type_idx: 3, args: [
+            (ident: Some("t_first"), default: None, since: None, ty: Instance(type_idx: 4, args: [
                 Type(OutOfLine(type_idx: 1)),
+                Type(OutOfLine(type_idx: 2)),
             ]), docs: [], slot: None, series_opaque: false),
-            (ident: Some("t_trigger"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 3, args: [
+            (ident: Some("t_trigger"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 4, args: [
                 Type(OutOfLine(type_idx: 1)),
+                Type(OutOfLine(type_idx: 2)),
             ])), docs: [], slot: None, series_opaque: false),
             (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
@@ -377,7 +398,7 @@
     ], crate_idx: 0, trait_name: "Adc", items: [
         (id: 0, kind: Method(args: [
             (ident: "channel", ty: NumericAny(Base(U8))),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 4), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 5), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "Busy",
                 "NoPower",
@@ -389,7 +410,7 @@
             "`Busy`: the ADC runs a stream or capture that can\'t be interrupted; `NoPower`: inputs behind an unpowered",
             "buffer.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 10)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "The channels, their units and ranges.",
         ], optional: None, meta: None),
     ], compact_id: Some(44), meta: None), crate_idx: 0),
@@ -398,9 +419,9 @@
         "",
         "Only one stream runs at a time: opening `samples` again restarts it with the new configuration.",
     ], crate_idx: 0, trait_name: "AdcStream", items: [
-        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 15), delivery: Counted, args: [
-            (ident: "config", ty: OutOfLine(type_idx: 13)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 14), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        (id: 0, kind: StreamFn(ty: OutOfLine(type_idx: 16), delivery: Counted, args: [
+            (ident: "config", ty: OutOfLine(type_idx: 14)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 15), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "NoSuchChannel", nested: None),
             (ident: "Common", nested: Some([
                 "InvalidArgument",
@@ -415,19 +436,19 @@
             "can do), closing stops sampling (blocks already sampled are still sent). Unit: sample set. `InvalidArgument`",
             "for a rate or channel count out of range, `Unsupported` for the format, `Busy` while a capture runs.",
         ], optional: None, meta: None),
-        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 16)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
+        (id: 1, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "stream_capabilities", docs: [
             "Rates, formats and limits of streaming.",
         ], optional: None, meta: None),
     ], compact_id: Some(45), meta: None), crate_idx: 0),
     InLine(level: (docs: [
         "Lossless capture: samples go into device RAM at any rate the hardware can do, the host reads them out after.",
     ], crate_idx: 0, trait_name: "AdcCapture", items: [
-        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 17)), errors: None), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
+        (id: 0, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 18)), errors: None), multiplicity: Flat, since: None, ident: "capture_capabilities", docs: [
             "Rates, depth, triggers and formats of captures.",
         ], optional: None, meta: None),
         (id: 1, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 19)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 20), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 20)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 21), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "InvalidArgument",
                 "Unsupported",
@@ -442,13 +463,13 @@
             "`InvalidArgument`: rate, depth or trigger level out of range; `Unsupported`: format or trigger; `Busy`: a stream",
             "runs.",
         ], optional: None, meta: None),
-        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 21)), errors: None), multiplicity: Flat, since: None, ident: "capture_status", docs: [
+        (id: 2, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 22)), errors: None), multiplicity: Flat, since: None, ident: "capture_status", docs: [
             "Where the capture stands.",
         ], optional: None, meta: None),
         (id: 3, kind: Method(args: [
             (ident: "offset", ty: NumericAny(Base(U32))),
             (ident: "len", ty: NumericAny(Base(U16))),
-        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(768), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 6))), errors: Some([
+        ], return_ty: Some(Result(ok_ty: MaxLen(max_len: Fixed(768), ty: Vec(NumericAny(Base(U8)))), err_ty: OutOfLine(type_idx: 7))), errors: Some([
             (ident: "Common", nested: Some([
                 "WrongState",
                 "InvalidArgument",

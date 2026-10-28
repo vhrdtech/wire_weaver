@@ -1,6 +1,6 @@
 // ww_gpio 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 1341160b6712c5805ab70ad5f1eacf049d09ae6816cf5e545ffefe1f28ddf9ac
+// shrink_wrap sha256: 68f648ac2257388e7394b7a509f06b455f9d14ff601557e3ff1a5b4ff58f5745
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "GPIO control and remote bridging API: banks of pins (`Bank`), each with individually addressable pins (`Pin`)",
     "that can be read, driven, reconfigured (mode / pull / drive strength) and watched for edge events through a",
@@ -155,32 +155,45 @@
         101,
         149,
     ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "GPIO bank capabilities: supported IO levels, modes, custom modes, etc.",
     ], ident: "BankCapabilities", generics: [], fields: Named([
-        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 10, args: [
+        (ident: Some("io_levels"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(Instance(type_idx: 11, args: [
             Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 10)),
         ]))), docs: [
             "Discrete IO levels [BankConfig::io_level] can be set to (e.g. 1.8 V, 3.3 V, 5 V); empty if the bank has no",
             "level control.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 10, args: [
+        (ident: Some("io_level_min"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
             Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 10)),
         ])), docs: [
             "Lowest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
-        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 10, args: [
+        (ident: Some("io_level_max"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
             Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 10)),
         ])), docs: [
             "Highest IO level of an adjustable supply, if the bank has one.",
         ], slot: None, series_opaque: false),
@@ -210,8 +223,9 @@
         "Everything a bank is configured with, see `Bank::configure`: what is asked for going in, what was actually set",
         "coming back.",
     ], ident: "BankConfig", generics: [], fields: Named([
-        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 10, args: [
+        (ident: Some("io_level"), default: None, since: None, ty: Option(some_ty: Instance(type_idx: 11, args: [
             Type(OutOfLine(type_idx: 9)),
+            Type(OutOfLine(type_idx: 10)),
         ])), docs: [
             "IO level of every pin of the bank, on hardware with level translators ([BankCapabilities::io_levels]); `None`",
             "leaves it as it is going in (the only choice on a bank without them), and is the answer of such a bank.",
@@ -306,12 +320,12 @@
             "* Range - useful when a device has sequentially marked IOs (e.g., IO expander)",
             "* List - when exposing some pins of an MCU, (e.g., PB1 and PB5, having indices 1 and 5 is less confusing than 0 and 1)",
         ], optional: None, meta: None),
-        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 11)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
+        (id: 8, kind: Method(args: [], return_ty: Some(OutOfLine(type_idx: 12)), errors: None), multiplicity: Flat, since: None, ident: "capabilities", docs: [
             "Capabilities that each pin of the bank supports.",
         ], optional: None, meta: None),
         (id: 9, kind: Method(args: [
-            (ident: "config", ty: OutOfLine(type_idx: 12)),
-        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 12), err_ty: OutOfLine(type_idx: 3))), errors: Some([
+            (ident: "config", ty: OutOfLine(type_idx: 13)),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 13), err_ty: OutOfLine(type_idx: 3))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",
                 "Refused",

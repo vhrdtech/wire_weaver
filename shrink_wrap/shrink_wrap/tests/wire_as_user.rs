@@ -316,3 +316,49 @@ fn plain_max_size_bounds_buffers_and_series() {
     assert!(bits(Reading::MAX_ITEM_BITS) < bits(ReadingTwin::MAX_ITEM_BITS));
     assert!(bits(Prefix::MAX_FIXED_BITS) < bits(PrefixTwin::MAX_FIXED_BITS));
 }
+
+/// An even number: a checked newtype written as a plain `i8` (`#[wire(i8)]`), so the bytes are an `i8`'s and an odd
+/// one is an error when it is read.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Even(i8);
+
+impl WireAs<Even> for i8 {
+    fn from_plain(value: Even) -> Result<Self, Error> {
+        Ok(value.0)
+    }
+
+    fn into_plain(self) -> Result<Even, Error> {
+        if self % 2 == 0 {
+            Ok(Even(self))
+        } else {
+            Err(Error::SubtypeOutOfRange)
+        }
+    }
+}
+
+#[derive_shrink_wrap(borrowed, owned, self_describing, ww_repr = u4, derive(Debug, PartialEq, Clone, Copy))]
+pub enum Step {
+    Zero,
+    By(#[wire(i8)] Even),
+}
+
+#[derive_shrink_wrap(borrowed, owned, self_describing, ww_repr = u4, derive(Debug, PartialEq))]
+pub enum StepTwin {
+    Zero,
+    By(i8),
+}
+
+#[test]
+fn an_integer_wire_type_for_a_user_type() {
+    assert_eq!(bytes(&Step::By(Even(-4))), bytes(&StepTwin::By(-4)));
+    assert_eq!(bytes(&Step::Zero), bytes(&StepTwin::Zero));
+    assert_eq!(
+        Step::from_ww_bytes(&bytes(&StepTwin::By(-4))).unwrap(),
+        Step::By(Even(-4))
+    );
+    assert_eq!(
+        Step::from_ww_bytes(&bytes(&StepTwin::By(3))),
+        Err(Error::SubtypeOutOfRange)
+    );
+    assert_eq!(Step::MAX_SIZE, StepTwin::MAX_SIZE);
+}

@@ -251,8 +251,9 @@ def test_generic_types():
     api = ww.load_api(str(API_CRATE.parent / "generics_api"), "Generics")
     assert api.swap.signature == "swap(pair: Pair<u8, u16>) -> Pair<u16, u8>"
     assert api.outer.signature == "rw outer: Outer<3>"
-    # `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition (alias names are not in ww_self)
-    assert api.latest.signature == "rw latest: Timed<Quantity<Ampere>>"
+    # `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition (alias names are not in ww_self),
+    # its bounds `B` explicit (STD-59)
+    assert api.latest.signature == "rw latest: Timed<Quantity<Ampere, Unbounded>>"
     assert api.readings.signature == "stream readings: Reading<i16>"
     outer = dict(id=7, window=dict(samples=[1, 2, 0xFFF]))
     assert api.outer.decode(api.outer.encode(outer)) == outer
@@ -422,7 +423,7 @@ def test_fixed_and_counts():
     assert (str(w), w.bounds) == ("100 ms", (1, 5000))
     # a binary prefix
     b = api.buffer.decode(api.buffer.encode(4))
-    assert (str(b), b.prefix, b.exponent, f"{b}") == ("4 KiB", "Ki", None, "4 KiB")
+    assert (str(b), b.prefix, b.exponent, f"{b}") == ("4 KiB", "Kibi", None, "4 KiB")
     assert b.to_si() == 4096 * 8  # bits
     # indices and sequence numbers: structs of their number, the number alone accepted, checked as the device checks
     assert api.input.decode(api.input.encode(2)) == {"number": 2}

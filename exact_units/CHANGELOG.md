@@ -4,6 +4,10 @@
 
 * `UnitExpr::Named` has a `provenance: Provenance<'static>` field (STD-72): a `UnitExpr::Named { .. }` written by
   hand adds `provenance: Provenance::Defined`; a pattern without `..` adds `..`.
+- `Prefix` (STD-59) gains the binary prefixes `Kibi`, `Mebi`, `Gibi`, `Tebi` (discriminants 25 to 28) and `Exact(ExactScale)` (29), which carries any exact scale a `Fixed` can have: `1/65535` (a 16-bit duty), `10⁻⁴`, `π/2¹⁵` (BAM). On the wire `Exact` is the full `Magnitude` after its discriminant, so a reader needs no table; named prefixes keep their one nibble. In memory `Prefix` is 1 byte (`niche`, DER-24), it was 4 (`#[repr(u32)]`). No catch-all variant: an older decoder refuses the new discriminants (a value in Kibi or Exact from a newer device is a decode error there), which is accepted, an unknown scale means nothing to a reader. One break for all of it.
+  - `From<Prefix> for i8` and `TryFrom<i8> for Prefix` are removed (no answer for a binary prefix): use `pow10() -> Option<i8>` (also `Some` for an `Exact` power of ten), the const `si_pow10()` (SI prefixes only, the fast path), `si_from_pow10(e)` (const, SI only) or `from_pow10(e)` (SI, else `Exact`), and `magnitude()` for the exact scale of any prefix.
+  - New: `ExactScale` (a one-byte handle: 162 scales computed from the index on every build, no table in flash, up to 38 more interned on `std`; `ExactScale::of`, `magnitude`, `index`), `Prefix::from_magnitude` / `named_of` / `magnitude` / `is_named`, `Prefix::ALL` has the binary ones. `Display` writes `Ki` and an `Exact` scale as `·1/65535`; `scale_f64` / `scale_f32` are exact for every prefix.
+  - A `Series` store and observe cells keep a `Prefix` as one byte (hand-written `SeriesStore` / `SeriesCells`; rows of one named prefix are written column-wise, as before).
 
 ### 🚀 Features
 

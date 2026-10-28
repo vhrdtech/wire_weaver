@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a77f8922a5472cc05b857a3b06b3afde7f8697c68540fc74a9cd063e56e3b52c
+// shrink_wrap sha256: 4a392da7ce4245b5cb2257b49030d14461a5aa3fde0e9509f449ed8c38352801
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -45,14 +45,14 @@
         181,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "SIExpr", signature: [
-        100,
-        159,
-        250,
-        140,
-        74,
-        202,
-        195,
-        115,
+        109,
+        7,
+        23,
+        177,
+        238,
+        193,
+        134,
+        35,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value whose unit is only known at run time: a prefix, a number in whatever storage the device picks, and the",

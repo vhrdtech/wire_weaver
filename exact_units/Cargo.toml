@@ -1,0 +1,66 @@
+[package]
+name = "exact_units"
+version = "0.1.0"
+authors.workspace = true
+description = "Units of measure fixed at compile time: dimensions, exact scales and numbers with their unit in the type, no_std and no alloc"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["std", "shrink_wrap"]
+# std enables every unit group, like ww_si's; with `shrink_wrap` also the owned wire mirrors
+std = ["shrink_wrap?/std", "quantities"]
+defmt = ["dep:defmt", "shrink_wrap?/defmt"]
+# the wire format: SerializeShrinkWrap / DeserializeShrinkWrap for every type, SIExpr, Fixed over UNib32, UVlq*, Nibble
+shrink_wrap = ["dep:shrink_wrap"]
+
+# unit groups: a firmware enables the ones it uses, `quantities` all of them
+quantities = [
+    "time",
+    "electrical",
+    "mechanical",
+    "angle",
+    "thermal",
+    "chemical",
+    "photometric",
+    "radiation",
+    "dimensionless",
+    "information",
+    "counting",
+]
+# Second, Hertz, HertzPerSecond, Baud
+time = []
+# Ampere, Volt, Ohm, Farad, Siemens, Henry, Coulomb, Watt, Weber, Tesla
+electrical = []
+# Meter, KiloGram, Newton, Pascal, Joule, Torque, Litre, VolumetricFlow, Speed, Acceleration, Jerk, Snap, Yank
+mechanical = []
+# Radian, Degree, Turn, Steradian, AngularVelocity, AngularAcceleration: angle is a base dimension of its own
+angle = []
+# Kelvin, DegreeCelsius
+thermal = []
+# Mole, Katal
+chemical = []
+# Candela, Lumen, Lux
+photometric = []
+# Becquerel, Gray, Sievert, ElectronVolt
+radiation = []
+# Ratio (duty, probability, scale): used next to any other group, so a group of its own
+dimensionless = []
+# Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own
+information = []
+# Item, Sample, Frame, Packet, Cycle, Block, Sector, Chunk, Char, Code: counted bases, each a dimension of its own
+counting = []
+
+[dependencies]
+defmt = { workspace = true, optional = true }
+shrink_wrap = { workspace = true, optional = true }
+
+# the wire: SIExpr, Dim and Scale bytes, Series of Fixed fields
+[[test]]
+name = "dynamic"
+required-features = ["shrink_wrap"]
+
+[[test]]
+name = "series"
+required-features = ["shrink_wrap"]

@@ -1,7 +1,7 @@
 //! [ExactScale]: a factor written with integers only, `num / den · 10^pow10 · 2^pow2 · π^pi`, so every reader computes
 //! the same value from it and two scales compare exactly.
 
-use shrink_wrap::UNib32;
+#[cfg(feature = "shrink_wrap")]
 use shrink_wrap::prelude::*;
 
 /// A factor `num / den · 10^pow10 · 2^pow2 · π^pi` with integers only: `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit
@@ -13,17 +13,17 @@ use shrink_wrap::prelude::*;
 /// wire that isn't is refused.
 ///
 /// On the wire: `num` and `den` as [UNib32] (a nibble each for small ones), then the three exponents as `i8`.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Copy, Clone, Debug, PartialEq, Eq, Hash),
-    final_structure,
-    validate = Self::validate
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(borrowed, owned(feature = "std"), final_structure, validate = Self::validate)
 )]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct ExactScale {
-    num: UNib32,
-    den: UNib32,
+    #[cfg_attr(feature = "shrink_wrap", wire(UNib32))]
+    num: u32,
+    #[cfg_attr(feature = "shrink_wrap", wire(UNib32))]
+    den: u32,
     pow10: i8,
     pow2: i8,
     pi: i8,
@@ -80,8 +80,8 @@ impl ExactScale {
             return None;
         }
         Some(ExactScale {
-            num: UNib32(num),
-            den: UNib32(den),
+            num,
+            den,
             pow10: e10 as i8,
             pow2: e2 as i8,
             pi,
@@ -91,8 +91,8 @@ impl ExactScale {
     /// `10^e`: a decimal prefix.
     pub const fn pow10(e: i8) -> Self {
         ExactScale {
-            num: UNib32(1),
-            den: UNib32(1),
+            num: 1,
+            den: 1,
             pow10: e,
             pow2: 0,
             pi: 0,
@@ -102,8 +102,8 @@ impl ExactScale {
     /// `2^e`: a binary prefix.
     pub const fn pow2(e: i8) -> Self {
         ExactScale {
-            num: UNib32(1),
-            den: UNib32(1),
+            num: 1,
+            den: 1,
             pow10: 0,
             pow2: e,
             pi: 0,
@@ -117,12 +117,12 @@ impl ExactScale {
 
     /// The parts: `(num, den, pow10, pow2, pi)`.
     pub const fn parts(&self) -> (u32, u32, i8, i8, i8) {
-        (self.num.0, self.den.0, self.pow10, self.pow2, self.pi)
+        (self.num, self.den, self.pow10, self.pow2, self.pi)
     }
 
     /// The power of ten when the scale is one alone (`Some(-6)` for µ), `None` otherwise.
     pub const fn as_pow10(&self) -> Option<i8> {
-        if self.num.0 == 1 && self.den.0 == 1 && self.pow2 == 0 && self.pi == 0 {
+        if self.num == 1 && self.den == 1 && self.pow2 == 0 && self.pi == 0 {
             Some(self.pow10)
         } else {
             None
@@ -131,10 +131,10 @@ impl ExactScale {
 
     /// `self · rhs`.
     pub const fn mul(self, rhs: Self) -> Self {
-        let a = gcd(self.num.0, rhs.den.0);
-        let b = gcd(rhs.num.0, self.den.0);
-        let num = (self.num.0 / a) as u64 * (rhs.num.0 / b) as u64;
-        let den = (self.den.0 / b) as u64 * (rhs.den.0 / a) as u64;
+        let a = gcd(self.num, rhs.den);
+        let b = gcd(rhs.num, self.den);
+        let num = (self.num / a) as u64 * (rhs.num / b) as u64;
+        let den = (self.den / b) as u64 * (rhs.den / a) as u64;
         assert!(
             num <= u32::MAX as u64 && den <= u32::MAX as u64,
             "scale too large"
@@ -166,10 +166,10 @@ impl ExactScale {
 
     /// The factor as an `f64` (rounded, unlike the scale itself).
     pub const fn to_f64(&self) -> f64 {
-        let x = self.num.0 as f64 / self.den.0 as f64;
-        x * crate::ops::pow10_f64(self.pow10)
-            * crate::ops::powi_f64(2.0, self.pow2)
-            * crate::ops::powi_f64(core::f64::consts::PI, self.pi)
+        let x = self.num as f64 / self.den as f64;
+        x * crate::num::pow10_f64(self.pow10)
+            * crate::num::powi_f64(2.0, self.pow2)
+            * crate::num::powi_f64(core::f64::consts::PI, self.pi)
     }
 
     /// `x · self` in integers, exactly: `None` when the result is not whole, doesn't fit `i128`, or has a power of π.
@@ -183,7 +183,7 @@ impl ExactScale {
         // 10^e10 · 2^e2 = 5^e10 · 2^(e10 + e2)
         let (d5, d2) = (self.pow10 as i32, self.pow10 as i32 + self.pow2 as i32);
         // multiplications first, so a division that is exact after them isn't refused
-        let mut x = x.checked_mul(self.num.0 as i128)?;
+        let mut x = x.checked_mul(self.num as i128)?;
         if d5 > 0 {
             x = x.checked_mul(5i128.checked_pow(d5 as u32)?)?;
         }
@@ -198,7 +198,7 @@ impl ExactScale {
                 false
             }
         };
-        if !div(self.den.0 as i128) {
+        if !div(self.den as i128) {
             return None;
         }
         for (base, d) in [(5i128, d5), (2, d2)] {
@@ -211,14 +211,15 @@ impl ExactScale {
 
     /// `x · self` in floats.
     pub fn apply_f64(&self, x: f64) -> f64 {
-        let x = x * self.num.0 as f64 / self.den.0 as f64;
-        let x = crate::ops::scale_f64(x, self.pow10);
-        x * crate::ops::powi_f64(2.0, self.pow2)
-            * crate::ops::powi_f64(core::f64::consts::PI, self.pi)
+        let x = x * self.num as f64 / self.den as f64;
+        let x = crate::num::scale_f64(x, self.pow10);
+        x * crate::num::powi_f64(2.0, self.pow2)
+            * crate::num::powi_f64(core::f64::consts::PI, self.pi)
     }
 
+    #[cfg(feature = "shrink_wrap")]
     fn validate(&self) -> Result<(), shrink_wrap::Error> {
-        let canonical = Self::try_new(self.num.0, self.den.0, self.pow10, self.pow2, self.pi);
+        let canonical = Self::try_new(self.num, self.den, self.pow10, self.pow2, self.pi);
         if canonical == Some(*self) {
             Ok(())
         } else {
@@ -319,6 +320,7 @@ fn spread(x: u32, p10: i8, p2: i8, sign: i8) -> Option<u128> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::string::ToString;
 
     #[test]
     fn canonical() {
@@ -369,6 +371,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "shrink_wrap")]
     #[test]
     fn wire() {
         let mut buf = [0u8; 32];
@@ -382,8 +385,8 @@ mod tests {
         }
         // not canonical: 2/1 is 2¹
         let bad = ExactScale {
-            num: UNib32(2),
-            den: UNib32(1),
+            num: 2,
+            den: 1,
             pow10: 0,
             pow2: 0,
             pi: 0,

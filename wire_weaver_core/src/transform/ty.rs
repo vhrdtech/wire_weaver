@@ -1547,7 +1547,7 @@ mod alias_tests {
         let bundle = load(
             "wire_fields",
             "fn a(p: Packed, r: Reading);",
-            "pub struct Packed { #[wire(I4)] offset: i8, #[cfg_attr(feature = \"sw\", wire(UNib32))] count: u64, plain: u8 }
+            "pub struct Packed { #[wire(I4)] offset: i8, #[cfg_attr(not(feature = \"sw\"), wire(UNib32))] count: u64, plain: u8 }
              #[derive_shrink_wrap(ww_repr = u4)] pub enum Reading { Offset(#[wire(U4)] u8), Count { #[cfg_attr(all(), wire(U12))] n: u16 } }",
         )
         .unwrap();

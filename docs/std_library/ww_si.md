@@ -22,6 +22,13 @@ let p: Watt = v * Ampere::milli(500u16);              // the compiler checks the
 
 `Volt::milli(3300u16)` is 3 bytes on the wire, `12 e4 0c`: the prefix and number type nibbles, then the `u16`.
 
+When the API fixes the prefix and number type anyway (a timeout in ms as `u16`, a timestamp in µs as `u64`), a
+[`Fixed`](exact_units.md) has them in the type and sends the number alone: `Micros<u32>` is the 4 bytes of the `u32`.
+The units, dimensions, `Fixed` and `SIExpr` live in the [exact_units](exact_units.md) crate, which `ww_si` builds on
+and re-exports (`ww_si::units`, `ww_si::Dim`, `ww_si::Fixed` are its items); `ww_si` adds the run-time quantities:
+`Quantity`, `AnyQuantity`, `Timed` and the timestamp tools. `Quantity::to_fixed` and `Quantity::from_fixed` convert
+between the two.
+
 ## One type for every quantity
 
 Every quantity is the same generic struct, and every unit a zero-size marker type in `ww_si::units`:

@@ -3,74 +3,7 @@
 use crate::*;
 use core::cmp::Ordering;
 
-const POW10_F64: [f64; 31] = [
-    1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16,
-    1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28, 1e29, 1e30,
-];
-
-/// `10^exp` in `const` code (for [Scale::Pow10](crate::Scale::Pow10)).
-pub(crate) const fn pow10_f64(exp: i8) -> f64 {
-    let mut x = 1.0;
-    let mut i = 0;
-    while i < exp.unsigned_abs() {
-        x *= 10.0;
-        i += 1;
-    }
-    if exp < 0 { 1.0 / x } else { x }
-}
-
-/// `x^n` in `const` code (for [UnitExpr::Pow](crate::UnitExpr::Pow)).
-pub(crate) const fn powi_f64(x: f64, n: i8) -> f64 {
-    let mut y = 1.0;
-    let mut i = 0;
-    while i < n.unsigned_abs() {
-        y *= x;
-        i += 1;
-    }
-    if n < 0 { 1.0 / y } else { y }
-}
-
-/// `x * 10^exp`, for the powers prefixes have (-60..=60 between two of them).
-pub(crate) fn scale_f64(x: f64, exp: i8) -> f64 {
-    let mut x = x;
-    let mut exp = exp as i32;
-    while exp > 30 {
-        x *= 1e30;
-        exp -= 30;
-    }
-    while exp < -30 {
-        x /= 1e30;
-        exp += 30;
-    }
-    if exp >= 0 {
-        x * POW10_F64[exp as usize]
-    } else {
-        x / POW10_F64[(-exp) as usize]
-    }
-}
-
-/// Powers of ten that `f32` holds exactly (up to 10^10).
-const POW10_F32: [f32; 11] = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10];
-
-/// `x * 10^exp` in `f32`, without `powi` (not in `core`): one multiplication or division by an exact power of ten for
-/// the usual prefixes, so 2 m· is 0.002 rounded once, not three times.
-pub(crate) fn scale_f32(x: f32, exp: i8) -> f32 {
-    let mut x = x;
-    let mut exp = exp as i32;
-    while exp > 10 {
-        x *= 1e10;
-        exp -= 10;
-    }
-    while exp < -10 {
-        x /= 1e10;
-        exp += 10;
-    }
-    if exp >= 0 {
-        x * POW10_F32[exp as usize]
-    } else {
-        x / POW10_F32[(-exp) as usize]
-    }
-}
+pub(crate) use exact_units::num::{scale_f32, scale_f64};
 
 /// `x * 10^exp` exactly, `None` on overflow; a negative `exp` truncates toward zero.
 #[cfg(any(

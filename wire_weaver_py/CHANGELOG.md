@@ -2,8 +2,8 @@
 
 ### ⚠️ Breaking
 
-- `Quantity.prefix` is a `str` of any scale (`"Ki"` for a binary one) and `Quantity.exponent` is `None` for a scale that is no power of ten (CLT-54).
-- `Quantity.prefix` is `"Pow10"`, `"Pow2"` or `"FullScale"` for a scale without a name (its number in the new `Quantity.prefix_param`: `-4`, `-15`, `16`) and `"Unknown"` for one of a newer version; `Quantity.exponent` is `None` for a binary prefix (`"Kibi"`), `Pow2` and `FullScale` (STD-59); new `Quantity.scale`, the prefix's scale as a float (`0.001`, `1024.0`, `1/65535`, `nan` for `Unknown`).
+- `Quantity.prefix` is a `str` of any scale (`"Kibi"` for a binary one, a `Fixed`'s other scale by its symbol or factor, `"2⁻¹⁵"`) and `Quantity.exponent` is `None` for a scale that is no power of ten (CLT-54).
+- `Quantity.prefix` is `"Pow10"`, `"Pow2"` or `"FullScale"` for a scale without a name (its number in the new `Quantity.prefix_param`: `-4`, `-15`, `16`) and `"Unknown"` for one of a newer version (its tag in `prefix_param`); `Quantity.exponent` is `None` for a binary prefix (`"Kibi"`), `Pow2` and `FullScale` (STD-59); new `Quantity.scale`, the prefix's scale as a float (`0.001`, `1024.0`, `1/65535`, `nan` for `Unknown`).
 - `Quantity.dim` has `rad` and `bit` and counted bases by name (`{"Sample": 1, "s": -1}`), STD-60: a torque per angular velocity is `{"kg": 1, "m": 2, "s": -1, "rad": -2}`. A square root (V/√Hz) has halves: `{"kg": 1, "m": 2, "s": -2.5, "A": -1}`.
 - Credit sinks on the stream protocol (API-34): a device with the same WireWeaver is needed; `Sink.progress` counts units (one per value, the bytes of a byte sink's payload), no longer bytes.
 

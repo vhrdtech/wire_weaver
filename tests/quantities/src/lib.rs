@@ -1173,7 +1173,7 @@ mod tests {
             (buffer.to_string(), format!("{buffer:#}")),
             ("4 KiB".into(), "4096 B".into())
         );
-        assert_eq!(buffer.prefix.name(), "Ki");
+        assert_eq!(buffer.prefix.name(), "Kibi");
         assert_eq!(buffer.prefix.magnitude(), Some(Magnitude::pow2(10)));
         // information's coherent unit is the bit
         assert_eq!(buffer.to_si_f64(), Some(4096.0 * 8.0));

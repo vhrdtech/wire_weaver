@@ -1,6 +1,7 @@
 //! `ww.Quantity`: a value of a `ww_si::Quantity<U>` with its unit (CLT-31), what `decode` / `read` give for one.
 
 use crate::convert::numeric_to_py;
+use exact_units::Prefix;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -34,10 +35,13 @@ impl Quantity {
     }
 
     /// The number of a scale without a name: `-4` for `Pow10` 10⁻⁴, `-15` for `Pow2` 2⁻¹⁵, `16` for `FullScale`
-    /// 1/65535; `None` for a named prefix.
+    /// 1/65535; the tag of a scale from a newer version (`"Unknown"`, `1000`); `None` for a named prefix.
     #[getter]
-    fn prefix_param(&self) -> Option<i8> {
-        self.q.prefix.si().and_then(|p| p.param())
+    fn prefix_param(&self) -> Option<i32> {
+        match self.q.prefix.si()? {
+            Prefix::Unknown(tag) => Some(tag.into()),
+            p => p.param().map(Into::into),
+        }
     }
 
     /// The prefix as a power of ten: `-3` for milli, `-4` for `Pow10` 10⁻⁴; `None` for a scale that is no power of

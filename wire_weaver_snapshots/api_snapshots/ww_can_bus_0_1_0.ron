@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 5bde3edfc9479b0c34b2492b477798401fe39ac22fac9761aeab0f7ab49c4cbe
+// shrink_wrap sha256: 0114a35549b4da25e17699e468d2f048da843be79714a2fc7c701185cf74cba1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -59,14 +59,14 @@
     (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "CanXl", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        236,
-        161,
-        140,
-        46,
-        26,
-        153,
-        148,
+        149,
+        186,
+        120,
         228,
+        162,
+        183,
+        17,
+        232,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         190,
@@ -88,16 +88,16 @@
         (ident: Some("seg2_min"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("seg2_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("sjw_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        201,
-        216,
-        13,
-        38,
-        84,
-        139,
-        83,
-        180,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Where in a frame its time is taken.",
@@ -121,23 +121,23 @@
             "Smallest step.",
         ], slot: None, series_opaque: false),
         (ident: Some("point"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Which [TransceiverMode]s besides `Normal` a transceiver has.",
     ], ident: "TransceiverModes", generics: [], fields: Named([
         (ident: Some("standby"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("silent"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Ohm", signature: [
-        206,
-        188,
-        148,
-        93,
-        88,
-        123,
-        192,
-        71,
+        76,
+        214,
+        1,
+        98,
+        102,
+        248,
+        72,
+        3,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].",
@@ -151,7 +151,7 @@
         (ident: Some("independent_of_system"), default: None, since: None, ty: Bool, docs: [
             "The figures hold whatever else the device does (dedicated DMA, a core of its own).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Can` implementation supports, see `Can::capabilities`.",
     ], ident: "Capabilities", generics: [], fields: Named([
@@ -264,7 +264,7 @@
         (ident: Some("performance"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 8)), docs: [
             "What this controller guarantees on its own; `None` when only its group\'s figure makes sense.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Operating mode of a controller.",
     ], ident: "Mode", generics: [], variants: [
@@ -299,14 +299,14 @@
         ], ident: "Sleep", fields: Unit, discriminant: 8, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        83,
-        42,
-        81,
-        93,
-        15,
-        53,
-        20,
-        18,
+        160,
+        239,
+        149,
+        227,
+        90,
+        10,
+        69,
+        211,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bit timing in time quanta: a bit is `1 + seg1 + seg2` quanta of `prescaler` clock periods each, sampled after",
@@ -319,7 +319,7 @@
         (ident: Some("sjw"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Synchronization jump width.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Bit timing of one phase: asked for as a bit rate or as segments, answered as segments.",
     ], ident: "Timing", generics: [], variants: [
@@ -367,7 +367,7 @@
         (ident: Some("iso"), default: None, since: None, ty: Bool, docs: [
             "ISO 11898-1:2015 CAN FD (with the stuff count); `false`: the original Bosch (non-ISO) CAN FD.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Order the frames of `Can::tx` go on the bus.",
     ], ident: "TxOrder", generics: [], variants: [
@@ -421,7 +421,7 @@
         (ident: Some("wake_on_bus"), default: None, since: None, ty: Bool, docs: [
             "In [Mode::Sleep], wake up on bus activity.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything a controller is configured with, see `Can::configure`: what is asked for going in, what was set",
         "coming back.",
@@ -440,7 +440,7 @@
             "Recover from bus-off by itself this long after entering it (zero: at once); `None`: stay bus-off until",
             "`Can::recover`. A device that can\'t do one or the other answers `Unsupported`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -538,7 +538,7 @@
         (ident: Some("last_data_error"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 23)), docs: [
             "Last protocol error in the data phase of an FD frame with bit rate switch, if any since the last read.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(1), crate_idx: 0, docs: [
         "An 11-bit (standard) or 29-bit (extended) CAN identifier.",
     ], ident: "CanId", generics: [], variants: [
@@ -586,7 +586,7 @@
             "0-8 bytes for a classic frame, empty for a remote frame, 0-8, 12, 16, 20, 24, 32, 48 or 64 bytes for an FD",
             "frame (a device pads other lengths up to the next one with zeroes).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A received frame, see `Can::rx`; when it was received is the time in the event head.",
     ], ident: "RxFrame", generics: [], fields: Named([
@@ -595,7 +595,7 @@
             "Index of the filter element that accepted it (into [FilterConfig::filters]); `None` when it was accepted as",
             "non-matching, or the device has no filters.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame to send, see `Can::tx` and `Can::tx_buffer`.",
     ], ident: "TxFrame", generics: [], fields: Named([
@@ -604,7 +604,7 @@
             "Comes back in the frame\'s [TxEvent], so a host matches events to the frames it sent; `None` when it doesn\'t",
             "need to (a device may then skip the event).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Outcome of sending one frame.",
     ], ident: "TxOutcome", generics: [], variants: [
@@ -635,7 +635,7 @@
             "How long the frame waited from the device accepting it to its start of frame on the bus (queue, arbitration",
             "and retransmissions), measured on the device; `None` from a device that doesn\'t measure it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Phase of a frame an error happened in.",
     ], ident: "Phase", generics: [], variants: [
@@ -658,7 +658,7 @@
         (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 23), docs: [], slot: None, series_opaque: false),
         (ident: Some("phase"), default: None, since: None, ty: OutOfLine(type_idx: 32), docs: [], slot: None, series_opaque: false),
         (ident: Some("dir"), default: None, since: None, ty: OutOfLine(type_idx: 33), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What the controller is doing on the bus.",
     ], ident: "Activity", generics: [], variants: [
@@ -674,7 +674,7 @@
     ], ident: "FdFrameFlags", generics: [], fields: Named([
         (ident: Some("esi"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("brs"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The controller\'s protocol state, see `Can::protocol_status`.",
     ], ident: "ProtocolStatus", generics: [], fields: Named([
@@ -696,7 +696,7 @@
             "Corrected and uncorrected bit errors of the message memory (ECC / parity) since the last read, where the",
             "controller detects them.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bus load measured by the device, see `Can::bus_load`.",
     ], ident: "BusLoad", generics: [], fields: Named([
@@ -715,7 +715,7 @@
         (ident: Some("errors"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Error frames in the window.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "IDs a [Filter] matches. Standard and extended IDs never match each other.",
     ], ident: "FilterMatch", generics: [], variants: [
@@ -761,7 +761,7 @@
     ], ident: "Filter", generics: [], fields: Named([
         (ident: Some("matching"), default: None, since: None, ty: OutOfLine(type_idx: 39), docs: [], slot: None, series_opaque: false),
         (ident: Some("action"), default: None, since: None, ty: OutOfLine(type_idx: 40), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What happens to a frame no [Filter] matches.",
     ], ident: "NonMatching", generics: [], variants: [
@@ -787,7 +787,7 @@
         (ident: Some("reject_remote"), default: None, since: None, ty: Bool, docs: [
             "Drop every remote frame.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "How a controller\'s message memory is divided, see `Can::set_layout`; counts in elements.",
     ], ident: "MemoryLayout", generics: [], fields: Named([
@@ -806,7 +806,7 @@
             "Data bytes an element holds (8, 12, 16, 20, 24, 32, 48 or 64); frames with more are cut (and flagged by the",
             "controller).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame of a dedicated receive buffer, see `Can::rx_buffer`.",
     ], ident: "BufferedFrame", generics: [], fields: Named([
@@ -816,7 +816,7 @@
         ])), docs: [
             "When it was received, on the device\'s clock; `None` from a device without timestamps.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Transceiver mode, see `Can::set_transceiver`.",
     ], ident: "TransceiverMode", generics: [], variants: [
@@ -857,7 +857,7 @@
         (ident: Some("fault"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 47)), docs: [
             "A bus wiring fault the transceiver reports, if any (and if it can).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "A terminator setting, see `Can::set_termination`.",
     ], ident: "Termination", generics: [], variants: [
@@ -902,7 +902,7 @@
         ]), docs: [
             "Highest one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Clock of a [CanGroup]: a source and the frequency the controllers get from it.",
     ], ident: "GroupClock", generics: [], fields: Named([
@@ -914,7 +914,7 @@
         ]), docs: [
             "Frequency the controllers get (after the group\'s divider).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a [CanGroup] has, see `CanGroup::group_capabilities`.",
     ], ident: "GroupCapabilities", generics: [], fields: Named([
@@ -930,7 +930,7 @@
         (ident: Some("shared_memory"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U32))), docs: [
             "Message memory shared by the controllers, in 32-bit words; `None` when each has its own.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Enabled or disabled, see `CanGroup::group_state`.",
     ], ident: "GroupState", generics: [], variants: [
@@ -983,7 +983,7 @@
         (ident: Some("watchdog"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "Application watchdog limit in 256 NTU steps; `None` disables it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What a [Trigger] does.",
     ], ident: "TriggerKind", generics: [], variants: [
@@ -1026,7 +1026,7 @@
         ], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("kind"), default: None, since: None, ty: OutOfLine(type_idx: 59), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Synchronisation state of time-triggered operation.",
     ], ident: "TtSync", generics: [], variants: [
@@ -1050,14 +1050,14 @@
         (ident: Some("error_level"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "ISO 11898-4 error level: 0 no error, 1 warning, 2 error, 3 severe error.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "PWM symbol timing of the XL data phase, in minimum time quanta (clock periods).",
     ], ident: "XlPwm", generics: [], fields: Named([
         (ident: Some("short"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("long"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "XL data phase settings, see `CanXl::configure_xl`.",
     ], ident: "XlConfig", generics: [], fields: Named([
@@ -1072,7 +1072,7 @@
         (ident: Some("error_signaling"), default: None, since: None, ty: Bool, docs: [
             "Error signalling in the data phase; off for PWM mode, where errors are left to higher layers.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A CAN XL frame.",
     ], ident: "XlFrame", generics: [], fields: Named([
@@ -1094,13 +1094,13 @@
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(2048), ty: Vec(NumericAny(Base(U8)))), docs: [
             "1-2048 bytes.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "An XL frame to send, with a marker for `Can::tx_events`.",
     ], ident: "XlTxFrame", generics: [], fields: Named([
         (ident: Some("frame"), default: None, since: None, ty: OutOfLine(type_idx: 65), docs: [], slot: None, series_opaque: false),
         (ident: Some("marker"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(UNib32))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "One CAN controller with its transceiver: configure it, receive on `rx`, send on the `tx` credit sink, watch its",

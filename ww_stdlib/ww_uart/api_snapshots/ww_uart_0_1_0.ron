@@ -1,6 +1,6 @@
 // ww_uart 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ecd7e75d26bdf01f42ce0895a151e9a3e05bb38948bee782b6ee985417f9cdd1
+// shrink_wrap sha256: 420156a8851149c7418a3547f23e31e813363e2c43233232e121b872eb765450
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "UART over WireWeaver: a device bridges a serial port to the host, or watches the two lines of a serial link.",
     "",
@@ -41,14 +41,14 @@
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "Uart", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        201,
-        216,
-        13,
-        38,
-        84,
-        139,
-        83,
-        180,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         190,
@@ -75,7 +75,7 @@
         (ident: Some("break_detected"), default: None, since: None, ty: Bool, docs: [
             "A break condition (an extended low on the line) was detected.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Received bytes that came back to back, see `Uart::rx` and `Uart::monitor`: when the first byte arrived is the",
         "time in the event head, when the last one did is `end` (see the crate docs, \"Time\").",
@@ -93,26 +93,26 @@
         (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [
             "The received bytes.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        83,
-        42,
-        81,
-        93,
-        15,
-        53,
-        20,
-        18,
+        160,
+        239,
+        149,
+        227,
+        90,
+        10,
+        69,
+        211,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        136,
-        102,
-        94,
-        81,
-        55,
-        113,
-        73,
-        118,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a `Uart` implementation supports, see `Uart::capabilities`.",
@@ -164,7 +164,7 @@
         (ident: Some("tx_buffer"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Device transmit buffer, in bytes (the credit of the `tx` sink).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(3), crate_idx: 0, docs: [
         "Data bits per character.",
     ], ident: "DataBits", generics: [], variants: [
@@ -241,7 +241,7 @@
             "Idle time on RX that ends a chunk, in character times (`frame_bits / baud` each): a gap longer than this ends",
             "the chunk, a shorter one doesn\'t. [IDLE_CHARS_DEFAULT] (2) unless a protocol asks for another; 0 is taken as 1.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -303,7 +303,7 @@
         (ident: Some("idle_chars"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Idle time on either line that ends a chunk of that line, as [UartConfig::idle_chars].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "Which line of the watched link a [MonitorChunk] came from.",
     ], ident: "MonitorLine", generics: [], variants: [
@@ -319,7 +319,7 @@
     ], ident: "MonitorChunk", generics: [], fields: Named([
         (ident: Some("line"), default: None, since: None, ty: OutOfLine(type_idx: 16), docs: [], slot: None, series_opaque: false),
         (ident: Some("chunk"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A serial port: configure, receive on `rx`, send on the `tx` credit sink.",

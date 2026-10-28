@@ -5856,6 +5856,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>DER-21 <code>#[wire(W)]</code> beyond plain fields</strong> — inside <code>Option</code>, arrays and lists (<code>Option&lt;#[wire] u8&gt;</code> has no
   syntax yet: a wrapper type or <code>#[wire(Option&lt;U4&gt;)]</code>), and in <code>fixed_layout</code> / <code>head_tail</code> types, which reject
   the attribute with a compile error naming DER-21 today.</li>
+<li>✅ <strong>DER-18 <code>transparent</code> derive directive</strong>: a struct with one field that isn't zero bits (<code>PhantomData</code>, <code>()</code>)
+  takes that field's size class (<code>ELEMENT_SIZE</code>, <code>PUSHES_LEN</code>, <code>MAX_SIZE</code>), series columns, store and cells, and
+  writes exactly its bytes in every position, borrowed and owned, generic, with <code>validate</code> and <code>display</code>; compile
+  errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
+  (<code>ItemStruct::transparent</code>, read by the walker, <code>ValueOwned</code>'s decoder and <code>Series</code> columns, so the <code>ww</code> CLI and
+  <code>wire_weaver_py</code> read it too). For <code>ww_si::Fixed</code> (STD-55), where a <code>final_structure</code> wrapper was
+  <code>UnsizedFinalStructure</code> even around a <code>u64</code> and couldn't sit in a <code>sized</code> parent. Also fixed: a generic parameter
+  named <code>P</code>, <code>I</code>, <code>S</code> or <code>C</code> clashing with the derive's own in series code (<code>PhantomData&lt;(U, P)&gt;</code> included), and
+  <code>#[repr(..)]</code> of a derived struct being dropped (<code>docs/serdes/derive_reference.md#transparent</code>; tests
+  <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). Not yet in the
+  evolution checker: EVO-15.</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -6100,6 +6111,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shortest <code>max_age_us</code>. Against a time column per property (21 FOC properties, n = 32, <code>DeltaPacked</code>): -36 % bytes,
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (<code>docs/api/observing.md#which-rates-fit-an-mcu</code>, <code>tests/observe_batched</code>).</li>
+<li>✅ <strong>API-60 Types from crates that aren't API crates</strong> · <code>v0.5</code> — a crate without <code>wire_weaver</code> or <code>#[ww_trait]</code>
+  (<code>exact_units</code>, STD-61) is walked and snapshotted like an API crate; generated code names its types through a
+  crate that re-exports it (<code>ww_si::exact_units::..</code>, <code>CratePaths</code> from <code>load_dep_with_paths</code>) when the generating
+  crate doesn't depend on it; the walker follows <code>use dep as name;</code> and <code>use dep::module;</code> for leading path
+  segments. With <code>shrink_wrap</code> optional (<code>#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]</code>) the walker
+  reads <code>cfg_attr</code>s with the features Cargo builds the crate with (dependency entries, <code>[workspace.dependencies]</code>,
+  <code>dep/feature</code>, defaults, unified across dependents), snapshots with all features; a field's or variant's
+  <code>cfg_attr</code> of the derive's own attributes (<code>default</code>, <code>wire</code>, ..) is read as holding by the derive and the walker,
+  a compile error where it doesn't; other field and variant attributes pass through to the generated type. Tests
+  <code>tests/standalone</code> (server and client without a dependency on <code>standalone_units</code>), <code>wire_weaver_core</code> unit tests,
+  <code>shrink_wrap/tests/cfg_attr.rs</code> and <code>field_attributes.rs</code>, conformance <code>cfg_attr.*</code>
+  (<code>docs/types.md#types-from-crates-that-arent-api-crates</code>).</li>
 <li>✅ <strong>API-14 API crates with git and crates.io dependencies</strong> · <code>v0.5</code> — the crate walker (<code>#[ww_api_root]</code>,
   <code>#[ww_trait]</code>, <code>ww_codegen!</code>, <code>ww api</code>) follows <code>{ git = .. }</code> and <code>"version"</code> / <code>{ version = .. }</code> dependencies
   (also through <code>[workspace.dependencies]</code> and <code>package = ".."</code> renames), not only path ones: the exact package from
@@ -6803,6 +6826,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</li>
+<li>📋 <strong>CLT-54 <code>ww_si::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55) shown
+  with its unit and scale (<code>1730000000000000 µs</code>), written from <code>5 ms</code> exactly into the stored scale and type (not
+  exact or out of range: an error naming the type), bounds shown and checked before a write, slider limits in a GUI,
+  <code>Index</code> / <code>IndexFrom1</code> / <code>Seq</code> (STD-58) and the dimensions of STD-60 shown; the C consumer of the conformance matrix.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6906,6 +6933,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   and <code>ww_numeric::NumericAnyType</code> are <code>no_future_version</code> (SW-47): a host reading a newer model fails as a whole.
   With <code>Unknown</code> handled in every walker (visitor, signature, inline, values, compat, CLI, Python), an older host could
   show the rest of a newer device's API and mark the unknown parts.</li>
+<li>💡 <strong>INT-12 Bounds as a type of the API model</strong> — <code>Type::Bounded { ty, min, max }</code> (like <code>MaxLen</code>), checked by every
+  consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
+  of <code>ww_si</code> markers (STD-55) that only <code>ww_si</code>-aware clients check; a new <code>Type</code> variant needs a model version step.</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6961,6 +6991,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
+<li>📋 <strong>EVO-15 Transparent wrappers in the checker</strong> · <code>v0.5</code> — <code>T</code> and a <code>transparent</code> wrapper of <code>T</code> (DER-18,
+  <code>ww_si::Fixed</code>) are compatible, reported as the same bytes; a change of a <code>Fixed</code>'s unit or scale is breaking
+  although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
+  refuses; <code>Quantity</code> → <code>Fixed</code> is breaking with a hint that it is the intended move.</li>
+<li>📋 <strong>EVO-16 <code>ww_si::Dim</code> with angle, information and counted bases</strong> · <code>v0.5</code> — the wire change of <code>Dim</code> in
+  <code>SIExpr</code> / <code>AnyQuantity</code> and in snapshots that STD-60 brings: no longer <code>sized</code>, two more fixed exponents and a
+  short list of named counted bases.</li>
 </ul>
 <h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7094,8 +7131,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   carries, also by a command that never introspects the device. Open: <code>GlobalCompact</code> paths, multi requests; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
   expression input.</li>
-<li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
-  numbers.</li>
+<li>
+<p>📋 <strong>TOOL-22 Hint for plain fields with a unit in their name</strong> — <code>ww api check</code> notes a plain integer field,
+  argument or property named <code>*_us</code>, <code>*_ms</code>, <code>*_bytes</code>, <code>*_ppb</code>, .. with the <code>ww_si::Fixed</code> (STD-55) it could be;
+  a note, never an error, silenced per item.</p>
+</li>
+<li>
+<p>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
+  numbers.</p>
+</li>
 <li>✅ <strong>STD-2 <code>ww_version</code></strong>.</li>
 <li>✅ <strong>STD-3 <code>ww_si</code></strong> and <strong><code>ww_numeric</code></strong>.</li>
 <li>✅ <strong>STD-4 <code>ww_date_time</code></strong>.</li>
@@ -7394,6 +7438,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   id, and its <code>cnt</code> format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
   be behind (STD-25): bring the firmware's <code>cnt</code> and build id up to what the tool needs, or make the tool say which
   format it got and what is missing instead of failing.</li>
+<li>📋 <strong>STD-55 <code>ww_si::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> — a
+  value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (no prefix, no <code>NumericValue</code> tag, so a
+  <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix name, <code>Kibi</code>.., <code>Pow10&lt;E&gt;</code>,
+  <code>Rational&lt;N, D&gt;</code>), bounds (<code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) checked on decode and construction;
+  information and counting units, exact conversions to and from <code>Quantity</code>, <code>core::time::Duration</code>, const ops; in
+  the API model as an instance of one generic definition, so introspection shows the unit.</li>
+<li>📋 <strong>STD-56 Plain fields with a unit in their name become <code>Fixed</code></strong> — <code>shared_us: u64</code>, <code>rate_ppb: i32</code>,
+  <code>ring_capacity_bytes: u64</code>, <code>queue_len: u32</code> and about 80 more across <code>ww_stdlib</code>, <code>ww_link</code>, <code>ww_stream</code>,
+  <code>ww_client_server</code> and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.</li>
+<li>📋 <strong>STD-57 <code>Quantity</code> used at one fixed scale becomes <code>Fixed</code></strong> — stream timestamps (<code>Timed&lt;T, S&gt;</code>), rates fixed in
+  practice: fewer bytes per value, a wire break. On hold until STD-55 is built.</li>
+<li>📋 <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — positions in a table of something (0- and 1-based) and
+  wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
+<li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
+  (<code>Quantity&lt;U, B&gt;</code>, range in coherent units), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
+<li>📋 <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim</code> gets angle and information bases
+  and named counted bases (<code>Sample</code>, <code>Frame</code>, <code>Block</code>, ..): bytes don't convert into % or rad, <code>Sample/s × s</code> is a
+  <code>Sample</code>, <code>Sample → Byte</code> only through a bytes-per-sample; checked at compile and at run time (EVO-16).</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>

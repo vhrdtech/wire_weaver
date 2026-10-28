@@ -5436,6 +5436,9 @@ lengths exist at all: <a href="../wire_format/#the-fifo-of-lengths">the FIFO of 
 </tr>
 </tbody>
 </table>
+<p>A struct of one field can also take its field's size class with <a href="../derive_reference/#transparent"><code>transparent</code></a>
+instead of one of these: a <code>Count(u64)</code> is <code>Sized { size_bits: 64 }</code>, a wrapped <code>UNib32</code> <code>SelfDescribing</code>, a wrapped
+<code>&amp;str</code> <code>UnsizedFinalStructure</code>, with the bytes of the plain field. It excludes all three.</p>
 <div class="admonition tip">
 <p class="admonition-title">Free bits can still be used</p>
 <p>A <code>final_structure</code> or <code>sized</code> type can still grow into the gaps it already has, which are zero by default. If

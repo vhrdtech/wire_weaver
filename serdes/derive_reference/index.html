@@ -1231,6 +1231,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#transparent" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>transparent</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#generics" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1271,6 +1282,23 @@
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Field and variant attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#behind-cfg_attr-and-attributes-the-derive-doesnt-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Behind <code>cfg_attr</code>, and attributes the derive doesn't read
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5624,6 +5652,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#transparent" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>transparent</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#generics" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5664,6 +5703,23 @@
       </span>
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Field and variant attributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#behind-cfg_attr-and-attributes-the-derive-doesnt-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Behind <code>cfg_attr</code>, and attributes the derive doesn't read
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -5796,7 +5852,7 @@
 <a href="../derive/">Derive</a> for the basics.</p>
 <p>The order of directives doesn't matter to the parser, but the codebase consistently writes them in this order (and
 so do the examples):</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse, ww_repr,
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>borrowed, owned, cfg_attr*, derive*, non_exhaustive, final_structure|self_describing|sized|sparse|transparent, ww_repr,
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>discriminants, display, validate, series|series(no_store)|series(cells), no_future_version|future_version
 </span></code></pre></div>
 <table>
@@ -5822,6 +5878,10 @@ so do the examples):</p>
 <tr>
 <td><code>fixed_layout</code>, <code>head_tail</code>, <code>sparse</code></td>
 <td><a href="../layouts/">Fixed and sparse layouts</a></td>
+</tr>
+<tr>
+<td><code>transparent</code></td>
+<td><a href="#transparent"><code>transparent</code></a></td>
 </tr>
 <tr>
 <td><code>ww_repr</code>, <code>discriminants</code>, <code>no_future_version</code>, <code>future_version</code></td>
@@ -6169,16 +6229,55 @@ needs <code>PartialEq</code>: a value is written again where it changed).</p>
 store written by hand or with a field whose type has none; a type with a <code>#[series(opaque)]</code> field gets none anyway.
 <code>series(cells)</code> also implements <code>SeriesCells</code>, the store as atomics for a writer in an interrupt
 (<a href="../series/#cells-a-store-shared-with-an-interrupt-seriescells">series.md</a>); every field type needs it too.</p>
+<h2 id="transparent"><code>transparent</code><a class="headerlink" href="#transparent" title="Permanent link">&para;</a></h2>
+<p>DER-18. A struct with one field that isn't zero bits (the others <code>PhantomData&lt;..&gt;</code> or <code>()</code>) is exactly that field on
+the wire: a new type that adds meaning (a unit, an index, a checked range) for free. Its <code>ELEMENT_SIZE</code>, <code>PUSHES_LEN</code>
+and <code>MAX_SIZE</code> are the field's, and serializing and deserializing call the field's own, so the bytes are the plain
+field's wherever the struct is: in an evolvable or <code>sized</code> parent, in a <code>Vec</code>, <code>Option</code>, array or <code>Series</code>, or alone.</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, transparent, series, derive(Debug, PartialEq, Clone, Copy))]</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Count</span><span class="p">(</span><span class="k">pub</span><span class="w"> </span><span class="kt">u64</span><span class="p">);</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, transparent, series, derive(Debug, PartialEq, Clone, Copy))]</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volts</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">f32</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">_unit</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="cp">#[derive(Debug, PartialEq, Clone, Copy)]</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Ac</span><span class="p">;</span><span class="w"> </span><span class="c1">// a unit marker, no serdes</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, sized, derive(Debug, PartialEq, Clone, Copy))]</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Reading</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">on</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="nc">Count</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">volts</span><span class="p">:</span><span class="w"> </span><span class="nc">Volts</span><span class="o">&lt;</span><span class="n">Ac</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Count</code> is <code>Sized { size_bits: 64 }</code> like a <code>u64</code>, so <code>Reading</code> can be <code>sized</code>, and <code>Count(u64::MAX)</code> alone is
+<code>ff ff ff ff ff ff ff ff</code>. Without <code>transparent</code> a one-field struct is evolvable (<code>Unsized</code>, a length stored in its
+parent), and <code>final_structure</code> keeps its size class <code>UnsizedFinalStructure</code> even around a <code>u64</code>. The
+<a href="../conformance/">conformance corpus</a> has every position (<code>transparent.*</code> cases), each with the bytes of its plain
+twin.</p>
+<ul>
+<li>Borrowed and owned (<code>Label&lt;'i&gt;(&amp;'i str)</code> gets <code>LabelOwned(String)</code>), generics (a parameter used only in
+  <code>PhantomData</code> gets no bounds, as <a href="#generics">above</a>), tuple and named structs, <code>validate</code> (a check of the value
+  just read, a range say) and <code>display</code> go with it. <code>#[repr(transparent)]</code> on the struct is kept.</li>
+<li>With <code>series</code> / <code>series(cells)</code> the struct forwards <code>SeriesColumns</code>, <code>SeriesStore</code> and <code>SeriesCells</code> to the field:
+  the same columns, store and cells, and a wrapped enum keeps its tag. The field's type needs <code>series</code> (or
+  <code>series(cells)</code>) too.</li>
+<li>A compile error names the type for no field or two fields that aren't zero bits, for a size assumption
+  (<code>sized</code>, <code>final_structure</code>, <code>self_describing</code>: the size is the field's), <code>sparse</code>, <code>fixed_layout</code>, <code>head_tail</code>,
+  an enum, and for <code>#[default]</code> or <code>#[series(opaque)]</code> on the field.</li>
+<li><code>transparent</code> is part of the type's wire contract, like a <a href="../size_assumptions/">size assumption</a>: turning it on or
+  off for a released type changes its bytes wherever it isn't already <code>sized</code>.</li>
+<li>In the API model (<code>ww_self::ItemStruct::transparent</code>) the dynamic client, Python and the <code>ww</code> CLI read it the same
+  way. A reader built before the flag existed (<code>ww_self</code> without <code>transparent</code>) sees a struct of one field: it reads
+  the same bytes inside a parent, but not a value of a wrapper around an evolvable (<code>Unsized</code>) type on its own, where
+  it expects a length the derive doesn't write.</li>
+</ul>
 <h2 id="generics">Generics<a class="headerlink" href="#generics" title="Permanent link">&para;</a></h2>
 <p>DER-14. Structs and enums can have type and const parameters, defaults and a where clause, next to their lifetime:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure)]</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">Second</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned)]</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Label</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">text</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="cp">#[derive_shrink_wrap(owned, ww_repr = u8)]</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Packet</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">T</span><span class="p">:</span><span class="w"> </span><span class="nb">Copy</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Default</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Data</span><span class="p">([</span><span class="n">T</span><span class="p">;</span><span class="w"> </span><span class="n">N</span><span class="p">]),</span><span class="w"> </span><span class="n">Empty</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure)]</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Timed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">Second</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned)]</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Label</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">text</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;&amp;&#39;</span><span class="na">i</span><span class="w"> </span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="cp">#[derive_shrink_wrap(owned, ww_repr = u8)]</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">enum</span><span class="w"> </span><span class="nc">Packet</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">N</span><span class="p">:</span><span class="w"> </span><span class="kt">usize</span><span class="o">&gt;</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">T</span><span class="p">:</span><span class="w"> </span><span class="nb">Copy</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nb">Default</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">Data</span><span class="p">([</span><span class="n">T</span><span class="p">;</span><span class="w"> </span><span class="n">N</span><span class="p">]),</span><span class="w"> </span><span class="n">Empty</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <ul>
 <li>Each generated impl bounds the type parameters by its own trait (<code>T: SerializeShrinkWrap +
@@ -6190,11 +6289,11 @@ store written by hand or with a field whose type has none; a type with a <code>#
 <p>A type parameter the fields use only inside <code>PhantomData&lt;..&gt;</code> gets none of these bounds (DER-15), so a unit marker
   needs no impls of its own; <code>PhantomData&lt;T&gt;</code> is zero bits (<code>Sized { size_bits: 0 }</code>, like <code>()</code>) and has no column
   in a <code>Series</code>. A <code>Quantity&lt;Volt&gt;</code> writes the same bytes as the struct without the field:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="cp">#[derive(Clone, Copy, Debug, PartialEq)]</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volt</span><span class="p">;</span><span class="w"> </span><span class="c1">// a marker: no serdes, no SeriesColumns</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Quantity</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">_unit</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive(Clone, Copy, Debug, PartialEq)]</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Volt</span><span class="p">;</span><span class="w"> </span><span class="c1">// a marker: no serdes, no SeriesColumns</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned, series, final_structure, derive(Clone, Copy, Debug, PartialEq))]</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Quantity</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="kt">i32</span><span class="p">,</span><span class="w"> </span><span class="k">pub</span><span class="w"> </span><span class="n">_unit</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>A parameter that a field also uses outside <code>PhantomData</code> keeps its bounds; a use the derive doesn't look into
 (inside a macro, a qualified path <code>&lt;T as Tr&gt;::X</code>, a function pointer) counts as a real one. The derive's own
@@ -6224,24 +6323,24 @@ store written by hand or with a field whose type has none; a type with a <code>#
 <code>Cargo.toml</code>: <code>::shrink_wrap</code> (or whatever it is renamed to), or <code>::wire_weaver::shrink_wrap</code> when only
 <code>wire_weaver</code> is a dependency. <code>crate_path(..)</code> overrides that, for a crate that reaches <code>shrink_wrap</code> through some
 other re-export:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, crate_path(my_framework::shrink_wrap))]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Point</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and
 <code>use shrink_wrap::prelude::*</code> is needed.</p>
 <h2 id="wirew-field-attribute"><code>#[wire(W)]</code> field attribute<a class="headerlink" href="#wirew-field-attribute" title="Permanent link">&para;</a></h2>
 <p>DER-19. A field keeps a plain Rust integer and is written as the wire type <code>W</code>: a narrower bit-sized one or a
 variable-length one. The code that uses the struct sees <code>i8</code> and <code>u64</code>, the bytes are those of <code>I4</code> and <code>UNib32</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned)]</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Wired</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="cp">#[wire(I4)]</span>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">small</span><span class="p">:</span><span class="w"> </span><span class="kt">i8</span><span class="p">,</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="cp">#[wire(UNib32)]</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="cp">#[wire(U12)]</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">raw</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span>
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">last</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned)]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Wired</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="cp">#[wire(I4)]</span>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">small</span><span class="p">:</span><span class="w"> </span><span class="kt">i8</span><span class="p">,</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="cp">#[wire(UNib32)]</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="cp">#[wire(U12)]</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">raw</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span>
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">last</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><code>Wired { small: -7, count: 300, raw: 0xABC, last: true }</code> is the 4 bytes <code>9c d4 ab c8</code> (conformance case
 <code>wire.struct</code>), where plain fields would take 12: the same bytes as a struct with fields of type <code>I4</code>, <code>UNib32</code>,
@@ -6319,6 +6418,24 @@ variable-length one. The code that uses the struct sees <code>i8</code> and <cod
 </tr>
 </tbody>
 </table>
+<h3 id="behind-cfg_attr-and-attributes-the-derive-doesnt-read">Behind <code>cfg_attr</code>, and attributes the derive doesn't read<a class="headerlink" href="#behind-cfg_attr-and-attributes-the-derive-doesnt-read" title="Permanent link">&para;</a></h3>
+<p>rustc hands the item to the macro before it expands the <code>cfg_attr</code>s on its fields and variants, and a macro can't
+evaluate a <code>cfg</code>. So:</p>
+<ul>
+<li><code>#[cfg_attr(pred, default = expr)]</code> (or <code>flag</code>, <code>slot</code>, <code>since</code>, <code>display</code>, <code>common</code>, <code>future_version</code>,
+  <code>series(..)</code>, <code>wire(W)</code>) is read as if <code>pred</code> holds, and the derive adds a <code>compile_error!</code> for builds where it
+  doesn't: the bytes never change with a <code>cfg</code> the derive couldn't see. This is for a type crate that keeps
+  <code>shrink_wrap</code> optional, with the derive under the same feature:
+  <code>#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]</code> on the type and
+  <code>#[cfg_attr(feature = "shrink_wrap", default = 1)]</code> on a field. These attributes go in a <code>cfg_attr</code> of their own,
+  mixing them with other attributes is an error.</li>
+<li>Any other attribute on a field, a tuple variant's field or a variant (<code>#[serde(rename = "r")]</code>,
+  <code>#[cfg_attr(feature = "defmt", defmt(Debug2Format))]</code>, a <code>cfg_attr</code> of those) stays on the generated field or variant
+  as written, and rustc expands it there. It goes on the type with the item's own name only (the borrowed <code>Type&lt;'i&gt;</code>,
+  or <code>TypeOwned</code> when that is what is written), like the item's own <code>derive</code>s: the owned mirror may not derive what
+  the attribute belongs to.</li>
+<li>A name the derive doesn't know is a compile error from rustc ("cannot find attribute"), never silently nothing.</li>
+</ul>
 <p>Special field types the macro handles itself: <a href="../special_types/#tailsizen-the-size-of-the-rest-of-a-value"><code>TailSize&lt;N&gt;</code></a>
 (filled in with the size of the rest of the value; only in types without a size assumption, the same on the borrowed
 and owned side) and <code>MaxLen&lt;T, N&gt;</code> (checked on serialize and deserialize, see

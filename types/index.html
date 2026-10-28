@@ -1058,6 +1058,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#types-from-crates-that-arent-api-crates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types from crates that aren't API crates
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5527,6 +5538,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#types-from-crates-that-arent-api-crates" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Types from crates that aren't API crates
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -5952,6 +5974,43 @@ names it. The <code>&lt;Name&gt;Owned</code> variant of a type with a lifetime i
 <p>The path and the name are the definition's identity: <code>units::Volt</code> and a <code>Volt</code> at the crate root are two
 different types, in generated code, in API snapshots (<code>ww api save</code> takes the types of <code>pub mod</code>s too, unit marker
 structs like <code>pub struct Volt;</code> included) and in introspection data.</p>
+<h3 id="types-from-crates-that-arent-api-crates">Types from crates that aren't API crates<a class="headerlink" href="#types-from-crates-that-arent-api-crates" title="Permanent link">&para;</a></h3>
+<p>An API can use types of any crate, also one that isn't built on WireWeaver: no <code>wire_weaver</code> dependency, no
+<code>#[ww_trait]</code>, only data types with <code>#[derive_shrink_wrap]</code> and <code>shrink_wrap</code> as its dependency (API-60). The crate
+walker reads its source like an API crate's, and <code>ww api save</code> snapshots its types and unit markers.</p>
+<p>Such a crate usually keeps <code>shrink_wrap</code> optional, so that users who don't need the wire format don't build it. The
+derive and its field attributes then sit behind a feature:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="cp">#[derive(Copy, Clone, Debug, PartialEq)]</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="cp">#[cfg_attr(feature = </span><span class="s">&quot;shrink_wrap&quot;</span><span class="cp">, derive_shrink_wrap(borrowed, owned(feature = </span><span class="s">&quot;std&quot;</span><span class="cp">)))]</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Reading</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">Milli</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="cp">#[cfg_attr(feature = </span><span class="s">&quot;shrink_wrap&quot;</span><span class="cp">, default = 1)]</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">samples</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The API crate turns the feature on, in its dependency entry (<code>exact_units = { version = "..", features =
+["shrink_wrap"] }</code>) or through its own <code>[features]</code> (<code>wire = ["exact_units/shrink_wrap"]</code>). The walker reads the
+crate's <code>#[cfg_attr(..)]</code>s as rustc does, with the features Cargo builds it with: those its dependents ask for (in
+<code>[dependencies]</code>, <code>[workspace.dependencies]</code> plus the member's own, and <code>dep/feature</code>), its default features
+unless <code>default-features = false</code>, and what those enable in its <code>[features]</code> table. A crate reached from several
+dependents is read once with the union of what they ask for, whichever the walker reaches first. <code>ww api save</code> reads
+a crate with all its features, so its snapshot has every gated type.</p>
+<p>On a field or an enum variant, a <code>cfg_attr</code> holding attributes the derive reads (<code>default</code>, <code>wire</code>, <code>flag</code>, ..) is
+read as if its predicate holds, by the derive and the walker alike, and the type fails to compile where it doesn't:
+the bytes never depend on a feature (see the
+<a href="../serdes/derive_reference/#behind-cfg_attr-and-attributes-the-derive-doesnt-read">derive reference</a>). Use the
+same feature as the type's derive. <code>#[cfg(..)]</code> on items isn't evaluated by the walker: a type is found as if its
+<code>cfg</code> held.</p>
+<p>The API model names a type by the crate that defines it, so generated code does too. When the crate with the
+<code>ww_codegen!</code> call doesn't depend on that crate itself, generated code names it through a crate it does depend on
+that re-exports it at the root:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">// in ww_si: its quantities are defined in exact_units</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">;</span>
+</span></code></pre></div>
+<p>A server depending on <code>ww_si</code> alone then gets <code>ww_si::exact_units::units::Second</code> in its generated code, while
+introspection data keeps <code>exact_units::units::Second</code>. <code>pub use dep as name;</code> and <code>pub extern crate dep;</code> work the
+same, through any number of crates. Without such a re-export, the generated code names the crate directly, and the
+crate with the <code>ww_codegen!</code> call needs a dependency on it.</p>
 <h2 id="special-types">Special types<a class="headerlink" href="#special-types" title="Permanent link">&para;</a></h2>
 <p>For particular jobs, on their own page:</p>
 <table>

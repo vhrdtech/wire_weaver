@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: ed3c019d394d3080343e1267f81f9e68ea7c7439088234769a488260fb9d494c
+// shrink_wrap sha256: 2a5bd22372435fb54b47ee7565e79414df48c47aaf2a5dcb3238dba45c3daf3f
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1010,12 +1010,15 @@
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
-        "A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or",
-        "any other exact scale ([Exact](Prefix::Exact): `1/65535`, `10⁻⁴`, `π/2¹⁵`).",
+        "A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or one",
+        "of three families of exact scales that aren\'t named: [Pow10](Prefix::Pow10) (`10⁻⁴`), [Pow2](Prefix::Pow2) (`2⁻¹⁵`,",
+        "a Q format) and [FullScale](Prefix::FullScale) (`1/65535`, a 16-bit duty).",
         "",
-        "One byte in memory. On the wire a `UNib32`: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one nibble,",
-        "`Exact` its tag and the full [Magnitude], so every reader gets the exact scale. An `Exact` never holds a named",
-        "prefix\'s scale ([from_magnitude](Self::from_magnitude) gives the named one), so equal scales are equal prefixes.",
+        "Two bytes in memory. On the wire a `UNib32` tag: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one",
+        "nibble, the other named ones a byte, and the three families one more byte for their parameter, so a scale takes 2",
+        "bytes at most and is self-contained. A family never holds a named prefix\'s scale (its parameter type refuses it,",
+        "also when read), so equal scales are equal prefixes. Other exact scales (`1/5`, `π/1000`) aren\'t a `Prefix`: a",
+        "value with one is an `AnyQuantity`.",
     ], ident: "Prefix", generics: [], variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -1055,10 +1058,20 @@
             "2⁴⁰",
         ], ident: "Tebi", fields: Unit, discriminant: 28, since: None),
         (docs: [
-            "An exact scale that isn\'t a named prefix, by a one-byte handle; the full magnitude on the wire.",
-        ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 109), docs: [], slot: None, series_opaque: true),
+            "`10^e` that isn\'t an SI prefix: `10⁻⁴`, `10⁵`.",
+        ], ident: "Pow10", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 29, since: None),
+        (docs: [
+            "`2^e` that isn\'t a binary prefix: `2⁻¹⁵` (a Q15 step, an RTC tick), `2⁸`.",
+        ], ident: "Pow2", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 30, since: None),
+        (docs: [
+            "`1/(2^n − 1)`: the step of an `n`-bit full scale, `1/65535` for a 16-bit duty.",
+        ], ident: "FullScale", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 31, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a named unit\'s scale comes from. On the wire (in an API model\'s `UnitDef`) an evolvable enum, so a later",

@@ -33,7 +33,8 @@ def plain(value):
     if isinstance(value, ww.Quantity):
         if value.fixed:
             return {"value": value.value}
-        return {"prefix": value.prefix, "value": {value.storage: value.value}}
+        prefix = value.prefix if value.prefix_param is None else {value.prefix: value.prefix_param}
+        return {"prefix": prefix, "value": {value.storage: value.value}}
     if isinstance(value, (bytes, bytearray, tuple, list)):
         return [plain(v) for v in value]
     if isinstance(value, dict):

@@ -427,6 +427,18 @@ impl Prefix {
         )
     }
 
+    /// The parameter of a family: the exponent of [Pow10](Prefix::Pow10) and [Pow2](Prefix::Pow2), the bits of
+    /// [FullScale](Prefix::FullScale); `None` for a named prefix. With [name](Self::name), the prefix as a dynamic
+    /// client sees it (`{"Pow10": -4}`).
+    pub const fn param(&self) -> Option<i8> {
+        match *self {
+            Prefix::Pow10(e) => Some(e.get()),
+            Prefix::Pow2(e) => Some(e.get()),
+            Prefix::FullScale(n) => Some(n.get() as i8),
+            _ => None,
+        }
+    }
+
     /// The variant's name, `"Milli"`: how a dynamic client sees it in a decoded value.
     pub const fn name(&self) -> &'static str {
         match self {

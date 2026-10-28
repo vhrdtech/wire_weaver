@@ -36,7 +36,7 @@ impl core::error::Error for DeviceTimeError {}
 #[derive(Clone, Debug)]
 pub struct DeviceTime {
     prefix: Prefix,
-    /// Nanoseconds per unit of `prefix` as `(num, den)`: `(1000, 1)` for µs, `(1_953_125, 64)` for `Exact` 2⁻¹⁵ s.
+    /// Nanoseconds per unit of `prefix` as `(num, den)`: `(1000, 1)` for µs, `(1_953_125, 64)` for `Pow2` 2⁻¹⁵ s.
     ns_per_unit: (i128, i128),
     storage: NumericBaseType,
     unwrapper: Unwrapper,

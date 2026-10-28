@@ -85,7 +85,11 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 ## Arithmetic and conversions
 
 - `checked_add`, `checked_sub`, `checked_mul`, `checked_div` give `None` on overflow or out of bounds;
-  `saturating_*` and `wrapping_*` (a device clock that wraps) as for the integers.
+  `saturating_*` and `wrapping_*` (a device clock that wraps) as for the integers. `Wrapping` and `Saturating` as
+  `B` make `+`, `-`, `*` and `/` do the same.
+- `to` converts only exactly; `to_rounded`, `to_saturating`, `to_wrapping` and `requantize` name a rounding and an
+  overflow policy, `into_rounded` and `From` are the infallible ones the bounds prove: see
+  [Rounding and overflow](rounding.md).
 - `PartialEq`, `Ord` and `Hash` compare the numbers; values of different scales are different types, convert them
   with `to` first.
 - `core::time::Duration` both ways for s, ds, cs, ms, µs and ns: `Micros::<u32>::try_from(Duration::from_millis(3))`
@@ -99,19 +103,22 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 
 ## Aliases
 
-| Alias        | Type                                       |
-|--------------|--------------------------------------------|
-| `Micros<T>`  | `Fixed<Second, Micro, T>`                  |
-| `Millis<T>`  | `Fixed<Second, Milli, T>`                  |
-| `Nanos<T>`   | `Fixed<Second, Nano, T>`                   |
-| `Bytes<T>`   | `Fixed<Byte, One, T>`                      |
-| `Ppb<T>`     | `Fixed<Ratio, Nano, T>`                    |
-| `Duty16`     | `Fixed<Ratio, Rational<1, 65535>, u16>`    |
-| `Q15<U>`     | `Fixed<U, Pow2<-15>, i16>` (`U` = `Ratio`) |
-| `Q31<U>`     | `Fixed<U, Pow2<-31>, i32>`                 |
-| `UQ16_16<U>` | `Fixed<U, Pow2<-16>, u32>`                 |
-| `Bam16`      | `Fixed<Turn, Pow2<-16>, u16>`              |
-| `Bam32`      | `Fixed<Turn, Pow2<-32>, u32>`              |
+| Alias        | Type                                                   |
+|--------------|--------------------------------------------------------|
+| `Micros<T>`  | `Fixed<Second, Micro, T>`                              |
+| `Millis<T>`  | `Fixed<Second, Milli, T>`                              |
+| `Nanos<T>`   | `Fixed<Second, Nano, T>`                               |
+| `Bytes<T>`   | `Fixed<Byte, One, T>`                                  |
+| `Ppb<T>`     | `Fixed<Ratio, Nano, T>`                                |
+| `Duty16`     | `Fixed<Ratio, Rational<1, 65535>, u16>`                |
+| `Q15<U>`     | `Fixed<U, Pow2<-15>, i16, Saturating>` (`U` = `Ratio`) |
+| `Q31<U>`     | `Fixed<U, Pow2<-31>, i32, Saturating>`                 |
+| `UQ16_16<U>` | `Fixed<U, Pow2<-16>, u32, Saturating>`                 |
+| `Bam16`      | `Fixed<Turn, Pow2<-16>, u16, Wrapping>`                |
+| `Bam32`      | `Fixed<Turn, Pow2<-32>, u32, Wrapping>`                |
+
+The Q formats saturate and the binary angles wrap in arithmetic; they are made with `Fixed::of`, see
+[Rounding and overflow](rounding.md#the-policy-of-a-type).
 
 ## In an API
 

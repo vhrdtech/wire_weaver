@@ -197,7 +197,7 @@ Every case of the [conformance corpus](conformance.md) and what each consumer do
 
 ## Requantize
 
-A stored number converted to another scale and storage with a named rounding and overflow policy (STD-63, [Rounding and overflow](../api/rounding.md)): every consumer gives the result, `none` for no value.
+A stored number converted to another scale and storage with a named rounding and overflow policy (STD-63, [Rounding and overflow](../std_library/rounding.md)): every consumer gives the result, `none` for no value.
 
 | Case | Conversion | Value | Rounding | Overflow | Result | derive | dynamic | python | c |
 |---|---|---|---|---|---|---|---|---|---|

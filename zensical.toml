@@ -132,6 +132,7 @@ nav = [
                     { "exact_units: magnitudes" = "std_library/magnitude.md" },
                     { "exact_units: points" = "std_library/points.md" },
                     { "exact_units: units in the model" = "std_library/units_in_the_model.md" },
+                    { "exact_units: rounding" = "std_library/rounding.md" },
                     "std_library/ww_error.md",
                     "std_library/ww_date_time.md",
                     "std_library/ww_numeric.md"

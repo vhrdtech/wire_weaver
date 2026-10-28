@@ -85,6 +85,7 @@ A `ww.Quantity` (ww_si 0.2 and later) keeps what the device sent and knows its u
 q = dev.supply.read()        # Quantity(3300 mV U16)
 str(q), float(q)             # "3300 mV", 3.3 (in the unit itself)
 q.value, q.prefix, q.exponent, q.storage   # 3300, "Milli", -3, "U16"
+q.scale                      # 0.001; 1024.0 for "Kibi", 1/65535 for an "Exact" duty (exponent None for both)
 q.symbol, q.unit, q.dim      # "V", "Volt", {"kg": 1, "m": 2, "s": -3, "A": -1}
 q.to_si()                    # 3.3, through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K)
 dev.supply.write(1.5)        # 1.5 V

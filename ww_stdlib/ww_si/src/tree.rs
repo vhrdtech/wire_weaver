@@ -32,9 +32,6 @@
 pub use exact_units::tree::*;
 
 use crate::Prefix;
-#[cfg(feature = "f32")]
-use crate::ops::scale_f32;
-use crate::ops::scale_f64;
 use core::fmt;
 use ww_numeric::NumericValue;
 
@@ -52,8 +49,8 @@ pub fn quantity<'a, 't, E: Tree<'t>>(
             if f.alternate() {
                 match *value {
                     #[cfg(feature = "f32")]
-                    NumericValue::F32(x) => write!(f, "{}", scale_f32(x, prefix.into()))?,
-                    _ => write!(f, "{}", scale_f64(value.to_f64(), prefix.into()))?,
+                    NumericValue::F32(x) => write!(f, "{}", prefix.scale_f32(x))?,
+                    _ => write!(f, "{}", prefix.scale_f64(value.to_f64()))?,
                 }
                 write_unit(Prefix::Unit, unit, f)
             } else {

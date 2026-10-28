@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 
 use wire_weaver::shrink_wrap::tail_bytes::TailBytesOwned;
 use ww_self::{ApiBundleOwned, Batching, FieldsOwned, FieldsValueOwned, TypeOwned, ValueOwned};
-use ww_si::Prefix;
 
 use crate::client::device_time::DeviceTime;
 use crate::client::dynamic::decode_item;
@@ -454,41 +453,14 @@ impl DynPositionedStream {
 
 /// A device time in seconds, e.g. `t` of a [StreamEvent::Item].
 pub fn seconds(t: &Second) -> f64 {
-    let value = t.value.to_f64();
-    let exp = match t.prefix {
-        Prefix::Unit => 0,
-        Prefix::Milli => -3,
-        Prefix::Micro => -6,
-        Prefix::Nano => -9,
-        Prefix::Pico => -12,
-        Prefix::Kilo => 3,
-        Prefix::Mega => 6,
-        Prefix::Giga => 9,
-        Prefix::Deca => 1,
-        Prefix::Hecto => 2,
-        Prefix::Tera => 12,
-        Prefix::Peta => 15,
-        Prefix::Exa => 18,
-        Prefix::Zetta => 21,
-        Prefix::Yotta => 24,
-        Prefix::Ronna => 27,
-        Prefix::Quetta => 30,
-        Prefix::Deci => -1,
-        Prefix::Centi => -2,
-        Prefix::Femto => -15,
-        Prefix::Atto => -18,
-        Prefix::Zepto => -21,
-        Prefix::Yocto => -24,
-        Prefix::Ronto => -27,
-        Prefix::Quecto => -30,
-    };
-    value * 10f64.powi(exp)
+    t.prefix.scale_f64(t.value.to_f64())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ww_numeric::NumericValue;
+    use ww_si::Prefix;
 
     #[test]
     fn seconds_of_device_times() {

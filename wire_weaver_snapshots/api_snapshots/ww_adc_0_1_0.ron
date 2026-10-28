@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 68b9f53732f8a9e2f7656e8aad07de5f7300b8866b2adeb39ad46112368f145d
+// shrink_wrap sha256: 7aa0592062e1a60cecc527a357c090568e3ea922f19cea604d7562b0c8456c13
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -81,24 +81,24 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Prefix", signature: [
-        183,
-        87,
-        241,
-        137,
-        44,
-        168,
-        233,
-        131,
+        192,
+        243,
+        93,
+        224,
+        198,
+        196,
+        208,
+        153,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        190,
-        99,
-        105,
-        144,
-        195,
-        49,
-        220,
-        202,
+        230,
+        15,
+        222,
+        166,
+        15,
+        199,
+        77,
+        231,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One calibrated reading, see `Adc::read`.",

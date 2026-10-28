@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8d61c6c08c97b957d69c3c965773b7b28489e9b4a394056195472d553056e648
+// shrink_wrap sha256: 8cd604c5aa08a96d6c5c619020322da02365961da88a9063c6dbace3e4d88b27
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -164,14 +164,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 4, type_name: "Quantity", signature: [
-        190,
-        99,
-        105,
-        144,
-        195,
-        49,
-        220,
-        202,
+        230,
+        15,
+        222,
+        166,
+        15,
+        199,
+        77,
+        231,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Exception frame and fault status registers of a Cortex-M core.",

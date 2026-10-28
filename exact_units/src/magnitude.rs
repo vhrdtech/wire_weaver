@@ -529,6 +529,20 @@ impl Magnitude {
             .mul(Self::PI.powi(pi))
     }
 
+    /// One over the product of `primes` (each a prime, repeated for a power), without factoring: how
+    /// [ExactScale](crate::ExactScale) builds `1/(2^b - 1)` from a short table instead of trial division.
+    pub(crate) const fn recip_of_primes(primes: &[u32]) -> Self {
+        let mut w = Work::ONE;
+        let mut i = 0;
+        while i < primes.len() {
+            if let Err(e) = w.add_prime(primes[i] as u64, -2) {
+                e.panic();
+            }
+            i += 1;
+        }
+        unwrap(w.pack())
+    }
+
     /// `self · rhs`. Panics (at compile time in a `const`) where [checked_mul](Self::checked_mul) is `None`.
     pub const fn mul(self, rhs: Self) -> Self {
         unwrap(self.checked_mul(rhs))

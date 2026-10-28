@@ -1,6 +1,6 @@
 //! Host side of [Second] as a device timestamp: from wrapped values back to the full device time.
 
-use crate::ops::scale_i128;
+use crate::ops::scale_i128_between;
 use crate::{Prefix, Second};
 use ww_numeric::NumericValue;
 
@@ -39,8 +39,8 @@ use ww_numeric::NumericValue;
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct Unwrapper {
-    /// Last full time, in units of `10^exp` seconds, `(time, exp)`; `None` before the first timestamp without anchor.
-    reference: Option<(i128, i8)>,
+    /// Last full time and its prefix; `None` before the first timestamp without anchor.
+    reference: Option<(i128, Prefix)>,
 }
 
 /// Why a timestamp could not be unwrapped.
@@ -68,7 +68,7 @@ impl Unwrapper {
     pub fn new(now: Second) -> Result<Self, UnwrapError> {
         let reference = now.value.to_i128().ok_or(UnwrapError::NotAnInteger)?;
         Ok(Unwrapper {
-            reference: Some((reference, now.prefix.into())),
+            reference: Some((reference, now.prefix)),
         })
     }
 
@@ -87,25 +87,23 @@ impl Unwrapper {
     /// The last full time, from the anchor or the last unwrapped timestamp, in its prefix; `None` before the first
     /// timestamp without an anchor.
     pub fn last(&self) -> Option<Second> {
-        let (reference, exp) = self.reference?;
-        let prefix = Prefix::try_from(exp).unwrap_or(Prefix::Unit);
+        let (reference, prefix) = self.reference?;
         Some(Second::new(prefix, NumericValue::U64(reference as u64)))
     }
 
     /// The full device time of `timestamp`, as a `U64` in `timestamp`'s prefix.
     pub fn unwrap(&mut self, timestamp: Second) -> Result<Second, UnwrapError> {
         let value = timestamp.value.to_i128().ok_or(UnwrapError::NotAnInteger)?;
-        let exp: i8 = timestamp.prefix.into();
         let full = match (timestamp.value.unsigned_bits(), self.reference) {
-            (Some(bits), Some((reference, ref_exp))) if bits < 64 => {
-                let reference =
-                    scale_i128(reference, ref_exp - exp).ok_or(UnwrapError::Overflow)?;
+            (Some(bits), Some((reference, ref_prefix))) if bits < 64 => {
+                let reference = scale_i128_between(reference, ref_prefix, timestamp.prefix)
+                    .ok_or(UnwrapError::Overflow)?;
                 closest(reference, value, 1i128 << bits)
             }
             _ => value,
         };
         let full_u64 = u64::try_from(full).map_err(|_| UnwrapError::Overflow)?;
-        self.reference = Some((full, exp));
+        self.reference = Some((full, timestamp.prefix));
         Ok(Second::new(timestamp.prefix, NumericValue::U64(full_u64)))
     }
 }

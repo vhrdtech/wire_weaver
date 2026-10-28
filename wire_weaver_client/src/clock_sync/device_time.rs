@@ -1,6 +1,7 @@
 //! Device timestamps in nanoseconds and back, and the [SteerPointOwned] for a fit.
 
 use super::Fit;
+use ww_si::exact_units::Magnitude;
 use ww_si::ww_numeric::{NumericBaseType, NumericValue};
 use ww_si::{Prefix, Second, Unwrapper};
 use ww_timebase::SteerPointOwned;
@@ -8,7 +9,7 @@ use ww_timebase::SteerPointOwned;
 /// Why a device timestamp can't be used.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum DeviceTimeError {
-    /// A float, or a value that doesn't fit in `u64` nanoseconds.
+    /// A float, a value that doesn't fit in `u64` nanoseconds, or a prefix that isn't a rational number of them.
     NotATime,
     /// The prefix or storage changed from the first `now()` reading.
     FormatChanged,
@@ -35,6 +36,8 @@ impl core::error::Error for DeviceTimeError {}
 #[derive(Clone, Debug)]
 pub struct DeviceTime {
     prefix: Prefix,
+    /// Nanoseconds per unit of `prefix` as `(num, den)`: `(1000, 1)` for µs, `(1_953_125, 64)` for `Exact` 2⁻¹⁵ s.
+    ns_per_unit: (i128, i128),
     storage: NumericBaseType,
     unwrapper: Unwrapper,
 }
@@ -45,8 +48,20 @@ impl DeviceTime {
         if now.value.is_float() {
             return Err(DeviceTimeError::NotATime);
         }
+        let (num, den) = now
+            .prefix
+            .magnitude()
+            .checked_mul(Magnitude::pow10(9))
+            .ok()
+            .and_then(|m| m.to_ratio())
+            .ok_or(DeviceTimeError::NotATime)?;
+        let ns_per_unit = (
+            i128::try_from(num).map_err(|_| DeviceTimeError::NotATime)?,
+            i128::try_from(den).map_err(|_| DeviceTimeError::NotATime)?,
+        );
         Ok(DeviceTime {
             prefix: now.prefix,
+            ns_per_unit,
             storage: now.value.ty(),
             unwrapper: Unwrapper::default(),
         })
@@ -63,7 +78,7 @@ impl DeviceTime {
             .unwrap(*t)
             .map_err(|_| DeviceTimeError::NotATime)?;
         let v = full.value.to_i128().ok_or(DeviceTimeError::NotATime)?;
-        scale(v, i8::from(self.prefix) + 9)
+        self.ns(v)
             .and_then(|ns| u64::try_from(ns).ok())
             .ok_or(DeviceTimeError::NotATime)
     }
@@ -84,7 +99,7 @@ impl DeviceTime {
         utc_offset: i128,
     ) -> Result<SteerPointOwned, DeviceTimeError> {
         let units = self.units(local as i128)?;
-        let exact = scale(units, i8::from(self.prefix) + 9).ok_or(DeviceTimeError::NotATime)?;
+        let exact = self.ns(units).ok_or(DeviceTimeError::NotATime)?;
         let shared = fit.shared_at(exact as u64).round() as i128 + utc_offset;
         let shared_us =
             u64::try_from(shared.div_euclid(1000)).map_err(|_| DeviceTimeError::NotATime)?;
@@ -99,7 +114,16 @@ impl DeviceTime {
 
     /// `ns` in whole units of the device's prefix, rounded down.
     fn units(&self, ns: i128) -> Result<i128, DeviceTimeError> {
-        scale(ns, -9 - i8::from(self.prefix)).ok_or(DeviceTimeError::NotATime)
+        let (num, den) = self.ns_per_unit;
+        ns.checked_mul(den)
+            .map(|x| x.div_euclid(num))
+            .ok_or(DeviceTimeError::NotATime)
+    }
+
+    /// `units` of the device's prefix in nanoseconds, rounded down.
+    fn ns(&self, units: i128) -> Option<i128> {
+        let (num, den) = self.ns_per_unit;
+        Some(units.checked_mul(num)?.div_euclid(den))
     }
 
     fn units_to_device(&self, units: i128) -> Result<Second, DeviceTimeError> {
@@ -111,19 +135,27 @@ impl DeviceTime {
     }
 }
 
-/// `v * 10^exp`, rounded down for a negative `exp`; `None` on overflow.
-fn scale(v: i128, exp: i8) -> Option<i128> {
-    let p = 10i128.checked_pow(exp.unsigned_abs() as u32)?;
-    if exp >= 0 {
-        v.checked_mul(p)
-    } else {
-        Some(v.div_euclid(p))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rtc_ticks_of_32768_hz() {
+        // an RTC counting 2⁻¹⁵ s: 30.517578125 µs per tick
+        let tick = Prefix::from_magnitude(&Magnitude::pow2(-15)).unwrap();
+        let first = Second::new(tick, 32768u32);
+        let dt = DeviceTime::new(&first).unwrap();
+        let mut dt2 = dt.clone();
+        assert_eq!(dt2.to_ns(&first).unwrap(), 1_000_000_000);
+        assert_eq!(
+            dt2.to_ns(&Second::new(tick, 32769u32)).unwrap(),
+            1_000_030_517
+        );
+        assert_eq!(
+            dt.to_device(1_000_030_600).unwrap(),
+            Second::new(tick, 32769u32)
+        );
+    }
 
     #[test]
     fn u32_micros_device_unwraps_and_steers_wrapped() {

@@ -72,8 +72,7 @@ impl<U: Unit> Quantity<U> {
 
     /// The value in units of `prefix`, if that is an integer (scaling down to a finer prefix always is, if it fits).
     fn exact_in(&self, prefix: Prefix) -> Option<Integer> {
-        let exp = i8::from(self.prefix) - i8::from(prefix);
-        self.value.to_integer()?.exact_scale_pow10(exp)
+        crate::ops::exact_between(self.value.to_integer()?, self.prefix, prefix)
     }
 
     fn checked_combine(
@@ -81,11 +80,7 @@ impl<U: Unit> Quantity<U> {
         rhs: &Self,
         op: fn(Integer, Integer) -> Option<Integer>,
     ) -> Option<Self> {
-        let prefix = if i8::from(self.prefix) <= i8::from(rhs.prefix) {
-            self.prefix
-        } else {
-            rhs.prefix
-        };
+        let prefix = crate::ops::finer(self.prefix, rhs.prefix);
         let x = op(self.exact_in(prefix)?, rhs.exact_in(prefix)?)?;
         Some(Self::from_parts(prefix, self.value.ty().from_integer(x)?))
     }

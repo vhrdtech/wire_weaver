@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 0114a35549b4da25e17699e468d2f048da843be79714a2fc7c701185cf74cba1
+// shrink_wrap sha256: 2e0266d2f75534c6f43ee8a1e01a1b67e3aa2152c91df3c79404be76acfe6c50
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -69,14 +69,14 @@
         232,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        190,
-        99,
-        105,
-        144,
-        195,
-        49,
-        220,
-        202,
+        230,
+        15,
+        222,
+        166,
+        15,
+        199,
+        77,
+        231,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Limits of one phase\'s [BitTiming] (as SocketCAN\'s `can_bittiming_const`).",

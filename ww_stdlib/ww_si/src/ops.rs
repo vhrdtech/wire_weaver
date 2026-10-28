@@ -1,7 +1,14 @@
 //! Number helpers behind quantities: powers of ten, exact comparison across prefixes.
+//!
+//! Between two SI prefixes a value is rescaled by a power of ten, the fast path. A binary or `Exact` prefix takes the
+//! slow path: the ratio of the two scales as a [Magnitude], applied exactly to integers (refused for an irrational
+//! ratio) and through `f64` to floats. The slow path lives in functions of its own, so the 104-byte `Magnitude`s
+//! stay out of the fast path's stack frame.
 
 use crate::*;
 use core::cmp::Ordering;
+use exact_units::Magnitude;
+use ww_numeric::Integer;
 
 pub(crate) use exact_units::num::{scale_f32, scale_f64};
 
@@ -28,14 +35,170 @@ pub(crate) fn scale_i128(x: i128, exp: i8) -> Option<i128> {
     }
 }
 
-/// Compares `a * 10^a_exp` with `b * 10^b_exp`: exactly for integers, in no wider type than the enabled number types
-/// need (`u32` with types up to 32 bits); through `f64` when one is a float.
+/// The power of ten that takes a value in units of `from` to units of `to`, when both are SI prefixes.
+#[inline]
+pub(crate) fn pow10_between(from: Prefix, to: Prefix) -> Option<i8> {
+    from.si_pow10()?.checked_sub(to.si_pow10()?)
+}
+
+/// `from`'s scale over `to`'s: what a value in units of `from` is multiplied by to be in units of `to`. `None` out of
+/// `Magnitude`'s range.
+#[inline(never)]
+pub(crate) fn ratio_between(from: Prefix, to: Prefix) -> Option<Magnitude> {
+    from.magnitude().checked_div(to.magnitude()).ok()
+}
+
+/// `x · num / den` for the rational `ratio`, truncated toward zero; `None` for an irrational ratio or on overflow.
+fn apply_truncating(ratio: &Magnitude, x: i128) -> Option<i128> {
+    let (num, den) = ratio.to_ratio()?;
+    let (num, den) = (i128::try_from(num).ok()?, i128::try_from(den).ok()?);
+    x.checked_mul(num).map(|x| x / den)
+}
+
+/// A value rescaled on the slow path: integers exactly (truncated toward zero), floats through `f64`, not rounded.
+pub(crate) enum Rescaled {
+    Int(i128),
+    Float(f64),
+}
+
+/// `value` in units of `from` rescaled to units of `to` on the slow path (see the module docs). `None` for `UN` / `IN`,
+/// an integer under an irrational ratio, and on overflow.
+#[inline(never)]
+pub(crate) fn rescale_slow(value: &NumericValue, from: Prefix, to: Prefix) -> Option<Rescaled> {
+    let ratio = ratio_between(from, to)?;
+    if let Some(x) = value.to_i128() {
+        return apply_truncating(&ratio, x).map(Rescaled::Int);
+    }
+    value
+        .is_float()
+        .then(|| Rescaled::Float(ratio.apply_f64(value.to_f64())))
+}
+
+/// `x` in units of `from` in units of `to`, as `f64`.
+pub(crate) fn scale_f64_between(x: f64, from: Prefix, to: Prefix) -> f64 {
+    match pow10_between(from, to) {
+        Some(exp) => scale_f64(x, exp),
+        None => scale_f64_slow(x, from, to),
+    }
+}
+
+#[inline(never)]
+fn scale_f64_slow(x: f64, from: Prefix, to: Prefix) -> f64 {
+    match ratio_between(from, to) {
+        Some(ratio) => ratio.apply_f64(x),
+        // the ratio is out of `Magnitude`'s range, the scales themselves aren't
+        None => from.scale_f64(x) / to.scale_f64(1.0),
+    }
+}
+
+/// `x` in units of `from` in units of `to`, as `f32`: `f32` arithmetic between SI prefixes, `f64` otherwise.
+pub(crate) fn scale_f32_between(x: f32, from: Prefix, to: Prefix) -> f32 {
+    match pow10_between(from, to) {
+        Some(exp) => scale_f32(x, exp),
+        None => scale_f64_slow(x as f64, from, to) as f32,
+    }
+}
+
+/// `x` (an integer in units of `from`) in units of `to` if that is a whole number that fits: scaling to a finer
+/// prefix that the coarser is a whole multiple of always is, if it fits.
+pub(crate) fn exact_between(x: Integer, from: Prefix, to: Prefix) -> Option<Integer> {
+    match pow10_between(from, to) {
+        Some(exp) => x.exact_scale_pow10(exp),
+        None => exact_slow(x, from, to),
+    }
+}
+
+#[inline(never)]
+fn exact_slow(x: Integer, from: Prefix, to: Prefix) -> Option<Integer> {
+    let m = i128::try_from(x.magnitude()).ok()?;
+    let x = if x.is_negative() { -m } else { m };
+    let y = ratio_between(from, to)?.apply_int(x)?;
+    let magnitude = y.unsigned_abs().try_into().ok()?;
+    Some(Integer::new(y < 0, magnitude))
+}
+
+/// The finer of two prefixes (the smaller scale), `a` when they are equal.
+pub(crate) fn finer(a: Prefix, b: Prefix) -> Prefix {
+    let a_finer = match (a.si_pow10(), b.si_pow10()) {
+        (Some(a), Some(b)) => a <= b,
+        _ => a.magnitude().to_f64() <= b.magnitude().to_f64(),
+    };
+    if a_finer { a } else { b }
+}
+
+/// Compares `a` in units of `a_prefix` with `b` in units of `b_prefix`: exactly for integers, in no wider type than
+/// the enabled number types need between SI prefixes (`u32` with types up to 32 bits), in `i128` for a rational ratio
+/// of other scales; through `f64` when one is a float or the ratio is irrational.
 pub(crate) fn compare(
-    a_exp: i8,
+    a_prefix: Prefix,
     a: &NumericValue,
-    b_exp: i8,
+    b_prefix: Prefix,
     b: &NumericValue,
 ) -> Option<Ordering> {
+    match (a_prefix.si_pow10(), b_prefix.si_pow10()) {
+        (Some(a_exp), Some(b_exp)) => compare_pow10(a_exp, a, b_exp, b),
+        _ => compare_slow(a_prefix, a, b_prefix, b),
+    }
+}
+
+#[inline(never)]
+fn compare_slow(
+    a_prefix: Prefix,
+    a: &NumericValue,
+    b_prefix: Prefix,
+    b: &NumericValue,
+) -> Option<Ordering> {
+    if let (Some(x), Some(y)) = (a.to_i128(), b.to_i128()) {
+        // a · ma <=> b · mb is a · num <=> b · den for ma / mb = num / den
+        let exact = ratio_between(a_prefix, b_prefix)
+            .and_then(|r| r.to_ratio())
+            .and_then(|(num, den)| {
+                let (num, den) = (i128::try_from(num).ok()?, i128::try_from(den).ok()?);
+                Some(x.checked_mul(num)?.cmp(&y.checked_mul(den)?))
+            });
+        if exact.is_some() {
+            return exact;
+        }
+    } else if !(a.is_float() || b.is_float()) {
+        // UN / IN
+        return None;
+    }
+    a_prefix
+        .scale_f64(a.to_f64())
+        .partial_cmp(&b_prefix.scale_f64(b.to_f64()))
+}
+
+/// `x` in units of `from` in units of `to`, exactly, truncated toward zero; `None` on overflow and for an
+/// irrational ratio.
+#[cfg(any(
+    feature = "u64",
+    feature = "i64",
+    feature = "uvlq64",
+    feature = "u128",
+    feature = "i128"
+))]
+pub(crate) fn scale_i128_between(x: i128, from: Prefix, to: Prefix) -> Option<i128> {
+    match pow10_between(from, to) {
+        Some(exp) => scale_i128(x, exp),
+        None => scale_i128_slow(x, from, to),
+    }
+}
+
+#[cfg(any(
+    feature = "u64",
+    feature = "i64",
+    feature = "uvlq64",
+    feature = "u128",
+    feature = "i128"
+))]
+#[inline(never)]
+fn scale_i128_slow(x: i128, from: Prefix, to: Prefix) -> Option<i128> {
+    apply_truncating(&ratio_between(from, to)?, x)
+}
+
+/// Compares `a * 10^a_exp` with `b * 10^b_exp`: exactly for integers, in no wider type than the enabled number types
+/// need (`u32` with types up to 32 bits); through `f64` when one is a float.
+fn compare_pow10(a_exp: i8, a: &NumericValue, b_exp: i8, b: &NumericValue) -> Option<Ordering> {
     if let (Some(a), Some(b)) = (a.to_integer(), b.to_integer()) {
         return Some(a.cmp_pow10(a_exp, b, b_exp));
     }
@@ -56,14 +219,30 @@ pub(crate) fn compare(
     feature = "u128",
     feature = "i128"
 ))]
-pub(crate) fn to_i128_scaled(value: &NumericValue, exp: i8) -> Option<i128> {
+pub(crate) fn to_i128_scaled(value: &NumericValue, from: Prefix, to: Prefix) -> Option<i128> {
+    let Some(exp) = pow10_between(from, to) else {
+        return match rescale_slow(value, from, to)? {
+            Rescaled::Int(x) => Some(x),
+            Rescaled::Float(x) => round_f64_to_i128(x),
+        };
+    };
     if let Some(x) = value.to_i128() {
         return scale_i128(x, exp);
     }
     if !value.is_float() {
         return None;
     }
-    let x = scale_f64(value.to_f64(), exp);
+    round_f64_to_i128(scale_f64(value.to_f64(), exp))
+}
+
+#[cfg(any(
+    feature = "u64",
+    feature = "i64",
+    feature = "uvlq64",
+    feature = "u128",
+    feature = "i128"
+))]
+fn round_f64_to_i128(x: f64) -> Option<i128> {
     // `as` saturates, values beyond i128 are refused instead
     if x.is_nan() || !(-1.7e38..=1.7e38).contains(&x) {
         return None;
@@ -119,33 +298,57 @@ impl Rounded {
     }
 }
 
-/// `value` in units of `10^exp` as `i32`: exact for integers (truncated toward zero for a negative `exp`), rounded for
+fn round_f64(x: f64) -> Rounded {
+    Rounded::F64(if x >= 0.0 { x + 0.5 } else { x - 0.5 })
+}
+
+/// `value` in units of `from` as `i32` in units of `to`: exact for integers (truncated toward zero), rounded for
 /// floats; `None` when it doesn't fit, for `NaN` and `UN` / `IN`.
-pub(crate) fn to_i32_scaled(value: &NumericValue, exp: i8) -> Option<i32> {
+pub(crate) fn to_i32_scaled(value: &NumericValue, from: Prefix, to: Prefix) -> Option<i32> {
+    let Some(exp) = pow10_between(from, to) else {
+        return match rescale_slow(value, from, to)? {
+            Rescaled::Int(x) => i32::try_from(x).ok(),
+            Rescaled::Float(x) => round_f64(x).to_i32(),
+        };
+    };
     match value.to_integer() {
         Some(x) => x.checked_scale_pow10(exp)?.to_i32(),
         None => rounded_float(value, exp)?.to_i32(),
     }
 }
 
-/// `value` in units of `10^exp` as `u32`, like [to_i32_scaled].
-pub(crate) fn to_u32_scaled(value: &NumericValue, exp: i8) -> Option<u32> {
+/// `value` in units of `from` as `u32` in units of `to`, like [to_i32_scaled].
+pub(crate) fn to_u32_scaled(value: &NumericValue, from: Prefix, to: Prefix) -> Option<u32> {
+    let Some(exp) = pow10_between(from, to) else {
+        return match rescale_slow(value, from, to)? {
+            Rescaled::Int(x) => u32::try_from(x).ok(),
+            Rescaled::Float(x) => round_f64(x).to_u32(),
+        };
+    };
     match value.to_integer() {
         Some(x) => x.checked_scale_pow10(exp)?.to_u32(),
         None => rounded_float(value, exp)?.to_u32(),
     }
 }
 
-/// `value` in units of `10^exp` modulo `2^32` (two's complement below zero); floats rounded and from -2^31 up to
-/// below 2^32 only.
-pub(crate) fn to_u32_wrapping_scaled(value: &NumericValue, exp: i8) -> Option<u32> {
-    match value.to_integer() {
-        Some(x) => Some(x.to_u32_wrapping_pow10(exp)),
-        None => {
-            let r = rounded_float(value, exp)?;
-            r.to_u32().or_else(|| r.to_i32().map(|x| x as u32))
-        }
-    }
+/// `value` in units of `from` in units of `to` modulo `2^32` (two's complement below zero); floats rounded and from
+/// -2^31 up to below 2^32 only.
+pub(crate) fn to_u32_wrapping_scaled(
+    value: &NumericValue,
+    from: Prefix,
+    to: Prefix,
+) -> Option<u32> {
+    let r = match pow10_between(from, to) {
+        Some(exp) => match value.to_integer() {
+            Some(x) => return Some(x.to_u32_wrapping_pow10(exp)),
+            None => rounded_float(value, exp)?,
+        },
+        None => match rescale_slow(value, from, to)? {
+            Rescaled::Int(x) => return Some(x as u32),
+            Rescaled::Float(x) => round_f64(x),
+        },
+    };
+    r.to_u32().or_else(|| r.to_i32().map(|x| x as u32))
 }
 
 /// Common methods of quantities without a prefix (`DeciBel`).
@@ -182,7 +385,7 @@ macro_rules! unprefixed_quantity_ops {
             #[cfg(feature = $feature)]
             impl PartialOrd for $ty {
                 fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                    ops::compare(0, &self.value, 0, &other.value)
+                    ops::compare(Prefix::Unit, &self.value, Prefix::Unit, &other.value)
                 }
             }
         )*

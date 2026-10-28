@@ -1151,6 +1151,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "customary"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "customary_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_si",
+]
+
+[[package]]
+name = "customary_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_si",
+]
+
+[[package]]
 name = "darling"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

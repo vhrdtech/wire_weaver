@@ -4,7 +4,7 @@ use crate::convert::numeric_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use wire_weaver_client::quantity::DynQuantity;
+use wire_weaver_client::quantity::{DynQuantity, DynUnit};
 
 /// A value with a unit, as the device sent it: `value` in units of `prefix`, `str()` is `3300 mV`, `float()` the
 /// value in the unit itself (3.3), `to_si()` in coherent SI.
@@ -103,6 +103,21 @@ impl Quantity {
                 self.q.unit.name()
             ))
         })
+    }
+
+    /// The same quantity in `unit`, a unit of `ww_si` by its type name (`"Times<Newton, Second>"`, `"Meter"`) or
+    /// another quantity's unit: exactly, or `ValueError`, never the number reinterpreted in another unit. 2 lbf·s in
+    /// `"Times<Newton, Second>"` is `8896443230521 p(N·s)`; a pound of mass doesn't convert to a pound-force, an
+    /// integer that no SI prefix holds whole is refused (convert a float for a rounded value).
+    fn convert(&self, unit: &Bound<'_, PyAny>) -> PyResult<Quantity> {
+        let unit = match unit.cast::<Quantity>() {
+            Ok(q) => q.get().q.unit.clone(),
+            Err(_) => {
+                DynUnit::from_name(&unit.extract::<String>()?).map_err(PyValueError::new_err)?
+            }
+        };
+        let q = self.q.convert(&unit).map_err(PyValueError::new_err)?;
+        Ok(Quantity { q })
     }
 
     /// The value in the unit itself, without the prefix: 3.3 for 3300 mV.

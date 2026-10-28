@@ -262,6 +262,37 @@ fn factor_at<'t, E: Tree<'t>>(e: &E, depth: usize) -> Option<f64> {
     }
 }
 
+/// The exact factor to coherent SI of the whole tree, as [UnitExpr::magnitude]: `None` like [dim], with a `Factor` or
+/// `Affine` scale in it, or a product a [Magnitude](crate::Magnitude) doesn't hold.
+pub fn magnitude<'t, E: Tree<'t>>(e: &E) -> Option<crate::Magnitude> {
+    magnitude_at(e, 0)
+}
+
+fn magnitude_at<'t, E: Tree<'t>>(e: &E, depth: usize) -> Option<crate::Magnitude> {
+    if depth >= MAX_UNIT_DEPTH {
+        return None;
+    }
+    let d = depth + 1;
+    match e.node()? {
+        Node::Named { scale, .. } => scale?.magnitude(),
+        Node::Mul(a, b) => magnitude_at(&a, d)?.checked_mul(magnitude_at(&b, d)?).ok(),
+        Node::Div(a, b) => magnitude_at(&a, d)?.checked_div(magnitude_at(&b, d)?).ok(),
+        Node::Pow(a, n) => {
+            let a = magnitude_at(&a, d)?;
+            let mut r = crate::Magnitude::ONE;
+            for _ in 0..n.unsigned_abs() {
+                r = r.checked_mul(a).ok()?;
+            }
+            if n < 0 {
+                crate::Magnitude::ONE.checked_div(r).ok()
+            } else {
+                Some(r)
+            }
+        }
+        Node::Sqrt(a) => magnitude_at(&a, d)?.checked_sqrt().ok(),
+    }
+}
+
 /// Offset to coherent SI: only a named unit with an `Affine` scale (°C) has one.
 pub fn offset<'t, E: Tree<'t>>(e: &E) -> f64 {
     match e.node() {

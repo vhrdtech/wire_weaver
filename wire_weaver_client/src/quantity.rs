@@ -27,7 +27,7 @@ use ww_self::{
     MarkerDefOwned, TypeOwned, ValueOwned,
 };
 use ww_si::tree::{self, Tree};
-use ww_si::{AnyQuantity, AnyQuantityOwned, SIExpr, SIExprOwned, Scale};
+use ww_si::{AnyQuantity, AnyQuantityOwned, Magnitude, SIExpr, SIExprOwned, Scale};
 pub use ww_si::{Dim, DimOwned, MAX_UNIT_DEPTH, Prefix, UnitExpr};
 
 /// The unit of a `Quantity<U>`, built from `U` as introspection data describes it, or of an `AnyQuantity`, built
@@ -162,6 +162,22 @@ impl DynUnit {
     /// Factor to coherent SI (offsets left out, as in [UnitExpr::factor]), `None` with an unknown marker in it.
     pub fn factor(&self) -> Option<f64> {
         tree::factor(&Part::Dyn(self))
+    }
+
+    /// The exact factor to coherent SI, `None` with an unknown marker or a `Factor` / `Affine` scale in it: a
+    /// pound-force second is 0.45359237 · 9.80665 N·s.
+    pub fn magnitude(&self) -> Option<Magnitude> {
+        tree::magnitude(&Part::Dyn(self))
+    }
+
+    /// A unit of `ww_si` by its type name, as [name](Self::name) writes it: `Newton`, `Times<PoundForce, Second>`,
+    /// `Per<Meter, Second>`, `Pow<Meter, 3>`, `Sqrt<Hertz>`. Spaces don't matter.
+    pub fn from_name(name: &str) -> Result<DynUnit, String> {
+        let squeezed: String = name.chars().filter(|c| !c.is_whitespace()).collect();
+        match parse_name(&squeezed, 0)? {
+            (unit, "") => Ok(unit),
+            (_, rest) => Err(format!("`{name}`: `{rest}` after the unit")),
+        }
     }
 
     /// Offset to coherent SI: only a named unit with an affine scale (°C) has one.
@@ -323,10 +339,130 @@ impl DynQuantity {
         self.prefix.scale_f64(self.value.to_f64())
     }
 
+    /// This quantity in `unit`, exactly, or an error: never the number reinterpreted in another unit. The units have
+    /// the same dimension and exact factors to SI (a pound-force second converts to newton seconds, a pound of mass
+    /// doesn't, nor does a pound-force to a pound). An integer comes out as an integer with the largest SI prefix
+    /// that keeps it whole (2 lbf·s is `8896443230521 p(N·s)`, 0 is `0` in the unit itself), an error when no prefix does (a factor that is not a
+    /// fraction of integers whose denominator has only the primes 2 and 5, or a number past `i64`); a float is
+    /// scaled and comes out as an `f64` in the unit itself. A unit with an offset (°C) converts as a point, not here.
+    pub fn convert(&self, unit: &DynUnit) -> Result<DynQuantity, String> {
+        let refuse = |why: &str| format!("{} can't be converted to {}: {why}", self, unit.symbol());
+        let (Some(from), Some(to)) = (self.unit.dim(), unit.dim()) else {
+            return Err(refuse("a unit known by its name only"));
+        };
+        if from != to {
+            return Err(refuse(&format!("dimension {from} is not {to}")));
+        }
+        if self.unit.offset() != 0.0 || unit.offset() != 0.0 {
+            return Err(refuse("a unit with an offset converts as a point"));
+        }
+        let (Some(from), Some(to)) = (self.unit.magnitude(), unit.magnitude()) else {
+            return Err(refuse("a unit without an exact factor to SI"));
+        };
+        let factor = Magnitude::checked_pow10(self.prefix.into())
+            .and_then(|p| p.checked_mul(from).ok())
+            .and_then(|m| m.checked_div(to).ok())
+            .ok_or_else(|| refuse("the factor leaves what a Magnitude holds"))?;
+        if self.value.is_float() {
+            return Ok(DynQuantity {
+                prefix: Prefix::Unit,
+                value: NumericValue::F64(self.value.to_f64() * factor.to_f64()),
+                unit: unit.clone(),
+            });
+        }
+        let x = self.value.to_i128().ok_or_else(|| refuse("not a number"))?;
+        if x == 0 {
+            return Ok(DynQuantity {
+                prefix: Prefix::Unit,
+                value: NumericValue::I32(0),
+                unit: unit.clone(),
+            });
+        }
+        let (num, den) = factor
+            .to_ratio()
+            .ok_or_else(|| refuse("the factor has a power of π"))?;
+        let exact = |e: i8| -> Option<i64> {
+            // x · num / den / 10^e
+            let p = Magnitude::checked_pow10(e)?.to_ratio()?;
+            let (n, d) = (
+                i128::try_from(num.checked_mul(p.1)?).ok()?,
+                i128::try_from(den.checked_mul(p.0)?).ok()?,
+            );
+            let y = x.checked_mul(n)?;
+            (y % d == 0).then(|| i64::try_from(y / d).ok()).flatten()
+        };
+        // the largest prefix that keeps it whole: the smallest number
+        let (prefix, y) = Prefix::ALL
+            .into_iter()
+            .filter_map(|p| exact(p.into()).map(|y| (p, y)))
+            .max_by_key(|(p, _)| i8::from(*p))
+            .ok_or_else(|| {
+                refuse(
+                    "no SI prefix holds it as a whole number (convert a float for a rounded value)",
+                )
+            })?;
+        let value = match i32::try_from(y) {
+            Ok(y) => NumericValue::I32(y),
+            Err(_) => NumericValue::I64(y),
+        };
+        Ok(DynQuantity {
+            prefix,
+            value,
+            unit: unit.clone(),
+        })
+    }
+
     /// The value in coherent SI through the unit's scale (90 ° is 1.5708 rad, 20 °C is 293.15 K), `None` when the
     /// unit has an unknown marker in it.
     pub fn to_si_f64(&self) -> Option<f64> {
         Some(self.to_f64() * self.unit.factor()? + self.unit.offset())
+    }
+}
+
+/// One unit at the start of `s` and what follows it, for [DynUnit::from_name].
+fn parse_name(s: &str, depth: usize) -> Result<(DynUnit, &str), String> {
+    if depth >= MAX_UNIT_DEPTH {
+        return Err(format!("a unit deeper than {MAX_UNIT_DEPTH} levels"));
+    }
+    let end = s
+        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .unwrap_or(s.len());
+    let (ident, rest) = s.split_at(end);
+    let Some(args) = rest.strip_prefix('<') else {
+        let expr = ww_si::units::by_name(ident)
+            .ok_or_else(|| format!("`{ident}` is not a named unit of ww_si"))?;
+        return Ok((DynUnit::Known(expr), rest));
+    };
+    let (a, rest) = parse_name(args, depth + 1)?;
+    fn close(rest: &str) -> Result<&str, String> {
+        rest.strip_prefix('>')
+            .ok_or_else(|| format!("`>` expected at `{rest}`"))
+    }
+    let a = Box::new(a);
+    match ident {
+        "Sqrt" => Ok((DynUnit::Sqrt(a), close(rest)?)),
+        "Times" | "Per" | "Pow" => {
+            let rest = rest
+                .strip_prefix(',')
+                .ok_or_else(|| format!("`,` expected at `{rest}`"))?;
+            if ident == "Pow" {
+                let end = rest.find('>').unwrap_or(rest.len());
+                let n: i8 = rest[..end]
+                    .parse()
+                    .map_err(|_| format!("an exponent expected at `{rest}`"))?;
+                return Ok((DynUnit::Pow(a, n), close(&rest[end..])?));
+            }
+            let (b, rest) = parse_name(rest, depth + 1)?;
+            let b = Box::new(b);
+            let unit = match ident {
+                "Times" => DynUnit::Times(a, b),
+                _ => DynUnit::Per(a, b),
+            };
+            Ok((unit, close(rest)?))
+        }
+        _ => Err(format!(
+            "`{ident}<..>`: a compound unit is Times, Per, Pow or Sqrt"
+        )),
     }
 }
 

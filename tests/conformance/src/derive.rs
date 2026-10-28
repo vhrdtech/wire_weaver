@@ -752,11 +752,30 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.fixed.duty16", ww_si::Duty16::new(0xBEEF)),
         case("stdlib.si.fixed.bounded", fixed_bounded(5000)),
         case("stdlib.si.fixed.bounded.rejected", fixed_bounded(1)),
+        case("stdlib.si.magnitude.one", ww_si::Magnitude::ONE),
+        case("stdlib.si.magnitude.milli", ww_si::Magnitude::pow10(-3)),
+        case("stdlib.si.magnitude.kibi", ww_si::Magnitude::pow2(10)),
         case(
-            "stdlib.si.exact_scale.degree",
-            ww_si::ExactScale::new(1, 180, 0, 0, 1),
+            "stdlib.si.magnitude.duty16",
+            ww_si::Magnitude::ratio(1, 65535),
         ),
-        case("stdlib.si.exact_scale.rejected", ww_si::ExactScale::ONE),
+        case(
+            "stdlib.si.magnitude.degree",
+            ww_si::Magnitude::new(1, 180, 0, 0, 1),
+        ),
+        case(
+            "stdlib.si.magnitude.sqrt2",
+            ww_si::Magnitude::ratio(2, 1).sqrt(),
+        ),
+        case(
+            "stdlib.si.magnitude.decibel_in_neper",
+            ww_si::Magnitude::LN10.div(ww_si::Magnitude::ratio(20, 1)),
+        ),
+        case(
+            "stdlib.si.magnitude.pound",
+            ww_si::Magnitude::ratio(45359237, 100_000_000),
+        ),
+        case("stdlib.si.magnitude.rejected", ww_si::Magnitude::ONE),
         case(
             "stdlib.si.si_expr.volt",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),

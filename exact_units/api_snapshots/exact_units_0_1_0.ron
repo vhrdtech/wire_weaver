@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c7b691fd354f938713021c9ed24c94eb16c16dc4133d825faa45b3d67da70797
+// shrink_wrap sha256: 2e4eadba447f58c50c41f6e3d4aa4089c8f8997de477c52440a9644fee82a652
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -11,7 +11,7 @@
     "- [units]: zero-size unit markers (SI, angle, information, counted things) with their [Dim] and [Scale], and the",
     "  products and quotients the compiler checks (`Volt · Ampere` is `Watt`).",
     "- [Dim]: the dimension as data: SI base exponents, angle, information, up to [MAX_COUNTED] counted bases and a",
-    "  square root (V/√Hz). [ExactScale]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).",
+    "  square root (V/√Hz). [Magnitude]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).",
     "- `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.",
     "",
     "`no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`\'s),",
@@ -396,21 +396,57 @@
         (ident: Some("value"), default: None, since: None, ty: Param(2), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: true)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
-        "A factor `num / den · 10^pow10 · 2^pow2 · π^pi` with integers only: `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit",
-        "duty), `π/180` (°), `2π` (a turn). Never an `f64`, so every client reproduces a value bit-exactly, and a scale",
-        "fixed in a type ([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
-        "",
-        "Always canonical: `num` and `den` have no common factor and no factor 2 or 5 (those are in `pow10` / `pow2`), so",
-        "two scales of the same factor are equal field by field. [new](Self::new) makes one canonical; a value read from the",
-        "wire that isn\'t is refused.",
-        "",
-        "On the wire: `num` and `den` as [UNib32] (a nibble each for small ones), then the three exponents as `i8`.",
-    ], ident: "ExactScale", generics: [], fields: Named([
-        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        "The powers of π, ln 2 and ln 10 in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in",
+        "neper (`ln10/20`) `ln10 = 2`. Treated as independent symbols, like the primes.",
+    ], ident: "Irrational", generics: [], fields: Named([
         (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
+    ], ident: "PrimePower", generics: [], fields: Named([
+        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
+    ], ident: "MagnitudeRest", generics: [], fields: Named([
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 62)), docs: [
+            "π, ln 2 and ln 10, `None` when all their exponents are 0.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 63))), docs: [
+            "Primes other than 2 and 5, ascending, used slots first.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "An exact positive factor: `10^a · 2^b · π^c · ln2^d · ln10^e · ∏ pᵢ^kᵢ` over primes `pᵢ` other than 2 and 5, every",
+        "exponent a whole or half number (`√2`, `10^(3/2)` for √(kHz)). `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit duty,",
+        "`3⁻¹ · 5⁻¹ · 17⁻¹ · 257⁻¹`), `π/180` (°), the pound\'s `0.45359237` (`7 · 11 · 97 · 6073 · 10⁻⁸`), `ln10/20` (a",
+        "decibel in neper). Never an `f64`, so every client reproduces a value bit-exactly, and a scale fixed in a type",
+        "([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
+        "",
+        "Closed under multiplication and division: a product only fails when it needs more than [MAX_FACTORS] primes or",
+        "an exponent leaves ±63½, and then at compile time in a `const` (a panic at run time; the `checked_` forms say",
+        "`None`), never by rounding.",
+        "",
+        "Always canonical, so equal magnitudes are equal field by field: 2 and 5 only in `pow10` / `pow2` (`5 = 10 · 2⁻¹`),",
+        "the other primes sorted with exponents that aren\'t 0, and `rest` / `irrational` left out when they are 1. Plain",
+        "`const` data without lifetimes, so a `&\'static Magnitude` can be held at run time; [Fixed](crate::Fixed) uses it",
+        "only at compile time.",
+        "",
+        "On the wire every exponent is twice the exponent as an `i8`, the primes as [UNib32]: `pow10` alone is 9 bits",
+        "(Milli `fa 00`), the rest behind an option bit, its irrational powers behind one more, an empty prime slot one bit.",
+    ], ident: "Magnitude", generics: [], fields: Named([
+        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of 10.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 64)), docs: [
+            "Everything but the power of 10, `None` when it is 1.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A counted base of a [Dim] and its exponent: what is counted, named by the crate and the marker that define it",
@@ -463,7 +499,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 63))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 66))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
@@ -495,7 +531,7 @@
             "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader",
             "computes the same value, unlike with a `Factor`.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 62), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 65), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
@@ -513,31 +549,31 @@
         ], ident: "Named", fields: Named([
             (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 64), docs: [], slot: None, series_opaque: false),
-            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 65), docs: [], slot: None, series_opaque: false),
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 67), docs: [], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 68), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 69)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

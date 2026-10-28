@@ -344,3 +344,4 @@ fn wire() {
         &mut buf,
     );
 }
+

@@ -418,6 +418,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   out, so Rust keeps the tag in a field's spare values (`exact_units::Prefix` with `Exact(ExactScale)` is 1 B, not 8).
   The same bytes, `discriminant()` a `match`. Whether `niche` becomes the default for every enum is open (Roman).
   Tests `shrink_wrap/tests/niche.rs`.
+- 🚧 **DER-25 Narrow tag-only catch-all for `niche` enums** · `v0.5` — `#[future_version] Unknown(u16)` (or `u8`) on
+  a `self_describing` / `niche` enum (DER-24) such as `Prefix`: the catch-all holds the tag only, so it doesn't widen
+  the enum the way SW-47's `Unknown(u32)` would (`Prefix` 4 B instead of 8). The rule it enforces (Roman, 28 Oct
+  2026): every variant added after the enum's first release is tag-only, its numbers packed into the `UNib32` tag,
+  never bytes after it, so an older reader yields `Unknown(tag)`, skips the self-describing value and decodes the
+  rest of the message. Done: the derive (a known discriminant beyond the field is a compile error, a read one fails
+  as without the catch-all, series tag store of the field's type), the width in the API model
+  (`FutureVersion::Variant::bits`, `None` for `u32` so older models keep their bytes), the dynamic client and the
+  evolution checker (an appended discriminant beyond it is breaking). Missing: `Prefix` itself and a conformance case
+  reading a future packed tag with the current decoder (`Unknown`, rest of the message intact) across
+  derive/dynamic/Python/C.
+
+## API model and codegen (`API`)
+
 - ✅ **API-1 Methods, properties, streams and sinks**, nested traits (`docs/api/overview.md`).
 - ✅ **API-2 Arrays of resources** with `ValidIndices` and a built-in array size getter returning a range or list.
 - ✅ **API-3 Global traits** from `ww_stdlib` (`impl Trait`) and trait attachments (`examples/all_gpio`).

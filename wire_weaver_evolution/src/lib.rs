@@ -531,7 +531,9 @@ impl<'a> Checker<'a> {
                 {
                     let describe = |fv: &FutureVersionOwned| match fv {
                         FutureVersionOwned::Off => "none".to_string(),
-                        FutureVersionOwned::Variant { ident } => format!("{ident}(u32)"),
+                        FutureVersionOwned::Variant { ident, bits } => {
+                            format!("{ident}(u{})", bits.unwrap_or(32))
+                        }
                     };
                     self.breaks(
                         Rule::CatchAll,
@@ -1218,6 +1220,26 @@ mod tests {
         assert_breaking(
             &report(&written(API), &new),
             "its catch-all Later(u32) can't skip the variant's fields",
+        );
+        // DER-25: a u8 catch-all holds a newer discriminant up to 255
+        let narrow = |api: &str, ty: &str| {
+            api.replace("ww_repr = u4)", "ww_repr = unib32, self_describing)")
+                .replace(
+                    "B(u8),",
+                    &format!("B(u8),\n#[future_version]\nLater({ty}),"),
+                )
+        };
+        let old = narrow(API, "u8");
+        let new = old.replace("B(u8),", "B(u8),\nC = 255,");
+        assert_eq!(report(&old, &new).change, Change::Compatible);
+        let new = old.replace("B(u8),", "B(u8),\nC = 256,");
+        assert_breaking(
+            &report(&old, &new),
+            "its discriminant 256 doesn't fit the catch-all Later(u8)",
+        );
+        assert_breaking(
+            &report(&old, &narrow(API, "u16")),
+            "from Later(u8) to Later(u16)",
         );
     }
 

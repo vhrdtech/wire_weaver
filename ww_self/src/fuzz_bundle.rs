@@ -248,6 +248,7 @@ impl Gen<'_> {
                     1 => Some(FutureVersionOwned::Off),
                     _ => Some(FutureVersionOwned::Variant {
                         ident: "Unknown".into(),
+                        bits: [None, Some(8), Some(16)][usize::from(self.byte() % 3)],
                     }),
                 },
                 generics,

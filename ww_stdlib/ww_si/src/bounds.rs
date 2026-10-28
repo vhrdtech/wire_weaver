@@ -74,6 +74,8 @@ impl Limit {
         let negative = x < 0;
         let mut m = x.unsigned_abs();
         let mut exp = exp;
+        // `Magnitude` is u32 .. u128 by ww_numeric's features: the cast is a no-op only at u128.
+        #[allow(clippy::unnecessary_cast)]
         while m > Magnitude::MAX as u128 {
             assert!(
                 m.is_multiple_of(10) && exp < i8::MAX,

@@ -114,6 +114,8 @@ fn exact_slow(x: Integer, from: Prefix, to: Prefix) -> Option<Integer> {
     let m = i128::try_from(x.magnitude()).ok()?;
     let x = if x.is_negative() { -m } else { m };
     let y = ratio_between(from, to)?.apply_int(x)?;
+    // A no-op only when ww_numeric's `u128` makes `Magnitude` a u128.
+    #[allow(clippy::useless_conversion)]
     let magnitude = y.unsigned_abs().try_into().ok()?;
     Some(Integer::new(y < 0, magnitude))
 }

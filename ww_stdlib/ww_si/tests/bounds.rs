@@ -147,6 +147,7 @@ fn limit_normalized() {
     );
     assert_eq!(Limit::new(1200, 0).exp, 0);
     // trailing zeros move into the exponent only when the number doesn't fit the widest integer enabled
+    #[allow(clippy::unnecessary_cast)] // Magnitude is u128 only with the u128 feature
     let max = ww_si::ww_numeric::Magnitude::MAX as u128;
     if max < i128::MAX as u128 / 100 {
         let l = Limit::new(-((max / 10 + 1) as i128 * 100), 2);

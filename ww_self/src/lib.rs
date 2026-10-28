@@ -712,8 +712,9 @@ pub struct ItemStructExtra<'i> {
     pub marker: Option<MarkerDef<'i>>,
 }
 
-/// The definition of a unit, scale or bounds marker, see [ItemStructExtra::marker]. Evolvable: a reader that doesn't know a
-/// newer kind of marker (origins, levels, kinds) gets `Unknown` and treats the struct as a marker it can't convert.
+/// The definition of a unit, scale, bounds or origin marker, see [ItemStructExtra::marker]. Evolvable: a reader that
+/// doesn't know a newer kind of marker (levels, kinds) gets `Unknown` and treats the struct as a marker it can't
+/// convert.
 #[derive_shrink_wrap(
     owned(feature = "std"),
     cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
@@ -749,6 +750,11 @@ pub enum MarkerDef<'i> {
     RangeU64,
     /// `exact_units::RangeDec<MIN, MAX, EXP>`: a `Fixed` whose float number is in `MIN·10^EXP..=MAX·10^EXP`.
     RangeDec,
+    /// An origin of points (`exact_units::origin!`, STD-64): `Celsius`, a user's register formula. A `Point<O, F>`
+    /// is a position against it.
+    Origin(OriginDef<'i>),
+    /// `exact_units::origins::Angle<U>`: an angle from the zero of the unit `U` that wraps every turn.
+    Angle,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].
@@ -775,6 +781,45 @@ pub struct ScaleDef<'i> {
     /// Written before the unit's symbol (`"m"` in `ms`), empty for a factor without a prefix.
     pub symbol: &'i str,
     pub magnitude: exact_units::Magnitude,
+}
+
+/// An origin of points: where it lies and how its points are shown, all of `exact_units::OriginDef` as data. An
+/// origin declared `above` another one is written out whole, with the offsets added.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct OriginDef<'i> {
+    /// The unit of the points' numbers and of the offsets: Kelvin for every temperature scale.
+    pub unit: UnitDef<'i>,
+    /// Written after a point's number: `"°C"`.
+    pub symbol: &'i str,
+    /// What [Self::offset] is measured from: `None` for the unit's own zero (0 K, vacuum), else the marker of a
+    /// zero only known at run time (`exact_units::point::AmbientPressure` for gauge pressure). Points of origins with
+    /// different references don't convert into each other.
+    pub reference: Option<MarkerRef<'i>>,
+    /// Where the origin lies from the reference's zero, in [Self::unit]: 273.15 for °C.
+    pub offset: exact_units::Offset,
+    /// The period in [Self::unit] for points that wrap (an angle: 360 for degrees), `None` for points that don't.
+    pub modulus: Option<exact_units::Magnitude>,
+    /// The step the shown number counts, in [Self::unit]: 1 for °C, 5/9 for °F.
+    pub step: exact_units::Magnitude,
+    /// Where the shown number's zero lies, from the reference's zero: [Self::offset], or that of the origin it is
+    /// declared above (a register `raw / 256 + 25 °C` is shown in °C, from 273.15 K).
+    pub shown: exact_units::Offset,
+}
+
+/// A marker struct named by its crate and its path in it, the identity it has across bundles (D16b):
+/// `exact_units`, `point::AmbientPressure`.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct MarkerRef<'i> {
+    pub crate_id: &'i str,
+    pub name: &'i str,
 }
 
 #[derive_shrink_wrap(

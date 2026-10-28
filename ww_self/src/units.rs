@@ -14,10 +14,11 @@
 //! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`).
 
 use crate::{
-    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, TypeOwned, ValueOwned,
+    ApiBundleOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned, OriginDefOwned, TypeOwned,
+    UnitDefOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
-use exact_units::{DimOwned, Magnitude};
+use exact_units::{DimOwned, Magnitude, Offset};
 use std::fmt;
 
 /// Deepest nesting of `Per`, `Times`, `Sqrt` and full-scale markers [unit_of] and [scale_of] follow: a bundle from a
@@ -196,7 +197,7 @@ fn write_superscript(f: &mut fmt::Formatter<'_>, e: i16) -> fmt::Result {
 
 /// The unit `ty` is, through the [definitions](crate::ItemStructExtra::marker) in `bundle`: a named unit, or `Per`,
 /// `Times`, `Sqrt` of units. An error for a type that is not a unit marker, or a marker without a definition (a crate
-/// whose markers are hand-written, or a unit with an offset like °C, TODO(STD-74)).
+/// whose markers are hand-written).
 pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CanonicalUnit> {
     unit_in(ty, bundle, 0)
 }
@@ -205,6 +206,51 @@ pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CanonicalUnit>
 /// user's `scale!`), `Pow10<E>`, `Pow2<E>`, `Rational<NUM, DEN>`, `FullScale<V, BITS>` or `FullScaleMax<V, BITS>`.
 pub fn scale_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<Magnitude> {
     scale_in(ty, bundle, 0)
+}
+
+/// The origin `ty` is (the `O` of a `Point<O, F>`): an `exact_units::origin!` marker, whose definition is written out
+/// whole, or `Angle<U>`, an angle from the zero of the unit `U` that wraps every turn.
+pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwned> {
+    let (s, args) = marker(ty, bundle)?;
+    match definition(s, bundle)? {
+        MarkerDefOwned::Origin(def) => Ok(def.clone()),
+        MarkerDefOwned::Angle => {
+            let unit = match args.first() {
+                Some(GenericArgOwned::Type(u)) => unit_of(u, bundle)?,
+                _ => bail!("{} without its unit", s.ident),
+            };
+            let mut rest = unit.dim.clone();
+            rest.rad -= 1;
+            if !rest.as_dim().is_one() {
+                bail!("Angle<{unit}>: {unit} is not a plane angle");
+            }
+            // a turn, 2π rad, in the unit
+            let turn = Magnitude::ratio(2, 1)
+                .checked_mul(Magnitude::PI)
+                .and_then(|t| t.checked_div(unit.magnitude))
+                .map_err(|e| anyhow!("a turn in {unit}: {e:?}"))?;
+            let symbol = unit.to_string();
+            Ok(OriginDefOwned {
+                unit: UnitDefOwned {
+                    symbol: symbol.clone(),
+                    dim: unit.dim,
+                    magnitude: unit.magnitude,
+                },
+                symbol,
+                reference: None,
+                offset: Offset::ZERO,
+                modulus: Some(turn),
+                step: Magnitude::ONE,
+                shown: Offset::ZERO,
+            })
+        }
+        _ => bail!("{} is not an origin", marker_name(s, bundle)?),
+    }
+}
+
+/// The crate and name of the marker struct `ty` is (a generic one's definition for an instance).
+pub fn marker_name_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<MarkerName> {
+    marker_name(marker(ty, bundle)?.0, bundle)
 }
 
 /// The marker struct `ty` is, with the generic definition and arguments it is an instance of (empty for a
@@ -247,7 +293,7 @@ fn marker_name(s: &ItemStructOwned, bundle: &ApiBundleOwned) -> Result<MarkerNam
 fn definition<'a>(s: &'a ItemStructOwned, bundle: &ApiBundleOwned) -> Result<&'a MarkerDefOwned> {
     s.marker().ok_or_else(|| {
         anyhow!(
-            "{} has no unit or scale definition",
+            "{} has no unit, scale or origin definition",
             marker_name(s, bundle)
                 .map(|n| n.to_string())
                 .unwrap_or_else(|_| s.ident.clone())

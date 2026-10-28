@@ -1,11 +1,11 @@
 //! The markers of [customary](super::super) are the catalogue: one per unit, with its symbol, dimension and exact
 //! magnitude, and none named by an ambiguous word.
 
-use super::{AMBIGUOUS, Dim as CatDim, Mag, ORIGINS, UNITS, Unit as CatUnit};
+use super::{AMBIGUOUS, Dim as CatDim, Exact, Mag, ORIGINS, UNITS, Unit as CatUnit};
 use crate::origins::{Fahrenheit, Rankine};
 use crate::prefix::Milli;
 use crate::units::{self, CUSTOMARY, Degree, Kelvin, Radian, Turn};
-use crate::{Dim, FixedScale, Magnitude, Offset, Origin, Scale, Unit, UnitExpr};
+use crate::{Dim, FixedScale, Magnitude, Offset, Origin, Provenance, Scale, Unit, UnitExpr};
 use std::collections::BTreeSet;
 use std::string::String;
 
@@ -64,6 +64,7 @@ fn one_marker_per_unit_with_its_definition() {
             symbol,
             dim: d,
             scale,
+            provenance,
         } = expr
         else {
             panic!("{} is not a named unit", u.id)
@@ -72,6 +73,11 @@ fn one_marker_per_unit_with_its_definition() {
         assert_eq!(*symbol, u.symbol, "{name}");
         assert_eq!(*d, dim(u.dim), "{name}");
         assert_eq!(*scale, Scale::Exact(magnitude(u.mag)), "{name}");
+        assert_eq!(
+            matches!(provenance, Provenance::Conventional { .. }),
+            u.exact == Exact::Measured,
+            "{name}: conventional(..) iff measured"
+        );
         assert_eq!(units::by_name(name), Some(*expr));
     }
 }

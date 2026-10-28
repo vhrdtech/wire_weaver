@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3649,6 +3678,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3738,6 +3771,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3959,6 +4019,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5571,6 +5658,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5688,6 +5779,10 @@ wouldn't know the unit.</p>
 <td><code>Angle</code></td>
 <td><code>origins::Angle&lt;U&gt;</code>, its unit argument is the instance's</td>
 </tr>
+<tr>
+<td><code>ConventionalUnit(ConventionalUnitDef { unit, source, year })</code></td>
+<td>a unit that is a value a standard prints: <code>inHg</code> at 32 °F (<a href="../customary/">customary</a>)</td>
+</tr>
 </tbody>
 </table>
 <p><code>magnitude</code> is the exact factor to the coherent SI unit of <code>dim</code>: 1 for a volt, π/30 for <code>rpm</code> (in rad/s), 8 for a
@@ -5699,8 +5794,8 @@ across bundles.</p>
   temperature in °C is a <a href="../points/"><code>Point</code></a> against <code>origins::Celsius</code>, and the runtime side follows with STD-74.</li>
 <li>Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
   <code>MarkerDef</code> when their markers exist.</li>
-<li><code>ww</code> and Python show a <code>Quantity</code> of any crate's unit (<code>1500 rpm</code>); a <code>Fixed</code> with its unit and scale follows with
-  CLT-54.</li>
+<li><code>ww</code> and Python show a <code>Quantity</code> of any crate's unit (<code>1500 rpm</code>), and a <code>Fixed</code> with its unit and scale
+  (<a href="../exact_units/#in-ww-python-and-dynamic-clients">in clients</a>).</li>
 </ul>
 <h2 id="the-canonical-unit">The canonical unit<a class="headerlink" href="#the-canonical-unit" title="Permanent link">&para;</a></h2>
 <p><code>ww_self::units::unit_of(ty, bundle)</code> resolves a unit type through these definitions to a <code>CanonicalUnit</code>: the

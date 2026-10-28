@@ -2534,6 +2534,8 @@
       
         
       
+        
+      
     
     
     
@@ -2577,6 +2579,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3762,6 +3791,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3848,6 +3881,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3956,6 +4016,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5715,7 +5802,10 @@ consumer has to give bit for bit.</p>
 <li><code>gaps</code>, <code>note</code> and <code>wire_change</code> as for a case: a <code>result</code> is as frozen as golden bytes.</li>
 </ul>
 <p>Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
-Python and C have no unit conversions yet and carry a gap mark naming CLT-54 on every case.</p>
+Python runs every case through <code>ww.requantize</code> (the factor as the model gives it, its bytes). C runs them through
+<code>sw_requantize()</code> (<code>shrink_wrap/c/sw_requantize.h</code>): <code>tests/conformance/src/c.rs</code> works out each factor's constants
+on the host from the same <code>Magnitude</code>, as a code generator would, emits them into one C program for all cases, and
+compiles and runs it.</p>
 <h2 id="frozen-golden-bytes">Frozen golden bytes<a class="headerlink" href="#frozen-golden-bytes" title="Permanent link">&para;</a></h2>
 <p>Once a case's <code>bytes</code> are in, they are the contract: nothing should change them, remove the case, or change its
 <code>direction</code> or <code>bytes_from</code> without everyone noticing. <code>CONFORMANCE=update</code> on its own only refuses to <em>overwrite</em>

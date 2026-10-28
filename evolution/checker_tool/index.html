@@ -19,7 +19,7 @@
         <link rel="prev" href="../rules/">
       
       
-        <link rel="next" href="../crate_layers/">
+        <link rel="next" href="../units_by_meaning/">
       
       
         
@@ -2513,6 +2513,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unit-suffix-hints-tool-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Unit-suffix hints (TOOL-22)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#limitations" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2540,6 +2551,8 @@
   
     
     
+      
+        
       
         
       
@@ -2589,6 +2602,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3774,6 +3814,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3860,6 +3904,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3968,6 +4039,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5506,6 +5604,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#unit-suffix-hints-tool-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Unit-suffix hints (TOOL-22)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#limitations" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5809,6 +5918,37 @@ right there. Enum variants with data are not padded to the same size, so there a
 variant either.</p>
 <p>All of this was checked against real bytes: old and new versions read each other's data, with the new field
 reading as zero from old data. The client uses the same rules when comparing its API with a device's.</p>
+<h2 id="unit-suffix-hints-tool-22">Unit-suffix hints (TOOL-22)<a class="headerlink" href="#unit-suffix-hints-tool-22" title="Permanent link">&para;</a></h2>
+<p><code>ww api check</code> also notes a plain integer field, method argument or property whose name ends in a known unit
+suffix (<code>_us</code>, <code>_ms</code>, <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>, <code>_bits</code>, <code>_kib</code>), with the
+<a href="../../std_library/exact_units/"><code>exact_units::Fixed&lt;U, P, T&gt;</code></a> it could become instead: a note, never an error,
+printed after the verdict and never affecting it, even when there is no snapshot to compare with yet:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>$ ww api check my_device_api
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -&gt; 0.1.0 (source): no changes
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>no changes
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>  note: shared_us: u64 could be exact_units::Fixed&lt;Second, Micro, u64&gt; (exact_units::Micros&lt;u64&gt;), renamed to
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>  `shared`; silence with #[no_unit_hint]
+</span></code></pre></div>
+<p>A field that really is a plain number (a count of nothing in particular, an index, a value whose unit isn't fixed)
+silences the note with <code>#[no_unit_hint]</code> right on it:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">struct</span><span class="w"> </span><span class="nc">SteerPoint</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">    </span><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="n">retry_count_s</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="c1">// not a duration: s is the slot letter here, not seconds</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>On a trait method the same bare attribute silences every argument, or names only the ones to leave out:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[ww_trait]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">trait</span><span class="w"> </span><span class="n">Device</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="cp">#[no_unit_hint(poll_hz)]</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">timeout_ms</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">,</span><span class="w"> </span><span class="n">poll_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// timeout_ms still gets the note</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>and on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item it silences the resource's own name:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="cp">#[no_unit_hint]</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">property</span><span class="o">!</span><span class="p">(</span><span class="n">ro</span><span class="p">,</span><span class="w"> </span><span class="n">rate_hz</span><span class="p">:</span><span class="w"> </span><span class="kt">u32</span><span class="p">);</span><span class="w"> </span><span class="c1">// a raw register value here, not a frequency</span>
+</span></code></pre></div>
+<p><code>ww api scaffold</code> shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
+handlers are written against <code>Fixed</code> from the start where the note applies.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Snapshots of all published versions have to be kept in <code>api_snapshots/</code>, the checker can only see what is saved
@@ -5881,13 +6021,13 @@ reading as zero from old data. The client uses the same rules when comparing its
         
         
           
-          <a href="../crate_layers/" class="md-footer__link md-footer__link--next" aria-label="Next: Crate layers and version bumps">
+          <a href="../units_by_meaning/" class="md-footer__link md-footer__link--next" aria-label="Next: Units compared by meaning">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Crate layers and version bumps
+                Units compared by meaning
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -2578,6 +2578,8 @@
       
         
       
+        
+      
     
     
     
@@ -2621,6 +2623,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3806,6 +3835,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3892,6 +3925,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -4000,6 +4060,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5679,6 +5766,9 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/derive/#evolving-types"><code>#[default]</code> fields default in serde too</a></strong>: A RON or JSON file saved before a field was added still reads, the field taking its default.</li>
 <li><strong><a href="../serdes/derive_reference/#wirew-field-attribute"><code>#[wire(W)]</code> fields</a></strong>: Keep a plain <code>i8</code> or <code>u64</code> in Rust and send it as <code>I4</code> or <code>UNib32</code>: range-checked on write, widened on read.</li>
 <li><strong><a href="../serdes/derive_reference/#transparent"><code>transparent</code> wrappers</a></strong>: A one-field struct (<code>Count(u64)</code>, <code>Volts&lt;U&gt;</code> with a <code>PhantomData</code> unit) is exactly its field on the wire, size class and <code>Series</code> columns included, so a new type costs no bytes.</li>
+<li><strong><a href="../serdes/derive_reference/#niche-enums-only">An enum's tag in a niche</a></strong>: <code>niche</code> lets an enum with a small field stay as small as the field.</li>
+<li><strong><a href="../serdes/derive_reference/#no_future_version-future_version-name-enums-only">Narrow tag-only catch-all</a></strong>: <code>#[future_version] Unknown(u16)</code> keeps a small enum small and still reads values from newer versions.</li>
+<li><strong><a href="../serdes/derive_reference/#wirew-field-attribute">Fields written as another type</a></strong>: <code>#[wire(W)]</code> keeps a small handle in Rust and writes the full value it stands for, also in a <code>Series</code>.</li>
 <li><strong><a href="../serdes/code_size/#transparent-fields">Unit-typed fields cost nothing</a></strong>: A <code>transparent</code> wrapper field (a <code>Fixed</code> number with its unit) compiles to the same code as its plain field, not only the same bytes.</li>
 <li><strong><a href="../serdes/shrink_wrap/">Growing writer</a></strong>: <code>BufWriterOwned</code> for hosts, when the size isn't known up front.</li>
 <li><strong><a href="../serdes/showcase/">Writing in place</a></strong>: Builders that write a value straight into the output buffer, and patching a field after the rest is written.</li>
@@ -5819,6 +5909,7 @@ from the description the device sends of itself; the <code>ww</code> tool and Py
 <li><strong><a href="../api/observing/#the-host-side">Observing properties</a></strong>: Typed subscriptions and a cache of the latest values, shared by everyone watching.</li>
 <li><strong><a href="../serdes/series/#introspection-and-dynamic-clients"><code>Series</code> without generated code</a></strong>: <code>ww</code>, Python and any dynamic client read and write a <code>Series&lt;T&gt;</code> from introspection alone, Python reads it as numpy columns.</li>
 <li><strong><a href="../std_library/ww_si/#in-ww-python-and-dynamic-clients">Quantities without generated code</a></strong>: <code>ww</code> and Python show a <code>ww_si</code> value with its unit (<code>3300 mV</code>), Python as a quantity object with <code>to_si()</code>.</li>
+<li><strong><a href="../std_library/exact_units/#in-ww-python-and-dynamic-clients">Exact units without generated code</a></strong>: <code>ww</code> and Python show a <code>Fixed</code> value as the device stores it (<code>1730000000000000 µs</code>, <code>4 KiB</code>) and write <code>5 ms</code> into it exactly, or refuse with the type named instead of rounding.</li>
 <li><strong><a href="../cli/">Link setup timeout</a></strong>: Connecting over a slow link (a debug probe) waits seconds, a fast one fails quickly, and you can set the time.</li>
 <li><strong><a href="../std_library/device_contract/">Calls that work on any device</a></strong>: Shared traits called whatever a device's own API version. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../transport/hub/#reconnect-after-a-hub-restart-clt-40">Calls fail fast while disconnected</a></strong>: A call made while the link is down fails at once with <code>Disconnected</code> instead of waiting for a reconnect.</li>
@@ -5870,7 +5961,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 <li><strong><a href="../transport/tap/">Link tap</a></strong>: Every frame, message and link event of a link recorded and decoded: which packet a request went out in, what a lost packet took with it.</li>
 <li><strong><a href="../transport/usb_internals/">USB throughput on small MCUs</a></strong>: Measured and tuned on an STM32G0 so far. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#transports-and-protocols-tr">Transports and protocols</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#transports-and-protocols-tr">Transports and protocols</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="introspection">Introspection<a class="headerlink" href="#introspection" title="Permanent link">&para;</a></h2>
 <p>A device can send a description of its own API, so tools and scripts work with it without its source code.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>
@@ -5913,6 +6004,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../api/versioning/">API identity</a></strong>: Every API and type has a signature; shared traits are referred to by hash.</li>
 <li><strong><a href="../evolution/crate_layers/">API snapshots</a></strong>: Descriptions of the standard library are left out of what a device sends and filled in by the host.</li>
 <li><strong><a href="../std_library/ww_self/#the-definition-cache">Definitions from another revision</a></strong>: A device built from an unpublished revision still connects, with a warning.</li>
+<li><strong><a href="../evolution/units_by_meaning/">Units compared by meaning</a></strong>: <code>Milli</code> → <code>Pow10&lt;-3&gt;</code> passes as the same value; lbf·s → N·s is caught as breaking with the factor, as are another zero of a point or a wrapping number on one side.</li>
 </ul>
 <p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
@@ -5936,13 +6028,14 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../cli_reference/#ww-monitor">Watching the link</a></strong>: <code>ww monitor</code>, <code>ww stats</code>, <code>ww capture</code> and <code>ww explain FILE</code>: the link decoded live, counted, saved and read back; <code>--monitor</code> and <code>--capture</code> do it for any command's own connection.</li>
 <li><strong><a href="../cli/#through-a-debug-probe-rtt"><code>ww</code> through a debug probe</a></strong>: <code>ww --rtt CHIP</code> runs every command against a board with no USB of its own, over RTT through its ST-LINK or other probe, with probe serials and chip names completed in the shell.</li>
 <li><strong><a href="../cli_reference/#ww-sync">Devices on one clock</a></strong>: <code>ww sync</code> keeps several devices on the host's UTC and shows how closely each follows and how far apart in phase they are. <span class="ww-status">hardware check open</span></li>
+<li><strong><a href="../evolution/checker_tool/#unit-suffix-hints-tool-22">Plain-unit hints</a></strong>: <code>ww api check</code> and <code>ww api scaffold</code> point out a plain number whose name ends in <code>_ms</code>, <code>_hz</code>, <code>_bytes</code> and the like, and what fixed unit type it could become instead.</li>
 <li><strong><a href="../cli_reference/#ww-pins-tui">Pins live per connector</a></strong>: <code>ww pins tui</code> shows every pin of a board on its connector, read live, with keys to drive, pull and release them. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../cli_reference/#ww-pins">Pin tests from the command line</a></strong>: <code>ww pins test</code> finds shorts and pulls on any board serving <code>PinDiag</code>; plan files make it a pass/fail test. <span class="ww-status">hardware check open</span></li>
 <li><strong><a href="../cli_reference/#ww-settings">Settings from a flash dump</a></strong>: <code>ww settings dump</code> decodes a settings store without the device.</li>
 <li><strong><a href="../python_advanced/">Values from text</a></strong>: Typed values written as text and turned into bytes at runtime.</li>
 <li><strong><a href="../dev_tool/">Dev GUI</a></strong>: Shows the parsed API and the generated code side by side; a UI for any device is prototyped. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a>, <a href="../features/#client-host-side-clt">Client / host side</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a>, <a href="../features/#client-host-side-clt">Client / host side</a> in the feature tracker.</p>
 <h2 id="standard-library">Standard library<a class="headerlink" href="#standard-library" title="Permanent link">&para;</a></h2>
 <p>Ready-made traits and types for what many devices have: units, time, GPIO and buses, logs, firmware info, updates.
 They are shared, so a tool that knows one of them works with every device that implements it.</p>
@@ -5954,6 +6047,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_si/">Units and numbers</a></strong>: <code>ww_si</code> quantities like volts, hertz and seconds, <code>ww_numeric</code> values.</li>
 <li><strong><a href="../std_library/ww_si/#unit-algebra">Units checked by the compiler</a></strong>: One generic quantity type with the unit in the type: <code>Volt * Ampere</code> is a <code>Watt</code>, <code>Volt + Ampere</code> doesn't build, <code>3300 mV</code> prints itself.</li>
 <li><strong><a href="../std_library/ww_si/#units-known-only-at-run-time">Units known at run time</a></strong>: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.</li>
+<li><strong><a href="../std_library/ww_si/#quantity-fixed-or-anyquantity">Quantities as exact as <code>Fixed</code></a></strong>: A run-time <code>Quantity</code> takes binary prefixes (KiB), powers of ten and two without a name and full-scale fractions (1/65535), and carries bounds checked on decode.</li>
 <li><strong><a href="../std_library/exact_units/">Numbers with a fixed unit</a></strong>: <code>Fixed&lt;Micro, Second, u32&gt;</code>: the unit, scale and bounds are in the type, the wire carries exactly the <code>u32</code>, and it prints as <code>1500 µs</code>.</li>
 <li><strong><a href="../std_library/exact_units/">Units without WireWeaver</a></strong>: <code>exact_units</code>, a <code>no_std</code> crate with no dependencies, gives dimensions, unit markers, exact scales and <code>Fixed</code> to any project; the wire format is a feature.</li>
 <li><strong><a href="../std_library/ww_si/#dimensions">Angles, bytes and samples are dimensions</a></strong>: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.</li>
@@ -5974,7 +6068,9 @@ They are shared, so a tool that knows one of them works with every device that i
 <ul>
 <li><strong><a href="../std_library/rounding/">Rounding by name</a></strong>: A conversion that loses part of a step says how it rounds and what happens past the end of the storage (saturate, wrap or no value), and gives the same number on the device, in Rust and in a dynamic client; Q formats saturate and binary angles wrap by their type.</li>
 <li><strong><a href="../std_library/magnitude/">Exact scales</a></strong>: Every scale, from µ and Ki to 1/65535, a 12-bit ADC step, Q15 or a degree in radians, is one exact factor: equal however written, and a conversion between two is worked out at compile time and never rounds.</li>
+<li><strong><a href="../std_library/customary/">Imperial and US customary units</a></strong>: Every inch, pound, gallon, psi, Btu and horsepower as the exact factor its legal definition gives, ambiguous names like gallon or ton never bare, and pounds of force never mistaken for pounds of mass: lbf·s converts to N·s exactly or is refused; a unit that is only a value a standard prints (inHg at 32 °F) says so to clients. Opt-in, so an API without them pays nothing.</li>
 <li><strong><a href="../std_library/points/">Points and origins</a></strong>: A temperature in °C or °F, a register formula like raw/256 + 25 °C, gauge pressure or a heading that wraps is a point against an origin: point minus point is an amount, adding two points doesn't compile, and conversions between origins are exact.</li>
+<li><strong><a href="../std_library/indices/">Indices and sequence numbers</a></strong>: A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap.</li>
 <li><strong><a href="../std_library/ww_si/#conversions-and-comparisons">Quantities without wide integers</a></strong>: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.</li>
 <li><strong><a href="../std_library/ww_adc/">ADC</a></strong>: Single reads, sample streams and triggered captures.</li>
 <li><strong><a href="../std_library/ww_pwm/">PWM</a></strong>: Outputs and input capture.</li>
@@ -6000,7 +6096,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_client_server/">Request and event model</a></strong>: <code>ww_client_server</code>, the messages every call is made of.</li>
 <li><strong><a href="../transport/tap/#tape-blocks">Tape blocks</a></strong>: <code>ww_tape</code>: the generic blocks of track records that live feeds and log files (link captures) are made of.</li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility</a> in the feature tracker.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>Working projects to start from: host programs, firmware for a few boards, and the crate layout to copy.</p>
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>

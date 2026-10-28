@@ -2406,6 +2406,8 @@
       
         
       
+        
+      
     
     
     
@@ -2449,6 +2451,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3634,6 +3663,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3720,6 +3753,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3828,6 +3888,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5372,17 +5459,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tooling-cli-gui-python-tool" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Tooling: CLI, GUI, Python (<code>TOOL</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#examples-ex" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5545,17 +5621,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Evolution, versioning and compatibility (<code>EVO</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tooling-cli-gui-python-tool" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Tooling: CLI, GUI, Python (<code>TOOL</code>)
       </span>
     </span>
   </a>
@@ -6058,7 +6123,30 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   it reads <code>Error::EnumVariantDisabled</code> (<code>docs/serdes/derive_reference.md</code>). First user: <code>ww_numeric::NumericValue</code>, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: <code>#[cfg]</code> on fields (it would change
   the wire format, should be a compile error), <code>ww_si</code> enums.</li>
-<li>✅ <strong>API-1 Methods, properties, streams and sinks</strong>, nested traits (<code>docs/api/overview.md</code>).</li>
+<li>✅ <strong>DER-23 A field written as a user type</strong>: <code>#[wire(W)]</code> (DER-19) with any <code>W: WireAs&lt;T&gt;</code>, not only integers: a
+  field keeps a handle in Rust and writes the value it stands for (a one-byte handle in Rust, a full <code>Magnitude</code> on
+  the wire; <code>exact_units::Prefix</code>'s families use the integer form, <code>Pow10(#[wire(i8)] Pow10Exp)</code>). In a <code>Series</code> the field is an opaque run of
+  <code>W</code>'s bytes (<code>series::WiredOpaque</code>, the model marks it series-opaque) while store and cells keep the handle. Tests
+  <code>shrink_wrap/tests/wire_as_user.rs</code>.</li>
+<li>✅ <strong>DER-24 An enum's tag in a niche</strong>: <code>niche</code> leaves the <code>#[repr]</code> the derive gives an enum (<code>u32</code> for <code>unib32</code>)
+  out, so Rust keeps the tag in a field's spare values (<code>exact_units::Prefix</code> with its families and <code>Unknown(u16)</code> is 4 B, not 8).
+  The same bytes, <code>discriminant()</code> a <code>match</code>. Whether <code>niche</code> becomes the default for every enum is open (Roman).
+  Tests <code>shrink_wrap/tests/niche.rs</code>.</li>
+<li>
+<p>✅ <strong>DER-25 Narrow tag-only catch-all for <code>niche</code> enums</strong> — <code>#[future_version] Unknown(u16)</code> (or <code>u8</code>) on
+  a <code>self_describing</code> / <code>niche</code> enum (DER-24) such as <code>Prefix</code>: the catch-all holds the tag only, so it doesn't widen
+  the enum the way SW-47's <code>Unknown(u32)</code> would (<code>Prefix</code> 4 B instead of 8). The rule it enforces (Roman, 28 Oct
+  2026): every variant added after the enum's first release is tag-only, its numbers packed into the <code>UNib32</code> tag,
+  never bytes after it, so an older reader yields <code>Unknown(tag)</code>, skips the self-describing value and decodes the
+  rest of the message. The derive (a known discriminant beyond the field is a compile error, a read one fails as
+  without the catch-all, series tag store of the field's type; also as <code>cfg_attr(feature = .., future_version)</code>), the
+  width in the API model (<code>FutureVersion::Variant::bits</code>, <code>None</code> for <code>u32</code> so older models keep their bytes), the
+  dynamic client and the evolution checker (an appended discriminant beyond it is breaking), <code>exact_units::Prefix</code>,
+  and the conformance case <code>stdlib.si.quantity.unknown_scale</code> (derive, dynamic, Python; C gap API-26).</p>
+</li>
+<li>
+<p>✅ <strong>API-1 Methods, properties, streams and sinks</strong>, nested traits (<code>docs/api/overview.md</code>).</p>
+</li>
 <li>✅ <strong>API-2 Arrays of resources</strong> with <code>ValidIndices</code> and a built-in array size getter returning a range or list.</li>
 <li>✅ <strong>API-3 Global traits</strong> from <code>ww_stdlib</code> (<code>impl Trait</code>) and trait attachments (<code>examples/all_gpio</code>).</li>
 <li>✅ <strong>API-4 Results</strong>: methods return <code>RpcResult</code> (<code>Ready</code>, <code>Defer</code>, <code>Unimplemented</code>), properties return
@@ -6982,14 +7070,23 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   the same path for every index. Host-tested (<code>tests/methods</code> <code>multi_call_same_method_twice</code>: 3-tuple at the root,
   2-tuple in an array item, <code>Same</code> and <code>Different</code> args, Ok and device <code>Err</code> mixed, infallible too),
   <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.</li>
+<li>✅ <strong>CLT-54 <code>exact_units::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55)
+  read from introspection data alone (<code>quantity::fixed_of</code>: unit, scale as a <code>DynPrefix</code> with the binary and a
+  crate's own scales, <code>Storage { base, bounds }</code>), shown as the typed <code>Fixed</code> shows itself (<code>1730000000000000 µs</code>
+  exactly from a <code>u64</code>, <code>4 KiB</code>), <code>ww introspect</code> with <code>[ms, 1..=5000]</code> after the type; written exactly into the
+  stored scale and type from <code>q!(5 ms)</code> or another quantity of the dimension (not whole, overflow or out of bounds:
+  an error naming the type), a plain number as the stored one; <code>Index</code> / <code>IndexFrom1</code> / <code>Seq</code> (STD-58) shown
+  <code>#3 (Sample)</code>, <code>seq 41 (Frame)</code> and checked (bounds, an <code>IndexFrom1</code>'s 0) in the dynamic codec. Python
+  <code>ww.Quantity</code> for a <code>Fixed</code> (<code>value</code>, <code>prefix</code>, <code>storage</code>, <code>fixed</code>, <code>bounds</code>, <code>to_si()</code>), writes take a <code>Quantity</code>
+  or the stored number; <code>ww.requantize</code> and C <code>sw_requantize.c</code> bit for bit with <code>exact_units</code>. <code>tests/quantities</code>
+  (property, method argument and return, stream item, counts through <code>in_process</code>), <code>tests/customary</code> (the MCO
+  <code>Fixed</code> field), <code>wire_weaver_py/tests/test_offline.py</code>, conformance <code>stdlib.si.*</code> green in every consumer (C's
+  model-built cases wait on API-26). A GUI's slider limits come from <code>Storage::bounds</code>; the widget is TOOL-6's.
+  <a href="../docs/std_library/exact_units/#in-ww-python-and-dynamic-clients">In clients</a>.</li>
 <li>📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
   <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</li>
-<li>📋 <strong>CLT-54 <code>ww_si::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55) shown
-  with its unit and scale (<code>1730000000000000 µs</code>), written from <code>5 ms</code> exactly into the stored scale and type (not
-  exact or out of range: an error naming the type), bounds shown and checked before a write, slider limits in a GUI,
-  <code>Index</code> / <code>IndexFrom1</code> / <code>Seq</code> (STD-58) and the dimensions of STD-60 shown; the C consumer of the conformance matrix.</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7177,12 +7274,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
   <code>bedrock_build_info</code> stream. Decide whether the link or version also needs it.</li>
 <li>📋 <strong>EVO-8 Snapshots of crates.io crates</strong> — depends on "Load API crates from crates.io" above.</li>
-<li>📋 <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — the checker compares magnitudes by value (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code> is
-  compatible), reports origin, level, kind, sentinel and overflow policy (<code>Unbounded</code> → <code>Wrapping</code>, same bytes)
-  changes, and calls the same bytes in a different scale (lbf·s vs N·s) breaking.</li>
-</ul>
-<h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
-<ul>
+<li>✅ <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — markers with a definition in the model (INT-13) are compared by
+  it: the unit and scale of a <code>Fixed</code> multiplied into one step (dimension and exact factor), so another spelling of
+  the same step is compatible (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code>, <code>Volt, Milli</code> → <code>MilliVolt, One</code>, listed as <code>same value</code>), and
+  the same bytes in a different scale are breaking with the factor in the finding (lbf·s vs N·s, the Mars Climate
+  Orbiter, with STD-72's <code>PoundForce</code>: <code>1 on the old version is 4.448222</code>), also at connect time; another dimension is
+  breaking. A unit, scale or origin of the crate's own redefined under the same name is breaking, a new symbol is not.
+  Origins by dimension, reference, zero and period (<code>Celsius</code> = an own origin at 273.15 K, <code>Angle&lt;Degree&gt;</code> =
+  <code>Angle&lt;Radian&gt;</code>). <code>Saturating</code> is <code>Unbounded</code>'s values, <code>Wrapping</code> on one side only is breaking (<code>Rule::Meaning</code>). A
+  unit by convention (STD-72 provenance) with its value updated is listed as <code>conventional value updated</code>, defined ↔
+  conventional is breaking. Levels, kinds and sentinels get their checks with STD-67, STD-68 and STD-66 (rules written
+  down); until then a marker kind the checker doesn't know is the same only when its definition is
+  (<code>docs/evolution/units_by_meaning.md</code>; <code>wire_weaver_evolution</code> tests <code>tests::by_meaning</code>).</li>
 <li>✅ <strong>TOOL-1 <code>ww</code> CLI</strong>: <code>list</code> with filters, <code>introspect</code> as a resource tree (<code>--raw-as-sent</code>, <code>--types</code>), dynamic shell
   completions (<code>docs/cli.md</code>).</li>
 <li>✅ <strong>TOOL-2 <code>ww api save</code> / <code>check</code> / <code>diff</code></strong> for API bundles and snapshots.</li>
@@ -7248,6 +7351,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
     <code>held by ww, pid ..</code> and <code>held by probe-rs (pid ..)</code>; <code>ww hub take rtt:..</code> and two <code>ww info</code> at once through the
     hub. Found and fixed on the way: a stale control block of the previous firmware won the RAM scan, <code>ww hub take</code>
     timed out while the hub scanned.</li>
+<li>✅ <strong>TOOL-22 Hint for plain fields that carry a unit</strong> — <code>ww api check</code> and the walker <code>ww api scaffold</code> uses
+  note a plain integer field, method argument or property whose name ends in a known unit suffix (<code>_us</code>, <code>_ms</code>,
+  <code>_ns</code>, <code>_s</code>, <code>_hz</code>, <code>_khz</code>, <code>_ppb</code>, <code>_ppm</code>, <code>_bytes</code>, <code>_bits</code>, <code>_kib</code>) with the <code>exact_units::Fixed&lt;U, P, T&gt;</code> it
+  could become instead (<code>wire_weaver_core::transform::unit_hint</code>, <code>Scratch::unit_hints</code>): a note, never an error,
+  printed on <code>ww api check</code> and on <code>ww api scaffold</code>'s stderr, never affecting the verdict or the generated code.
+  Silenced per item with <code>#[no_unit_hint]</code>: bare on a struct/enum field, bare (every argument) or naming arguments
+  (<code>#[no_unit_hint(a, b)]</code>) on a trait method, bare on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item.
+  <code>docs/evolution/checker_tool.md#unit-suffix-hints-tool-22</code>.</li>
 <li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the
@@ -7282,7 +7393,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   G0B1RE once its firmware serves <code>PinDiag</code>. Skill tree signal and skill: tpm P2618#23oct-1334.</li>
 <li>🚧 <strong>TOOL-6 Dev GUI / web tool</strong> · <code>v0.5.x</code> — <code>wire_weaver_tool</code> (egui, Trunk) shows the AST and generated code. Goals:
   a web tool like the pest playground, a dynamic UI for any API (MVP prototyped), widgets per type, mockup
-  server UI. See <code>docs/dev_tool.md</code>.</li>
+  server UI. See <code>docs/dev_tool.md</code>. A <code>Fixed</code> field's widget shows its unit and takes its slider limits from
+  <code>quantity::fixed_of(..).storage.bounds</code> (CLT-54).</li>
 <li>💡 <strong>TOOL-7 Generated Python wheel for a specific API</strong> — nothing is generated for Python yet:
   <code>examples/blinky_py</code> is a hand-written pyo3 wrapper around the Rust client, and <code>wire_weaver_py</code> is dynamic.
   Generating typed pyo3 bindings from an API crate might be useful (see the <code>TODO</code> in
@@ -7294,12 +7406,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   anyway); completions of the subcommands, <code>keep</code> durations and device keys with help texts; colour off without a
   TTY or with <code>NO_COLOR</code>; <code>lend DEVICE -- CMD</code> (SRV-32). Open: <code>ww list</code> asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).</li>
+<li>📋 <strong>TOOL-23 Doc-comment / sentinel / bounds hints for <code>ww api check</code></strong> — the bigger version of TOOL-22's
+  name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
+  %", "127 = not available") and suggest <code>Bounds</code>/niche forms too, not only the name suffix. Needs STD-64, STD-66
+  and INT-13 landed first; tested on the scout's repos.</li>
 <li>📋 <strong>TOOL-13 <code>Some(None)</code> in Python values</strong> — Python (and the conformance corpus, which uses its form) writes
   <code>None</code> for both <code>None</code> and <code>Some(None)</code> of an <code>Option&lt;Option&lt;T&gt;&gt;</code>, so the inner <code>None</code> can't be written or told
   apart when read. Needs a marker for a present <code>None</code> (e.g. <code>ww.Some(None)</code>). Conformance case
   <code>option.option.some_none</code>.</li>
 <li>📋 <strong>TOOL-8 <code>ww</code> inspect / read / write all GPIOs on any device</strong> · <code>v0.5.x</code>.</li>
-<li>🚧 <strong>TOOL-9 Buffer visualizer / "explain" encoding</strong> · <code>v0.5.x</code> — each bit traced to the value it belongs to.
+<li>
+<p>🚧 <strong>TOOL-9 Buffer visualizer / "explain" encoding</strong> · <code>v0.5.x</code> — each bit traced to the value it belongs to.
   Done: <code>ww_self::explain</code> (the dynamic decoder records every value, length, discriminant, flag and padding with
   its front bits and back nibbles); <code>ww_self::expr</code> (feature <code>expr</code>: values and calls written as Rust expressions,
   <code>Config { mode: Mode::Fast, .. }</code>, <code>motor.set_speed(1.5, Dir::Cw)</code>, <code>motor.limit = 3</code>, read by the type with
@@ -7312,13 +7429,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   paths: <code>ww info</code>, <code>ww report</code>, ..) are named <code>ww_user_info::UserInfo.name</code> and decoded from the snapshots the host
   carries, also by a command that never introspects the device. Open: <code>GlobalCompact</code> paths, multi requests; <code>Series</code> columns and sparse-struct slot headers in detail; shell completion of types and paths; a
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
-  expression input.</li>
-<li>
-<p>📋 <strong>TOOL-22 Hint for plain fields that carry a unit</strong> · <code>v0.5</code> — <code>ww api check</code> notes a plain numeric field,
-  argument or property whose name (<code>*_us</code>, <code>*_ms</code>, <code>*_bytes</code>, <code>*_ppb</code>, ..) or doc comment ("in µs", "bytes",
-  "0..=65535 = 0..100 %", "127 = not available") states a unit, scale, range or sentinel, with the <code>Fixed</code> (STD-55),
-  <code>Bounds</code> or niche (STD-66) form it could be: no meaning left in comments. A note, never an error, silenced per item;
-  tested on the scout's repos.</p>
+  expression input.</p>
 </li>
 <li>
 <p>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
@@ -7414,6 +7525,28 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
   <code>tests/quantities</code>.</li>
+<li>✅ <strong>STD-72 Imperial and US customary units, complete</strong> · <code>v0.5</code> — feature <code>customary</code>, opt-in (not in <code>quantities</code> or <code>std</code>, free for an API without it; host clients turn it on):
+  166 markers in <code>exact_units::units</code>, each the exact rational of SI from its legal definition (1959 yard and pound,
+  NIST SP 811 and Handbook 44, UK WMA 1985, g_n), the source cited per unit and checked against a sourced catalogue
+  with SP 811's printed values. No bare ambiguous name (47 groups: US / imperial gallon, fl oz, pint, quart, bushel;
+  international / US survey foot and mile; short / long / metric ton; avoirdupois / troy; Btu and calorie variants;
+  horsepower variants; thou vs angular mil; inHg / mmHg conventional or at a temperature); <code>PoundAvdp</code> and <code>Slug</code>
+  mass, <code>PoundForce</code>, <code>Kip</code>, <code>Poundal</code> force; °F and °R are origins (STD-64). Measured units carry
+  <code>Provenance::Conventional</code>, in the API model a <code>MarkerDef::ConventionalUnit</code> (defined units keep their bytes). <code>Fixed::convert</code> between units of one dimension, exact or <code>None</code>, factor at compile
+  time; <code>DynQuantity::convert</code> and Python <code>Quantity.convert</code> the same at run time. The Mars Climate Orbiter case
+  (lbf·s read as N·s) in <code>tests/customary</code> (typed, dynamic) and Python: converts exactly or is refused; the <code>Fixed</code>
+  field too, with its unit in the dynamic client (CLT-54). <a href="../docs/std_library/customary/">Imperial and US customary</a>,
+  conformance <code>stdlib.si.fixed.customary</code>, <code>stdlib.si.si_expr.pound_force</code> (derive, dynamic, Python; C waits on
+  API-26).</li>
+<li>✅ <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — <code>exact_units</code> (feature <code>counting</code>, re-exported by
+  <code>ww_si</code>): <code>Index&lt;Of, T, B&gt;</code>, a 0-based position in a table of <code>Of</code> (index ± amount = index, index − index = a
+  <code>Fixed&lt;Of, One, T&gt;</code> distance, index + index and index · x don't compile, checked forms for bounded ones);
+  <code>IndexFrom1&lt;Of, T, B&gt;</code>, 1-based as people count, refuses 0 on construction and decode, <code>to_index</code> / <code>from_index</code>;
+  <code>Seq&lt;Of, T&gt;</code>, a wrapping sequence number (<code>next</code>, <code>wrapping_add</code>, <code>distance</code> as a <code>Wrapping</code> amount, RFC 1982
+  <code>is_before</code> / <code>serial_cmp</code> within half the range, no <code>Ord</code>, no <code>Seq + Seq</code>). All <code>transparent</code>, the bytes of <code>T</code>; in
+  the model instances of <code>Index</code> / <code>IndexFrom1</code> <code>[Of, T, B]</code> and <code>Seq</code> <code>[Of, T]</code>, shown and checked by clients
+  (CLT-54). <a href="../docs/std_library/indices/">Indices and sequence numbers</a>, conformance <code>stdlib.si.index.*</code>,
+  <code>stdlib.si.index_from_1.*</code>, <code>stdlib.si.seq.*</code> (derive, dynamic, Python; C waits on API-26).</li>
 <li>✅ <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>exact_units::Point&lt;O, Fixed&lt;..&gt;&gt;</code>: a position against an origin, a
   zero-size marker declared with <code>origin!</code> carrying its unit, an exact <code>Offset</code> (sign and <code>Magnitude</code>), its reference
   and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
@@ -7442,7 +7575,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   checked; same bytes, <code>Fixed::of</code> / <code>with_overflow</code>. Bounds prove conversions infallible: <code>into_rounded</code>, <code>From</code> of a
   <code>Range</code>-bounded value for a whole factor, a compile error where the proof fails. Run-time <code>requantize</code> /
   <code>Requantizer</code> for dynamic clients. <a href="../docs/std_library/rounding/">Rounding and overflow</a>,
-  <code>exact_units/tests/rounding.rs</code>, conformance <code>requantize.*</code> (derive, dynamic; Python and C wait on CLT-54).
+  <code>exact_units/tests/rounding.rs</code>, conformance <code>requantize.*</code> (derive, dynamic, Python <code>ww.requantize</code>, C <code>sw_requantize()</code>).
   <code>Seq</code> wrapping comes with STD-58.</li>
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
@@ -7668,6 +7801,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   ids resolved on the host from the firmware's ELF by build id. Done: the type, <code>Display</code> (<code>#17</code> for an unresolved
   id), <code>ww pins</code> finds the ELF by build id (<code>ww_pin_probe::device::Names</code>). Missing: an accessor for
   <code>defmt::Str</code>'s index (upstream, <code>Table::get_str</code>), reading the ids from the ELF's table with it.</li>
+<li>✅ <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — <code>Quantity</code> on <code>exact_units</code>' units, one unit system.
+  <code>Prefix</code> without a table (Roman, 28 Oct 2026): named SI and binary prefixes (<code>Kibi</code> .. <code>Tebi</code>), the families
+  <code>Pow10(i8)</code>, <code>Pow2(i8)</code> and <code>FullScale(bits)</code> (<code>32768·1/65535</code>, a Q format, <code>Pow10&lt;-4&gt;</code>), and <code>Unknown(u16)</code> for
+  scale kinds of a newer version (DER-25): 4 B in RAM on host, M0, M4F and M33, <code>Volt</code> 12 B as before; named prefixes
+  keep their one nibble on the wire, a family takes one byte more. Other scales (a BAM's π/2¹⁵) go to <code>AnyQuantity</code>,
+  which holds any <code>Fixed</code> exactly. <code>Quantity&lt;U, B = Unbounded&gt;</code> with bounds checked on construction and decode, <code>B</code>
+  explicit in the model; <code>Quantity::try_from_fixed</code> and Fixed/Quantity parity proptests; conformance cases (derive,
+  dynamic, Python; C gap API-26); docs (<a href="../std_library/ww_si/#quantity-fixed-or-anyquantity"><code>ww_si</code></a>). The
+  client-side bounds check is CLT-54.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
@@ -7680,10 +7822,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>STD-56 Plain fields with a unit in their name become <code>Fixed</code></strong> — <code>shared_us: u64</code>, <code>rate_ppb: i32</code>,
   <code>ring_capacity_bytes: u64</code>, <code>queue_len: u32</code> and about 80 more across <code>ww_stdlib</code>, <code>ww_link</code>, <code>ww_stream</code>,
   <code>ww_client_server</code> and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.</li>
-<li>📋 <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — positions in a table of something (0- and 1-based) and
-  wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
-<li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
-  (<code>Quantity&lt;U, B&gt;</code>, range in coherent units; a break: <code>B</code> explicit in the model), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
 <li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
   (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
 <li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges
@@ -7695,12 +7833,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.</li>
 <li>📋 <strong>STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI</strong> · <code>v0.5</code> — <code>Level&lt;Kind, Ref&gt;</code> on the point algebra:
   level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
-  convention).</li>
+  convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave, decade,
+  shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and the
+  reference may be absent (a pure gain), a quantity or dimension one; gains compose (dB/km, Np/s ≠ Hz).</li>
 <li>📋 <strong>STD-68 Kinds that share a dimension</strong> · <code>v0.5</code> — relative humidity, duty cycle, state of charge, strain, volume
   fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
-  explicit casts between siblings.</li>
+  explicit casts between siblings. W / VA / var and their energies, Gy / Sv; a kind survives a product with plain
+  units (var·h stays reactive energy, never kW·h). Kinds with arguments: gas volume and density at stated reference
+  conditions (<code>StandardVolume&lt;Ref&gt;</code>: DIN 1343, ISO 13443, US SCF), with an opt-in exact ideal-gas bridge to mol.</li>
 <li>📋 <strong>STD-69 More counted units</strong> · <code>v0.5</code> — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
-  each a dimension of its own.</li>
+  each a dimension of its own; <code>AVOGADRO</code> bridges <code>Particle</code> and mol exactly.</li>
 <li>📋 <strong>STD-77 Runtime scale parts and reference values</strong> · <code>v0.5</code> — what device standards do at run time, without a
   refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
   (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec <code>*_SF</code> scale-factor register), and a
@@ -7714,16 +7856,32 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>STD-71 Device-standard units in and out</strong> — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
   DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
   only. Later, in <code>exact_units_interop</code> like STD-70.</li>
-<li>📋 <strong>STD-72 Imperial and US customary units, complete</strong> · <code>v0.5</code> — every unit the exact rational of SI from its legal
-  definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
-  variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
-  Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.</li>
 <li>📋 <strong>STD-73 One table of unit symbols and spellings</strong> · <code>v0.5</code> — display and parsing of every unit from one table,
-  shared by Rust, si_dynamic, <code>ww</code> and Python, UCUM spelling where there is one.</li>
+  shared by Rust, si_dynamic, <code>ww</code> and Python, UCUM spelling where there is one; symbols are case-sensitive and a
+  bare ambiguous one is refused (<code>pH</code>: picohenry or pH, <code>B</code>: bel or byte).</li>
 <li>📋 <strong>STD-74 The runtime side catches up</strong> · <code>v0.5</code> — <code>Quantity</code>, <code>AnyQuantity</code> and <code>SIExpr</code> get the exact magnitude,
-  the °C point / interval split, levels and sentinels.</li>
+  the °C point / interval split, levels and sentinels, so <code>ww_si</code> never lags behind <code>exact_units</code>; the <code>Fixed</code> ↔
+  <code>Quantity</code> parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.</li>
 <li>📋 <strong>STD-75 Non-linear scales by name</strong> · <code>v0.5</code> — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
   conversion function each, or out of scope with the reason written down.</li>
+<li>📋 <strong>STD-78 <code>serde</code> for units, three forms per field</strong> · <code>v0.5</code> — an <code>exact_units</code> feature <code>serde</code> (Roman, 28 Oct
+  2026), the form chosen per field with <code>#[serde(with = ..)]</code> adapters: a plain number (the unit stated in the schema),
+  a human string <code>"5 ms"</code> (STD-73's table, exact) or a self-describing <code>{ value, unit }</code>. Deserializing accepts any
+  compatible unit and converts exactly; it refuses a wrong dimension, an inexact conversion, a value out of bounds and
+  an ambiguous name; sentinels map to their meaning. Tests per form, and a docs page "Storing units": a fixed unit per
+  column is a <code>Fixed</code> with the unit in the schema and integers at the fixed scale (SQL aggregates stay right); a unit
+  that varies per row is an <code>AnyQuantity</code> or a unit column; <code>Quantity</code> is a wire tool, normalized before storing; text
+  headers like <code>vbus [mV]</code>. For configs, web APIs and queues, telemetry, logs and metrics, data files, CAD / EDA (nm
+  in better_erc) and Python bindings, not firmware only.</li>
+<li>📋 <strong>STD-79 JSON Schema with unit and range</strong> — a <code>schemars</code> feature: each unit field's schema names its unit and
+  bounds. Later, an optional feature like STD-78.</li>
+<li>📋 <strong>STD-80 Unit values on the command line</strong> — a <code>clap</code> value parser (<code>--timeout 5ms</code>) on STD-73's table, exact,
+  refusing what STD-78 refuses. Later, optional feature.</li>
+<li>📋 <strong>STD-81 Database columns with units</strong> — <code>sqlx</code> and <code>diesel</code> column types for <code>Fixed</code> (integer at the fixed
+  scale) and <code>AnyQuantity</code>, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
+  features.</li>
+<li>📋 <strong>STD-82 Unit metadata in Arrow and Polars</strong> — a column's unit and scale as Arrow field metadata, read back
+  exactly, Polars through it. Later, optional feature.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7795,7 +7953,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   traits (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types); the macro panicked on their <code>version = ".."</code> dependencies until
   API-14, try one on a crates.io-shaped copy.</li>
 <li>📋 <strong>DOC-10 Units docs section</strong> · <code>v0.5</code> — choosing <code>Fixed</code>, <code>Point</code>, <code>Level</code>, <code>Quantity</code> or <code>AnyQuantity</code>, imperial
-  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.</li>
+  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose; links STD-78's "Storing units" page.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -7858,7 +8016,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>📋 <strong>TEST-29 Units zero-cost gate</strong> · <code>v0.5</code> — the ELF comparison of TEST-27 (<code>just units-elf</code>) becomes a gate in
   <code>just test</code> / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
   compiles to identical code on every core and firmware profile measured (M0, M4F, M33; <code>opt-level</code> <code>z</code> and <code>3</code>), and
-  a pair that differs fails with the per-symbol diff.</li>
+  a pair that differs fails with the per-symbol diff; a <code>Quantity</code> with a named prefix that grows in RAM fails too.</li>
 <li>✅ <strong>TEST-27 Units firmware budget</strong> · <code>v0.5</code> — what <code>ww_si::Fixed</code> costs on an MCU against the plain fields it
   replaces, one harness any later piece (<code>Point</code>, rounding conversions, <code>Level</code>) re-runs with <code>just units-budget</code>:
   <code>examples_mcu/mcu_qemu/src/unit_budget.rs</code> (<code>qemu-unit-budget</code>, <code>stm32h725ig-unit-budget-cycles</code>) with plain/<code>Fixed</code>
@@ -7869,7 +8027,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (the board was not behind the probe). Proved by ELF instead (<code>just units-elf</code>): the pairs compared instruction by
   instruction on thumbv6m, thumbv7em and thumbv8m.main at <code>fw-z</code> and <code>fw-3</code>: range check and <code>Series</code> encode
   identical everywhere, <code>Series</code> decode at <code>fw-3</code>; struct encode/decode differ by the derive's per-field write for a
-  <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (<code>docs/std_library/rounding.md</code>, "Cost on a device"). See <code>docs/articles/units_budget.md</code>.</li>
+  <code>Fixed</code> (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at <code>z</code> and <code>3</code> (<code>docs/std_library/rounding.md</code>, "Cost on a device"). STD-72 adds nothing of its own to measure: its markers are zero-size types and <code>Fixed::convert</code> is <code>Fixed::to</code>'s compile-time factor, so the <code>to</code> measurements cover it. See <code>docs/articles/units_budget.md</code>.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>

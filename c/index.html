@@ -1239,6 +1239,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2523,6 +2534,8 @@
       
         
       
+        
+      
     
     
     
@@ -2566,6 +2579,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3751,6 +3791,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3837,6 +3881,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3945,6 +4016,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5455,6 +5553,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tests" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5663,11 +5772,43 @@ octets per word has to be unpacked into one octet per element first, and packed 
 </ul>
 <p>Checked so far: builds without warnings with <code>-std=c99 -pedantic -Wconversion -Wsign-conversion</code> on the host, and
 for MSP430 (16-bit <code>int</code> and <code>size_t</code>), Cortex-M0 and RV32 with clang. Not tested on a C2000 compiler yet.</p>
+<h2 id="requantize">Requantize<a class="headerlink" href="#requantize" title="Permanent link">&para;</a></h2>
+<p><code>sw_requantize.h</code> and <code>sw_requantize.c</code> next to them convert a stored number to another scale and storage with a
+named rounding and overflow policy, the same number as Rust's <code>exact_units::Requantizer</code> and the typed
+<code>Fixed::requantize</code>, bit for bit (see <a href="../std_library/rounding/">Rounding and overflow</a>). They don't need the
+reader and writer, and nothing from libc beyond <code>&lt;stdint.h&gt;</code>, <code>&lt;stdbool.h&gt;</code> and <code>&lt;string.h&gt;</code>.</p>
+<p>The factor (the source scale over the target scale) is worked out on the host, as typed Rust does at compile time,
+and given as constants: an exact ratio <code>num / den</code> (two 64-bit halves each) or, for a factor that isn't a fraction
+of integers (π, a half exponent), the fixed point <code>m * 2^shift</code> of <code>Magnitude::fixed_point()</code>; <code>f_num / f_den</code> is
+what a float is multiplied with. <code>shrink_wrap_c::requantize::CFactor::of(&amp;magnitude)</code> computes them and
+<code>c_initializer()</code> writes them as C. Millivolts in an <code>int16_t</code> to decivolts in an <code>int8_t</code>, rounded to the nearest
+with ties to even:</p>
+<div class="language-c highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;sw_requantize.h&quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">sw_requantizer</span><span class="w"> </span><span class="n">mv_to_dv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="p">{.</span><span class="n">ratio</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">num_hi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">num_lo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">den_hi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">den_lo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">f_num</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span><span class="w"> </span><span class="p">.</span><span class="n">f_den</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">100.0</span><span class="p">},</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="p">{</span><span class="n">SW_NUM_INT</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">},</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="n">SW_ROUND_NEAREST_EVEN</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="n">SW_OVERFLOW_CHECKED</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">};</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">sw_num</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">SW_NUM_INT</span><span class="p">,</span><span class="w"> </span><span class="p">{.</span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1250</span><span class="p">}},</span><span class="w"> </span><span class="n">dv</span><span class="p">;</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sw_requantize</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mv_to_dv</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">dv</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="cm">/* dv.v.i == 12 */</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Integers are converted exactly in 128 bits (sign and magnitude in two 64-bit halves, no <code>__int128</code>), whatever the
+storages: rounding is <code>SW_ROUND_TRUNCATE</code>, <code>_FLOOR</code>, <code>_CEIL</code>, <code>_NEAREST_EVEN</code> or <code>_NEAREST_AWAY</code>, overflow
+<code>SW_OVERFLOW_CHECKED</code> (<code>false</code>, no value), <code>_SATURATE</code> or <code>_WRAP</code>. A float storage (<code>SW_NUM_F32</code>, <code>SW_NUM_F64</code>)
+multiplies in doubles; with <code>SW_NO_F64</code> only integers are there. The conversion decides the policy at run time, so
+for a hot path on a small MCU the typed Rust conversion (constants and policy fixed at compile time) is cheaper.</p>
 <h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
 <p><code>shrink_wrap/c</code> is also a Rust crate (<code>shrink_wrap_c</code>, not published) that builds the C with the <code>cc</code> crate and
 checks it against the Rust one in <code>just test</code>: golden vectors for every primitive, the length layouts and
 <code>finish()</code>, the errors and the latch (<code>tests/golden.rs</code>), and a proptest cross-check of random sequences of
-writes and reads, in both directions, on truncated and corrupted input too (<code>tests/cross.rs</code>). <code>just lint</code> builds
+writes and reads, in both directions, on truncated and corrupted input too (<code>tests/cross.rs</code>). <code>sw_requantize()</code>
+is cross-checked against <code>exact_units::Requantizer</code> on random factors, storages, policies and values and on every
+storage's edge values (<code>tests/requantize.rs</code>), and runs the requantize cases of the conformance corpus. <code>just lint</code> builds
 the C on its own with <code>-std=c99 -Wall -Wextra -Werror -pedantic</code>.</p>
 <p>Not ported: <code>TailSize</code>, <code>Series</code>, <code>fill_*</code>, and the code size
 tricks of the Rust writer (<code>finish_no_lens</code>, <code>_latch</code> writes).</p>

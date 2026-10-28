@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3636,6 +3665,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3722,6 +3755,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3830,6 +3890,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -6177,6 +6264,10 @@ hash. Traits and types a device leaves out of its introspection data because the
 The values of <a href="../api/properties/#const-items"><code>const</code> items</a> outside of arrays of traits are read from the device
 and shown after their type, <code>const property SERIAL: String = "E661A410"</code> (byte vectors as hex, struct and enum names
 left out); <code>--no-values</code> skips the reads.</p>
+<p>An <a href="../std_library/exact_units/#in-ww-python-and-dynamic-clients"><code>exact_units::Fixed</code></a> shows what its numbers are in
+and its bounds after the type, <code>rw property window: Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt; [ms, 1..=5000]</code>, and its
+values with their unit, exactly as stored (<code>1730000000000000 µs</code>, <code>4 KiB</code>); indices and sequence numbers show what they
+count (<code>#3 (Sample)</code>, <code>seq 41 (Frame)</code>). <code>ww observe</code>, <code>ww stream</code>, <code>ww tap</code> and <code>ww explain</code> print values the same way.</p>
 <p>With <code>-t</code>, all types the API refers to are listed after the tree, by their index in the bundle: structs with their
 fields, enums with their variants and discriminants, and each type's size kind (<code>unsized</code>, <code>final structure</code>,
 <code>self-describing</code>, <code>sized</code>) and enum repr:</p>
@@ -6400,7 +6491,7 @@ from <code>--file</code>, or as a value written as a Rust expression, which is e
 range is an error naming the field (<code>argument a: 200 is out of range for ub7</code>). Struct literals (<code>Name { a: 1 }</code>,
 <code>..Default::default()</code> for the rest), enum variants (<code>Mode::Fast</code> or <code>Fast</code>), <code>Some</code>/<code>None</code>, <code>Ok</code>/<code>Err</code>, tuples,
 arrays (<code>[0; 4]</code>, <code>vec![..]</code>, <code>b"bytes"</code>, <code>0xa102</code> for bytes), ranges and negative numbers work. The values <code>ww</code>
-prints (<code>ww introspect</code>, <code>ww observe</code>) are written the same way and can be pasted back; quantities go in <code>q!(..)</code>: <code>q!(3300 mV)</code>, <code>q!(1.2e-4 N*m/(rad/s))</code> (<code>*</code> for <code>·</code>, <code>u</code> for <code>µ</code>, a string for other symbols: <code>q!("20 °C")</code>), and a plain number is in the unit itself.</p>
+prints (<code>ww introspect</code>, <code>ww observe</code>) are written the same way and can be pasted back; quantities go in <code>q!(..)</code>: <code>q!(3300 mV)</code>, <code>q!(1.2e-4 N*m/(rad/s))</code> (<code>*</code> for <code>·</code>, <code>u</code> for <code>µ</code>, a string for other symbols: <code>q!("20 °C")</code>), and a plain number is in the unit itself. Into an <a href="../std_library/exact_units/#in-ww-python-and-dynamic-clients"><code>exact_units::Fixed</code></a> a quantity converts exactly into its scale and number type (<code>q!(5 ms)</code> into <code>Fixed&lt;Second, Micro, u64&gt;</code> is 5000) or is an error naming the type (<code>not a whole number of µs</code>, <code>70000 is out of range for u16</code>, <code>6000 is out of 1..=5000</code>); a plain number there is the stored number, as are an index's and a sequence number's (an <code>IndexFrom1</code> refuses 0).</p>
 <p>A whole message as it goes over the link, envelope and payload: <code>ww explain request HEX</code> for a request,
 <code>ww explain event HEX</code> for an event (<code>--for PATH</code> names the method or property it answers; a stream's data names its
 stream itself), and <code>--request</code> to see the request a call, a property write or a read is on the wire:</p>

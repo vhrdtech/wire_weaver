@@ -19,7 +19,7 @@
         <link rel="prev" href="../ww_si/">
       
       
-        <link rel="next" href="../magnitude/">
+        <link rel="next" href="../customary/">
       
       
         
@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3649,6 +3678,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3866,6 +3899,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#units" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -3880,6 +3924,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3981,6 +4052,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5527,6 +5625,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#in-ww-python-and-dynamic-clients" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In <code>ww</code>, Python and dynamic clients
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#units" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5596,6 +5705,10 @@
   
     
     
+      
+        
+      
+        
       
         
       
@@ -5848,6 +5961,45 @@ show all four arguments:</p>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>A <code>Series</code> of <code>Fixed</code> values has the same columns and bytes as a <code>Series</code> of the plain numbers.</p>
+<h2 id="in-ww-python-and-dynamic-clients">In <code>ww</code>, Python and dynamic clients<a class="headerlink" href="#in-ww-python-and-dynamic-clients" title="Permanent link">&para;</a></h2>
+<p>A client that only has a device's introspection data knows a <code>Fixed</code> for what it is: its unit, its scale, the number
+type it is stored in and its bounds. <code>ww introspect</code> (and <code>ww api tree</code> from source) shows what the numbers are in
+and the bounds after the type:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>├─ 5 rw property timeout: Fixed&lt;Second, Milli, u16, Unbounded&gt; [ms]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>├─ 7 rw property window: Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt; [ms, 1..=5000]
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>├─ 15 rw property uptime: Fixed&lt;Second, Micro, u64, Unbounded&gt; [µs]
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>├─ 16 rw property buffer: Fixed&lt;Byte, Kibi, u16, Unbounded&gt; [KiB]
+</span></code></pre></div>
+<p><code>ww observe</code>, <code>ww stream</code>, <code>ww tap</code> and <code>ww explain</code> print a value as the typed <code>Fixed</code> prints itself, exactly:
+<code>1730000000000000 µs</code> from a <code>u64</code>, never through a float, <code>4 KiB</code> for a binary scale, the scale's own symbol for a
+<code>scale!</code> of the API's crate. Values written as expressions (<code>ww explain 'uptime = q!(5 ms)'</code>, the dynamic client's
+<code>expr::parse_value</code>) take a quantity in <code>q!(..)</code> and convert it exactly into the stored scale and number type:
+<code>q!(5 ms)</code> into the <code>uptime</code> above stores 5000, <code>q!(0.1 ms)</code> 100, <code>q!(1 MiB)</code> into <code>buffer</code> 1024, <code>q!(8192 B)</code> 8.
+What doesn't fit is refused before anything is sent, with the type named:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>1.5 ns can&#39;t be written into Fixed&lt;Second, Micro, u64, Unbounded&gt;: not a whole number of µs
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>70 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Unbounded&gt;: 70000 is out of range for u16
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>6 s can&#39;t be written into Fixed&lt;Second, Milli, u16, Range&lt;1, 5000&gt;&gt;: 6000 is out of 1..=5000
+</span></code></pre></div>
+<p>A plain number is the stored number (<code>uptime = 5000</code> is 5000 µs), what a script wrote into the field when it was a
+plain <code>u64</code>, checked against the storage and the bounds the same way.
+<a href="../indices/">Indices and sequence numbers</a> are shown with what they count, <code>#1000 (Sample)</code>,
+<code>#2 (Item, from 1)</code>, <code>seq 41 (Frame)</code>, and take their number, an <code>IndexFrom1</code> refusing 0.</p>
+<p>Python gets a <code>ww.Quantity</code>, as for a <a href="../ww_si/#in-ww-python-and-dynamic-clients"><code>Quantity</code></a>, with the stored
+number and type:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># 1730000000000000 µs</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">u</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">prefix</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">storage</span> <span class="c1"># 1730000000000000, &quot;Micro&quot;, &quot;u64&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">u</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">fixed</span>    <span class="c1"># &quot;s&quot;, &quot;Second&quot;, True</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">u</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 1730000000.0</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">window</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">bounds</span>     <span class="c1"># (1, 5000)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">dev</span><span class="o">.</span><span class="n">timeout</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>  <span class="c1"># 5 ms, stored as 5000</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">dev</span><span class="o">.</span><span class="n">uptime</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mi">5000</span><span class="p">)</span>       <span class="c1"># as stored: 5000 µs</span>
+</span></code></pre></div>
+<p>A write takes a <code>ww.Quantity</code> of a unit of the same dimension, converted exactly, or the stored number; anything
+else is a <code>ValueError</code> with the same text as above.</p>
+<p>In Rust, <code>wire_weaver_client::quantity::fixed_of(&amp;ty, &amp;bundle)</code> reads the type as a <code>FixedType</code> (unit, scale as a
+<code>DynPrefix</code>, <code>Storage { base, bounds }</code>), <code>DynQuantity::from_value</code> reads a value of it, and <code>DynQuantity::to_value</code>
+writes into it exactly or returns the error above. <code>quantity::DynCount</code> does the same for indices and sequence
+numbers. The C consumer of the <a href="../../serdes/conformance/">conformance matrix</a> reads a <code>Fixed</code> as its <code>T</code>.</p>
 <h2 id="units">Units<a class="headerlink" href="#units" title="Permanent link">&para;</a></h2>
 <p>The unit markers are in <code>exact_units::units</code>, grouped by cargo features a firmware turns on as it needs them
 (<code>time</code>, <code>electrical</code>, <code>mechanical</code>, <code>angle</code>, <code>thermal</code>, <code>chemical</code>, <code>photometric</code>, <code>radiation</code>, <code>dimensionless</code>,
@@ -5920,13 +6072,13 @@ the wire format, and the bytes are the same whichever crate turns it on.</p>
         
         
           
-          <a href="../magnitude/" class="md-footer__link md-footer__link--next" aria-label="Next: exact_units: magnitudes">
+          <a href="../customary/" class="md-footer__link md-footer__link--next" aria-label="Next: exact_units: imperial and US customary">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                exact_units: magnitudes
+                exact_units: imperial and US customary
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3649,6 +3678,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3766,6 +3799,28 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         One type for every quantity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quantity-fixed-or-anyquantity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Quantity, Fixed or AnyQuantity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bounds
       </span>
     </span>
   </a>
@@ -3964,6 +4019,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../magnitude/" class="md-nav__link">
         
   
@@ -4053,6 +4135,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5533,6 +5642,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quantity-fixed-or-anyquantity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Quantity, Fixed or AnyQuantity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Bounds
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#features" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5759,6 +5890,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5826,19 +5961,20 @@ voltage", each device decides whether that is a <code>u16</code> of mV or an <co
 <a href="../exact_units/"><code>Fixed</code></a> has them in the type and sends the number alone: <code>Micros&lt;u32&gt;</code> is the 4 bytes of the <code>u32</code>.
 The units, dimensions, <code>Fixed</code> and <code>SIExpr</code> live in the <a href="../exact_units/">exact_units</a> crate, which <code>ww_si</code> builds on
 and re-exports (<code>ww_si::units</code>, <code>ww_si::Dim</code>, <code>ww_si::Fixed</code> are its items); <code>ww_si</code> adds the run-time quantities:
-<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code> and the timestamp tools. <code>Quantity::to_fixed</code> and <code>Quantity::from_fixed</code> convert
-between the two.</p>
+<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code> and the timestamp tools. <a href="#quantity-fixed-or-anyquantity">Which one to pick</a>, and
+how they convert into each other, is below.</p>
 <h2 id="one-type-for-every-quantity">One type for every quantity<a class="headerlink" href="#one-type-for-every-quantity" title="Permanent link">&para;</a></h2>
 <p>Every quantity is the same generic struct, and every unit a zero-size marker type in <code>ww_si::units</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Quantity</span><span class="o">&lt;</span><span class="n">U</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Quantity</span><span class="o">&lt;</span><span class="n">U</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="p">,</span><span class="w"> </span><span class="n">B</span><span class="p">:</span><span class="w"> </span><span class="nc">QuantityBounds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Unbounded</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">prefix</span><span class="p">:</span><span class="w"> </span><span class="nc">Prefix</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">NumericValue</span><span class="p">,</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="n">_unit</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">,</span><span class="w">      </span><span class="c1">// no bits on the wire, no bytes in RAM</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Ampere</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Ampere</span><span class="o">&gt;</span><span class="p">;</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1">// .. one alias per unit</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="n">_bounds</span><span class="p">:</span><span class="w"> </span><span class="nc">PhantomData</span><span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// the allowed range, see &quot;Bounds&quot; below</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">}</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="k">pub</span><span class="w"> </span><span class="k">type</span><span class="w"> </span><span class="nc">Ampere</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Ampere</span><span class="o">&gt;</span><span class="p">;</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1">// .. one alias per unit</span>
 </span></code></pre></div>
 <p>APIs and code write the aliases (<code>property!(ro vbus: Volt)</code>, <code>Timed&lt;Ampere&gt;</code>). Everything below is written once for
 all quantities, so <code>Hertz::kilo(400u32)</code> works the same way as <code>Volt::milli(3300u16)</code>.</p>
@@ -5846,6 +5982,76 @@ all quantities, so <code>Hertz::kilo(400u32)</code> works the same way as <code>
 bit and up to four counted bases, see <a href="#dimensions">dimensions</a>), its name and symbol, and how a value becomes coherent SI (<code>Scale</code>: coherent, a power of ten, a factor, or a factor
 and an offset for °C). <code>Volt::unit()</code> returns it; <code>ww_si::units::by_name("Volt")</code> finds it by the marker's name, which
 is what a client that only sees introspection data uses.</p>
+<h2 id="quantity-fixed-or-anyquantity">Quantity, Fixed or AnyQuantity<a class="headerlink" href="#quantity-fixed-or-anyquantity" title="Permanent link">&para;</a></h2>
+<p>All three carry a value with its unit; they differ in what is fixed when the API is written and what travels with
+every value:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Unit</th>
+<th>Prefix and number type</th>
+<th>On the wire</th>
+<th>Pick it for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Fixed&lt;U, P, T, B&gt;</code></td>
+<td>in the type</td>
+<td>in the type</td>
+<td>the number alone: <code>Micros&lt;u32&gt;</code> is 4 B</td>
+<td>the API knows the scale and the storage: a timeout in ms as <code>u16</code>, a duty cycle in 1/65535, an ADC step</td>
+</tr>
+<tr>
+<td><code>Quantity&lt;U, B&gt;</code></td>
+<td>in the type</td>
+<td>per value</td>
+<td>a prefix and number type nibble, then the number: <code>Volt::milli(3300u16)</code> is 3 B</td>
+<td>the API knows the unit, each device picks the scale and storage (<code>u16</code> of mV here, <code>f32</code> of V there)</td>
+</tr>
+<tr>
+<td><code>AnyQuantity</code></td>
+<td>per value</td>
+<td>per value</td>
+<td>the prefix, number and the whole unit: 19 B for 3300 mV</td>
+<td>the unit is set at run time: configured sensor inputs, generic loggers</td>
+</tr>
+</tbody>
+</table>
+<p>The units are one system in all three: the markers of <code>ww_si::units</code> (from <a href="../exact_units/">exact_units</a>), with real
+dimensions. A value only converts into another of the same dimension: <code>Byte</code>, <code>Sample</code> and <code>Ratio</code> are each a
+dimension of their own (information, a counted base, one) and never convert into each other, whatever their numbers.</p>
+<p>Conversions, both ways and exact:</p>
+<ul>
+<li><code>Quantity::try_from_fixed(f)</code> takes a <code>Fixed</code> as a <code>Quantity</code> with its prefix and number as they are: a named
+  prefix where the scale has one (<code>Milli</code>, <code>Kibi</code>), else one of the <a href="#prefixes">unnamed scales</a> <code>Pow10</code> (<code>Pow10&lt;-4&gt;</code>),
+  <code>Pow2</code> (a Q format's 2⁻¹⁵) or <code>FullScale</code> (the 1/65535 of a <code>Duty16</code>). Any other scale (a BAM's π/2¹⁵, &#8533;) is
+  refused with <code>UnknownScale</code>: <code>AnyQuantity::from_fixed(f)</code> holds every <code>Fixed</code> exactly, the scale moved into its unit
+  (<code>3·Bam16Rad·rad</code>). <code>Quantity::from_fixed(f)</code> is the infallible form for decimal prefixes.</li>
+<li><code>q.to_fixed::&lt;P, T, B&gt;()</code> gives the <code>Fixed</code> back if the value is exact in scale <code>P</code>, fits <code>T</code> and is within <code>B</code>,
+  else <code>None</code>: <code>Volt::milli(3300u16).to_fixed::&lt;Milli, u16, Unbounded&gt;()</code> is <code>Some</code>, to <code>Unit</code> it is <code>None</code>.</li>
+<li><code>AnyQuantity::from(q)</code> puts the unit into the value; <code>AnyQuantity::to_quantity::&lt;U&gt;()</code> takes it out again when the
+  unit is <code>U</code>'s (<a href="#units-known-only-at-run-time">below</a>).</li>
+</ul>
+<p>Adding, comparing and converting give the same result, or the same refusal, for a <code>Fixed</code> and the <code>Quantity</code> it
+converts to: a property test runs both sides over every scale (<code>ww_si/tests/parity.rs</code>).</p>
+<h2 id="bounds">Bounds<a class="headerlink" href="#bounds" title="Permanent link">&para;</a></h2>
+<p><code>B</code> is the range a value must be in, in the unit's coherent value, whatever prefix a value comes with: a supply rail
+of 0 to 3.3 V is <code>Quantity&lt;units::Volt, RangeDec&lt;0, 33, -1&gt;&gt;</code>, and <code>3300 mV</code>, <code>3.3 V</code> and <code>3 V</code> are in it, <code>3301 mV</code>
+is not. The markers are the ones <code>Fixed</code> uses (<code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>, <code>Unbounded</code>, the default).</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">units</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">Quantity</span><span class="p">,</span><span class="w"> </span><span class="n">RangeDec</span><span class="p">};</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">type</span><span class="w"> </span><span class="nc">Rail</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">RangeDec</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">33</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Rail</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="mi">3300</span><span class="k">u16</span><span class="p">).</span><span class="n">is_ok</span><span class="p">());</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">Rail</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="mi">3301</span><span class="k">u16</span><span class="p">).</span><span class="n">is_err</span><span class="p">());</span><span class="w">     </span><span class="c1">// OutOfBounds</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Rail</span><span class="p">::</span><span class="n">try_new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Unit</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="k">u8</span><span class="p">).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">unbounded</span><span class="p">();</span><span class="w"> </span><span class="c1">// a plain Volt again</span>
+</span></code></pre></div>
+<p>A bounded quantity is made with <code>try_new</code>, or from a plain one with <code>bounded::&lt;B&gt;()</code>; the constructors without a check
+(<code>milli</code>, <code>from_f32</code>, ..) are only on the unbounded <code>Quantity&lt;U&gt;</code>. Decoding checks the bounds too, also every item of
+a <code>Series</code>: a device never sees an out-of-range value in a handler. The bounds are in the API model (<code>Unbounded</code>
+too, named in every instance), so <code>ww</code> and the GUI show the limits of a <code>Quantity</code> the same way as of a <code>Fixed</code>.
+Bounds cost no bytes on the wire: a bounded quantity has the bytes of the unbounded one.</p>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <p>Everything is a cargo feature, so a firmware compiles only what it uses. <code>std</code> (the default) enables all of them.</p>
 <table>
@@ -5918,8 +6124,8 @@ is what a client that only sees introspection data uses.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># firmware with voltages and timestamps, stored as u16, u32 and f32</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;electrical&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u16&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u32&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;f32&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># firmware with voltages and timestamps, stored as u16, u32 and f32</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">ww_si</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">&quot;0.2&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">default-features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="n">features</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;electrical&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u16&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;u32&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;f32&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>The bytes on the wire are the same for every feature set.</p>
 <h2 id="constructors">Constructors<a class="headerlink" href="#constructors" title="Permanent link">&para;</a></h2>
@@ -6035,12 +6241,12 @@ cycle, a probability or a scale factor; <code>DeciBel</code> is the logarithmic 
 <p><code>*</code> and <code>/</code> between quantities are checked by the compiler: only the products in the table below build, and the
 result has the right type. <code>+</code> and <code>-</code> take two values of the same unit, a <code>Ratio</code> keeps the unit, and <code>* f32</code> /
 <code>/ f32</code> scale a value.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Ratio</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Watt</span><span class="p">};</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">500</span><span class="k">u16</span><span class="p">);</span><span class="w">   </span><span class="c1">// 1.65 W</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">p_mech</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Torque</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">100</span><span class="k">u8</span><span class="p">);</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mf">3.3</span><span class="k">f32</span><span class="p">);</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">v_applied</span><span class="p">:</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">48</span><span class="k">u8</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ratio</span><span class="p">::</span><span class="n">percent</span><span class="p">(</span><span class="mi">50</span><span class="k">u8</span><span class="p">);</span><span class="w"> </span><span class="c1">// 24 V</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Ratio</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Watt</span><span class="p">};</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">500</span><span class="k">u16</span><span class="p">);</span><span class="w">   </span><span class="c1">// 1.65 W</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">p_mech</span><span class="p">:</span><span class="w"> </span><span class="nc">Watt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Torque</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">100</span><span class="k">u8</span><span class="p">);</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Ampere</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mf">3.3</span><span class="k">f32</span><span class="p">);</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="kd">let</span><span class="w"> </span><span class="n">v_applied</span><span class="p">:</span><span class="w"> </span><span class="nc">Volt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Volt</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">48</span><span class="k">u8</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Ratio</span><span class="p">::</span><span class="n">percent</span><span class="p">(</span><span class="mi">50</span><span class="k">u8</span><span class="p">);</span><span class="w"> </span><span class="c1">// 24 V</span>
 </span></code></pre></div>
 <p><code>Volt::base(1u8) * AngularVelocity::base(1u8)</code> and <code>Volt::base(1u8) + Ampere::base(1u8)</code> don't compile (the first
 names the missing <code>UnitMul&lt;AngularVelocity&gt;</code> impl of <code>Volt</code>).</p>
@@ -6133,14 +6339,14 @@ keep integer storage and never round:</p>
 <p>The <code>checked_*</code> ones give <code>None</code> when the result doesn't fit the number type; all of them give <code>None</code> for floats
 (their operators are <code>+</code>, <code>-</code>, <code>*</code>) and the <code>wrapping_*</code> ones and <code>steps</code> when <code>b</code> is not a whole number of <code>a</code>'s
 prefix (40 µs added to a time in ms), or when <code>b</code> in <code>a</code>'s prefix is beyond the widest enabled integer type.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Second</span><span class="p">;</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">5</span><span class="k">u32</span><span class="p">).</span><span class="n">checked_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u16</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5040</span><span class="k">u32</span><span class="p">)));</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="kt">u32</span><span class="p">::</span><span class="n">MAX</span><span class="p">).</span><span class="n">checked_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1</span><span class="k">u8</span><span class="p">)),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="kt">u32</span><span class="p">::</span><span class="n">MAX</span><span class="p">).</span><span class="n">wrapping_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1</span><span class="k">u32</span><span class="p">)));</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1">// the times of 32 samples at 40 µs, the first one taken at t0</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">t0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">4_294_967_000</span><span class="k">u32</span><span class="p">);</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">times</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t0</span><span class="p">.</span><span class="n">steps</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u8</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">take</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Second</span><span class="p">;</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">5</span><span class="k">u32</span><span class="p">).</span><span class="n">checked_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u16</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5040</span><span class="k">u32</span><span class="p">)));</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="kt">u32</span><span class="p">::</span><span class="n">MAX</span><span class="p">).</span><span class="n">checked_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1</span><span class="k">u8</span><span class="p">)),</span><span class="w"> </span><span class="nb">None</span><span class="p">);</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="kt">u32</span><span class="p">::</span><span class="n">MAX</span><span class="p">).</span><span class="n">wrapping_add</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1</span><span class="k">u32</span><span class="p">)));</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1">// the times of 32 samples at 40 µs, the first one taken at t0</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="kd">let</span><span class="w"> </span><span class="n">t0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">4_294_967_000</span><span class="k">u32</span><span class="p">);</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">times</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Second</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">t0</span><span class="p">.</span><span class="n">steps</span><span class="p">(</span><span class="o">&amp;</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">40</span><span class="k">u8</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">().</span><span class="n">take</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="n">collect</span><span class="p">();</span>
 </span></code></pre></div>
 <p>A batched stream's generated <code>&lt;name&gt;_push_many(state, t0, dt, values)</code> stamps a block of samples this way.</p>
 <h2 id="dimensions">Dimensions<a class="headerlink" href="#dimensions" title="Permanent link">&para;</a></h2>
@@ -6169,28 +6375,28 @@ SI alone would call the same:</p>
   dimension is the square root of what the exponents describe (kg²·m⁴·s⁻⁵·A⁻² with <code>root</code>), shown with halves as
   <code>kg·m²·s⁻⁵ᐟ²·A⁻¹</code>. <code>Dim::sqrt</code> and <code>mul</code> / <code>div</code> keep it canonical: <code>root</code> only while some exponent is odd, so
   √(m²) is m; a root of a root isn't a <code>Dim</code> (<code>checked_sqrt</code> is <code>None</code>).</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Sample</span><span class="p">};</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Unit</span><span class="p">;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">per_sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Sample</span><span class="o">&gt;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">;</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">per_sample</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;bit·Sample⁻¹&quot;</span><span class="p">);</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">per_sample</span><span class="p">.</span><span class="n">mul</span><span class="p">(</span><span class="o">&lt;</span><span class="n">Sample</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">).</span><span class="n">same</span><span class="p">(</span><span class="o">&lt;</span><span class="n">Byte</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">));</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">density</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">.</span><span class="n">div</span><span class="p">(</span><span class="o">&lt;</span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::</span><span class="n">Hertz</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">.</span><span class="n">sqrt</span><span class="p">());</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">density</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;kg·m²·s⁻⁵ᐟ²·A⁻¹&quot;</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Sample</span><span class="p">};</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Unit</span><span class="p">;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">per_sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Byte</span><span class="p">,</span><span class="w"> </span><span class="n">Sample</span><span class="o">&gt;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">;</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">per_sample</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;bit·Sample⁻¹&quot;</span><span class="p">);</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="fm">assert!</span><span class="p">(</span><span class="n">per_sample</span><span class="p">.</span><span class="n">mul</span><span class="p">(</span><span class="o">&lt;</span><span class="n">Sample</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">).</span><span class="n">same</span><span class="p">(</span><span class="o">&lt;</span><span class="n">Byte</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">));</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">density</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">.</span><span class="n">div</span><span class="p">(</span><span class="o">&lt;</span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::</span><span class="n">Hertz</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">Unit</span><span class="o">&gt;</span><span class="p">::</span><span class="n">DIM</span><span class="p">.</span><span class="n">sqrt</span><span class="p">());</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">density</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;kg·m²·s⁻⁵ᐟ²·A⁻¹&quot;</span><span class="p">);</span>
 </span></code></pre></div>
 <h2 id="compound-units-and-your-own">Compound units and your own<a class="headerlink" href="#compound-units-and-your-own" title="Permanent link">&para;</a></h2>
 <p>A unit outside the list is written with <code>Per&lt;A, B&gt;</code> and <code>Times&lt;A, B&gt;</code> of markers. They are not normalized:
 <code>Per&lt;Meter, Second&gt;</code> is not <code>Speed</code>, it is shown as <code>m/s</code> and has the same dimension.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Quantity</span><span class="p">;</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Times</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="sd">/// Torque = b·ω.</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">::</span><span class="n">from_f32</span><span class="p">(</span><span class="mf">1.2e-4</span><span class="p">);</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;0.00012 N·m/(rad/s)&quot;</span><span class="p">);</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="sd">/// Propeller: torque = k·ω·|ω|.</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">Times</span><span class="o">&lt;</span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;&gt;</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">);</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;2 N·m/((rad/s)·(rad/s))&quot;</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">Quantity</span><span class="p">;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Times</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="sd">/// Torque = b·ω.</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">::</span><span class="n">from_f32</span><span class="p">(</span><span class="mf">1.2e-4</span><span class="p">);</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">b</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;0.00012 N·m/(rad/s)&quot;</span><span class="p">);</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="sd">/// Propeller: torque = k·ω·|ω|.</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="kd">let</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">Times</span><span class="o">&lt;</span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;&gt;</span><span class="p">::</span><span class="n">base</span><span class="p">(</span><span class="mi">2</span><span class="k">u8</span><span class="p">);</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">k</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;2 N·m/((rad/s)·(rad/s))&quot;</span><span class="p">);</span>
 </span></code></pre></div>
 <p>An API crate can declare its own marker: a field-less struct deriving <code>Copy, Clone, Debug, Default</code> and an <code>impl
 Unit</code> with its dimension and <code>UnitExpr</code> (see the <code>Unit</code> rustdoc, a revolutions-per-minute example). It works with
@@ -6232,11 +6438,11 @@ for a given stream or method.</p>
 <p>Timestamps are never signed or floats. On the host, <code>Unwrapper</code> (feature <code>host</code>) gets the full time back. It is
 anchored on a full-width reading of the same clock, then takes each timestamp as the value with the same low bits
 closest to the previous one:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Unwrapper</span><span class="p">};</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">unwrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Unwrapper</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5_000_000_123</span><span class="k">u64</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// Clock::now()</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">unwrapper</span><span class="p">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">705_032_827</span><span class="k">u32</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">        </span><span class="c1">// U32 µs from a stream</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">full</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5_000_000_123</span><span class="k">u64</span><span class="p">));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Unwrapper</span><span class="p">};</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">unwrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Unwrapper</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5_000_000_123</span><span class="k">u64</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">();</span><span class="w"> </span><span class="c1">// Clock::now()</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kd">let</span><span class="w"> </span><span class="n">full</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">unwrapper</span><span class="p">.</span><span class="n">unwrap</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">705_032_827</span><span class="k">u32</span><span class="p">)).</span><span class="n">unwrap</span><span class="p">();</span><span class="w">        </span><span class="c1">// U32 µs from a stream</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">full</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">5_000_000_123</span><span class="k">u64</span><span class="p">));</span>
 </span></code></pre></div>
 <p>That works while consecutive timestamps are less than half a wrap period apart; re-anchor with <code>anchor(now)</code> after
 a longer pause. Use one <code>Unwrapper</code> per stream. <code>U64</code> and signed values pass through unchanged. The anchor and the
@@ -6251,9 +6457,9 @@ sample of a property, an item of a stream (<code>Timed&lt;Ampere&gt;</code>). It
 be added to it later. In an API it is used with its argument, <code>property!(ro current: Timed&lt;Ampere&gt;)</code>; its definition
 is in the <code>ww_si</code> snapshot, so devices leave it out of their introspection data (see
 <a href="../../types/#generic-types-in-an-api">generic types in an API</a>).</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1_000_000</span><span class="k">u32</span><span class="p">),</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="o">-</span><span class="mi">1200</span><span class="k">i32</span><span class="p">));</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">Ampere</span><span class="p">,</span><span class="w"> </span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Timed</span><span class="p">};</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kd">let</span><span class="w"> </span><span class="n">sample</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Timed</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Second</span><span class="p">::</span><span class="n">micro</span><span class="p">(</span><span class="mi">1_000_000</span><span class="k">u32</span><span class="p">),</span><span class="w"> </span><span class="n">Ampere</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="o">-</span><span class="mi">1200</span><span class="k">i32</span><span class="p">));</span>
 </span></code></pre></div>
 <p>In a <code>Series</code> (see <a href="../../serdes/series/">series</a>) <code>t</code> is a column like any other: 32 <code>Timed&lt;Volt&gt;</code> samples at a
 40 µs clock are 22 bytes.</p>
@@ -6291,11 +6497,11 @@ to them, not their definitions.</p>
 by its name through <code>units::by_name</code> (symbol, dimension and scale), <code>Per&lt;A, B&gt;</code> and <code>Times&lt;A, B&gt;</code> as a tree of their
 parts (<code>0.00012 N·m/(rad/s)</code>), and a marker of your own API crate (<code>struct Rpm;</code>) by its name and docs, without a
 dimension or a conversion to SI. This works for ww_si 0.2 and later.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># Quantity(3300 mV U16)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">str</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>             <span class="c1"># &quot;3300 mV&quot;, 3.3</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">q</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">dim</span>              <span class="c1"># &quot;V&quot;, {&quot;kg&quot;: 1, &quot;m&quot;: 2, &quot;s&quot;: -3, &quot;A&quot;: -1}</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">q</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 3.3</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>        <span class="c1"># 1.5 V</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">q</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>        <span class="c1"># Quantity(3300 mV U16)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">str</span><span class="p">(</span><span class="n">q</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>             <span class="c1"># &quot;3300 mV&quot;, 3.3</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">q</span><span class="o">.</span><span class="n">symbol</span><span class="p">,</span> <span class="n">q</span><span class="o">.</span><span class="n">dim</span>              <span class="c1"># &quot;V&quot;, {&quot;kg&quot;: 1, &quot;m&quot;: 2, &quot;s&quot;: -3, &quot;A&quot;: -1}</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">q</span><span class="o">.</span><span class="n">to_si</span><span class="p">()</span>                    <span class="c1"># 3.3</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">dev</span><span class="o">.</span><span class="n">supply</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="mf">1.5</span><span class="p">)</span>        <span class="c1"># 1.5 V</span>
 </span></code></pre></div>
 <p>In Rust, <code>wire_weaver_client::quantity::DynQuantity::from_value(&amp;value, &amp;ty, &amp;bundle)</code> gives the prefix, the number
 and a <code>DynUnit</code>; its <code>Display</code> is the same text as the typed <code>Quantity</code>'s, <code>to_si_f64()</code> converts through the unit's
@@ -6309,27 +6515,27 @@ model implements <code>ww_si::tree::Tree</code> for it and gets the same text.</
 <p>Some units are not known when the API is written: an ADC input whose unit is set by configuration, a generic sensor
 channel, a calibration that turns volts into bar. For those the unit goes on the wire as an <code>SIExpr</code>, and a value
 with one is an <code>AnyQuantity { prefix, value, unit }</code>:</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">AnyQuantity</span><span class="p">,</span><span class="w"> </span><span class="n">Dim</span><span class="p">,</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">,</span><span class="w"> </span><span class="n">Scale</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">};</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1">// a ww_si unit, or a typed quantity turned into one</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">));</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{v:#}&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;3.3 V&quot;</span><span class="p">);</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)));</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">of</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">();</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">unit</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;N·m/(rad/s)&quot;</span><span class="p">);</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="c1">// a device&#39;s own unit: its dimension and scale make it convertible to SI anyway</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="kd">let</span><span class="w"> </span><span class="n">rpm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Named</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Rpm&quot;</span><span class="p">,</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="n">symbol</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rpm&quot;</span><span class="p">,</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">    </span><span class="n">dim</span><span class="p">:</span><span class="w"> </span><span class="nc">Dim</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">with_rad</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">    </span><span class="c1">// exactly π/30 rad/s: 2π per 60 s</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="n">scale</span><span class="p">:</span><span class="w"> </span><span class="nc">Scale</span><span class="p">::</span><span class="n">Exact</span><span class="p">(</span><span class="n">Magnitude</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)),</span>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="p">};</span>
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="kd">let</span><span class="w"> </span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Kilo</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="n">rpm</span><span class="p">);</span>
-</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">speed</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3 krpm&quot;</span><span class="p">);</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::</span><span class="n">units</span><span class="p">::{</span><span class="bp">self</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="p">,</span><span class="w"> </span><span class="n">Per</span><span class="p">,</span><span class="w"> </span><span class="n">Torque</span><span class="p">};</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_si</span><span class="p">::{</span><span class="n">AnyQuantity</span><span class="p">,</span><span class="w"> </span><span class="n">Dim</span><span class="p">,</span><span class="w"> </span><span class="n">Magnitude</span><span class="p">,</span><span class="w"> </span><span class="n">Prefix</span><span class="p">,</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">,</span><span class="w"> </span><span class="n">Scale</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">};</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1">// a ww_si unit, or a typed quantity turned into one</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="kd">let</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">));</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3300 mV&quot;</span><span class="p">);</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="fm">format!</span><span class="p">(</span><span class="s">&quot;{v:#}&quot;</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;3.3 V&quot;</span><span class="p">);</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">to_quantity</span><span class="p">::</span><span class="o">&lt;</span><span class="n">units</span><span class="p">::</span><span class="n">Volt</span><span class="o">&gt;</span><span class="p">(),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Volt</span><span class="p">::</span><span class="n">milli</span><span class="p">(</span><span class="mi">3300</span><span class="k">u16</span><span class="p">)));</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="kd">let</span><span class="w"> </span><span class="n">unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">of</span><span class="p">::</span><span class="o">&lt;</span><span class="n">Per</span><span class="o">&lt;</span><span class="n">Torque</span><span class="p">,</span><span class="w"> </span><span class="n">AngularVelocity</span><span class="o">&gt;&gt;</span><span class="p">();</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">unit</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;N·m/(rad/s)&quot;</span><span class="p">);</span>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="c1">// a device&#39;s own unit: its dimension and scale make it convertible to SI anyway</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="kd">let</span><span class="w"> </span><span class="n">rpm</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SIExpr</span><span class="p">::</span><span class="n">Named</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">    </span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Rpm&quot;</span><span class="p">,</span>
+</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="w">    </span><span class="n">symbol</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rpm&quot;</span><span class="p">,</span>
+</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="w">    </span><span class="n">dim</span><span class="p">:</span><span class="w"> </span><span class="nc">Dim</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">).</span><span class="n">with_rad</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">    </span><span class="c1">// exactly π/30 rad/s: 2π per 60 s</span>
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">    </span><span class="n">scale</span><span class="p">:</span><span class="w"> </span><span class="nc">Scale</span><span class="p">::</span><span class="n">Exact</span><span class="p">(</span><span class="n">Magnitude</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">)),</span>
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="p">};</span>
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="kd">let</span><span class="w"> </span><span class="n">speed</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">AnyQuantity</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">Prefix</span><span class="p">::</span><span class="n">Kilo</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="k">u8</span><span class="p">,</span><span class="w"> </span><span class="n">rpm</span><span class="p">);</span>
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">speed</span><span class="p">.</span><span class="n">to_string</span><span class="p">(),</span><span class="w"> </span><span class="s">&quot;3 krpm&quot;</span><span class="p">);</span>
 </span></code></pre></div>
 <p><code>SIExpr</code> is the same model as the markers, put on the wire: <code>Named { name, symbol, dim, scale }</code>, <code>Mul</code>, <code>Div</code> and
 <code>Pow</code> of other <code>SIExpr</code>s (through <code>RefBox</code>, so decoding one reads only its top node). A marker's <code>UnitExpr</code> maps one
@@ -6397,9 +6603,72 @@ bytes:</p>
 API is written stays a typed quantity, and a channel's unit is better sent once in its description than with every
 reading: <code>ww_adc</code> has <code>ChannelInfo::unit: SIExpr&lt;'i&gt;</code> and plain numbers in its readings.</p>
 <h2 id="prefixes">Prefixes<a class="headerlink" href="#prefixes" title="Permanent link">&para;</a></h2>
-<p><code>Prefix</code> covers every SI prefix from <code>Quecto</code> (10⁻³⁰) to <code>Quetta</code> (10³⁰), <code>From&lt;Prefix&gt; for i8</code> gives the power
-of ten and <code>symbol()</code> its symbol (<code>m</code>, <code>µ</code>, <code>k</code>). The most used ones (<code>Unit</code>, <code>Milli</code>, <code>Micro</code>, <code>Nano</code>, <code>Pico</code>,
-<code>Kilo</code>, <code>Mega</code>, <code>Giga</code>) take one nibble on the wire.</p>
+<p><code>Prefix</code> covers every SI prefix from <code>Quecto</code> (10⁻³⁰) to <code>Quetta</code> (10³⁰), the binary ones <code>Kibi</code> to <code>Tebi</code> (2¹⁰ to
+2⁴⁰), and three families of exact scales without a name, each with one small parameter: <code>Pow10</code> (a power of ten
+without a prefix, 10⁻⁴), <code>Pow2</code> (a Q format's 2⁻¹⁵) and <code>FullScale</code> (a full-scale fraction, 1/65535 for 16 bits). So a
+<code>Quantity</code> holds the values of the <code>Fixed</code> scales firmware uses most, exactly; a family never holds a named prefix's
+scale (<code>Pow10(-3)</code> is refused, it is <code>Milli</code>), so equal scales are equal prefixes. Other exact scales (π/2¹⁵, &#8533;) are
+no <code>Prefix</code>: such a value is an <a href="#units-known-only-at-run-time"><code>AnyQuantity</code></a>.</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th><code>{}</code></th>
+<th><code>{:#}</code></th>
+<th>Bytes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Volt::milli(3300u16)</code></td>
+<td><code>3300 mV</code></td>
+<td><code>3.3 V</code></td>
+<td><code>12 e4 0c</code></td>
+</tr>
+<tr>
+<td><code>Quantity::&lt;units::Byte&gt;::new(Prefix::Kibi, 64u32)</code></td>
+<td><code>64 KiB</code></td>
+<td><code>65536 B</code></td>
+<td><code>93 30 40 00 00 00</code></td>
+</tr>
+<tr>
+<td><code>Second</code> of 12345u32 at <code>Pow10(-4)</code></td>
+<td><code>12345·10⁻⁴ s</code></td>
+<td><code>1.2345 s</code></td>
+<td><code>d3 fc 30 39 30 00 00</code></td>
+</tr>
+<tr>
+<td><code>Second</code> of 32768u32 at <code>Pow2(-15)</code></td>
+<td><code>32768·2⁻¹⁵ s</code></td>
+<td><code>1 s</code></td>
+<td><code>e3 f1 30 00 80 00 00</code></td>
+</tr>
+<tr>
+<td><code>Ratio</code> of 32768u32 at <code>FullScale(16)</code></td>
+<td><code>32768·1/65535</code></td>
+<td><code>0.5000076295109483</code></td>
+<td><code>f3 10 30 00 80 00 00</code></td>
+</tr>
+<tr>
+<td><code>Ratio</code> of 5u32 at <code>Unknown(1000)</code></td>
+<td><code>5·&lt;scale 1000&gt;</code></td>
+<td></td>
+<td><code>8d f1 30 05 00 00 00</code></td>
+</tr>
+</tbody>
+</table>
+<p>The most used prefixes (<code>Unit</code>, <code>Milli</code>, <code>Micro</code>, <code>Nano</code>, <code>Pico</code>, <code>Kilo</code>, <code>Mega</code>, <code>Giga</code>) take one nibble on the wire,
+the other named ones a byte, and the three families one more byte for their parameter, so a scale takes 2 bytes at
+most and ordinary values pay nothing for the others. In RAM a <code>Prefix</code> is four bytes, on a host and on M0, M4F and
+M33 alike, and a <code>Volt</code> twelve (as before the unnamed scales came in).</p>
+<p>A newer version may add kinds of scale; each is tag-only, its numbers packed into the <code>UNib32</code> tag. An older reader
+gets it as <code>Prefix::Unknown(tag)</code> (a <code>#[future_version]</code> catch-all, see
+<a href="../../serdes/derive_reference/#no_future_version-future_version-name-enums-only">the derive reference</a>), skips the value and reads the rest of the message; nothing
+converts, adds or compares such a value except to one of the same scale, and <code>{}</code> shows it as <code>·&lt;scale N&gt;</code>.</p>
+<p><code>pow10()</code> is the power of ten (<code>Some(-3)</code> for <code>Milli</code>, <code>Some(-4)</code> for <code>Pow10(-4)</code>, <code>None</code> for <code>Kibi</code> or 1/65535),
+<code>magnitude()</code> the exact scale of any prefix but <code>Unknown</code> (<code>None</code> there), <code>Prefix::from_magnitude(&amp;m)</code> the prefix of an
+exact scale if there is one, <code>symbol()</code> the symbol of a named prefix (<code>m</code>, <code>µ</code>, <code>k</code>, <code>Ki</code>). Arithmetic across two
+decimal prefixes stays on powers of ten; only a binary prefix or a family goes through <code>Magnitude</code>.</p>
 
 
 

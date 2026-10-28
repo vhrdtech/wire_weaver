@@ -1191,6 +1191,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#niche-an-enums-tag-in-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>niche</code>: an enum's tag in memory
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2546,6 +2557,8 @@
       
         
       
+        
+      
     
     
     
@@ -2589,6 +2602,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3774,6 +3814,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3860,6 +3904,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3968,6 +4039,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5511,6 +5609,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#niche-an-enums-tag-in-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>niche</code>: an enum's tag in memory
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5660,7 +5769,7 @@
 </tbody>
 </table>
 <p><code>fixed_layout</code> keeps the regular <code>shrink_wrap</code> bytes and adds a fast path; <code>head_tail</code> and <code>sparse</code> are encodings of
-their own.</p>
+their own. How an enum is laid out in memory, not on the wire, is <a href="#niche-an-enums-tag-in-memory"><code>niche</code></a>'s.</p>
 <h2 id="fixed_layout-fields-at-fixed-offsets"><code>fixed_layout</code>: fields at fixed offsets<a class="headerlink" href="#fixed_layout-fields-at-fixed-offsets" title="Permanent link">&para;</a></h2>
 <p><code>shrink_wrap</code> writes a value field after field. When no field's size depends on its value, every field starts at
 the same place in every value: a header, a record in flash, a descriptor that is signed as bytes. Reading a field is
@@ -5842,6 +5951,13 @@ struct, so one message carries any subset of a tree of levels. The borrowed and 
 An older reader reads the fields it knows and ignores the rest, a newer reader reads the new fields as <code>None</code>. A
 reader whose struct has a gap where the data has a present value fails with <code>Error::OptionAnyVecUnknownSlot</code>: a gap
 is never filled later.</p>
+<h2 id="niche-an-enums-tag-in-memory"><code>niche</code>: an enum's tag in memory<a class="headerlink" href="#niche-an-enums-tag-in-memory" title="Permanent link">&para;</a></h2>
+<p>The derive gives an enum the repr of its <code>ww_repr</code>'s native type, so a <code>ww_repr = unib32</code> enum has a <code>u32</code> tag in
+memory: four bytes for a fieldless enum, eight for one with a one-byte field. <code>niche</code> leaves the repr out, so Rust can
+put the tag in a field's spare values: <code>exact_units::Prefix</code> (29 named prefixes, three families with a one-byte
+parameter whose types have spare values, and <code>Unknown(u16)</code>) is four bytes instead of eight, and a quantity that holds
+one doesn't grow. The wire bytes don't change; see
+<a href="../derive_reference/#niche-enums-only">the derive reference</a> for the rules.</p>
 
 
 

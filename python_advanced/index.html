@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3636,6 +3665,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3722,6 +3755,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3830,6 +3890,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5146,6 +5233,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5430,6 +5528,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#requantize" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Requantize
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-supported-yet" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5616,6 +5725,20 @@ the wire, or decode captured bytes:</p>
 <p>Methods have <code>encode_args()</code> / <code>decode_return()</code>, properties <code>encode()</code> / <code>decode()</code>, streams <code>decode()</code> and sinks
 <code>encode()</code>. Calling a
 resource of an offline API raises <code>WireWeaverError</code>.</p>
+<h2 id="requantize">Requantize<a class="headerlink" href="#requantize" title="Permanent link">&para;</a></h2>
+<p><code>ww.requantize(value, factor, to, rounding, overflow="checked")</code> converts a stored number to another scale and
+storage, the same number as Rust's <code>exact_units::Requantizer</code>, bit for bit
+(<a href="../std_library/rounding/">Rounding and overflow</a>). <code>factor</code> is the source scale over the target scale, a
+<code>Magnitude</code> as the API model has it: its wire bytes, or the <code>dict</code> <code>decode</code> gives for one (every exponent doubled,
+<code>{"pow10": -4, "rest": None}</code> is 1/100). <code>to</code> names the storage (<code>"i8"</code>..<code>"i64"</code>, <code>"u8"</code>..<code>"u64"</code>, <code>"f32"</code>,
+<code>"f64"</code>), <code>rounding</code> is <code>"truncate"</code>, <code>"floor"</code>, <code>"ceil"</code>, <code>"nearest_even"</code> or <code>"nearest_away"</code>, <code>overflow</code>
+<code>"checked"</code> (<code>None</code> for a result <code>to</code> can't hold), <code>"saturate"</code> or <code>"wrap"</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">wire_weaver</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ww</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">ww</span><span class="o">.</span><span class="n">requantize</span><span class="p">(</span><span class="mi">1250</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;pow10&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;rest&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">},</span> <span class="s2">&quot;i8&quot;</span><span class="p">,</span> <span class="s2">&quot;nearest_even&quot;</span><span class="p">)</span>  <span class="c1"># 12</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">q</span> <span class="o">=</span> <span class="n">ww</span><span class="o">.</span><span class="n">Requantizer</span><span class="p">({</span><span class="s2">&quot;pow10&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;rest&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">},</span> <span class="s2">&quot;i8&quot;</span><span class="p">,</span> <span class="s2">&quot;floor&quot;</span><span class="p">,</span> <span class="s2">&quot;saturate&quot;</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">[</span><span class="n">q</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1250</span><span class="p">,</span> <span class="o">-</span><span class="mi">1250</span><span class="p">,</span> <span class="mi">99999</span><span class="p">)]</span>  <span class="c1"># [12, -13, 127]</span>
+</span></code></pre></div>
 <h2 id="not-supported-yet">Not supported yet<a class="headerlink" href="#not-supported-yet" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>f16</code>, <code>UN</code>/<code>IN</code> and LEB128 numbers.</li>

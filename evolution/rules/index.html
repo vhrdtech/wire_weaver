@@ -2687,6 +2687,8 @@
       
         
       
+        
+      
     
     
     
@@ -2733,6 +2735,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3918,6 +3947,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4004,6 +4037,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -4112,6 +4172,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -6007,7 +6094,10 @@ The checker compares it by what it means, not only by its bytes:</p>
   field with it (dropping the <code>_us</code>) is compatible as well (fields are matched by position), but Python and <code>ww</code>
   scripts that name the field change with it.</li>
 <li><strong>Another unit, prefix or scale</strong> (<code>Fixed&lt;Second, Micro, u64&gt;</code> -&gt; <code>Fixed&lt;Second, Milli, u64&gt;</code>): breaking, although
-  the bytes are the same: a reader of the old version would take a value in ms for µs. The same for one wrapper
+  the bytes are the same: a reader of the old version would take a value in ms for µs. Units and scales are compared
+  by value, so another name for the same one is compatible (<code>Milli</code> -&gt; <code>Pow10&lt;-3&gt;</code>, <code>Fixed&lt;Volt, Milli, ..&gt;</code> -&gt;
+  <code>Fixed&lt;MilliVolt, One, ..&gt;</code>), and lbf·s -&gt; N·s is breaking with the factor in the finding (EVO-17, see
+  <a href="../units_by_meaning/">units compared by meaning</a>). Origins of points are compared by where their zero lies. The same for one wrapper
   replaced by another wrapper of the same bytes (<code>Fixed&lt;..&gt;</code> -&gt; a <code>Count&lt;u64&gt;</code> of your own).</li>
 <li><strong>Another <code>T</code></strong> (<code>u32</code> -&gt; <code>u64</code>, inside the wrapper or across it): breaking, as for plain numbers.</li>
 <li><strong><code>Quantity&lt;U&gt;</code> -&gt; <code>Fixed&lt;U, ..&gt;</code></strong>: breaking, a <code>Quantity</code> sends its prefix and number type with every value, a
@@ -6019,10 +6109,9 @@ The checker compares it by what it means, not only by its bytes:</p>
 checker reads its definition from the <code>ww_si</code> snapshot built into it, so a field changed from <code>u64</code> to <code>Fixed</code> is
 checked the same way as a wrapper of your own.</p>
 <p>This holds for every generic type, not only <code>Fixed</code>: a type parameter that no field uses (one only in <code>PhantomData</code>,
-which the model doesn't have) is a marker that gives the bytes a meaning, so its argument is compared by name, with
-its own arguments (<code>Pow10&lt;-4&gt;</code> -&gt; <code>Pow10&lt;-3&gt;</code>, <code>Rational&lt;1, 65535&gt;</code> -&gt; <code>Rational&lt;1, 65536&gt;</code>). A marker's own
-definition (a unit struct) is not compared field by field, it has none. Two names for the same scale count as a change
-too: <code>Milli</code> -&gt; <code>Pow10&lt;-3&gt;</code> is reported, keep the name a field had.</p>
+which the model doesn't have) is a marker that gives the bytes a meaning. A marker with a definition in the model (a
+unit, scale or origin, INT-13) is compared by that definition; any other marker by name, with its own arguments
+(<code>Count&lt;Apples&gt;</code> -&gt; <code>Count&lt;Pears&gt;</code>). A marker's definition is not compared field by field, it has no fields.</p>
 <h3 id="bounds">Bounds<a class="headerlink" href="#bounds" title="Permanent link">&para;</a></h3>
 <p>A bound (<code>B</code> of <code>Fixed</code>: <code>Unbounded</code>, <code>Range&lt;MIN, MAX&gt;</code>, <code>RangeU64&lt;MIN, MAX&gt;</code>, <code>RangeDec&lt;MIN, MAX, EXP&gt;</code>) doesn't
 change the bytes, but a reader refuses a value outside its bound (on decode, before a handler runs). So a bound is part
@@ -6040,6 +6129,9 @@ and which refuses: <code>Api::uptime: B of Fixed: bound 0..=600 on the new versi
 new version writes outside 0..=300 are refused by the old version</code>. Bounds are compared by value: <code>RangeDec&lt;-5, 25,
 -1&gt;</code> and <code>RangeDec&lt;-50, 250, -2&gt;</code> are both <code>-0.5..=2.5</code>, the same bound. They are recognised by name and arguments
 wherever they come from; a bound marker of your own with other names is compared as any marker, by name.</p>
+<p>In the place of a bound, <code>Saturating</code> is the same values as <code>Unbounded</code> (compatible), while <code>Wrapping</code> on one side
+only is breaking: a wrapping number is a position modulo its storage, the reader would take a wrap for a jump (see
+<a href="../units_by_meaning/#bounds-wrapping-and-saturating">units compared by meaning</a>).</p>
 <h3 id="finalstructure-selfdescribing-and-sized-types">FinalStructure, SelfDescribing and Sized types<a class="headerlink" href="#finalstructure-selfdescribing-and-sized-types" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>Sized</code> can become <code>SelfDescribing</code> and back (<code>sized</code> &lt;-&gt; <code>self_describing</code>): neither gets a size slot from its

@@ -16,7 +16,7 @@
       
       
       
-        <link rel="prev" href="../exact_units/">
+        <link rel="prev" href="../customary/">
       
       
         <link rel="next" href="../points/">
@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3649,6 +3678,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3738,6 +3771,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3948,6 +4008,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5549,6 +5636,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5766,10 +5857,10 @@ exact or <code>None</code> for integers.</p>
   application's), not a unit.</li>
 </ul>
 <h2 id="memory-and-wire">Memory and wire<a class="headerlink" href="#memory-and-wire" title="Permanent link">&para;</a></h2>
-<p>A <code>Magnitude</code> is plain <code>const</code> data without lifetimes, 104 bytes, so a firmware can hold a <code>&amp;'static Magnitude</code> (a
-<code>Quantity</code>'s exact prefix, STD-59). <code>Fixed</code> only uses it at compile time: a <code>Fixed</code> field costs what the plain number
-costs.</p>
-<p>On the wire (<code>final_structure</code>) every exponent is twice the exponent as an <code>i8</code>, the primes <code>UNib32</code>: <code>pow10</code>, then
+<p>A <code>Magnitude</code> is plain <code>const</code> data without lifetimes, 104 bytes, so a firmware can hold a <code>&amp;'static Magnitude</code>.
+<code>Fixed</code> only uses it at compile time: a <code>Fixed</code> field costs what the plain number costs, and a <code>Quantity</code>'s run-time
+<code>Prefix</code> computes its magnitude when asked (<code>Prefix::magnitude()</code>), never storing one.</p>
+<p>On the wire (<code>self_describing</code>: the bytes end by themselves, so a magnitude can be the field of an enum variant, <code>SIExpr</code>'s <code>Scale::Exact</code>) every exponent is twice the exponent as an <code>i8</code>, the primes <code>UNib32</code>: <code>pow10</code>, then
 the rest behind one option bit, its π / ln2 / ln10 behind one more, one bit per empty prime slot. A decimal prefix is
 2 bytes (Milli <code>fa 00</code>), <code>Kibi</code> 5 (<code>00 80 14 00 00</code>), a degree 11, 1/65535 13, the pound 16. A magnitude that isn't
 canonical (a 2 among the primes, a prime that isn't one, an empty rest written out) is refused on decode. The cases
@@ -5817,7 +5908,7 @@ are <code>stdlib.si.magnitude.*</code> in the <a href="../../serdes/conformance/
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../exact_units/" class="md-footer__link md-footer__link--prev" aria-label="Previous: exact_units: numbers with a fixed unit">
+          <a href="../customary/" class="md-footer__link md-footer__link--prev" aria-label="Previous: exact_units: imperial and US customary">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
@@ -5827,7 +5918,7 @@ are <code>stdlib.si.magnitude.*</code> in the <a href="../../serdes/conformance/
                 Previous
               </span>
               <div class="md-ellipsis">
-                exact_units: numbers with a fixed unit
+                exact_units: imperial and US customary
               </div>
             </div>
           </a>

@@ -19,7 +19,7 @@
         <link rel="prev" href="../units_in_the_model/">
       
       
-        <link rel="next" href="../ww_error/">
+        <link rel="next" href="../indices/">
       
       
         
@@ -2408,6 +2408,8 @@
       
         
       
+        
+      
     
     
     
@@ -2451,6 +2453,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3649,6 +3678,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3738,6 +3771,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3966,6 +4026,33 @@
   
 </nav>
       
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5571,6 +5658,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5799,8 +5890,17 @@ and the target a <code>StorageKind</code>, and gives the same number as the type
 </span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">q</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">1250</span><span class="p">)),</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="n">Repr</span><span class="p">::</span><span class="n">Int</span><span class="p">(</span><span class="mi">12</span><span class="p">)));</span>
 </span></code></pre></div>
 <p>The <a href="../../serdes/conformance/#a-requantize-case">conformance corpus</a> holds conversions over decimal, binary,
-rational and π scales in every mode and policy, run through the typed conversion and the run-time one; Python and C
-follow with CLT-54.</p>
+rational and π scales in every mode and policy, run through the typed conversion, the run-time one, Python's
+<code>ww.requantize</code> and C's <code>sw_requantize()</code>.</p>
+<p>The same conversion outside Rust, bit for bit:</p>
+<ul>
+<li>Python: <code>ww.requantize(value, factor, to, rounding, overflow="checked")</code>, or <code>ww.Requantizer(factor, to, rounding,
+  overflow)</code> with <code>.apply(value)</code> for many values; the factor is a <code>Magnitude</code> as the model gives it, its bytes or
+  the <code>dict</code> <code>decode</code> gives (<code>{"pow10": -4, "rest": None}</code> is 1/100).</li>
+<li>C: <code>sw_requantize()</code> in <code>shrink_wrap/c/sw_requantize.h</code> and <code>.c</code> (C99, no <code>malloc</code>), with the factor as
+  constants worked out on the host: an exact ratio <code>num / den</code> of up to 128 bits, or <code>m * 2^shift</code> for π and other
+  factors that aren't fractions of integers. See <a href="../../c/#requantize">ShrinkWrap in C</a>.</li>
+</ul>
 <h2 id="cost-on-a-device">Cost on a device<a class="headerlink" href="#cost-on-a-device" title="Permanent link">&para;</a></h2>
 <p>A conversion is the constants worked out at compile time and, at run time, one multiply, one divide (or shift) and a
 compare for the rounding: a factor of 1/n divides in the storage's own width (a power of 2 is an arithmetic shift and
@@ -5943,13 +6043,13 @@ gate that keeps such pairs equal is TEST-29.</p>
         
         
           
-          <a href="../ww_error/" class="md-footer__link md-footer__link--next" aria-label="Next: ww_error">
+          <a href="../indices/" class="md-footer__link md-footer__link--next" aria-label="Next: exact_units: indices">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                ww_error
+                exact_units: indices
               </div>
             </div>
             <div class="md-footer__button md-icon">

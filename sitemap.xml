@@ -112,6 +112,9 @@
         <loc>https://ww.vhrd.tech/evolution/rules/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/evolution/units_by_meaning/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/examples/examples/</loc>
       </url>
       <url>
@@ -172,10 +175,16 @@
         <loc>https://ww.vhrd.tech/serdes/wire_format/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/std_library/customary/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/std_library/device_contract/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/exact_units/</loc>
+      </url>
+      <url>
+        <loc>https://ww.vhrd.tech/std_library/indices/</loc>
       </url>
       <url>
         <loc>https://ww.vhrd.tech/std_library/io_family/</loc>

@@ -2490,6 +2490,8 @@
       
         
       
+        
+      
     
     
     
@@ -2533,6 +2535,33 @@
 
             </label>
             <ul class="md-nav__list" data-md-scrollfix>
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../evolution/units_by_meaning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Units compared by meaning
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
               
                 
                   
@@ -3718,6 +3747,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3804,6 +3837,33 @@
     
   
   exact_units: numbers with a fixed unit
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/customary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: imperial and US customary
 
     
   </span>
@@ -3912,6 +3972,33 @@
     
   
   exact_units: rounding
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/indices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: indices
 
     
   </span>
@@ -5530,28 +5617,28 @@
 <tbody>
 <tr>
 <td>derive</td>
-<td>176 of 176</td>
+<td>192 of 192</td>
 <td>0</td>
 </tr>
 <tr>
 <td>dynamic</td>
-<td>158 of 176</td>
-<td>18</td>
+<td>175 of 192</td>
+<td>17</td>
 </tr>
 <tr>
 <td>explain</td>
-<td>158 of 176</td>
-<td>18</td>
+<td>175 of 192</td>
+<td>17</td>
 </tr>
 <tr>
 <td>python</td>
-<td>158 of 176</td>
-<td>18</td>
+<td>175 of 192</td>
+<td>17</td>
 </tr>
 <tr>
 <td>c</td>
-<td>34 of 176</td>
-<td>142</td>
+<td>34 of 192</td>
+<td>158</td>
 </tr>
 </tbody>
 </table>
@@ -7054,6 +7141,96 @@
 <td><code>fixed_bounded</code></td>
 <td>reject</td>
 <td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.fixed.customary</code></td>
+<td><code>fixed_customary</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.milli</code></td>
+<td><code>quantity_volt</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.kibi</code></td>
+<td><code>quantity_byte</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.pow10</code></td>
+<td><code>quantity_second</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.pow2</code></td>
+<td><code>quantity_second</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.fullscale</code></td>
+<td><code>quantity_ratio</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.unknown_scale</code></td>
+<td><code>quantity_ratio</code></td>
+<td>decode</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.bounded</code></td>
+<td><code>quantity_rail</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.quantity.bounded.rejected</code></td>
+<td><code>quantity_rail</code></td>
+<td>reject</td>
+<td>✅</td>
 <td>gap CLT-54</td>
 <td>gap CLT-54</td>
 <td>gap CLT-54</td>
@@ -7174,9 +7351,59 @@
 <td><code>point_bounded</code></td>
 <td>reject</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.index.in_struct</code></td>
+<td><code>with_index</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.index_from_1</code></td>
+<td><code>index_from_1</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.index_from_1.zero.rejected</code></td>
+<td><code>index_from_1</code></td>
+<td>reject</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.index_from_1.bounded.rejected</code></td>
+<td><code>index_from_1</code></td>
+<td>reject</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>stdlib.si.seq.nibble_wrap</code></td>
+<td><code>seq_pair</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
 <td>gap API-26</td>
 </tr>
 <tr>
@@ -7240,6 +7467,16 @@
 <td>gap API-26</td>
 </tr>
 <tr>
+<td><code>stdlib.si.si_expr.pound_force</code></td>
+<td><code>si_expr</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
 <td><code>stdlib.si.si_expr.sqrt</code></td>
 <td><code>si_expr</code></td>
 <td>both</td>
@@ -7261,6 +7498,16 @@
 </tr>
 <tr>
 <td><code>model.marker_def.unit</code></td>
+<td><code>marker_def</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>model.marker_def.unit_conventional</code></td>
 <td><code>marker_def</code></td>
 <td>both</td>
 <td>✅</td>
@@ -7358,8 +7605,8 @@
 <td>12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.tie.floor</code></td>
@@ -7370,8 +7617,8 @@
 <td>12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.tie.ceil</code></td>
@@ -7382,8 +7629,8 @@
 <td>13</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.tie.nearest_even</code></td>
@@ -7394,8 +7641,8 @@
 <td>12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.tie.nearest_away</code></td>
@@ -7406,8 +7653,8 @@
 <td>13</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.negative_tie.truncate</code></td>
@@ -7418,8 +7665,8 @@
 <td>-12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.negative_tie.floor</code></td>
@@ -7430,8 +7677,8 @@
 <td>-13</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.negative_tie.ceil</code></td>
@@ -7442,8 +7689,8 @@
 <td>-12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.negative_tie.nearest_even</code></td>
@@ -7454,8 +7701,8 @@
 <td>-12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.negative_tie.nearest_away</code></td>
@@ -7466,8 +7713,8 @@
 <td>-13</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.tie_up_to_even</code></td>
@@ -7478,8 +7725,8 @@
 <td>14</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.below_tie</code></td>
@@ -7490,8 +7737,8 @@
 <td>12</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.overflow.checked</code></td>
@@ -7502,8 +7749,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.overflow.saturate</code></td>
@@ -7514,8 +7761,8 @@
 <td>127</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.overflow.wrap</code></td>
@@ -7526,8 +7773,8 @@
 <td>-56</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_deci.underflow.saturate</code></td>
@@ -7538,8 +7785,8 @@
 <td>-128</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.negative.checked</code></td>
@@ -7550,8 +7797,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.negative.saturate</code></td>
@@ -7562,8 +7809,8 @@
 <td>0</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.negative.wrap</code></td>
@@ -7574,8 +7821,8 @@
 <td>254</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.top</code></td>
@@ -7586,8 +7833,8 @@
 <td>255</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.tie_past_top.checked</code></td>
@@ -7598,8 +7845,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.micro_to_milli_unsigned.tie_past_top.saturate</code></td>
@@ -7610,8 +7857,8 @@
 <td>255</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.q15_to_q7.tie_past_top.checked</code></td>
@@ -7622,8 +7869,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.q15_to_q7.tie_past_top.saturate</code></td>
@@ -7634,8 +7881,8 @@
 <td>127</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.q15_to_q7.tie.nearest_even</code></td>
@@ -7646,8 +7893,8 @@
 <td>126</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.q15_to_q7.tie.nearest_away</code></td>
@@ -7658,8 +7905,8 @@
 <td>127</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.q15_to_q7.negative_end</code></td>
@@ -7670,8 +7917,8 @@
 <td>-128</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.truncate</code></td>
@@ -7682,8 +7929,8 @@
 <td>233</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.ceil</code></td>
@@ -7694,8 +7941,8 @@
 <td>234</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.nearest_even</code></td>
@@ -7706,8 +7953,8 @@
 <td>233</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.negative.floor</code></td>
@@ -7718,8 +7965,8 @@
 <td>-234</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.negative.truncate</code></td>
@@ -7730,8 +7977,8 @@
 <td>-233</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.exact_top</code></td>
@@ -7742,8 +7989,8 @@
 <td>32767</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.past_top.checked</code></td>
@@ -7754,8 +8001,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.past_top.saturate</code></td>
@@ -7766,8 +8013,8 @@
 <td>32767</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.seven_thirds.past_top.wrap</code></td>
@@ -7778,8 +8025,8 @@
 <td>-32767</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_micro.fits</code></td>
@@ -7790,8 +8037,8 @@
 <td>65000</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_micro.overflow.checked</code></td>
@@ -7802,8 +8049,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_micro.overflow.saturate</code></td>
@@ -7814,8 +8061,8 @@
 <td>65535</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.milli_to_micro.overflow.wrap</code></td>
@@ -7826,8 +8073,8 @@
 <td>4464</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.bam16_to_bam8.truncate</code></td>
@@ -7838,8 +8085,8 @@
 <td>255</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.bam16_to_bam8.full_turn.checked</code></td>
@@ -7850,8 +8097,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.bam16_to_bam8.full_turn.saturate</code></td>
@@ -7862,8 +8109,8 @@
 <td>255</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.bam16_to_bam8.full_turn.wrap</code></td>
@@ -7874,8 +8121,8 @@
 <td>0</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.bam16_to_bam8.tie</code></td>
@@ -7886,8 +8133,8 @@
 <td>64</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.tie.nearest_even</code></td>
@@ -7898,8 +8145,8 @@
 <td>2</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.tie.nearest_away</code></td>
@@ -7910,8 +8157,8 @@
 <td>3</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.negative_tie.nearest_even</code></td>
@@ -7922,8 +8169,8 @@
 <td>-2</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.negative.floor</code></td>
@@ -7934,8 +8181,8 @@
 <td>-3</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.tie_past_top.checked</code></td>
@@ -7946,8 +8193,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.tie_past_top.saturate</code></td>
@@ -7958,8 +8205,8 @@
 <td>32767</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.huge.saturate</code></td>
@@ -7970,8 +8217,8 @@
 <td>32767</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.float_to_int.huge.wrap</code></td>
@@ -7982,8 +8229,8 @@
 <td>7168</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.int_to_float.milli</code></td>
@@ -7994,8 +8241,8 @@
 <td>1.25</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.45000.truncate</code></td>
@@ -8006,8 +8253,8 @@
 <td>785398</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.45000.floor</code></td>
@@ -8018,8 +8265,8 @@
 <td>785398</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.45000.ceil</code></td>
@@ -8030,8 +8277,8 @@
 <td>785399</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.45000.nearest_even</code></td>
@@ -8042,8 +8289,8 @@
 <td>785398</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.90000.truncate</code></td>
@@ -8054,8 +8301,8 @@
 <td>1570796</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.90000.floor</code></td>
@@ -8066,8 +8313,8 @@
 <td>1570796</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.90000.ceil</code></td>
@@ -8078,8 +8325,8 @@
 <td>1570797</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.90000.nearest_even</code></td>
@@ -8090,8 +8337,8 @@
 <td>1570796</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.1.truncate</code></td>
@@ -8102,8 +8349,8 @@
 <td>17</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.1.floor</code></td>
@@ -8114,8 +8361,8 @@
 <td>17</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.1.ceil</code></td>
@@ -8126,8 +8373,8 @@
 <td>18</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.1.nearest_even</code></td>
@@ -8138,8 +8385,8 @@
 <td>17</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.negative.floor</code></td>
@@ -8150,8 +8397,8 @@
 <td>-785399</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian.negative.truncate</code></td>
@@ -8162,8 +8409,8 @@
 <td>-785398</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian_i64.big</code></td>
@@ -8174,8 +8421,8 @@
 <td>15707963267948966</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian_i64.past_top.checked</code></td>
@@ -8186,8 +8433,8 @@
 <td>none</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian_i64.past_top.saturate</code></td>
@@ -8198,8 +8445,8 @@
 <td>9223372036854775807</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 <tr>
 <td><code>requantize.degree_to_radian_i64.past_bottom.saturate</code></td>
@@ -8210,16 +8457,14 @@
 <td>-9223372036854775808</td>
 <td>✅</td>
 <td>✅</td>
-<td>gap CLT-54</td>
-<td>gap CLT-54</td>
+<td>✅</td>
+<td>✅</td>
 </tr>
 </tbody>
 </table>
 <h2 id="gaps">Gaps<a class="headerlink" href="#gaps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>c</strong>: no generated C for this type yet: C from the ww_self model (API-26). 128 cases: <code>vec.u16</code>, <code>vec.array_vec</code>, <code>vec.string</code>, <code>vec.bool</code>, <code>vec.option</code>, <code>vec.vec</code>, <code>option.none</code>, <code>option.some</code>, <code>option.str</code>, <code>option.option.some_some</code>, <code>option.option.some_none</code>, <code>result.ok</code>, <code>result.err</code>, <code>array.u16</code>, <code>array.bool</code>, <code>tuple</code>, <code>range</code>, <code>range_inclusive</code>, <code>struct.bits</code>, <code>struct.nested</code>, <code>struct.flags.relocated</code>, <code>struct.flags.relocated_other</code>, <code>struct.tuple</code>, <code>struct.tuple.none</code>, <code>struct.tuple.plain</code>, <code>struct.unit</code>, <code>struct.sized</code>, <code>struct.final_structure</code>, <code>struct.generic</code>, <code>struct.phantom</code>, <code>struct.validate.ok</code>, <code>struct.validate.rejected</code>, <code>struct.tail_size</code>, <code>struct.generic_const</code>, <code>struct.sparse.empty</code>, <code>struct.sparse.slots</code>, <code>struct.recursive.list</code>, <code>struct.recursive.box</code>, <code>enum.unit</code>, <code>enum.tuple</code>, <code>enum.struct</code>, <code>enum.explicit_discriminant</code>, <code>enum.unknown_variant</code>, <code>enum.appended_variant</code>, <code>enum.sub_byte.seven</code>, <code>enum.sub_byte.ten</code>, <code>enum.sized</code>, <code>enum.sized.wide_discriminant</code>, <code>enum.u2</code>, <code>enum.nibble.unit</code>, <code>enum.nibble.payload</code>, <code>enum.cfg.kept</code>, <code>enum.cfg.kept_after_gap</code>, <code>enum.cfg.compiled_out</code>, <code>evolution.v1</code>, <code>evolution.v2</code>, <code>evolution.new_reads_old</code>, <code>evolution.old_reads_new</code>, <code>series.u16</code>, <code>series.struct</code>, <code>transparent.u64</code>, <code>transparent.unib32</code>, <code>transparent.fields.plain</code>, <code>transparent.fields</code>, <code>transparent.sized.plain</code>, <code>transparent.sized</code>, <code>transparent.vec.unib32.plain</code>, <code>transparent.vec.unib32</code>, <code>transparent.vec.nibble.plain</code>, <code>transparent.vec.nibble</code>, <code>transparent.option.plain</code>, <code>transparent.option</code>, <code>transparent.array.plain</code>, <code>transparent.array</code>, <code>transparent.series.plain</code>, <code>transparent.series</code>, <code>transparent.series.struct.plain</code>, <code>transparent.series.struct</code>, <code>wire.struct</code>, <code>wire.struct.out_of_range</code>, <code>wire.enum.tuple</code>, <code>wire.enum.named</code>, <code>wire.series</code>, <code>cfg_attr.v1</code>, <code>cfg_attr.v2</code>, <code>cfg_attr.new_reads_old</code>, <code>tail_bytes</code>, <code>stdlib.timebase.steer_point</code>, <code>stdlib.timebase.steer_point.steerer</code>, <code>stdlib.timebase.sync_status</code>, <code>stdlib.timebase.sync_status.steerers</code>, <code>stdlib.si.dim.volt</code>, <code>stdlib.si.dim.rad_bit</code>, <code>stdlib.si.dim.counted</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.fixed.pow10</code>, <code>stdlib.si.fixed.duty16</code>, <code>stdlib.si.fixed.bounded</code>, <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.magnitude.one</code>, <code>stdlib.si.magnitude.milli</code>, <code>stdlib.si.magnitude.kibi</code>, <code>stdlib.si.magnitude.duty16</code>, <code>stdlib.si.magnitude.degree</code>, <code>stdlib.si.magnitude.sqrt2</code>, <code>stdlib.si.magnitude.decibel_in_neper</code>, <code>stdlib.si.magnitude.pound</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.point.celsius</code>, <code>stdlib.si.point.bounded</code>, <code>stdlib.si.point.bounded.rejected</code>, <code>stdlib.si.offset.zero</code>, <code>stdlib.si.offset.celsius</code>, <code>stdlib.si.offset.minus_forty</code>, <code>stdlib.si.offset.fahrenheit</code>, <code>stdlib.si.offset.rejected</code>, <code>stdlib.si.si_expr.volt</code>, <code>stdlib.si.si_expr.sqrt</code>, <code>stdlib.si.si_expr.rejected</code>, <code>model.marker_def.unit</code>, <code>model.marker_def.scale</code>, <code>model.marker_def.per</code>, <code>model.marker_def.origin</code>, <code>model.marker_def.angle</code>, <code>model.item_struct_extra.transparent</code>, <code>model.item_struct_extra.marker</code>.</li>
-<li><strong>c</strong>: no generated C for this type yet: C from the ww_self model (API-26). 120 cases: <code>vec.u16</code>, <code>vec.array_vec</code>, <code>vec.string</code>, <code>vec.bool</code>, <code>vec.option</code>, <code>vec.vec</code>, <code>option.none</code>, <code>option.some</code>, <code>option.str</code>, <code>option.option.some_some</code>, <code>option.option.some_none</code>, <code>result.ok</code>, <code>result.err</code>, <code>array.u16</code>, <code>array.bool</code>, <code>tuple</code>, <code>range</code>, <code>range_inclusive</code>, <code>struct.bits</code>, <code>struct.nested</code>, <code>struct.flags.relocated</code>, <code>struct.flags.relocated_other</code>, <code>struct.tuple</code>, <code>struct.tuple.none</code>, <code>struct.tuple.plain</code>, <code>struct.unit</code>, <code>struct.sized</code>, <code>struct.final_structure</code>, <code>struct.generic</code>, <code>struct.phantom</code>, <code>struct.validate.ok</code>, <code>struct.validate.rejected</code>, <code>struct.tail_size</code>, <code>struct.generic_const</code>, <code>struct.sparse.empty</code>, <code>struct.sparse.slots</code>, <code>struct.recursive.list</code>, <code>struct.recursive.box</code>, <code>enum.unit</code>, <code>enum.tuple</code>, <code>enum.struct</code>, <code>enum.explicit_discriminant</code>, <code>enum.unknown_variant</code>, <code>enum.appended_variant</code>, <code>enum.sub_byte.seven</code>, <code>enum.sub_byte.ten</code>, <code>enum.sized</code>, <code>enum.sized.wide_discriminant</code>, <code>enum.u2</code>, <code>enum.nibble.unit</code>, <code>enum.nibble.payload</code>, <code>enum.cfg.kept</code>, <code>enum.cfg.kept_after_gap</code>, <code>enum.cfg.compiled_out</code>, <code>evolution.v1</code>, <code>evolution.v2</code>, <code>evolution.new_reads_old</code>, <code>evolution.old_reads_new</code>, <code>series.u16</code>, <code>series.struct</code>, <code>transparent.u64</code>, <code>transparent.unib32</code>, <code>transparent.fields.plain</code>, <code>transparent.fields</code>, <code>transparent.sized.plain</code>, <code>transparent.sized</code>, <code>transparent.vec.unib32.plain</code>, <code>transparent.vec.unib32</code>, <code>transparent.vec.nibble.plain</code>, <code>transparent.vec.nibble</code>, <code>transparent.option.plain</code>, <code>transparent.option</code>, <code>transparent.array.plain</code>, <code>transparent.array</code>, <code>transparent.series.plain</code>, <code>transparent.series</code>, <code>transparent.series.struct.plain</code>, <code>transparent.series.struct</code>, <code>tail_bytes</code>, <code>stdlib.timebase.steer_point</code>, <code>stdlib.timebase.steer_point.steerer</code>, <code>stdlib.timebase.sync_status</code>, <code>stdlib.timebase.sync_status.steerers</code>, <code>stdlib.si.dim.volt</code>, <code>stdlib.si.dim.rad_bit</code>, <code>stdlib.si.dim.counted</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.fixed.pow10</code>, <code>stdlib.si.fixed.duty16</code>, <code>stdlib.si.fixed.bounded</code>, <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.magnitude.one</code>, <code>stdlib.si.magnitude.milli</code>, <code>stdlib.si.magnitude.kibi</code>, <code>stdlib.si.magnitude.duty16</code>, <code>stdlib.si.magnitude.degree</code>, <code>stdlib.si.magnitude.sqrt2</code>, <code>stdlib.si.magnitude.decibel_in_neper</code>, <code>stdlib.si.magnitude.pound</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.point.celsius</code>, <code>stdlib.si.point.bounded</code>, <code>stdlib.si.point.bounded.rejected</code>, <code>stdlib.si.offset.zero</code>, <code>stdlib.si.offset.celsius</code>, <code>stdlib.si.offset.minus_forty</code>, <code>stdlib.si.offset.fahrenheit</code>, <code>stdlib.si.offset.rejected</code>, <code>stdlib.si.si_expr.volt</code>, <code>stdlib.si.si_expr.sqrt</code>, <code>stdlib.si.si_expr.rejected</code>, <code>model.marker_def.unit</code>, <code>model.marker_def.scale</code>, <code>model.marker_def.per</code>, <code>model.marker_def.origin</code>, <code>model.marker_def.angle</code>, <code>model.item_struct_extra.transparent</code>, <code>model.item_struct_extra.marker</code>.</li>
-<li><strong>c</strong>: no unit conversions in C yet: Fixed in C (CLT-54). 72 cases: <code>requantize.milli_to_deci.tie.truncate</code>, <code>requantize.milli_to_deci.tie.floor</code>, <code>requantize.milli_to_deci.tie.ceil</code>, <code>requantize.milli_to_deci.tie.nearest_even</code>, <code>requantize.milli_to_deci.tie.nearest_away</code>, <code>requantize.milli_to_deci.negative_tie.truncate</code>, <code>requantize.milli_to_deci.negative_tie.floor</code>, <code>requantize.milli_to_deci.negative_tie.ceil</code>, <code>requantize.milli_to_deci.negative_tie.nearest_even</code>, <code>requantize.milli_to_deci.negative_tie.nearest_away</code>, <code>requantize.milli_to_deci.tie_up_to_even</code>, <code>requantize.milli_to_deci.below_tie</code>, <code>requantize.milli_to_deci.overflow.checked</code>, <code>requantize.milli_to_deci.overflow.saturate</code>, <code>requantize.milli_to_deci.overflow.wrap</code>, <code>requantize.milli_to_deci.underflow.saturate</code>, <code>requantize.micro_to_milli_unsigned.negative.checked</code>, <code>requantize.micro_to_milli_unsigned.negative.saturate</code>, <code>requantize.micro_to_milli_unsigned.negative.wrap</code>, <code>requantize.micro_to_milli_unsigned.top</code>, <code>requantize.micro_to_milli_unsigned.tie_past_top.checked</code>, <code>requantize.micro_to_milli_unsigned.tie_past_top.saturate</code>, <code>requantize.q15_to_q7.tie_past_top.checked</code>, <code>requantize.q15_to_q7.tie_past_top.saturate</code>, <code>requantize.q15_to_q7.tie.nearest_even</code>, <code>requantize.q15_to_q7.tie.nearest_away</code>, <code>requantize.q15_to_q7.negative_end</code>, <code>requantize.seven_thirds.truncate</code>, <code>requantize.seven_thirds.ceil</code>, <code>requantize.seven_thirds.nearest_even</code>, <code>requantize.seven_thirds.negative.floor</code>, <code>requantize.seven_thirds.negative.truncate</code>, <code>requantize.seven_thirds.exact_top</code>, <code>requantize.seven_thirds.past_top.checked</code>, <code>requantize.seven_thirds.past_top.saturate</code>, <code>requantize.seven_thirds.past_top.wrap</code>, <code>requantize.milli_to_micro.fits</code>, <code>requantize.milli_to_micro.overflow.checked</code>, <code>requantize.milli_to_micro.overflow.saturate</code>, <code>requantize.milli_to_micro.overflow.wrap</code>, <code>requantize.bam16_to_bam8.truncate</code>, <code>requantize.bam16_to_bam8.full_turn.checked</code>, <code>requantize.bam16_to_bam8.full_turn.saturate</code>, <code>requantize.bam16_to_bam8.full_turn.wrap</code>, <code>requantize.bam16_to_bam8.tie</code>, <code>requantize.float_to_int.tie.nearest_even</code>, <code>requantize.float_to_int.tie.nearest_away</code>, <code>requantize.float_to_int.negative_tie.nearest_even</code>, <code>requantize.float_to_int.negative.floor</code>, <code>requantize.float_to_int.tie_past_top.checked</code>, <code>requantize.float_to_int.tie_past_top.saturate</code>, <code>requantize.float_to_int.huge.saturate</code>, <code>requantize.float_to_int.huge.wrap</code>, <code>requantize.int_to_float.milli</code>, <code>requantize.degree_to_radian.45000.truncate</code>, <code>requantize.degree_to_radian.45000.floor</code>, <code>requantize.degree_to_radian.45000.ceil</code>, <code>requantize.degree_to_radian.45000.nearest_even</code>, <code>requantize.degree_to_radian.90000.truncate</code>, <code>requantize.degree_to_radian.90000.floor</code>, <code>requantize.degree_to_radian.90000.ceil</code>, <code>requantize.degree_to_radian.90000.nearest_even</code>, <code>requantize.degree_to_radian.1.truncate</code>, <code>requantize.degree_to_radian.1.floor</code>, <code>requantize.degree_to_radian.1.ceil</code>, <code>requantize.degree_to_radian.1.nearest_even</code>, <code>requantize.degree_to_radian.negative.floor</code>, <code>requantize.degree_to_radian.negative.truncate</code>, <code>requantize.degree_to_radian_i64.big</code>, <code>requantize.degree_to_radian_i64.past_top.checked</code>, <code>requantize.degree_to_radian_i64.past_top.saturate</code>, <code>requantize.degree_to_radian_i64.past_bottom.saturate</code>.</li>
+<li><strong>c</strong>: no generated C for this type yet: C from the ww_self model (API-26). 144 cases: <code>vec.u16</code>, <code>vec.array_vec</code>, <code>vec.string</code>, <code>vec.bool</code>, <code>vec.option</code>, <code>vec.vec</code>, <code>option.none</code>, <code>option.some</code>, <code>option.str</code>, <code>option.option.some_some</code>, <code>option.option.some_none</code>, <code>result.ok</code>, <code>result.err</code>, <code>array.u16</code>, <code>array.bool</code>, <code>tuple</code>, <code>range</code>, <code>range_inclusive</code>, <code>struct.bits</code>, <code>struct.nested</code>, <code>struct.flags.relocated</code>, <code>struct.flags.relocated_other</code>, <code>struct.tuple</code>, <code>struct.tuple.none</code>, <code>struct.tuple.plain</code>, <code>struct.unit</code>, <code>struct.sized</code>, <code>struct.final_structure</code>, <code>struct.generic</code>, <code>struct.phantom</code>, <code>struct.validate.ok</code>, <code>struct.validate.rejected</code>, <code>struct.tail_size</code>, <code>struct.generic_const</code>, <code>struct.sparse.empty</code>, <code>struct.sparse.slots</code>, <code>struct.recursive.list</code>, <code>struct.recursive.box</code>, <code>enum.unit</code>, <code>enum.tuple</code>, <code>enum.struct</code>, <code>enum.explicit_discriminant</code>, <code>enum.unknown_variant</code>, <code>enum.appended_variant</code>, <code>enum.sub_byte.seven</code>, <code>enum.sub_byte.ten</code>, <code>enum.sized</code>, <code>enum.sized.wide_discriminant</code>, <code>enum.u2</code>, <code>enum.nibble.unit</code>, <code>enum.nibble.payload</code>, <code>enum.cfg.kept</code>, <code>enum.cfg.kept_after_gap</code>, <code>enum.cfg.compiled_out</code>, <code>evolution.v1</code>, <code>evolution.v2</code>, <code>evolution.new_reads_old</code>, <code>evolution.old_reads_new</code>, <code>series.u16</code>, <code>series.struct</code>, <code>transparent.u64</code>, <code>transparent.unib32</code>, <code>transparent.fields.plain</code>, <code>transparent.fields</code>, <code>transparent.sized.plain</code>, <code>transparent.sized</code>, <code>transparent.vec.unib32.plain</code>, <code>transparent.vec.unib32</code>, <code>transparent.vec.nibble.plain</code>, <code>transparent.vec.nibble</code>, <code>transparent.option.plain</code>, <code>transparent.option</code>, <code>transparent.array.plain</code>, <code>transparent.array</code>, <code>transparent.series.plain</code>, <code>transparent.series</code>, <code>transparent.series.struct.plain</code>, <code>transparent.series.struct</code>, <code>wire.struct</code>, <code>wire.struct.out_of_range</code>, <code>wire.enum.tuple</code>, <code>wire.enum.named</code>, <code>wire.series</code>, <code>cfg_attr.v1</code>, <code>cfg_attr.v2</code>, <code>cfg_attr.new_reads_old</code>, <code>tail_bytes</code>, <code>stdlib.timebase.steer_point</code>, <code>stdlib.timebase.steer_point.steerer</code>, <code>stdlib.timebase.sync_status</code>, <code>stdlib.timebase.sync_status.steerers</code>, <code>stdlib.si.dim.volt</code>, <code>stdlib.si.dim.rad_bit</code>, <code>stdlib.si.dim.counted</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.fixed.pow10</code>, <code>stdlib.si.fixed.duty16</code>, <code>stdlib.si.fixed.bounded</code>, <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.fixed.customary</code>, <code>stdlib.si.quantity.milli</code>, <code>stdlib.si.quantity.kibi</code>, <code>stdlib.si.quantity.pow10</code>, <code>stdlib.si.quantity.pow2</code>, <code>stdlib.si.quantity.fullscale</code>, <code>stdlib.si.quantity.unknown_scale</code>, <code>stdlib.si.quantity.bounded</code>, <code>stdlib.si.quantity.bounded.rejected</code>, <code>stdlib.si.magnitude.one</code>, <code>stdlib.si.magnitude.milli</code>, <code>stdlib.si.magnitude.kibi</code>, <code>stdlib.si.magnitude.duty16</code>, <code>stdlib.si.magnitude.degree</code>, <code>stdlib.si.magnitude.sqrt2</code>, <code>stdlib.si.magnitude.decibel_in_neper</code>, <code>stdlib.si.magnitude.pound</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.point.celsius</code>, <code>stdlib.si.point.bounded</code>, <code>stdlib.si.point.bounded.rejected</code>, <code>stdlib.si.index.in_struct</code>, <code>stdlib.si.index_from_1</code>, <code>stdlib.si.index_from_1.zero.rejected</code>, <code>stdlib.si.index_from_1.bounded.rejected</code>, <code>stdlib.si.seq.nibble_wrap</code>, <code>stdlib.si.offset.zero</code>, <code>stdlib.si.offset.celsius</code>, <code>stdlib.si.offset.minus_forty</code>, <code>stdlib.si.offset.fahrenheit</code>, <code>stdlib.si.offset.rejected</code>, <code>stdlib.si.si_expr.volt</code>, <code>stdlib.si.si_expr.pound_force</code>, <code>stdlib.si.si_expr.sqrt</code>, <code>stdlib.si.si_expr.rejected</code>, <code>model.marker_def.unit</code>, <code>model.marker_def.unit_conventional</code>, <code>model.marker_def.scale</code>, <code>model.marker_def.per</code>, <code>model.marker_def.origin</code>, <code>model.marker_def.angle</code>, <code>model.item_struct_extra.transparent</code>, <code>model.item_struct_extra.marker</code>.</li>
 <li><strong>c</strong>: reader only: the generated C has no writer yet (API-26). 8 cases: <code>fixed.numbers</code>, <code>fixed.bits</code>, <code>fixed.nested</code>, <code>fixed.option.none</code>, <code>fixed.option.some</code>, <code>fixed.enum.unit</code>, <code>fixed.enum.fields</code>, <code>head_tail.struct</code>.</li>
 <li><strong>c</strong>: the C runtime has no 128-bit numbers (SW-66). 2 cases: <code>int.u128.max</code>, <code>int.i128.min</code>.</li>
 <li><strong>c</strong>: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: <code>disconnect_reason.hub_handover</code>, <code>disconnect_reason.from_newer</code>.</li>
@@ -8227,7 +8472,7 @@
 <li><strong>dynamic</strong>: TailBytes has no form in the API model yet (INT-9). 1 case: <code>tail_bytes</code>.</li>
 <li><strong>dynamic</strong>: TailSize has no form in the API model yet (INT-9). 1 case: <code>struct.tail_size</code>.</li>
 <li><strong>dynamic</strong>: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: <code>struct.validate.rejected</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.offset.rejected</code>.</li>
-<li><strong>dynamic</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 2 cases: <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.point.bounded.rejected</code>.</li>
+<li><strong>dynamic</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: <code>stdlib.si.quantity.bounded.rejected</code>.</li>
 <li><strong>dynamic</strong>: by design: the API model has the variants of every build, a host reads it (DER-8). 1 case: <code>enum.cfg.compiled_out</code>.</li>
 <li><strong>dynamic</strong>: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: <code>head_tail.struct</code>.</li>
 <li><strong>dynamic</strong>: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: <code>option.option.some_none</code>.</li>
@@ -8237,7 +8482,7 @@
 <li><strong>explain</strong>: TailBytes has no form in the API model yet (INT-9). 1 case: <code>tail_bytes</code>.</li>
 <li><strong>explain</strong>: TailSize has no form in the API model yet (INT-9). 1 case: <code>struct.tail_size</code>.</li>
 <li><strong>explain</strong>: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: <code>struct.validate.rejected</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.offset.rejected</code>.</li>
-<li><strong>explain</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 2 cases: <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.point.bounded.rejected</code>.</li>
+<li><strong>explain</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: <code>stdlib.si.quantity.bounded.rejected</code>.</li>
 <li><strong>explain</strong>: by design: the API model has the variants of every build, a host reads it (DER-8). 1 case: <code>enum.cfg.compiled_out</code>.</li>
 <li><strong>explain</strong>: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: <code>head_tail.struct</code>.</li>
 <li><strong>explain</strong>: null is None and Some(None) alike in the corpus value form, as in Python (TOOL-13). 1 case: <code>option.option.some_none</code>.</li>
@@ -8247,10 +8492,9 @@
 <li><strong>python</strong>: TailBytes has no form in the API model yet (INT-9). 1 case: <code>tail_bytes</code>.</li>
 <li><strong>python</strong>: TailSize has no form in the API model yet (INT-9). 1 case: <code>struct.tail_size</code>.</li>
 <li><strong>python</strong>: a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20). 5 cases: <code>struct.validate.rejected</code>, <code>stdlib.si.dim.rejected</code>, <code>stdlib.si.dim.root.rejected</code>, <code>stdlib.si.magnitude.rejected</code>, <code>stdlib.si.offset.rejected</code>.</li>
-<li><strong>python</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 2 cases: <code>stdlib.si.fixed.bounded.rejected</code>, <code>stdlib.si.point.bounded.rejected</code>.</li>
+<li><strong>python</strong>: bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54). 1 case: <code>stdlib.si.quantity.bounded.rejected</code>.</li>
 <li><strong>python</strong>: by design: the API model has the variants of every build (DER-8). 1 case: <code>enum.cfg.compiled_out</code>.</li>
 <li><strong>python</strong>: head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46). 1 case: <code>head_tail.struct</code>.</li>
-<li><strong>python</strong>: no unit conversions in Python yet: Fixed in Python (CLT-54). 72 cases: <code>requantize.milli_to_deci.tie.truncate</code>, <code>requantize.milli_to_deci.tie.floor</code>, <code>requantize.milli_to_deci.tie.ceil</code>, <code>requantize.milli_to_deci.tie.nearest_even</code>, <code>requantize.milli_to_deci.tie.nearest_away</code>, <code>requantize.milli_to_deci.negative_tie.truncate</code>, <code>requantize.milli_to_deci.negative_tie.floor</code>, <code>requantize.milli_to_deci.negative_tie.ceil</code>, <code>requantize.milli_to_deci.negative_tie.nearest_even</code>, <code>requantize.milli_to_deci.negative_tie.nearest_away</code>, <code>requantize.milli_to_deci.tie_up_to_even</code>, <code>requantize.milli_to_deci.below_tie</code>, <code>requantize.milli_to_deci.overflow.checked</code>, <code>requantize.milli_to_deci.overflow.saturate</code>, <code>requantize.milli_to_deci.overflow.wrap</code>, <code>requantize.milli_to_deci.underflow.saturate</code>, <code>requantize.micro_to_milli_unsigned.negative.checked</code>, <code>requantize.micro_to_milli_unsigned.negative.saturate</code>, <code>requantize.micro_to_milli_unsigned.negative.wrap</code>, <code>requantize.micro_to_milli_unsigned.top</code>, <code>requantize.micro_to_milli_unsigned.tie_past_top.checked</code>, <code>requantize.micro_to_milli_unsigned.tie_past_top.saturate</code>, <code>requantize.q15_to_q7.tie_past_top.checked</code>, <code>requantize.q15_to_q7.tie_past_top.saturate</code>, <code>requantize.q15_to_q7.tie.nearest_even</code>, <code>requantize.q15_to_q7.tie.nearest_away</code>, <code>requantize.q15_to_q7.negative_end</code>, <code>requantize.seven_thirds.truncate</code>, <code>requantize.seven_thirds.ceil</code>, <code>requantize.seven_thirds.nearest_even</code>, <code>requantize.seven_thirds.negative.floor</code>, <code>requantize.seven_thirds.negative.truncate</code>, <code>requantize.seven_thirds.exact_top</code>, <code>requantize.seven_thirds.past_top.checked</code>, <code>requantize.seven_thirds.past_top.saturate</code>, <code>requantize.seven_thirds.past_top.wrap</code>, <code>requantize.milli_to_micro.fits</code>, <code>requantize.milli_to_micro.overflow.checked</code>, <code>requantize.milli_to_micro.overflow.saturate</code>, <code>requantize.milli_to_micro.overflow.wrap</code>, <code>requantize.bam16_to_bam8.truncate</code>, <code>requantize.bam16_to_bam8.full_turn.checked</code>, <code>requantize.bam16_to_bam8.full_turn.saturate</code>, <code>requantize.bam16_to_bam8.full_turn.wrap</code>, <code>requantize.bam16_to_bam8.tie</code>, <code>requantize.float_to_int.tie.nearest_even</code>, <code>requantize.float_to_int.tie.nearest_away</code>, <code>requantize.float_to_int.negative_tie.nearest_even</code>, <code>requantize.float_to_int.negative.floor</code>, <code>requantize.float_to_int.tie_past_top.checked</code>, <code>requantize.float_to_int.tie_past_top.saturate</code>, <code>requantize.float_to_int.huge.saturate</code>, <code>requantize.float_to_int.huge.wrap</code>, <code>requantize.int_to_float.milli</code>, <code>requantize.degree_to_radian.45000.truncate</code>, <code>requantize.degree_to_radian.45000.floor</code>, <code>requantize.degree_to_radian.45000.ceil</code>, <code>requantize.degree_to_radian.45000.nearest_even</code>, <code>requantize.degree_to_radian.90000.truncate</code>, <code>requantize.degree_to_radian.90000.floor</code>, <code>requantize.degree_to_radian.90000.ceil</code>, <code>requantize.degree_to_radian.90000.nearest_even</code>, <code>requantize.degree_to_radian.1.truncate</code>, <code>requantize.degree_to_radian.1.floor</code>, <code>requantize.degree_to_radian.1.ceil</code>, <code>requantize.degree_to_radian.1.nearest_even</code>, <code>requantize.degree_to_radian.negative.floor</code>, <code>requantize.degree_to_radian.negative.truncate</code>, <code>requantize.degree_to_radian_i64.big</code>, <code>requantize.degree_to_radian_i64.past_top.checked</code>, <code>requantize.degree_to_radian_i64.past_top.saturate</code>, <code>requantize.degree_to_radian_i64.past_bottom.saturate</code>.</li>
 <li><strong>python</strong>: null is None and Some(None) alike in the Python value form (TOOL-13). 1 case: <code>option.option.some_none</code>.</li>
 <li><strong>python</strong>: the API model has no #[default] values (INT-10). 2 cases: <code>evolution.new_reads_old</code>, <code>cfg_attr.new_reads_old</code>.</li>
 <li><strong>python</strong>: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: <code>disconnect_reason.hub_handover</code>, <code>disconnect_reason.from_newer</code>.</li>

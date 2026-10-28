@@ -1087,7 +1087,7 @@
       "value": null,
       "bytes": "0000",
       "direction": "reject",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "0 ms is below Range<1, 5000>: refused on decode (STD-55)"
     },
     {
@@ -1193,7 +1193,7 @@
       "value": null,
       "bytes": "f204",
       "direction": "reject",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "126.6 °C is above Range<-400, 1250>: refused on decode, as for the Fixed alone (STD-64)"
     },
     {
@@ -1218,7 +1218,7 @@
       "value": null,
       "bytes": "00",
       "direction": "reject",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "IndexFrom1 refuses 0 by a ww_si rule of the type, checked by ww_si-aware clients (CLT-54)"},
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "0 is no 1-based number: refused on decode (STD-58)"
     },
     {
@@ -1227,7 +1227,7 @@
       "value": null,
       "bytes": "05",
       "direction": "reject",
-      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "5 is above Range<1, 4>: refused on decode (STD-58)"
     },
     {

@@ -7,7 +7,7 @@
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::prefix::{FullScale, Milli, One, Rational};
-use ww_si::units::{self, AngularVelocity, Byte, Degree, Per, Second, Torque};
+use ww_si::units::{self, AngularVelocity, Byte, Degree, Meter, Per, Ratio, Second, Times, Torque};
 use ww_si::{Ampere, AnyQuantity, Fixed, Micros, Quantity, Range, Timed, Unbounded, Volt};
 
 #[ww_trait]
@@ -33,6 +33,8 @@ trait Quantities {
     property!(ro adc: Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>);
     /// A gyro at 70 mdps per step, a scale marker of this crate (INT-13)
     property!(ro gyro: Fixed<DegreePerSecond, Mdps70, i16>);
+    /// A speed written the long way round: (1/s)·m, the same unit as m/s
+    property!(ro belt: Fixed<Times<Per<Ratio, Second>, Meter>, Milli, u16>);
 }
 
 ww_si::unit! {

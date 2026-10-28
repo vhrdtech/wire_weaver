@@ -956,10 +956,14 @@ fn convert_fields(
                 }
                 let since = get_since_attr(&f.attrs, current_crate)?;
                 let default = get_default_attr(&f.attrs, current_crate)?;
+                let wire = get_wire_attr(&f.attrs);
+                // a user wire type is an opaque run of its bytes in a `Series` (DER-23, `series::WiredOpaque`)
+                let series_opaque = has_series_opaque(&f.attrs)
+                    || wire.as_ref().is_some_and(|w| !is_wire_integer(w));
                 let ty = if f.attrs.iter().any(|a| a.path().is_ident("flag")) {
                     flag_ty(f, fields, current_crate)?
-                } else if let Some(wire) = get_wire_attr(&f.attrs) {
-                    // a plain integer in Rust, `W` on the wire: the model has the wire type (DER-19)
+                } else if let Some(wire) = wire {
+                    // a plain value in Rust, `W` on the wire: the model has the wire type (DER-19, DER-23)
                     convert_ty(&wire, current_crate, scratch)?
                 } else {
                     convert_ty(&f.ty, current_crate, scratch)?
@@ -978,7 +982,7 @@ fn convert_fields(
                     default,
                     since,
                     slot,
-                    series_opaque: has_series_opaque(&f.attrs),
+                    series_opaque,
                 });
             }
             if matches!(fields, Fields::Unnamed(_)) {
@@ -1017,6 +1021,43 @@ fn get_wire_attr(attrs: &[Attribute]) -> Option<Type> {
             _ => None,
         })
     })
+}
+
+/// An integer wire type of `#[wire(W)]` (DER-19: `u8`..`u64`, `i8`..`i64`, `Nibble`, `U1`..`U64`, `I2`..`I64`,
+/// `UNib32`, `UVlq32`, `UVlq64`), as the derive tells it from a user type (DER-23).
+fn is_wire_integer(ty: &Type) -> bool {
+    let Type::Path(p) = ty else {
+        return false;
+    };
+    let Some(last) = p.path.segments.last() else {
+        return false;
+    };
+    if !last.arguments.is_empty() {
+        return false;
+    }
+    let name = last.ident.to_string();
+    if matches!(
+        name.as_str(),
+        "u8" | "u16"
+            | "u32"
+            | "u64"
+            | "i8"
+            | "i16"
+            | "i32"
+            | "i64"
+            | "Nibble"
+            | "UNib32"
+            | "UVlq32"
+            | "UVlq64"
+    ) {
+        return true;
+    }
+    let (min, bits) = match (name.strip_prefix('U'), name.strip_prefix('I')) {
+        (Some(bits), _) => (1, bits),
+        (_, Some(bits)) => (2, bits),
+        _ => return false,
+    };
+    bits.parse::<u8>().is_ok_and(|b| (min..=64).contains(&b))
 }
 
 /// `#[series(opaque)]` (SW-60): the field is an opaque run of its bytes in a `Series`; the derive checks the form.
@@ -1565,6 +1606,41 @@ mod alias_tests {
                 "{e:#}"
             );
         }
+    }
+
+    #[test]
+    fn user_wire_fields_are_series_opaque() {
+        let bundle = load(
+            "user_wire_fields",
+            "fn a(r: Reading);",
+            "pub struct Scale { num: u32 }
+             pub struct ScaleId(u8);
+             #[derive_shrink_wrap(series)] pub struct Reading { #[wire(Scale)] scale: ScaleId, #[wire(U4)] n: u8, #[wire(UNib32)] m: u32 }",
+        )
+        .unwrap();
+        assert_eq!(
+            args(&bundle),
+            [
+                "struct test_api::Reading {scale: struct test_api::Scale {num: u32}, n: ub4, m: unib32}"
+            ]
+        );
+        let opaque: Vec<bool> = bundle
+            .types
+            .iter()
+            .find_map(|t| match t {
+                ww_self::TypeLocationOwned::InLine {
+                    ty: ww_self::TypeOwned::Struct(s),
+                    ..
+                } if s.ident == "Reading" => match &s.fields {
+                    ww_self::FieldsOwned::Named(f) => {
+                        Some(f.iter().map(|f| f.series_opaque).collect())
+                    }
+                    _ => None,
+                },
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(opaque, [true, false, false]);
     }
 
     #[test]

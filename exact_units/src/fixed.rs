@@ -807,7 +807,11 @@ impl Conversion {
             let Repr::Int(x) = x.to_repr() else {
                 return None;
             };
-            return rounding::mul_fixed_point(x, m, shift, r).settle(o);
+            return if self.wide {
+                rounding::mul_fixed_point(x, m, shift, r).settle(o)
+            } else {
+                rounding::mul_fixed_point_narrow(x as i64, m, shift, r).settle(o)
+            };
         }
         if self.num == 1 {
             // a division only: in T's own width

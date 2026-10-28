@@ -80,7 +80,7 @@ in device time.
 
 ## Testing (`tests/io_i2c`)
 
-The mock server in `tests/io_i2c` (see [ww_i2c](ww_i2c.md#composing-into-a-device-api-and-testing-tests-io_i2c))
+The mock server in `tests/io_i2c` (see [ww_i2c](ww_i2c.md#composing-into-a-device-api-and-testing-testsio_i2c))
 has register-pointer devices to run real drivers against:
 
 * `eh_async_driver_runs_unchanged` - the async `tmp1x2` driver, urgent requests.

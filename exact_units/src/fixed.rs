@@ -98,6 +98,27 @@ pub type Bytes<T> = Fixed<crate::units::Byte, prefix::One, T>;
 #[cfg(feature = "dimensionless")]
 pub type Duty16 = Fixed<crate::units::Ratio, prefix::Rational<1, 65535>, u16>;
 
+/// A Q15 fraction (CMSIS-DSP `q15_t`): `i16` in steps of 2⁻¹⁵, -1 to 1 - 2⁻¹⁵. `Q15<Volt>` is a voltage in Q15.
+#[cfg(feature = "dimensionless")]
+pub type Q15<U = crate::units::Ratio> = Fixed<U, prefix::Pow2<-15>, i16>;
+
+/// A Q31 fraction (CMSIS-DSP `q31_t`): `i32` in steps of 2⁻³¹.
+#[cfg(feature = "dimensionless")]
+pub type Q31<U = crate::units::Ratio> = Fixed<U, prefix::Pow2<-31>, i32>;
+
+/// UQ16.16: `u32` with 16 integer and 16 fraction bits, steps of 2⁻¹⁶.
+#[cfg(feature = "dimensionless")]
+pub type UQ16_16<U = crate::units::Ratio> = Fixed<U, prefix::Pow2<-16>, u32>;
+
+/// A 16-bit binary angle (BAM): 65536 steps make a turn, `Fixed<Turn, Pow2<-16>, u16>`, ST's `s16degree` read as
+/// unsigned. Wraps at a turn with [wrapping_add](Fixed::wrapping_add).
+#[cfg(feature = "angle")]
+pub type Bam16 = Fixed<crate::units::Turn, prefix::Pow2<-16>, u16>;
+
+/// A 32-bit binary angle: 2³² steps make a turn.
+#[cfg(feature = "angle")]
+pub type Bam32 = Fixed<crate::units::Turn, prefix::Pow2<-32>, u32>;
+
 /// A fraction in parts per billion (a clock's rate error), `Fixed<Ratio, Nano, T>`.
 #[cfg(feature = "dimensionless")]
 pub type Ppb<T> = Fixed<crate::units::Ratio, prefix::Nano, T>;
@@ -177,10 +198,39 @@ impl<U, P, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
 }
 
 impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
-    /// The same value in prefix `P2` and storage `T2`, if that is exact: `None` when it is not a whole number of
+    /// The same value in scale `P2` and storage `T2`, if that is exact: `None` when it is not a whole number of
     /// `P2` for an integer `T2`, or doesn't fit `T2`. Floats are scaled.
+    ///
+    /// The factor `P / P2` is worked out at compile time, so a conversion costs what the same multiply and divide
+    /// by constants written by hand cost (nothing between equal scales: `Milli` to `Pow10<-3>`). Between integer
+    /// storages it must be a fraction of integers whose multiply fits 64 bits (both storages of up to 32 bits) or
+    /// 128 bits, else the conversion doesn't compile; it is never rounded:
+    ///
+    /// ```compile_fail
+    /// use exact_units::{Fixed, prefix::{One, Pow10}, units::Second};
+    /// // 10⁴⁰ · u32::MAX doesn't fit 64 bits
+    /// let _ = Fixed::<Second, Pow10<20>, u32>::new(1).to::<Pow10<-20>, u32>();
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use exact_units::{Fixed, FixedScale, Magnitude, Prefix, prefix::One, units::Radian};
+    ///
+    /// /// Steps of π rad.
+    /// #[derive(Copy, Clone, Default)]
+    /// struct PiSteps;
+    /// impl FixedScale for PiSteps {
+    ///     const SCALE: Magnitude = Magnitude::PI;
+    ///     const SYMBOL: &'static str = "";
+    ///     const NAME: &'static str = "PiSteps";
+    ///     const RUNTIME: Option<Prefix> = None;
+    /// }
+    /// // π is not a fraction of integers: in an integer storage that is a compile error, in a float it scales
+    /// let _ = Fixed::<Radian, PiSteps, i32>::new(1).to::<One, i32>();
+    /// ```
+    #[inline(always)]
     pub fn to<P2: FixedScale, T2: Storage>(self) -> Option<Fixed<U, P2, T2>> {
-        rescale(self.value.to_repr(), P::SCALE.div(P2::SCALE)).map(Fixed::new)
+        let c = const { Conversion::of::<P, P2, T, T2>() };
+        c.apply::<T, T2>(self.value).map(Fixed::new)
     }
 
     /// The value `x · scale` (in the unit `U` itself) in this prefix and storage, if it is exact (as [to](Self::to))
@@ -382,6 +432,114 @@ mod arith {
     impl<U, P, T: Storage> Sum for Fixed<U, P, T> {
         fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
             iter.fold(Self::new(T::ZERO), |a, b| a + b)
+        }
+    }
+}
+
+/// The factor between two scales and storages, worked out at compile time by [Fixed::to].
+#[derive(Copy, Clone)]
+struct Conversion {
+    num: u128,
+    den: u128,
+    /// The widened multiply in 128 bits (a storage of 64 bits), else in 64.
+    wide: bool,
+    /// A float storage on either side: scaled by `num_f / den_f`, or by `factor` when that isn't a fraction of
+    /// integers both floats hold exactly.
+    float: bool,
+    exact_f: bool,
+    num_f: f64,
+    den_f: f64,
+    factor: f64,
+}
+
+impl Conversion {
+    const fn of<P: FixedScale, P2: FixedScale, T: Storage, T2: Storage>() -> Self {
+        let m = P::SCALE.div(P2::SCALE);
+        let ratio = m.to_ratio();
+        let float = T::IS_FLOAT || T2::IS_FLOAT;
+        let (num, den) = match ratio {
+            Some(r) => r,
+            None if float => (1, 1),
+            None => panic!(
+                "an integer Fixed converts by a fraction of integers only: this factor has a power of π, ln 2 or \
+                 ln 10 or a half exponent (convert through a float storage)"
+            ),
+        };
+        let wide = T::BITS > 32 || T2::BITS > 32;
+        if !float {
+            let limit = if wide {
+                i128::MAX as u128
+            } else {
+                i64::MAX as u128
+            };
+            let max_abs = if T::MAX_INT.unsigned_abs() > T::MIN_INT.unsigned_abs() {
+                T::MAX_INT.unsigned_abs()
+            } else {
+                T::MIN_INT.unsigned_abs()
+            };
+            assert!(
+                num <= limit / max_abs,
+                "the factor between these scales doesn't fit the widened multiply (64 bits for storages of up to \
+                 32 bits, 128 bits else)"
+            );
+        }
+        let exact_f = ratio.is_some() && num <= 1 << 53 && den <= 1 << 53;
+        Conversion {
+            num,
+            den,
+            wide,
+            float,
+            exact_f,
+            num_f: num as f64,
+            den_f: den as f64,
+            factor: m.to_f64(),
+        }
+    }
+
+    #[inline(always)]
+    fn apply<T: Storage, T2: Storage>(self, x: T) -> Option<T2> {
+        if self.float {
+            let x = match x.to_repr() {
+                Repr::Int(i) => i as f64,
+                Repr::Float(f) => f,
+            };
+            let y = if self.exact_f {
+                x * self.num_f / self.den_f
+            } else {
+                x * self.factor
+            };
+            return T2::from_float(y);
+        }
+        if self.num == 1 {
+            // a division only: in T's own width
+            let y = x.div_whole(self.den)?;
+            return if self.wide {
+                T2::from_int(match y.to_repr() {
+                    Repr::Int(i) => i,
+                    Repr::Float(_) => return None,
+                })
+            } else {
+                T2::from_i64(y.to_i64())
+            };
+        }
+        if !self.wide {
+            // |x| · num fits i64, checked at compile time
+            let p = x.to_i64() * self.num as i64;
+            let den = self.den as i64;
+            if den != 1 && p % den != 0 {
+                return None;
+            }
+            T2::from_i64(if den == 1 { p } else { p / den })
+        } else {
+            let Repr::Int(x) = x.to_repr() else {
+                return None;
+            };
+            let p = x * self.num as i128;
+            let den = i128::try_from(self.den).ok()?;
+            if den != 1 && p % den != 0 {
+                return None;
+            }
+            T2::from_int(if den == 1 { p } else { p / den })
         }
     }
 }
@@ -758,5 +916,107 @@ mod tests {
             t
         );
         assert_eq!(core::mem::size_of::<Micros<u64>>(), 8);
+    }
+
+    #[test]
+    fn scales_equal_however_spelled() {
+        assert_eq!(Milli::SCALE, Pow10::<-3>::SCALE);
+        assert_eq!(Milli::SCALE, Rational::<1, 1000>::SCALE);
+        assert_eq!(Kibi::SCALE, Pow2::<10>::SCALE);
+        assert_eq!(Duty16::new(0).get(), 0);
+        assert_eq!(FullScaleMax::<One, 16>::SCALE, Rational::<1, 65535>::SCALE);
+        // equal scales convert as the plain number
+        let t = Fixed::<Second, Milli, u32>::new(1234);
+        assert_eq!(t.to::<Pow10<-3>, u32>().map(Fixed::get), Some(1234));
+        assert_eq!(t.to::<Rational<1, 1000>, u16>().map(Fixed::get), Some(1234));
+        assert_eq!(
+            Fixed::<Second, Milli, u32>::new(70_000).to::<Milli, u16>(),
+            None
+        );
+    }
+
+    #[test]
+    fn q_formats_and_full_scale() {
+        // Q15: 0.5 is 16384; in Pow2<-14> steps 8192
+        let half: Q15 = Fixed::new(16384);
+        assert_eq!(half.to::<Pow2<-14>, i16>().map(Fixed::get), Some(8192));
+        assert_eq!(half.to::<One, f32>().map(Fixed::get), Some(0.5));
+        assert_eq!(half.to::<Pow2<-16>, i16>(), None, "131072 doesn't fit i16");
+        let q31: Q31 = Fixed::new(-(1 << 30));
+        assert_eq!(q31.to::<Pow2<-15>, i16>().map(Fixed::get), Some(-16384));
+        let uq: UQ16_16 = Fixed::new(3 << 16);
+        assert_eq!(uq.to::<One, u8>().map(Fixed::get), Some(3));
+        // a 12-bit ADC at 3.3 V: 4096 codes are 3.3 V, 1241 codes 999.8 mV (not whole), 1000 codes 805.6 mV
+        type Adc = Fixed<Volt, FullScale<Rational<33, 10>, 12>, u16>;
+        assert_eq!(
+            Adc::new(4096).to::<Milli, u16>().map(Fixed::get),
+            Some(3300)
+        );
+        assert_eq!(Adc::new(1241).to::<Milli, u16>(), None);
+        assert_eq!(
+            Adc::new(2048).to::<Micro, u32>().map(Fixed::get),
+            Some(1_650_000)
+        );
+        let mv = Adc::new(1000).to::<Milli, f32>().unwrap().get();
+        assert!((mv - 805.664_06).abs() < 1e-3);
+    }
+
+    #[cfg(feature = "angle")]
+    #[test]
+    fn binary_angles() {
+        use crate::units::{Degree, Turn};
+        let quarter: Bam16 = Fixed::new(16384);
+        assert_eq!(quarter.to::<Pow2<-2>, u8>().map(Fixed::get), Some(1));
+        assert_eq!(
+            Bam32::new(1 << 30).to::<Pow2<-16>, u16>().map(Fixed::get),
+            Some(16384)
+        );
+        // wraps at a turn: 3/4 turn + 1/2 turn is 1/4 turn
+        let x = Bam16::new(49152).wrapping_add(Bam16::new(32768));
+        assert_eq!(x.get(), 16384);
+        assert_eq!(
+            format!("{}", Fixed::<Turn, Pow2<-16>, u16>::new(1)),
+            "1·2⁻¹⁶ rev"
+        );
+        // a turn is 360 °: only through the unit's own scale, Turn and Degree are different markers
+        assert_eq!(
+            <Turn as crate::Unit>::EXPR.factor() / <Degree as crate::Unit>::EXPR.factor(),
+            360.0
+        );
+    }
+
+    #[test]
+    fn wide_storages() {
+        // u64 ns to u64 ps multiplies in 128 bits
+        let t = Fixed::<Second, Nano, u64>::new(u64::MAX / 1000);
+        assert_eq!(
+            t.to::<Pico, u64>().map(Fixed::get),
+            Some(u64::MAX / 1000 * 1000)
+        );
+        assert_eq!(
+            Fixed::<Second, Nano, u64>::new(u64::MAX).to::<Pico, u64>(),
+            None
+        );
+        assert_eq!(
+            Fixed::<Second, Nano, i64>::new(-3_000_000)
+                .to::<Milli, i8>()
+                .map(Fixed::get),
+            Some(-3)
+        );
+        // u32 seconds to u64 ns: 10⁹ · u32::MAX fits 128 bits
+        assert_eq!(
+            Fixed::<Second, One, u32>::new(u32::MAX)
+                .to::<Nano, u64>()
+                .map(Fixed::get),
+            Some(u32::MAX as u64 * 1_000_000_000)
+        );
+        // a large divisor in a narrow type: only 0 is whole
+        assert_eq!(
+            Fixed::<Second, Pico, u8>::new(0)
+                .to::<Kilo, u8>()
+                .map(Fixed::get),
+            Some(0)
+        );
+        assert_eq!(Fixed::<Second, Pico, u8>::new(5).to::<Kilo, u8>(), None);
     }
 }

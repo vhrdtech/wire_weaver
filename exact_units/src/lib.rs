@@ -36,12 +36,14 @@ pub mod units;
 
 #[cfg(feature = "information")]
 pub use fixed::Bytes;
+#[cfg(feature = "angle")]
+pub use fixed::{Bam16, Bam32};
 pub use fixed::{
     Bounds, DecimalPrefix, Fixed, FixedScale, OutOfBounds, Range, RangeDec, RangeU64, Repr,
     Storage, Unbounded, UnsignedStorage, prefix,
 };
 #[cfg(feature = "dimensionless")]
-pub use fixed::{Duty16, Ppb};
+pub use fixed::{Duty16, Ppb, Q15, Q31, UQ16_16};
 #[cfg(feature = "time")]
 pub use fixed::{Micros, Millis, Nanos};
 pub use magnitude::{

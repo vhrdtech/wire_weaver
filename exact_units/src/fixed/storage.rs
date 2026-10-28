@@ -19,6 +19,12 @@ pub trait Storage: Copy + PartialOrd + 'static {
     const NAME: &'static str;
     const IS_FLOAT: bool;
     const ZERO: Self;
+    /// Width in bits: what [Fixed::to](super::Fixed::to) picks its widened multiply by (64-bit up to 32 bits, else
+    /// 128-bit).
+    const BITS: u32;
+    /// The smallest and largest value as integers (0 for floats).
+    const MIN_INT: i128;
+    const MAX_INT: i128;
 
     /// The value as an exact integer or a float.
     fn to_repr(self) -> Repr;
@@ -26,6 +32,13 @@ pub trait Storage: Copy + PartialOrd + 'static {
     fn from_int(x: i128) -> Option<Self>;
     /// `x` if it is a whole number that fits (an integer storage), or `x` rounded to the storage (a float one).
     fn from_float(x: f64) -> Option<Self>;
+    /// The value as an `i64`: exact for integers of up to 32 bits (the widened multiply of [Fixed::to](super::Fixed::to)),
+    /// truncated for floats.
+    fn to_i64(self) -> i64;
+    /// `x` if it fits.
+    fn from_i64(x: i64) -> Option<Self>;
+    /// `self / d` in the type's own width when that is exact (`None` when `d` doesn't divide it); `self` for floats.
+    fn div_whole(self, d: u128) -> Option<Self>;
     /// The number as stored: integers exactly, `f32` as `f32`.
     fn fmt_number(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 
@@ -71,9 +84,32 @@ macro_rules! int {
             const NAME: &'static str = stringify!($ty);
             const IS_FLOAT: bool = false;
             const ZERO: Self = 0;
+            const BITS: u32 = $ty::BITS;
+            const MIN_INT: i128 = $ty::MIN as i128;
+            const MAX_INT: i128 = $ty::MAX as i128;
             #[inline(always)]
             fn to_repr(self) -> Repr {
                 Repr::Int(self as i128)
+            }
+            #[inline(always)]
+            fn to_i64(self) -> i64 {
+                self as i64
+            }
+            #[inline(always)]
+            fn from_i64(x: i64) -> Option<Self> {
+                $ty::try_from(x).ok()
+            }
+            #[inline(always)]
+            fn div_whole(self, d: u128) -> Option<Self> {
+                if d == 1 {
+                    Some(self)
+                } else if d > $ty::MAX as u128 {
+                    // only 0 divides into a whole number
+                    (self == 0).then_some(0)
+                } else {
+                    let d = d as $ty;
+                    (self % d == 0).then(|| self / d)
+                }
             }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {
@@ -132,9 +168,24 @@ macro_rules! newtype {
             const NAME: &'static str = stringify!($ty);
             const IS_FLOAT: bool = false;
             const ZERO: Self = $ty(0);
+            const BITS: u32 = $inner::BITS;
+            const MIN_INT: i128 = 0;
+            const MAX_INT: i128 = $inner::MAX as i128;
             #[inline(always)]
             fn to_repr(self) -> Repr {
                 Repr::Int(self.0 as i128)
+            }
+            #[inline(always)]
+            fn to_i64(self) -> i64 {
+                self.0 as i64
+            }
+            #[inline(always)]
+            fn from_i64(x: i64) -> Option<Self> {
+                $inner::try_from(x).ok().map($ty)
+            }
+            #[inline(always)]
+            fn div_whole(self, d: u128) -> Option<Self> {
+                Storage::div_whole(self.0, d).map($ty)
             }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {
@@ -185,9 +236,24 @@ impl Storage for Nibble {
     const NAME: &'static str = "Nibble";
     const IS_FLOAT: bool = false;
     const ZERO: Self = Nibble::zero();
+    const BITS: u32 = 4;
+    const MIN_INT: i128 = 0;
+    const MAX_INT: i128 = 15;
     #[inline(always)]
     fn to_repr(self) -> Repr {
         Repr::Int(self.value() as i128)
+    }
+    #[inline(always)]
+    fn to_i64(self) -> i64 {
+        self.value() as i64
+    }
+    #[inline(always)]
+    fn from_i64(x: i64) -> Option<Self> {
+        Nibble::new(u8::try_from(x).ok()?)
+    }
+    #[inline(always)]
+    fn div_whole(self, d: u128) -> Option<Self> {
+        Nibble::new(Storage::div_whole(self.value(), d)?)
     }
     #[inline]
     fn from_int(x: i128) -> Option<Self> {
@@ -280,9 +346,24 @@ macro_rules! float {
             const NAME: &'static str = stringify!($ty);
             const IS_FLOAT: bool = true;
             const ZERO: Self = 0.0;
+            const BITS: u32 = core::mem::size_of::<$ty>() as u32 * 8;
+            const MIN_INT: i128 = 0;
+            const MAX_INT: i128 = 0;
             #[inline(always)]
             fn to_repr(self) -> Repr {
                 Repr::Float(self as f64)
+            }
+            #[inline(always)]
+            fn to_i64(self) -> i64 {
+                self as i64
+            }
+            #[inline(always)]
+            fn from_i64(x: i64) -> Option<Self> {
+                Some(x as $ty)
+            }
+            #[inline(always)]
+            fn div_whole(self, _d: u128) -> Option<Self> {
+                Some(self)
             }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {

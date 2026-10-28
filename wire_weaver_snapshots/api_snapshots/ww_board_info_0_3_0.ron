@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 87ff35d5ea66e0932ce2c6f3e2b567341f7da8742c5e75e905e5d376443eab52
+// shrink_wrap sha256: 30551c646c2e5607e401e9fbf361fe9c54c249741b97691ffe3a3e5d6841e626
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -34,14 +34,14 @@
         ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
-        29,
-        39,
-        248,
-        111,
-        249,
-        238,
-        133,
-        56,
+        183,
+        98,
+        154,
+        165,
+        213,
+        42,
+        109,
+        240,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The PCB and its assembly, see [BoardInfo::BOARD].",
@@ -67,7 +67,7 @@
         (ident: Some("build_date"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 1)), docs: [
             "Build date, if available.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One rework of the board, see [BoardInfo::REWORKS].",
     ], ident: "Rework", generics: [], fields: Named([
@@ -82,7 +82,7 @@
         (ident: Some("applied"), default: None, since: None, ty: Bool, docs: [
             "Whether this unit has it applied.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",

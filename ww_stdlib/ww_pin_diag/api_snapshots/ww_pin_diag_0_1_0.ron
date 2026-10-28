@@ -1,6 +1,6 @@
 // ww_pin_diag 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 33608b20e55e38a10723da7b7b1a62268b46cc4d88a27d49e410edc678ab3e17
+// shrink_wrap sha256: 266c5dcb087399255d0e57bce08fb1da8d399dd12a40c5fdb5237f3cb0a8b3db
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Raw access to a board\'s digital points for bring-up, verification and production tests (STD-47).",
     "",
@@ -53,7 +53,7 @@
         (ident: Some("weak_drive"), default: None, since: None, ty: Bool, docs: [
             "[Drive::Weak] is weaker than [Drive::Normal] on it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One point a test may touch.",
     ], ident: "Point", generics: [], fields: Named([
@@ -66,7 +66,7 @@
         (ident: Some("caps"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [
             "What may ever be done with it; the board\'s rules may refuse more, depending on the other points.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "Pull", signature: [
         200,
         13,

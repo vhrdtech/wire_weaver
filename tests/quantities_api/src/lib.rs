@@ -1,5 +1,5 @@
 //! `ww_si` quantities in an API, as dynamic clients see them (CLT-31): a named unit, a `Series` of `Timed` values, a
-//! compound unit (`Per`), a unit marker of this crate that `ww_si` doesn't know, and a value whose unit is only known
+//! compound unit (`Per`), a unit marker of this crate, declared with `unit!` so clients know it (INT-13), and a value whose unit is only known
 //! at run time (`AnyQuantity`, STD-37), and values with unit, prefix and storage fixed at compile time (`Fixed`,
 //! STD-55), written with and without their default bounds.
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -8,10 +8,7 @@ use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::prefix::{Milli, One};
 use ww_si::units::{AngularVelocity, Byte, Per, Second, Torque};
-use ww_si::{
-    Ampere, AnyQuantity, Dim, Fixed, Micros, Quantity, Range, Scale, Timed, Unbounded, Unit,
-    UnitExpr, Volt,
-};
+use ww_si::{Ampere, AnyQuantity, Fixed, Micros, Quantity, Range, Timed, Unbounded, Volt};
 
 #[ww_trait]
 trait Quantities {
@@ -34,17 +31,7 @@ trait Quantities {
     fn ticks() -> Series<'i, Timed<Micros<u32>>>;
 }
 
-/// Revolutions per minute
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Rpm;
-
-impl Unit for Rpm {
-    // rad/s
-    const DIM: Dim<'static> = Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1);
-    const EXPR: &'static UnitExpr = &UnitExpr::Named {
-        name: "Rpm",
-        symbol: "rpm",
-        dim: Self::DIM,
-        scale: Scale::Factor(core::f64::consts::TAU / 60.0),
-    };
+ww_si::unit! {
+    /// Revolutions per minute: π/30 rad/s
+    pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
 }

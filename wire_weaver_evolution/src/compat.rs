@@ -1186,7 +1186,7 @@ fn wrapper<'b>(
         let Some(def @ TypeOwned::Struct(def_struct)) = type_def(bundle, type_idx.0) else {
             return Ok(None);
         };
-        if !def_struct.transparent {
+        if !def_struct.is_transparent() {
             return Ok(None);
         }
         let (field, name) = match bundle.types.get(type_idx.0 as usize) {
@@ -1217,7 +1217,7 @@ fn wrapper<'b>(
     let ResolvedTy::Ty(TypeOwned::Struct(s)) = resolve(bundle, ty)? else {
         return Ok(None);
     };
-    if !s.transparent {
+    if !s.is_transparent() {
         return Ok(None);
     }
     let field = Cow::Borrowed(&s.transparent_field().map_err(|e| e.to_string())?.ty);

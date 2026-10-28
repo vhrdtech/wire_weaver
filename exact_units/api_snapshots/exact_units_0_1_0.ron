@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: bb27a19101fa92406169f1d704c68c0e88c28ececb9915571731fc45c8bbbe4c
+// shrink_wrap sha256: ed3c019d394d3080343e1267f81f9e68ea7c7439088234769a488260fb9d494c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -1010,9 +1010,12 @@
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
-        "An SI prefix, from quecto (10⁻³⁰) to quetta (10³⁰).",
+        "A scale chosen at run time: an SI prefix from quecto (10⁻³⁰) to quetta (10³⁰), a binary prefix (Ki .. Ti), or",
+        "any other exact scale ([Exact](Prefix::Exact): `1/65535`, `10⁻⁴`, `π/2¹⁵`).",
         "",
-        "On the wire a `UNib32`: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one nibble.",
+        "One byte in memory. On the wire a `UNib32`: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one nibble,",
+        "`Exact` its tag and the full [Magnitude], so every reader gets the exact scale. An `Exact` never holds a named",
+        "prefix\'s scale ([from_magnitude](Self::from_magnitude) gives the named one), so equal scales are equal prefixes.",
     ], ident: "Prefix", generics: [], variants: [
         (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
@@ -1039,6 +1042,23 @@
         (docs: [], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
         (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
         (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
+        (docs: [
+            "2¹⁰",
+        ], ident: "Kibi", fields: Unit, discriminant: 25, since: None),
+        (docs: [
+            "2²⁰",
+        ], ident: "Mebi", fields: Unit, discriminant: 26, since: None),
+        (docs: [
+            "2³⁰",
+        ], ident: "Gibi", fields: Unit, discriminant: 27, since: None),
+        (docs: [
+            "2⁴⁰",
+        ], ident: "Tebi", fields: Unit, discriminant: 28, since: None),
+        (docs: [
+            "An exact scale that isn\'t a named prefix, by a one-byte handle; the full magnitude on the wire.",
+        ], ident: "Exact", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 109), docs: [], slot: None, series_opaque: true),
+        ]), discriminant: 29, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a named unit\'s scale comes from. On the wire (in an API model\'s `UnitDef`) an evolvable enum, so a later",

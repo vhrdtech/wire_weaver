@@ -32,6 +32,7 @@ pub use dynamic::AnyQuantityOwned;
 mod exact;
 pub use exact::Steps;
 mod fixed;
+pub use fixed::UnknownScale;
 mod ops;
 mod quantity;
 #[cfg(feature = "time")]

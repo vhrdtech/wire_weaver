@@ -1,9 +1,24 @@
 //! A [Fixed] to and from a [Quantity]: the only place the compile-time [Fixed] meets the run-time prefix and
 //! [NumericValue] of a [Quantity].
 
-use crate::Quantity;
+use crate::{Prefix, Quantity};
+use core::fmt;
 use exact_units::{Bounds, DecimalPrefix, Fixed, FixedScale, Repr, Storage, Unit};
 use ww_numeric::NumericValue;
+
+/// A [Fixed]'s scale that no run-time [Prefix] stands for in this build: without `std`, a scale that is neither a named
+/// prefix nor one of the computed [ExactScale](exact_units::ExactScale)s (`Rational<33, 10>` over 4096, an ADC step);
+/// with `std`, only once the interner of exact scales is full.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct UnknownScale;
+
+impl fmt::Display for UnknownScale {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("a scale without a run-time prefix in this build")
+    }
+}
+
+impl core::error::Error for UnknownScale {}
 
 impl<U: Unit> Quantity<U> {
     /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`.
@@ -25,6 +40,19 @@ impl<U: Unit> Quantity<U> {
         f: Fixed<U, P, T, B>,
     ) -> Self {
         Quantity::new(P::PREFIX, f.get())
+    }
+
+    /// The same value with any scale, prefix and number as they are: a named prefix where the scale has one (`Milli`,
+    /// `Kibi`), else [Prefix::Exact] (`Pow10<-4>`, `FullScaleMax<One, 16>`, a BAM), so the value is exact and converts
+    /// back with [to_fixed](Self::to_fixed). [UnknownScale] only where no prefix stands for the scale, see there.
+    pub fn try_from_fixed<P: FixedScale, T: Storage + Into<NumericValue>, B: Bounds<T>>(
+        f: Fixed<U, P, T, B>,
+    ) -> Result<Self, UnknownScale> {
+        let prefix = match P::RUNTIME {
+            Some(prefix) => prefix,
+            None => Prefix::from_magnitude(&P::SCALE).ok_or(UnknownScale)?,
+        };
+        Ok(Quantity::new(prefix, f.get()))
     }
 }
 

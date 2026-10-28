@@ -1031,5 +1031,6 @@ fn write_superscript(f: &mut core::fmt::Formatter<'_>, e: i32) -> core::fmt::Res
     Ok(())
 }
 
+mod approx;
 #[cfg(test)]
 mod tests;

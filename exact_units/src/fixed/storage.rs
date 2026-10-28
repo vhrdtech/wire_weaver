@@ -1,5 +1,6 @@
 //! [Storage]: the number types a [Fixed](super::Fixed) can be stored as.
 
+use super::rounding::{self, Rounding};
 use core::fmt;
 #[cfg(feature = "shrink_wrap")]
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
@@ -39,6 +40,11 @@ pub trait Storage: Copy + PartialOrd + 'static {
     fn from_i64(x: i64) -> Option<Self>;
     /// `self / d` in the type's own width when that is exact (`None` when `d` doesn't divide it); `self` for floats.
     fn div_whole(self, d: u128) -> Option<Self>;
+    /// `self / d` in the type's own width, rounded by `r` (`d > 0`); `self` for floats.
+    fn div_rounded(self, d: u128, r: Rounding) -> Self;
+    /// The low bits of `x` that fit (Rust's `as`, two's complement; `Nibble` the low 4); the nearest float for
+    /// floats.
+    fn from_int_wrapping(x: i128) -> Self;
     /// The number as stored: integers exactly, `f32` as `f32`.
     fn fmt_number(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 
@@ -49,9 +55,11 @@ pub trait Storage: Copy + PartialOrd + 'static {
     fn wrapping_add(self, rhs: Self) -> Self;
     fn wrapping_sub(self, rhs: Self) -> Self;
     fn wrapping_mul(self, rhs: Self) -> Self;
+    fn wrapping_div(self, rhs: Self) -> Self;
     fn saturating_add(self, rhs: Self) -> Self;
     fn saturating_sub(self, rhs: Self) -> Self;
     fn saturating_mul(self, rhs: Self) -> Self;
+    fn saturating_div(self, rhs: Self) -> Self;
     /// `+` as the type's own operator: panics on overflow in debug builds.
     fn add(self, rhs: Self) -> Self;
     fn sub(self, rhs: Self) -> Self;
@@ -79,7 +87,7 @@ fn whole(x: f64, min: i128, max: i128) -> Option<i128> {
 }
 
 macro_rules! int {
-    ($($ty:ident)*) => {$(
+    ($($ty:ident $div:ident)*) => {$(
         impl Storage for $ty {
             const NAME: &'static str = stringify!($ty);
             const IS_FLOAT: bool = false;
@@ -111,6 +119,21 @@ macro_rules! int {
                     (self % d == 0).then(|| self / d)
                 }
             }
+            #[inline(always)]
+            fn div_rounded(self, d: u128, r: Rounding) -> Self {
+                if d == 1 {
+                    self
+                } else if d > $ty::MAX as u128 {
+                    // |self| < d: 0 or one step; a d past i128 rounds as i128::MAX does, far above 2 |self|
+                    rounding::div_i128(self as i128, d.min(i128::MAX as u128) as i128, r) as $ty
+                } else {
+                    rounding::$div(self, d as $ty, r)
+                }
+            }
+            #[inline(always)]
+            fn from_int_wrapping(x: i128) -> Self {
+                x as $ty
+            }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {
                 $ty::try_from(x).ok()
@@ -129,9 +152,11 @@ macro_rules! int {
             #[inline(always)] fn wrapping_add(self, rhs: Self) -> Self { $ty::wrapping_add(self, rhs) }
             #[inline(always)] fn wrapping_sub(self, rhs: Self) -> Self { $ty::wrapping_sub(self, rhs) }
             #[inline(always)] fn wrapping_mul(self, rhs: Self) -> Self { $ty::wrapping_mul(self, rhs) }
+            #[inline(always)] fn wrapping_div(self, rhs: Self) -> Self { $ty::wrapping_div(self, rhs) }
             #[inline(always)] fn saturating_add(self, rhs: Self) -> Self { $ty::saturating_add(self, rhs) }
             #[inline(always)] fn saturating_sub(self, rhs: Self) -> Self { $ty::saturating_sub(self, rhs) }
             #[inline(always)] fn saturating_mul(self, rhs: Self) -> Self { $ty::saturating_mul(self, rhs) }
+            #[inline(always)] fn saturating_div(self, rhs: Self) -> Self { $ty::saturating_div(self, rhs) }
             #[inline(always)] fn add(self, rhs: Self) -> Self { self + rhs }
             #[inline(always)] fn sub(self, rhs: Self) -> Self { self - rhs }
             #[inline(always)] fn mul(self, rhs: Self) -> Self { self * rhs }
@@ -140,7 +165,7 @@ macro_rules! int {
     )*};
 }
 
-int!(u8 u16 u32 u64 i8 i16 i32 i64);
+int!(u8 div_u8 u16 div_u16 u32 div_u32 u64 div_u64 i8 div_i8 i16 div_i16 i32 div_i32 i64 div_i64);
 
 macro_rules! unsigned {
     ($($ty:ident)*) => {$(
@@ -187,6 +212,14 @@ macro_rules! newtype {
             fn div_whole(self, d: u128) -> Option<Self> {
                 Storage::div_whole(self.0, d).map($ty)
             }
+            #[inline(always)]
+            fn div_rounded(self, d: u128, r: Rounding) -> Self {
+                $ty(Storage::div_rounded(self.0, d, r))
+            }
+            #[inline(always)]
+            fn from_int_wrapping(x: i128) -> Self {
+                $ty(x as $inner)
+            }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {
                 $inner::from_int(x).map($ty)
@@ -205,9 +238,11 @@ macro_rules! newtype {
             #[inline(always)] fn wrapping_add(self, rhs: Self) -> Self { $ty(self.0.wrapping_add(rhs.0)) }
             #[inline(always)] fn wrapping_sub(self, rhs: Self) -> Self { $ty(self.0.wrapping_sub(rhs.0)) }
             #[inline(always)] fn wrapping_mul(self, rhs: Self) -> Self { $ty(self.0.wrapping_mul(rhs.0)) }
+            #[inline(always)] fn wrapping_div(self, rhs: Self) -> Self { $ty(self.0 / rhs.0) }
             #[inline(always)] fn saturating_add(self, rhs: Self) -> Self { $ty(self.0.saturating_add(rhs.0)) }
             #[inline(always)] fn saturating_sub(self, rhs: Self) -> Self { $ty(self.0.saturating_sub(rhs.0)) }
             #[inline(always)] fn saturating_mul(self, rhs: Self) -> Self { $ty(self.0.saturating_mul(rhs.0)) }
+            #[inline(always)] fn saturating_div(self, rhs: Self) -> Self { $ty(self.0 / rhs.0) }
             #[inline(always)] fn add(self, rhs: Self) -> Self { $ty(self.0 + rhs.0) }
             #[inline(always)] fn sub(self, rhs: Self) -> Self { $ty(self.0 - rhs.0) }
             #[inline(always)] fn mul(self, rhs: Self) -> Self { $ty(self.0 * rhs.0) }
@@ -255,6 +290,14 @@ impl Storage for Nibble {
     fn div_whole(self, d: u128) -> Option<Self> {
         Nibble::new(Storage::div_whole(self.value(), d)?)
     }
+    #[inline(always)]
+    fn div_rounded(self, d: u128, r: Rounding) -> Self {
+        Nibble::new_masked(Storage::div_rounded(self.value(), d, r))
+    }
+    #[inline(always)]
+    fn from_int_wrapping(x: i128) -> Self {
+        Nibble::new_masked(x as u8)
+    }
     #[inline]
     fn from_int(x: i128) -> Option<Self> {
         Nibble::new(u8::try_from(x).ok()?)
@@ -295,6 +338,10 @@ impl Storage for Nibble {
         Nibble::new_masked(self.value() * rhs.value())
     }
     #[inline(always)]
+    fn wrapping_div(self, rhs: Self) -> Self {
+        Nibble::new_masked(self.value() / rhs.value())
+    }
+    #[inline(always)]
     fn saturating_add(self, rhs: Self) -> Self {
         Nibble::new(self.value() + rhs.value()).unwrap_or(Nibble::max())
     }
@@ -305,6 +352,10 @@ impl Storage for Nibble {
     #[inline(always)]
     fn saturating_mul(self, rhs: Self) -> Self {
         Nibble::new(self.value() * rhs.value()).unwrap_or(Nibble::max())
+    }
+    #[inline(always)]
+    fn saturating_div(self, rhs: Self) -> Self {
+        Nibble::new_masked(self.value() / rhs.value())
     }
     #[inline(always)]
     fn add(self, rhs: Self) -> Self {
@@ -365,6 +416,14 @@ macro_rules! float {
             fn div_whole(self, _d: u128) -> Option<Self> {
                 Some(self)
             }
+            #[inline(always)]
+            fn div_rounded(self, _d: u128, _r: Rounding) -> Self {
+                self
+            }
+            #[inline(always)]
+            fn from_int_wrapping(x: i128) -> Self {
+                x as $ty
+            }
             #[inline]
             fn from_int(x: i128) -> Option<Self> {
                 Some(x as $ty)
@@ -383,9 +442,11 @@ macro_rules! float {
             #[inline(always)] fn wrapping_add(self, rhs: Self) -> Self { self + rhs }
             #[inline(always)] fn wrapping_sub(self, rhs: Self) -> Self { self - rhs }
             #[inline(always)] fn wrapping_mul(self, rhs: Self) -> Self { self * rhs }
+            #[inline(always)] fn wrapping_div(self, rhs: Self) -> Self { self / rhs }
             #[inline(always)] fn saturating_add(self, rhs: Self) -> Self { self + rhs }
             #[inline(always)] fn saturating_sub(self, rhs: Self) -> Self { self - rhs }
             #[inline(always)] fn saturating_mul(self, rhs: Self) -> Self { self * rhs }
+            #[inline(always)] fn saturating_div(self, rhs: Self) -> Self { self / rhs }
             #[inline(always)] fn add(self, rhs: Self) -> Self { self + rhs }
             #[inline(always)] fn sub(self, rhs: Self) -> Self { self - rhs }
             #[inline(always)] fn mul(self, rhs: Self) -> Self { self * rhs }

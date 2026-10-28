@@ -9,6 +9,8 @@
 //!   products and quotients the compiler checks (`Volt · Ampere` is `Watt`).
 //! - [Dim]: the dimension as data: SI base exponents, angle, information, up to [MAX_COUNTED] counted bases and a
 //!   square root (V/√Hz). [Magnitude]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).
+//! - [Point]`<O, Fixed<..>>`: a position against an [Origin] (°C, °F, gauge pressure, an angle that wraps at a
+//!   turn): point + vector = point, point − point = vector, conversions between origins exact or refused.
 //! - `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.
 //!
 //! `no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`'s),
@@ -27,6 +29,7 @@ mod declare;
 mod fixed;
 mod magnitude;
 pub mod num;
+mod point;
 mod products;
 #[cfg(feature = "shrink_wrap")]
 mod si_expr;
@@ -49,6 +52,10 @@ pub use fixed::{Duty16, Ppb, Q15, Q31, UQ16_16};
 pub use fixed::{Micros, Millis, Nanos};
 pub use magnitude::{
     Irrational, MAX_FACTORS, Magnitude, MagnitudeError, MagnitudeRest, PrimePower,
+};
+pub use point::{
+    AmbientPressure, Linear, Modulo, Modulus, Offset, Origin, OriginDef, Point, PointArith,
+    PointDiff, Reference, UnitZero, origins,
 };
 #[cfg(feature = "shrink_wrap")]
 pub use si_expr::SIExpr;

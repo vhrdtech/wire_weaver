@@ -393,3 +393,25 @@ def test_quantities():
     assert str(api.sensor.decode(api.sensor.encode(b))) == "0.00012 N·m/(rad/s)"
     # the API's own unit too, with the dimension and factor of its definition
     assert api.sensor.decode(api.sensor.encode(s)) == s
+
+
+CUSTOMARY_CRATE = Path(__file__).parents[2] / "tests" / "customary_api"
+
+
+def test_mars_climate_orbiter():
+    # STD-72: an impulse in lbf·s converts to N·s exactly or is refused, never read as N·s
+    api = ww.load_api(str(CUSTOMARY_CRATE), "SmallForces")
+    q = api.impulse_q.decode(api.impulse_q.encode(2))
+    assert (str(q), q.unit) == ("2 lbf·s", "Times<PoundForce, Second>")
+    si = q.convert("Times<Newton, Second>")
+    assert str(si) == "8896443230521 p(N·s)"
+    assert abs(float(si) - 8.896443230521) < 1e-12
+    assert str(si.convert(q)) == "2 lbf·s"
+    with pytest.raises(ValueError, match="dimension"):
+        q.convert("Times<PoundAvdp, Second>")
+    with pytest.raises(ValueError, match="not a named unit"):
+        q.convert("Times<Pound, Second>")
+    # the same through an AnyQuantity, the unit sent along
+    a = api.impulse_any.decode(api.impulse_any.encode(q))
+    assert a == q
+    assert a.convert("Times<Newton, Second>") == si

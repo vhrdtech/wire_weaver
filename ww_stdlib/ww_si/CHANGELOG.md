@@ -8,6 +8,7 @@
 
 ### 🚀 Features
 
+* Feature `customary` (STD-72): `exact_units`' imperial and US customary markers (`units::PoundForce`, `Inch`, `GallonUs`, ...), part of `quantities` and so of `std`.
 * Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],
 * Re-exports `exact_units::origin!` (STD-64), so an API declares its origins as `ww_si::origin! { .. }` and clients know them (INT-13).
   Exact(1 / 30, pi 1); }`.

@@ -24,6 +24,8 @@ trait Quantities {
     property!(rw voltage: Volt);
     /// A supply rail, `0 V ..= 3.3 V` whatever prefix a value is sent with (STD-59)
     property!(rw rail: Quantity<units::Volt, RangeDec<0, 33, -1>>);
+    /// A duty cycle in steps of 1/65535: an `Exact` prefix (STD-59)
+    property!(ro duty: Quantity<Ratio>);
     /// Current history with device time
     fn history() -> Series<'i, Timed<Ampere>>;
     /// Viscous damping: torque per angular velocity

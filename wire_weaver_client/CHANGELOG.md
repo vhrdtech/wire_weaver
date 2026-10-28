@@ -35,6 +35,7 @@
 
 ### 🐛 Fixes
 
+- `quantity::DynQuantity::from_value` reads a `ww_si::Quantity` with an `Exact` prefix (STD-59): the value is decoded by the derived type, so `ww` shows `32768·1/65535` where it showed the raw struct.
 - `quantity::unit_of` / `is_quantity` / `DynQuantity::from_value` recognise `ww_si::Quantity<U, B>` (STD-59: the bounds `B` are the second argument in the model, `Unbounded` included) as well as a device's `Quantity<U>` built before it; with only one argument accepted, every quantity of a new device read as a plain struct.
 - A `MultiCall`/`MultiRead`/`MultiWrite` tuple may name the same resource more than once, e.g. two `i2c_write` calls (CLT-49): it failed with `Error::MultiReq("resources are identical ..")`, now the id repeats in the request's index list and the answers come in tuple order. No device change needed.
 - An accumulation window of `W` costs at most `W` (CLT-53): the tx task waited for it with tokio's timer, which rounds up to whole milliseconds, so a 1 ms window cost ~2.2 ms per request. It now waits on a fine timer (a thread per process for deadlines under 2 ms away), within tens of µs.

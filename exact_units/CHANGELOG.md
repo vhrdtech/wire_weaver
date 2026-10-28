@@ -2,6 +2,8 @@
 
 ### 🚀 Features
 
+* Feature `serde` (INT-13): `DimOwned`, `CountedOwned` and `Magnitude` are `serde::Serialize` / `Deserialize`, for API snapshots in RON (`ww_self::UnitDef`). A `Magnitude` is written as its parts, exponents doubled (`(pow10: -6)`, `(pow10: 0, pi: 2, primes: [(3, -2)])`), and read back through `Magnitude::from_parts_x2`, so a file can't hold a non-canonical one.
+* `Magnitude::from_parts_x2(pow10_x2, pow2_x2, Irrational, primes)`: the magnitude of the parts `pow10_pow2_x2`, `irrational_x2` and `primes` give, an error (new `MagnitudeError::NotPrime`) for a number that isn't a prime other than 2 and 5.
 * `unit!` and `scale!` (INT-13): unit and scale markers declared as data, one line each (`pub struct Rpm = "rpm",
   [rad 1, s -1], Exact(1 / 30, pi 1);`, `pub struct Lsb70 = "", Exact(70 / 1000);`), expanding to the marker struct
   and its `Unit` / `FixedScale` (and `DecimalPrefix`) impl. WireWeaver's walker reads the same lines, so an API's own

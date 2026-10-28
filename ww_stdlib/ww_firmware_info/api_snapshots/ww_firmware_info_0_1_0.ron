@@ -1,6 +1,6 @@
 // ww_firmware_info 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8d61c6c08c97b957d69c3c965773b7b28489e9b4a394056195472d553056e648
+// shrink_wrap sha256: 24356294d139553bec90e35efb9a05319c04f1beca884cb4d994e61b29ee7a8a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Which firmware runs and why the device last reset (STD-24).",
     "",
@@ -60,14 +60,14 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LastReset", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "Version", signature: [
-        93,
-        154,
-        6,
-        169,
-        67,
-        101,
-        121,
-        107,
+        88,
+        163,
+        126,
+        221,
+        235,
+        148,
+        215,
+        245,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The git state a firmware was built from.",
@@ -78,16 +78,16 @@
         (ident: Some("dirty"), default: None, since: None, ty: Bool, docs: [
             "Uncommitted changes were present at build time.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "DateTime", signature: [
-        29,
-        39,
-        248,
-        111,
-        249,
-        238,
-        133,
-        56,
+        183,
+        98,
+        154,
+        165,
+        213,
+        42,
+        109,
+        240,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cargo profile of a build.",
@@ -118,7 +118,7 @@
         (ident: Some("profile"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
             "Cargo profile the firmware was built with.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Cause of a reset.",
     ], ident: "ResetCause", generics: [], variants: [
@@ -154,14 +154,14 @@
         ], ident: "Undetermined", fields: Unit, discriminant: 9, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
+        201,
+        216,
+        13,
+        38,
+        84,
+        139,
+        83,
+        180,
     ]),
     SkippedFullVersion(crate_idx: 4, type_name: "Quantity", signature: [
         190,
@@ -203,7 +203,7 @@
         (ident: Some("exc_return"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "`EXC_RETURN` value of the exception entry.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Trap registers of a RISC-V core.",
     ], ident: "RiscVFault", generics: [], fields: Named([
@@ -222,7 +222,7 @@
         (ident: Some("sp"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [
             "Stack pointer.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Registers saved by a fault handler, one variant per architecture.",
         "",
@@ -270,7 +270,7 @@
             "and so on. A record kept across later resets shows with a `cause` other than `Fault` / `Panic`; this says how",
             "old it is. 0 when there is no crash data.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Which firmware runs: what `--version` prints, and how to find its ELF.",

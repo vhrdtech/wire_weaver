@@ -173,6 +173,7 @@ fn st(ident: &str, size: ElementSize, fields: FieldsOwned) -> TypeOwned {
         fields,
         sparse: false,
         transparent: false,
+        marker: None,
     })
 }
 
@@ -243,6 +244,7 @@ pub fn bundle() -> ApiBundleOwned {
         ]),
         sparse: false,
         transparent: false,
+        marker: None,
     };
     let types = vec![
         en(

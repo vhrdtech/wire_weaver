@@ -106,6 +106,8 @@ pub enum MagnitudeError {
     ExponentRange,
     /// The square root of an exponent that is already a half (a quarter power).
     NotSquare,
+    /// A prime factor given by its parts that isn't a prime other than 2 and 5 ([Magnitude::from_parts_x2]).
+    NotPrime,
 }
 
 impl MagnitudeError {
@@ -122,6 +124,7 @@ impl MagnitudeError {
             MagnitudeError::NotSquare => {
                 panic!("the square root of a magnitude with a half exponent")
             }
+            MagnitudeError::NotPrime => panic!("a prime factor of a magnitude is not a prime"),
         }
     }
 }
@@ -739,28 +742,104 @@ impl Magnitude {
         }
     }
 
+    /// The magnitude of the parts [pow10_pow2_x2](Self::pow10_pow2_x2), [irrational_x2](Self::irrational_x2) and
+    /// [primes](Self::primes) give: twice the exponents of 10 and 2, of π, ln 2 and ln 10, and primes other than 2
+    /// and 5 with twice their exponents. In any order and with the same prime more than once; an error for a
+    /// number in `primes` that isn't a prime, a result out of range, or a quarter power.
+    pub fn from_parts_x2(
+        pow10_x2: i8,
+        pow2_x2: i8,
+        irrational_x2: Irrational,
+        primes: impl IntoIterator<Item = PrimePower>,
+    ) -> Result<Self, MagnitudeError> {
+        let mut w = Work::ONE;
+        w.pow10 = pow10_x2 as i32;
+        w.pow2 = pow2_x2 as i32;
+        w.irr = [
+            irrational_x2.pi as i32,
+            irrational_x2.ln2 as i32,
+            irrational_x2.ln10 as i32,
+        ];
+        for f in primes {
+            if f.prime == 2 || f.prime == 5 || !is_prime(f.prime as u64) {
+                return Err(MagnitudeError::NotPrime);
+            }
+            w.add_prime(f.prime as u64, f.exp as i32)?;
+        }
+        w.pack()
+    }
+
     #[cfg(feature = "shrink_wrap")]
     fn validate(&self) -> Result<(), shrink_wrap::Error> {
         // canonical: rebuilt from its own parts it is the same
-        let mut w = Work::ONE;
-        w.pow10 = self.pow10 as i32;
-        if let Some(rest) = &self.rest {
-            w.pow2 = rest.pow2 as i32;
-            if let Some(irr) = rest.irrational {
-                w.irr = [irr.pi as i32, irr.ln2 as i32, irr.ln10 as i32];
-            }
-            for f in rest.factors.iter().flatten() {
-                if f.exp == 0 || !is_prime(f.prime as u64) {
-                    return Err(shrink_wrap::Error::SubtypeOutOfRange);
-                }
-                w.add_prime(f.prime as u64, f.exp as i32)
-                    .map_err(|_| shrink_wrap::Error::SubtypeOutOfRange)?;
-            }
+        let (pow10, pow2) = self.pow10_pow2_x2();
+        if self.primes().any(|f| f.exp == 0) {
+            return Err(shrink_wrap::Error::SubtypeOutOfRange);
         }
-        match w.pack() {
+        match Self::from_parts_x2(pow10, pow2, self.irrational_x2(), self.primes()) {
             Ok(m) if m == *self => Ok(()),
             _ => Err(shrink_wrap::Error::SubtypeOutOfRange),
         }
+    }
+}
+
+/// A [Magnitude] in serde (RON snapshots of APIs): its parts, each exponent doubled as on the wire, `primes` as
+/// `(prime, exp_x2)`; rebuilt with [Magnitude::from_parts_x2], so a hand-edited file can't hold a non-canonical one.
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct MagnitudeParts {
+    pow10: i8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pow2: i8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pi: i8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    ln2: i8,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    ln10: i8,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    primes: Vec<(u32, i8)>,
+}
+
+#[cfg(feature = "serde")]
+fn is_zero(x: &i8) -> bool {
+    *x == 0
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Magnitude {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let (pow10, pow2) = self.pow10_pow2_x2();
+        let irr = self.irrational_x2();
+        MagnitudeParts {
+            pow10,
+            pow2,
+            pi: irr.pi,
+            ln2: irr.ln2,
+            ln10: irr.ln10,
+            primes: self.primes().map(|f| (f.prime, f.exp)).collect(),
+        }
+        .serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Magnitude {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let p = MagnitudeParts::deserialize(deserializer)?;
+        Magnitude::from_parts_x2(
+            p.pow10,
+            p.pow2,
+            Irrational {
+                pi: p.pi,
+                ln2: p.ln2,
+                ln10: p.ln10,
+            },
+            p.primes
+                .into_iter()
+                .map(|(prime, exp)| PrimePower { prime, exp }),
+        )
+        .map_err(|e| serde::de::Error::custom(format_args!("{e:?}")))
     }
 }
 

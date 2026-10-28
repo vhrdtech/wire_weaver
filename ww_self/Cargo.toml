@@ -11,12 +11,19 @@ repository.workspace = true
 default = ["std"]
 std = [
     "shrink_wrap/std",
+    "exact_units/std",
     "ww_numeric/std",
     "ww_version/std",
     "dep:anyhow",
     "dep:sha2",
 ]
-serde = ["dep:serde", "ww_version/serde", "ww_numeric/serde", "shrink_wrap/serde"]
+serde = [
+    "dep:serde",
+    "exact_units/serde",
+    "ww_version/serde",
+    "ww_numeric/serde",
+    "shrink_wrap/serde",
+]
 # values and calls written as Rust expressions (`expr` module), for tools
 expr = ["std", "dep:quote", "dep:syn"]
 # `fuzz_bundle` (bundle generator for fuzzing) for tests of other crates
@@ -24,6 +31,7 @@ fuzz = ["std"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
+exact_units = { workspace = true, features = ["shrink_wrap"] }
 quote = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }

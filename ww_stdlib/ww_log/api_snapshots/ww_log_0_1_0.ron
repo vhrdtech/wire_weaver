@@ -1,6 +1,6 @@
 // ww_log 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: e4ec0a38f5942367e3ac26b3249be09a39c283dabd2fe2a1749d33c906b99181
+// shrink_wrap sha256: b3567cb1a2415e8cb5659836f426c127836a30cce78c96b9b6b828766b0fdabb
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logs of bare metal firmware over WireWeaver: defmt frames decoded on the host with the firmware\'s ELF, or text",
     "records for firmware without defmt.",
@@ -68,7 +68,7 @@
             "GNU build id of the firmware (`.note.gnu.build-id`): which ELF decodes the frames. Empty when the firmware",
             "didn\'t keep the note; a host then falls back to the newest ELF it finds and warns.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -93,7 +93,7 @@
         "item after the other never has to resync, also with raw encoding and after a loss.",
     ], ident: "DefmtFrames", generics: [], fields: Named([
         (ident: Some("bytes"), default: None, since: None, ty: MaxLen(max_len: Fixed(512), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Severity of a [LogRecord], the five levels of `log`, `tracing` and `defmt`.",
     ], ident: "Severity", generics: [], variants: [
@@ -116,7 +116,7 @@
         (ident: Some("truncated"), default: None, since: None, ty: Bool, docs: [
             "The message was cut.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Which records `LogText` produces: `Info` means `Error`, `Warn` and `Info`.",
     ], ident: "LevelFilter", generics: [], variants: [

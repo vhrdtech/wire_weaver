@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f5e82490cee54d0e9c5068b6e1d0a0fc7dd1f0c6fb88ba835e670877eaf2b04e
+// shrink_wrap sha256: 147491fe88c588eb1e20d6ceabbd58900573de3bfa20a3f0311809fd95aaa00e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -21,7 +21,7 @@
 ], compact_id: None, meta: None), types: [
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A tap that records nothing.",
-    ], ident: "NoTap", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ], ident: "NoTap", generics: [], fields: Unit, sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Side", generics: [], variants: [
         (docs: [], ident: "Host", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Device", fields: Unit, discriminant: 1, since: None),
@@ -111,7 +111,7 @@
             "The device\'s `ww_link` `DeviceInfo` in its ShrinkWrap encoding (with the `ApiHashPair` that finds the API",
             "bundle), once the link is set up; empty before.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "What the bytes don\'t show.",
     ], ident: "LinkEvent", generics: [], variants: [
@@ -146,7 +146,7 @@
             "Counts per link and direction from 0.",
         ], slot: None, series_opaque: false),
         (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A `ww_link` message.",
     ], ident: "Message", generics: [], fields: Named([
@@ -157,14 +157,14 @@
             "`ww_link::Kind`",
         ], slot: None, series_opaque: false),
         (ident: Some("bytes"), default: None, since: None, ty: Vec(NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Server only: a client\'s request as the server sent it on to the device.",
     ], ident: "ClientMap", generics: [], fields: Named([
         (ident: Some("client"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("client_seq"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("device_seq"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The streams of one link; tracks of a capture are `link[id].<stream>`.",

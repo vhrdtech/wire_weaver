@@ -463,6 +463,7 @@ mod tests {
                 fields,
                 sparse: false,
                 transparent: false,
+                marker: None,
             }),
             crate_idx: UNib32(0),
         };

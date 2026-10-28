@@ -1814,6 +1814,7 @@ name = "exact_units"
 version = "0.1.0"
 dependencies = [
  "defmt 1.1.1",
+ "serde",
  "shrink_wrap",
 ]
 
@@ -5934,6 +5935,7 @@ dependencies = [
  "anyhow",
  "cargo_toml",
  "convert_case 0.11.0",
+ "exact_units",
  "hex",
  "pest",
  "pest_derive",
@@ -6432,6 +6434,7 @@ name = "ww_self"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "exact_units",
  "quote",
  "serde",
  "sha2 0.11.0",

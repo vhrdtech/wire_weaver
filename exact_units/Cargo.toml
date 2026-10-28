@@ -14,6 +14,8 @@ std = ["shrink_wrap?/std", "quantities"]
 defmt = ["dep:defmt", "shrink_wrap?/defmt"]
 # the wire format: SerializeShrinkWrap / DeserializeShrinkWrap for every type, SIExpr, Fixed over UNib32, UVlq*, Nibble
 shrink_wrap = ["dep:shrink_wrap"]
+# serde for the owned wire mirrors (DimOwned, CountedOwned) and Magnitude: units in RON snapshots of APIs
+serde = ["std", "shrink_wrap", "dep:serde"]
 
 # unit groups: a firmware enables the ones it uses, `quantities` all of them
 quantities = [
@@ -54,6 +56,7 @@ counting = []
 
 [dependencies]
 defmt = { workspace = true, optional = true }
+serde = { workspace = true, optional = true, features = ["std"] }
 shrink_wrap = { workspace = true, optional = true }
 
 # the wire: SIExpr, Dim and Scale bytes, Series of Fixed fields

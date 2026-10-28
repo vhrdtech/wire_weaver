@@ -361,7 +361,7 @@ mod tests {
             speed.unit,
             DynUnit::Unknown {
                 name: "Rpm".into(),
-                docs: vec!["Revolutions per minute".into()],
+                docs: vec!["Revolutions per minute: π/30 rad/s".into()],
             }
         );
         assert_eq!(speed.to_string(), "1500 Rpm");

@@ -1,6 +1,6 @@
 // ww_block 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 066f32df628b6db69919573c43289b26f14162eada7ab620baf4eac16a730dfd
+// shrink_wrap sha256: 7495e5b37ef9f9a50753962c2e0a33e4eeb0a994d1a0b61bfbf7177de7bdea54
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "A block device over WireWeaver (STD-39): an SD card, eMMC or flash read, checked, written and erased in whole",
     "blocks by their address (LBA).",
@@ -101,7 +101,7 @@
         (ident: Some("name"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: String), docs: [
             "Product name of the medium (CID of a card, JEDEC part of a flash), empty if unknown.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "CommonError", signature: [
         187,
         44,
@@ -155,7 +155,7 @@
             "CRC-32 ([crc32]) of `data`, checked before anything is written.",
         ], slot: None, series_opaque: false),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What became of a run, see [RunAck::status]. The same as [BlockDevice::write]\'s answer.",
         "",
@@ -181,13 +181,13 @@
         ], slot: None, series_opaque: false),
         (ident: Some("count"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("status"), default: None, since: None, ty: OutOfLine(type_idx: 6), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One run of [BlockDevice::read_runs]: the blocks from `lba`.",
     ], ident: "ReadRun", generics: [], fields: Named([
         (ident: Some("lba"), default: None, since: None, ty: NumericAny(Base(U64)), docs: [], slot: None, series_opaque: false),
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(4096), ty: Vec(NumericAny(Base(U8)))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A block device: an SD card, eMMC, or a NOR or NAND flash, addressed in blocks.",

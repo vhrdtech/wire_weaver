@@ -143,9 +143,9 @@ fn convert_reexport(
         };
         if let Some((path, leaf)) = use_tree_path_to(&item_use.tree, &name.to_string())
             && leaf == name
-            && path.first().is_some_and(|first| {
-                *first == "self" || module.has_module(&first.to_string())
-            })
+            && path
+                .first()
+                .is_some_and(|first| *first == "self" || module.has_module(&first.to_string()))
         {
             convert_reexport(&*module.resolve_path(path, scratch)?, name, cx, scratch)?;
         }

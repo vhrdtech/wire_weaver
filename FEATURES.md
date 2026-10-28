@@ -1763,6 +1763,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of one generic definition with `B` explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). [exact_units](docs/std_library/exact_units.md), conformance `stdlib.si.fixed.*`,
   `tests/quantities`.
+- ✅ **STD-72 Imperial and US customary units, complete** · `v0.5` — feature `customary` (in `ww_si`'s `quantities`):
+  166 markers in `exact_units::units`, each the exact rational of SI from its legal definition (1959 yard and pound,
+  NIST SP 811 and Handbook 44, UK WMA 1985, g_n), the source cited per unit and checked against a sourced catalogue
+  with SP 811's printed values. No bare ambiguous name (47 groups: US / imperial gallon, fl oz, pint, quart, bushel;
+  international / US survey foot and mile; short / long / metric ton; avoirdupois / troy; Btu and calorie variants;
+  horsepower variants; thou vs angular mil; inHg / mmHg conventional or at a temperature); `PoundAvdp` and `Slug`
+  mass, `PoundForce`, `Kip`, `Poundal` force; °F and °R are origins (STD-64). Measured units carry
+  `Provenance::Conventional`. `Fixed::convert` between units of one dimension, exact or `None`, factor at compile
+  time; `DynQuantity::convert` and Python `Quantity.convert` the same at run time. The Mars Climate Orbiter case
+  (lbf·s read as N·s) in `tests/customary` (typed, dynamic) and Python: converts exactly or is refused; a `Fixed`
+  field with its unit in dynamic clients waits on CLT-54. [Imperial and US customary](docs/std_library/customary.md),
+  conformance `stdlib.si.fixed.customary`, `stdlib.si.si_expr.pound_force` (derive, dynamic, Python; C waits on
+  API-26).
 - ✅ **STD-64 Points and origins** · `v0.5` — `exact_units::Point<O, Fixed<..>>`: a position against an origin, a
   zero-size marker declared with `origin!` carrying its unit, an exact `Offset` (sign and `Magnitude`), its reference
   and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
@@ -2063,10 +2076,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **STD-71 Device-standard units in and out** — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
   DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
   only. Later, in `exact_units_interop` like STD-70.
-- 📋 **STD-72 Imperial and US customary units, complete** · `v0.5` — every unit the exact rational of SI from its legal
-  definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
-  variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
-  Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.
 - 📋 **STD-73 One table of unit symbols and spellings** · `v0.5` — display and parsing of every unit from one table,
   shared by Rust, si_dynamic, `ww` and Python, UCUM spelling where there is one.
 - 📋 **STD-74 The runtime side catches up** · `v0.5` — `Quantity`, `AnyQuantity` and `SIExpr` get the exact magnitude,
@@ -2218,7 +2227,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (the board was not behind the probe). Proved by ELF instead (`just units-elf`): the pairs compared instruction by
   instruction on thumbv6m, thumbv7em and thumbv8m.main at `fw-z` and `fw-3`: range check and `Series` encode
   identical everywhere, `Series` decode at `fw-3`; struct encode/decode differ by the derive's per-field write for a
-  `Fixed` (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at `z` and `3` (`docs/std_library/rounding.md`, "Cost on a device"). See `docs/articles/units_budget.md`.
+  `Fixed` (a few instructions). STD-63's rounding conversions were measured against hand-written ones on M0 and M4F at `z` and `3` (`docs/std_library/rounding.md`, "Cost on a device"). STD-72 adds nothing of its own to measure: its markers are zero-size types and `Fixed::convert` is `Fixed::to`'s compile-time factor, so the `to` measurements cover it. See `docs/articles/units_budget.md`.
 - 🚧 **TEST-9 Remaining test coverage** · `v0.5`:
   - [ ] properties: unimplemented, observe stream
   - [ ] streams: promise timeout

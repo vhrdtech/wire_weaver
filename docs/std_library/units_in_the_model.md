@@ -90,7 +90,7 @@ leave the marker definition out, as they leave out `ItemEnum::future_version`, s
 keeps its signature. `MarkerDef` keeps its `Unknown` catch-all, unlike the rest of the model: a reader that doesn't
 know a newer kind of marker treats the struct as a marker it can't convert, instead of refusing the bundle.
 
-The definitions of `exact_units`' and `ww_si`'s markers are in the embedded [snapshots](../evolution/snapshots.md):
+The definitions of `exact_units`' and `ww_si`'s markers are in the embedded [snapshots](../cli_reference.md#ww-api):
 a device leaves them out of its introspection data, and the client puts them back.
 
 The conformance corpus has cases `model.marker_def.*` and `model.item_struct_extra.*` (TEST-23), through the derive,

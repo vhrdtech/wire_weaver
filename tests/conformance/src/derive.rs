@@ -776,6 +776,14 @@ pub fn table() -> Vec<Typed> {
             ww_si::Magnitude::ratio(45359237, 100_000_000),
         ),
         case("stdlib.si.magnitude.rejected", ww_si::Magnitude::ONE),
+        case("stdlib.si.point.celsius", PointCelsius::from_raw(-1234)),
+        case("stdlib.si.point.bounded", point_bounded(-400)),
+        case("stdlib.si.point.bounded.rejected", point_bounded(1250)),
+        case("stdlib.si.offset.zero", ww_si::Offset::ZERO),
+        case("stdlib.si.offset.celsius", ww_si::Offset::decimal(27315, -2)),
+        case("stdlib.si.offset.minus_forty", ww_si::Offset::int(-40)),
+        case("stdlib.si.offset.fahrenheit", ww_si::Offset::ratio(45967, 180)),
+        case("stdlib.si.offset.rejected", ww_si::Offset::ZERO),
         case(
             "stdlib.si.si_expr.volt",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
@@ -849,6 +857,19 @@ type FixedBounded =
 
 fn fixed_bounded(ms: u16) -> FixedBounded {
     FixedBounded::try_new(ms).unwrap()
+}
+
+type PointCelsius = ww_si::Point<
+    ww_si::origins::Celsius,
+    ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>,
+>;
+type PointBounded = ww_si::Point<
+    ww_si::origins::Celsius,
+    ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Deci, i16, ww_si::Range<-400, 1250>>,
+>;
+
+fn point_bounded(dd: i16) -> PointBounded {
+    PointBounded::new(ww_si::Fixed::try_new(dd).unwrap())
 }
 
 fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {

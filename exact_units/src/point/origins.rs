@@ -81,7 +81,6 @@ mod angle {
     use crate::point::{Modulo, UnitZero};
     use crate::prefix::{One, Rational};
     use crate::units::{Degree, Radian, Turn};
-    use crate::{FixedScale, Prefix};
     use core::marker::PhantomData;
 
     /// An angle from the unit's zero that wraps every turn: `Point<Angle<Turn>, Bam16>` is a binary angle whose
@@ -91,15 +90,9 @@ mod angle {
     #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
     pub struct Angle<U>(PhantomData<U>);
 
-    /// 2π: a turn in radians.
-    #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-    pub struct TwoPi;
-
-    impl FixedScale for TwoPi {
-        const SCALE: Magnitude = Magnitude::PI.mul(Magnitude::ratio(2, 1));
-        const SYMBOL: &'static str = "";
-        const NAME: &'static str = "TwoPi";
-        const RUNTIME: Option<Prefix> = None;
+    crate::scale! {
+        /// 2π: a turn in radians.
+        pub struct TwoPi = "", Exact(2 / 1, pi 1);
     }
 
     macro_rules! angle {

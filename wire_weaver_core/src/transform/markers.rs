@@ -1,9 +1,11 @@
-//! Unit and scale markers declared with `exact_units::unit!` / `exact_units::scale!` (INT-13).
+//! Unit, scale and origin markers declared with `exact_units::unit!` / `exact_units::scale!` (INT-13) and
+//! `exact_units::origin!` (STD-64).
 //!
 //! The walker reads such an invocation as rustc does: a unit struct per line, with the line's attributes. Each struct
 //! also gets a `#[ww_marker(..)]` attribute holding its line, from which its definition (dimension, scale, symbol)
 //! goes into the API model. The grammar is the one documented at the macros; a line the macros don't accept is an
-//! error here too.
+//! error here too. An `origin!` declares one struct, `<attrs> <vis> struct <Name> { <keyed fields> }`; its fields
+//! are kept as they are in `#[ww_marker(origin, ..)]`.
 
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude};
@@ -22,6 +24,7 @@ fn marker_macro(item: &syn::ItemMacro) -> Option<MacroKind> {
     match item.mac.path.segments.last()?.ident.to_string().as_str() {
         "unit" => Some(MacroKind::Unit),
         "scale" => Some(MacroKind::Scale),
+        "origin" => Some(MacroKind::Origin),
         _ => None,
     }
 }
@@ -30,14 +33,21 @@ fn marker_macro(item: &syn::ItemMacro) -> Option<MacroKind> {
 pub(crate) enum MacroKind {
     Unit,
     Scale,
+    Origin,
 }
 
-/// Replaces every `unit!` / `scale!` invocation in `items` (and in inline modules) with the structs it declares.
+/// Replaces every `unit!` / `scale!` / `origin!` invocation in `items` (and in inline modules) with the structs it declares.
 pub(crate) fn expand_marker_macros(items: &mut Vec<Item>) -> Result<()> {
     let mut expanded = Vec::with_capacity(items.len());
     for mut item in items.drain(..) {
         match &mut item {
             Item::Macro(item_macro) if item_macro.ident.is_none() => {
+                if let Some(MacroKind::Origin) = marker_macro(item_macro) {
+                    let origin: OriginDecl = syn::parse2(item_macro.mac.tokens.clone())
+                        .context("in an origin! declaration")?;
+                    expanded.push(Item::Struct(origin.to_struct()));
+                    continue;
+                }
                 if let Some(kind) = marker_macro(item_macro) {
                     let lines = parse_invocation(kind, item_macro.mac.tokens.clone())
                         .with_context(|| format!("in {kind:?} marker declarations"))?;
@@ -164,6 +174,7 @@ impl MarkerLine {
             MacroKind::Scale => {
                 syn::parse2::<ScaleLine>(def.clone())?;
             }
+            MacroKind::Origin => unreachable!("an origin! is one OriginDecl"),
         }
         Ok(MarkerLine {
             attrs,
@@ -184,10 +195,54 @@ impl MarkerLine {
         let kind = match kind {
             MacroKind::Unit => quote::quote!(unit),
             MacroKind::Scale => quote::quote!(scale),
+            MacroKind::Origin => unreachable!("an origin! is one OriginDecl"),
         };
         syn::parse_quote! {
             #(#attrs)*
             #[#attr(#kind, #def)]
+            #vis struct #ident;
+        }
+    }
+}
+
+/// `<attrs> <vis> struct <Name> { <keyed fields> }`: the body of an `origin!`, one zero-size origin marker.
+struct OriginDecl {
+    attrs: Vec<Attribute>,
+    vis: Visibility,
+    ident: Ident,
+    fields: TokenStream,
+}
+
+impl Parse for OriginDecl {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attrs = Attribute::parse_outer(input)?;
+        let vis = input.parse()?;
+        input.parse::<Token![struct]>()?;
+        let ident = input.parse()?;
+        let body;
+        syn::braced!(body in input);
+        let fields = body.parse()?;
+        Ok(OriginDecl {
+            attrs,
+            vis,
+            ident,
+            fields,
+        })
+    }
+}
+
+impl OriginDecl {
+    fn to_struct(&self) -> syn::ItemStruct {
+        let OriginDecl {
+            attrs,
+            vis,
+            ident,
+            fields,
+        } = self;
+        let attr = Ident::new(MARKER_ATTR, ident.span());
+        syn::parse_quote! {
+            #(#attrs)*
+            #[#attr(origin, #fields)]
             #vis struct #ident;
         }
     }
@@ -199,6 +254,10 @@ pub(crate) enum MarkerLineDef {
     Scale(ScaleLine),
     /// A hand-written `impl Unit` / `impl FixedScale` (the trait's name).
     Hand(String),
+    /// The keyed fields of an `origin!` (`unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2)` or
+    /// `above: Celsius, offset: ..`), as written: the model conversion reads them (INT-13).
+    #[allow(dead_code)] // read by the model conversion
+    Origin(TokenStream),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -213,7 +272,8 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "unit" => Ok(MarkerLineDef::Unit(input.parse()?)),
             "scale" => Ok(MarkerLineDef::Scale(input.parse()?)),
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
-            _ => Err(syn::Error::new(kind.span(), "unit, scale or hand")),
+            "origin" => Ok(MarkerLineDef::Origin(input.parse()?)),
+            _ => Err(syn::Error::new(kind.span(), "unit, scale, hand or origin")),
         }
     })?;
     Ok(Some(def))
@@ -357,6 +417,8 @@ pub(crate) fn marker_def(
                 magnitude: magnitude(&m).with_context(|| format!("scale marker {ident}"))?,
             })
         }
+        // TODO(INT-13): MarkerDef::Origin from the fields; until then an origin is a plain struct in the model
+        MarkerLineDef::Origin(_) => return Ok(None),
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
@@ -727,6 +789,37 @@ mod tests {
         let mut file = syn::parse_file(src).unwrap();
         expand_marker_macros(&mut file.items).unwrap();
         file.items
+    }
+
+    #[test]
+    fn origin_becomes_its_unit_struct() {
+        let items = expand(
+            r#"
+            crate::origin! {
+                /// Degrees Celsius.
+                pub struct Celsius { unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2) }
+            }
+            mod inner {
+                origin! { pub(crate) struct Lsm { above: Celsius, offset: Offset::int(25) } }
+            }
+            "#,
+        );
+        let Item::Struct(celsius) = &items[0] else {
+            panic!()
+        };
+        assert_eq!(celsius.ident, "Celsius");
+        assert!(matches!(celsius.fields, syn::Fields::Unit));
+        assert!(celsius.attrs.iter().any(|a| a.path().is_ident("doc")));
+        let Some(MarkerLineDef::Origin(fields)) = marker_line(&celsius.attrs).unwrap() else {
+            panic!()
+        };
+        assert!(fields.to_string().starts_with("unit : Kelvin"));
+        let Item::Mod(inner) = &items[1] else {
+            panic!()
+        };
+        assert!(
+            matches!(&inner.content.as_ref().unwrap().1[0], Item::Struct(s) if s.ident == "Lsm")
+        );
     }
 
     #[test]

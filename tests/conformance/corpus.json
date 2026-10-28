@@ -1163,6 +1163,72 @@
       "note": "a rest that is 1 (pow2 0, nothing else) isn't canonical, it is left out: Magnitude's validate refuses it"
     },
     {
+      "name": "stdlib.si.point.celsius",
+      "type": "point_celsius",
+      "value": {"coord": {"value": -1234}},
+      "bytes": "2efb",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Point<Celsius, Fixed<Kelvin, Centi, i16>>, -12.34 °C: its i16 alone, the origin is only in the type (STD-64)"
+    },
+    {
+      "name": "stdlib.si.point.bounded",
+      "type": "point_bounded",
+      "value": {"coord": {"value": -400}},
+      "bytes": "70fe",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a point at the lower bound of its Fixed, -40.0 °C in Range<-400, 1250> of Deci: an i16 (STD-64)"
+    },
+    {
+      "name": "stdlib.si.point.bounded.rejected",
+      "type": "point_bounded",
+      "value": null,
+      "bytes": "f204",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "126.6 °C is above Range<-400, 1250>: refused on decode, as for the Fixed alone (STD-64)"
+    },
+    {
+      "name": "stdlib.si.offset.zero",
+      "type": "offset",
+      "value": {"negative": false, "magnitude": null},
+      "bytes": "00",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "0: positive, no magnitude, 2 bits (STD-64)"
+    },
+    {
+      "name": "stdlib.si.offset.celsius",
+      "type": "offset",
+      "value": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}},
+      "bytes": "40fe80fe43048fb910020000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "273.15, where 0 °C lies above 0 K: 5463/20 = 3² · 607 · 2⁻¹ · 10⁻¹"
+    },
+    {
+      "name": "stdlib.si.offset.minus_forty",
+      "type": "offset",
+      "value": {"negative": true, "magnitude": {"pow10": 2, "rest": {"pow2": 4, "irrational": null, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}}},
+      "bytes": "c00280040000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "-40, a J1939 temperature's offset in °C: the sign bit, then 2² · 10"
+    },
+    {
+      "name": "stdlib.si.offset.fahrenheit",
+      "type": "offset",
+      "value": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": -4}, {"prime": 43, "exp": 2}, {"prime": 1069, "exp": 2}, null, null, null, null, null, null, null, null, null]}}},
+      "bytes": "40fe80fe43fc8b50028dd820020000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "45967/180, where 0 °F lies above 0 K: 459.67 °R of 5/9 K each, 43 · 1069 · 3⁻² · 2⁻¹ · 10⁻¹"
+    },
+    {
+      "name": "stdlib.si.offset.rejected",
+      "type": "offset",
+      "value": null,
+      "bytes": "80",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
+      "note": "a negative zero isn't canonical: Offset's validate refuses it"
+    },
+    {
       "name": "stdlib.si.si_expr.volt",
       "type": "si_expr",
       "value": {"Named": {"name": "Volt", "symbol": "V", "dim": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": "Coherent"}},

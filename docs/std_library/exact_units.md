@@ -142,6 +142,58 @@ trait Device {
 
 A `Series` of `Fixed` values has the same columns and bytes as a `Series` of the plain numbers.
 
+## In `ww`, Python and dynamic clients
+
+A client that only has a device's introspection data knows a `Fixed` for what it is: its unit, its scale, the number
+type it is stored in and its bounds. `ww introspect` (and `ww api tree` from source) shows what the numbers are in
+and the bounds after the type:
+
+```
+├─ 5 rw property timeout: Fixed<Second, Milli, u16, Unbounded> [ms]
+├─ 7 rw property window: Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]
+├─ 15 rw property uptime: Fixed<Second, Micro, u64, Unbounded> [µs]
+├─ 16 rw property buffer: Fixed<Byte, Kibi, u16, Unbounded> [KiB]
+```
+
+`ww observe`, `ww stream`, `ww tap` and `ww explain` print a value as the typed `Fixed` prints itself, exactly:
+`1730000000000000 µs` from a `u64`, never through a float, `4 KiB` for a binary scale, the scale's own symbol for a
+`scale!` of the API's crate. Values written as expressions (`ww explain 'uptime = q!(5 ms)'`, the dynamic client's
+`expr::parse_value`) take a quantity in `q!(..)` and convert it exactly into the stored scale and number type:
+`q!(5 ms)` into the `uptime` above stores 5000, `q!(0.1 ms)` 100, `q!(1 MiB)` into `buffer` 1024, `q!(8192 B)` 8.
+What doesn't fit is refused before anything is sent, with the type named:
+
+```
+1.5 ns can't be written into Fixed<Second, Micro, u64, Unbounded>: not a whole number of µs
+70 s can't be written into Fixed<Second, Milli, u16, Unbounded>: 70000 is out of range for u16
+6 s can't be written into Fixed<Second, Milli, u16, Range<1, 5000>>: 6000 is out of 1..=5000
+```
+
+A plain number is the stored number (`uptime = 5000` is 5000 µs), what a script wrote into the field when it was a
+plain `u64`, checked against the storage and the bounds the same way.
+[Indices and sequence numbers](indices.md) are shown with what they count, `#1000 (Sample)`,
+`#2 (Item, from 1)`, `seq 41 (Frame)`, and take their number, an `IndexFrom1` refusing 0.
+
+Python gets a `ww.Quantity`, as for a [`Quantity`](ww_si.md#in-ww-python-and-dynamic-clients), with the stored
+number and type:
+
+```python
+u = dev.uptime.read()        # 1730000000000000 µs
+u.value, u.prefix, u.storage # 1730000000000000, "Micro", "u64"
+u.symbol, u.unit, u.fixed    # "s", "Second", True
+u.to_si()                    # 1730000000.0
+dev.window.read().bounds     # (1, 5000)
+dev.uptime.write(dev.timeout.read())  # 5 ms, stored as 5000
+dev.uptime.write(5000)       # as stored: 5000 µs
+```
+
+A write takes a `ww.Quantity` of a unit of the same dimension, converted exactly, or the stored number; anything
+else is a `ValueError` with the same text as above.
+
+In Rust, `wire_weaver_client::quantity::fixed_of(&ty, &bundle)` reads the type as a `FixedType` (unit, scale as a
+`DynPrefix`, `Storage { base, bounds }`), `DynQuantity::from_value` reads a value of it, and `DynQuantity::to_value`
+writes into it exactly or returns the error above. `quantity::DynCount` does the same for indices and sequence
+numbers. The C consumer of the [conformance matrix](../serdes/conformance.md) reads a `Fixed` as its `T`.
+
 ## Units
 
 The unit markers are in `exact_units::units`, grouped by cargo features a firmware turns on as it needs them

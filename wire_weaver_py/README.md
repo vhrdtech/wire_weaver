@@ -76,6 +76,8 @@ dev = ww.connect(api=api)
 | `Range`, `RangeInclusive`       | `(start, end)` (`range` with step 1 accepted)                        |
 | `ww_si` quantity (`Volt`, ..)   | `ww.Quantity` (a `Quantity` of the same unit, an `int` or `float` in the unit itself accepted) |
 | `ww_si::AnyQuantity`            | `ww.Quantity` (any `Quantity`, its unit goes along)                  |
+| `exact_units::Fixed`            | `ww.Quantity` (a `Quantity` of the same dimension, converted exactly, or an `int` as stored) |
+| `Index`, `IndexFrom1`, `Seq`    | `dict` of their number (the `int` alone accepted, an `IndexFrom1` refuses 0) |
 
 A `ww.Quantity` (ww_si 0.2 and later) keeps what the device sent and knows its unit:
 
@@ -95,6 +97,21 @@ raises `ValueError`.
 An `AnyQuantity` (a value whose unit is only known at run time, STD-37) is a `ww.Quantity` too, the same as the typed
 quantity of its unit (`==` holds). A unit the device sent that `ww_si` doesn't have keeps its symbol, `dim` and
 scale, so `to_si()` works; writing takes any `ww.Quantity` whose unit has a dimension (not a marker known by name only).
+
+An `exact_units::Fixed` (CLT-54) is a `ww.Quantity` with its scale, storage and bounds fixed by the type, shown
+exactly (`1730000000000000 µs`, `4 KiB`, never through a float):
+
+```python
+u = dev.uptime.read()        # Fixed<Second, Micro, u64, Unbounded>
+u.value, u.prefix, u.storage, u.fixed   # 1730000000000000, "Micro", "u64", True
+u.to_si()                    # 1730000000.0
+dev.window.read().bounds     # (1, 5000) for Range<1, 5000>, else None
+dev.uptime.write(dev.timeout.read())    # 5 ms, stored as 5000
+dev.uptime.write(5000)       # a number is the stored one: 5000 µs
+```
+
+A write that isn't whole in the stored scale, overflows the storage or leaves the bounds is a `ValueError` naming the
+type (`5001 µs can't be written into Fixed<Second, Milli, u16, Range<1, 5000>>: not a whole number of ms`).
 
 ## Interactive console
 

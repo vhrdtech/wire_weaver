@@ -65,8 +65,8 @@ Not there yet:
   temperature in °C is a [`Point`](points.md) against `origins::Celsius`, and the runtime side follows with STD-74.
 - Levels (STD-67), kinds that share a dimension (STD-68) and sentinels (STD-66) append their own variants to
   `MarkerDef` when their markers exist.
-- `ww` and Python show a `Quantity` of any crate's unit (`1500 rpm`); a `Fixed` with its unit and scale follows with
-  CLT-54.
+- `ww` and Python show a `Quantity` of any crate's unit (`1500 rpm`), and a `Fixed` with its unit and scale
+  ([in clients](exact_units.md#in-ww-python-and-dynamic-clients)).
 
 ## The canonical unit
 

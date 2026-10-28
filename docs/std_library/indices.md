@@ -105,5 +105,6 @@ All three are `transparent`: their bytes are the number's, the table is only in 
 `stdlib.si.index.*`, `stdlib.si.index_from_1.*` and `stdlib.si.seq.*` in the [conformance corpus](../serdes/conformance.md).
 
 In the API model they are instances of `Index` and `IndexFrom1` with `[Of, T, B]` and of `Seq` with `[Of, T]`, so a
-client knows what a number counts; showing them as positions (`#3 (Sample)`, `seq 41`) and checking 0 and the bounds
-in dynamic clients is CLT-54.
+client knows what a number counts: `ww` and the dynamic client show them as `#3 (Sample)`, `#2 (Item, from 1)` and
+`seq 41 (Frame)`, and a number written into one is checked against its type, its bounds and an `IndexFrom1`'s 0 before
+it is sent ([in clients](exact_units.md#in-ww-python-and-dynamic-clients)).

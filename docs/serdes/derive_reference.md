@@ -657,6 +657,12 @@ In a `Series` an integer `W` is its numeric column (`series::Wired<W, T>`); a us
 way). Both keep `T` in a store and in cells, so a one-byte handle stays one byte per row: `T` implements
 `SeriesStore` (and `SeriesCells` for `series(cells)`), `T: Clone + PartialEq`, and `W` needs no `series` of its own.
 
+When the handles stand for only small `W` values, the impl says so with `const PLAIN_MAX_SIZE: Option<MaxSize>`
+(`None` by default: `W::MAX_SIZE`): the field's `MAX_SIZE` and its series bound (`Series::max_bytes`) are then sized
+by it, not by the largest `W`. `exact_units::Prefix` gives the 20 B of its largest computed scale instead of a full
+`Magnitude`'s 97 B. It is a promise the impl's tests check: a value past it doesn't fit a buffer sized by it
+(`Error::OutOfBounds`).
+
 `#[cfg_attr(pred, wire(W))]` works too (rustc leaves a field's `cfg_attr` to the derive), for crates with shrink_wrap
 optional; a compile error when `pred` is off while the type is serialized, so the bytes never depend on a cfg. Not
 yet: inside `Option`, arrays and lists, `fixed_layout` and `head_tail` (DER-21, a derive error says so).

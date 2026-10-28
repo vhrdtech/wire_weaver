@@ -16,6 +16,9 @@ pub const EXACT_SCALES: usize = 200;
 /// | `128..162` | `π · 2^e`, `e` in -32..=1: BAM (`2π/2^n`), π, 2π |
 pub const COMPUTED: usize = 162;
 
+/// The most bytes a [COMPUTED] scale's [Magnitude] takes on the wire.
+const COMPUTED_MAX_BYTES: usize = 20;
+
 const POW10_START: u8 = 0;
 const POW2_START: u8 = 36;
 const FULL_START: u8 = 97;
@@ -485,9 +488,9 @@ mod wire {
     use super::ExactScale;
     use crate::Magnitude;
     use core::mem::MaybeUninit;
-    use shrink_wrap::Error;
     use shrink_wrap::WireAs;
     use shrink_wrap::series::{SeriesCells, SeriesStore};
+    use shrink_wrap::{Error, MaxSize};
 
     /// `#[wire(Magnitude)]` on [Prefix](crate::Prefix)'s `Exact`: the full magnitude on the wire.
     impl WireAs<ExactScale> for Magnitude {
@@ -498,6 +501,11 @@ mod wire {
         fn into_plain(self) -> Result<ExactScale, Error> {
             ExactScale::of(&self).ok_or(Error::SubtypeOutOfRange)
         }
+
+        /// The largest computed scale, 1/(2^30 − 1) (checked by a test), not a full `Magnitude`'s 97 B: firmware
+        /// knows only the computed scales, and buffers and `Series::max_bytes` are sized by this. A scale interned on
+        /// `std` may write more and then fails to fit a buffer sized by it ([Error::OutOfBounds]).
+        const PLAIN_MAX_SIZE: Option<MaxSize> = Some(MaxSize::bytes(super::COMPUTED_MAX_BYTES));
     }
 
     /// A `Series` of prefixes keeps the handle's index.
@@ -597,6 +605,19 @@ mod tests {
         assert!(a.index() as usize >= COMPUTED);
         assert_eq!(ExactScale::of(&m), Some(a));
         assert_eq!(a.magnitude(), m);
+    }
+
+    #[cfg(feature = "shrink_wrap")]
+    #[test]
+    fn computed_scales_fit_their_bound() {
+        use shrink_wrap::SerializeShrinkWrap;
+        let largest = (0..COMPUTED as u8)
+            .map(|i| {
+                let m = ExactScale::computed(i).unwrap();
+                m.to_ww_bytes(&mut [0u8; 128]).unwrap().len()
+            })
+            .max();
+        assert_eq!(largest, Some(COMPUTED_MAX_BYTES));
     }
 
     #[test]

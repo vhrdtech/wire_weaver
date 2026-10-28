@@ -8,6 +8,7 @@
   - `From<Prefix> for i8` and `TryFrom<i8> for Prefix` are removed (no answer for a binary prefix): use `pow10() -> Option<i8>` (also `Some` for an `Exact` power of ten), the const `si_pow10()` (SI prefixes only, the fast path), `si_from_pow10(e)` (const, SI only) or `from_pow10(e)` (SI, else `Exact`), and `magnitude()` for the exact scale of any prefix.
   - New: `ExactScale` (a one-byte handle: 162 scales computed from the index on every build, no table in flash, up to 38 more interned on `std`; `ExactScale::of`, `magnitude`, `index`), `Prefix::from_magnitude` / `named_of` / `magnitude` / `is_named`, `Prefix::ALL` has the binary ones. `Display` writes `Ki` and an `Exact` scale as `·1/65535`; `scale_f64` / `scale_f32` are exact for every prefix.
   - A `Series` store and observe cells keep a `Prefix` as one byte (hand-written `SeriesStore` / `SeriesCells`; rows of one named prefix are written column-wise, as before).
+  - `Prefix::MAX_SIZE` is 22 B (was 1 B): an `Exact` is bounded by its largest computed scale, 20 B (`1/(2^30 − 1)`, through `WireAs::PLAIN_MAX_SIZE`), not a full `Magnitude`'s 97 B. A buffer or `Series::max_bytes` sized by it grows: `Series::<ww_si::Volt>::max_bytes(100)` is 4218 B (was 1946 B). The bytes of a named prefix don't change. A scale interned on `std` that writes more than 20 B doesn't fit a buffer sized by it (`OutOfBounds`).
 
 ### 🚀 Features
 

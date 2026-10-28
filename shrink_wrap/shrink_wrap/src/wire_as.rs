@@ -10,8 +10,10 @@
 //! A user type can be the wire type too (DER-23): `#[wire(Magnitude)] scale: ExactScale` keeps a one-byte handle in
 //! Rust and writes the full value it stands for. Such a `W` implements [WireAs] for the field's type; in a
 //! [Series](crate::series::Series) the field is an opaque run of `W`'s bytes ([WiredOpaque](crate::series::WiredOpaque)).
+//! When the plain values reach only part of `W` (a handle of known scales, each a small `Magnitude`), the impl says so
+//! with [WireAs::PLAIN_MAX_SIZE], and buffers and series bounds are sized by that instead of `W::MAX_SIZE`.
 
-use crate::{Error, Nibble, UNib32, UVlq32, UVlq64};
+use crate::{ElementSize, Error, MaxSize, Nibble, SerializeShrinkWrap, UNib32, UVlq32, UVlq64};
 
 /// A wire type that a plain Rust value `T` is written as, with `#[wire(Self)]` on a field of type `T` (DER-19).
 pub trait WireAs<T>: Sized {
@@ -20,6 +22,30 @@ pub trait WireAs<T>: Sized {
 
     /// The plain value of what was read, [Error::SubtypeOutOfRange] when it doesn't fit in `T`.
     fn into_plain(self) -> Result<T, Error>;
+
+    /// The most `from_plain` of any `T` writes, when it is less than `Self::MAX_SIZE` (as `Self` alone, without the
+    /// size slot of an `Unsized` field); `None`: `Self::MAX_SIZE`. A promise checked by the impl's own tests: a value
+    /// past it fails to write into a buffer sized by it ([Error::OutOfBounds]).
+    const PLAIN_MAX_SIZE: Option<MaxSize> = None;
+}
+
+/// `MAX_SIZE` of a `#[wire(W)]` field of type `T` (the `MAX_SIZE` of `W` alone, see [MaxSize::of_write] for the field):
+/// [WireAs::PLAIN_MAX_SIZE] when the impl gives one, else `W::MAX_SIZE`.
+pub const fn plain_max_size<W: SerializeShrinkWrap + WireAs<T>, T>() -> Option<MaxSize> {
+    match W::PLAIN_MAX_SIZE {
+        Some(size) => Some(size),
+        None => W::MAX_SIZE,
+    }
+}
+
+/// [plain_max_size] written as a field with [BufWriter::write](crate::BufWriter::write): an `Unsized` `W` gets its
+/// size slot.
+pub const fn plain_write_max_size<W: SerializeShrinkWrap + WireAs<T>, T>() -> Option<MaxSize> {
+    if matches!(W::ELEMENT_SIZE, ElementSize::Unsized) {
+        MaxSize::unsized_value(plain_max_size::<W, T>())
+    } else {
+        plain_max_size::<W, T>()
+    }
 }
 
 /// A plain unsigned integer that unsigned wire types take (`u8`..`u128`, `usize`), through `u64`.

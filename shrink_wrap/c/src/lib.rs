@@ -9,6 +9,7 @@ use core::ffi::{c_char, c_uint};
 use core::marker::PhantomData;
 
 pub mod model;
+pub mod requantize;
 
 /// `sw_reader`
 #[repr(C)]

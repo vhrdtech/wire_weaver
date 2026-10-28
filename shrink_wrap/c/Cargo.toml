@@ -9,6 +9,7 @@ repository.workspace = true
 description = "Builds the shrink_wrap C99 runtime and checks it against the Rust crate (SW-43)."
 
 [dependencies]
+exact_units.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 
 [build-dependencies]

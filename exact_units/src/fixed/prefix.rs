@@ -5,13 +5,13 @@
 //!
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs, like the unit markers.
 
-use crate::{ExactScale, Prefix};
+use crate::{Magnitude, Prefix};
 
 /// A scale fixed at compile time, the `P` of [Fixed](crate::Fixed): a zero-size marker, never sent. A prefix
 /// ([Micro], [Kibi]) or a factor without a name ([Pow10], [Rational]). The markers of this crate are in this module.
 pub trait FixedScale: Copy + Default + 'static {
     /// `10⁻⁶` for [Micro], `2¹⁰` for [Kibi], `1/65535` for `Rational<1, 65535>`.
-    const SCALE: ExactScale;
+    const SCALE: Magnitude;
     /// As written before a unit's symbol: `µ`, `Ki`; empty for [One] and for a scale that isn't a prefix.
     const SYMBOL: &'static str;
     /// The marker's name: `"Micro"`, `"Pow10"`.
@@ -38,19 +38,19 @@ pub trait SubSecond: DecimalPrefix {
 pub struct Pow10<const E: i8>;
 
 /// `NUM / DEN`, an exact scale that isn't a power of ten: a 16-bit duty where 65535 is 100 % is
-/// `Fixed<Ratio, Rational<1, 65535>, u16>` ([Duty16](crate::Duty16)). Not reduced in the type, the [ExactScale] is.
+/// `Fixed<Ratio, Rational<1, 65535>, u16>` ([Duty16](crate::Duty16)). Not reduced in the type, the [Magnitude] is.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Rational<const NUM: u32, const DEN: u32>;
+pub struct Rational<const NUM: u64, const DEN: u64>;
 
 impl<const E: i8> FixedScale for Pow10<E> {
-    const SCALE: ExactScale = ExactScale::pow10(E);
+    const SCALE: Magnitude = Magnitude::pow10(E);
     const SYMBOL: &'static str = "";
     const NAME: &'static str = "Pow10";
     const RUNTIME: Option<Prefix> = None;
 }
 
-impl<const NUM: u32, const DEN: u32> FixedScale for Rational<NUM, DEN> {
-    const SCALE: ExactScale = ExactScale::rational(NUM, DEN);
+impl<const NUM: u64, const DEN: u64> FixedScale for Rational<NUM, DEN> {
+    const SCALE: Magnitude = Magnitude::ratio(NUM, DEN);
     const SYMBOL: &'static str = "";
     const NAME: &'static str = "Rational";
     const RUNTIME: Option<Prefix> = None;
@@ -176,7 +176,7 @@ macro_rules! decimal {
     ($($ty:ident $prefix:ident $symbol:literal $e:literal;)*) => {
         $(
             impl FixedScale for $ty {
-                const SCALE: ExactScale = ExactScale::pow10($e);
+                const SCALE: Magnitude = Magnitude::pow10($e);
                 const SYMBOL: &'static str = $symbol;
                 const NAME: &'static str = stringify!($ty);
                 const RUNTIME: Option<Prefix> = Some(Prefix::$prefix);
@@ -192,7 +192,7 @@ macro_rules! binary {
     ($($ty:ident $symbol:literal $e:literal;)*) => {
         $(
             impl FixedScale for $ty {
-                const SCALE: ExactScale = ExactScale::pow2($e);
+                const SCALE: Magnitude = Magnitude::pow2($e);
                 const SYMBOL: &'static str = $symbol;
                 const NAME: &'static str = stringify!($ty);
                 const RUNTIME: Option<Prefix> = None;

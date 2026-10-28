@@ -2,7 +2,7 @@
 
 use crate::tree::write_unit;
 use crate::unit::{Unit, UnitExpr};
-use crate::{ExactScale, Prefix};
+use crate::{Magnitude, Prefix};
 use core::cmp::Ordering;
 use core::fmt;
 use core::hash::{Hash, Hasher};
@@ -186,7 +186,7 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
     /// The value `x · scale` (in the unit `U` itself) in this prefix and storage, if it is exact (as [to](Self::to))
     /// and within `B`: how a number with a run-time scale becomes a `Fixed`, `Repr::Int(3)` with `Pow10(-3)` is
     /// 3000 of `Micro`.
-    pub fn from_scaled(x: Repr, scale: ExactScale) -> Option<Self> {
+    pub fn from_scaled(x: Repr, scale: Magnitude) -> Option<Self> {
         Self::try_new(rescale(x, scale.div(P::SCALE))?).ok()
     }
 
@@ -388,7 +388,7 @@ mod arith {
 
 /// `x · scale` in `T`: exact for an integer `T` (`None` when not whole, out of range or with a power of π), scaled for
 /// a float.
-fn rescale<T: Storage>(x: Repr, scale: ExactScale) -> Option<T> {
+fn rescale<T: Storage>(x: Repr, scale: Magnitude) -> Option<T> {
     match x {
         Repr::Int(x) if !T::IS_FLOAT => T::from_int(scale.apply_int(x)?),
         Repr::Int(x) => T::from_float(scale.apply_f64(x as f64)),
@@ -420,7 +420,7 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> fmt::Display for Fixed<U,
 /// An integer at a power of ten below the unit, exactly: 1500 at 10⁻⁶ is `0.0015`.
 fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if !(-38..0).contains(&e) {
-        return write!(f, "{}", ExactScale::pow10(e).apply_f64(x as f64));
+        return write!(f, "{}", Magnitude::pow10(e).apply_f64(x as f64));
     }
     let digits = e.unsigned_abs() as u32;
     let p = 10u128.pow(digits);
@@ -700,11 +700,11 @@ mod tests {
         assert_eq!(t.to::<Milli, u32>(), None);
         assert_eq!(Fixed::<Second, Pow10<-3>, u8>::new(7).to_string(), "7 ms");
         assert_eq!(
-            Fixed::<Second, Pow10<-4>, u32>::from_scaled(Repr::Int(300), ExactScale::pow10(-6)),
+            Fixed::<Second, Pow10<-4>, u32>::from_scaled(Repr::Int(300), Magnitude::pow10(-6)),
             Some(Fixed::new(3))
         );
         assert_eq!(
-            Fixed::<Second, Pow10<-4>, u32>::from_scaled(Repr::Int(301), ExactScale::pow10(-6)),
+            Fixed::<Second, Pow10<-4>, u32>::from_scaled(Repr::Int(301), Magnitude::pow10(-6)),
             None
         );
         // a 16-bit duty

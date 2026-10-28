@@ -42,6 +42,8 @@ pub mod signature;
 #[cfg(feature = "std")]
 pub mod snapshot;
 #[cfg(feature = "std")]
+pub mod units;
+#[cfg(feature = "std")]
 mod value;
 #[cfg(feature = "std")]
 pub use value::{DEFAULT_MAX_VALUES, MAX_DECODE_DEPTH};

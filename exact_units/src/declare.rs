@@ -33,6 +33,9 @@
 ///   `pow2 e`, `pi e` in that order, see [Magnitude::new](crate::Magnitude::new)), so every reader computes the same
 ///   value; or `Affine { factor: 1.0, offset: 273.15 }` for a unit with an offset (moves to origins, STD-64). A float
 ///   factor isn't a unit's scale: an exact one is a `Magnitude`, and a factor known only at run time is a value.
+/// - After the scale, `conventional("NIST SP 811", 2008)` marks a unit fixed by a physical property (mercury at
+///   32 °F, a calorie at 15 °C): its scale is the value that source prints, not a definition
+///   ([Provenance::Conventional](crate::Provenance::Conventional)). Without it the scale is the unit's definition.
 ///
 /// Literal values only: the walker reads them from source, it doesn't evaluate constants.
 #[macro_export]
@@ -42,13 +45,14 @@ macro_rules! unit {
         @table $(#[$all_attr:meta])* $all_vis:vis static $all:ident;
         $(
             $(#[$($attr:tt)*])*
-            $vis:vis struct $name:ident = $symbol:literal, $dim:tt $(, $kind:ident $args:tt)?;
+            $vis:vis struct $name:ident = $symbol:literal, $dim:tt
+                $(, $kind:ident $args:tt $(, conventional($source:literal, $year:literal))?)?;
         )*
     ) => {
         $crate::unit! {
             $(
                 $(#[$($attr)*])*
-                $vis struct $name = $symbol, $dim $(, $kind $args)?;
+                $vis struct $name = $symbol, $dim $(, $kind $args $(, conventional($source, $year))?)?;
             )*
         }
 
@@ -64,7 +68,8 @@ macro_rules! unit {
     (
         $(
             $(#[$($attr:tt)*])*
-            $vis:vis struct $name:ident = $symbol:literal, $dim:tt $(, $kind:ident $args:tt)?;
+            $vis:vis struct $name:ident = $symbol:literal, $dim:tt
+                $(, $kind:ident $args:tt $(, conventional($source:literal, $year:literal))?)?;
         )*
     ) => {
         $(
@@ -81,6 +86,7 @@ macro_rules! unit {
                         symbol: $symbol,
                         dim: Self::DIM,
                         scale: $crate::__unit_scale!($($kind $args)?),
+                        provenance: $crate::__unit_provenance!($($($source $year)?)?),
                     };
                 }
             }
@@ -185,6 +191,21 @@ macro_rules! __unit_scale {
     };
     (Exact ($($m:tt)*)) => {
         $crate::Scale::Exact($crate::__magnitude!($($m)*))
+    };
+}
+
+/// The provenance of a [unit!] line: `conventional("<source>", <year>)` after the scale, else defined.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __unit_provenance {
+    () => {
+        $crate::Provenance::Defined
+    };
+    ($source:literal $year:literal) => {
+        $crate::Provenance::Conventional {
+            source: $source,
+            year: $year,
+        }
     };
 }
 

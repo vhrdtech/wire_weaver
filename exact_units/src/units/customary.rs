@@ -742,13 +742,13 @@ crate::unit! {
     ///
     /// - NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid's density; conventional ones per ISO 80000
     /// - NIST SP 811: B.8 row of this unit
-    pub struct InchOfMercury32f = "inHg (32 °F)", [s -2, m -1, kg 1], Exact(169319 / 1, pow10 -2, pow2 1);
+    pub struct InchOfMercury32f = "inHg (32 °F)", [s -2, m -1, kg 1], Exact(169319 / 1, pow10 -2, pow2 1), conventional("NIST SP 811", 2008);
 
     /// Inch of mercury (60 °F): measured: mercury density at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid's density; conventional ones per ISO 80000
     /// - NIST SP 811: B.8 row of this unit
-    pub struct InchOfMercury60f = "inHg (60 °F)", [s -2, m -1, kg 1], Exact(67537 / 1, pow10 -1, pow2 -1);
+    pub struct InchOfMercury60f = "inHg (60 °F)", [s -2, m -1, kg 1], Exact(67537 / 1, pow10 -1, pow2 -1), conventional("NIST SP 811", 2008);
 
     /// Inch of water (conventional): 1 in · 1000 kg/m³ · g_n.
     ///
@@ -772,19 +772,19 @@ crate::unit! {
     ///
     /// - NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid's density; conventional ones per ISO 80000
     /// - NIST SP 811: B.8 row of this unit
-    pub struct InchOfWater39f = "inH2O (39.2 °F)", [s -2, m -1, kg 1], Exact(124541 / 1, pow10 -3, pow2 1);
+    pub struct InchOfWater39f = "inH2O (39.2 °F)", [s -2, m -1, kg 1], Exact(124541 / 1, pow10 -3, pow2 1), conventional("NIST SP 811", 2008);
 
     /// Inch of water (60 °F): measured: water density at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid's density; conventional ones per ISO 80000
     /// - NIST SP 811: B.8 row of this unit
-    pub struct InchOfWater60f = "inH2O (60 °F)", [s -2, m -1, kg 1], Exact(6221 / 1, pow10 -2, pow2 2);
+    pub struct InchOfWater60f = "inH2O (60 °F)", [s -2, m -1, kg 1], Exact(6221 / 1, pow10 -2, pow2 2), conventional("NIST SP 811", 2008);
 
     /// Foot of water (39.2 °F): measured: water density at 39.2 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 footnote 12: manometer units from g_n and the liquid's density; conventional ones per ISO 80000
     /// - NIST SP 811: B.8 row of this unit
-    pub struct FootOfWater39f = "ftH2O (39.2 °F)", [s -2, m -1, kg 1], Exact(149449 / 1, pow10 -2, pow2 1);
+    pub struct FootOfWater39f = "ftH2O (39.2 °F)", [s -2, m -1, kg 1], Exact(149449 / 1, pow10 -2, pow2 1), conventional("NIST SP 811", 2008);
 
     /// Atmosphere (standard): 101 325 Pa.
     ///
@@ -823,22 +823,22 @@ crate::unit! {
     /// British thermal unit (mean): measured. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct BtuMean = "Btu_mean", [s -2, m 2, kg 1], Exact(105587 / 1, pow10 -2);
+    pub struct BtuMean = "Btu_mean", [s -2, m 2, kg 1], Exact(105587 / 1, pow10 -2), conventional("NIST SP 811", 2008);
 
     /// British thermal unit (39 °F): measured: water at 39 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct Btu39f = "Btu_39", [s -2, m 2, kg 1], Exact(105967 / 1, pow10 -2);
+    pub struct Btu39f = "Btu_39", [s -2, m 2, kg 1], Exact(105967 / 1, pow10 -2), conventional("NIST SP 811", 2008);
 
     /// British thermal unit (59 °F): measured: water at 59 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct Btu59f = "Btu_59", [s -2, m 2, kg 1], Exact(2637 / 1, pow10 -1, pow2 2);
+    pub struct Btu59f = "Btu_59", [s -2, m 2, kg 1], Exact(2637 / 1, pow10 -1, pow2 2), conventional("NIST SP 811", 2008);
 
     /// British thermal unit (60 °F): measured: water at 60 °F. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct Btu60f = "Btu_60", [s -2, m 2, kg 1], Exact(26367 / 1, pow10 -2, pow2 2);
+    pub struct Btu60f = "Btu_60", [s -2, m 2, kg 1], Exact(26367 / 1, pow10 -2, pow2 2), conventional("NIST SP 811", 2008);
 
     /// Calorie (International Table): 4.1868 J.
     ///
@@ -855,17 +855,17 @@ crate::unit! {
     /// Calorie (mean): measured. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct CalorieMean = "cal_mean", [s -2, m 2, kg 1], Exact(209501 / 1, pow10 -5, pow2 1);
+    pub struct CalorieMean = "cal_mean", [s -2, m 2, kg 1], Exact(209501 / 1, pow10 -5, pow2 1), conventional("NIST SP 811", 2008);
 
     /// Calorie (15 °C): measured: water at 15 °C. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct Calorie15c = "cal_15", [s -2, m 2, kg 1], Exact(20929 / 1, pow10 -4, pow2 1);
+    pub struct Calorie15c = "cal_15", [s -2, m 2, kg 1], Exact(20929 / 1, pow10 -4, pow2 1), conventional("NIST SP 811", 2008);
 
     /// Calorie (20 °C): measured: water at 20 °C. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct Calorie20c = "cal_20", [s -2, m 2, kg 1], Exact(41819 / 1, pow10 -4);
+    pub struct Calorie20c = "cal_20", [s -2, m 2, kg 1], Exact(41819 / 1, pow10 -4), conventional("NIST SP 811", 2008);
 
     /// Kilocalorie (International Table): 1000 cal_IT.
     ///
@@ -937,12 +937,12 @@ crate::unit! {
     /// Horsepower (boiler): evaporation rate of water; no exact definition fits SP 811's value. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct HorsepowerBoiler = "hp (boiler)", [s -3, m 2, kg 1], Exact(19619 / 1, pow2 -1);
+    pub struct HorsepowerBoiler = "hp (boiler)", [s -3, m 2, kg 1], Exact(19619 / 1, pow2 -1), conventional("NIST SP 811", 2008);
 
     /// Horsepower (water): measured. Measured, not defined: the value NIST SP 811 B.8 prints.
     ///
     /// - NIST SP 811: B.8 row of this unit
-    pub struct HorsepowerWater = "hp (water)", [s -3, m 2, kg 1], Exact(746043 / 1, pow10 -3);
+    pub struct HorsepowerWater = "hp (water)", [s -3, m 2, kg 1], Exact(746043 / 1, pow10 -3), conventional("NIST SP 811", 2008);
 
     /// Btu_IT per hour: Btu_IT/h.
     ///

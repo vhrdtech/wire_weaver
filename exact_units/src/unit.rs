@@ -695,6 +695,22 @@ impl Scale {
     }
 }
 
+/// Where a named unit's scale comes from.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum Provenance {
+    /// The scale is the unit's definition: exact by law or by the SI (a foot is 0.3048 m).
+    Defined,
+    /// The unit is fixed by a physical property (mercury at 32 °F, a calorie at 15 °C): its scale is the value a
+    /// source prints, exact in this crate but only by convention, and a newer measurement may differ.
+    Conventional {
+        /// The document the value is from: `"NIST SP 811"`.
+        source: &'static str,
+        /// Its edition.
+        year: u16,
+    },
+}
+
 /// A unit as a tree: named units, and products and quotients of them (`Per<Torque, AngularVelocity>` is
 /// `Div(Torque, AngularVelocity)`). Every [Unit] has one in [Unit::EXPR]; [units::by_name](crate::units::by_name)
 /// finds the named ones of this crate.
@@ -709,6 +725,8 @@ pub enum UnitExpr {
         symbol: &'static str,
         dim: Dim<'static>,
         scale: Scale,
+        /// Whether the scale is the unit's definition or a measured value written down by convention.
+        provenance: Provenance,
     },
     Mul(&'static UnitExpr, &'static UnitExpr),
     Div(&'static UnitExpr, &'static UnitExpr),

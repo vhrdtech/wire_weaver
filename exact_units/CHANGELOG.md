@@ -1,10 +1,19 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+* `UnitExpr::Named` has a `provenance: Provenance` field (STD-72): a `UnitExpr::Named { .. }` written by hand adds
+  `provenance: Provenance::Defined`; a pattern without `..` adds `..`.
+
 ### 🚀 Features
 
 * Feature `serde` (INT-13): `DimOwned`, `CountedOwned` and `Magnitude` are `serde::Serialize` / `Deserialize`, for API snapshots in RON (`ww_self::UnitDef`). A `Magnitude` is written as its parts, exponents doubled (`(pow10: -6)`, `(pow10: 0, pi: 2, primes: [(3, -2)])`), and read back through `Magnitude::from_parts_x2`, so a file can't hold a non-canonical one.
 * `Offset::checked_add`, `None` where `add` panics (offsets read from an API model); `Offset` is `serde::Serialize` / `Deserialize` with feature `serde` (a negative zero is refused).
 * `Magnitude::from_parts_x2(pow10_x2, pow2_x2, Irrational, primes)`: the magnitude of the parts `pow10_pow2_x2`, `irrational_x2` and `primes` give, an error (new `MagnitudeError::NotPrime`) for a number that isn't a prime other than 2 and 5.
+* `Provenance` (STD-72): whether a named unit's scale is its definition (`Defined`) or a measured value a source
+  prints (`Conventional { source, year }`). `unit!` takes `conventional("NIST SP 811", 2008)` after the scale; the
+  14 measured customary units (inHg and inH2O at a temperature, Btu and calorie at a temperature or mean, boiler and
+  water horsepower) carry it.
 * `units` imperial, US customary and other units outside the SI (STD-72, feature `customary`, part of
   `quantities`): 166 markers, each the exact rational of SI its legal definition gives (1959 yard and pound, NIST SP
   811 and Handbook 44, UK Weights and Measures Act 1985, g_n), the source cited in its docs; `units::CUSTOMARY` lists
@@ -16,7 +25,7 @@
   `Kip`, `Psi`, `FootPoundForce`.
 * `Fixed::convert::<U2, P2, T2>()` (STD-72): the same value in another unit of the same dimension, exactly or `None`
   (`lbf·s` to `pN·s`, `in` to `mm`), never reinterpreted; the factor `U · P / (U2 · P2)` worked out at compile time
-  like `Fixed::to`. Units of different dimensions, with an offset or with a `Scale::Factor` don't compile.
+  like `Fixed::to`. Units of different dimensions or with an offset don't compile.
   `UnitExpr::magnitude()`, `Scale::magnitude()` and `tree::magnitude()`: the exact factor to SI of a unit (tree),
   `None` with a `Factor` or `Affine` scale.
 * `unit!` and `scale!` (INT-13): unit and scale markers declared as data, one line each (`pub struct Rpm = "rpm",

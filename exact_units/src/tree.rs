@@ -70,6 +70,7 @@ impl<'a, E> Node<'a, E> {
                 symbol,
                 dim,
                 scale,
+                ..
             } => Node::Named {
                 name,
                 symbol,
@@ -131,6 +132,7 @@ impl Tree<'static> for &UnitExpr {
                 symbol,
                 dim,
                 scale,
+                ..
             } => Node::Named {
                 name,
                 symbol,

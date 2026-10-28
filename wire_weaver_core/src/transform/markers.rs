@@ -780,6 +780,8 @@ pub(crate) struct UnitLine {
     pub(crate) symbol: String,
     pub(crate) dim: DimLine,
     pub(crate) scale: UnitScaleLine,
+    /// `conventional("<source>", <year>)` after the scale: a value a source prints, not a definition.
+    pub(crate) provenance: Option<(String, u16)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -902,10 +904,32 @@ impl Parse for UnitLine {
                 }
             }
         };
+        let mut provenance = None;
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            let kind: Ident = input.parse()?;
+            if kind != "conventional" {
+                return Err(syn::Error::new(
+                    kind.span(),
+                    "after the scale only `conventional(\"<source>\", <year>)`",
+                ));
+            }
+            let content;
+            syn::parenthesized!(content in input);
+            let source = content.parse::<LitStr>()?.value();
+            content.parse::<Token![,]>()?;
+            let year = content.parse::<syn::LitInt>()?.base10_parse()?;
+            provenance = Some((source, year));
+        }
         if !input.is_empty() {
             return Err(input.error("unexpected tokens after the scale"));
         }
-        Ok(UnitLine { symbol, dim, scale })
+        Ok(UnitLine {
+            symbol,
+            dim,
+            scale,
+            provenance,
+        })
     }
 }
 
@@ -1048,12 +1072,13 @@ mod tests {
     #[test]
     fn exact_units_definitions_match_the_compiled_consts() {
         let mut markers = exact_units_markers();
-        for expr in exact_units::units::ALL {
+        for expr in exact_units::units::ALL.iter().chain(exact_units::units::CUSTOMARY) {
             let UnitExpr::Named {
                 name,
                 symbol,
                 dim,
                 scale,
+                ..
             } = expr
             else {
                 panic!("units::ALL holds named units")
@@ -1261,10 +1286,11 @@ mod tests {
                 #[cfg(feature = "x")]
                 pub struct Bucket = "bucket", counted;
                 pub struct DegC = "°C", [k 1], Affine { factor: 1.0, offset: 273.15 };
+                pub struct InHg = "inHg", [kg 1, m -1, s -2], Exact(338638 / 100), conventional("NIST SP 811", 2008);
             }
             "#,
         );
-        assert_eq!(items.len(), 3);
+        assert_eq!(items.len(), 4);
         let Item::Struct(rpm) = &items[0] else {
             panic!()
         };
@@ -1285,6 +1311,7 @@ mod tests {
                     pow2: 0,
                     pi: 1
                 }),
+                provenance: None,
             }
         );
         let Item::Struct(bucket) = &items[1] else {
@@ -1308,6 +1335,14 @@ mod tests {
                 offset: 273.15
             }
         );
+        assert_eq!(line.provenance, None);
+        let Item::Struct(in_hg) = &items[3] else {
+            panic!()
+        };
+        let Some(MarkerLineDef::Unit(line)) = marker_line(&in_hg.attrs).unwrap() else {
+            panic!()
+        };
+        assert_eq!(line.provenance, Some(("NIST SP 811".into(), 2008)));
     }
 
     #[test]

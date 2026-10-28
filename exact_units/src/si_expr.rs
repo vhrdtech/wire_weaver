@@ -56,6 +56,7 @@ impl SIExpr<'static> {
                 symbol,
                 dim,
                 scale,
+                ..
             } => SIExpr::Named {
                 name,
                 symbol,
@@ -178,6 +179,7 @@ mod owned {
                     symbol,
                     dim,
                     scale,
+                    ..
                 } => SIExprOwned::Named {
                     name: name.to_string(),
                     symbol: symbol.to_string(),

@@ -1091,6 +1091,14 @@
       "note": "0 ms is below Range<1, 5000>: refused on decode (STD-55)"
     },
     {
+      "name": "stdlib.si.fixed.customary",
+      "type": "fixed_customary",
+      "value": {"value": -2000},
+      "bytes": "30f8ffff",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Fixed<Times<PoundForce, Second>, Milli, i32> of -2 lbf·s: its i32 on the wire, the unit only in the type (STD-72)"
+    },
+    {
       "name": "stdlib.si.magnitude.one",
       "type": "magnitude",
       "value": {"pow10": 0, "rest": null},
@@ -1236,6 +1244,14 @@
       "bytes": "00566f6c7456d21f00000000000114",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a named unit: variant nibble 0, name, symbol, Dim and Scale (STD-37, Dim v2 STD-60)"
+    },
+    {
+      "name": "stdlib.si.si_expr.pound_force",
+      "type": "si_expr",
+      "value": {"Named": {"name": "PoundForce", "symbol": "lbf", "dim": {"s": -2, "m": 1, "kg": 1, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": {"Exact": {"pow10": -24, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 7, "exp": 4}, {"prime": 11, "exp": 2}, {"prime": 97, "exp": 2}, {"prime": 6073, "exp": 2}, {"prime": 28019, "exp": 2}, null, null, null, null, null, null, null]}}}}},
+      "bytes": "00506f756e64466f7263656c6266e1100000000030e880fe47048b100289c10289feb1028bede6020005a329",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "an imperial unit as a client learns it: lb · g_n = 4.4482216152605 N, an exact Magnitude scale (STD-72)"
     },
     {
       "name": "stdlib.si.si_expr.sqrt",

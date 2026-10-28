@@ -1,7 +1,7 @@
 //! The markers of [customary](super::super) are the catalogue: one per unit, with its symbol, dimension and exact
 //! magnitude, and none named by an ambiguous word.
 
-use super::{AMBIGUOUS, Dim as CatDim, Exact, Mag, ORIGINS, UNITS, Unit as CatUnit};
+use super::{AMBIGUOUS, Dim as CatDim, Exact, Mag, ORIGINS, Src, UNITS, Unit as CatUnit};
 use crate::origins::{Fahrenheit, Rankine};
 use crate::prefix::Milli;
 use crate::units::{self, CUSTOMARY, Degree, Kelvin, Radian, Turn};
@@ -158,5 +158,105 @@ fn no_marker_is_named_by_an_ambiguous_word() {
         "Mile",
     ] {
         assert!(!names.contains(bare), "{bare}");
+    }
+}
+
+/// The marker a catalogue row is, in the words of the docs page.
+fn marker_of(id: &str) -> String {
+    match id {
+        "milliradian" => "Fixed<Radian, Milli, _>".into(),
+        "degree_fahrenheit" => "origins::Fahrenheit".into(),
+        "degree_rankine" => "origins::Rankine".into(),
+        _ => camel(id),
+    }
+}
+
+/// The tables of `docs/std_library/customary.md` made from the catalogue, by the name of their block.
+fn docs_blocks() -> Vec<(&'static str, String)> {
+    use std::fmt::Write as _;
+    let mut ambiguous = String::from("| Name | Symbols | Markers | Why |\n|---|---|---|---|\n");
+    for a in AMBIGUOUS {
+        let code = |s: &[String]| {
+            s.iter()
+                .map(|s| format!("`{s}`"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let symbols: Vec<String> = a.symbols.iter().map(|s| s.to_string()).collect();
+        let members: Vec<String> = a.members.iter().map(|m| marker_of(m)).collect();
+        writeln!(
+            ambiguous,
+            "| {} | {} | {} | {} |",
+            a.bare,
+            code(&symbols),
+            code(&members),
+            a.note
+        )
+        .unwrap();
+    }
+    let mut conventional = String::from("| Marker | Symbol | Value in SI |\n|---|---|---|\n");
+    for e in CUSTOMARY {
+        if let UnitExpr::Named {
+            name,
+            symbol,
+            provenance: Provenance::Conventional { source, year },
+            ..
+        } = e
+        {
+            let u = UNITS.iter().find(|u| camel(u.id) == *name).unwrap();
+            let p = u.sp811.unwrap();
+            writeln!(
+                conventional,
+                "| `{name}` | {symbol} | {} E{:+03} ({source}, {year}) |",
+                p.mantissa, p.exp10
+            )
+            .unwrap();
+        }
+    }
+    let mut unsourced =
+        String::from("| Marker | Definition | Why no primary source |\n|---|---|---|\n");
+    for u in UNITS.iter().filter(|u| u.unsourced()) {
+        let why = u.sources.iter().find(|c| c.0 == Src::Unsourced).unwrap().1;
+        writeln!(unsourced, "| `{}` | {} | {why} |", marker_of(u.id), u.def).unwrap();
+    }
+    let mut sources = String::new();
+    for s in Src::CITED {
+        writeln!(sources, "- [{}]({})", s.title(), s.url()).unwrap();
+    }
+    vec![
+        ("ambiguous", ambiguous),
+        ("conventional", conventional),
+        ("unsourced", unsourced),
+        ("sources", sources),
+    ]
+}
+
+/// The docs page's tables are the catalogue's: `CUSTOMARY_DOCS=update` (`just customary-docs`) writes them.
+#[test]
+fn docs_page_tables() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/std_library/customary.md");
+    let page = std::fs::read_to_string(&path).unwrap();
+    let mut out = page.clone();
+    for (name, table) in docs_blocks() {
+        let start = format!("<!-- generated: {name} -->\n");
+        let end = format!("<!-- end: {name} -->");
+        let a = out
+            .find(&start)
+            .unwrap_or_else(|| panic!("no {start:?} in the page"))
+            + start.len();
+        let b = a + out[a..]
+            .find(&end)
+            .unwrap_or_else(|| panic!("no {end:?} in the page"));
+        out.replace_range(a..b, &format!("\n{table}\n"));
+    }
+    if std::env::var("CUSTOMARY_DOCS").as_deref() == Ok("update") {
+        std::fs::write(&path, out).unwrap();
+    } else {
+        assert!(
+            out == page,
+            "{} is stale: run `just customary-docs`",
+            path.display()
+        );
     }
 }

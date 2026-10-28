@@ -25,6 +25,19 @@ pub enum Src {
 }
 
 impl Src {
+    /// Every document cited (all but `Unsourced`), in the order of the docs page.
+    pub const CITED: [Src; 9] = [
+        Src::Yd1959,
+        Src::Sp811,
+        Src::Hb44,
+        Src::Wma1985,
+        Src::Cgpm1901,
+        Src::SiBrochure8,
+        Src::Fr2020,
+        Src::Eec80181,
+        Src::Cfr21_101_9,
+    ];
+
     pub fn title(self) -> &'static str {
         match self {
             Src::Yd1959 => {

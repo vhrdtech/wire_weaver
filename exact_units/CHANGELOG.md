@@ -41,6 +41,8 @@
   `Wrapping` and `Saturating` set what `+ - * /` do; `Q15`, `Q31`, `UQ16_16` saturate, `Bam16`, `Bam32` wrap (made
   with `Fixed::of`, another policy with `with_overflow`). `requantize` / `Requantizer` with the factor and the
   storage (`StorageKind`) known at run time give the typed result bit for bit (conformance `requantize.*`).
+  On Cortex-M M0 and M4F a typed conversion costs what the same conversion written by hand costs (measured, table
+  on the docs page).
 
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the

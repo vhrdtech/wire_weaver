@@ -17,6 +17,7 @@
 ### 🚀 Features
 
 - A `Quantity` in a unit of the API's own crate declared with `unit!` (INT-13) has its symbol, `dim` and `to_si()` from the definition the API carries (`1500 rpm`, `{"rad": 1, "s": -1}`) and goes into an `AnyQuantity`; before it was known by name and docs only.
+- `Quantity.convert(unit)` (STD-72): the quantity in another unit, given by its type name (`"Times<Newton, Second>"`) or as another quantity: exactly or `ValueError`, never the number read in another unit (the Mars Climate Orbiter case).
 - The ww hub from Python and notebooks (TOOL-18): `python -m wire_weaver.hub` serves the hub (found by `connect()`'s hub routing the same way as a Rust `ww` executable, CLT-39: `sys.executable -m wire_weaver.hub` is registered at import), `connect()` takes `hub_device` (a device key through the hub, `WW_HUB`/`WW_HUB_OPENS` route the USB/RTT filters the same as the Rust client), and `wire_weaver.hub()` connects to the running hub's own API (`ww_hub_api`) through the dynamic client, starting one if none runs: `hub().registry.devices()`, `.clients()`, `for e in hub().registry.events: ...`. The wheel now carries `wire_weaver_client` with its `hub` feature and `ww_hub`.
 - The package is now a mixed Python/Rust project (`maturin`'s `python-source`): the compiled extension lives at `wire_weaver._wire_weaver`, re-exported by `wire_weaver/__init__.py` plus the new `wire_weaver/hub.py`; `import wire_weaver as ww` is unchanged.
 - `connect()` tells the device it is a notebook (`ClientKind::Notebook` in the link setup client meta, CLT-41).

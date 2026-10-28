@@ -676,6 +676,16 @@ impl Scale {
         }
     }
 
+    /// The factor exactly: `None` for an `Affine` scale.
+    pub const fn magnitude(&self) -> Option<crate::Magnitude> {
+        match *self {
+            Scale::Coherent => Some(crate::Magnitude::ONE),
+            Scale::Pow10(e) => crate::Magnitude::checked_pow10(e),
+            Scale::Exact(m) => Some(m),
+            Scale::Affine { .. } => None,
+        }
+    }
+
     /// The offset of an `Affine` scale, `0.0` for the others.
     pub const fn offset(&self) -> f64 {
         match *self {
@@ -741,12 +751,7 @@ impl UnitExpr {
     pub const fn magnitude(&self) -> Option<crate::Magnitude> {
         use crate::Magnitude;
         match self {
-            UnitExpr::Named { scale, .. } => match *scale {
-                Scale::Coherent => Some(Magnitude::ONE),
-                Scale::Pow10(e) => Magnitude::checked_pow10(e),
-                Scale::Exact(m) => Some(m),
-                Scale::Affine { .. } => None,
-            },
+            UnitExpr::Named { scale, .. } => scale.magnitude(),
             UnitExpr::Mul(a, b) => match (a.magnitude(), b.magnitude()) {
                 (Some(a), Some(b)) => ok(a.checked_mul(b)),
                 _ => None,

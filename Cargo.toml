@@ -184,6 +184,7 @@ counters_api = { version = "0.1.0", path = "./tests/counters_api" }
 credit_sink_api = { version = "0.1.0", path = "./tests/credit_sink_api" }
 cross_version_api = { version = "0.4.0", path = "./tests/cross_version_api" }
 cross_version_old_api = { version = "0.3.0", path = "./tests/cross_version_old_api" }
+customary_api = { version = "0.1.0", path = "./tests/customary_api" }
 defmt_log_api = { version = "0.1.0", path = "./examples/defmt_log_api", default-features = false }
 device_report_api = { version = "0.1.0", path = "./tests/device_report_api" }
 dfu_api = { version = "0.1.0", path = "./tests/dfu_api" }

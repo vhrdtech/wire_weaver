@@ -55,6 +55,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`PhantomData` fields](serdes/derive_reference.md#generics)**: A zero-bit `PhantomData<U>` field carries a unit marker type (`Quantity<Volt>`) that needs no impls of its own.
 - **[`#[default]` fields default in serde too](serdes/derive.md#evolving-types)**: A RON or JSON file saved before a field was added still reads, the field taking its default.
 - **[`transparent` wrappers](serdes/derive_reference.md#transparent)**: A one-field struct (`Count(u64)`, `Volts<U>` with a `PhantomData` unit) is exactly its field on the wire, size class and `Series` columns included, so a new type costs no bytes.
+- **[An enum's tag in a niche](serdes/derive_reference.md#niche-enums-only)**: `niche` lets an enum with a small field stay as small as the field.
 - **[Fields written as another type](serdes/derive_reference.md#wirew-a-field-written-as-another-type)**: `#[wire(W)]` keeps a small handle in Rust and writes the full value it stands for, also in a `Series`.
 - **[Unit-typed fields cost nothing](serdes/code_size.md#transparent-fields)**: A `transparent` wrapper field (a `Fixed` number with its unit) compiles to the same code as its plain field, not only the same bytes.
 - **[Growing writer](serdes/shrink_wrap.md)**: `BufWriterOwned` for hosts, when the size isn't known up front.

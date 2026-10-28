@@ -85,6 +85,7 @@ impl ItemEnum {
                     .iter()
                     .flat_map(|v| v.fields.iter().map(|f| &f.ty)),
             ),
+            niche: false,
         })
     }
 }

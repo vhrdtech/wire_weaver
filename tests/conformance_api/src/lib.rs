@@ -128,6 +128,10 @@ trait Conformance {
     property!(rw duty16: ww_si::Duty16);
     property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
     property!(rw magnitude: ww_si::Magnitude);
+    // ww_si::Point (STD-64): the number alone, the origin is in the type
+    property!(rw point_celsius: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>);
+    property!(rw point_bounded: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Deci, i16, ww_si::Range<-400, 1250>>>);
+    property!(rw offset: ww_si::Offset);
     property!(rw si_expr: ww_si::SIExpr<'i>);
     // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
     property!(rw marker_def: ww_self::MarkerDef<'i>);

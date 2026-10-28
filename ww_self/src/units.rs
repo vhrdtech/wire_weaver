@@ -265,6 +265,14 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
         _ => bail!("{} without its unit arguments", s.ident),
     };
     match definition(s, bundle)? {
+        // `Ratio`: the unit of a plain number, no factor of a product (`Times<Per<Ratio, Second>, Meter>` is m·s⁻¹)
+        MarkerDefOwned::Unit(def)
+            if def.symbol.is_empty()
+                && def.dim.as_dim().is_one()
+                && def.magnitude == Magnitude::ONE =>
+        {
+            Ok(CanonicalUnit::one())
+        }
         MarkerDefOwned::Unit(def) => Ok(CanonicalUnit {
             powers: vec![UnitPower {
                 marker: marker_name(s, bundle)?,

@@ -14,7 +14,7 @@ mod tests {
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
     use ww_si::prefix::{FullScale, Micro, Milli, One, Rational};
-    use ww_si::units::{self, AngularVelocity, Per, Torque};
+    use ww_si::units::{self, AngularVelocity, Meter, Per, Ratio, Times, Torque};
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
         Ampere, AnyQuantity, Dim, Fixed, FixedScale, Magnitude, Micros, Prefix, Quantity, Range,
@@ -28,6 +28,7 @@ mod tests {
     type Size = Fixed<units::Byte, One, u32>;
     type Adc = Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>;
     type Gyro = Fixed<DegreePerSecond, Mdps70, i16>;
+    type Belt = Fixed<Times<Per<Ratio, units::Second>, Meter>, Milli, u16>;
 
     struct Values {
         voltage: Volt,
@@ -231,6 +232,13 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Gyro, ()> {
                 GetResult::Value(Gyro::new(-100))
+            }
+
+            fn get_belt(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Belt, ()> {
+                GetResult::Value(Belt::new(1500))
             }
 
             fn set_window(
@@ -465,6 +473,18 @@ mod tests {
         assert_eq!(one.to_string(), "1");
         // a dimensionless ratio converts into rpm by nothing: the dimensions differ
         assert_eq!(one.factor_to(&rpm), None);
+        // Ratio is no named unit of the product: (1/s)·m is m·s⁻¹
+        let (_, belt) = read(&client, &root, "belt").await;
+        let Ok(TypeOwned::Struct(f)) = belt.get_in_line(bundle) else {
+            panic!("Fixed");
+        };
+        let Some(GenericArgOwned::Type(u)) = f.instance_of.as_ref().unwrap().args.first() else {
+            panic!("Fixed<U, ..>");
+        };
+        let belt = ww_self::units::unit_of(u, bundle).unwrap();
+        assert_eq!(belt.to_string(), "m·s⁻¹");
+        let names: Vec<_> = belt.powers.iter().map(|p| p.marker.name.as_str()).collect();
+        assert_eq!(names, ["units::Meter", "units::Second"]);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

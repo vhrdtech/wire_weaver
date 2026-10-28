@@ -1278,6 +1278,22 @@
       "note": "exact_units' generic Per<A, B>: the variant alone, A and B are the instance's arguments (INT-13)"
     },
     {
+      "name": "model.marker_def.origin",
+      "type": "marker_def",
+      "value": {"Origin": {"unit": {"symbol": "K", "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 1, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": 0, "rest": null}}, "symbol": "°C", "reference": null, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}}},
+      "bytes": "e14b0000100000000001c2b04320fe80fe43048fb9100200000020fe80fe43048fb910020003196c",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "origin! of °C: unit K, 273.15 K above 0 K, shown from there, no reference or modulus (INT-13, STD-64)"
+    },
+    {
+      "name": "model.marker_def.angle",
+      "type": "marker_def",
+      "value": "Angle",
+      "bytes": "f1",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' generic Angle<U>: the variant alone, the unit and its turn come from U (INT-13)"
+    },
+    {
       "name": "model.item_struct_extra.transparent",
       "type": "item_struct_extra",
       "value": {"transparent": true, "marker": null},

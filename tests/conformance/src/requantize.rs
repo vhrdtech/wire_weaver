@@ -8,12 +8,12 @@ use crate::corpus::RequantizeCase;
 use crate::dynamic::{bundle, property_ty};
 use serde_json::Value as J;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrapOwned, SerializeShrinkWrapOwned};
+use ww_si::Fixed;
 use ww_si::exact_units::prefix::{Deci, Micro, Milli, One, Pow2, Rational};
 use ww_si::exact_units::units::{Radian, Turn, Volt};
 use ww_si::exact_units::{
     FixedScale, Magnitude, Overflow, Repr, Requantizer, Rounding, Storage, StorageKind, Unit,
 };
-use ww_si::Fixed;
 
 ww_si::exact_units::scale! {
     /// Steps of 1/1000 °, over the unit radian: π/180000, not a fraction of integers.
@@ -141,8 +141,8 @@ fn compare(got: Option<Repr>, case: &RequantizeCase) -> Result<(), String> {
 /// as a `Magnitude`.
 pub fn factor(case: &RequantizeCase) -> Result<Magnitude, String> {
     let ty = property_ty("magnitude").ok_or("no magnitude property in conformance_api")?;
-    let value = crate::json::to_value(&case.factor, ty, bundle())
-        .map_err(|e| format!("factor: {e}"))?;
+    let value =
+        crate::json::to_value(&case.factor, ty, bundle()).map_err(|e| format!("factor: {e}"))?;
     let bytes = value
         .ser_shrink_wrap_dyn(ty, bundle())
         .map_err(|e| format!("factor: {e:#}"))?;
@@ -154,7 +154,10 @@ pub fn derive(case: &RequantizeCase) -> Result<(), String> {
     let c = conversion(&case.conversion)
         .ok_or_else(|| format!("no conversion '{}' in requantize.rs", case.conversion))?;
     if c.to != case.to {
-        return Err(format!("the conversion is to {}, the case says {}", c.to, case.to));
+        return Err(format!(
+            "the conversion is to {}, the case says {}",
+            c.to, case.to
+        ));
     }
     let got = factor(case)?;
     if got != c.factor {
@@ -166,7 +169,10 @@ pub fn derive(case: &RequantizeCase) -> Result<(), String> {
         ));
     }
     let x = repr(&case.value)?;
-    compare((c.run)(x, rounding(&case.rounding)?, overflow(&case.overflow)?)?, case)
+    compare(
+        (c.run)(x, rounding(&case.rounding)?, overflow(&case.overflow)?)?,
+        case,
+    )
 }
 
 /// The run-time conversion of a dynamic client.

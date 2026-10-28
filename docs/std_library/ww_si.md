@@ -375,7 +375,7 @@ with one is an `AnyQuantity { prefix, value, unit }`:
 
 ```rust
 use ww_si::units::{self, AngularVelocity, Per, Torque};
-use ww_si::{AnyQuantity, Dim, ExactScale, Prefix, SIExpr, Scale, Volt};
+use ww_si::{AnyQuantity, Dim, Magnitude, Prefix, SIExpr, Scale, Volt};
 
 // a ww_si unit, or a typed quantity turned into one
 let v = AnyQuantity::from(Volt::milli(3300u16));
@@ -391,7 +391,7 @@ let rpm = SIExpr::Named {
     symbol: "rpm",
     dim: Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1),
     // exactly π/30 rad/s: 2π per 60 s
-    scale: Scale::Exact(ExactScale::new(1, 30, 0, 0, 1)),
+    scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
 };
 let speed = AnyQuantity::new(Prefix::Kilo, 3u8, rpm);
 assert_eq!(speed.to_string(), "3 krpm");

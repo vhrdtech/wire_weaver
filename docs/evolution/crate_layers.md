@@ -80,7 +80,7 @@ crates (layer 4):
   change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
   releases that are supposed to be wire-compatible additions; prefer deprecating and adding.
 
-`exact_units` is the bottom of this layer: the unit markers, `Dim`, `ExactScale`, `SIExpr` and `Fixed`, which `ww_si`
+`exact_units` is the bottom of this layer: the unit markers, `Dim`, `Magnitude`, `SIExpr` and `Fixed`, which `ww_si`
 re-exports. A unit's identity on the wire includes its crate (a counted base is `exact_units` + its marker name), so
 moving a marker to another crate is a wire change, and a break in `exact_units` is a break in `ww_si` and everything
 built on it.

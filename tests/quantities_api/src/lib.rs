@@ -11,12 +11,15 @@ use ww_si::origins::{Angle, Celsius};
 use ww_si::prefix::{Centi, FullScale, Milli, One, Rational};
 use ww_si::units::{self, AngularVelocity, Byte, Degree, Meter, Per, Ratio, Second, Times, Torque};
 use ww_si::{
-    Ampere, AnyQuantity, Fixed, Micros, Offset, Point, Quantity, Range, Timed, Unbounded, Volt,
+    Ampere, AnyQuantity, Fixed, Micros, Offset, Point, Quantity, Range, RangeDec, Timed, Unbounded,
+    Volt,
 };
 
 #[ww_trait]
 trait Quantities {
     property!(rw voltage: Volt);
+    /// A supply rail, `0 V ..= 3.3 V` whatever prefix a value is sent with (STD-59)
+    property!(rw rail: Quantity<units::Volt, RangeDec<0, 33, -1>>);
     /// Current history with device time
     fn history() -> Series<'i, Timed<Ampere>>;
     /// Viscous damping: torque per angular velocity

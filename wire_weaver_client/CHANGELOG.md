@@ -33,6 +33,7 @@
 
 ### 🐛 Fixes
 
+- `quantity::unit_of` / `is_quantity` / `DynQuantity::from_value` recognise `ww_si::Quantity<U, B>` (STD-59: the bounds `B` are the second argument in the model, `Unbounded` included) as well as a device's `Quantity<U>` built before it; with only one argument accepted, every quantity of a new device read as a plain struct.
 - A `MultiCall`/`MultiRead`/`MultiWrite` tuple may name the same resource more than once, e.g. two `i2c_write` calls (CLT-49): it failed with `Error::MultiReq("resources are identical ..")`, now the id repeats in the request's index list and the answers come in tuple order. No device change needed.
 - RTT: the RAM scan attaches to every control block it finds and takes the one with `ww_up` / `ww_down`, and retries within its window while the one found has none: probe-rs takes the first `SEGGER RTT` of a RAM region, which after a flash can be the previous firmware's, left in RAM (Nucleo G0B1RE, 23 Oct 2026: `no channel named 'ww_up'` with garbage names). `hub::take` waits for the hub to open the device up to 15 s instead of the 1 s default request timeout: over RTT the open (RAM scan, link setup) takes longer, and `ww hub take rtt:..` said `Client(Timeout)` although the hub had taken it. A probe another program claimed (`ProbeCouldNotBeCreated(Usb(..))`, e.g. `probe-rs attach` on an ST-LINK) now names its holder from `/proc` and keeps the USB cause instead of only `The debug probe could not be created`.
 

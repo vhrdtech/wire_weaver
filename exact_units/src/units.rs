@@ -463,8 +463,8 @@ units! {
     "mechanical" Yank "N/s" [kg 1, m 1, s -3] Scale::Coherent;
 
     "angle" Radian "rad" [rad 1] Scale::Coherent;
-    "angle" Degree "°" [rad 1] Scale::Exact(crate::ExactScale::new(1, 180, 0, 0, 1));
-    "angle" Turn "rev" [rad 1] Scale::Exact(crate::ExactScale::new(2, 1, 0, 0, 1));
+    "angle" Degree "°" [rad 1] Scale::Exact(crate::Magnitude::new(1, 180, 0, 0, 1));
+    "angle" Turn "rev" [rad 1] Scale::Exact(crate::Magnitude::new(2, 1, 0, 0, 1));
     "angle" Steradian "sr" [rad 2] Scale::Coherent;
     "angle" AngularVelocity "rad/s" [rad 1, s -1] Scale::Coherent;
     "angle" AngularAcceleration "rad/s²" [rad 1, s -2] Scale::Coherent;

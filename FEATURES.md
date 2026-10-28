@@ -1755,6 +1755,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of one generic definition with `B` explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). [exact_units](docs/std_library/exact_units.md), conformance `stdlib.si.fixed.*`,
   `tests/quantities`.
+- ✅ **STD-64 Points and origins** · `v0.5` — `exact_units::Point<O, Fixed<..>>`: a position against an origin, a
+  zero-size marker declared with `origin!` carrying its unit, an exact `Offset` (sign and `Magnitude`), its reference
+  and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
+  `origins`: `AbsoluteZero`, `Celsius` (273.15), `Rankine`, `Fahrenheit` (45967/180 K, steps of 5/9 K), `Vacuum`,
+  `Gauge` (reference: ambient pressure, converts only with `against` at run time), `AboveStandardAtmosphere`,
+  `Angle<Turn | Degree | Radian>` (wrap every turn, the difference signed and shortest). Register formulas are origins
+  `above` another (LSM6DS `raw/256 + 25 °C`, J1939 −40 °C). `to::<O2, P2, T2>()` between origins of the same unit and
+  reference, its factor and offset at compile time, exact or `None`. On the wire a point is its number; `OriginDef`
+  holds an origin as data for INT-13. [Points and origins](docs/std_library/points.md), conformance
+  `stdlib.si.point.*`, `stdlib.si.offset.*` (derive, dynamic, Python; C waits on API-26).
 - ✅ **STD-62 One exact magnitude for every scale** · `v0.5` — `exact_units::Magnitude`, a canonical product of prime
   powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
   (prefixes, `Pow10<E>`, `Pow2<E>`, `Rational<N, D>` with `u64` parameters factored at compile time, `Kibi`..,
@@ -2009,9 +2019,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
   saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
   and C agree bit for bit (conformance).
-- 📋 **STD-64 Points and origins** · `v0.5` — `Point<Origin, Fixed<..>>`: a position against an origin with an exact
-  offset and an optional modulus, so K / °C / °F / °R, register formulas (`raw/256 + 25 °C`), gauge vs absolute
-  pressure and wrapping angles are one algebra; adding two points doesn't compile.
 - 📋 **STD-65 Instants and clocks with named epochs** · `v0.5` — `Instant<Clock, ..>`: device-monotonic, Unix, TAI, GPS
   (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a `Seq` modulo 1024.
 - 📋 **STD-66 Sentinels next to bounds** · `v0.5` — named codes in a `Fixed`'s raw value: single codes or code ranges

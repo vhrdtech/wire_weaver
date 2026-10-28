@@ -3747,6 +3747,8 @@
       
         
       
+        
+      
     
     
     
@@ -3806,6 +3808,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: numbers with a fixed unit
 
     
   </span>
@@ -5437,7 +5466,7 @@ some framework code defines bytes on the wire although it lives in a "free to br
 </tr>
 <tr>
 <td>2. Shared API &amp; types</td>
-<td><code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...); framework base types <code>ww_global</code> and <code>ww_self</code> (repo root)</td>
+<td><code>exact_units</code> (repo root, the units and <code>Fixed</code> under <code>ww_si</code>); <code>ww_stdlib/*</code>: base types (<code>ww_numeric</code>, <code>ww_si</code>, <code>ww_date_time</code>, <code>ww_version</code>) and traits (<code>ww_gpio</code>, <code>ww_i2c</code>, <code>ww_client_server</code>, ...); framework base types <code>ww_global</code> and <code>ww_self</code> (repo root)</td>
 <td>own version per crate, the version is the API identity</td>
 </tr>
 <tr>
@@ -5507,7 +5536,11 @@ crates (layer 4):</p>
   change and bumps the breaking position, even though the wire is unaffected. Avoid mixing such changes with
   releases that are supposed to be wire-compatible additions; prefer deprecating and adding.</li>
 </ul>
-<p>Base type crates (<code>ww_numeric</code>, <code>ww_si</code>, ...) are used by other <code>ww_stdlib</code> crates as well, so their breaking
+<p><code>exact_units</code> is the bottom of this layer: the unit markers, <code>Dim</code>, <code>ExactScale</code>, <code>SIExpr</code> and <code>Fixed</code>, which <code>ww_si</code>
+re-exports. A unit's identity on the wire includes its crate (a counted base is <code>exact_units</code> + its marker name), so
+moving a marker to another crate is a wire change, and a break in <code>exact_units</code> is a break in <code>ww_si</code> and everything
+built on it.</p>
+<p>Base type crates (<code>exact_units</code>, <code>ww_numeric</code>, <code>ww_si</code>, ...) are used by other <code>ww_stdlib</code> crates as well, so their breaking
 changes cascade the same way <code>shrink_wrap</code> ones do, just over a smaller set of crates - check reverse dependencies in
 the root <code>Cargo.toml</code> before breaking one. <code>ww_version</code> and <code>ww_global</code> are special: <code>FullVersion</code>,
 <code>CompactVersion</code> and <code>ApiHashPair</code> are exchanged during link setup, before any version could be checked, so they are

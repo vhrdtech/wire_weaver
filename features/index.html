@@ -3622,6 +3622,8 @@
       
         
       
+        
+      
     
     
     
@@ -3681,6 +3683,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: numbers with a fixed unit
 
     
   </span>
@@ -5141,17 +5170,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#api-model-and-codegen-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        API model and codegen (<code>API</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#server-device-side-srv" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5325,17 +5343,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Wire format (<code>shrink_wrap</code>, <code>SW</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#api-model-and-codegen-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        API model and codegen (<code>API</code>)
       </span>
     </span>
   </a>
@@ -5867,6 +5874,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>#[repr(..)]</code> of a derived struct being dropped (<code>docs/serdes/derive_reference.md#transparent</code>; tests
   <code>shrink_wrap/tests/transparent.rs</code>, <code>phantom_data.rs</code>, conformance cases <code>transparent.*</code>). Not yet in the
   evolution checker: EVO-15.</li>
+<li>✅ <strong>DER-20 Unit-typed fields cost what plain fields cost</strong>: a <code>transparent</code> wrapper (DER-18, e.g.
+  <code>exact_units::Fixed</code>) inside a derived struct is written and read on exactly the path of its inner plain field:
+  the latched <code>write_*_latch</code> / <code>des_shrink_wrap_latch</code> calls with one error check per type (SW-34, SW-38), not the
+  wrapper's own <code>ser_shrink_wrap</code> with a checked write per field. Hidden <code>ser_shrink_wrap_latch</code> (borrowed and owned)
+  with <code>BufWriter::write_field</code>, used by the derive for every user-type field; a wrapper with <code>validate</code> (<code>Fixed</code>'s
+  bounds) keeps a value out of range as the latched error (<code>BufReader::keep_error</code>). TEST-27 had measured +2 to 15 instructions and +4 to 42 bytes per struct encode/decode on M0, M4F and
+  M33 before it; same wire format (<code>docs/serdes/derive_reference.md#transparent</code>,
+  <code>docs/serdes/code_size.md#transparent-fields</code>; test <code>shrink_wrap/tests/transparent.rs</code>
+  <code>fields_are_latched_like_the_plain_field</code>, fuzz <code>shrink_wrap_latched</code>).</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and
@@ -5895,9 +5911,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   it reads <code>Error::EnumVariantDisabled</code> (<code>docs/serdes/derive_reference.md</code>). First user: <code>ww_numeric::NumericValue</code>, one cargo
   feature per number type (32 to 8 bytes in RAM with 32-bit types only). Not yet: <code>#[cfg]</code> on fields (it would change
   the wire format, should be a compile error), <code>ww_si</code> enums.</li>
-</ul>
-<h2 id="api-model-and-codegen-api">API model and codegen (<code>API</code>)<a class="headerlink" href="#api-model-and-codegen-api" title="Permanent link">&para;</a></h2>
-<ul>
 <li>✅ <strong>API-1 Methods, properties, streams and sinks</strong>, nested traits (<code>docs/api/overview.md</code>).</li>
 <li>✅ <strong>API-2 Arrays of resources</strong> with <code>ValidIndices</code> and a built-in array size getter returning a range or list.</li>
 <li>✅ <strong>API-3 Global traits</strong> from <code>ww_stdlib</code> (<code>impl Trait</code>) and trait attachments (<code>examples/all_gpio</code>).</li>
@@ -6936,6 +6949,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>INT-12 Bounds as a type of the API model</strong> — <code>Type::Bounded { ty, min, max }</code> (like <code>MaxLen</code>), checked by every
   consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
   of <code>ww_si</code> markers (STD-55) that only <code>ww_si</code>-aware clients check; a new <code>Type</code> variant needs a model version step.</li>
+<li>📋 <strong>INT-13 Unit definitions in the API model</strong> · <code>v0.5</code> — every unit, scale, origin, level, kind and sentinel an API
+  uses carries its definition in <code>ww_self</code> (dimension, exact magnitude, offset, modulus, symbol), named by crate and
+  marker, so clients know a user crate's units without a built-in table, with a canonical sorted unit expression.</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
@@ -6986,6 +7002,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>EVO-14 Priority nibble in <code>Request</code></strong> · <code>v0.5.x</code> — <strong>wire break</strong> of <code>ww_client_server</code>'s <code>Request</code>: a
   <code>priority: Nibble</code> after <code>seq</code> (CLT-50). A host and a device must both have it; nothing with the old layout was
   released. Conformance cases of <code>Request</code> carry the new bytes with <code>"wire_change": "EVO-14 / ..."</code>.</li>
+<li>✅ <strong>EVO-16 <code>ww_si::Dim</code> with angle, information and counted bases</strong> · <code>v0.5</code> — the wire change of <code>Dim</code> that
+  STD-60 brings, in <code>SIExpr</code> / <code>AnyQuantity</code> and in the <code>ww_si</code> snapshot: no longer <code>sized</code> but <code>final_structure</code>,
+  nine 4-bit exponents (rad and bit appended to the seven SI ones), a root bit and four optional counted bases
+  (crate and marker name); a non-canonical <code>Dim</code> is refused on decode. Volt is <code>d2 1f 00 00 00 00</code>. <code>Scale</code> gains
+  <code>Exact</code> (an <code>ExactScale</code>, a degree is exactly π/180) in the same break. Conformance cases <code>stdlib.si.dim.*</code>
+  (<code>tests/conformance/corpus.json</code>), <a href="../docs/std_library/ww_si/#units-known-only-at-run-time">ww_si</a>.</li>
 <li>💡 <strong>EVO-7 Git dirty flag</strong> — not implemented, although the old tracker had it as done: neither <code>ww_version</code> nor
   codegen record git state. Uncommitted API changes are still caught, since they change the API's SHA
   signature. Firmware git info (sha, dirty, branch, tag) can be exposed through <code>ww_firmware_info</code>'s
@@ -6995,9 +7017,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>ww_si::Fixed</code>) are compatible, reported as the same bytes; a change of a <code>Fixed</code>'s unit or scale is breaking
   although the bytes stay (a reader takes µs for ms); a bound narrowed or widened is breaking for the side it
   refuses; <code>Quantity</code> → <code>Fixed</code> is breaking with a hint that it is the intended move.</li>
-<li>📋 <strong>EVO-16 <code>ww_si::Dim</code> with angle, information and counted bases</strong> · <code>v0.5</code> — the wire change of <code>Dim</code> in
-  <code>SIExpr</code> / <code>AnyQuantity</code> and in snapshots that STD-60 brings: no longer <code>sized</code>, two more fixed exponents and a
-  short list of named counted bases.</li>
+<li>📋 <strong>EVO-17 Units compared by meaning</strong> · <code>v0.5</code> — the checker compares magnitudes by value (<code>Milli</code> → <code>Pow10&lt;-3&gt;</code> is
+  compatible), reports origin, level, kind and sentinel changes, and calls the same bytes in a different scale (lbf·s
+  vs N·s) breaking.</li>
 </ul>
 <h2 id="tooling-cli-gui-python-tool">Tooling: CLI, GUI, Python (<code>TOOL</code>)<a class="headerlink" href="#tooling-cli-gui-python-tool" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7132,9 +7154,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>ww call</code> on the same expressions; a GUI view (hex pane + tree, like Kaitai's Web IDE); Python <code>explain()</code> and
   expression input.</li>
 <li>
-<p>📋 <strong>TOOL-22 Hint for plain fields with a unit in their name</strong> — <code>ww api check</code> notes a plain integer field,
-  argument or property named <code>*_us</code>, <code>*_ms</code>, <code>*_bytes</code>, <code>*_ppb</code>, .. with the <code>ww_si::Fixed</code> (STD-55) it could be;
-  a note, never an error, silenced per item.</p>
+<p>📋 <strong>TOOL-22 Hint for plain fields that carry a unit</strong> · <code>v0.5</code> — <code>ww api check</code> notes a plain numeric field,
+  argument or property whose name (<code>*_us</code>, <code>*_ms</code>, <code>*_bytes</code>, <code>*_ppb</code>, ..) or doc comment ("in µs", "bytes",
+  "0..=65535 = 0..100 %", "127 = not available") states a unit, scale, range or sentinel, with the <code>Fixed</code> (STD-55),
+  <code>Bounds</code> or niche (STD-66) form it could be: no meaning left in comments. A note, never an error, silenced per item;
+  tested on the scout's repos.</p>
 </li>
 <li>
 <p>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
@@ -7213,6 +7237,31 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>,
   <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).</li>
+<li>✅ <strong>STD-61 <code>exact_units</code>: the compile-time unit core as a crate of its own</strong> · <code>v0.5</code> — a standalone <code>no_std</code>
+  crate, no dependencies without features (Roman, 27 Oct 2026): <code>Dim</code> (SI, rad, bit, counted bases, root flag), unit
+  markers and <code>Unit</code> (with <code>Sqrt&lt;U&gt;</code>), <code>ExactScale</code> (with a power of π), <code>Fixed</code>, bounds, const <code>sqrt_f64</code>;
+  <code>shrink_wrap</code> (wire format, <code>SIExpr</code>, through <code>#[wire(..)]</code> fields the same bytes as before), <code>std</code> and <code>defmt</code>
+  behind features. <code>ww_si</code> re-exports it and keeps the runtime side (<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code>); units are
+  named <code>exact_units::..</code> in the model (a counted base costs 6 bytes more on the wire). Walked and snapshotted like an
+  API crate. <a href="../docs/std_library/exact_units/">exact_units</a>, <code>exact_units/tests</code>, CI legs without features and on
+  thumbv6m.</li>
+<li>✅ <strong>STD-55 <code>exact_units::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> —
+  a value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (DER-18 <code>transparent</code>; no prefix, no
+  <code>NumericValue</code> tag, so a <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix
+  name, <code>Kibi</code>.., <code>Pow10&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code>), bounds (<code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) checked on
+  decode and construction; information and counting units, exact <code>to</code>, <code>Quantity::to_fixed</code> / <code>from_fixed</code>,
+  <code>core::time::Duration</code>, checked / wrapping / saturating ops, <code>Display</code> (<code>1500 µs</code>); in the API model as an instance
+  of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
+  Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
+  <code>tests/quantities</code>.</li>
+<li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
+  base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
+  <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
+  <code>Bit</code>, <code>Byte</code>, <code>Word</code>, feature <code>information</code>) and a root flag for half exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't
+  convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>, <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a
+  sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>,
+  <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>). <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
+  <a href="../docs/std_library/ww_si/#dimensions">ww_si dimensions</a>, <code>ww_stdlib/ww_si/tests/quantities.rs</code>.</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
@@ -7438,24 +7487,64 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   id, and its <code>cnt</code> format is v0 while the tool reads v2 (report-i2c-master bench run, 27 Oct 2026). Either side may
   be behind (STD-25): bring the firmware's <code>cnt</code> and build id up to what the tool needs, or make the tool say which
   format it got and what is missing instead of failing.</li>
-<li>📋 <strong>STD-55 <code>ww_si::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> — a
-  value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (no prefix, no <code>NumericValue</code> tag, so a
-  <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix name, <code>Kibi</code>.., <code>Pow10&lt;E&gt;</code>,
-  <code>Rational&lt;N, D&gt;</code>), bounds (<code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) checked on decode and construction;
-  information and counting units, exact conversions to and from <code>Quantity</code>, <code>core::time::Duration</code>, const ops; in
-  the API model as an instance of one generic definition, so introspection shows the unit.</li>
 <li>📋 <strong>STD-56 Plain fields with a unit in their name become <code>Fixed</code></strong> — <code>shared_us: u64</code>, <code>rate_ppb: i32</code>,
   <code>ring_capacity_bytes: u64</code>, <code>queue_len: u32</code> and about 80 more across <code>ww_stdlib</code>, <code>ww_link</code>, <code>ww_stream</code>,
   <code>ww_client_server</code> and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.</li>
-<li>📋 <strong>STD-57 <code>Quantity</code> used at one fixed scale becomes <code>Fixed</code></strong> — stream timestamps (<code>Timed&lt;T, S&gt;</code>), rates fixed in
-  practice: fewer bytes per value, a wire break. On hold until STD-55 is built.</li>
 <li>📋 <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — positions in a table of something (0- and 1-based) and
   wrapping sequence numbers as types of their own, same bytes as the number, no <code>+</code> where it makes no sense.</li>
 <li>📋 <strong>STD-59 Runtime <code>ww_si</code> improvements</strong> · <code>v0.5</code> — binary prefixes in <code>Prefix</code>, bounds on <code>Quantity</code>
-  (<code>Quantity&lt;U, B&gt;</code>, range in coherent units), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
-<li>📋 <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim</code> gets angle and information bases
-  and named counted bases (<code>Sample</code>, <code>Frame</code>, <code>Block</code>, ..): bytes don't convert into % or rad, <code>Sample/s × s</code> is a
-  <code>Sample</code>, <code>Sample → Byte</code> only through a bytes-per-sample; checked at compile and at run time (EVO-16).</li>
+  (<code>Quantity&lt;U, B&gt;</code>, range in coherent units; a break: <code>B</code> explicit in the model), docs on <code>Quantity</code> vs <code>Fixed</code> vs <code>AnyQuantity</code>.</li>
+<li>📋 <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — every scale (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with
+  <code>u64</code> parameters, <code>Kibi</code>.., Q formats, full-scale fractions, binary angles) is one canonical, exact form with a power
+  of π, equal however it is written; conversion factors are computed at compile time, and one that doesn't fit is a
+  compile error, never a rounding.</li>
+<li>📋 <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — lossy conversions name their rounding (truncate, nearest
+  ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
+  saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
+  and C agree bit for bit (conformance).</li>
+<li>📋 <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>Point&lt;Origin, Fixed&lt;..&gt;&gt;</code>: a position against an origin with an exact
+  offset and an optional modulus, so K / °C / °F / °R, register formulas (<code>raw/256 + 25 °C</code>), gauge vs absolute
+  pressure and wrapping angles are one algebra; adding two points doesn't compile.</li>
+<li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
+  (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
+<li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges
+  (J1939 not-available / error ranges per 1, 2 and 4 bytes, SunSpec not-implemented 0x8000, Matter null, HCI RSSI
+  127, reserved ranges) decode to an enum (<code>Value</code>, <code>NotAvailable</code>, <code>Error</code>, <code>NotImplemented</code>, a user meaning), <code>Option</code>
+  only as the one-code shorthand. Stored as the raw <code>T</code> (size of <code>T</code>, no extra byte), <code>get()</code> gives the enum, and
+  encoding it gives back the same code, so the bytes don't change. Niche codes and <code>Bounds</code> are checked disjoint and
+  every code to fit <code>T</code> at compile time. Clipped / rail codes are a value with a saturation mark (at least / at most),
+  not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.</li>
+<li>📋 <strong>STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI</strong> · <code>v0.5</code> — <code>Level&lt;Kind, Ref&gt;</code> on the point algebra:
+  level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
+  convention).</li>
+<li>📋 <strong>STD-68 Kinds that share a dimension</strong> · <code>v0.5</code> — relative humidity, duty cycle, state of charge, strain, volume
+  fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
+  explicit casts between siblings.</li>
+<li>📋 <strong>STD-69 More counted units</strong> · <code>v0.5</code> — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
+  each a dimension of its own.</li>
+<li>📋 <strong>STD-77 Runtime scale parts and reference values</strong> · <code>v0.5</code> — what device standards do at run time, without a
+  refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
+  (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec <code>*_SF</code> scale-factor register), and a
+  value in % or per-mille of another resource's reading ("% of a reference register"); the model names the field or
+  resource the scale comes from, the dynamic client, Python and C apply it exactly. Exponents of 10 or 2 only: a
+  free runtime factor (calibration, currency) is a runtime value, not a unit: <code>ww_si::Quantity</code> / <code>AnyQuantity</code> or the
+  application (TEST-28's list).</li>
+<li>📋 <strong>STD-70 Text unit codes in and out</strong> — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
+  imports, exports that say where they lose something. Later, in a separate optional crate <code>exact_units_interop</code>
+  (Roman, 27 Oct): this release builds the capability to represent them (STD-77, TEST-28), not the tables.</li>
+<li>📋 <strong>STD-71 Device-standard units in and out</strong> — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
+  DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
+  only. Later, in <code>exact_units_interop</code> like STD-70.</li>
+<li>📋 <strong>STD-72 Imperial and US customary units, complete</strong> · <code>v0.5</code> — every unit the exact rational of SI from its legal
+  definition, ambiguous names never bare (US / imperial gallon, survey foot, short / long ton, troy, BTU and calorie
+  variants, horsepower variants, thou vs angular mil, inHg conventions), lbm / lbf / slug apart by dimension; the Mars
+  Climate Orbiter case (lbf·s read as N·s) converts exactly or is refused.</li>
+<li>📋 <strong>STD-73 One table of unit symbols and spellings</strong> · <code>v0.5</code> — display and parsing of every unit from one table,
+  shared by Rust, si_dynamic, <code>ww</code> and Python, UCUM spelling where there is one.</li>
+<li>📋 <strong>STD-74 The runtime side catches up</strong> · <code>v0.5</code> — <code>Quantity</code>, <code>AnyQuantity</code> and <code>SIExpr</code> get the exact magnitude,
+  the °C point / interval split, levels and sentinels.</li>
+<li>📋 <strong>STD-75 Non-linear scales by name</strong> · <code>v0.5</code> — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
+  conversion function each, or out of scope with the reason written down.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7526,6 +7615,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   crates.io-shaped copy of <code>ww_i2c</code>. Missing: a docs.rs check of crates whose API uses another crate's types or
   traits (<code>ww_uart</code>, <code>ww_gpio</code>, <code>ww_si</code> types); the macro panicked on their <code>version = ".."</code> dependencies until
   API-14, try one on a crates.io-shaped copy.</li>
+<li>📋 <strong>DOC-10 Units docs section</strong> · <code>v0.5</code> — choosing <code>Fixed</code>, <code>Point</code>, <code>Level</code>, <code>Quantity</code> or <code>AnyQuantity</code>, imperial
+  / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -7577,6 +7668,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   0 ms; 15.3 s) and with a restarted host process continuing from the saved cursor (resume 2.6 ms, device was 544 B
   past the cursor). Found on the way: a 1 s flush stall after a resume (fixed), and a lost wrapped write in the
   firmware's pipes.</li>
+<li>📋 <strong>TEST-27 Firmware cost of exact_units</strong> · <code>v0.5</code> — a harness measuring <code>Fixed</code>, points and rounding conversions
+  against plain fields on QEMU M3 (instructions, flash, stack) and the STM32H725 (cycles), re-run by each units piece.</li>
+<li>📋 <strong>TEST-28 Units coverage against the standards</strong> · <code>v0.5</code> — a dev-only test (not shipped) walks the public unit
+  lists of UCUM, UNECE Rec 20, BLE GATT units, USB HID, the BACnet engineering-units enum and IODD as facts and shows
+  each unit representable exactly in <code>exact_units</code>, or lists it on a short written "cannot, because" list for review.
+  A capability enters <code>exact_units</code> only as a pattern a class of units or a standard's structure uses, never for one
+  odd value: non-linear or empirical scales (AWG, Beaufort, Richter, Rockwell, octane, API gravity, shoe sizes),
+  ill-defined codes (GATT "decibel" without a reference, month / year durations, unqualified kcal) and data-defined
+  scales go on the list, at most as named functions or "unknown, reported"; a free runtime factor (calibration,
+  currency) is listed as "runtime value, not a unit", carried by <code>ww_si::Quantity</code> / <code>AnyQuantity</code> or the application.</li>
+<li>📋 <strong>TEST-29 Units zero-cost gate</strong> · <code>v0.5</code> — the ELF comparison of TEST-27 (<code>just units-elf</code>) becomes a gate in
+  <code>just test</code> / CI: every plain / unit-typed pair (range check, struct encode and decode, Series encode and decode)
+  compiles to identical code on every core and firmware profile measured (M0, M4F, M33; <code>opt-level</code> <code>z</code> and <code>3</code>), and
+  a pair that differs fails with the per-symbol diff.</li>
 <li>🚧 <strong>TEST-9 Remaining test coverage</strong> · <code>v0.5</code>:</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> properties: unimplemented, observe stream</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> streams: promise timeout</li>
@@ -7624,6 +7729,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   longer, and a request that must not wait says so with <code>.urgent()</code>. Its measurement (B135 rev B, USB HS, 21 Oct
   2026): a property-like call 1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit
   sink 3.8k → 7.2k/s.</li>
+<li><strong>STD-57 <code>Quantity</code> used at one fixed scale becomes <code>Fixed</code></strong> — dropped (Roman, 27 Oct 2026): the per-use list of
+  <code>Quantity</code> fields found none whose scale is fixed by contract, so nothing to change.</li>
 <li><strong>API-25 Refactor codegen to use an IR</strong> — decided against (18 Oct 2026). There are two wire-layout engines by
   design: <code>shrink_wrap_derive</code> keeps its own AST, as <code>ww_self</code>'s own types are encoded with <code>#[derive_shrink_wrap]</code>
   and the derive can't depend on <code>ww_self</code> (a bootstrapping cycle); the dynamic path (<code>ww_self</code> to the dynamic

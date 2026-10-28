@@ -1383,6 +1383,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Latched bit fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transparent-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transparent fields
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3860,6 +3877,8 @@
       
         
       
+        
+      
     
     
     
@@ -3919,6 +3938,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: numbers with a fixed unit
 
     
   </span>
@@ -5419,6 +5465,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Latched bit fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transparent-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Transparent fields
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6577,6 +6640,24 @@ rule above):</p>
 whole reader state, from every bit offset and from 20 000 random reader states, an earlier kept error stays
 first) and derived structs and enums against the same fields read one by one with <code>?</code>; six hand-made mutants
 (a wrong value after an error, an overwritten, lost or wrong error, a wrong value, no sign extension) each fail it. <code>just fuzz-shrink-wrap-latched</code> does the same under libFuzzer.</p>
+<h3 id="transparent-fields">Transparent fields<a class="headerlink" href="#transparent-fields" title="Permanent link">&para;</a></h3>
+<p>DER-20. A <a href="../derive_reference/#transparent"><code>transparent</code></a> wrapper (<code>exact_units::Fixed&lt;Second, Micro, u32&gt;</code>, a
+<code>Count(u32)</code>) as a field of a derived type takes the path of its plain field on both sides. The read side had it
+through <code>des_shrink_wrap_latch</code>; the write side gets the same: a hidden <code>SerializeShrinkWrap::ser_shrink_wrap_latch</code>
+(<code>ser_shrink_wrap</code> by default, <code>ser_shrink_wrap_owned_latch</code> for owned types), called through
+<code>BufWriter::write_field</code> for every user-type field. <code>bool</code>, <code>u8</code>..<code>u32</code>, <code>i8</code>..<code>i32</code> and <code>f32</code> override both sides with
+their <code>_latch</code> methods, and a <code>transparent</code> struct forwards both to its field. One with <code>validate</code> (the bounds of a <code>Fixed</code>)
+checks the value after the latched read and keeps a failure for <code>rd.latched()?</code> (<code>BufReader::keep_error</code>, an
+earlier error stays first), so <code>Fixed&lt;.., Unbounded&gt;</code>, whose check is <code>true</code>, is the plain field's code. Before it, such a
+field went through the wrapper's own <code>ser_shrink_wrap</code> with an error check per field: TEST-27's ELF comparison found
++2 to 15 instructions and +4 to 42 bytes per struct encode or decode on Cortex-M0, M4F and M33. After it the same
+comparison (<code>just units-elf</code>, a struct of <code>Fixed&lt;Second, Micro, u64&gt;</code>, <code>Fixed&lt;Hertz, One, u32&gt;</code> and
+<code>Fixed&lt;Ratio, One, u16&gt;</code> against <code>u64</code>, <code>u32</code>, <code>u16</code>) is identical in instructions and bytes on all three at
+<code>opt-level = "z"</code> and on M0 at <code>3</code>; at <code>3</code> the M4F / M33 encode has the same 80 instructions and 224 bytes and
+differs only in register allocation. Cycles on silicon are not measured yet. The bytes and the
+errors are the same; <code>tests/transparent.rs</code> (<code>fields_are_latched_like_the_plain_field</code>, <code>validated_fields_are_latched</code>) checks both against the
+plain struct, <code>tests/latched_reads.rs</code> and the <code>shrink_wrap_latched</code> fuzz target hold the plain types' latched
+writes against their checked ones.</p>
 <h2 id="fixed-on-the-way">Fixed on the way<a class="headerlink" href="#fixed-on-the-way" title="Permanent link">&para;</a></h2>
 <p><strong>Bit reads and the lengths in the last byte</strong> (SW-40). The last byte of a message can hold forward data in its
 high nibble and the first length nibble in its low one. <code>read_un32</code> / <code>read_un64</code> read to the end of that byte

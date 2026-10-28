@@ -3794,6 +3794,8 @@
       
         
       
+        
+      
     
     
     
@@ -3853,6 +3855,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: numbers with a fixed unit
 
     
   </span>
@@ -5503,6 +5532,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/derive/#evolving-types"><code>#[default]</code> fields default in serde too</a></strong>: A RON or JSON file saved before a field was added still reads, the field taking its default.</li>
 <li><strong><a href="../serdes/derive_reference/#wirew-field-attribute"><code>#[wire(W)]</code> fields</a></strong>: Keep a plain <code>i8</code> or <code>u64</code> in Rust and send it as <code>I4</code> or <code>UNib32</code>: range-checked on write, widened on read.</li>
 <li><strong><a href="../serdes/derive_reference/#transparent"><code>transparent</code> wrappers</a></strong>: A one-field struct (<code>Count(u64)</code>, <code>Volts&lt;U&gt;</code> with a <code>PhantomData</code> unit) is exactly its field on the wire, size class and <code>Series</code> columns included, so a new type costs no bytes.</li>
+<li><strong><a href="../serdes/code_size/#transparent-fields">Unit-typed fields cost nothing</a></strong>: A <code>transparent</code> wrapper field (a <code>Fixed</code> number with its unit) compiles to the same code as its plain field, not only the same bytes.</li>
 <li><strong><a href="../serdes/shrink_wrap/">Growing writer</a></strong>: <code>BufWriterOwned</code> for hosts, when the size isn't known up front.</li>
 <li><strong><a href="../serdes/showcase/">Writing in place</a></strong>: Builders that write a value straight into the output buffer, and patching a field after the rest is written.</li>
 <li><strong><a href="../serdes/layouts/#fixed_layout-fields-at-fixed-offsets">Fixed layouts</a></strong>: Types with a fixed byte layout get fields at constant offsets, read and written without a parser, and a matching C header.</li>
@@ -5584,7 +5614,7 @@ in either direction. WireWeaver generates the device's server and the host's cli
 <li><strong><a href="../api/credit_sinks/#resume">Resume checked on hardware</a></strong>: A UART sink on a real board put 1 MB on the line exactly once through link drops and a host restart.</li>
 <li><strong><a href="../api/addressing/">Trait paths</a></strong>: Call a shared trait wherever it sits in a device's API. <span class="ww-status">in progress</span></li>
 </ul>
-<p class="ww-features__more">Details and what is planned: <a href="../features/#api-model-and-codegen-api">API model and codegen</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#documentation-doc">Documentation</a>, <a href="../features/#examples-ex">Examples</a>, <a href="../features/#testing-ci-and-performance-test">Testing, CI and performance</a> in the feature tracker.</p>
+<p class="ww-features__more">Details and what is planned: <a href="../features/#wire-format-shrink_wrap-sw">Wire format</a>, <a href="../features/#server-device-side-srv">Server / device side</a>, <a href="../features/#documentation-doc">Documentation</a>, <a href="../features/#examples-ex">Examples</a>, <a href="../features/#testing-ci-and-performance-test">Testing, CI and performance</a> in the feature tracker.</p>
 <h2 id="device-side">Device side<a class="headerlink" href="#device-side" title="Permanent link">&para;</a></h2>
 <p>The server is the code on the device that answers requests. It is generated from the trait, needs neither <code>std</code> nor an
 allocator and does no IO itself, so it runs on any MCU and RTOS over the transport you choose.</p>
@@ -5726,6 +5756,7 @@ round, and tell you before a release when a change would break that.</p>
 <li><strong><a href="../evolution/checker_tool/#checking-at-every-commit">Current version's snapshot required</a></strong>: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.</li>
 <li><strong><a href="../transport/ww_framer/#latency-and-priority">Priority in every request</a></strong>: Requests carry a 4-bit priority; hosts and devices built before it don't talk to ones after.</li>
 <li><strong><a href="../evolution/checker_tool/#the-current-versions-snapshot">Upgrades don't touch your snapshots</a></strong>: A newer wire_weaver compares an older snapshot only by what it recorded: no version bump or re-save just for upgrading.</li>
+<li><strong><a href="../std_library/ww_si/#units-known-only-at-run-time">One encoding per dimension</a></strong>: A unit's dimension on the wire has exactly one form: counted bases sorted, out-of-order ones refused, so two devices' <code>Sample/Frame</code> compare equal byte for byte.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 
@@ -5774,6 +5805,9 @@ They are shared, so a tool that knows one of them works with every device that i
 <li><strong><a href="../std_library/ww_si/">Units and numbers</a></strong>: <code>ww_si</code> quantities like volts, hertz and seconds, <code>ww_numeric</code> values.</li>
 <li><strong><a href="../std_library/ww_si/#unit-algebra">Units checked by the compiler</a></strong>: One generic quantity type with the unit in the type: <code>Volt * Ampere</code> is a <code>Watt</code>, <code>Volt + Ampere</code> doesn't build, <code>3300 mV</code> prints itself.</li>
 <li><strong><a href="../std_library/ww_si/#units-known-only-at-run-time">Units known at run time</a></strong>: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.</li>
+<li><strong><a href="../std_library/exact_units/">Numbers with a fixed unit</a></strong>: <code>Fixed&lt;Micro, Second, u32&gt;</code>: the unit, scale and bounds are in the type, the wire carries exactly the <code>u32</code>, and it prints as <code>1500 µs</code>.</li>
+<li><strong><a href="../std_library/exact_units/">Units without WireWeaver</a></strong>: <code>exact_units</code>, a <code>no_std</code> crate with no dependencies, gives dimensions, unit markers, exact scales and <code>Fixed</code> to any project; the wire format is a feature.</li>
+<li><strong><a href="../std_library/ww_si/#dimensions">Angles, bytes and samples are dimensions</a></strong>: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.</li>
 <li><strong><a href="../std_library/ww_date_time/">Date and time</a></strong>: <code>ww_date_time</code>.</li>
 <li><strong><a href="../std_library/io_family/">IO family</a></strong>: GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. <span class="ww-status">in progress</span></li>
 <li><strong><a href="../std_library/ww_gpio/">GPIO</a></strong>: Pins and banks: levels, modes, pulls and edge events.</li>

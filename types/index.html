@@ -3887,6 +3887,8 @@
       
         
       
+        
+      
     
     
     
@@ -3946,6 +3948,33 @@
     
   
   ww_si
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/exact_units/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: numbers with a fixed unit
 
     
   </span>
@@ -5720,6 +5749,11 @@ item of an API. Sizes below are for the value on its own; how values share bytes
 <td>the fields; an enum's discriminant in 1 bit to 4 bytes</td>
 <td>as fields</td>
 </tr>
+<tr>
+<td><a href="../std_library/exact_units/"><code>Fixed&lt;U, P, T, B&gt;</code></a></td>
+<td>exactly its number <code>T</code>; unit, scale and bounds in the type</td>
+<td>as <code>T</code></td>
+</tr>
 </tbody>
 </table>
 <p>The <a href="../serdes/special_types/">special types</a> (<code>TailSize</code>, <code>ArrayString</code> / <code>ArrayVec</code>, compressed sequences,
@@ -6054,8 +6088,10 @@ numbers with units, SI quantities, and the types of its I/O traits.</p>
 <li><strong>Numbers restricted to a range or a set</strong> (SW-20), like <code>u16</code> in <code>1..=512</code> or <code>u8</code> in <code>0..=8, 12, 16</code>, checked
   on both ends. Until then, a struct can check its fields with
   <a href="../serdes/derive_reference/#validate-path"><code>validate</code></a>.</li>
-<li><strong>Units</strong> on numbers (<code>f32</code> in amperes) as a hint for code generation and tools, not sent over the wire. The
-  <a href="../std_library/ww_si/"><code>ww_si</code></a> crate has typed SI quantities today.</li>
+<li><strong>Units</strong> on plain numbers (<code>f32</code> in amperes) as a hint for code generation and tools, not sent over the wire.
+  Today a number with its unit in the type is an <a href="../std_library/exact_units/"><code>exact_units::Fixed</code></a> (<code>Micros&lt;u32&gt;</code>:
+  the bytes of the <code>u32</code>, µs in introspection), and <a href="../std_library/ww_si/"><code>ww_si</code></a> has SI quantities whose prefix
+  and number type the device picks.</li>
 </ul>
 
 

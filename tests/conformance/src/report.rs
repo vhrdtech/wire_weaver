@@ -83,7 +83,7 @@ pub fn render(corpus: &Corpus) -> String {
         let _ = writeln!(
             out,
             "\n## Requantize\n\nA stored number converted to another scale and storage with a named rounding and \
-             overflow policy (STD-63, [Rounding and overflow](../api/rounding.md)): every consumer gives the result, \
+             overflow policy (STD-63, [Rounding and overflow](../std_library/rounding.md)): every consumer gives the result, \
              `none` for no value.\n\n| Case | Conversion | Value | Rounding | Overflow | Result | {} |\n|---|---|---|---|---|---|{}",
             REQUANTIZE_CONSUMERS.join(" | "),
             "---|".repeat(REQUANTIZE_CONSUMERS.len())

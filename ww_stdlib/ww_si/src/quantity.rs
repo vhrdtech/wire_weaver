@@ -1,7 +1,8 @@
 //! Constructors, conversions, comparisons and formatting, written once for every [Quantity].
 
 use crate::ops::{
-    compare, scale_f32, scale_f64, to_i32_scaled, to_u32_scaled, to_u32_wrapping_scaled,
+    compare, exact_between, scale_f32_between, scale_f64_between, to_i32_scaled, to_u32_scaled,
+    to_u32_wrapping_scaled,
 };
 use crate::tree::{self, write_unit};
 use crate::{Prefix, Quantity};
@@ -84,7 +85,7 @@ impl<U: Unit> Quantity<U> {
     ///
     /// Panics if `storage` is not enabled as a number feature, or is one `NumericValue` can't hold (`F16`, `UB`, ..).
     pub fn quantize(x: f32, prefix: Prefix, storage: NumericBaseType) -> Self {
-        let x = scale_f32(x, -i8::from(prefix));
+        let x = scale_f32_between(x, Prefix::Unit, prefix);
         let value = storage
             .from_f32_saturating(x)
             .expect("quantize: number type not enabled or not supported");
@@ -94,20 +95,17 @@ impl<U: Unit> Quantity<U> {
     /// The value in the unit itself (no prefix) as `f64`, rounded where `f64` can't hold it exactly. For a unit with a
     /// scale (°, °C, g) this is still in that unit, [to_si_f64](Self::to_si_f64) converts to coherent SI.
     pub fn to_f64(&self) -> f64 {
-        scale_f64(self.value.to_f64(), self.prefix.into())
+        self.prefix.scale_f64(self.value.to_f64())
     }
 
     /// The value in the unit itself (no prefix) as `f32`.
     pub fn to_f32(&self) -> f32 {
-        scale_f32(self.value.as_f32(), self.prefix.into())
+        self.prefix.scale_f32(self.value.as_f32())
     }
 
     /// The value in units of `prefix` as `f64` (`to_f64_in(Prefix::Milli)` of 3.3 V is 3300.0).
     pub fn to_f64_in(&self, prefix: Prefix) -> f64 {
-        scale_f64(
-            self.value.to_f64(),
-            i8::from(self.prefix) - i8::from(prefix),
-        )
+        scale_f64_between(self.value.to_f64(), self.prefix, prefix)
     }
 
     /// The value in units of `prefix` as an `i32`: exact for integer storage (truncated toward zero when `prefix` is
@@ -115,12 +113,12 @@ impl<U: Unit> Quantity<U> {
     /// `NaN`. `u32` arithmetic only with number types up to 32 bits: `Second::milli(5u16).to_i32_in(Prefix::Micro)` is
     /// `Some(5000)`.
     pub fn to_i32_in(&self, prefix: Prefix) -> Option<i32> {
-        to_i32_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+        to_i32_scaled(&self.value, self.prefix, prefix)
     }
 
     /// The value in units of `prefix` as a `u32`, like [to_i32_in](Self::to_i32_in): `None` below zero.
     pub fn to_u32_in(&self, prefix: Prefix) -> Option<u32> {
-        to_u32_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+        to_u32_scaled(&self.value, self.prefix, prefix)
     }
 
     /// The value in units of `prefix` modulo `2^32` (two's complement below zero): what a wrapping 32-bit counter of
@@ -128,7 +126,7 @@ impl<U: Unit> Quantity<U> {
     /// Truncated toward zero when `prefix` is bigger than the stored one. Floats are rounded and taken from `-2^31`
     /// up to below `2^32` only, `None` beyond, for `NaN` and `UN` / `IN`.
     pub fn to_u32_wrapping_in(&self, prefix: Prefix) -> Option<u32> {
-        to_u32_wrapping_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+        to_u32_wrapping_scaled(&self.value, self.prefix, prefix)
     }
 
     /// The value in units of `prefix` as an integer: exact for integer storage (truncated toward zero when `prefix` is
@@ -143,7 +141,7 @@ impl<U: Unit> Quantity<U> {
         feature = "i128"
     ))]
     pub fn to_i128_in(&self, prefix: Prefix) -> Option<i128> {
-        crate::ops::to_i128_scaled(&self.value, i8::from(self.prefix) - i8::from(prefix))
+        crate::ops::to_i128_scaled(&self.value, self.prefix, prefix)
     }
 
     /// The value in coherent SI through the unit's scale: 90 ° is 1.5708 (rad), 20 °C is 293.15 (K), 5 g is 0.005
@@ -156,15 +154,14 @@ impl<U: Unit> Quantity<U> {
     /// `Prefix::Unit` is 3 V, 3300 mV is `None` (3.3 is not an integer), and so is 3300 mV to µV (3 300 000 doesn't fit
     /// a `U16`). Floats are scaled. For autoranging a value before sending it.
     pub fn with_prefix(&self, prefix: Prefix) -> Option<Self> {
-        let from = i8::from(self.prefix);
-        let to = i8::from(prefix);
+        let (from, to) = (self.prefix, prefix);
         let value = match self.value {
             #[cfg(feature = "f32")]
-            NumericValue::F32(x) => NumericValue::F32(scale_f32(x, from - to)),
+            NumericValue::F32(x) => NumericValue::F32(scale_f32_between(x, from, to)),
             #[cfg(feature = "f64")]
-            NumericValue::F64(x) => NumericValue::F64(scale_f64(x, from - to)),
+            NumericValue::F64(x) => NumericValue::F64(scale_f64_between(x, from, to)),
             value => {
-                let x = value.to_integer()?.exact_scale_pow10(from - to)?;
+                let x = exact_between(value.to_integer()?, from, to)?;
                 value.ty().from_integer(x)?
             }
         };
@@ -195,12 +192,7 @@ impl<U: Unit> PartialEq for Quantity<U> {
 /// through `f64` when one is a float.
 impl<U: Unit> PartialOrd for Quantity<U> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        compare(
-            self.prefix.into(),
-            &self.value,
-            other.prefix.into(),
-            &other.value,
-        )
+        compare(self.prefix, &self.value, other.prefix, &other.value)
     }
 }
 

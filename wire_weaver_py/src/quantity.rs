@@ -22,16 +22,23 @@ impl Quantity {
         numeric_to_py(py, &self.q.value)
     }
 
-    /// The SI prefix's name: `"Milli"`, `"Unit"` for none.
+    /// The prefix's name: `"Milli"`, `"Kibi"`, `"Unit"` for none, `"Exact"` for an exact scale ([scale](Self::scale)).
     #[getter]
     fn prefix(&self) -> &'static str {
         self.q.prefix.name()
     }
 
-    /// The prefix as a power of ten: `-3` for milli.
+    /// The prefix as a power of ten: `-3` for milli, `-4` for an `Exact` 10⁻⁴; `None` for a binary prefix and any
+    /// other exact scale.
     #[getter]
-    fn exponent(&self) -> i8 {
-        self.q.prefix.into()
+    fn exponent(&self) -> Option<i8> {
+        self.q.prefix.pow10()
+    }
+
+    /// The prefix's scale as a float: `0.001` for milli, `1024.0` for kibi, `1/65535` for an `Exact` one.
+    #[getter]
+    fn scale(&self) -> f64 {
+        self.q.prefix.scale_f64(1.0)
     }
 
     /// The unit's symbol, without the prefix: `"V"`, `"N·m/(rad/s)"`, empty for a ratio; a unit `ww_si` doesn't know

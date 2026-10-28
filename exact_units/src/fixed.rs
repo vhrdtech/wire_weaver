@@ -993,7 +993,7 @@ pub(crate) fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::
 }
 
 fn write_prefix_unit<P: FixedScale>(unit: &UnitExpr, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    if let Some(prefix) = P::SCALE.as_pow10().and_then(|e| Prefix::try_from(e).ok()) {
+    if let Some(prefix) = P::SCALE.as_pow10().and_then(Prefix::si_from_pow10) {
         return write_unit(prefix, &unit, f);
     }
     if P::SYMBOL.is_empty() {

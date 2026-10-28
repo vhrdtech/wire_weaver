@@ -2,7 +2,7 @@
 //! [NumericValue] of a [Quantity].
 
 use crate::Quantity;
-use exact_units::{Bounds, DecimalPrefix, Fixed, FixedScale, Magnitude, Repr, Storage, Unit};
+use exact_units::{Bounds, DecimalPrefix, Fixed, FixedScale, Repr, Storage, Unit};
 use ww_numeric::NumericValue;
 
 impl<U: Unit> Quantity<U> {
@@ -15,7 +15,7 @@ impl<U: Unit> Quantity<U> {
             let m = i128::try_from(x.magnitude()).ok()?;
             Repr::Int(if x.is_negative() { -m } else { m })
         };
-        Fixed::from_scaled(repr, Magnitude::pow10(i8::from(self.prefix)))
+        Fixed::from_scaled(repr, self.prefix.magnitude())
     }
 
     /// The same value as a [Fixed] has it, prefix and number as they are. Only for number types `NumericValue` has

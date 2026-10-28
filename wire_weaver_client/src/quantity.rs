@@ -359,8 +359,11 @@ impl DynQuantity {
         let (Some(from), Some(to)) = (self.unit.magnitude(), unit.magnitude()) else {
             return Err(refuse("a unit without an exact factor to SI"));
         };
-        let factor = Magnitude::checked_pow10(self.prefix.into())
-            .and_then(|p| p.checked_mul(from).ok())
+        let factor = self
+            .prefix
+            .magnitude()
+            .checked_mul(from)
+            .ok()
             .and_then(|m| m.checked_div(to).ok())
             .ok_or_else(|| refuse("the factor leaves what a Magnitude holds"))?;
         if self.value.is_float() {
@@ -391,11 +394,12 @@ impl DynQuantity {
             let y = x.checked_mul(n)?;
             (y % d == 0).then(|| i64::try_from(y / d).ok()).flatten()
         };
-        // the largest prefix that keeps it whole: the smallest number
-        let (prefix, y) = Prefix::ALL
+        // the largest SI prefix that keeps it whole: the smallest number
+        let (e, y) = Prefix::ALL
             .into_iter()
-            .filter_map(|p| exact(p.into()).map(|y| (p, y)))
-            .max_by_key(|(p, _)| i8::from(*p))
+            .filter_map(|p| p.si_pow10())
+            .filter_map(|e| exact(e).map(|y| (e, y)))
+            .max_by_key(|(e, _)| *e)
             .ok_or_else(|| {
                 refuse(
                     "no SI prefix holds it as a whole number (convert a float for a rounded value)",
@@ -406,7 +410,7 @@ impl DynQuantity {
             Err(_) => NumericValue::I64(y),
         };
         Ok(DynQuantity {
-            prefix,
+            prefix: Prefix::si_from_pow10(e).expect("an SI prefix's own power"),
             value,
             unit: unit.clone(),
         })

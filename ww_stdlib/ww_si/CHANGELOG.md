@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+* `Prefix` (from `exact_units`, STD-59) has `Kibi` .. `Tebi` and `Exact(ExactScale)`, and no `From<Prefix> for i8` / `TryFrom<i8>` any more: see `exact_units`' changelog. A `Quantity` in KiB or in an exact scale (`Ratio` in `1/65535`, `Second` in `2⁻¹⁵` s) converts (`to_f64`, `to_i32_in`, `to_u32_in`, `to_u32_wrapping_in`, `to_i128_in`, `with_prefix`, `quantize`), compares (`==`, `<` exactly for integers when the ratio of the scales is rational) and adds (`checked_add`, `steps`) like one in an SI prefix; between two SI prefixes the code is the same power-of-ten fast path as before, the other scales go through `Magnitude` in functions of their own. `Quantity<U>` stays the size it was (`Prefix` is 1 byte). A device or host built before this can't read a `Quantity` in a binary or `Exact` prefix (decode error), and every other value is the same bytes.
 * `Scale::Factor(f64)` is removed (re-exported from `exact_units`): a unit's factor is exact, `Scale::Exact(Magnitude)`
   (`Rpm` is `Magnitude::new(1, 30, 0, 0, 1)`). `Scale::Affine` is nibble `2` on the wire now, `Exact` `3`: an
   `AnyQuantity` in °C from a device built before reads wrong (`ww_si` was never published).

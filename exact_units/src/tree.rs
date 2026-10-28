@@ -354,6 +354,11 @@ pub fn write_unit<'t, E: Tree<'t>>(
     unit: &E,
     f: &mut fmt::Formatter<'_>,
 ) -> fmt::Result {
+    if let Prefix::Exact(s) = prefix {
+        // a factor without a symbol: after the number, then the unit
+        write!(f, "{s}")?;
+        return write_unit(Prefix::Unit, unit, f);
+    }
     if is_ratio(unit) {
         return match prefix {
             Prefix::Unit => Ok(()),
@@ -361,7 +366,10 @@ pub fn write_unit<'t, E: Tree<'t>>(
             Prefix::Milli => f.write_str(" ‰"),
             Prefix::Micro => f.write_str(" ppm"),
             Prefix::Nano => f.write_str(" ppb"),
-            p => write!(f, "e{}", i8::from(p)),
+            p => match p.pow10() {
+                Some(e) => write!(f, "e{e}"),
+                None => write!(f, " {}", p.symbol()),
+            },
         };
     }
     f.write_str(" ")?;

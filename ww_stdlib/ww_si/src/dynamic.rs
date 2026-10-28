@@ -2,7 +2,6 @@
 
 #[cfg(feature = "std")]
 use crate::SIExprOwned;
-use crate::ops::scale_f64;
 use crate::tree;
 use crate::{Prefix, Quantity, SIExpr, Unit};
 use core::fmt;
@@ -16,7 +15,7 @@ mod owned {
     impl AnyQuantityOwned {
         /// Like [AnyQuantity::to_f64].
         pub fn to_f64(&self) -> f64 {
-            scale_f64(self.value.to_f64(), self.prefix.into())
+            self.prefix.scale_f64(self.value.to_f64())
         }
 
         /// Like [AnyQuantity::to_si_f64].
@@ -97,7 +96,7 @@ impl<'i> AnyQuantity<'i> {
 
     /// The value in the unit itself (no prefix) as `f64`, like [Quantity::to_f64].
     pub fn to_f64(&self) -> f64 {
-        scale_f64(self.value.to_f64(), self.prefix.into())
+        self.prefix.scale_f64(self.value.to_f64())
     }
 
     /// The value in coherent SI through the unit's scale, like [Quantity::to_si_f64]; `None` when the unit's factor

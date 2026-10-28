@@ -243,10 +243,9 @@ impl fmt::Display for DynUnit {
     }
 }
 
-/// The scale of a quantity's number: an SI prefix (`m` in `3300 mV`), or any other exact scale of an
-/// `exact_units::Fixed` (CLT-54): a binary prefix (`Ki`), a user's `scale!`, a power of two without a symbol (`Q15`'s
-/// 2⁻¹⁵).
-// TODO(CLT-54): one `Prefix` once ww_si's has the binary prefixes and `Exact` (STD-59)
+/// The scale of a quantity's number: a [Prefix] (`m` in `3300 mV`, `Ki`, `Pow10` 10⁻⁴, a scale from a newer version),
+/// or any other exact scale of an `exact_units::Fixed` (CLT-54): a user's `scale!`, a power of two without a symbol
+/// (`Q15`'s 2⁻¹⁵).
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynPrefix {
     Si(Prefix),
@@ -257,15 +256,12 @@ pub enum DynPrefix {
     },
 }
 
-/// The binary prefixes, which text may carry (`4 KiB`) wherever a number is converted exactly.
-const BINARY: [(&str, i8); 4] = [("Ki", 10), ("Mi", 20), ("Gi", 30), ("Ti", 40)];
-
 impl DynPrefix {
     pub const UNIT: DynPrefix = DynPrefix::Si(Prefix::Unit);
 
-    /// The scale with `symbol` and `magnitude`: an SI prefix when it is a power of ten one has, as `Fixed` shows it.
+    /// The scale with `symbol` and `magnitude`: a named prefix when one is it (`m`, `Ki`), as `Fixed` shows it.
     pub fn new(symbol: &str, magnitude: Magnitude) -> Self {
-        match magnitude.as_pow10().and_then(|e| Prefix::try_from(e).ok()) {
+        match Prefix::named_of(&magnitude) {
             Some(p) => DynPrefix::Si(p),
             None => DynPrefix::Exact {
                 symbol: symbol.into(),
@@ -274,15 +270,15 @@ impl DynPrefix {
         }
     }
 
-    /// The exact factor: 10⁻³ for `m`, 2¹⁰ for `Ki`.
-    pub fn magnitude(&self) -> Magnitude {
+    /// The exact factor: 10⁻³ for `m`, 2¹⁰ for `Ki`; `None` for a scale from a newer version (`Prefix::Unknown`).
+    pub fn magnitude(&self) -> Option<Magnitude> {
         match self {
-            DynPrefix::Si(p) => Magnitude::pow10((*p).into()),
-            DynPrefix::Exact { magnitude, .. } => *magnitude,
+            DynPrefix::Si(p) => p.magnitude(),
+            DynPrefix::Exact { magnitude, .. } => Some(*magnitude),
         }
     }
 
-    /// The SI prefix, `None` for another scale.
+    /// The prefix, `None` for another scale of a `Fixed`.
     pub fn si(&self) -> Option<Prefix> {
         match self {
             DynPrefix::Si(p) => Some(*p),
@@ -480,10 +476,14 @@ impl DynQuantity {
         ValueOwned::des_shrink_wrap_dyn(&bytes, ty, bundle).map_err(|e| format!("{e:#}"))
     }
 
-    /// The SI prefix and number, as a `ww_si::Quantity` holds them: another scale (`Ki`) converts to one exactly, or
-    /// is an error.
+    /// The prefix and number, as a `ww_si::Quantity` holds them: a `Fixed`'s scale that no prefix is (`1/5`) converts
+    /// to an SI prefix exactly, or is an error.
     pub fn si_parts(&self) -> Result<(Prefix, NumericValue), String> {
-        match self.prefix.si() {
+        let prefix = match &self.prefix {
+            DynPrefix::Si(p) => Some(*p),
+            DynPrefix::Exact { magnitude, .. } => Prefix::from_magnitude(magnitude),
+        };
+        match prefix {
             Some(p) => Ok((p, self.value)),
             None => {
                 let si = self.convert(&self.unit)?;
@@ -496,10 +496,11 @@ impl DynQuantity {
     fn fixed_number(&self, fixed: &FixedType, ty_name: &str) -> Result<NumericValue, String> {
         let refuse = |why: String| format!("{self} can't be written into {ty_name}: {why}");
         // stored = value · factor, factor = this scale / the stored one, through the units when they differ
-        let mut factor = self
-            .prefix
-            .magnitude()
-            .checked_div(fixed.prefix.magnitude());
+        let (Some(scale), Some(stored)) = (self.prefix.magnitude(), fixed.prefix.magnitude())
+        else {
+            return Err(refuse("a scale from a newer version".into()));
+        };
+        let mut factor = scale.checked_div(stored);
         if self.unit != fixed.unit {
             let (Some(from), Some(to)) = (self.unit.dim(), fixed.unit.dim()) else {
                 return Err(refuse(format!(
@@ -619,8 +620,8 @@ impl DynQuantity {
         // the largest prefix that keeps it whole: the smallest number
         let (prefix, y) = Prefix::ALL
             .into_iter()
-            .filter_map(|p| exact(p.into()).map(|y| (p, y)))
-            .max_by_key(|(p, _)| i8::from(*p))
+            .filter_map(|p| p.si_pow10().and_then(exact).map(|y| (p, y)))
+            .max_by_key(|(p, _)| p.si_pow10())
             .ok_or_else(|| {
                 refuse(
                     "no SI prefix holds it as a whole number (convert a float for a rounded value)",
@@ -759,12 +760,6 @@ fn prefix_before(symbol: &str, unit: &str, scale: Option<&DynPrefix>) -> Option<
     {
         return Some(scale.clone());
     }
-    if let Some((s, e)) = BINARY.iter().find(|(s, _)| *s == head) {
-        return Some(DynPrefix::Exact {
-            symbol: (*s).into(),
-            magnitude: Magnitude::pow2(*e),
-        });
-    }
     Prefix::ALL
         .into_iter()
         .find(|p| *p != Prefix::Unit && p.symbol() == head)
@@ -822,8 +817,10 @@ impl fmt::Display for DynQuantity {
         if let (DynPrefix::Si(prefix), None) = (&self.prefix, &self.storage) {
             return fmt::Display::fmt(&tree::quantity(*prefix, &self.value, &unit), f);
         }
-        let magnitude = self.prefix.magnitude();
-        if f.alternate() {
+        // a scale from a newer version has no factor to write it in the unit itself
+        if f.alternate()
+            && let Some(magnitude) = self.prefix.magnitude()
+        {
             match self.value.to_i128() {
                 Some(x) => match (magnitude.apply_int(x), magnitude.as_pow10()) {
                     (Some(x), _) => write!(f, "{x}")?,
@@ -1049,18 +1046,6 @@ impl fmt::Display for DynCount {
             CountKind::IndexFrom1 => write!(f, "#{n} ({of}, from 1)"),
             CountKind::Seq => write!(f, "seq {n} ({of})"),
         }
-    }
-}
-
-/// A `NumericValue` as the dynamic decoder gives it: an enum value, the variant named after the number type, the
-/// number in it.
-fn numeric_value(fields: &FieldsValueOwned) -> Option<NumericValue> {
-    match fields {
-        FieldsValueOwned::Unnamed(items) => match items.as_slice() {
-            [ValueOwned::Numeric(n)] => Some(*n),
-            _ => None,
-        },
-        _ => None,
     }
 }
 

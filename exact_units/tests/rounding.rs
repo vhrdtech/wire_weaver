@@ -4,7 +4,7 @@
 use exact_units::prefix::{Centi, Deci, Kilo, Micro, Milli, One, Pow2, Rational};
 use exact_units::units::{Radian, Ratio, Second, Volt};
 use exact_units::{
-    Bam16, Fixed, FixedScale, Magnitude, Overflow, Prefix, Q15, Range, Repr, Requantizer, Rounding,
+    Bam16, Fixed, FixedScale, Magnitude, Overflow, Q15, Range, Repr, Requantizer, Rounding,
     Storage, StorageKind, requantize,
 };
 
@@ -224,15 +224,9 @@ fn floats_round_once() {
     );
 }
 
-/// Steps of 1/1000 °, over the unit radian: the scale is π/180000, not a fraction of integers.
-#[derive(Copy, Clone, Default)]
-struct MilliDegree;
-
-impl FixedScale for MilliDegree {
-    const SCALE: Magnitude = Magnitude::PI.div(Magnitude::ratio(180_000, 1));
-    const SYMBOL: &'static str = "m°";
-    const NAME: &'static str = "MilliDegree";
-    const RUNTIME: Option<Prefix> = None;
+exact_units::scale! {
+    /// Steps of 1/1000 °, over the unit radian: the scale is π/180000, not a fraction of integers.
+    struct MilliDegree = "m°", Exact(1 / 180000, pi 1);
 }
 
 #[test]

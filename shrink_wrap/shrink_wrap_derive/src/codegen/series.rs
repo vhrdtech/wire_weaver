@@ -100,7 +100,8 @@ impl SeriesSeed<'_> {
     }
 
     /// A block summing the `MAX_ITEM_BITS` (`item`) or `MAX_FIXED_BITS` of `fields`, starting from `start`; an
-    /// opaque field is bounded by its type's `MAX_SIZE` (a user `#[wire(W)]` one by `WireAs::PLAIN_MAX_SIZE`).
+    /// opaque field is bounded by its type's `MAX_SIZE` (a user `#[wire(W)]` one by `WireAs::PLAIN_MAX_SIZE`), on the
+    /// borrowed side only.
     fn bound_sum(&self, fields: &[SeriesField], item: bool, start: TokenStream) -> TokenStream {
         let trait_ = self.sc(quote! { SeriesColumns });
         let add = self.sc(quote! { bound::add });
@@ -117,8 +118,11 @@ impl SeriesSeed<'_> {
             )
         };
         let terms = fields.iter().map(|f| {
-            // a user `#[wire(W)]` field is a `WiredOpaque`, bounded by its own consts (`WireAs::PLAIN_MAX_SIZE`)
-            if f.opaque && !f.wired {
+            // a user `#[wire(W)]` field is a `WiredOpaque`, bounded by its own consts (`WireAs::PLAIN_MAX_SIZE`); the
+            // owned traits have no `MAX_SIZE`, so an owned type's opaque field is unbounded
+            if f.opaque && !f.wired && !self.is_ref {
+                quote! { None }
+            } else if f.opaque && !f.wired {
                 let ty = &f.ty;
                 quote! { #opaque_bound(<#ty as #ser>::MAX_SIZE) }
             } else {

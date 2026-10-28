@@ -1139,6 +1139,15 @@
       "note": "32768 · 1/65535: a full-scale step 1/(2^16 − 1), the scale of a 16-bit duty, FullScaleMax<One, 16> (STD-59)"
     },
     {
+      "name": "stdlib.si.quantity.unknown_scale",
+      "type": "quantity_ratio",
+      "value": {"prefix": "<unknown 1000>", "value": {"U32": 5}},
+      "bytes": "8df13005000000",
+      "direction": "decode",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a scale kind from a newer version, its numbers packed into the prefix's tag (DER-25): read as Prefix::Unknown(1000), the number after it intact"
+    },
+    {
       "name": "stdlib.si.quantity.bounded",
       "type": "quantity_rail",
       "value": {"prefix": "Milli", "value": {"U32": 3300}},

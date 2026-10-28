@@ -1,6 +1,6 @@
 // ww_adc 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c9d5c381cda124e7fd4097f862530d6c670c555a34007c224466e8caba5a202f
+// shrink_wrap sha256: 51fbac7c189f0e95b00fbc9d7c805e0130f37ca3a3fff21401dbc41d2bcd475e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Analog inputs over WireWeaver: single calibrated readings, continuous sampling, and lossless captures into device",
     "RAM.",
@@ -91,24 +91,24 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Prefix", signature: [
-        151,
-        117,
-        114,
-        41,
-        17,
-        56,
-        49,
-        71,
+        184,
+        132,
+        40,
+        225,
+        131,
+        182,
+        209,
+        67,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        86,
-        157,
+        140,
+        13,
+        123,
+        135,
         223,
-        136,
-        160,
-        153,
-        255,
-        229,
+        180,
+        28,
+        86,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One calibrated reading, see `Adc::read`.",
@@ -148,7 +148,7 @@
         (docs: [
             "No channel with this index.",
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "SIExpr", signature: [
         109,
         7,
@@ -230,7 +230,7 @@
         (docs: [
             "Three bytes per sample, signed, little-endian (sigma-delta converters).",
         ], ident: "I24", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to stream, see `AdcStream::samples`.",
     ], ident: "StreamConfig", generics: [], fields: Named([
@@ -326,7 +326,7 @@
         (docs: [
             "On the device\'s external trigger input, or another device\'s trigger.",
         ], ident: "External", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to capture, see `AdcCapture::capture`.",
     ], ident: "CaptureConfig", generics: [], fields: Named([
@@ -391,7 +391,7 @@
             ])), docs: [], slot: None, series_opaque: false),
             (ident: Some("sets"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The channels and single readings.",

@@ -96,7 +96,7 @@
         (docs: [
             "The weakest drive the point has, for short tests.",
         ], ident: "Weak", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What [PinDiag::set] makes of a point.",
     ], ident: "PointState", generics: [], variants: [
@@ -111,7 +111,7 @@
             (ident: Some("level"), default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
             (ident: Some("drive"), default: None, since: None, ty: OutOfLine(type_idx: 5), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -141,7 +141,7 @@
         ], ident: "Refused", fields: Named([
             (ident: Some("rule"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Raw access to a board\'s digital points, see the [crate](crate) documentation.",

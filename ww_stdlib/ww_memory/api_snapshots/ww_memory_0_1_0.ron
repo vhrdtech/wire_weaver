@@ -45,7 +45,7 @@
         (docs: [
             "All watch slots are taken.",
         ], ident: "OutOfWatchSlots", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: BitAligned(2), crate_idx: 0, docs: [
         "Access rights of a memory region.",
     ], ident: "Access", generics: [], variants: [

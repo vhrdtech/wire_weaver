@@ -25,7 +25,7 @@
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Side", generics: [], variants: [
         (docs: [], ident: "Host", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Device", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "Medium", generics: [], variants: [
         (docs: [], ident: "Usb", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Udp", fields: Unit, discriminant: 1, since: None),
@@ -41,7 +41,7 @@
         (docs: [
             "Local socket (Unix domain socket, named pipe), e.g. to the ww hub (TR-16); messages as they are.",
         ], ident: "LocalSocket", fields: Unit, discriminant: 7, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerChecksum", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
         (docs: [
@@ -55,13 +55,13 @@
         ], ident: "Crc32IsoHdlc", fields: Named([
             (ident: Some("full"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerTail", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Byte", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "Frame prefix (`ww_framer::prefix`).",
     ], ident: "FramerPrefix", generics: [], variants: [
@@ -71,7 +71,7 @@
         (docs: [
             "`SeqPrefix`: one byte `00ee_ssss`, frame counter mod 16 and session epoch mod 4.",
         ], ident: "Seq", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "How frames are packed (`ww_framer`), see `ww_link` for each medium\'s configuration.",
     ], ident: "Framer", generics: [], variants: [
@@ -90,7 +90,7 @@
                 "What every frame starts with, before the first head.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The start of a link: everything a decoder needs to re-run the framer and find the API bundle.",
     ], ident: "Session", generics: [], fields: Named([
@@ -138,7 +138,7 @@
         ], ident: "Lost", fields: Named([
             (ident: Some("records"), default: None, since: None, ty: NumericAny(Base(UVlq64)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A frame as it crossed the medium.",
     ], ident: "Frame", generics: [], fields: Named([

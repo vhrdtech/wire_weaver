@@ -550,6 +550,22 @@ mod tests {
         assert_eq!(d.to_f64(), 32768.0 / 65535.0);
     }
 
+    /// A scale from a newer device version (DER-25) comes through as `Unknown(tag)`: shown with its tag, not converted.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn unknown_prefix_property() {
+        let (device, values) = start("quantities/unknown");
+        values.lock().unwrap().duty = Quantity::new(Prefix::Unknown(1000), 5u16);
+        let (client, root) = connect(&device).await;
+        let d = read_quantity(&client, &root, "duty").await;
+        assert_eq!(
+            (d.prefix, d.value),
+            (Prefix::Unknown(1000), NumericValue::U16(5))
+        );
+        assert_eq!(d.to_string(), "5·<scale 1000>");
+        assert!(d.to_f64().is_nan());
+        assert_eq!(d.to_si_f64(), None);
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn compound_unit_property() {
         let (device, _values) = start("quantities/per");

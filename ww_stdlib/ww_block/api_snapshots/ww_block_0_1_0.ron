@@ -48,7 +48,7 @@
         (docs: [
             "RAM disk, file on a host, anything else.",
         ], ident: "Other", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "What erased blocks read as, see [Geometry::erased].",
     ], ident: "Erased", generics: [], variants: [
@@ -61,7 +61,7 @@
         (docs: [
             "Not defined (an SD card may answer either, eMMC discard leaves old data).",
         ], ident: "Unspecified", fields: Unit, discriminant: 2, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The medium, see [BlockDevice::geometry].",
     ], ident: "Geometry", generics: [], fields: Named([
@@ -145,7 +145,7 @@
         ], ident: "WriteFailed", fields: Named([
             (ident: Some("reason"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: String), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 7, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One run of [BlockDevice::write_runs]: whole blocks at `lba`, as [BlockDevice::write] takes them.",
     ], ident: "WriteRun", generics: [], fields: Named([
@@ -172,7 +172,7 @@
         (docs: [], ident: "BadCrc", fields: Unit, discriminant: 4, since: None),
         (docs: [], ident: "WriteFailed", fields: Unit, discriminant: 5, since: None),
         (docs: [], ident: "NoMedium", fields: Unit, discriminant: 6, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The outcome of one run of [BlockDevice::write_runs], on [BlockDevice::written].",
     ], ident: "RunAck", generics: [], fields: Named([

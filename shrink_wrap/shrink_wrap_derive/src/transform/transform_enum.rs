@@ -6,7 +6,8 @@ use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::object_size::ObjectSize;
 use crate::ast::repr::Repr;
 use crate::transform::syn_util::{
-    collect_docs_attrs, take_cfg_attrs, take_display_attr, take_flag_like_attr, take_since_attr,
+    collect_docs_attrs, collect_unknown_attributes, take_cfg_attrs, take_display_attr,
+    take_flag_like_attr, take_flag_like_attr_or_cfg, take_since_attr,
 };
 use crate::transform::transform_struct::{change_is_ok_to_is_some, propagate_default_to_flags};
 use crate::transform::util::{
@@ -24,7 +25,7 @@ impl ItemEnum {
         let mut next_discriminant: u32 = 0;
         for (idx, variant) in item_enum.variants.iter().enumerate() {
             let mut attrs = variant.attrs.clone();
-            if take_flag_like_attr(&mut attrs, "future_version") {
+            if take_flag_like_attr_or_cfg(&mut attrs, "future_version") {
                 future_version = Some(future_version_variant(
                     variant,
                     attrs,

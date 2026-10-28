@@ -215,6 +215,31 @@ pub(crate) fn take_flag_like_attr(attrs: &mut Vec<syn::Attribute>, name: &str) -
     attrs.len() != len
 }
 
+/// `#[name]`, or `#[cfg_attr(pred, name)]` with the flag alone in it: a type whose derive is behind a `cfg_attr`
+/// can't write the plain attribute, rustc rejects it when the derive is off (`exact_units::Prefix`'s
+/// `#[future_version]`). The derive running means `pred` holds for it, so the flag counts either way.
+pub(crate) fn take_flag_like_attr_or_cfg(attrs: &mut Vec<syn::Attribute>, name: &str) -> bool {
+    let len = attrs.len();
+    attrs.retain(|a| !(a.path().is_ident(name) || is_cfg_attr_of(a, name)));
+    attrs.len() != len
+}
+
+/// `#[cfg_attr(pred, name)]`.
+pub(crate) fn is_cfg_attr_of(attr: &syn::Attribute, name: &str) -> bool {
+    if !attr.path().is_ident("cfg_attr") {
+        return false;
+    }
+    let Meta::List(list) = &attr.meta else {
+        return false;
+    };
+    let Ok(metas) =
+        list.parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)
+    else {
+        return false;
+    };
+    matches!(metas.iter().nth(1), Some(Meta::Path(p)) if p.is_ident(name)) && metas.len() == 2
+}
+
 pub(crate) fn collect_docs_attrs(attrs: &mut Vec<syn::Attribute>) -> Docs {
     let mut docs = Docs::empty();
     for attr in attrs.iter() {

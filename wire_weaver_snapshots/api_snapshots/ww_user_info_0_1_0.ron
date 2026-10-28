@@ -51,7 +51,7 @@
                 "What the device keeps, from `CAPABILITIES`.",
             ], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A name and notes the user gives this unit.",

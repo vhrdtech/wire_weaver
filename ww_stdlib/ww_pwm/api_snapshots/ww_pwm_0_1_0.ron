@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: abc25700e47b7dc50d174b02f98f73132fba7dd0a631ba2c1e34a57328bd4060
+// shrink_wrap sha256: 92d6d768ff30530144ffc6938484adfa3e7b7e6cf787c54830dd606bd21ec998
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -69,14 +69,14 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        86,
-        157,
+        140,
+        13,
+        123,
+        135,
         223,
-        136,
-        160,
-        153,
-        255,
-        229,
+        180,
+        28,
+        86,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",
@@ -129,7 +129,7 @@
         (docs: [
             "The other channel of the group runs at another frequency.",
         ], ident: "SharedTimer", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The channel\'s output, see `PwmChannel::state`.",
     ], ident: "PwmState", generics: [], variants: [
@@ -141,7 +141,7 @@
         ], ident: "Output", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 4), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One PWM channel, see [PwmCapabilities::channels].",
     ], ident: "PwmChannelInfo", generics: [], fields: Named([
@@ -195,7 +195,7 @@
         (docs: [
             "Rising (or falling, device-defined) edges counted over `gate`.",
         ], ident: "EdgeCount", fields: Unit, discriminant: 4, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
         167,
         149,
@@ -242,7 +242,7 @@
         (docs: [], ident: "EdgeCount", fields: Unnamed([
             (ident: None, default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One measurement with its time, see `PwmCaptureChannel::read_capture`.",
     ], ident: "CaptureSample", generics: [], fields: Named([

@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 01a3f1fad3f31755f4ab56e9ef6f7bfc1c39540b65f8e582f8b405324eee2e97
+// shrink_wrap sha256: baab72430d5aab10181a40352a63ad5db5e94fcb57dd8a27186dd91387273ee0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -75,14 +75,14 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        86,
-        157,
+        140,
+        13,
+        123,
+        135,
         223,
-        136,
-        160,
-        153,
-        255,
-        229,
+        180,
+        28,
+        86,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One addressed (or skip-ROM) transaction: reset, select, write, read, optional strong pull-up.",
@@ -127,7 +127,7 @@
         (docs: [
             "The bus is held low.",
         ], ident: "ShortCircuit", fields: Unit, discriminant: 3, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Where a paged `OneWire::search` left off: the classic Dallas/Maxim search state, carried from one page to the",
         "next so the device doesn\'t have to remember it between calls.",
@@ -191,7 +191,7 @@
     ], ident: "OneWireSpeed", generics: [], variants: [
         (docs: [], ident: "Standard", fields: Unit, discriminant: 0, since: None),
         (docs: [], ident: "Overdrive", fields: Unit, discriminant: 1, since: None),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Everything the bus is configured with, see `OneWire::configure`: what is asked for going in, what was actually",
         "set coming back.",

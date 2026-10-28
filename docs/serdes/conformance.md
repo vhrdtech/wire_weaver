@@ -76,6 +76,36 @@ case 'fixed.numbers', consumer dynamic: encode: bytes differ at byte 0: got 1256
 - `wire_change` (default none): `"EVO-n / reason"`, the escape the [frozen golden bytes guard](#frozen-golden-bytes)
   accepts for a deliberate change to this case's `bytes`, `direction` or `bytes_from`.
 
+## A requantize case
+
+The `requantize` list holds conversions instead of bytes (STD-63, [Rounding and overflow](../api/rounding.md)): a
+stored number of one scale and storage converted to another with a named rounding and overflow policy, which every
+consumer has to give bit for bit.
+
+```json
+{
+  "name": "requantize.bam16_to_bam8.full_turn.wrap",
+  "conversion": "BAM16 -> BAM8",
+  "factor": {"pow10": 0, "rest": {"pow2": -16, "irrational": null, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}},
+  "to": "u8",
+  "value": 65408,
+  "rounding": "nearest_even",
+  "overflow": "wrap",
+  "result": 0
+}
+```
+
+- `conversion`: the typed conversion the derive runs, by its id in `tests/conformance/src/requantize.rs`
+  (`Fixed::requantize::<P2, T2>`); the derive also checks that `factor` is the quotient of its scales.
+- `factor`: the quotient of the scales, a `magnitude` value, which is all a dynamic client has: it reads the factor
+  through the model and runs `exact_units::Requantizer` with the target storage `to`.
+- `rounding` (`truncate`, `floor`, `ceil`, `nearest_even`, `nearest_away`), `overflow` (`checked`, `saturate`,
+  `wrap`) and `result`, `null` for no value.
+- `gaps`, `note` and `wire_change` as for a case: a `result` is as frozen as golden bytes.
+
+Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
+Python and C have no unit conversions yet and carry a gap mark naming CLT-54 on every case.
+
 ## Frozen golden bytes
 
 Once a case's `bytes` are in, they are the contract: nothing should change them, remove the case, or change its

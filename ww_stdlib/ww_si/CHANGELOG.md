@@ -1,5 +1,11 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+* `Scale::Factor(f64)` is removed (re-exported from `exact_units`): a unit's factor is exact, `Scale::Exact(Magnitude)`
+  (`Rpm` is `Magnitude::new(1, 30, 0, 0, 1)`). `Scale::Affine` is nibble `2` on the wire now, `Exact` `3`: an
+  `AnyQuantity` in °C from a device built before reads wrong (`ww_si` was never published).
+
 ### 🚀 Features
 
 * Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],

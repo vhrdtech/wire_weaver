@@ -7,12 +7,12 @@
 
 use anyhow::{Context, Result, anyhow, bail};
 use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude};
-use ww_self::{MarkerDefOwned, ScaleDefOwned, UnitDefOwned};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{
     Attribute, Ident, Item, LitFloat, LitInt, LitStr, Token, Visibility, bracketed, parenthesized,
 };
+use ww_self::{MarkerDefOwned, ScaleDefOwned, UnitDefOwned};
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
 pub(crate) const MARKER_ATTR: &str = "ww_marker";
@@ -90,7 +90,10 @@ fn mark_hand_written(items: &mut [Item]) {
         if let (true, syn::Type::Path(self_ty)) = (defines, &*item_impl.self_ty)
             && let Some(name) = self_ty.path.segments.last()
         {
-            hand.push((name.ident.clone(), Ident::new(&trait_name, name.ident.span())));
+            hand.push((
+                name.ident.clone(),
+                Ident::new(&trait_name, name.ident.span()),
+            ));
         }
     }
     for item in items.iter_mut() {
@@ -359,7 +362,11 @@ pub(crate) fn marker_def(
         MarkerLineDef::Hand(trait_name) => bail!(
             "marker {ident} of crate {crate_name} has a hand-written `impl {trait_name}`, which clients can't know: \
              declare it with `exact_units::{}!` instead",
-            if trait_name == "Unit" { "unit" } else { "scale" }
+            if trait_name == "Unit" {
+                "unit"
+            } else {
+                "scale"
+            }
         ),
     };
     Ok(Some(def))
@@ -367,7 +374,10 @@ pub(crate) fn marker_def(
 
 /// The exact magnitude a `num / den, pow10 a, pow2 b, pi c` line means.
 fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
-    let x2 = |e: i8| e.checked_mul(2).ok_or_else(|| anyhow!("exponent {e} out of range"));
+    let x2 = |e: i8| {
+        e.checked_mul(2)
+            .ok_or_else(|| anyhow!("exponent {e} out of range"))
+    };
     let powers = Magnitude::from_parts_x2(
         x2(m.pow10)?,
         x2(m.pow2)?,
@@ -703,7 +713,11 @@ mod tests {
             let Some(MarkerDefOwned::Scale(def)) = markers.remove(name) else {
                 panic!("{name}: no scale definition in the model");
             };
-            assert_eq!((def.symbol.as_str(), def.magnitude), (symbol, magnitude), "{name}");
+            assert_eq!(
+                (def.symbol.as_str(), def.magnitude),
+                (symbol, magnitude),
+                "{name}"
+            );
         }
         for (name, def) in BUILT_IN {
             assert_eq!(markers.remove(name), Some(def), "{name}");
@@ -844,7 +858,10 @@ mod tests {
             })
             .collect();
         let err = marker_def(structs[0], "my-api").unwrap_err().to_string();
-        assert!(err.contains("Rpm") && err.contains("my_api") && err.contains("unit!"), "{err}");
+        assert!(
+            err.contains("Rpm") && err.contains("my_api") && err.contains("unit!"),
+            "{err}"
+        );
         let err = marker_def(structs[1], "my_api").unwrap_err().to_string();
         assert!(err.contains("Lsb") && err.contains("scale!"), "{err}");
         assert_eq!(marker_def(structs[2], "my_api").unwrap(), None);

@@ -200,7 +200,7 @@ fn quantity_to_fixed_is_breaking_with_a_hint() {
 fn prepared_bundles() {
     let prepared = |src: &str| {
         let mut bundle = load_with("0.1.0", src, &ww_si_dep());
-        // markers stay skipped (ww_si's snapshot doesn't have them), compared by name
+        // markers come back in-line with their definitions (INT-13), still compared by crate and name
         let not_inlined = wire_weaver_snapshots::inline_skipped(&mut bundle);
         assert!(
             not_inlined.iter().all(|n| !n.name.ends_with("Fixed")),
@@ -229,7 +229,7 @@ fn prepared_bundles() {
     check(&same("u64"), &micros).unwrap();
     let e = check(&micros, &same("Millis<u64>")).unwrap_err();
     assert!(
-        e.contains("marker prefix::Micro on the client, prefix::Milli on the device"),
+        e.contains("marker Micro on the client, Milli on the device"),
         "{e}"
     );
     let e = check(

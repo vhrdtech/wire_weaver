@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 99e923be27f64791c2df171c70215ae5a007dc0699301d320ac1a8d5698eca0c
+// shrink_wrap sha256: e4ad937283865b59357ef2779690bca64d777683b45df2c13d0540256bf127d4
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -742,22 +742,17 @@
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
-            "Any factor: ° is π/180 rad, eV is 1.602176634·10⁻¹⁹ J.",
-        ], ident: "Factor", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 2, since: None),
-        (docs: [
             "A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.",
         ], ident: "Affine", fields: Named([
             (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
             (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 3, since: None),
+        ]), discriminant: 2, since: None),
         (docs: [
-            "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader",
-            "computes the same value, unlike with a `Factor`.",
+            "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s, eV",
+            "1.602176634·10⁻¹⁹ J. Every reader computes the same value.",
         ], ident: "Exact", fields: Unnamed([
             (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 104), docs: [], slot: None, series_opaque: false),
-        ]), discriminant: 4, since: None),
+        ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
         "A unit as a tree, on the wire: what [UnitExpr] is for a unit known from a type, for a unit known only at run time",

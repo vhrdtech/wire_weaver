@@ -685,7 +685,6 @@ mod tests {
                     assert!(!markers.contains_key(*name), "{name}");
                     continue;
                 }
-                Scale::Factor(_) => panic!("{name}: a float factor, not exact"),
             };
             let Some(MarkerDefOwned::Unit(def)) = markers.remove(*name) else {
                 panic!("{name}: no unit definition in the model");

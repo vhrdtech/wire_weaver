@@ -1645,9 +1645,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   printed on `ww api check` and on `ww api scaffold`'s stderr, never affecting the verdict or the generated code.
   Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming arguments
   (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
-  `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`. Open (later, once STD-64/STD-66/INT-13 land): reading a
-  doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100 %", "127 = not available"),
-  and suggesting `Bounds`/niche forms, not only the name suffix; tested on the scout's repos.
+  `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the
@@ -1695,6 +1693,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
+- 📋 **TOOL-23 Doc-comment / sentinel / bounds hints for `ww api check`** — the bigger version of TOOL-22's
+  name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
+  %", "127 = not available") and suggest `Bounds`/niche forms too, not only the name suffix. Needs STD-64, STD-66
+  and INT-13 landed first; tested on the scout's repos.
 - 📋 **TOOL-13 `Some(None)` in Python values** — Python (and the conformance corpus, which uses its form) writes
   `None` for both `None` and `Some(None)` of an `Option<Option<T>>`, so the inner `None` can't be written or told
   apart when read. Needs a marker for a present `None` (e.g. `ww.Some(None)`). Conformance case

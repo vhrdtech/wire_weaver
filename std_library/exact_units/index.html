@@ -3643,6 +3643,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3894,6 +3898,60 @@
     
   
   exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
 
     
   </span>
@@ -5522,6 +5580,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -5674,6 +5736,8 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
   when there are some: <code>Second(100 ms u16, 1..=5000)</code>); <code>defmt::Format</code> with the <code>defmt</code> feature.</li>
 <li>Cycles per second become hertz only through the named <code>to_hertz</code>: a cycle is a counted thing, not a dimensionless
   1 (see <a href="../ww_si/#dimensions">dimensions</a>).</li>
+<li>A <code>Fixed</code> is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a
+  register's <code>raw / 256 + 25 °C</code>, a heading that wraps) is a <code>Point</code> of an origin: see <a href="../points/">points</a>.</li>
 </ul>
 <h2 id="aliases">Aliases<a class="headerlink" href="#aliases" title="Permanent link">&para;</a></h2>
 <table>

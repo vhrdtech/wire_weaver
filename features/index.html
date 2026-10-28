@@ -3628,6 +3628,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3741,6 +3745,60 @@
     
   
   exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
 
     
   </span>
@@ -5927,7 +5985,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   takes that field's size class (<code>ELEMENT_SIZE</code>, <code>PUSHES_LEN</code>, <code>MAX_SIZE</code>), series columns, store and cells, and
   writes exactly its bytes in every position, borrowed and owned, generic, with <code>validate</code> and <code>display</code>; compile
   errors name the type for zero or two real fields and for the directives it excludes. Recorded in the API model
-  (<code>ItemStruct::transparent</code>, read by the walker, <code>ValueOwned</code>'s decoder and <code>Series</code> columns, so the <code>ww</code> CLI and
+  (<code>ItemStructExtra::transparent</code>, read by the walker, <code>ValueOwned</code>'s decoder and <code>Series</code> columns, so the <code>ww</code> CLI and
   <code>wire_weaver_py</code> read it too). For <code>ww_si::Fixed</code> (STD-55), where a <code>final_structure</code> wrapper was
   <code>UnsizedFinalStructure</code> even around a <code>u64</code> and couldn't sit in a <code>sized</code> parent. Also fixed: a generic parameter
   named <code>P</code>, <code>I</code>, <code>S</code> or <code>C</code> clashing with the derive's own in series code (<code>PhantomData&lt;(U, P)&gt;</code> included), and
@@ -7009,9 +7067,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>💡 <strong>INT-12 Bounds as a type of the API model</strong> — <code>Type::Bounded { ty, min, max }</code> (like <code>MaxLen</code>), checked by every
   consumer (the generic decoder, C, Python), shared with API-29's index bounds. Until then bounds are const arguments
   of <code>ww_si</code> markers (STD-55) that only <code>ww_si</code>-aware clients check; a new <code>Type</code> variant needs a model version step.</li>
-<li>📋 <strong>INT-13 Unit definitions in the API model</strong> · <code>v0.5</code> — every unit, scale, origin, level, kind and sentinel an API
-  uses carries its definition in <code>ww_self</code> (dimension, exact magnitude, offset, modulus, symbol), named by crate and
-  marker, so clients know a user crate's units without a built-in table, with a canonical sorted unit expression.</li>
+<li>✅ <strong>INT-13 Unit definitions in the API model</strong> · <code>v0.5</code> — every unit, scale and origin marker an API uses carries
+  its definition in <code>ww_self</code> (<code>ItemStructExtra::marker</code>, a <code>MarkerDef</code>: symbol, <code>Dim</code>, exact <code>Magnitude</code>; an origin's
+  unit, reference, exact offset, modulus and step), named by crate and marker (D16b), so clients know a user crate's
+  units (<code>unit!</code>, <code>scale!</code>, <code>origin!</code>) without a built-in table. <code>ww_self::units::unit_of</code> gives a canonical sorted
+  unit expression (F#-style: <code>Per&lt;Meter, Second&gt;</code> equals <code>Times&lt;Per&lt;Ratio, Second&gt;, Meter&gt;</code>) with exact
+  <code>factor_to</code>, <code>scale_of</code> and <code>origin_of</code> the factor of a scale and the definition of an origin. The walker and
+  snapshots fill it, appended with <code>#[default = None]</code> so plain structs keep their bytes and signatures and older
+  clients skip it. Conformance <code>model.marker_def.*</code> / <code>model.item_struct_extra.*</code> through derive, dynamic client and
+  Python (C: API-26). Firmware: no code cost (markers stay zero-size), introspection bytes only for the crate's own
+  markers (<code>Rpm</code> 22 B, an origin ~40 B; TEST-27). Levels (STD-67), kinds (STD-68) and sentinels (STD-66) append
+  their <code>MarkerDef</code> variants when their markers exist. <a href="../docs/std_library/units_in_the_model/">Units in the API model</a>.</li>
 </ul>
 <h2 id="evolution-versioning-and-compatibility-evo">Evolution, versioning and compatibility (<code>EVO</code>)<a class="headerlink" href="#evolution-versioning-and-compatibility-evo" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7319,6 +7385,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
   <code>tests/quantities</code>.</li>
+<li>✅ <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>exact_units::Point&lt;O, Fixed&lt;..&gt;&gt;</code>: a position against an origin, a
+  zero-size marker declared with <code>origin!</code> carrying its unit, an exact <code>Offset</code> (sign and <code>Magnitude</code>), its reference
+  and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
+  <code>origins</code>: <code>AbsoluteZero</code>, <code>Celsius</code> (273.15), <code>Rankine</code>, <code>Fahrenheit</code> (45967/180 K, steps of 5/9 K), <code>Vacuum</code>,
+  <code>Gauge</code> (reference: ambient pressure, converts only with <code>against</code> at run time), <code>AboveStandardAtmosphere</code>,
+  <code>Angle&lt;Turn | Degree | Radian&gt;</code> (wrap every turn, the difference signed and shortest). Register formulas are origins
+  <code>above</code> another (LSM6DS <code>raw/256 + 25 °C</code>, J1939 −40 °C). <code>to::&lt;O2, P2, T2&gt;()</code> between origins of the same unit and
+  reference, its factor and offset at compile time, exact or <code>None</code>. On the wire a point is its number; <code>OriginDef</code>
+  holds an origin as data for INT-13. <a href="../docs/std_library/points/">Points and origins</a>, conformance
+  <code>stdlib.si.point.*</code>, <code>stdlib.si.offset.*</code> (derive, dynamic, Python; C waits on API-26).</li>
 <li>✅ <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — <code>exact_units::Magnitude</code>, a canonical product of prime
   powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
   (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Pow2&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with <code>u64</code> parameters factored at compile time, <code>Kibi</code>..,
@@ -7573,9 +7649,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
   saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python
   and C agree bit for bit (conformance).</li>
-<li>📋 <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>Point&lt;Origin, Fixed&lt;..&gt;&gt;</code>: a position against an origin with an exact
-  offset and an optional modulus, so K / °C / °F / °R, register formulas (<code>raw/256 + 25 °C</code>), gauge vs absolute
-  pressure and wrapping angles are one algebra; adding two points doesn't compile.</li>
 <li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
   (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
 <li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges

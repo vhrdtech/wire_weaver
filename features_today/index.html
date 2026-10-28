@@ -3800,6 +3800,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3913,6 +3917,60 @@
     
   
   exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
 
     
   </span>
@@ -5795,6 +5853,7 @@ layer checks on connect that both ends speak the same protocol.</p>
 
 <ul>
 <li><strong><a href="../std_library/ww_self/">Bit-sized numbers in the model</a></strong>: <code>U7</code>, <code>I12</code>, nibbles and the like, read and written by the dynamic client and Python.</li>
+<li><strong><a href="../std_library/units_in_the_model/">Units in the model</a></strong>: A device's API carries the definition of every unit, scale and origin it uses, also of your own crate's, so <code>ww</code>, the dynamic client and Python convert and show them without a built-in table.</li>
 <li><strong><a href="../std_library/ww_self/">Moved flag bits</a></strong>: Relocated <code>#[flag]</code> fields in the model and in dynamic values.</li>
 </ul>
 <p class="ww-features__level"><span class="ww-level ww-level--nomicon"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6"/></svg><span class="ww-level__label">Nomicon</span></span></p>
@@ -5885,6 +5944,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 <ul>
 <li><strong><a href="../std_library/magnitude/">Exact scales</a></strong>: Every scale, from µ and Ki to 1/65535, a 12-bit ADC step, Q15 or a degree in radians, is one exact factor: equal however written, and a conversion between two is worked out at compile time and never rounds.</li>
+<li><strong><a href="../std_library/points/">Points and origins</a></strong>: A temperature in °C or °F, a register formula like raw/256 + 25 °C, gauge pressure or a heading that wraps is a point against an origin: point minus point is an amount, adding two points doesn't compile, and conversions between origins are exact.</li>
 <li><strong><a href="../std_library/ww_si/#conversions-and-comparisons">Quantities without wide integers</a></strong>: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.</li>
 <li><strong><a href="../std_library/ww_adc/">ADC</a></strong>: Single reads, sample streams and triggered captures.</li>
 <li><strong><a href="../std_library/ww_pwm/">PWM</a></strong>: Outputs and input capture.</li>

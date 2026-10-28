@@ -3973,6 +3973,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -4086,6 +4090,60 @@
     
   
   exact_units: magnitudes
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/points/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: points
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../std_library/units_in_the_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  exact_units: units in the model
 
     
   </span>
@@ -6395,7 +6453,7 @@ twin.</p>
   value out of range is kept as the error, and the type returns the first error as before.</li>
 <li><code>transparent</code> is part of the type's wire contract, like a <a href="../size_assumptions/">size assumption</a>: turning it on or
   off for a released type changes its bytes wherever it isn't already <code>sized</code>.</li>
-<li>In the API model (<code>ww_self::ItemStruct::transparent</code>) the dynamic client, Python and the <code>ww</code> CLI read it the same
+<li>In the API model (<code>ww_self::ItemStructExtra::transparent</code>) the dynamic client, Python and the <code>ww</code> CLI read it the same
   way. A reader built before the flag existed (<code>ww_self</code> without <code>transparent</code>) sees a struct of one field: it reads
   the same bytes inside a parent, but not a value of a wrapper around an evolvable (<code>Unsized</code>) type on its own, where
   it expects a length the derive doesn't write.</li>

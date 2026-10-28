@@ -568,6 +568,8 @@ fn des_ty(
         )?)),
         TypeOwned::Struct(struct_def) if struct_def.is_transparent() => {
             let fields = des_transparent_field(rd, struct_def, api_bundle, b)?;
+            // an exact_units wrapper's bounds, an IndexFrom1's 0 (CLT-54)
+            crate::units::check_wrapper(struct_def, &fields, api_bundle)?;
             Ok(ValueOwned::Struct { fields })
         }
         TypeOwned::Struct(struct_def) if struct_def.sparse => {
@@ -1089,6 +1091,7 @@ fn ser_inner(
             let ValueOwned::Struct { fields } = value else {
                 return Err(mismatch());
             };
+            crate::units::check_wrapper(item_struct, fields, api_bundle)?;
             ser_transparent_field(wr, fields, item_struct, api_bundle)?;
         }
         TypeOwned::Struct(item_struct) if item_struct.sparse => {

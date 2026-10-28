@@ -838,6 +838,23 @@ types
     }
 
     #[test]
+    fn renders_fixed_units_and_bounds() {
+        console::set_colors_enabled(false);
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/quantities_api");
+        let mut bundle = wire_weaver_core::load(&path, Some("Quantities".into()), false).unwrap();
+        wire_weaver_client::ww_self::generics::prepare(&mut bundle).unwrap();
+        let tree = render(&bundle, true);
+        for line in [
+            "rw property window: Fixed<Second, Milli, u16, Range<1, 5000>> [ms, 1..=5000]\n",
+            "rw property uptime: Fixed<Second, Micro, u64, Unbounded> [µs]\n",
+            "rw property buffer: Fixed<Byte, Kibi, u16, Unbounded> [KiB]\n",
+            "rw property sample: Index<Sample, u32, Unbounded>\n",
+        ] {
+            assert!(tree.contains(line), "{line}{tree}");
+        }
+    }
+
+    #[test]
     fn renders_recursive_types() {
         console::set_colors_enabled(false);
         let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/recursive_api");

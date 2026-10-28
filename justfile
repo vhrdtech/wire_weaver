@@ -66,6 +66,10 @@ dfu-transcripts:
 gid-lock:
     GID_LOCK=update cargo nextest run -p ww_global assigned_ids
 
+# Regenerate the tables of docs/std_library/customary.md from exact_units' sourced catalogue (STD-72)
+customary-docs:
+    CUSTOMARY_DOCS=update cargo nextest run -p exact_units --all-features docs_page_tables
+
 # Regenerate the docs site's Features page (docs/features_today.md) from FEATURES.md and tests/features_page/entries.md (DOC-9)
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page

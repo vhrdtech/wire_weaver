@@ -1253,6 +1253,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#wirew-field-attribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[wire(W)]</code> field attribute
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#field-and-variant-attributes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5635,6 +5646,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#wirew-field-attribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>#[wire(W)]</code> field attribute
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#field-and-variant-attributes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5820,6 +5842,10 @@ so do the examples):</p>
 <tr>
 <td><code>crate_path</code></td>
 <td><a href="#crate_pathpath"><code>crate_path</code></a></td>
+</tr>
+<tr>
+<td><code>#[wire(W)]</code> on a field</td>
+<td><a href="#wirew-field-attribute"><code>#[wire(W)]</code> field attribute</a></td>
 </tr>
 <tr>
 <td><code>#[default]</code>, <code>#[flag]</code>, <code>#[slot]</code>, <code>#[future_version]</code>, <code>#[cfg]</code></td>
@@ -6203,6 +6229,44 @@ other re-export:</p>
 </span></code></pre></div>
 <p>When neither crate is a dependency and nothing is given, the names are left unqualified and
 <code>use shrink_wrap::prelude::*</code> is needed.</p>
+<h2 id="wirew-field-attribute"><code>#[wire(W)]</code> field attribute<a class="headerlink" href="#wirew-field-attribute" title="Permanent link">&para;</a></h2>
+<p>DER-19. A field keeps a plain Rust integer and is written as the wire type <code>W</code>: a narrower bit-sized one or a
+variable-length one. The code that uses the struct sees <code>i8</code> and <code>u64</code>, the bytes are those of <code>I4</code> and <code>UNib32</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="cp">#[derive_shrink_wrap(borrowed, owned)]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">pub</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">Wired</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="cp">#[wire(I4)]</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">small</span><span class="p">:</span><span class="w"> </span><span class="kt">i8</span><span class="p">,</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">    </span><span class="cp">#[wire(UNib32)]</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">count</span><span class="p">:</span><span class="w"> </span><span class="kt">u64</span><span class="p">,</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="w">    </span><span class="cp">#[wire(U12)]</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">raw</span><span class="p">:</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="w">    </span><span class="k">pub</span><span class="w"> </span><span class="n">last</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><code>Wired { small: -7, count: 300, raw: 0xABC, last: true }</code> is the 4 bytes <code>9c d4 ab c8</code> (conformance case
+<code>wire.struct</code>), where plain fields would take 12: the same bytes as a struct with fields of type <code>I4</code>, <code>UNib32</code>,
+<code>U12</code> and <code>bool</code>, so a type can move between the two forms without a wire change.</p>
+<ul>
+<li><strong>Write</strong> checks the value against <code>W</code>'s range: <code>small: 9</code> is <code>Err(Error::SubtypeOutOfRange)</code>, never a cut or
+  wrapped value, and never a panic. <strong>Read</strong> widens <code>W</code> back to the field's type; a value of <code>W</code> that doesn't fit
+  the field (an <code>UNib32</code> above <code>u16::MAX</code> into a <code>#[wire(UNib32)] u16</code>) is <code>Error::SubtypeOutOfRange</code> too.</li>
+<li>The field is a plain integer: <code>u8</code>..<code>u128</code>, <code>i8</code>..<code>i128</code>, <code>usize</code>, <code>isize</code>. <code>W</code> is an integer of 64 bits or
+  less: <code>u8</code>..<code>u64</code>, <code>i8</code>..<code>i64</code>, <code>Nibble</code>, <code>U1</code>..<code>U64</code>, <code>I2</code>..<code>I64</code>, <code>UNib32</code>, <code>UVlq32</code>, <code>UVlq64</code>. Both are
+  signed or both unsigned; anything else is a compile error naming the field. The conversion is the runtime trait
+  <code>shrink_wrap::WireAs&lt;T&gt;</code> (<code>from_plain</code> / <code>into_plain</code>), implemented for these pairs.</li>
+<li>Works on struct fields, tuple struct fields and enum variant fields, with <code>#[default = ..]</code>, and in <code>sized</code> and
+  <code>final_structure</code> types (the size is <code>W</code>'s).</li>
+<li><code>#[cfg_attr(pred, wire(W))]</code> writes the field as <code>W</code> only where <code>pred</code> holds. Since that would change the bytes
+  between builds, the derive adds a <code>compile_error!</code> for builds where <code>pred</code> doesn't hold: use it to keep
+  <code>shrink_wrap</code> an optional dependency of a type crate (<code>cfg_attr(feature = "shrink_wrap", wire(I4))</code>), not to
+  switch formats. The <code>wire(..)</code> must be alone in its <code>cfg_attr</code>.</li>
+<li>In a <code>series</code> type the field is a column of <code>W</code> (<code>shrink_wrap::series::Wired&lt;W, T&gt;</code>), while <code>SeriesStore</code> and
+  <code>SeriesCells</code> hold the plain <code>T</code>; a value out of <code>W</code>'s range fails when the series is written.</li>
+<li>The API model (<code>ww_self</code>) records <code>W</code> as the field's type, so the dynamic client, <code>wire_weaver_py</code> and the C
+  generator read and write it as <code>W</code> with nothing of their own; the walker also finds <code>wire(W)</code> inside <code>cfg_attr</code>.</li>
+<li>Not yet (DER-21): <code>#[wire(W)]</code> inside <code>Option</code>, arrays and lists, and in <code>fixed_layout</code> and <code>head_tail</code> types,
+  which reject it with a compile error.</li>
+</ul>
 <h2 id="field-and-variant-attributes">Field and variant attributes<a class="headerlink" href="#field-and-variant-attributes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -6247,6 +6311,11 @@ other re-export:</p>
 <td><code>#[series(opaque)]</code></td>
 <td>named fields, with <code>series</code></td>
 <td>the field is an opaque run of its own bytes in a <code>Series</code> (<a href="#series">above</a>)</td>
+</tr>
+<tr>
+<td><code>#[wire(W)]</code></td>
+<td>integer fields</td>
+<td>the plain integer is written as <code>W</code> (<a href="#wirew-field-attribute">above</a>)</td>
 </tr>
 </tbody>
 </table>

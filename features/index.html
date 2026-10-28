@@ -5845,6 +5845,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   variant, so RON or JSON written before the field was added still reads; for saved <code>ww_self</code> API snapshots when a
   later model field isn't an <code>Option</code> (EVO-13) (<code>docs/serdes/derive.md#evolving-types</code>; test
   <code>shrink_wrap/tests/serde_default.rs</code>).</li>
+<li>✅ <strong>DER-19 <code>#[wire(W)]</code> field attribute</strong>: a field keeps a plain Rust integer (<code>i8</code>, <code>u16</code>, <code>u64</code>, ..) and is
+  written as a narrower or variable-length wire type (<code>#[wire(I4)] i8</code>, <code>#[wire(UNib32)] u64</code>, <code>#[wire(U12)] u16</code>):
+  checked on write (<code>Error::SubtypeOutOfRange</code>, never a cut value), widened on read, same bytes as a field of type W
+  (runtime trait <code>shrink_wrap::WireAs</code>). Struct and enum fields, <code>#[default = ..]</code>, <code>sized</code>/<code>final_structure</code>,
+  <code>#[cfg_attr(pred, wire(W))]</code>, <code>series</code> columns (<code>series::Wired&lt;W, T&gt;</code>, a W column). The API model records W (the
+  walker reads it, also inside <code>cfg_attr</code>), so the dynamic client, Python and C need nothing new
+  (<code>docs/serdes/derive_reference.md#wirew-field-attribute</code>; tests <code>shrink_wrap/tests/wire_as.rs</code>, conformance
+  <code>wire.*</code>). For <code>ww_si</code> exact units (<code>prj/P2401-wireweaver/design/ww_si_in.md</code>).</li>
+<li>💡 <strong>DER-21 <code>#[wire(W)]</code> beyond plain fields</strong> — inside <code>Option</code>, arrays and lists (<code>Option&lt;#[wire] u8&gt;</code> has no
+  syntax yet: a wrapper type or <code>#[wire(Option&lt;U4&gt;)]</code>), and in <code>fixed_layout</code> / <code>head_tail</code> types, which reject
+  the attribute with a compile error naming DER-21 today.</li>
 <li>✅ <strong>DER-11 Field type from a macro_rules <code>$T:ty</code> fragment</strong>: accepted like the type written directly, instead of
   rejected as an unsupported <code>syn::Type::Group</code> (test <code>shrink_wrap/tests/macro_ty_fragment.rs</code>).</li>
 <li>✅ <strong>DER-12 <code>Display</code> from doc comments</strong>: a <code>display</code> directive writes <code>core::fmt::Display</code> and

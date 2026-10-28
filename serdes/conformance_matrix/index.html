@@ -5332,28 +5332,28 @@
 <tbody>
 <tr>
 <td>derive</td>
-<td>113 of 113</td>
+<td>118 of 118</td>
 <td>0</td>
 </tr>
 <tr>
 <td>dynamic</td>
-<td>102 of 113</td>
+<td>107 of 118</td>
 <td>11</td>
 </tr>
 <tr>
 <td>explain</td>
-<td>102 of 113</td>
+<td>107 of 118</td>
 <td>11</td>
 </tr>
 <tr>
 <td>python</td>
-<td>102 of 113</td>
+<td>107 of 118</td>
 <td>11</td>
 </tr>
 <tr>
 <td>c</td>
-<td>34 of 113</td>
-<td>79</td>
+<td>34 of 118</td>
+<td>84</td>
 </tr>
 </tbody>
 </table>
@@ -6402,6 +6402,56 @@
 <td>gap API-26</td>
 </tr>
 <tr>
+<td><code>wire.struct</code></td>
+<td><code>wired</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>wire.struct.out_of_range</code></td>
+<td><code>wired</code></td>
+<td>reject value</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>wire.enum.tuple</code></td>
+<td><code>wired_op</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>wire.enum.named</code></td>
+<td><code>wired_op</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
+<td><code>wire.series</code></td>
+<td><code>series_wired</code></td>
+<td>both</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>gap API-26</td>
+</tr>
+<tr>
 <td><code>head_tail.struct</code></td>
 <td><code>HtRecord</code></td>
 <td>both</td>
@@ -6505,7 +6555,7 @@
 </table>
 <h2 id="gaps">Gaps<a class="headerlink" href="#gaps" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>c</strong>: no generated C for this type yet: C from the ww_self model (API-26). 65 cases: <code>vec.u16</code>, <code>vec.array_vec</code>, <code>vec.string</code>, <code>vec.bool</code>, <code>vec.option</code>, <code>vec.vec</code>, <code>option.none</code>, <code>option.some</code>, <code>option.str</code>, <code>option.option.some_some</code>, <code>option.option.some_none</code>, <code>result.ok</code>, <code>result.err</code>, <code>array.u16</code>, <code>array.bool</code>, <code>tuple</code>, <code>range</code>, <code>range_inclusive</code>, <code>struct.bits</code>, <code>struct.nested</code>, <code>struct.flags.relocated</code>, <code>struct.flags.relocated_other</code>, <code>struct.tuple</code>, <code>struct.tuple.none</code>, <code>struct.tuple.plain</code>, <code>struct.unit</code>, <code>struct.sized</code>, <code>struct.final_structure</code>, <code>struct.generic</code>, <code>struct.phantom</code>, <code>struct.validate.ok</code>, <code>struct.validate.rejected</code>, <code>struct.tail_size</code>, <code>struct.generic_const</code>, <code>struct.sparse.empty</code>, <code>struct.sparse.slots</code>, <code>struct.recursive.list</code>, <code>struct.recursive.box</code>, <code>enum.unit</code>, <code>enum.tuple</code>, <code>enum.struct</code>, <code>enum.explicit_discriminant</code>, <code>enum.unknown_variant</code>, <code>enum.appended_variant</code>, <code>enum.sub_byte.seven</code>, <code>enum.sub_byte.ten</code>, <code>enum.sized</code>, <code>enum.sized.wide_discriminant</code>, <code>enum.u2</code>, <code>enum.nibble.unit</code>, <code>enum.nibble.payload</code>, <code>enum.cfg.kept</code>, <code>enum.cfg.kept_after_gap</code>, <code>enum.cfg.compiled_out</code>, <code>evolution.v1</code>, <code>evolution.v2</code>, <code>evolution.new_reads_old</code>, <code>evolution.old_reads_new</code>, <code>series.u16</code>, <code>series.struct</code>, <code>tail_bytes</code>, <code>stdlib.timebase.steer_point</code>, <code>stdlib.timebase.steer_point.steerer</code>, <code>stdlib.timebase.sync_status</code>, <code>stdlib.timebase.sync_status.steerers</code>.</li>
+<li><strong>c</strong>: no generated C for this type yet: C from the ww_self model (API-26). 70 cases: <code>vec.u16</code>, <code>vec.array_vec</code>, <code>vec.string</code>, <code>vec.bool</code>, <code>vec.option</code>, <code>vec.vec</code>, <code>option.none</code>, <code>option.some</code>, <code>option.str</code>, <code>option.option.some_some</code>, <code>option.option.some_none</code>, <code>result.ok</code>, <code>result.err</code>, <code>array.u16</code>, <code>array.bool</code>, <code>tuple</code>, <code>range</code>, <code>range_inclusive</code>, <code>struct.bits</code>, <code>struct.nested</code>, <code>struct.flags.relocated</code>, <code>struct.flags.relocated_other</code>, <code>struct.tuple</code>, <code>struct.tuple.none</code>, <code>struct.tuple.plain</code>, <code>struct.unit</code>, <code>struct.sized</code>, <code>struct.final_structure</code>, <code>struct.generic</code>, <code>struct.phantom</code>, <code>struct.validate.ok</code>, <code>struct.validate.rejected</code>, <code>struct.tail_size</code>, <code>struct.generic_const</code>, <code>struct.sparse.empty</code>, <code>struct.sparse.slots</code>, <code>struct.recursive.list</code>, <code>struct.recursive.box</code>, <code>enum.unit</code>, <code>enum.tuple</code>, <code>enum.struct</code>, <code>enum.explicit_discriminant</code>, <code>enum.unknown_variant</code>, <code>enum.appended_variant</code>, <code>enum.sub_byte.seven</code>, <code>enum.sub_byte.ten</code>, <code>enum.sized</code>, <code>enum.sized.wide_discriminant</code>, <code>enum.u2</code>, <code>enum.nibble.unit</code>, <code>enum.nibble.payload</code>, <code>enum.cfg.kept</code>, <code>enum.cfg.kept_after_gap</code>, <code>enum.cfg.compiled_out</code>, <code>evolution.v1</code>, <code>evolution.v2</code>, <code>evolution.new_reads_old</code>, <code>evolution.old_reads_new</code>, <code>series.u16</code>, <code>series.struct</code>, <code>wire.struct</code>, <code>wire.struct.out_of_range</code>, <code>wire.enum.tuple</code>, <code>wire.enum.named</code>, <code>wire.series</code>, <code>tail_bytes</code>, <code>stdlib.timebase.steer_point</code>, <code>stdlib.timebase.steer_point.steerer</code>, <code>stdlib.timebase.sync_status</code>, <code>stdlib.timebase.sync_status.steerers</code>.</li>
 <li><strong>c</strong>: reader only: the generated C has no writer yet (API-26). 8 cases: <code>fixed.numbers</code>, <code>fixed.bits</code>, <code>fixed.nested</code>, <code>fixed.option.none</code>, <code>fixed.option.some</code>, <code>fixed.enum.unit</code>, <code>fixed.enum.fields</code>, <code>head_tail.struct</code>.</li>
 <li><strong>c</strong>: the C runtime has no 128-bit numbers (SW-66). 2 cases: <code>int.u128.max</code>, <code>int.i128.min</code>.</li>
 <li><strong>c</strong>: ww_link's Disconnect payload, not a type of an API in the model. 2 cases: <code>disconnect_reason.hub_handover</code>, <code>disconnect_reason.from_newer</code>.</li>

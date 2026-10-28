@@ -1,6 +1,6 @@
 // ww_can_bus 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8dc09071e60da5b7cd8440b84898874c3987a308361fa3856e95a5504d216094
+// shrink_wrap sha256: 0114a35549b4da25e17699e468d2f048da843be79714a2fc7c701185cf74cba1
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "CAN bus over WireWeaver: a device (a USB-CAN adapter, a gateway, a node with a CAN port, a bus analyzer or",
     "debugger) lets a host send and receive frames on its CAN buses, configure them and watch their state.",
@@ -59,24 +59,24 @@
     (id: 3, kind: Trait(trait_idx: 3, omitted: None), multiplicity: Flat, since: None, ident: "CanXl", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        126,
-        49,
-        17,
-        249,
-        31,
-        128,
-        106,
-        217,
-    ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
+        149,
+        186,
+        120,
+        228,
+        162,
         183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+        17,
+        232,
+    ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Limits of one phase\'s [BitTiming] (as SocketCAN\'s `can_bittiming_const`).",
@@ -90,14 +90,14 @@
         (ident: Some("sjw_max"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Enum((size: Unsized, repr: Nibble, crate_idx: 0, docs: [
         "Where in a frame its time is taken.",
@@ -130,14 +130,14 @@
         (ident: Some("sleep"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Ohm", signature: [
-        64,
-        239,
-        119,
-        16,
-        61,
-        117,
-        61,
-        215,
+        76,
+        214,
+        1,
+        98,
+        102,
+        248,
+        72,
+        3,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Throughput a controller or group guarantees, see `CanGroup::performance` and [Capabilities::performance].",
@@ -299,14 +299,14 @@
         ], ident: "Sleep", fields: Unit, discriminant: 8, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        5,
-        106,
-        216,
-        48,
-        38,
-        78,
-        104,
-        9,
+        160,
+        239,
+        149,
+        227,
+        90,
+        10,
+        69,
+        211,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Bit timing in time quanta: a bit is `1 + seg1 + seg2` quanta of `prescaler` clock periods each, sampled after",
@@ -441,7 +441,7 @@
             "`Can::recover`. A device that can\'t do one or the other answers `Unsupported`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -1420,6 +1420,7 @@
     ], compact_id: Some(90), meta: Some((claim: Some(Exclusive), shares: [], labels: []))), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_can_bus", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

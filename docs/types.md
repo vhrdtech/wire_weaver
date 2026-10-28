@@ -28,6 +28,7 @@ item of an API. Sizes below are for the value on its own; how values share bytes
 | tuples (2 to 8), `Range<T>`, `RangeInclusive<T>`, `()` | the parts one after another (`()` is nothing)  | as parts  |
 | `RefBox<'i, T>`, `Box<T>`                    | the value and its size                                   | byte      |
 | structs and enums                            | the fields; an enum's discriminant in 1 bit to 4 bytes   | as fields |
+| [`Fixed<U, P, T, B>`](std_library/exact_units.md) | exactly its number `T`; unit, scale and bounds in the type | as `T` |
 
 The [special types](serdes/special_types.md) (`TailSize`, `ArrayString` / `ArrayVec`, compressed sequences,
 `OptionAnyVec`) are listed [at the end](#special-types).
@@ -380,5 +381,7 @@ numbers with units, SI quantities, and the types of its I/O traits.
 - **Numbers restricted to a range or a set** (SW-20), like `u16` in `1..=512` or `u8` in `0..=8, 12, 16`, checked
   on both ends. Until then, a struct can check its fields with
   [`validate`](serdes/derive_reference.md#validate-path).
-- **Units** on numbers (`f32` in amperes) as a hint for code generation and tools, not sent over the wire. The
-  [`ww_si`](std_library/ww_si.md) crate has typed SI quantities today.
+- **Units** on plain numbers (`f32` in amperes) as a hint for code generation and tools, not sent over the wire.
+  Today a number with its unit in the type is an [`exact_units::Fixed`](std_library/exact_units.md) (`Micros<u32>`:
+  the bytes of the `u32`, µs in introspection), and [`ww_si`](std_library/ww_si.md) has SI quantities whose prefix
+  and number type the device picks.

@@ -757,6 +757,20 @@ pub fn table() -> Vec<Typed> {
             ww_si::ExactScale::new(1, 180, 0, 0, 1),
         ),
         case("stdlib.si.exact_scale.rejected", ww_si::ExactScale::ONE),
+        case(
+            "stdlib.si.si_expr.volt",
+            si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
+        ),
+        case(
+            "stdlib.si.si_expr.sqrt",
+            si_expr(
+                <ww_si::units::Per<ww_si::units::Volt, ww_si::units::Sqrt<ww_si::units::Hertz>> as ww_si::Unit>::EXPR,
+            ),
+        ),
+        case(
+            "stdlib.si.si_expr.rejected",
+            si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
+        ),
         case_debug("stdlib.timebase.sync_status", || {
             ww_timebase::SyncStatusOwned {
                 state: ww_timebase::SyncState::Free,
@@ -797,6 +811,10 @@ fn fixed_bounded(ms: u16) -> FixedBounded {
 
 fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {
     d.into()
+}
+
+fn si_expr(e: &ww_si::UnitExpr) -> ww_si::SIExprOwned {
+    e.into()
 }
 
 fn micros(value: u32) -> ww_si::Second {

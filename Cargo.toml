@@ -3,6 +3,7 @@
 resolver = "3"
 members = [
     #    "wire_weaver_tool",
+    "exact_units",
     "examples/*",
     "shrink_wrap/*",
     "stm32_dfu_host",
@@ -95,6 +96,7 @@ widestring = "1"
 windows-sys = "0.61"
 
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
+exact_units = { version = "0.1.0", path = "./exact_units", default-features = false }
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }
 shrink_wrap_derive = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap_derive" }
 wire_weaver = { version = "0.5.0", path = "./wire_weaver", default-features = false }

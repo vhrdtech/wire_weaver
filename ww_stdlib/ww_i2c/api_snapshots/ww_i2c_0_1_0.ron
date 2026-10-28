@@ -1,6 +1,6 @@
 // ww_i2c 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 105fefcdd1ee62b8a06adb1f4c89b1d122e61b19d5785edb6454cd476ca7424f
+// shrink_wrap sha256: 66a2dbc2dba2d638b21dddd5807bbbb546d754710c4087c8e78231e28c7ac3f0
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "I2C over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host talk to the I2C devices on",
     "its bus, get a stuck bus free, or watch the bus.",
@@ -86,44 +86,44 @@
     (id: 2, kind: Trait(trait_idx: 2, omitted: None), multiplicity: Flat, since: None, ident: "I2cMonitor", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        94,
-        190,
-        166,
-        249,
-        222,
-        38,
-        16,
-        236,
+        150,
+        173,
+        63,
+        134,
+        54,
+        13,
+        101,
+        149,
     ]),
-    SkippedFullVersion(crate_idx: 1, type_name: "Quantity", signature: [
-        4,
-        183,
-        179,
-        156,
-        254,
-        22,
-        5,
-        103,
+    SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
+        190,
+        99,
+        105,
+        144,
+        195,
+        49,
+        220,
+        202,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        126,
-        49,
+        149,
+        186,
+        120,
+        228,
+        162,
+        183,
         17,
-        249,
-        31,
-        128,
-        106,
-        217,
+        232,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        52,
-        96,
-        56,
+        167,
+        149,
         168,
-        127,
         126,
-        23,
-        16,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A range of durations, both ends included.",
@@ -246,7 +246,7 @@
             "in (the only choice on a device without them), and is the answer of a device without them.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
-    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -937,6 +937,7 @@
     ], compact_id: Some(81), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_i2c", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

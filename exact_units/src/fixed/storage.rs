@@ -1,6 +1,7 @@
 //! [Storage]: the number types a [Fixed](super::Fixed) can be stored as.
 
 use core::fmt;
+#[cfg(feature = "shrink_wrap")]
 use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
 
 /// A number as an exact integer or a float, for conversions between storages and prefixes.
@@ -122,7 +123,9 @@ macro_rules! unsigned {
 
 unsigned!(u8 u16 u32 u64);
 
-/// A newtype around an unsigned integer (`UNib32(u32)`): the integer's arithmetic.
+/// A newtype around an unsigned integer (`UNib32(u32)`): the integer's arithmetic. shrink_wrap's integers, with its
+/// feature.
+#[cfg(feature = "shrink_wrap")]
 macro_rules! newtype {
     ($($ty:ident($inner:ident))*) => {$(
         impl Storage for $ty {
@@ -173,9 +176,11 @@ macro_rules! newtype {
     )*};
 }
 
+#[cfg(feature = "shrink_wrap")]
 newtype!(UNib32(u32) UVlq32(u32) UVlq64(u64));
 
 /// 0..=15, wrapping at 16.
+#[cfg(feature = "shrink_wrap")]
 impl Storage for Nibble {
     const NAME: &'static str = "Nibble";
     const IS_FLOAT: bool = false;
@@ -257,6 +262,7 @@ impl Storage for Nibble {
     }
 }
 
+#[cfg(feature = "shrink_wrap")]
 impl UnsignedStorage for Nibble {
     #[inline(always)]
     fn to_u64(self) -> u64 {

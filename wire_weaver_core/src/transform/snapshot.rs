@@ -573,14 +573,14 @@ mod tests {
             .iter()
             .map(|c| c.crate_id.as_str())
             .collect();
-        assert_eq!(crates, ["ww_uart", "ww_si", "ww_error"]);
+        assert_eq!(crates, ["ww_uart", "exact_units", "ww_si", "ww_error"]);
 
-        // own types in-line, ww_si and ww_error ones only referenced, nothing they refer to is left over
+        // own types in-line, exact_units, ww_si and ww_error ones only referenced, nothing they refer to is left over
         for location in &bundle.types {
             match location {
                 TypeLocationOwned::InLine { crate_idx, .. } => assert_eq!(crate_idx.0, 0),
                 TypeLocationOwned::SkippedFullVersion { crate_idx, .. } => {
-                    assert!([1, 2].contains(&crate_idx.0))
+                    assert!([1, 2, 3].contains(&crate_idx.0))
                 }
             }
         }
@@ -698,7 +698,11 @@ mod tests {
         assert_eq!(signature.len(), ww_self::signature::SIGNATURE_LEN);
 
         // Quantity refers to ww_numeric types, which are skipped in the ww_si snapshot as well
-        let snapshots = [load("../ww_stdlib/ww_si"), load("../ww_stdlib/ww_numeric")];
+        let snapshots = [
+            load("../ww_stdlib/ww_si"),
+            load("../ww_stdlib/ww_numeric"),
+            load("../exact_units"),
+        ];
         let resolve = from_snapshots(&snapshots);
         assert!(type_signature(&uart, quantity, &no_resolve).is_err());
         assert_eq!(
@@ -724,6 +728,7 @@ mod tests {
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
             load("../ww_stdlib/ww_error"),
+            load("../exact_units"),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
@@ -760,6 +765,7 @@ mod tests {
             load("../ww_stdlib/ww_si"),
             load("../ww_stdlib/ww_numeric"),
             load("../ww_stdlib/ww_error"),
+            load("../exact_units"),
         ];
         let resolve = from_snapshots(&snapshots);
         assert_eq!(
@@ -941,8 +947,12 @@ mod tests {
     #[test]
     fn snapshots_are_up_to_date() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
-        // as `just save-snapshots`: ww_global, the link tap's records, ww_stdlib
-        let mut crate_paths = vec![root.join("ww_global"), root.join("ww_tap")];
+        // as `just save-snapshots`: ww_global, the link tap's records, exact_units, ww_stdlib
+        let mut crate_paths = vec![
+            root.join("ww_global"),
+            root.join("ww_tap"),
+            root.join("exact_units"),
+        ];
         for entry in std::fs::read_dir(root.join("ww_stdlib")).unwrap() {
             let path = entry.unwrap().path();
             // ww_client_server is the protocol itself, not used in APIs

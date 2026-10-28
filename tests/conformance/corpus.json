@@ -1105,6 +1105,31 @@
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "explain": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)", "python": "a validate function is Rust code the API model can't carry; checks in the model come with sub-type numbers (SW-20)"},
       "note": "num 2, den 1 isn't canonical (the 2 belongs in pow2): ExactScale's validate refuses it"
+    },
+    {
+      "name": "stdlib.si.si_expr.volt",
+      "type": "si_expr",
+      "value": {"Named": {"name": "Volt", "symbol": "V", "dim": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": "Coherent"}},
+      "bytes": "00566f6c7456d21f00000000000114",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a named unit: variant nibble 0, name, symbol, Dim and Scale (STD-37, Dim v2 STD-60)"
+    },
+    {
+      "name": "stdlib.si.si_expr.sqrt",
+      "type": "si_expr",
+      "value": {"Div": [{"Named": {"name": "Volt", "symbol": "V", "dim": {"s": -3, "m": 2, "kg": 1, "a": -1, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": "Coherent"}}, {"Sqrt": {"Named": {"name": "Hertz", "symbol": "Hz", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": "Coherent"}}}]},
+      "bytes": "2000566f6c7456d21f000000000001144000486572747a487af000000000000001251a3a79",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: the Sqrt node is variant 4 (STD-55, EVO-16)"
+    },
+    {
+      "name": "stdlib.si.si_expr.rejected",
+      "type": "si_expr",
+      "value": null,
+      "bytes": "50",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "variant 5 is past Sqrt: SIExpr is no_future_version, a reader can't show a unit kind it doesn't know"
     }
   ]
 }

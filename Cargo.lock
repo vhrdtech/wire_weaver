@@ -1810,6 +1810,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "exact_units"
+version = "0.1.0"
+dependencies = [
+ "defmt 1.1.1",
+ "shrink_wrap",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6460,6 +6468,7 @@ name = "ww_si"
 version = "0.2.0"
 dependencies = [
  "defmt 1.1.1",
+ "exact_units",
  "shrink_wrap",
  "ww_numeric",
 ]

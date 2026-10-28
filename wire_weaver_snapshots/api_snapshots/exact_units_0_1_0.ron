@@ -1,0 +1,576 @@
+// exact_units 0.1.0 traits and types, saved by `ww api save`.
+// Do not edit, bump the crate version and save a new snapshot instead.
+// shrink_wrap sha256: c7b691fd354f938713021c9ed24c94eb16c16dc4133d825faa45b3d67da70797
+(magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
+    "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
+    "exactly the number.",
+    "",
+    "- [Fixed]`<U, P, T, B>`: a `T` in unit `U` and scale `P` (a prefix, a binary prefix, a power of ten, a fraction),",
+    "  within bounds `B`. `Fixed<Second, Micro, u32>` is a time in µs, the same bytes as the `u32` it replaces.",
+    "  Conversions between scales are exact or refused, never rounded through a float.",
+    "- [units]: zero-size unit markers (SI, angle, information, counted things) with their [Dim] and [Scale], and the",
+    "  products and quotients the compiler checks (`Volt · Ampere` is `Watt`).",
+    "- [Dim]: the dimension as data: SI base exponents, angle, information, up to [MAX_COUNTED] counted bases and a",
+    "  square root (V/√Hz). [ExactScale]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).",
+    "- `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.",
+    "",
+    "`no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`\'s),",
+    "`std` every unit group and with `shrink_wrap` the owned forms of the wire types, `defmt` their `defmt::Format`. Unit",
+    "groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`, `photometric`,",
+    "`radiation`, `dimensionless`, `information`, `counting`, `quantities` for all).",
+    "",
+    "Run-time quantities (a prefix and a number type chosen per value) are `ww_si`\'s `Quantity` and `AnyQuantity`,",
+    "built on this crate.",
+], crate_idx: 0, trait_name: "exact_units", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Time in seconds, s.",
+        "",
+        "As a device timestamp it is the device\'s time since its clock started, see `ww_si::Second`.",
+    ], ident: "Second", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Frequency in hertz, Hz (s⁻¹).",
+    ], ident: "Hertz", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Frequency drift in hertz per second, Hz/s (s⁻²).",
+    ], ident: "HertzPerSecond", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Symbol rate in baud, Bd (s⁻¹): one symbol per second, for a UART one bit per second on the line. A frequency of",
+        "its own kind, so it is not mixed up with a clock in [Hertz].",
+    ], ident: "Baud", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electric current in amperes, A.",
+    ], ident: "Ampere", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Voltage, electric potential or electromotive force in volts, V (kg·m²·s⁻³·A⁻¹, W/A).",
+    ], ident: "Volt", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Resistance, reactance or impedance in ohms, Ω (kg·m²·s⁻³·A⁻², V/A).",
+    ], ident: "Ohm", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Capacitance in farads, F (kg⁻¹·m⁻²·s⁴·A², C/V).",
+    ], ident: "Farad", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Admittance, conductance or susceptance in siemens, S (kg⁻¹·m⁻²·s³·A², A/V).",
+    ], ident: "Siemens", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Inductance in henries, H (kg·m²·s⁻²·A⁻², Wb/A).",
+    ], ident: "Henry", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electric charge in coulombs, C (s·A).",
+    ], ident: "Coulomb", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Power in watts, W (kg·m²·s⁻³, J/s, V·A).",
+    ], ident: "Watt", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Magnetic flux in webers, Wb (kg·m²·s⁻²·A⁻¹, V·s).",
+    ], ident: "Weber", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Magnetic flux density in teslas, T (kg·s⁻²·A⁻¹, Wb/m²).",
+    ], ident: "Tesla", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Length in meters, m.",
+    ], ident: "Meter", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Mass in grams, g (10⁻³ kg): 5 kg is `Gram::kilo(5u8)`.",
+    ], ident: "Gram", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Force or weight in newtons, N (kg·m·s⁻²).",
+    ], ident: "Newton", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Pressure or stress in pascals, Pa (kg·m⁻¹·s⁻², N/m²).",
+    ], ident: "Pascal", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Energy, work or heat in joules, J (kg·m²·s⁻², N·m, W·s).",
+    ], ident: "Joule", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Torque or moment of force in newton-meters, N·m, counted as joules per radian (kg·m²·s⁻²·rad⁻¹): not the",
+        "dimension of a [Joule], and a torque times an [AngularVelocity] is a [Watt].",
+    ], ident: "Torque", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Volume in litres, L (10⁻³ m³).",
+    ], ident: "Litre", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Volumetric flow in cubic meters per second, m³/s.",
+    ], ident: "VolumetricFlow", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Speed in meters per second, m/s.",
+    ], ident: "Speed", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Acceleration in meters per second squared, m/s².",
+    ], ident: "Acceleration", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Jerk in meters per second cubed, m/s³.",
+    ], ident: "Jerk", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Snap or jounce in meters per second to the fourth, m/s⁴.",
+    ], ident: "Snap", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Yank, the rate of change of force, in newtons per second, N/s (kg·m·s⁻³).",
+    ], ident: "Yank", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angle in radians, rad: a base dimension of its own here, so an angle doesn\'t mix with a [Ratio].",
+    ], ident: "Radian", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact]).",
+    ], ident: "Degree", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angle in turns (revolutions), rev (2π rad, exactly). A binary angle where 65536 is a full turn is",
+        "`Fixed<Turn, Rational<1, 65536>, u16>`.",
+    ], ident: "Turn", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Solid angle in steradians, sr (rad²).",
+    ], ident: "Steradian", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angular velocity in radians per second, rad/s (rad·s⁻¹): not a [Hertz], a turn is 2π rad.",
+    ], ident: "AngularVelocity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angular acceleration in radians per second squared, rad/s² (rad·s⁻²).",
+    ], ident: "AngularAcceleration", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Thermodynamic temperature in kelvins, K.",
+    ], ident: "Kelvin", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Temperature in degrees Celsius, °C (K − 273.15). No products: a product with an offset scale means nothing.",
+    ], ident: "DegreeCelsius", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Amount of substance in moles, mol.",
+    ], ident: "Mole", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Catalytic activity in katals, kat (mol·s⁻¹).",
+    ], ident: "Katal", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Luminous intensity in candelas, cd.",
+    ], ident: "Candela", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Luminous flux in lumens, lm (cd·sr, cd·rad²).",
+    ], ident: "Lumen", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Illuminance in lux, lx (cd·rad²·m⁻², lm/m²).",
+    ], ident: "Lux", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Radioactivity in becquerels, Bq (s⁻¹).",
+    ], ident: "Becquerel", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absorbed dose in grays, Gy (m²·s⁻², J/kg).",
+    ], ident: "Gray", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Equivalent dose in sieverts, Sv (m²·s⁻², J/kg).",
+    ], ident: "Sievert", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Energy in electron-volts, eV (1.602176634·10⁻¹⁹ J).",
+    ], ident: "ElectronVolt", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A fraction: a duty cycle, a probability, a scale factor, an efficiency (dimensionless, 1). 0.5 is half, not a",
+        "level in decibels. Written with `%`, `‰`, `ppm`, `ppb` for `Centi`, `Milli`, `Micro`, `Nano`. Any quantity times a ratio keeps its",
+        "unit (48 V · 0.5 = 24 V).",
+    ], ident: "Ratio", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in bits, bit: the base of information, so a size never mixes with a [Ratio] or a count of things.",
+    ], ident: "Bit", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in bytes, B (8 [Bit]): a data size, a buffer\'s capacity, an offset. A rate is `Per<Byte, Second>`.",
+    ], ident: "Byte", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.",
+    ], ident: "Word", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of things, item: a queue\'s length, a number of filters, channels, presses, repeats, steps.",
+    ], ident: "Item", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of samples, sample: an ADC\'s, a logic analyzer\'s; a sample rate is `Per<Sample, Second>`.",
+    ], ident: "Sample", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of frames, frame (a bus\'s, a video\'s).",
+    ], ident: "Frame", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of packets, packet.",
+    ], ident: "Packet", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of cycles, cycle: clock cycles, time quanta; time only with a clock (`Per<Cycle, Second>`).",
+    ], ident: "Cycle", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of blocks, block: of a block device, whose size differs per device (bytes through `Per<Byte, Block>`).",
+    ], ident: "Block", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of sectors, sector: of a flash or a disk (bytes through `Per<Byte, Sector>`).",
+    ], ident: "Sector", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of chunks, chunk: of a transfer or a file format (bytes through `Per<Byte, Chunk>`).",
+    ], ident: "Chunk", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of characters, char: of a UART line (an idle time in characters).",
+    ], ident: "Char", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A count of raw codes of a converter, code: an ADC\'s or DAC\'s output before scaling (LSB).",
+    ], ident: "Code", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "`A / B`, a unit outside the named list: `Per<Torque, AngularVelocity>` is N·m/(rad/s). Not normalized,",
+        "`Per<Meter, Second>` is not [Speed] (convert with `to_si_f64` / `from_f32`).",
+    ], ident: "Per", generics: [
+        (ident: "A", kind: Type),
+        (ident: "B", kind: Type),
+    ], fields: Named([]), sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "`A · B`, a unit outside the named list: `Times<AngularVelocity, AngularVelocity>` is (rad/s)·(rad/s).",
+    ], ident: "Times", generics: [
+        (ident: "A", kind: Type),
+        (ident: "B", kind: Type),
+    ], fields: Named([]), sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "`√U`, the square root of a unit: an amplitude spectral density in V/√Hz is `Per<Volt, Sqrt<Hertz>>`. Its",
+        "dimension has the root flag ([Dim::sqrt](crate::Dim::sqrt)): the exponents of V²/Hz, so the algebra stays integer.",
+        "`Sqrt<Sqrt<U>>` doesn\'t compile (a fourth root isn\'t a [Dim]).",
+    ], ident: "Sqrt", generics: [
+        (ident: "U", kind: Type),
+    ], fields: Named([]), sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,",
+        "prefix and bounds are only in the type. `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or",
+        "[Micros]`<u64>`) with the same bytes, and introspection shows `µs`.",
+        "",
+        "Where a `ww_si::Quantity` lets the device pick prefix and number type per value (and sends both), a `Fixed` has them fixed",
+        "by the API: no prefix on the wire, no `NumericValue` on the device, so a `u64` here doesn\'t turn on `ww_numeric`\'s",
+        "`u64` for the whole firmware.",
+        "",
+        "```",
+        "use exact_units::{Fixed, Micros, prefix::{Micro, Milli}, units::Second};",
+        "",
+        "let t: Micros<u32> = Fixed::new(1500);",
+        "assert_eq!(format!(\"{t}\"), \"1500 µs\");",
+        "assert_eq!(format!(\"{t:#}\"), \"0.0015 s\");",
+        "// exact conversions only: 1500 µs is not a whole number of ms",
+        "assert_eq!(t.to::<Milli, u16>(), None);",
+        "assert_eq!((t * 2).to::<Milli, u16>(), Some(Fixed::new(3)));",
+        "assert_eq!(core::time::Duration::from(t), core::time::Duration::from_micros(1500));",
+        "```",
+        "",
+        "`B` is [Unbounded] unless given, and stays out of the way then: `Fixed::new` and the operators exist for the",
+        "three-parameter form. A bounded value is made with [try_new](Self::try_new) or [bounded](Self::bounded) and checked",
+        "on every read from the wire:",
+        "",
+        "```",
+        "use exact_units::{Fixed, Range, prefix::Milli, units::Second};",
+        "",
+        "type Timeout = Fixed<Second, Milli, u16, Range<1, 5000>>;",
+        "assert!(Timeout::try_new(10).is_ok());",
+        "assert!(Timeout::try_new(0).is_err());",
+        "const LONG: Timeout = Timeout::bounded(5000);",
+        "assert_eq!(LONG.get(), 5000);",
+        "```",
+        "",
+        "A bound that doesn\'t fit the storage doesn\'t build:",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, Range, prefix::One, units::Ratio};",
+        "",
+        "let _ = Fixed::<Ratio, One, u8, Range<-5, 300>>::try_new(5);",
+        "```",
+    ], ident: "Fixed", generics: [
+        (ident: "U", kind: Type),
+        (ident: "P", kind: Type),
+        (ident: "T", kind: Type),
+        (ident: "B", kind: Type),
+    ], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: Param(2), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: true)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A factor `num / den · 10^pow10 · 2^pow2 · π^pi` with integers only: `10⁻⁶` (µ), `2¹⁰` (Ki), `1/65535` (a 16-bit",
+        "duty), `π/180` (°), `2π` (a turn). Never an `f64`, so every client reproduces a value bit-exactly, and a scale",
+        "fixed in a type ([Fixed](crate::Fixed)\'s `P`) converts integers without a rounding step.",
+        "",
+        "Always canonical: `num` and `den` have no common factor and no factor 2 or 5 (those are in `pow10` / `pow2`), so",
+        "two scales of the same factor are equal field by field. [new](Self::new) makes one canonical; a value read from the",
+        "wire that isn\'t is refused.",
+        "",
+        "On the wire: `num` and `den` as [UNib32] (a nibble each for small ones), then the three exponents as `i8`.",
+    ], ident: "ExactScale", generics: [], fields: Named([
+        (ident: Some("num"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("den"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A counted base of a [Dim] and its exponent: what is counted, named by the crate and the marker that define it",
+        "(`exact_units` `Sample`, an API crate\'s own `Bucket`), and how often it is in the dimension (`Sample/s` has `Sample` to",
+        "the 1st power).",
+        "",
+        "A base is told apart by crate and marker name together: two crates\' `Sample` markers are different bases, and a",
+        "marker stays the same base when it moves between modules of its crate. Shown by the marker name alone.",
+    ], ident: "Counted", generics: [], fields: Named([
+        (ident: Some("crate_name"), default: None, since: None, ty: String, docs: [
+            "The crate that defines the marker, as Rust names it (`exact_units`, `my_api`): `CARGO_CRATE_NAME`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("name"), default: None, since: None, ty: String, docs: [
+            "The marker\'s name: `Sample`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "The dimension of a unit: exponents of the 7 SI base units s, m, kg, A, K, mol, cd, of angle (rad) and of",
+        "information (bit), each from -8 to 7, and of up to [MAX_COUNTED] counted bases (`Sample`, `Block`, `Item`, ..).",
+        "Volt is kg·m²·s⁻³·A⁻¹: `Dim::new(-3, 2, 1, -1, 0, 0, 0)`; rad/s is `Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)`;",
+        "samples per second is `Dim::counted(\"exact_units\", \"Sample\").div(Dim::new(1, 0, 0, 0, 0, 0, 0))`.",
+        "",
+        "With `root` set, the dimension is the square root of the one the exponents describe: a noise density in V/√Hz",
+        "is kg²·m⁴·s⁻⁵·A⁻² with `root` (`Volt` squared over hertz), shown as `kg·m²·s⁻⁵ᐟ²·A⁻¹`. Only half-integer",
+        "powers are written this way, so `root` is set only when some exponent is odd ([sqrt](Self::sqrt) and",
+        "[mul](Self::mul) keep it so).",
+        "",
+        "Values convert into each other and add only with the same dimension: bytes never become a ratio, an angle never",
+        "a frequency, samples never bytes (that takes a `Per<Byte, Sample>`).",
+        "",
+        "On the wire nine 4-bit signed numbers in the order above, the `root` bit, then for each of the [MAX_COUNTED]",
+        "slots a bit for whether it is used, and a used one\'s crate name, name and exponent. Used slots come first, sorted",
+        "by crate and name, with exponents that aren\'t 0, and `root` only with an odd exponent (a value that isn\'t so",
+        "doesn\'t decode), so two equal dimensions have the same bytes: Volt is `d2 1f 00 00 00 00` (41 bits).",
+    ], ident: "Dim", generics: [], fields: Named([
+        (ident: Some("s"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("kg"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("a"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("k"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("mol"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("cd"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("rad"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Plane angle, radian.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("bit"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Information, bit.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
+            "The square root of what the exponents describe, see above.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 63))), docs: [
+            "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "How a value in a unit becomes coherent SI (the unit of [Dim] with no factor): `si = value · factor + offset`.",
+        "",
+        "On the wire a nibble for the variant and its numbers: `Coherent` is `0`, `Pow10(-3)` is `1` and `fd`.",
+    ], ident: "Scale", generics: [], variants: [
+        (docs: [
+            "The unit is coherent SI: V, A, N·m, rad.",
+        ], ident: "Coherent", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "A power of ten: g is 10⁻³ kg, L is 10⁻³ m³.",
+        ], ident: "Pow10", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Any factor: ° is π/180 rad, eV is 1.602176634·10⁻¹⁹ J.",
+        ], ident: "Factor", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.",
+        ], ident: "Affine", fields: Named([
+            (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s. Every reader",
+            "computes the same value, unlike with a `Factor`.",
+        ], ident: "Exact", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 62), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "A unit as a tree, on the wire: what [UnitExpr] is for a unit known from a type, for a unit known only at run time",
+        "(a configurable sensor channel, an ADC input whose unit is set by a jumper). A type-level unit maps one to one onto",
+        "an `SIExpr` ([Unit::SI_EXPR], [SIExpr::named]), so a dynamic client shows both the same way.",
+        "",
+        "Children are [RefBox]es: decoding an `SIExpr` reads only its top node, the rest is decoded when walked. Every",
+        "walk stops at [MAX_UNIT_DEPTH](crate::MAX_UNIT_DEPTH) levels.",
+        "",
+        "On the wire a nibble for the variant, then its fields: `Volt` is the name, the symbol, its [Dim] and [Scale].",
+    ], ident: "SIExpr", generics: [], variants: [
+        (docs: [
+            "A named unit: `name` is the marker\'s (`\"Volt\"`, a device\'s own `\"Rpm\"`), `symbol` as written after a number.",
+        ], ident: "Named", fields: Named([
+            (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+            (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 64), docs: [], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 65), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "`A · B`, [Times](crate::units::Times).",
+        ], ident: "Mul", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "`A / B`, [Per](crate::units::Per).",
+        ], ident: "Div", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "`A` to an integer power.",
+        ], ident: "Pow", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 3, since: None),
+        (docs: [
+            "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
+        ], ident: "Sqrt", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 66)), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 4, since: None),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
+        "An SI prefix, from quecto (10⁻³⁰) to quetta (10³⁰).",
+        "",
+        "On the wire a `UNib32`: the prefixes in use most (`Unit`, `Milli` .. `Giga`) take one nibble.",
+    ], ident: "Prefix", generics: [], variants: [
+        (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
+        (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
+        (docs: [], ident: "Micro", fields: Unit, discriminant: 2, since: None),
+        (docs: [], ident: "Nano", fields: Unit, discriminant: 3, since: None),
+        (docs: [], ident: "Pico", fields: Unit, discriminant: 4, since: None),
+        (docs: [], ident: "Kilo", fields: Unit, discriminant: 5, since: None),
+        (docs: [], ident: "Mega", fields: Unit, discriminant: 6, since: None),
+        (docs: [], ident: "Giga", fields: Unit, discriminant: 7, since: None),
+        (docs: [], ident: "Deca", fields: Unit, discriminant: 8, since: None),
+        (docs: [], ident: "Hecto", fields: Unit, discriminant: 9, since: None),
+        (docs: [], ident: "Tera", fields: Unit, discriminant: 10, since: None),
+        (docs: [], ident: "Peta", fields: Unit, discriminant: 11, since: None),
+        (docs: [], ident: "Exa", fields: Unit, discriminant: 12, since: None),
+        (docs: [], ident: "Zetta", fields: Unit, discriminant: 13, since: None),
+        (docs: [], ident: "Yotta", fields: Unit, discriminant: 14, since: None),
+        (docs: [], ident: "Ronna", fields: Unit, discriminant: 15, since: None),
+        (docs: [], ident: "Quetta", fields: Unit, discriminant: 16, since: None),
+        (docs: [], ident: "Deci", fields: Unit, discriminant: 17, since: None),
+        (docs: [], ident: "Centi", fields: Unit, discriminant: 18, since: None),
+        (docs: [], ident: "Femto", fields: Unit, discriminant: 19, since: None),
+        (docs: [], ident: "Atto", fields: Unit, discriminant: 20, since: None),
+        (docs: [], ident: "Zepto", fields: Unit, discriminant: 21, since: None),
+        (docs: [], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
+        (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
+        (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
+    ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+], traits: [], ext_crates: [
+    (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+], root_omitted: None)

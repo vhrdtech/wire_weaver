@@ -314,6 +314,8 @@ They are shared, so a tool that knows one of them works with every device that i
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
 - STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra
 - STD-37 | Units known at run time | A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one. | std_library/ww_si.md#units-known-only-at-run-time
+- STD-55 | Numbers with a fixed unit | `Fixed<Micro, Second, u32>`: the unit, scale and bounds are in the type, the wire carries exactly the `u32`, and it prints as `1500 µs`. | std_library/exact_units.md
+- STD-61 | Units without WireWeaver | `exact_units`, a `no_std` crate with no dependencies, gives dimensions, unit markers, exact scales and `Fixed` to any project; the wire format is a feature. | std_library/exact_units.md
 - STD-60 | Angles, bytes and samples are dimensions | Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart. | std_library/ww_si.md#dimensions
 - STD-4 | Date and time | `ww_date_time`. | std_library/ww_date_time.md
 - STD-13 | IO family | GPIO, UART, I2C, SPI, ADC, PWM, 1-Wire and more, all in one style. | std_library/io_family.md

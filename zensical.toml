@@ -129,6 +129,7 @@ nav = [
             { "Data types" = [
                     "std_library/ww_si.md",
                     "std_library/exact_units.md",
+                    { "exact_units: magnitudes" = "std_library/magnitude.md" },
                     "std_library/ww_error.md",
                     "std_library/ww_date_time.md",
                     "std_library/ww_numeric.md"

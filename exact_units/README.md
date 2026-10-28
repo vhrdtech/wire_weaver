@@ -28,15 +28,15 @@ assert_eq!((t * 2).to::<Milli, u16>(), Some(Fixed::new(3)));
   things (`Sample`, `Packet`, an API's own markers) are dimensions of their own, so bytes never turn into % or rad
   and a sample rate is not a frequency.
 - `Dim`: the dimension as data (SI base exponents, rad, bit, up to four counted bases, a square root).
-- `ExactScale`: a factor of integers and powers of 10, 2 and π (° is π/180 rad, a turn 2π rad), always canonical, so
-  two readers compute the same value.
+- `Magnitude`: an exact factor of prime powers and powers of π, ln 2 and ln 10 (° is π/180 rad, a turn 2π rad, a
+  decibel ln10/20 Np), always canonical, so two readers compute the same value and `Milli` equals `Rational<1, 1000>`.
 - `SIExpr`: a unit as a tree, for a unit only known at run time.
 
 ## Features
 
 | Feature        | What it adds                                                                                          |
 |----------------|-------------------------------------------------------------------------------------------------------|
-| none           | everything above as plain Rust types: `Dim` constants, unit markers, `ExactScale`, `Fixed` and its ops |
+| none           | everything above as plain Rust types: `Dim` constants, unit markers, `Magnitude`, `Fixed` and its ops |
 | unit groups    | `time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`, `photometric`, `radiation`, `dimensionless`, `information`, `counting`; `quantities` for all |
 | `shrink_wrap`  | the wire format: `SerializeShrinkWrap` / `DeserializeShrinkWrap` for every type, `SIExpr`, `Fixed` over `UNib32` / `UVlq*` / `Nibble` |
 | `std`          | every unit group; with `shrink_wrap` the owned wire mirrors `DimOwned`, `CountedOwned`, `SIExprOwned` for hosts |

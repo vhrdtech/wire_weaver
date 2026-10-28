@@ -1755,6 +1755,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   of one generic definition with `B` explicit, so introspection shows the unit. Same code as a plain field on
   Cortex-M (DER-20). [exact_units](docs/std_library/exact_units.md), conformance `stdlib.si.fixed.*`,
   `tests/quantities`.
+- ✅ **STD-62 One exact magnitude for every scale** · `v0.5` — `exact_units::Magnitude`, a canonical product of prime
+  powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
+  (prefixes, `Pow10<E>`, `Pow2<E>`, `Rational<N, D>` with `u64` parameters factored at compile time, `Kibi`..,
+  `FullScale<V, BITS>`, `FullScaleMax<V, BITS>`) is one, equal however it is written (`Milli` = `Pow10<-3>` =
+  `Rational<1, 1000>`); closed under `*`, `/`, powers and roots, a product that needs more than 12 primes or leaves
+  ±63½ is a compile error. `Fixed::to` computes its factor at compile time: not a fraction of integers, or a multiply
+  that doesn't fit 64 bits (storages up to 32 bits) / 128 bits, doesn't compile, never a rounding. Q formats `Q15`,
+  `Q31`, `UQ16_16`, binary angles `Bam16`, `Bam32`. Replaces `ExactScale` in `Scale::Exact` (104 bytes in memory, a
+  decimal prefix 2 bytes on the wire). [Exact magnitudes](docs/std_library/magnitude.md), conformance
+  `stdlib.si.magnitude.*` (derive, dynamic, Python; C waits on API-26).
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
@@ -1995,10 +2005,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
   (`Quantity<U, B>`, range in coherent units; a break: `B` explicit in the model), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
-- 📋 **STD-62 One exact magnitude for every scale** · `v0.5` — every scale (prefixes, `Pow10<E>`, `Rational<N, D>` with
-  `u64` parameters, `Kibi`.., Q formats, full-scale fractions, binary angles) is one canonical, exact form with a power
-  of π, equal however it is written; conversion factors are computed at compile time, and one that doesn't fit is a
-  compile error, never a rounding.
 - 📋 **STD-63 Named rounding and overflow policies** · `v0.5` — lossy conversions name their rounding (truncate, nearest
   ties-to-even, floor, ceil), arithmetic its overflow policy by kind (wrap for angles, counters and sequence numbers,
   saturate for Q formats, checked otherwise); bounds prove conversions infallible where they are; device, Rust, Python

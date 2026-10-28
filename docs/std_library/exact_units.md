@@ -47,11 +47,16 @@ another). `Quantity::to_fixed` and `Quantity::from_fixed` convert between them.
 - the binary prefixes `Kibi`, `Mebi`, `Gibi`, `Tebi`;
 - `Pow10<E>`, a power of ten without a name: tenths of a millisecond are `Fixed<Second, Pow10<-4>, u32>`, shown as
   `15·10⁻⁴ s`;
-- `Rational<NUM, DEN>`, a fraction: `Duty16` is `Fixed<Ratio, Rational<1, 65535>, u16>`, where 65535 is 100 %.
+- `Pow2<E>`, a power of two: the Q formats and binary angles;
+- `Rational<NUM, DEN>` (`u64`), a fraction: `Duty16` is `Fixed<Ratio, Rational<1, 65535>, u16>`, where 65535 is 100 %;
+- `FullScale<V, BITS>` and `FullScaleMax<V, BITS>`, one step of a converter whose `2^BITS` codes (or largest code)
+  span `V`.
 
-Every scale is an `ExactScale` (`num / den · 10^pow10 · 2^pow2 · π^pi`), written with integers only, so a conversion
-with `to::<P2, T2>()` is exact or refused (`None`), never rounded through a float. 4 KiB as `Fixed<Byte, Kibi, u16>`
-is `Fixed<Byte, One, u32>` 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.
+Every scale is a [`Magnitude`](magnitude.md), a canonical product of prime powers with powers of π, ln 2 and ln 10,
+so `Milli`, `Pow10<-3>` and `Rational<1, 1000>` are the same scale. A conversion with `to::<P2, T2>()` is exact or
+refused (`None`), never rounded through a float, and its factor is worked out at compile time: one that isn't a
+fraction of integers, or whose multiply doesn't fit, doesn't compile. 4 KiB as `Fixed<Byte, Kibi, u16>` is
+`Fixed<Byte, One, u32>` 4096. The π power makes angles exact too: a degree is π/180 rad and a turn 2π rad.
 
 ## Storage
 
@@ -100,6 +105,11 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 | `Bytes<T>`   | `Fixed<Byte, One, T>`                      |
 | `Ppb<T>`     | `Fixed<Ratio, Nano, T>`                    |
 | `Duty16`     | `Fixed<Ratio, Rational<1, 65535>, u16>`    |
+| `Q15<U>`     | `Fixed<U, Pow2<-15>, i16>` (`U` = `Ratio`) |
+| `Q31<U>`     | `Fixed<U, Pow2<-31>, i32>`                 |
+| `UQ16_16<U>` | `Fixed<U, Pow2<-16>, u32>`                 |
+| `Bam16`      | `Fixed<Turn, Pow2<-16>, u16>`              |
+| `Bam32`      | `Fixed<Turn, Pow2<-32>, u32>`              |
 
 ## In an API
 

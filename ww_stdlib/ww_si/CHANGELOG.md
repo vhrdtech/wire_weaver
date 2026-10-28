@@ -26,18 +26,24 @@
 * Against earlier builds from main (EVO-16): `Dim` on the wire is the 41-bit form with rad, bit, a root flag and
   counted bases (was seven exponents in 28 bits, `sized`), so `SIExpr`, `AnyQuantity` and `ww_adc::ChannelInfo::unit` change bytes;
   devices and hosts built from main before this are rebuilt together. `Dim` has a lifetime (`Dim<'i>`, a constant
-  `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Scale` has a new variant `Exact` (an `ExactScale`), which
+  `Unit::DIM: Dim<'static>`), `tree::Tree<'a>` too. `Scale` has a new variant `Exact` (an `exact_units::Magnitude`, STD-62), which
   `Degree` now uses (was a factor), so its `SIExpr` bytes change too. `Torque`, the angle units, `Lumen` and `Lux` have rad in their
   dimension, `Byte` is 8 `Bit` (a scale, the dimension is bit).
 * Against earlier builds from main (STD-61): the compile-time core is the new crate `exact_units`, which `ww_si`
   re-exports (`ww_si::exact_units`, and every moved name at the same place as before: `ww_si::Dim`, `ww_si::units`,
-  `ww_si::Fixed`, ..), so most code compiles unchanged. Moved: `Dim`, `Counted`, `Scale`, `ExactScale`, `UnitExpr`,
+  `ww_si::Fixed`, ..), so most code compiles unchanged. Moved: `Dim`, `Counted`, `Scale`, `ExactScale` (since `Magnitude`, STD-62), `UnitExpr`,
   the `Unit` trait, `UnitMul` / `UnitDiv`, the unit markers, `Prefix`, `SIExpr` / `SIExprOwned`, `tree` (without
   `quantity`), `Fixed` with its scales, storage and bounds. `Fixed::to_quantity` / `Fixed::try_from_quantity` are
   `Quantity::from_fixed` (or `Quantity::from(fixed)`) / `Quantity::to_fixed` (a crate can't add inherent methods to a
   type of another). The counted markers of this crate (`Item`, `Sample`, ..) are now known by the crate
   `exact_units`, so a `Dim` with one is 6 bytes longer on the wire and isn't the same base as one named by `ww_si`.
   In introspection the moved types are `exact_units::..`, which `wire_weaver_client` reads as units.
+* Against earlier builds from main (STD-62): `ExactScale` is replaced by `exact_units::Magnitude` (re-exported as
+  `ww_si::Magnitude`), a canonical product of prime powers with powers of π, ln 2 and ln 10. `ExactScale::new(num,
+  den, pow10, pow2, pi)` is `Magnitude::new` with `u64` `num` / `den`, `rational` is `ratio`, `parts` is gone (`to_ratio`,
+  `exp_x2`, `irrational_x2`). `Scale::Exact` changes bytes with it, so the `SIExpr` of `Degree` and `Turn` and
+  `ww_adc::ChannelInfo::unit` with them; devices and hosts built from main before this are rebuilt together.
+  `prefix::Rational` takes `u64` parameters (its instances in the API model are `u64` constants).
 
 ww_si 0.2 (STD-38): every quantity is one generic type. The bytes on the wire are the same as in 0.1 (values,
 `Series` and `Series<Timed<..>>`), the API model and Rust API are not: devices and hosts are rebuilt with 0.2 together.

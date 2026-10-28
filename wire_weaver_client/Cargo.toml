@@ -85,7 +85,8 @@ ww_lz4 = { workspace = true, features = ["std"] }
 ww_numeric = { workspace = true, features = ["std"] }
 ww_picoboot.workspace = true
 ww_self = { workspace = true, features = ["expr", "serde", "std"] }
-ww_si = { workspace = true, features = ["std"] }
+# customary: a host knows every unit by name (DynUnit::from_name, Python's convert), firmware opts in on its own
+ww_si = { workspace = true, features = ["std", "customary"] }
 ww_stm32_dfu.workspace = true
 ww_stream = { workspace = true, features = ["std"] }
 ww_tap = { workspace = true, features = ["std"] }

@@ -9,7 +9,7 @@ repository.workspace = true
 
 [features]
 default = ["std", "shrink_wrap"]
-# std enables every unit group, like ww_si's; with `shrink_wrap` also the owned wire mirrors
+# std enables every unit group but `customary`, like ww_si's; with `shrink_wrap` also the owned wire mirrors
 std = ["shrink_wrap?/std", "quantities"]
 defmt = ["dep:defmt", "shrink_wrap?/defmt"]
 # the wire format: SerializeShrinkWrap / DeserializeShrinkWrap for every type, SIExpr, Fixed over UNib32, UVlq*, Nibble
@@ -17,7 +17,7 @@ shrink_wrap = ["dep:shrink_wrap"]
 # serde for the owned wire mirrors (DimOwned, CountedOwned) and Magnitude: units in RON snapshots of APIs
 serde = ["std", "shrink_wrap", "dep:serde"]
 
-# unit groups: a firmware enables the ones it uses, `quantities` all of them
+# unit groups: a firmware enables the ones it uses, `quantities` all of them but `customary`
 quantities = [
     "time",
     "electrical",
@@ -30,7 +30,6 @@ quantities = [
     "dimensionless",
     "information",
     "counting",
-    "customary",
 ]
 # Second, Hertz, HertzPerSecond, Baud
 time = []
@@ -53,6 +52,7 @@ dimensionless = []
 # Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own
 information = []
 # imperial, US customary and other units outside the SI: inch, pound, psi, gallon (US and imperial), Btu, hp, ...
+# Opt-in only, not in `quantities` or `std`: an API without them pays nothing for them
 customary = []
 # Item, Sample, Frame, Packet, Cycle, Block, Sector, Chunk, Char, Code: counted bases, each a dimension of its own
 counting = []

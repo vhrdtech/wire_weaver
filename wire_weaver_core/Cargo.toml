@@ -34,3 +34,7 @@ ww_global.workspace = true
 ww_numeric = { workspace = true, features = ["std", "serde"] }
 ww_self = { workspace = true, features = ["std", "serde"] }
 ww_version = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+# the parity test of every unit! line against the compiled consts covers the customary units too
+exact_units = { workspace = true, features = ["customary"] }

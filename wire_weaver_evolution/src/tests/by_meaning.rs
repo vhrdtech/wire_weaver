@@ -7,7 +7,10 @@ use ww_self::ApiLevelLocationOwned;
 
 fn ww_si_dep() -> String {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ww_stdlib/ww_si");
-    format!("ww_si = {{ path = {:?} }}\n", path.canonicalize().unwrap())
+    format!(
+        "ww_si = {{ path = {:?}, features = [\"customary\"] }}\n",
+        path.canonicalize().unwrap()
+    )
 }
 
 /// Units and origins of the API's own crate, declared as a user would (`unit!` / `origin!` lines the walker reads).

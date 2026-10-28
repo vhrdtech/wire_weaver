@@ -94,6 +94,8 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
   when there are some: `Second(100 ms u16, 1..=5000)`); `defmt::Format` with the `defmt` feature.
 - Cycles per second become hertz only through the named `to_hertz`: a cycle is a counted thing, not a dimensionless
   1 (see [dimensions](ww_si.md#dimensions)).
+- A `Fixed` is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a
+  register's `raw / 256 + 25 °C`, a heading that wraps) is a `Point` of an origin: see [points](points.md).
 
 ## Aliases
 

@@ -4,7 +4,7 @@
 
 #[cfg(test)]
 mod tests {
-    use quantities_api::{DegreePerSecond, Mdps70, Rpm};
+    use quantities_api::{BoardTemp, DegreePerSecond, Mdps70, Rpm};
     use std::sync::{Arc, Mutex};
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
@@ -13,12 +13,13 @@ mod tests {
         self, ApiItemKindOwned, FieldsValueOwned, GenericArgOwned, TypeOwned, ValueOwned,
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
-    use ww_si::prefix::{FullScale, Micro, Milli, One, Rational};
-    use ww_si::units::{self, AngularVelocity, Meter, Per, Ratio, Times, Torque};
+    use ww_si::origins::Angle;
+    use ww_si::prefix::{Centi, FullScale, Micro, Milli, One, Rational};
+    use ww_si::units::{self, AngularVelocity, Degree, Meter, Per, Ratio, Times, Torque};
     use ww_si::ww_numeric::NumericValue;
     use ww_si::{
-        Ampere, AnyQuantity, Dim, Fixed, FixedScale, Magnitude, Micros, Prefix, Quantity, Range,
-        SIExpr, Scale, Second, Timed, Unbounded, Unit, Volt,
+        Ampere, AnyQuantity, Dim, Fixed, FixedScale, Magnitude, Micros, Point, Prefix, Quantity,
+        Range, SIExpr, Scale, Second, Timed, Unbounded, Unit, Volt,
     };
 
     type Damping = Quantity<Per<Torque, AngularVelocity>>;
@@ -29,6 +30,8 @@ mod tests {
     type Adc = Fixed<units::Volt, FullScale<Rational<33, 10>, 12>, u16>;
     type Gyro = Fixed<DegreePerSecond, Mdps70, i16>;
     type Belt = Fixed<Times<Per<Ratio, units::Second>, Meter>, Milli, u16>;
+    type BoardTemperature = Point<BoardTemp, Fixed<units::Kelvin, Rational<1, 256>, i16>>;
+    type Heading = Point<Angle<Degree>, Fixed<Degree, Centi, u16>>;
 
     struct Values {
         voltage: Volt,
@@ -239,6 +242,20 @@ mod tests {
                 _cx: &mut Context<'_, impl BlockingEventOut>,
             ) -> GetResult<Belt, ()> {
                 GetResult::Value(Belt::new(1500))
+            }
+
+            fn get_board_temp(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<BoardTemperature, ()> {
+                GetResult::Value(BoardTemperature::from_raw(128))
+            }
+
+            fn get_heading(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Heading, ()> {
+                GetResult::Value(Heading::from_raw(9000))
             }
 
             fn set_window(
@@ -485,6 +502,44 @@ mod tests {
         assert_eq!(belt.to_string(), "m·s⁻¹");
         let names: Vec<_> = belt.powers.iter().map(|p| p.marker.name.as_str()).collect();
         assert_eq!(names, ["units::Meter", "units::Second"]);
+    }
+
+    /// INT-13: the origins of points come with their definitions, an origin of the API's crate declared above °C
+    /// written out whole, and an angle with its turn in its unit.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn origins_of_the_model() {
+        let (device, _values) = start("quantities/origins");
+        let (client, root) = connect(&device).await;
+        let bundle = root.bundle();
+        let mut origins = Vec::new();
+        for name in ["board_temp", "heading"] {
+            let (_, ty) = read(&client, &root, name).await;
+            let Ok(TypeOwned::Struct(p)) = ty.get_in_line(bundle) else {
+                panic!("Point");
+            };
+            let [GenericArgOwned::Type(o), ..] = p.instance_of.as_ref().unwrap().args.as_slice()
+            else {
+                panic!("Point<O, F>");
+            };
+            origins.push(ww_self::units::origin_of(o, bundle).unwrap());
+        }
+        let [board, heading]: [_; 2] = origins.try_into().unwrap();
+        let compiled = <BoardTemp as ww_si::Origin>::DEF;
+        assert_eq!(board.symbol, "°C");
+        assert_eq!(board.unit.symbol, "K");
+        assert_eq!(board.offset, compiled.offset);
+        assert_eq!(board.offset, ww_si::Offset::decimal(29815, -2));
+        // shown in °C, from 273.15 K
+        assert_eq!(board.shown, ww_si::Offset::decimal(27315, -2));
+        assert_eq!((board.modulus, board.reference), (None, None));
+        let compiled = <Angle<Degree> as ww_si::Origin>::DEF;
+        assert_eq!(heading.modulus, compiled.modulus);
+        assert_eq!(heading.modulus, Some(Magnitude::ratio(360, 1)));
+        assert_eq!(
+            (heading.symbol.as_str(), heading.unit.symbol.as_str()),
+            ("°", "°")
+        );
+        assert_eq!(heading.unit.magnitude, Magnitude::new(1, 180, 0, 0, 1));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

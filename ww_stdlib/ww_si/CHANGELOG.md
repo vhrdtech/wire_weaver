@@ -9,6 +9,7 @@
 ### 🚀 Features
 
 * Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],
+* Re-exports `exact_units::origin!` (STD-64), so an API declares its origins as `ww_si::origin! { .. }` and clients know them (INT-13).
   Exact(1 / 30, pi 1); }`.
 
 * Re-exports `exact_units`' `Point`, `PointDiff`, `Origin`, `Offset` and `origins` (STD-64).

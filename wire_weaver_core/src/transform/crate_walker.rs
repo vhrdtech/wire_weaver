@@ -247,6 +247,27 @@ pub(crate) struct ApiBundleScratch {
 }
 
 impl ApiBundleScratch {
+    /// The types and crates so far as a bundle (with an empty root), to resolve a type through the definitions in
+    /// it while the walk goes on (an origin's unit, INT-13).
+    pub(crate) fn to_bundle(&self) -> ApiBundleOwned {
+        ApiBundleOwned {
+            magic: ww_self::MAGIC,
+            ww_self_version: ww_self::VERSION,
+            root: ApiLevelOwned {
+                docs: vec![],
+                crate_idx: 0.into(),
+                trait_name: String::new(),
+                items: vec![],
+                compact_id: None,
+                meta: None,
+            },
+            types: self.types.clone(),
+            traits: vec![],
+            ext_crates: self.ext_crates.clone(),
+            root_omitted: None,
+        }
+    }
+
     pub(crate) fn find_crate_or_create(&mut self, current_crate: &CrateContext) -> UNib32 {
         if let Some(idx) = self
             .ext_crates
@@ -308,6 +329,11 @@ pub(crate) struct CrateContext {
 impl CrateContext {
     pub(crate) fn crate_name(&self) -> &str {
         &self.version.crate_id
+    }
+
+    /// The modules from the crate root to this one, by name: which module of the crate it is.
+    pub(crate) fn module_names(&self) -> Vec<String> {
+        self.mod_path.iter().map(|m| m.name.clone()).collect()
     }
 }
 

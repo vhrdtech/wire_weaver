@@ -1,6 +1,6 @@
 use super::{
     crate_walker::{CrateContext, Scratch, TypeInProgress},
-    markers::marker_def,
+    markers::{marker_def, origin_def},
     util::{
         Args, collect_docs, derive_shrink_wrap_args, get_since_attr, use_tree_globs,
         use_tree_path_to,
@@ -909,8 +909,10 @@ fn convert_item_struct(
         path,
         extra: ItemStructOwned::extra_of(
             args.transparent,
-            marker_def(item_struct, current_crate.crate_name())
-                .context(current_crate.err_context())?,
+            marker_def(item_struct, current_crate.crate_name(), &mut |fields| {
+                origin_def(fields, current_crate, scratch)
+            })
+            .context(current_crate.err_context())?,
         ),
     });
     Ok(ty)

@@ -89,23 +89,33 @@ impl Offset {
     /// `self + rhs`. Both must be fractions of integers (no π) and the sum's numerator and denominator fit a `u64`,
     /// else it panics (at compile time in a `const`).
     pub const fn add(self, rhs: Self) -> Self {
+        match self.checked_add(rhs) {
+            Some(sum) => sum,
+            None => panic!(
+                "only offsets that are fractions of integers add up, and their sum must fit 64-bit parts"
+            ),
+        }
+    }
+
+    /// `self + rhs`, `None` where [add](Self::add) panics: for offsets read from data (an API model).
+    pub const fn checked_add(self, rhs: Self) -> Option<Self> {
         let Some((an, ad)) = self.to_ratio() else {
-            panic!("only offsets that are fractions of integers add up")
+            return None;
         };
         let Some((bn, bd)) = rhs.to_ratio() else {
-            panic!("only offsets that are fractions of integers add up")
+            return None;
         };
         let (Some(x), Some(y), Some(d)) = (
             an.checked_mul(bd as i128),
             bn.checked_mul(ad as i128),
             ad.checked_mul(bd),
         ) else {
-            panic!("the sum of these offsets doesn't fit 128 bits")
+            return None;
         };
         let Some(n) = x.checked_add(y) else {
-            panic!("the sum of these offsets doesn't fit 128 bits")
+            return None;
         };
-        Self::from_ratio(n, d)
+        Self::checked_from_ratio(n, d)
     }
 
     /// `self - rhs`, as [add](Self::add).
@@ -113,18 +123,20 @@ impl Offset {
         self.add(rhs.neg())
     }
 
-    /// `num / den` from 128-bit parts: panics when, without common factors, they don't fit a `u64`.
-    pub(crate) const fn from_ratio(n: i128, d: u128) -> Self {
+    /// `num / den` from 128-bit parts, `None` when, without common factors, they don't fit a `u64`.
+    const fn checked_from_ratio(n: i128, d: u128) -> Option<Self> {
         if n == 0 {
-            return Self::ZERO;
+            return Some(Self::ZERO);
         }
         let g = gcd(n.unsigned_abs(), d);
         let (n_abs, d) = (n.unsigned_abs() / g, d / g);
-        assert!(
-            n_abs <= u64::MAX as u128 && d <= u64::MAX as u128,
-            "an offset whose numerator or denominator doesn't fit 64 bits"
-        );
-        Self::new(n < 0, Magnitude::ratio(n_abs as u64, d as u64))
+        if n_abs > u64::MAX as u128 || d > u64::MAX as u128 {
+            return None;
+        }
+        match Magnitude::checked_ratio(n_abs as u64, d as u64) {
+            Ok(m) => Some(Self::new(n < 0, m)),
+            Err(_) => None,
+        }
     }
 
     /// `(num, den)` without a common factor, if the offset is a fraction of integers that fits: `(5463, 20)` for
@@ -164,6 +176,40 @@ impl Offset {
             Err(shrink_wrap::Error::SubtypeOutOfRange)
         } else {
             Ok(())
+        }
+    }
+}
+
+/// An [Offset] in serde (RON snapshots of APIs): `negative` left out when false, `magnitude` left out for zero; a
+/// negative zero is refused, so a hand-edited file can't hold a non-canonical one.
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+struct OffsetParts {
+    #[serde(default, skip_serializing_if = "core::ops::Not::not")]
+    negative: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    magnitude: Option<Magnitude>,
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for Offset {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        OffsetParts {
+            negative: self.negative,
+            magnitude: self.magnitude,
+        }
+        .serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Offset {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let p = OffsetParts::deserialize(deserializer)?;
+        match p.magnitude {
+            Some(m) => Ok(Offset::new(p.negative, m)),
+            None if !p.negative => Ok(Offset::ZERO),
+            None => Err(serde::de::Error::custom("a negative zero offset")),
         }
     }
 }

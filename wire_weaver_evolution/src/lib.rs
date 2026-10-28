@@ -738,6 +738,7 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    mod by_meaning;
     mod transparent;
     mod ww_si_fixed;
 

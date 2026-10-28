@@ -13,6 +13,7 @@ default = ["source"]
 source = ["dep:wire_weaver_core"]
 
 [dependencies]
+exact_units = { workspace = true, features = ["std"] }
 ron.workspace = true
 serde = { workspace = true, features = ["std"] }
 shrink_wrap = { workspace = true, features = ["std"] }

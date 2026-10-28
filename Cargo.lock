@@ -5999,6 +5999,7 @@ dependencies = [
 name = "wire_weaver_evolution"
 version = "0.5.0"
 dependencies = [
+ "exact_units",
  "ron",
  "serde",
  "shrink_wrap",

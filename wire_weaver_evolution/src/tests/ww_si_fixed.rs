@@ -14,7 +14,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
     format!(
         r#"
         use ww_si::{{Duty16, Fixed, Micros, Millis, Range, RangeU64, RangeDec, Unbounded, Quantity}};
-        use ww_si::prefix::{{Micro, Milli, One, Pow10, Rational}};
+        use ww_si::prefix::{{Micro, Milli, One, Pow10, Pow2, Rational}};
         use ww_si::units;
         use ww_si::prefix;
         use ww_si::units::{{Second, Meter, Ratio}};
@@ -109,7 +109,8 @@ fn unit_or_prefix_changed_is_breaking() {
         &report(&old, &same("Fixed<Second, Milli, u64>")),
         Rule::Meaning,
         "Api::set: argument `shared`: P of Fixed: marker prefix::Micro on the old version, prefix::Milli on the new \
-         version: the same bytes, but the new version would read them as another quantity",
+         version: the same bytes in another scale, 1 on the old version is 0.001 (exactly 1·10⁻³) on the new \
+         version, which would read it as 1",
     );
     assert_rule(
         &report(&old, &same("Millis<u64>")),
@@ -119,7 +120,8 @@ fn unit_or_prefix_changed_is_breaking() {
     assert_rule(
         &report(&old, &same("Fixed<Meter, Micro, u64>")),
         Rule::Meaning,
-        "U of Fixed: marker units::Second on the old version, units::Meter",
+        "U of Fixed: marker units::Second on the old version, units::Meter on the new version: s vs m, another \
+         dimension",
     );
 }
 
@@ -243,29 +245,50 @@ fn prepared_bundles() {
     );
 }
 
-/// Scales without a name (`Pow10<E>`, `Rational<NUM, DEN>`) are markers with const arguments, compared with them.
-/// Markers are compared by name, not by the scale they stand for: `Milli` -> `Pow10<-3>` is reported too.
+/// Scales without a name (`Pow10<E>`, `Rational<NUM, DEN>`) are markers with const arguments. Scales are compared
+/// by the exact factor they stand for (EVO-17): another factor is breaking, another name for the same one is
+/// compatible and reported as such.
 #[test]
-fn exact_scales_are_markers() {
+fn exact_scales_are_compared_by_value() {
     for (old, new, marker) in [
         (
             "Fixed<Second, Pow10<-4>, u32>",
             "Fixed<Second, Pow10<-3>, u32>",
-            "marker prefix::Pow10<-4> on the old version, prefix::Pow10<-3> on the new version",
+            "marker prefix::Pow10<-4> on the old version, prefix::Pow10<-3> on the new version: the same bytes in \
+             another scale, 1 on the old version is 0.1 (exactly 1·10⁻¹) on the new version",
         ),
         (
             "Fixed<Ratio, Rational<1, 65535>, u16>",
             "Fixed<Ratio, Rational<1, 65536>, u16>",
             "marker prefix::Rational<1, 65535> on the old version, prefix::Rational<1, 65536>",
         ),
-        (
-            "Fixed<Second, Milli, u32>",
-            "Fixed<Second, Pow10<-3>, u32>",
-            "marker prefix::Milli on the old version, prefix::Pow10<-3>",
-        ),
     ] {
         assert_rule(&report(&same(old), &same(new)), Rule::Meaning, marker);
         assert_eq!(report(&same(new), &same(new)).change, Change::None, "{new}");
+    }
+    for (old, new) in [
+        ("Fixed<Second, Milli, u32>", "Fixed<Second, Pow10<-3>, u32>"),
+        (
+            "Fixed<Second, Milli, u32>",
+            "Fixed<Second, Rational<1, 1000>, u32>",
+        ),
+        (
+            "Fixed<Ratio, Pow2<-16>, u16>",
+            "Fixed<Ratio, Rational<1, 65536>, u16>",
+        ),
+    ] {
+        let report_ = report(&same(old), &same(new));
+        assert_eq!(
+            report_.change,
+            Change::Compatible,
+            "{old} -> {new}: {report_:#?}"
+        );
+        assert!(
+            report_.compatible.iter().any(|c| c
+                .starts_with("Api::set: argument `shared`: P of Fixed: ")
+                && c.ends_with(", same value")),
+            "{report_:#?}"
+        );
     }
     assert_eq!(
         report(&same("u16"), &same("Duty16")).change,

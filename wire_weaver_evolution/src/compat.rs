@@ -9,17 +9,20 @@
 //! reader's `#[future_version]` catch-all.
 
 use std::borrow::Cow;
+use std::cell::OnceCell;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fmt;
 
+use exact_units::{DimOwned, Magnitude};
 use shrink_wrap::ElementSize;
 use ww_self::signature;
+use ww_self::units::{self, CanonicalUnit};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
-    GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, PropertyAccess,
-    TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
+    GenericParamOwned, InstanceOfOwned, ItemEnumOwned, ItemStructOwned, Length, MarkerDefOwned,
+    OriginDefOwned, PropertyAccess, TypeLocationOwned, TypeOwned, ValueOwned, VariantOwned,
 };
 use ww_version::FullVersionOwned;
 
@@ -55,6 +58,9 @@ pub struct Unwrapped {
     /// The type as the writer has it, and as the reader has it.
     pub written: String,
     pub read: String,
+    /// What makes them compatible: `same bytes` for a wrapper and its field, `same value` for two markers that mean
+    /// the same (`prefix::Milli` -> `prefix::Pow10<-3>`, EVO-17).
+    pub same: &'static str,
 }
 
 impl Unwrapped {
@@ -71,7 +77,7 @@ impl Unwrapped {
             out.push_str(segment);
             out.push_str(": ");
         }
-        out.push_str(&format!("{from} -> {to}, same bytes"));
+        out.push_str(&format!("{from} -> {to}, {}", self.same));
         out
     }
 }
@@ -488,6 +494,9 @@ pub struct TypeCheck<'a> {
     pub unwrapped: Vec<Unwrapped>,
     /// Arguments, fields and variants leading to the type being checked, for [Self::unwrapped].
     path: Vec<String>,
+    /// The writer's and the reader's bundle with skipped definitions put back from the embedded snapshots, made the
+    /// first time a marker is compared by its definition (EVO-17). Indices of the bundle stay valid in it.
+    defs: [OnceCell<ApiBundleOwned>; 2],
 }
 
 /// Type with out-of-line references resolved.
@@ -517,6 +526,7 @@ impl<'a> TypeCheck<'a> {
             rule: None,
             unwrapped: vec![],
             path: vec![],
+            defs: Default::default(),
         }
     }
 
@@ -766,10 +776,9 @@ impl<'a> TypeCheck<'a> {
         let markers = type_def(self.writer, wi)
             .map(marker_params)
             .unwrap_or_default();
+        self.check_markers(&w.1, &markers, wa, ra)?;
         for (i, (w_arg, r_arg)) in wa.iter().zip(ra).enumerate() {
-            if let Some((_, param)) = markers.iter().find(|(m, _)| *m == i) {
-                self.check_marker(w_arg, r_arg)
-                    .map_err(|e| format!("{param} of {}: {e}", w.1))?;
+            if markers.iter().any(|(m, _)| *m == i) {
                 continue;
             }
             match (w_arg, r_arg) {
@@ -788,10 +797,55 @@ impl<'a> TypeCheck<'a> {
 
     fn check_struct(&mut self, w: &ItemStructOwned, r: &ItemStructOwned) -> Result<(), String> {
         check_generics(&w.generics, &r.generics)?;
+        self.check_marker_defs(w, r)?;
         if let (Some(wi), Some(ri)) = (&w.instance_of, &r.instance_of) {
             self.check_instance_markers(wi, ri)?;
         }
         self.check_fields(&w.size, &w.fields, &r.size, &r.fields)
+    }
+
+    /// Two versions of a marker struct (INT-13): a unit, scale or origin redefined under the same name means
+    /// something else (EVO-17); its symbol may change.
+    fn check_marker_defs(
+        &mut self,
+        w: &ItemStructOwned,
+        r: &ItemStructOwned,
+    ) -> Result<(), String> {
+        use MarkerDefOwned::*;
+        let (Some(w_def), Some(r_def)) = (w.marker(), r.marker()) else {
+            return Ok(());
+        };
+        let step = |dim: &DimOwned, magnitude| Step {
+            dim: dim.clone(),
+            magnitude,
+        };
+        let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
+        let what = |kind: &str| format!("{kind} {} redefined", r.ident);
+        match (w_def, r_def) {
+            (Unit(w_unit), Unit(r_unit)) => self.check_steps(
+                &what("unit"),
+                &step(&w_unit.dim, w_unit.magnitude),
+                &step(&r_unit.dim, r_unit.magnitude),
+            ),
+            (Scale(w_scale), Scale(r_scale)) => self.check_steps(
+                &what("scale"),
+                &step(&one(), w_scale.magnitude),
+                &step(&one(), r_scale.magnitude),
+            ),
+            (Origin(w_origin), Origin(r_origin)) => {
+                self.check_origin(&w.ident, w_origin, &r.ident, r_origin)
+            }
+            (w_def, r_def) if std::mem::discriminant(w_def) == std::mem::discriminant(r_def) => {
+                Ok(())
+            }
+            _ => {
+                self.rule = Some(Rule::Meaning);
+                Err(format!(
+                    "{} is another kind of marker on the {} than on the {}",
+                    r.ident, self.writer_name, self.reader_name
+                ))
+            }
+        }
     }
 
     /// Marker arguments of two instances of the same generic definition (after [ww_self::generics::prepare]), whose
@@ -813,13 +867,204 @@ impl<'a> TypeCheck<'a> {
         let Some(def) = type_def(self.writer, wi.type_idx.0) else {
             return Ok(());
         };
-        for (i, param) in marker_params(def) {
-            if let (Some(w_arg), Some(r_arg)) = (wi.args.get(i), ri.args.get(i)) {
-                self.check_marker(w_arg, r_arg)
-                    .map_err(|e| format!("{param} of {}: {e}", w_def.1))?;
+        self.check_markers(&w_def.1, &marker_params(def), &wi.args, &ri.args)
+    }
+
+    /// The marker arguments `markers` (positions and parameter names) of two instances of the generic definition
+    /// `of`. Markers with a definition (INT-13: units, scales, origins) are compared by what they mean (EVO-17), the
+    /// units and scales of one instance together, as the value of one step of its number: `Fixed<Volt, Milli, ..>`
+    /// and `Fixed<Volt, Pow10<-3>, ..>` are the same. Any other marker is compared by name, a bound by value.
+    fn check_markers(
+        &mut self,
+        of: &str,
+        markers: &[(usize, &str)],
+        wa: &[GenericArgOwned],
+        ra: &[GenericArgOwned],
+    ) -> Result<(), String> {
+        let mut by_meaning = vec![];
+        for &(i, param) in markers {
+            let (Some(w_arg), Some(r_arg)) = (wa.get(i), ra.get(i)) else {
+                continue;
+            };
+            if let (GenericArgOwned::Type(w), GenericArgOwned::Type(r)) = (w_arg, r_arg)
+                && let (Some(w_meaning), Some(r_meaning)) = (self.meaning(0, w), self.meaning(1, r))
+            {
+                let names = (
+                    marker_name(self.writer, w, false),
+                    marker_name(self.reader, r, false),
+                );
+                let renamed =
+                    marker_name(self.writer, w, true) != marker_name(self.reader, r, true);
+                by_meaning.push((param, names, renamed, w_meaning, r_meaning));
+                continue;
+            }
+            self.check_marker(w_arg, r_arg)
+                .map_err(|e| format!("{param} of {of}: {e}"))?;
+        }
+        if by_meaning.is_empty() {
+            return Ok(());
+        }
+        let (mut w_step, mut r_step) = (Step::one(), Step::one());
+        // the markers that changed by name, or else those whose definition changed under the same name
+        let (mut steps, mut redefined) = (vec![], vec![]);
+        for (param, (w_name, r_name), renamed, w_meaning, r_meaning) in &by_meaning {
+            let at = |e: String| format!("{param} of {of}: {e}");
+            match (w_meaning, r_meaning) {
+                (Meaning::Origin(w), Meaning::Origin(r)) => {
+                    self.check_origin(w_name, w, r_name, r).map_err(at)?
+                }
+                (Meaning::Origin(_), _) | (_, Meaning::Origin(_)) => {
+                    self.rule = Some(Rule::Meaning);
+                    return Err(at(format!(
+                        "marker {w_name} on the {}, {r_name} on the {}: an origin on one side only",
+                        self.writer_name, self.reader_name
+                    )));
+                }
+                (w, r) => {
+                    w_step.mul(w).map_err(at)?;
+                    r_step.mul(r).map_err(at)?;
+                    let (mut w_alone, mut r_alone) = (Step::one(), Step::one());
+                    w_alone.mul(w).map_err(at)?;
+                    r_alone.mul(r).map_err(at)?;
+                    if !w_alone.same(&r_alone) {
+                        redefined.push(format!("{param} of {of}: {r_name} redefined"));
+                    }
+                    if *renamed {
+                        steps.push(format!(
+                            "{param} of {of}: marker {w_name} on the {}, {r_name} on the {}",
+                            self.writer_name, self.reader_name
+                        ));
+                    }
+                }
+            }
+        }
+        if steps.is_empty() {
+            steps = redefined;
+        }
+        if !steps.is_empty() {
+            self.check_steps(&steps.join(", "), &w_step, &r_step)?;
+        }
+        for (param, (w_name, r_name), renamed, ..) in by_meaning {
+            if renamed {
+                let mut path = self.path.clone();
+                path.push(format!("{param} of {of}"));
+                self.note_compatible(Unwrapped {
+                    path,
+                    writer_name: self.writer_name,
+                    written: w_name,
+                    read: r_name,
+                    same: "same value",
+                });
             }
         }
         Ok(())
+    }
+
+    /// A step of the number as the writer and as the reader have it: the same dimension and the same exact factor,
+    /// or breaking. A different factor is the Mars Climate Orbiter's mistake: lbf·s read as N·s.
+    fn check_steps(&mut self, changed: &str, w: &Step, r: &Step) -> Result<(), String> {
+        if !w.dim.as_dim().same(r.dim.as_dim()) {
+            self.rule = Some(Rule::Meaning);
+            return Err(format!(
+                "{changed}: {} vs {}, another dimension: the {} would read them as another quantity",
+                w.dim.as_dim(),
+                r.dim.as_dim(),
+                self.reader_name
+            ));
+        }
+        if w.magnitude == r.magnitude {
+            return Ok(());
+        }
+        self.rule = Some(Rule::Meaning);
+        let (w_name, r_name) = (self.writer_name, self.reader_name);
+        let shown = match w.magnitude.checked_div(r.magnitude) {
+            Ok(f) => format!("{} (exactly 1{f})", round6(f.to_f64())),
+            Err(_) => "out of range".into(),
+        };
+        Err(format!(
+            "{changed}: the same bytes in another scale, 1 on the {w_name} is {shown} on the {r_name}, which \
+             would read it as 1"
+        ))
+    }
+
+    /// Two origins of points: the same zero (from the same reference), the same dimension and the same period, in
+    /// coherent SI; how a point is shown (symbol, step, the shown zero) may differ.
+    fn check_origin(
+        &mut self,
+        w_name: &str,
+        w: &OriginDefOwned,
+        r_name: &str,
+        r: &OriginDefOwned,
+    ) -> Result<(), String> {
+        let differs = |what: &str| {
+            format!(
+                "origin {w_name} on the {}, {r_name} on the {}: {what}, the {} would read the points as other \
+                 positions",
+                self.writer_name, self.reader_name, self.reader_name
+            )
+        };
+        let si = |m: Option<Magnitude>, unit: &Magnitude| m.map(|m| m.checked_mul(*unit).ok());
+        let reason = if !w.unit.dim.as_dim().same(r.unit.dim.as_dim()) {
+            Some(format!(
+                "another dimension ({} vs {})",
+                w.unit.dim.as_dim(),
+                r.unit.dim.as_dim()
+            ))
+        } else if w.reference != r.reference {
+            let name = |o: &OriginDefOwned| match &o.reference {
+                Some(m) => format!("{}::{}", m.crate_id, m.name),
+                None => "the unit's zero".into(),
+            };
+            Some(format!("another reference ({} vs {})", name(w), name(r)))
+        } else if w.offset.is_negative() != r.offset.is_negative()
+            || si(w.offset.magnitude(), &w.unit.magnitude)
+                != si(r.offset.magnitude(), &r.unit.magnitude)
+        {
+            Some(format!(
+                "another zero ({} {} vs {} {})",
+                w.offset, w.unit.symbol, r.offset, r.unit.symbol
+            ))
+        } else if si(w.modulus, &w.unit.magnitude) != si(r.modulus, &r.unit.magnitude) {
+            let show = |o: &OriginDefOwned| match o.modulus {
+                Some(m) => format!("wraps every 1{m} {}", o.unit.symbol),
+                None => "doesn't wrap".into(),
+            };
+            Some(format!("another period ({} vs {})", show(w), show(r)))
+        } else {
+            None
+        };
+        match reason {
+            Some(reason) => {
+                self.rule = Some(Rule::Meaning);
+                Err(differs(&reason))
+            }
+            None => Ok(()),
+        }
+    }
+
+    /// What marker `ty` of the writer (`side` 0) or the reader (1) means, from its definition (INT-13); `None` for a
+    /// marker without one (a bound, a hand-written marker, a model from before INT-13).
+    fn meaning(&self, side: usize, ty: &TypeOwned) -> Option<Meaning> {
+        let bundle = [self.writer, self.reader][side];
+        let defs = match bundle
+            .types
+            .iter()
+            .any(|t| matches!(t, TypeLocationOwned::SkippedFullVersion { .. }))
+        {
+            true => self.defs[side].get_or_init(|| {
+                let mut inlined = bundle.clone();
+                wire_weaver_snapshots::inline_skipped(&mut inlined);
+                inlined
+            }),
+            false => bundle,
+        };
+        meaning(defs, ty)
+    }
+
+    fn note_compatible(&mut self, unwrapped: Unwrapped) {
+        if !self.unwrapped.contains(&unwrapped) {
+            self.unwrapped.push(unwrapped);
+        }
     }
 
     /// A marker argument (of a type parameter no field uses, `U` and `P` of `ww_si::Fixed<U, P, T, B>`): the same by
@@ -860,6 +1105,15 @@ impl<'a> TypeCheck<'a> {
     }
 
     fn check_bound_marker(&mut self, w: &Bound, r: &Bound) -> Result<(), String> {
+        // a wrapping number on one side only: the same values, but a wrap read as a jump (or the other way around)
+        if (*w == Bound::Wrapping) != (*r == Bound::Wrapping) {
+            self.rule = Some(Rule::Meaning);
+            return Err(format!(
+                "{w} on the {}, {r} on the {}: a wrapping number is a position modulo its storage, the {} would \
+                 take a wrap for a jump or the other way around",
+                self.writer_name, self.reader_name, self.reader_name
+            ));
+        }
         if r.contains(w) {
             return Ok(());
         }
@@ -913,7 +1167,12 @@ impl<'a> TypeCheck<'a> {
                 (w_wrapper.name, type_name(reader, r))
             }
             (None, Some(r_wrapper)) => {
-                for bound in &r_wrapper.bounds {
+                // a plain number states no arithmetic: it can become a wrapping or saturating one
+                for bound in r_wrapper
+                    .bounds
+                    .iter()
+                    .filter(|b| matches!(b, Bound::Range { .. }))
+                {
                     if let Err(e) = self.check_bound_marker(&Bound::Unbounded, bound) {
                         return Some(Err(format!("{}: {e}", r_wrapper.name)));
                     }
@@ -934,10 +1193,9 @@ impl<'a> TypeCheck<'a> {
             writer_name: self.writer_name,
             written,
             read,
+            same: "same bytes",
         };
-        if !self.unwrapped.contains(&unwrapped) {
-            self.unwrapped.push(unwrapped);
-        }
+        self.note_compatible(unwrapped);
         Some(Ok(()))
     }
 
@@ -1416,6 +1674,12 @@ const MAX_NAME_LEN: usize = 256;
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Bound {
     Unbounded,
+    /// `Saturating`: no bounds, arithmetic stops at the ends of the storage (STD-63). The same values as
+    /// [Self::Unbounded].
+    Saturating,
+    /// `Wrapping`: no bounds, but the number is a position modulo 2^bits of its storage (binary angles, free-running
+    /// counters, STD-63): differences and order mean something else than for a plain number.
+    Wrapping,
     /// Inclusive.
     Range {
         min: Dec,
@@ -1461,8 +1725,8 @@ impl Bound {
     /// Whether every value within `other` is within `self`.
     fn contains(&self, other: &Bound) -> bool {
         match (self, other) {
-            (Bound::Unbounded, _) => true,
-            (Bound::Range { .. }, Bound::Unbounded) => false,
+            (Bound::Unbounded | Bound::Saturating | Bound::Wrapping, _) => true,
+            (Bound::Range { .. }, Bound::Unbounded | Bound::Saturating | Bound::Wrapping) => false,
             (
                 Bound::Range { min, max },
                 Bound::Range {
@@ -1478,6 +1742,8 @@ impl fmt::Display for Bound {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Bound::Unbounded => f.write_str("Unbounded"),
+            Bound::Saturating => f.write_str("Saturating"),
+            Bound::Wrapping => f.write_str("Wrapping"),
             Bound::Range { min, max } => write!(f, "{min}..={max}"),
         }
     }
@@ -1505,6 +1771,8 @@ fn bound(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Bound> {
     };
     match (name.rsplit("::").next()?, args) {
         ("Unbounded", []) => Some(Bound::Unbounded),
+        ("Saturating", []) => Some(Bound::Saturating),
+        ("Wrapping", []) => Some(Bound::Wrapping),
         ("Range" | "RangeU64", [min, max]) => Some(Bound::Range {
             min: Dec(num(min)?, 0),
             max: Dec(num(max)?, 0),
@@ -1608,4 +1876,70 @@ fn describe(ty: &TypeOwned) -> String {
             format!("{} of at most {}", describe(ty), max_len.human_name(&[]))
         }
     }
+}
+
+/// What a marker with a definition (INT-13) means, see [TypeCheck::check_markers].
+enum Meaning {
+    Unit(Box<CanonicalUnit>),
+    Scale(Magnitude),
+    Origin(Box<OriginDefOwned>),
+}
+
+fn meaning(bundle: &ApiBundleOwned, ty: &TypeOwned) -> Option<Meaning> {
+    if let Ok(unit) = units::unit_of(ty, bundle) {
+        return Some(Meaning::Unit(Box::new(unit)));
+    }
+    if let Ok(scale) = units::scale_of(ty, bundle) {
+        return Some(Meaning::Scale(scale));
+    }
+    units::origin_of(ty, bundle)
+        .ok()
+        .map(|o| Meaning::Origin(Box::new(o)))
+}
+
+/// One step of a number: the units and scales of an instance multiplied, in coherent SI.
+struct Step {
+    dim: DimOwned,
+    magnitude: Magnitude,
+}
+
+impl Step {
+    fn one() -> Self {
+        Step {
+            dim: exact_units::Dim::ONE.into(),
+            magnitude: Magnitude::ONE,
+        }
+    }
+
+    fn same(&self, other: &Step) -> bool {
+        self.dim.as_dim().same(other.dim.as_dim()) && self.magnitude == other.magnitude
+    }
+
+    fn mul(&mut self, meaning: &Meaning) -> Result<(), String> {
+        let (dim, magnitude) = match meaning {
+            Meaning::Unit(unit) => (Some(&unit.dim), unit.magnitude),
+            Meaning::Scale(scale) => (None, *scale),
+            Meaning::Origin(_) => return Ok(()),
+        };
+        if let Some(dim) = dim {
+            self.dim = self
+                .dim
+                .as_dim()
+                .checked_mul(dim.as_dim())
+                .ok_or("dimension out of range")?
+                .into();
+        }
+        self.magnitude = self
+            .magnitude
+            .checked_mul(magnitude)
+            .map_err(|e| format!("factor out of range: {e:?}"))?;
+        Ok(())
+    }
+}
+
+/// `x` with at most 6 decimals, without trailing zeros: `4.448222`, `1000`.
+fn round6(x: f64) -> String {
+    let s = format!("{x:.6}");
+    let s = s.trim_end_matches('0');
+    s.trim_end_matches('.').to_string()
 }

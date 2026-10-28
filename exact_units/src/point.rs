@@ -11,7 +11,7 @@
 //!   absolute pressure) don't convert at all without the reference's value at run time
 //!   ([against](Point::against)).
 //!
-//! An origin is a zero-size marker ([origin!]) carrying its unit, its exact [Offset] from its reference's zero, an
+//! An origin is a zero-size marker ([origin!](crate::origin)) carrying its unit, its exact [Offset] from its reference's zero, an
 //! optional modulus (a turn, for angles that wrap) and how it is shown (°C, °F). On the wire a point is exactly its
 //! number.
 
@@ -90,7 +90,7 @@ impl<S: FixedScale> Modulus for Modulo<S> {
     const MODULUS: Option<Magnitude> = Some(S::SCALE);
 }
 
-/// An origin of [Point]s: a zero-size marker, never sent, declared with [origin!].
+/// An origin of [Point]s: a zero-size marker, never sent, declared with [origin!](crate::origin).
 pub trait Origin: Copy + Default + 'static {
     /// The unit of the points' numbers and of the offset: [Kelvin](crate::units::Kelvin) for every temperature
     /// scale, °F too (its numbers are in steps of 5/9 K).

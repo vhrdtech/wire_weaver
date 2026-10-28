@@ -388,3 +388,242 @@ fn scale_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Mag
         _ => bail!("{} is not a scale", marker_name(s, bundle)?),
     }
 }
+
+/// A number wrapper of `exact_units` (all `transparent`, the same bytes as their storage `T`): its parts as type
+/// arguments of a [prepared](crate::generics::prepare) bundle.
+#[derive(Clone, Copy, Debug)]
+pub enum Wrapper<'a> {
+    /// `Fixed<U, P, T, B>`: a number of scale `P` of unit `U`.
+    Fixed {
+        unit: &'a TypeOwned,
+        scale: &'a TypeOwned,
+        storage: &'a TypeOwned,
+        bounds: &'a TypeOwned,
+    },
+    /// `Index<Of, T, B>`: a 0-based position in a table of `Of`.
+    Index {
+        of: &'a TypeOwned,
+        storage: &'a TypeOwned,
+        bounds: &'a TypeOwned,
+    },
+    /// `IndexFrom1<Of, T, B>`: a 1-based number of an `Of`, never 0.
+    IndexFrom1 {
+        of: &'a TypeOwned,
+        storage: &'a TypeOwned,
+        bounds: &'a TypeOwned,
+    },
+    /// `Seq<Of, T>`: a wrapping sequence number.
+    Seq {
+        of: &'a TypeOwned,
+        storage: &'a TypeOwned,
+    },
+}
+
+impl Wrapper<'_> {
+    /// `Fixed`, `Index`, `IndexFrom1`, `Seq`.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Wrapper::Fixed { .. } => "Fixed",
+            Wrapper::Index { .. } => "Index",
+            Wrapper::IndexFrom1 { .. } => "IndexFrom1",
+            Wrapper::Seq { .. } => "Seq",
+        }
+    }
+
+    /// The `B` argument, `None` for a `Seq`.
+    pub fn bounds_ty(&self) -> Option<&TypeOwned> {
+        match self {
+            Wrapper::Fixed { bounds, .. }
+            | Wrapper::Index { bounds, .. }
+            | Wrapper::IndexFrom1 { bounds, .. } => Some(bounds),
+            Wrapper::Seq { .. } => None,
+        }
+    }
+}
+
+/// The `exact_units` wrapper `ty` is an instance of, `None` for any other type (or a wrong number of arguments).
+pub fn wrapper_of<'a>(ty: &'a TypeOwned, bundle: &'a ApiBundleOwned) -> Option<Wrapper<'a>> {
+    let s = match ty.get_in_line(bundle).ok()? {
+        TypeOwned::Struct(s) => s,
+        _ => return None,
+    };
+    wrapper_of_struct(s, bundle)
+}
+
+/// [wrapper_of] for a concrete struct definition of a prepared bundle.
+pub fn wrapper_of_struct<'a>(
+    s: &'a ItemStructOwned,
+    bundle: &'a ApiBundleOwned,
+) -> Option<Wrapper<'a>> {
+    let inst = s.instance_of.as_ref()?;
+    let TypeOwned::Struct(g) = bundle.get_ty(inst.type_idx.0).ok()?.0 else {
+        return None;
+    };
+    if g.path.is_some() || bundle.crate_name(g.crate_idx.0).ok()? != "exact_units" {
+        return None;
+    }
+    let mut args = inst.args.iter().map(|a| match a {
+        GenericArgOwned::Type(t) => Some(t),
+        _ => None,
+    });
+    let mut next = || args.next().flatten();
+    let w = match g.ident.as_str() {
+        "Fixed" => Wrapper::Fixed {
+            unit: next()?,
+            scale: next()?,
+            storage: next()?,
+            bounds: next()?,
+        },
+        "Index" => Wrapper::Index {
+            of: next()?,
+            storage: next()?,
+            bounds: next()?,
+        },
+        "IndexFrom1" => Wrapper::IndexFrom1 {
+            of: next()?,
+            storage: next()?,
+            bounds: next()?,
+        },
+        "Seq" => Wrapper::Seq {
+            of: next()?,
+            storage: next()?,
+        },
+        _ => return None,
+    };
+    Some(w)
+}
+
+/// One end of [NumBounds]: an integer, or a float for a float storage.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Bound {
+    Int(i128),
+    Float(f64),
+}
+
+impl fmt::Display for Bound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Bound::Int(i) => write!(f, "{i}"),
+            Bound::Float(x) => write!(f, "{x}"),
+        }
+    }
+}
+
+/// The numbers a bounds marker allows, as stored: `Range<1, 5000>` is `1..=5000`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct NumBounds {
+    pub min: Option<Bound>,
+    pub max: Option<Bound>,
+}
+
+impl NumBounds {
+    /// No bounds: `Unbounded`, `Wrapping`, `Saturating`.
+    pub fn is_none(&self) -> bool {
+        self.min.is_none() && self.max.is_none()
+    }
+
+    /// Whether `n` is within: an integer against integer bounds exactly, a float against float ones as
+    /// `exact_units` compares them (NaN is out).
+    pub fn contains(&self, n: &ww_numeric::NumericValue) -> bool {
+        let above = |b: &Bound| match (b, n.to_i128()) {
+            (Bound::Int(min), Some(i)) => i >= *min,
+            (Bound::Int(min), None) => n.to_f64() >= *min as f64,
+            (Bound::Float(min), _) => n.to_f64() >= *min,
+        };
+        let below = |b: &Bound| match (b, n.to_i128()) {
+            (Bound::Int(max), Some(i)) => i <= *max,
+            (Bound::Int(max), None) => n.to_f64() <= *max as f64,
+            (Bound::Float(max), _) => n.to_f64() <= *max,
+        };
+        self.min.as_ref().is_none_or(above) && self.max.as_ref().is_none_or(below)
+    }
+}
+
+/// `1..=5000`, `..=7`, `-0.5..=2.5`, empty without bounds.
+impl fmt::Display for NumBounds {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_none() {
+            return Ok(());
+        }
+        if let Some(min) = &self.min {
+            write!(f, "{min}")?;
+        }
+        f.write_str("..=")?;
+        if let Some(max) = &self.max {
+            write!(f, "{max}")?;
+        }
+        Ok(())
+    }
+}
+
+/// The bounds marker `ty` is (the `B` of a `Fixed`, `Index` or `IndexFrom1`): `Unbounded`, `Wrapping` and
+/// `Saturating` have none, `Range<MIN, MAX>` and `RangeU64<MIN, MAX>` integer ends, `RangeDec<MIN, MAX, EXP>` the
+/// float ends `MIN·10^EXP` and `MAX·10^EXP`.
+pub fn bounds_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<NumBounds> {
+    let (s, args) = marker(ty, bundle)?;
+    let int = |i: usize| match args.get(i) {
+        Some(GenericArgOwned::Const(ValueOwned::Numeric(n))) => n
+            .to_i128()
+            .ok_or_else(|| anyhow!("{} with a parameter that is not an integer", s.ident)),
+        _ => bail!("{} without its parameters", s.ident),
+    };
+    Ok(match definition(s, bundle)? {
+        MarkerDefOwned::Unbounded | MarkerDefOwned::Wrapping | MarkerDefOwned::Saturating => {
+            NumBounds::default()
+        }
+        MarkerDefOwned::Range | MarkerDefOwned::RangeU64 => NumBounds {
+            min: Some(Bound::Int(int(0)?)),
+            max: Some(Bound::Int(int(1)?)),
+        },
+        MarkerDefOwned::RangeDec => {
+            let exp = i8::try_from(int(2)?)
+                .map_err(|_| anyhow!("{} with an exponent out of range", s.ident))?;
+            let end = |i| -> Result<Bound> {
+                Ok(Bound::Float(
+                    int(i)? as i64 as f64 * exact_units::num::pow10_f64(exp),
+                ))
+            };
+            NumBounds {
+                min: Some(end(0)?),
+                max: Some(end(1)?),
+            }
+        }
+        _ => bail!("{} is not a bounds marker", marker_name(s, bundle)?),
+    })
+}
+
+/// The rules an `exact_units` wrapper's number follows besides its storage, checked on every decode and encode: a
+/// `Fixed`, `Index` or `IndexFrom1` within its bounds, an `IndexFrom1` never 0. `fields` is the value of the
+/// transparent struct `s`; anything that isn't such a wrapper passes.
+pub fn check_wrapper(
+    s: &ItemStructOwned,
+    fields: &crate::FieldsValueOwned,
+    bundle: &ApiBundleOwned,
+) -> Result<()> {
+    let Some(w) = wrapper_of_struct(s, bundle) else {
+        return Ok(());
+    };
+    let number = match fields {
+        crate::FieldsValueOwned::Named(f) => f.first().map(|(_, v)| v),
+        crate::FieldsValueOwned::Unnamed(f) => f.first(),
+        crate::FieldsValueOwned::Unit => None,
+    };
+    let Some(ValueOwned::Numeric(n)) = number else {
+        return Ok(());
+    };
+    let name = || ty_name(&TypeOwned::Struct(s.clone()), bundle);
+    if matches!(w, Wrapper::IndexFrom1 { .. }) && n.to_i128() == Some(0) {
+        bail!("0 is no {}: it counts from 1", name());
+    }
+    if let Some(b) = w.bounds_ty() {
+        let bounds = bounds_of(b, bundle)?;
+        if !bounds.contains(n) {
+            let shown = match n.to_i128() {
+                Some(i) => i.to_string(),
+                None => n.to_f64().to_string(),
+            };
+            bail!("{shown} is out of {} ({bounds})", name());
+        }
+    }
+    Ok(())
+}

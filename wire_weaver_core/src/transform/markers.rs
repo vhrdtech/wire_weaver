@@ -10,7 +10,7 @@
 use super::crate_walker::{CrateContext, Scratch};
 use super::ty::convert_ty;
 use anyhow::{Context, Result, anyhow, bail};
-use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset};
+use exact_units::{CountedOwned, DimOwned, Irrational, Magnitude, Offset, ProvenanceOwned};
 use proc_macro2::TokenStream;
 use syn::parse::{Parse, ParseStream};
 use syn::{
@@ -403,6 +403,8 @@ pub(crate) fn origin_def(
                     symbol: unit.to_string(),
                     dim: unit.dim,
                     magnitude: unit.magnitude,
+                    // a unit expression has no provenance of its own yet: origins are over defined units (K, °)
+                    provenance: ProvenanceOwned::Defined,
                 },
                 symbol: symbol.clone(),
                 reference,
@@ -707,10 +709,15 @@ pub(crate) fn marker_def(
                 // TODO(STD-74): °C over K goes to origins; the model carries the offset as exact_units::Offset then
                 UnitScaleLine::Affine { .. } => return Ok(None),
             };
+            let provenance = match line.provenance {
+                Some((source, year)) => ProvenanceOwned::Conventional { source, year },
+                None => ProvenanceOwned::Defined,
+            };
             MarkerDefOwned::Unit(UnitDefOwned {
                 symbol: line.symbol,
                 dim,
                 magnitude,
+                provenance,
             })
         }
         MarkerLineDef::Scale(line) => {
@@ -1072,13 +1079,16 @@ mod tests {
     #[test]
     fn exact_units_definitions_match_the_compiled_consts() {
         let mut markers = exact_units_markers();
-        for expr in exact_units::units::ALL.iter().chain(exact_units::units::CUSTOMARY) {
+        for expr in exact_units::units::ALL
+            .iter()
+            .chain(exact_units::units::CUSTOMARY)
+        {
             let UnitExpr::Named {
                 name,
                 symbol,
                 dim,
                 scale,
-                ..
+                provenance,
             } = expr
             else {
                 panic!("units::ALL holds named units")
@@ -1104,6 +1114,19 @@ mod tests {
                 def.dim
             );
             assert_eq!(def.magnitude, magnitude, "{name}");
+            let compiled = match provenance {
+                exact_units::Provenance::Defined => ProvenanceOwned::Defined,
+                exact_units::Provenance::Conventional { source, year } => {
+                    ProvenanceOwned::Conventional {
+                        source: source.to_string(),
+                        year: *year,
+                    }
+                }
+                exact_units::Provenance::Unknown(_) => {
+                    panic!("{name}: a compiled unit is never unknown")
+                }
+            };
+            assert_eq!(def.provenance, compiled, "{name}");
         }
         macro_rules! scales {
             ($($name:ident)*) => {

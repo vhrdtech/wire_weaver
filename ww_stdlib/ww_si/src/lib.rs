@@ -51,7 +51,7 @@ pub use exact_units::{
     counted, origin, origins, prefix, scale, unit, units,
 };
 #[cfg(feature = "std")]
-pub use exact_units::{CountedOwned, DimOwned, SIExprOwned};
+pub use exact_units::{CountedOwned, DimOwned, ProvenanceOwned, SIExprOwned};
 #[cfg(feature = "dimensionless")]
 pub use exact_units::{Duty16, Ppb};
 #[cfg(feature = "time")]

@@ -775,6 +775,11 @@ pub struct UnitDef<'i> {
     /// The exact factor to the coherent SI unit of [Self::dim]: 1 for `Volt`, `π/30` for `Rpm` (rad/s), 8 for a
     /// byte (bit).
     pub magnitude: exact_units::Magnitude,
+    /// Whether [Self::magnitude] is the unit's definition or a value a source prints for a unit fixed by a physical
+    /// property (`conventional("NIST SP 811", 2008)` on a `unit!` line: inHg, a Btu at 60 °F). `Defined` in
+    /// bundles made before it was carried (STD-72).
+    #[default = Default::default()]
+    pub provenance: exact_units::Provenance<'i>,
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

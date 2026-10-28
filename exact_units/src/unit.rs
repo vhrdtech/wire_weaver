@@ -695,20 +695,48 @@ impl Scale {
     }
 }
 
-/// Where a named unit's scale comes from.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+/// Where a named unit's scale comes from. On the wire (in an API model's `UnitDef`) an evolvable enum, so a later
+/// kind of source can be added.
+#[cfg_attr(
+    feature = "shrink_wrap",
+    derive_shrink_wrap(
+        borrowed,
+        owned(feature = "std"),
+        derive_owned(Clone, Debug, PartialEq, Eq, Hash),
+        cfg_attr_owned(feature = "serde", derive(serde::Serialize, serde::Deserialize)),
+        ww_repr = unib32
+    )
+)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub enum Provenance {
-    /// The scale is the unit's definition: exact by law or by the SI (a foot is 0.3048 m).
+pub enum Provenance<'i> {
+    /// The scale is the unit's definition: exact by law or by the SI (a foot is 0.3048 m). The default: what a
+    /// unit read from data without a provenance has.
     Defined,
     /// The unit is fixed by a physical property (mercury at 32 °F, a calorie at 15 °C): its scale is the value a
     /// source prints, exact in this crate but only by convention, and a newer measurement may differ.
     Conventional {
         /// The document the value is from: `"NIST SP 811"`.
-        source: &'static str,
+        source: &'i str,
         /// Its edition.
         year: u16,
     },
+}
+
+// written out: derive_shrink_wrap drops a variant's `#[default]`, so `derive(Default)` can't see it
+#[allow(clippy::derivable_impls)]
+impl Default for Provenance<'_> {
+    fn default() -> Self {
+        Provenance::Defined
+    }
+}
+
+#[cfg(all(feature = "std", feature = "shrink_wrap"))]
+#[allow(clippy::derivable_impls)]
+impl Default for ProvenanceOwned {
+    fn default() -> Self {
+        ProvenanceOwned::Defined
+    }
 }
 
 /// A unit as a tree: named units, and products and quotients of them (`Per<Torque, AngularVelocity>` is
@@ -726,7 +754,7 @@ pub enum UnitExpr {
         dim: Dim<'static>,
         scale: Scale,
         /// Whether the scale is the unit's definition or a measured value written down by convention.
-        provenance: Provenance,
+        provenance: Provenance<'static>,
     },
     Mul(&'static UnitExpr, &'static UnitExpr),
     Div(&'static UnitExpr, &'static UnitExpr),

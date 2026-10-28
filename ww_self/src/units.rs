@@ -235,6 +235,7 @@ pub fn origin_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<OriginDefOwn
                     symbol: symbol.clone(),
                     dim: unit.dim,
                     magnitude: unit.magnitude,
+                    provenance: exact_units::ProvenanceOwned::Defined,
                 },
                 symbol,
                 reference: None,

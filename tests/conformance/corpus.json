@@ -1273,10 +1273,18 @@
     {
       "name": "model.marker_def.unit",
       "type": "marker_def",
-      "value": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}}},
-      "bytes": "0072706df00000010000fe80008002000083fe00034a",
+      "value": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}},
+      "bytes": "0072706df00000010000fe80008002000083fe000000136a",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a user's rpm: symbol, Dim rad/s and the exact factor π/30 to it (INT-13)"
+    },
+    {
+      "name": "model.marker_def.unit_conventional",
+      "type": "marker_def",
+      "value": {"Unit": {"symbol": "inHg (32 °F)", "dim": {"s": -2, "m": -1, "kg": 1, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -4, "rest": {"pow2": 2, "irrational": null, "factors": [{"prime": 169319, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": {"Conventional": {"source": "NIST SP 811", "year": 2008}}}},
+      "bytes": "00696e48672028333220c2b04629ef1000000000fc80024fcda950020000104e49535420535020383131d8073979596d",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a unit fixed by a physical property: its scale is the value NIST SP 811 (2008) prints, carried as Conventional (STD-72)"
     },
     {
       "name": "model.marker_def.scale",
@@ -1297,8 +1305,8 @@
     {
       "name": "model.marker_def.origin",
       "type": "marker_def",
-      "value": {"Origin": {"unit": {"symbol": "K", "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 1, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": 0, "rest": null}}, "symbol": "°C", "reference": null, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}}},
-      "bytes": "e14b0000100000000001c2b04320fe80fe43048fb9100200000020fe80fe43048fb910020003196c",
+      "value": {"Origin": {"unit": {"symbol": "K", "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 1, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": 0, "rest": null}, "provenance": "Defined"}, "symbol": "°C", "reference": null, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}}},
+      "bytes": "e14b00001000000000000011c2b04320fe80fe43048fb9100200000020fe80fe43048fb910020003390d",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "origin! of °C: unit K, 273.15 K above 0 K, shown from there, no reference or modulus (INT-13, STD-64)"
     },
@@ -1321,8 +1329,8 @@
     {
       "name": "model.item_struct_extra.marker",
       "type": "item_struct_extra",
-      "value": {"transparent": false, "marker": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}}}},
-      "bytes": "400072706df00000010000fe80008002000083fe00034a6a",
+      "value": {"transparent": false, "marker": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}, "provenance": "Defined"}}},
+      "bytes": "400072706df00000010000fe80008002000083fe000000136a0b",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "a unit marker struct: its definition after the transparent flag (INT-13)"
     }

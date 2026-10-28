@@ -2,8 +2,8 @@
 
 ### ⚠️ Breaking
 
-* `UnitExpr::Named` has a `provenance: Provenance` field (STD-72): a `UnitExpr::Named { .. }` written by hand adds
-  `provenance: Provenance::Defined`; a pattern without `..` adds `..`.
+* `UnitExpr::Named` has a `provenance: Provenance<'static>` field (STD-72): a `UnitExpr::Named { .. }` written by
+  hand adds `provenance: Provenance::Defined`; a pattern without `..` adds `..`.
 
 ### 🚀 Features
 
@@ -13,7 +13,9 @@
 * `Provenance` (STD-72): whether a named unit's scale is its definition (`Defined`) or a measured value a source
   prints (`Conventional { source, year }`). `unit!` takes `conventional("NIST SP 811", 2008)` after the scale; the
   14 measured customary units (inHg and inH2O at a temperature, Btu and calorie at a temperature or mean, boiler and
-  water horsepower) carry it.
+  water horsepower) carry it. With feature `shrink_wrap` it is an evolvable wire enum (`Provenance<'i>`, owned
+  `ProvenanceOwned`, `Unknown(_)` for a kind of source a newer writer adds) and `Default` (`Defined`), so an API model
+  carries it (`ww_self::UnitDef::provenance`).
 * `units` imperial, US customary and other units outside the SI (STD-72, feature `customary`, part of
   `quantities`): 166 markers, each the exact rational of SI its legal definition gives (1959 yard and pound, NIST SP
   811 and Handbook 44, UK Weights and Measures Act 1985, g_n), the source cited in its docs; `units::CUSTOMARY` lists

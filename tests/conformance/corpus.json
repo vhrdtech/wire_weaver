@@ -1186,6 +1186,46 @@
       "direction": "reject",
       "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
       "note": "variant 5 is past Sqrt: SIExpr is no_future_version, a reader can't show a unit kind it doesn't know"
+    },
+    {
+      "name": "model.marker_def.unit",
+      "type": "marker_def",
+      "value": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}}},
+      "bytes": "0072706df00000010000fe80008002000083fe00034a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a user's rpm: symbol, Dim rad/s and the exact factor π/30 to it (INT-13)"
+    },
+    {
+      "name": "model.marker_def.scale",
+      "type": "marker_def",
+      "value": {"Scale": {"symbol": "", "magnitude": {"pow10": -4, "rest": {"pow2": 0, "irrational": null, "factors": [{"prime": 7, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null]}}}},
+      "bytes": "10fc80004702000007",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a scale of 7/100 without a symbol, as scale! declares an LSB of 70 m (INT-13)"
+    },
+    {
+      "name": "model.marker_def.per",
+      "type": "marker_def",
+      "value": "Per",
+      "bytes": "20",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' generic Per<A, B>: the variant alone, A and B are the instance's arguments (INT-13)"
+    },
+    {
+      "name": "model.item_struct_extra.transparent",
+      "type": "item_struct_extra",
+      "value": {"transparent": true, "marker": null},
+      "bytes": "80",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a transparent wrapper (DER-18) without a marker definition"
+    },
+    {
+      "name": "model.item_struct_extra.marker",
+      "type": "item_struct_extra",
+      "value": {"transparent": false, "marker": {"Unit": {"symbol": "rpm", "dim": {"s": -1, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 1, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": -2, "rest": {"pow2": 0, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [{"prime": 3, "exp": -2}, null, null, null, null, null, null, null, null, null, null, null]}}}}},
+      "bytes": "400072706df00000010000fe80008002000083fe00034a6a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a unit marker struct: its definition after the transparent flag (INT-13)"
     }
   ]
 }

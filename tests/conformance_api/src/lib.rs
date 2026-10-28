@@ -129,6 +129,9 @@ trait Conformance {
     property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
     property!(rw magnitude: ww_si::Magnitude);
     property!(rw si_expr: ww_si::SIExpr<'i>);
+    // the API model's own definitions of units and scales (INT-13), as a device sends them in its introspection data
+    property!(rw marker_def: ww_self::MarkerDef<'i>);
+    property!(rw item_struct_extra: ww_self::ItemStructExtra<'i>);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

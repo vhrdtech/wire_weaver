@@ -790,6 +790,29 @@ pub fn table() -> Vec<Typed> {
             "stdlib.si.si_expr.rejected",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
         ),
+        case("model.marker_def.unit", rpm()),
+        case(
+            "model.marker_def.scale",
+            ww_self::MarkerDefOwned::Scale(ww_self::ScaleDefOwned {
+                symbol: String::new(),
+                magnitude: ww_si::Magnitude::ratio(7, 100),
+            }),
+        ),
+        case("model.marker_def.per", ww_self::MarkerDefOwned::Per),
+        case(
+            "model.item_struct_extra.transparent",
+            ww_self::ItemStructExtraOwned {
+                transparent: true,
+                marker: None,
+            },
+        ),
+        case(
+            "model.item_struct_extra.marker",
+            ww_self::ItemStructExtraOwned {
+                transparent: false,
+                marker: Some(rpm()),
+            },
+        ),
         case_debug("stdlib.timebase.sync_status", || {
             ww_timebase::SyncStatusOwned {
                 state: ww_timebase::SyncState::Free,
@@ -834,6 +857,15 @@ fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {
 
 fn si_expr(e: &ww_si::UnitExpr) -> ww_si::SIExprOwned {
     e.into()
+}
+
+/// A user's `unit!(Rpm, "rpm", ..)`: rad/s times π/30.
+fn rpm() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Unit(ww_self::UnitDefOwned {
+        symbol: "rpm".into(),
+        dim: dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)),
+        magnitude: ww_si::Magnitude::new(1, 30, 0, 0, 1),
+    })
 }
 
 fn micros(value: u32) -> ww_si::Second {

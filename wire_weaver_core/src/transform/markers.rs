@@ -261,9 +261,10 @@ pub(crate) enum OriginFields {
         unit: syn::Type,
         symbol: String,
         offset: syn::Expr,
-        step: Option<syn::Expr>,
-        reference: Option<syn::Type>,
-        modulus: Option<syn::Type>,
+        // boxed: rarely given, and they would make the variant far larger than `Above`
+        step: Option<Box<syn::Expr>>,
+        reference: Option<Box<syn::Type>>,
+        modulus: Option<Box<syn::Type>>,
     },
     /// `above: Parent, offset: ..`.
     Above {
@@ -319,21 +320,21 @@ impl Parse for OriginFields {
             let step = if key(input, "step")? {
                 let step = input.parse()?;
                 comma(input)?;
-                Some(step)
+                Some(Box::new(step))
             } else {
                 None
             };
             let reference = if key(input, "reference")? {
                 let reference = input.parse()?;
                 comma(input)?;
-                Some(reference)
+                Some(Box::new(reference))
             } else {
                 None
             };
             let modulus = if key(input, "modulus")? {
                 let modulus = input.parse()?;
                 comma(input)?;
-                Some(modulus)
+                Some(Box::new(modulus))
             } else {
                 None
             };
@@ -409,7 +410,7 @@ pub(crate) fn origin_def(
                 modulus,
                 step: step
                     .as_ref()
-                    .map(step_value)
+                    .map(|s| step_value(s))
                     .transpose()?
                     .unwrap_or(Magnitude::ONE),
                 shown: offset,
@@ -568,7 +569,7 @@ pub(crate) enum MarkerLineDef {
     Hand(String),
     /// The keyed fields of an `origin!`: `unit: Kelvin, symbol: "°C", offset: Offset::decimal(27315, -2)` or
     /// `above: Celsius, offset: ..`.
-    Origin(OriginFields),
+    Origin(Box<OriginFields>),
 }
 
 /// The definition of a struct made from a marker line, `None` for any other struct.
@@ -583,7 +584,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
             "unit" => Ok(MarkerLineDef::Unit(input.parse()?)),
             "scale" => Ok(MarkerLineDef::Scale(input.parse()?)),
             "hand" => Ok(MarkerLineDef::Hand(input.parse::<Ident>()?.to_string())),
-            "origin" => Ok(MarkerLineDef::Origin(input.parse()?)),
+            "origin" => Ok(MarkerLineDef::Origin(Box::new(input.parse()?))),
             _ => Err(syn::Error::new(kind.span(), "unit, scale, hand or origin")),
         }
     })?;
@@ -1235,7 +1236,7 @@ mod tests {
         let Some(MarkerLineDef::Origin(fields)) = marker_line(&celsius.attrs).unwrap() else {
             panic!()
         };
-        let OriginFields::Unit { symbol, offset, .. } = fields else {
+        let OriginFields::Unit { symbol, offset, .. } = *fields else {
             panic!()
         };
         assert_eq!(symbol, "°C");

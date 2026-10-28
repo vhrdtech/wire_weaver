@@ -338,6 +338,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Units and numbers](std_library/ww_si.md)**: `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values.
 - **[Units checked by the compiler](std_library/ww_si.md#unit-algebra)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself.
 - **[Units known at run time](std_library/ww_si.md#units-known-only-at-run-time)**: A value whose unit is only known on the device, a configurable sensor channel, carries its unit and is shown like a typed one.
+- **[Quantities as exact as `Fixed`](std_library/ww_si.md#quantity-fixed-or-anyquantity)**: A run-time `Quantity` takes binary prefixes (KiB) and any exact scale (1/65535, BAM), and carries bounds checked on decode. <span class="ww-status">in progress</span>
 - **[Numbers with a fixed unit](std_library/exact_units.md)**: `Fixed<Micro, Second, u32>`: the unit, scale and bounds are in the type, the wire carries exactly the `u32`, and it prints as `1500 µs`.
 - **[Units without WireWeaver](std_library/exact_units.md)**: `exact_units`, a `no_std` crate with no dependencies, gives dimensions, unit markers, exact scales and `Fixed` to any project; the wire format is a feature.
 - **[Angles, bytes and samples are dimensions](std_library/ww_si.md#dimensions)**: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.

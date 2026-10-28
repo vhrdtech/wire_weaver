@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+* Re-exports `exact_units::ProvenanceOwned` (with `std`), next to `Provenance` (STD-72).
+
 * Re-exports `exact_units::Provenance` (STD-72).
 * Feature `customary` (STD-72): `exact_units`' imperial and US customary markers (`units::PoundForce`, `Inch`, `GallonUs`, ...), part of `quantities` and so of `std`.
 * Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],

@@ -811,6 +811,7 @@ pub fn table() -> Vec<Typed> {
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
         ),
         case("model.marker_def.unit", rpm()),
+        case("model.marker_def.unit_conventional", inch_of_mercury_32f()),
         case(
             "model.marker_def.scale",
             ww_self::MarkerDefOwned::Scale(ww_self::ScaleDefOwned {
@@ -900,6 +901,20 @@ fn rpm() -> ww_self::MarkerDefOwned {
         symbol: "rpm".into(),
         dim: dim(ww_si::Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1)),
         magnitude: ww_si::Magnitude::new(1, 30, 0, 0, 1),
+        provenance: ww_si::ProvenanceOwned::Defined,
+    })
+}
+
+/// `unit!(InchOfMercury32f, .., conventional("NIST SP 811", 2008))`: a scale that is a value a source prints.
+fn inch_of_mercury_32f() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::Unit(ww_self::UnitDefOwned {
+        symbol: "inHg (32 °F)".into(),
+        dim: dim(ww_si::Dim::new(-2, -1, 1, 0, 0, 0, 0)),
+        magnitude: ww_si::Magnitude::ratio(338638, 100),
+        provenance: ww_si::ProvenanceOwned::Conventional {
+            source: "NIST SP 811".into(),
+            year: 2008,
+        },
     })
 }
 
@@ -910,6 +925,7 @@ fn celsius() -> ww_self::MarkerDefOwned {
             symbol: "K".into(),
             dim: dim(ww_si::Dim::new(0, 0, 0, 0, 1, 0, 0)),
             magnitude: ww_si::Magnitude::ONE,
+            provenance: ww_si::ProvenanceOwned::Defined,
         },
         symbol: "°C".into(),
         reference: None,

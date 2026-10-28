@@ -5,7 +5,7 @@ use crate::ops::{
     to_u32_wrapping_scaled,
 };
 use crate::tree::{self, write_unit};
-use crate::{Prefix, Quantity};
+use crate::{OutOfBounds, Prefix, Quantity, QuantityBounds};
 use core::cmp::Ordering;
 use core::fmt;
 use core::marker::PhantomData;
@@ -19,6 +19,7 @@ impl<U: Unit> Quantity<U> {
             prefix,
             value,
             _unit: PhantomData,
+            _bounds: PhantomData,
         }
     }
 
@@ -90,6 +91,45 @@ impl<U: Unit> Quantity<U> {
             .from_f32_saturating(x)
             .expect("quantize: number type not enabled or not supported");
         Self::from_parts(prefix, value)
+    }
+}
+
+/// Checked constructors and everything that reads a value, for a quantity with any bounds.
+impl<U: Unit, B: QuantityBounds> Quantity<U, B> {
+    /// `value` in units of `prefix`, [OutOfBounds] when it is outside `B` (in the unit itself, whatever `prefix`):
+    /// `Quantity::<units::Volt, RangeDec<0, 33, -1>>::try_new(Prefix::Milli, 3300u16)` is 3.3 V, 3301 mV is an
+    /// error. Never fails for [Unbounded](crate::Unbounded), whose plain constructors ([new](Quantity::new),
+    /// [milli](Quantity::milli), ..) need no check.
+    pub fn try_new(prefix: Prefix, value: impl Into<NumericValue>) -> Result<Self, OutOfBounds> {
+        let value = value.into();
+        B::check(prefix, &value)?;
+        Ok(Self::from_parts_unchecked(prefix, value))
+    }
+
+    /// The same value with the bounds `B2`, [OutOfBounds] when it is outside them: from a plain [Quantity] into a
+    /// bounded one, or back with `B2 = Unbounded` (or [unbounded](Self::unbounded), which can't fail).
+    pub fn bounded<B2: QuantityBounds>(self) -> Result<Quantity<U, B2>, OutOfBounds> {
+        Quantity::try_new(self.prefix, self.value)
+    }
+
+    /// The same value without bounds.
+    pub const fn unbounded(self) -> Quantity<U> {
+        Quantity::from_parts(self.prefix, self.value)
+    }
+
+    const fn from_parts_unchecked(prefix: Prefix, value: NumericValue) -> Self {
+        Quantity {
+            prefix,
+            value,
+            _unit: PhantomData,
+            _bounds: PhantomData,
+        }
+    }
+
+    /// Run on every value read from the wire: a value outside `B` is [shrink_wrap::Error::SubtypeOutOfRange].
+    #[inline(always)]
+    pub(crate) fn validate(&self) -> Result<(), shrink_wrap::Error> {
+        B::check(self.prefix, &self.value).map_err(|_| shrink_wrap::Error::SubtypeOutOfRange)
     }
 
     /// The value in the unit itself (no prefix) as `f64`, rounded where `f64` can't hold it exactly. For a unit with a
@@ -165,7 +205,8 @@ impl<U: Unit> Quantity<U> {
                 value.ty().from_integer(x)?
             }
         };
-        Some(Self::from_parts(prefix, value))
+        // a scaled float can round past a bound
+        B::contains(prefix, &value).then_some(Self::from_parts_unchecked(prefix, value))
     }
 
     /// Same prefix and same number in the same type: cheaper than `==`, which compares values across prefixes and
@@ -181,7 +222,7 @@ impl<U: Unit> Quantity<U> {
 }
 
 /// Equal when the values are, whatever prefix and number type each one is stored in (`1000 mV == 1 V`).
-impl<U: Unit> PartialEq for Quantity<U> {
+impl<U: Unit, B: QuantityBounds> PartialEq for Quantity<U, B> {
     fn eq(&self, other: &Self) -> bool {
         self.partial_cmp(other) == Some(Ordering::Equal)
     }
@@ -190,21 +231,21 @@ impl<U: Unit> PartialEq for Quantity<U> {
 /// Compares the values across prefixes and number types: exactly when both are integers (no overflow even 60 orders
 /// of magnitude apart, and no wider arithmetic than the enabled number types need: `u32` with types up to 32 bits),
 /// through `f64` when one is a float.
-impl<U: Unit> PartialOrd for Quantity<U> {
+impl<U: Unit, B: QuantityBounds> PartialOrd for Quantity<U, B> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         compare(self.prefix, &self.value, other.prefix, &other.value)
     }
 }
 
 /// `3300 mV`, the number as stored with its prefix; `{:#}` writes it in the unit itself: `3.3 V`.
-impl<U: Unit> fmt::Display for Quantity<U> {
+impl<U: Unit, B: QuantityBounds> fmt::Display for Quantity<U, B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&tree::quantity(self.prefix, &self.value, &U::EXPR), f)
     }
 }
 
 /// `Volt(3300 mV U16)`: the unit's name, the value as `Display` shows it, and the number type.
-impl<U: Unit> fmt::Debug for Quantity<U> {
+impl<U: Unit, B: QuantityBounds> fmt::Debug for Quantity<U, B> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}(", U::EXPR.name())?;
         tree::write_number(&self.value, f)?;
@@ -215,7 +256,7 @@ impl<U: Unit> fmt::Debug for Quantity<U> {
 
 /// `3300 mV`, like `Display`.
 #[cfg(feature = "defmt")]
-impl<U: Unit> defmt::Format for Quantity<U> {
+impl<U: Unit, B: QuantityBounds> defmt::Format for Quantity<U, B> {
     fn format(&self, f: defmt::Formatter<'_>) {
         defmt_number(&self.value, f);
         let unit = U::EXPR;

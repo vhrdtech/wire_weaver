@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a22827513b52bd69e0bd8f6cd21d331cb858cb15992e5c8027fb79a749069f19
+// shrink_wrap sha256: ab69910c996622711db087882eea38732fdf53473d8e9a5a8a5cf97d2ec7977d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -124,15 +124,25 @@
         20,
         62,
     ]),
+    SkippedFullVersion(crate_idx: 2, type_name: "Unbounded", signature: [
+        141,
+        245,
+        156,
+        90,
+        45,
+        137,
+        12,
+        110,
+    ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        230,
-        15,
-        222,
-        166,
-        15,
-        199,
-        77,
-        231,
+        95,
+        53,
+        125,
+        144,
+        137,
+        155,
+        252,
+        235,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "One word\'s new value.",
@@ -146,7 +156,7 @@
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", generics: [], fields: Named([
         (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
-        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 7))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 8))), docs: [], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
@@ -182,12 +192,14 @@
         ])), multiplicity: Flat, since: None, ident: "reset", docs: [
             "Zero a buffer.",
         ], optional: None, meta: None),
-        (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 8), delivery: Counted, args: [
-            (ident: "period", ty: Instance(type_idx: 6, args: [
+        (id: 3, kind: StreamFn(ty: OutOfLine(type_idx: 9), delivery: Counted, args: [
+            (ident: "period", ty: Instance(type_idx: 7, args: [
                 Type(OutOfLine(type_idx: 5)),
+                Type(OutOfLine(type_idx: 6)),
             ])),
-        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 6, args: [
+        ], return_ty: Some(Result(ok_ty: Instance(type_idx: 7, args: [
             Type(OutOfLine(type_idx: 5)),
+            Type(OutOfLine(type_idx: 6)),
         ]), err_ty: OutOfLine(type_idx: 4))), errors: Some([
             (ident: "Common", nested: Some([
                 "Unsupported",

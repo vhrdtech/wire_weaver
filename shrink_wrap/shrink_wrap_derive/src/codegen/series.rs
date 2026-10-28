@@ -41,7 +41,7 @@ struct SeriesField<'a> {
     tagged: bool,
     /// Has `SeriesCells`: not opaque, no string or byte list in it.
     cells: bool,
-    /// A `#[wire(W)]` field (DER-19): `ty` is `Wired<W, T>` (`WiredRef<W, T>` for a user `W`), the field is a `T`.
+    /// A `#[wire(W)]` field (DER-19): `ty` is `Wired<W, T>` (`WiredOpaque<W, T>` for a user `W`), the field is a `T`.
     wired: bool,
     default: Option<&'a syn::Expr>,
 }
@@ -723,9 +723,9 @@ impl SeriesSeed<'_> {
                     Type::Wire {
                         plain, wire, user, ..
                     } => {
-                        // a user type's column is `W`'s own, lent by `WireAsRef` (DER-23)
+                        // a user type's column is an opaque run of `W`'s bytes (DER-23)
                         let wired = if *user {
-                            self.sc(quote! { WiredRef })
+                            self.sc(quote! { WiredOpaque })
                         } else {
                             self.sc(quote! { Wired })
                         };
@@ -736,11 +736,7 @@ impl SeriesSeed<'_> {
                     ty => ty.def(self.is_ref, self.cp),
                 },
                 opaque,
-                tagged: !opaque
-                    && matches!(
-                        ty,
-                        Type::External(_, _) | Type::Option(_, _) | Type::Wire { user: true, .. }
-                    ),
+                tagged: !opaque && matches!(ty, Type::External(_, _) | Type::Option(_, _)),
                 cells: !opaque && has_cells(ty),
                 wired: matches!(ty, Type::Wire { .. }),
                 default,
@@ -749,7 +745,7 @@ impl SeriesSeed<'_> {
         Ok(out)
     }
 
-    /// A `&field` as what its column takes: `&Wired<W, T>` (or `&WiredRef<W, T>`) for a `#[wire(W)]` field.
+    /// A `&field` as what its column takes: `&Wired<W, T>` (or `&WiredOpaque<W, T>`) for a `#[wire(W)]` field.
     fn wrap(&self, f: &SeriesField, field_ref: TokenStream) -> TokenStream {
         if f.wired {
             let ty = &f.ty;

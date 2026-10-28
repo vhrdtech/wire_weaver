@@ -16,6 +16,7 @@ crate-type = ["cdylib"]
 rtt = ["wire_weaver_client/rtt"]
 
 [dependencies]
+exact_units = { workspace = true, features = ["std", "shrink_wrap"] }
 pyo3.workspace = true
 shrink_wrap.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "time"] }

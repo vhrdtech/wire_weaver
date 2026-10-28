@@ -1387,7 +1387,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "12.5 dV: a tie"
     },
     {
@@ -1399,7 +1399,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": 12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.tie.ceil",
@@ -1410,7 +1410,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": 13,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.tie.nearest_even",
@@ -1421,7 +1421,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.tie.nearest_away",
@@ -1432,7 +1432,7 @@
       "rounding": "nearest_away",
       "overflow": "checked",
       "result": 13,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.truncate",
@@ -1443,7 +1443,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": -12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.floor",
@@ -1454,7 +1454,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": -13,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.ceil",
@@ -1465,7 +1465,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": -12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.nearest_even",
@@ -1476,7 +1476,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": -12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.nearest_away",
@@ -1487,7 +1487,7 @@
       "rounding": "nearest_away",
       "overflow": "checked",
       "result": -13,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.tie_up_to_even",
@@ -1498,7 +1498,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 14,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "13.5 to 14, the even neighbour above"
     },
     {
@@ -1510,7 +1510,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 12,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.overflow.checked",
@@ -1521,7 +1521,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "200 dV in an i8"
     },
     {
@@ -1533,7 +1533,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 127,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.overflow.wrap",
@@ -1544,7 +1544,7 @@
       "rounding": "nearest_even",
       "overflow": "wrap",
       "result": -56,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_deci.underflow.saturate",
@@ -1555,7 +1555,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": -128,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.micro_to_milli_unsigned.negative.checked",
@@ -1566,7 +1566,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-2 mV in a u8"
     },
     {
@@ -1578,7 +1578,7 @@
       "rounding": "floor",
       "overflow": "saturate",
       "result": 0,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.micro_to_milli_unsigned.negative.wrap",
@@ -1589,7 +1589,7 @@
       "rounding": "floor",
       "overflow": "wrap",
       "result": 254,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.micro_to_milli_unsigned.top",
@@ -1600,7 +1600,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 255,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.micro_to_milli_unsigned.tie_past_top.checked",
@@ -1611,7 +1611,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "255.5 rounds to 256, past a u8"
     },
     {
@@ -1623,7 +1623,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 255,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.q15_to_q7.tie_past_top.checked",
@@ -1634,7 +1634,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "128.5 rounds to 128, past an i8"
     },
     {
@@ -1646,7 +1646,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 127,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.q15_to_q7.tie.nearest_even",
@@ -1657,7 +1657,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 126,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.q15_to_q7.tie.nearest_away",
@@ -1668,7 +1668,7 @@
       "rounding": "nearest_away",
       "overflow": "checked",
       "result": 127,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.q15_to_q7.negative_end",
@@ -1679,7 +1679,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": -128,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-128.5 to -128, the even end of an i8"
     },
     {
@@ -1691,7 +1691,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 233,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "a factor of 7/3: 233.33"
     },
     {
@@ -1703,7 +1703,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": 234,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.nearest_even",
@@ -1714,7 +1714,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 233,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.negative.floor",
@@ -1725,7 +1725,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": -234,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.negative.truncate",
@@ -1736,7 +1736,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": -233,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.exact_top",
@@ -1747,7 +1747,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 32767,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.past_top.checked",
@@ -1758,7 +1758,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.past_top.saturate",
@@ -1769,7 +1769,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 32767,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.seven_thirds.past_top.wrap",
@@ -1780,7 +1780,7 @@
       "rounding": "nearest_even",
       "overflow": "wrap",
       "result": -32767,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_micro.fits",
@@ -1791,7 +1791,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 65000,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_micro.overflow.checked",
@@ -1802,7 +1802,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "70000 µV in a u16"
     },
     {
@@ -1814,7 +1814,7 @@
       "rounding": "truncate",
       "overflow": "saturate",
       "result": 65535,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.milli_to_micro.overflow.wrap",
@@ -1825,7 +1825,7 @@
       "rounding": "truncate",
       "overflow": "wrap",
       "result": 4464,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.bam16_to_bam8.truncate",
@@ -1836,7 +1836,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 255,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "255.5 of 256 steps"
     },
     {
@@ -1848,7 +1848,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.bam16_to_bam8.full_turn.saturate",
@@ -1859,7 +1859,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 255,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.bam16_to_bam8.full_turn.wrap",
@@ -1870,7 +1870,7 @@
       "rounding": "nearest_even",
       "overflow": "wrap",
       "result": 0,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "rounds to 256: a full turn, which a binary angle wraps to 0"
     },
     {
@@ -1882,7 +1882,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 64,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.tie.nearest_even",
@@ -1893,7 +1893,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 2,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.tie.nearest_away",
@@ -1904,7 +1904,7 @@
       "rounding": "nearest_away",
       "overflow": "checked",
       "result": 3,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.negative_tie.nearest_even",
@@ -1915,7 +1915,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": -2,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.negative.floor",
@@ -1926,7 +1926,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": -3,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.tie_past_top.checked",
@@ -1937,7 +1937,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.tie_past_top.saturate",
@@ -1948,7 +1948,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 32767,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.huge.saturate",
@@ -1959,7 +1959,7 @@
       "rounding": "truncate",
       "overflow": "saturate",
       "result": 32767,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.float_to_int.huge.wrap",
@@ -1970,7 +1970,7 @@
       "rounding": "truncate",
       "overflow": "wrap",
       "result": 7168,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-10¹⁰ modulo 2¹⁶"
     },
     {
@@ -1982,7 +1982,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 1.25,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.45000.truncate",
@@ -1993,7 +1993,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 785398,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "a factor of 50π/9: no fraction of integers"
     },
     {
@@ -2005,7 +2005,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": 785398,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.45000.ceil",
@@ -2016,7 +2016,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": 785399,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.45000.nearest_even",
@@ -2027,7 +2027,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 785398,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.90000.truncate",
@@ -2038,7 +2038,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 1570796,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.90000.floor",
@@ -2049,7 +2049,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": 1570796,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.90000.ceil",
@@ -2060,7 +2060,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": 1570797,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.90000.nearest_even",
@@ -2071,7 +2071,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 1570796,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.1.truncate",
@@ -2082,7 +2082,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 17,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.1.floor",
@@ -2093,7 +2093,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": 17,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.1.ceil",
@@ -2104,7 +2104,7 @@
       "rounding": "ceil",
       "overflow": "checked",
       "result": 18,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.1.nearest_even",
@@ -2115,7 +2115,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 17,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.negative.floor",
@@ -2126,7 +2126,7 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": -785399,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian.negative.truncate",
@@ -2137,7 +2137,7 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": -785398,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian_i64.big",
@@ -2148,7 +2148,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 15707963267948966,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian_i64.past_top.checked",
@@ -2159,7 +2159,7 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian_i64.past_top.saturate",
@@ -2170,7 +2170,7 @@
       "rounding": "nearest_even",
       "overflow": "saturate",
       "result": 9223372036854775807,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     },
     {
       "name": "requantize.degree_to_radian_i64.past_bottom.saturate",
@@ -2181,7 +2181,7 @@
       "rounding": "floor",
       "overflow": "saturate",
       "result": -9223372036854775808,
-      "gaps": {"python": "no unit conversions in Python yet: Fixed in Python (CLT-54)", "c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
     }
   ]
 }

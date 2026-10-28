@@ -6012,6 +6012,7 @@ dependencies = [
 name = "wire_weaver_py"
 version = "0.5.0"
 dependencies = [
+ "exact_units",
  "pyo3",
  "shrink_wrap",
  "tokio",

@@ -46,6 +46,25 @@ impl<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> Default
     }
 }
 
+/// USB vendor and product ID (`Config::vendor_id`/`product_id` in embassy-usb are `pub(crate)`, so they can't be
+/// set from a `config_mut` closure — pass them through [usb_init_with_ids] / [usb_init_with_endpoints_with_ids]
+/// instead). Defaults to WireWeaver's shared test ID `0xc0de:0xcafe`; use your own assigned VID:PID for a real
+/// product.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UsbIds {
+    pub vid: u16,
+    pub pid: u16,
+}
+
+impl Default for UsbIds {
+    fn default() -> Self {
+        UsbIds {
+            vid: 0xc0de,
+            pid: 0xcafe,
+        }
+    }
+}
+
 /// All buffers used by [usb_init].
 pub struct UsbBuffers<const MAX_USB_PACKET_LEN: usize, const MAX_MESSAGE_LEN: usize> {
     // buffer_usage() can be used to tune these
@@ -126,11 +145,13 @@ impl<'d, D: Driver<'d>> WireWeaverClass<'d, D> {
 /// [usb_init_with_endpoints] instead, which keeps this function's [UsbBuffers] convenience.
 ///
 /// It is recommended to adjust USB config in the config_mut closure, in particular:
-/// * Set vid, pid (default is 0xc0de:0xcafe)
 /// * Set manufacturer and product (default is "Vhrd.Tech" "WireWeaver Generic")
 /// * Set serial_number (default is None, use e.g., embassy_stm32::uid::uid_hex())
 /// * max_power (default is 100mA)
 /// * self_powered (default is false)
+///
+/// VID:PID defaults to WireWeaver's shared test ID `0xc0de:0xcafe` and cannot be set from `config_mut`
+/// (`Config::vendor_id`/`product_id` are `pub(crate)` in embassy-usb) — use [usb_init_with_ids] to set it.
 ///
 /// `api_id` is used as the WireWeaver interface string, it is how hosts find out which API the device implements
 /// without opening it, see [WireWeaverClass::new].
@@ -147,13 +168,40 @@ pub fn usb_init<
     api_id: &'static str,
     config_mut: impl FnOnce(&mut Config),
 ) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
-    let use_bulk = timings.use_bulk_endpoints;
-    usb_init_with_endpoints(
+    usb_init_with_ids(
         driver,
         buffers,
         timings,
         link_config,
         api_id,
+        UsbIds::default(),
+        config_mut,
+    )
+}
+
+/// Same as [usb_init], with `ids` setting the USB VID:PID instead of the shared `0xc0de:0xcafe` test default.
+pub fn usb_init_with_ids<
+    'd,
+    const MAX_USB_PACKET_LEN: usize,
+    const MAX_MESSAGE_LEN: usize,
+    D: Driver<'d>,
+>(
+    driver: D,
+    buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
+    timings: UsbTimings,
+    link_config: LinkConfig<'d>,
+    api_id: &'static str,
+    ids: UsbIds,
+    config_mut: impl FnOnce(&mut Config),
+) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
+    let use_bulk = timings.use_bulk_endpoints;
+    usb_init_with_endpoints_with_ids(
+        driver,
+        buffers,
+        timings,
+        link_config,
+        api_id,
+        ids,
         config_mut,
         |alt| plain_endpoints(alt, use_bulk, MAX_USB_PACKET_LEN as u16),
     )
@@ -184,6 +232,8 @@ pub fn usb_init<
 /// Both endpoints must have the same max packet size, no larger than `MAX_USB_PACKET_LEN`. See
 /// [WireWeaverClass::with_endpoints] for the same choice when building the [Builder] by hand (e.g. other USB
 /// classes alongside WireWeaver).
+///
+/// VID:PID defaults to WireWeaver's shared test ID `0xc0de:0xcafe`; use [usb_init_with_endpoints_with_ids] to set it.
 pub fn usb_init_with_endpoints<
     'd,
     const MAX_USB_PACKET_LEN: usize,
@@ -198,13 +248,43 @@ pub fn usb_init_with_endpoints<
     config_mut: impl FnOnce(&mut Config),
     endpoints: impl FnOnce(&mut InterfaceAltBuilder<'_, 'd, D>) -> (D::EndpointOut, D::EndpointIn),
 ) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
+    usb_init_with_endpoints_with_ids(
+        driver,
+        buffers,
+        timings,
+        link_config,
+        api_id,
+        UsbIds::default(),
+        config_mut,
+        endpoints,
+    )
+}
+
+/// Same as [usb_init_with_endpoints], with `ids` setting the USB VID:PID instead of the shared `0xc0de:0xcafe`
+/// test default (see [usb_init_with_ids]).
+#[allow(clippy::too_many_arguments)]
+pub fn usb_init_with_endpoints_with_ids<
+    'd,
+    const MAX_USB_PACKET_LEN: usize,
+    const MAX_MESSAGE_LEN: usize,
+    D: Driver<'d>,
+>(
+    driver: D,
+    buffers: &'d mut UsbBuffers<MAX_USB_PACKET_LEN, MAX_MESSAGE_LEN>,
+    timings: UsbTimings,
+    link_config: LinkConfig<'d>,
+    api_id: &'static str,
+    ids: UsbIds,
+    config_mut: impl FnOnce(&mut Config),
+    endpoints: impl FnOnce(&mut InterfaceAltBuilder<'_, 'd, D>) -> (D::EndpointOut, D::EndpointIn),
+) -> (UsbDevice<'d, D>, UsbServer<'d, D>) {
     const {
         assert!(
             MAX_USB_PACKET_LEN >= 8 && MAX_USB_PACKET_LEN <= 1024,
             "USB max packet size must be in 8..=1024"
         )
     };
-    let mut config = Config::new(0xc0de, 0xcafe);
+    let mut config = Config::new(ids.vid, ids.pid);
     config.manufacturer = Some("Vhrd.Tech");
     config.product = Some("WireWeaver Generic");
 

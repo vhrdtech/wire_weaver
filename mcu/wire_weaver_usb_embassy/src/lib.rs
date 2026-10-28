@@ -13,7 +13,10 @@ use defmt::warn;
 use embassy_futures::select::{Either, select};
 use embassy_time::{Duration, Timer};
 pub use embassy_usb::UsbDevice;
-pub use init::{ServerBuffers, UsbBuffers, UsbServer, usb_init, usb_init_with_endpoints};
+pub use init::{
+    ServerBuffers, UsbBuffers, UsbIds, UsbServer, usb_init, usb_init_with_endpoints,
+    usb_init_with_endpoints_with_ids, usb_init_with_ids,
+};
 pub use ww_device::{self, LinkConfig};
 
 use embassy_usb::driver::{Driver, Endpoint, EndpointError, EndpointIn, EndpointOut};
@@ -42,6 +45,7 @@ pub type UsbFraming = ww_link::UsbSeqFraming;
 /// Number of endpoints this crate allocates, can be used to calculate required buffer lengths
 pub const ENDPOINTS_USED: usize = 2;
 
+#[allow(clippy::identity_op)]
 const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_SELF_ID_VERSION: u8 = 0x40 + 0;
 const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_CRATE: u8 = 0x40 + 1;
 const CUSTOM_DESCRIPTOR_TYPE_VENDOR_SPECIFIC_USER_VERSION: u8 = 0x40 + 2;

@@ -234,6 +234,7 @@ layer checks on connect that both ends speak the same protocol.
 
 - **[USB, RTT, WebSocket, UDP](transport/overview.md)**: And in-process, also as simulated USB for tests.
 - **[USB network adapter](transport/websocket.md)**: The device shows up as a USB network card with its own DHCP server, for WebSocket or UDP without drivers.
+- **[USB VID:PID](transport/usb.md)**: Set your own assigned VID:PID on the device side instead of the shared test ID.
 
 <p class="ww-features__level"><span class="ww-level ww-level--advanced"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Advanced</span></span></p>
 

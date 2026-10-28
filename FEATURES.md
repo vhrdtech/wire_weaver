@@ -1423,6 +1423,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   messages. Device side `local_socket::device::device_medium()` for `ww_device::Server`
   (`docs/transport/hub.md`). Tested on Linux, end to end with the device e2e suite; check open on macOS and Windows
   (compiles for both).
+- ✅ **TR-17 USB VID:PID** · `v0.5.x` — `wire_weaver_usb_embassy::usb_init`'s `config_mut` closure couldn't set
+  `Config::vendor_id`/`product_id` (`pub(crate)` in embassy-usb 0.6), so every device shared the `0xc0de:0xcafe`
+  test ID; its doc wrongly said to set them there. `UsbIds { vid, pid }` (`Default` = `0xc0de:0xcafe`) plus
+  additive `usb_init_with_ids()` / `usb_init_with_endpoints_with_ids()` let a caller pass its own assigned VID:PID;
+  `usb_init()` / `usb_init_with_endpoints()` keep working unchanged, forwarding `UsbIds::default()`. Needed by
+  embedded_bedrock's board presets (`[usb] vid/pid`, `gen-board-hw`).
 - 💡 **TR-10 One-shot connect** — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra

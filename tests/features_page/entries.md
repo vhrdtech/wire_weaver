@@ -223,6 +223,7 @@ layer checks on connect that both ends speak the same protocol.
 
 - TR-3 | USB, RTT, WebSocket, UDP | And in-process, also as simulated USB for tests. | transport/overview.md
 - TR-4 | USB network adapter | The device shows up as a USB network card with its own DHCP server, for WebSocket or UDP without drivers. | transport/websocket.md
+- TR-17 | USB VID:PID | Set your own assigned VID:PID on the device side instead of the shared test ID. | transport/usb.md
 
 ## Advanced
 

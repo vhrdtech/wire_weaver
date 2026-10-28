@@ -19,6 +19,11 @@
 
 ### 🚀 Features
 
+- `usb_init_with_ids()` and `usb_init_with_endpoints_with_ids()`: same as `usb_init()` / `usb_init_with_endpoints()`
+  with a `UsbIds { vid, pid }` argument to set the device's USB VID:PID, which `config_mut` cannot do
+  (`Config::vendor_id`/`product_id` are `pub(crate)` in embassy-usb 0.6). `usb_init()` and
+  `usb_init_with_endpoints()` are unchanged, keep defaulting to the shared `0xc0de:0xcafe` test ID, and are now
+  implemented in terms of the `_with_ids` variants (TR-17).
 - `WireWeaverClass::with_endpoints()`: same as `new()` with the OUT and IN endpoints allocated by a closure on the class's interface, e.g. double-buffered bulk endpoints of newer embassy-usb / embassy-stm32 (2x the throughput on an STM32G0B1). `new()` is unchanged (TR-12).
 - `usb_init_with_endpoints()`: same as `usb_init()` with the OUT and IN endpoints allocated by a closure, for
   callers of the single-function `usb_init()` convenience who can't reach `WireWeaverClass::with_endpoints()`
@@ -36,6 +41,8 @@
 ### 📚 Documentation
 
 - Docs: product names written WireWeaver and ShrinkWrap in prose.
+- `usb_init()`'s doc no longer says to set vid/pid in `config_mut` (it can't): points at `usb_init_with_ids()`
+  instead (TR-17).
 
 ## 0.1.0 - 07 Jan 2026
 

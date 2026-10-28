@@ -78,6 +78,11 @@ A driver with endpoint kinds `usb_init()` doesn't name (e.g. embassy-stm32's dou
 v4 parts) can use `usb_init_with_endpoints()` instead: same as `usb_init()`, with a closure allocating the OUT and
 IN endpoints.
 
+VID:PID defaults to the shared test ID `0xc0de:0xcafe` seen above and can't be changed from the `config_mut`
+closure (embassy-usb keeps `Config::vendor_id`/`product_id` crate-private). Pass your own assigned VID:PID with
+`usb_init_with_ids()` / `usb_init_with_endpoints_with_ids()` instead, which take a `UsbIds { vid, pid }` argument
+right before the closure.
+
 `UsbTimings` also sets the accumulation window the host and device batch messages in (1 ms for
 `fs_higher_speed()`): a request or reply waits for it at most, an urgent one (`.urgent()` on the host) not at all,
 see [latency and priority](ww_framer.md#latency-and-priority).

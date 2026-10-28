@@ -1,6 +1,6 @@
 // ww_onewire 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: fa559a6421969dfec90473c84286cbefbfd5f48a15290e820818870119223795
+// shrink_wrap sha256: 2f022cea550c4093c7dea85aaf2260ae6ef38cbecfbdfc3e6fe0c8d1e53dce8e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "1-Wire over WireWeaver: a device (a USB adapter, a dev board, an instrument) lets a host reset the bus, find the",
     "ROM ids on it, and run addressed transactions against them.",
@@ -53,16 +53,16 @@
         "(`bytes[0..7]`), most to least significant as read off the bus.",
     ], ident: "RomId", generics: [], fields: Named([
         (ident: Some("bytes"), default: None, since: None, ty: Array(len: Fixed(8), ty: NumericAny(Base(U8))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
+        201,
+        216,
+        13,
+        38,
+        84,
+        139,
+        83,
+        180,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         190,
@@ -87,7 +87,7 @@
         ])), docs: [
             "Drive the bus high this long after the last byte (parasite-powered parts converting or writing).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
@@ -128,7 +128,7 @@
             "Bit position (1-64, counting from the first bit sent) of the last fork where the search took the 0-branch",
             "while a 1-branch was still open; the next page explores that 1-branch first.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One page of `OneWire::search` results.",
     ], ident: "SearchPage", generics: [], fields: Named([
@@ -136,16 +136,16 @@
         (ident: Some("next"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 6)), docs: [
             "Where to continue, `None` when all devices were found.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        150,
-        173,
-        63,
-        134,
-        54,
-        13,
-        101,
-        149,
+        136,
+        102,
+        94,
+        81,
+        55,
+        113,
+        73,
+        118,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a bus supports, see `OneWire::capabilities`.",
@@ -171,7 +171,7 @@
         ], slot: None, series_opaque: false),
         (ident: Some("overdrive"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("strong_pullup"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "1-Wire bus timing.",
     ], ident: "OneWireSpeed", generics: [], variants: [
@@ -193,7 +193,7 @@
             "Voltage of the bus on adapters with level translators ([OneWireCapabilities::io_levels]); `None` leaves it as",
             "it is going in (the only choice on a device without them), and is the answer of a device without them.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Result of one `OneWire::triplet` step.",
     ], ident: "Triplet", generics: [], fields: Named([
@@ -206,7 +206,7 @@
         (ident: Some("direction"), default: None, since: None, ty: Bool, docs: [
             "The bit this step actually selected (sent back onto the bus for the devices to compare against).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "A 1-Wire master: reset the bus, find the devices on it, and run addressed transactions.",

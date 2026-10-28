@@ -1,6 +1,6 @@
 // ww_logic_analyzer 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: abda4df3d2f14ffd9473228900a9c7509be4380e2c02a471218bcd6ac8eebc1e
+// shrink_wrap sha256: 3107ce47733f548b5073f59b4fbacbffaa0fae6a47283c9dc047fdacfb706fb8
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Logic analyzers over WireWeaver: many digital channels sampled at one rate, captured into device RAM or",
     "streamed, in a raw or a transition encoding.",
@@ -51,14 +51,14 @@
     (id: 1, kind: Trait(trait_idx: 1, omitted: None), multiplicity: Flat, since: None, ident: "LogicStream", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        150,
-        173,
-        63,
-        134,
-        54,
-        13,
-        101,
-        149,
+        136,
+        102,
+        94,
+        81,
+        55,
+        113,
+        73,
+        118,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         190,
@@ -79,7 +79,7 @@
         (ident: Some("max"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 0)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One input.",
     ], ident: "ChannelInfo", generics: [], fields: Named([
@@ -92,16 +92,16 @@
         (ident: Some("threshold"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 2)), docs: [
             "Range of [CaptureConfig::threshold], if the threshold is adjustable.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        149,
-        186,
-        120,
+        236,
+        161,
+        140,
+        46,
+        26,
+        153,
+        148,
         228,
-        162,
-        183,
-        17,
-        232,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Up to `channels` channels sample at up to `max_rate`.",
@@ -110,7 +110,7 @@
         (ident: Some("max_rate"), default: None, since: None, ty: Instance(type_idx: 1, args: [
             Type(OutOfLine(type_idx: 4)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "The two encodings, see the crate docs.",
     ], ident: "Encoding", generics: [], variants: [
@@ -142,7 +142,7 @@
         (ident: Some("trigger_out"), default: None, since: None, ty: Bool, docs: [
             "[CaptureConfig::trigger_out] works.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s analyzer offers, see `LogicAnalyzer::capabilities`.",
     ], ident: "LaCapabilities", generics: [], fields: Named([
@@ -163,7 +163,7 @@
         ], slot: None, series_opaque: false),
         (ident: Some("transitions"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
         (ident: Some("trigger"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "What a channel does on the matching sample.",
     ], ident: "Condition", generics: [], variants: [
@@ -178,16 +178,16 @@
     ], ident: "ChannelCondition", generics: [], fields: Named([
         (ident: Some("channel"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
         (ident: Some("when"), default: None, since: None, ty: OutOfLine(type_idx: 9), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Baud", signature: [
-        160,
-        239,
-        149,
-        227,
-        90,
-        10,
-        69,
-        211,
+        83,
+        42,
+        81,
+        93,
+        15,
+        53,
+        20,
+        18,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "I2cAddress", signature: [
         150,
@@ -291,12 +291,12 @@
         (ident: Some("trigger_out"), default: None, since: None, ty: Bool, docs: [
             "Pulse the trigger output when the capture triggers.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`width` bits per sample: 1, 2, 4, 8, 16 or 32, the smallest the device gives for the channel count.",
     ], ident: "RawLayout", generics: [], fields: Named([
         (ident: Some("width"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `LogicAnalyzer::capture` actually set.",
     ], ident: "CaptureActual", generics: [], fields: Named([
@@ -311,7 +311,7 @@
         (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
             "Layout of [RawChunk::data].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
         187,
         44,
@@ -336,14 +336,14 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
+        201,
+        216,
+        13,
+        38,
+        84,
+        139,
+        83,
+        180,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a capture stands, see `LogicAnalyzer::status`.",
@@ -377,7 +377,7 @@
     ], ident: "SampleRange", generics: [], fields: Named([
         (ident: Some("first"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
         (ident: Some("count"), default: None, since: None, ty: NumericAny(Base(U32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A run of raw samples, see [Encoding::Raw].",
     ], ident: "RawChunk", generics: [], fields: Named([
@@ -388,7 +388,7 @@
         (ident: Some("data"), default: None, since: None, ty: MaxLen(max_len: Fixed(768), ty: Vec(NumericAny(Base(U8)))), docs: [
             "`samples` words as in [RawLayout].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 5, type_name: "Level", signature: [
         2,
         251,
@@ -415,7 +415,7 @@
         (ident: Some("edges"), default: None, since: None, ty: Series(NumericAny(Base(U32))), docs: [
             "Samples where the channel toggles, ascending, in `from..scanned_to`; at most [MAX_EDGES].",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to stream, see `LogicStream::data`.",
     ], ident: "StreamConfig", generics: [], fields: Named([
@@ -438,7 +438,7 @@
         ])), docs: [
             "Input threshold where it is adjustable; `None` leaves it.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What opening `LogicStream::data` actually set.",
     ], ident: "StreamActual", generics: [], fields: Named([
@@ -450,7 +450,7 @@
         (ident: Some("layout"), default: None, since: None, ty: OutOfLine(type_idx: 17), docs: [
             "Layout of raw chunks.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One item of the `LogicStream::data` stream.",
     ], ident: "StreamChunk", generics: [], variants: [
@@ -472,7 +472,7 @@
         ])), docs: [
             "Highest sample rate with [Encoding::Transitions], as long as the edge rate fits the link.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Triggered capture into device RAM, read out after.",

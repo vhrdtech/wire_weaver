@@ -686,6 +686,77 @@ pub struct ItemStruct<'i> {
     /// struct around an `Unsized` type differs for such an older reader (it expects the field's size).
     #[default = false]
     pub transparent: bool,
+    /// What the struct means as a unit or scale marker (INT-13): its dimension and exact factor, so that a client
+    /// knows the units of any crate without a built-in table. `None` for any other struct. Read from source by the
+    /// walker, from the `exact_units::unit!` / `scale!` line that declared the marker, or from the variant for
+    /// `exact_units`' own generic markers (`Per<A, B>`, `Pow10<E>`, ...).
+    #[default = None]
+    pub marker: Option<RefBox<'i, MarkerDef<'i>>>,
+}
+
+/// The definition of a unit, scale or bounds marker, see [ItemStruct::marker]. Evolvable: a reader that doesn't know a
+/// newer kind of marker (origins, levels, kinds) gets `Unknown` and treats the struct as a marker it can't convert.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq),
+    ww_repr = unib32
+)]
+pub enum MarkerDef<'i> {
+    /// A unit (`exact_units::unit!`): `Volt`, a user's `Rpm`, a counted `Bucket`.
+    Unit(UnitDef<'i>),
+    /// A scale of a `Fixed` (`exact_units::scale!`): `prefix::Milli`, a user's `Lsb70`.
+    Scale(ScaleDef<'i>),
+    /// `exact_units::units::Per<A, B>`: `A / B`.
+    Per,
+    /// `exact_units::units::Times<A, B>`: `A · B`.
+    Times,
+    /// `exact_units::units::Sqrt<A>`: `√A`.
+    Sqrt,
+    /// `exact_units::prefix::Pow10<E>`: `10^E`.
+    Pow10,
+    /// `exact_units::prefix::Pow2<E>`: `2^E`.
+    Pow2,
+    /// `exact_units::prefix::Rational<NUM, DEN>`: `NUM / DEN`.
+    Rational,
+    /// `exact_units::prefix::FullScale<V, BITS>`: `V / 2^BITS`, `V` a scale.
+    FullScale,
+    /// `exact_units::prefix::FullScaleMax<V, BITS>`: `V / (2^BITS - 1)`, `V` a scale.
+    FullScaleMax,
+    /// `exact_units::Unbounded`: a `Fixed` without bounds.
+    Unbounded,
+    /// `exact_units::Range<MIN, MAX>`: a `Fixed` whose number is in `MIN..=MAX`.
+    Range,
+    /// `exact_units::RangeU64<MIN, MAX>`: as [Self::Range], for `u64` numbers.
+    RangeU64,
+    /// `exact_units::RangeDec<MIN, MAX, EXP>`: a `Fixed` whose float number is in `MIN·10^EXP..=MAX·10^EXP`.
+    RangeDec,
+}
+
+/// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct UnitDef<'i> {
+    pub symbol: &'i str,
+    pub dim: exact_units::Dim<'i>,
+    /// The exact factor to the coherent SI unit of [Self::dim]: 1 for `Volt`, `π/30` for `Rpm` (rad/s), 8 for a
+    /// byte (bit).
+    pub magnitude: exact_units::Magnitude,
+}
+
+/// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct ScaleDef<'i> {
+    /// Written before the unit's symbol (`"m"` in `ms`), empty for a factor without a prefix.
+    pub symbol: &'i str,
+    pub magnitude: exact_units::Magnitude,
 }
 
 #[derive_shrink_wrap(

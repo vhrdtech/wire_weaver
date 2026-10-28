@@ -1,6 +1,6 @@
 // ww_signal_generator 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9aa211599748dfa4998efe34a1e83f71dceedb57f1d7b479f341498a930e5dde
+// shrink_wrap sha256: f3dd73deb57d37e7526d95038bd4976f9e674ca958c73791e442c56bdf89805e
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Signal generators over WireWeaver: digital patterns on many pins at a fixed rate, and waveforms on DACs.",
     "",
@@ -47,16 +47,16 @@
         (ident: Some("gpio_pin"), default: None, since: None, ty: Option(some_ty: NumericAny(Base(U8))), docs: [
             "The same pin\'s index in the device\'s `ww_gpio::Bank`, if it has one.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Hertz", signature: [
-        149,
-        186,
-        120,
+        236,
+        161,
+        140,
+        46,
+        26,
+        153,
+        148,
         228,
-        162,
-        183,
-        17,
-        232,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
         190,
@@ -69,14 +69,14 @@
         202,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "RateLimit", signature: [
-        116,
-        69,
-        202,
-        235,
-        67,
-        93,
-        19,
-        237,
+        37,
+        122,
+        35,
+        95,
+        233,
+        115,
+        52,
+        105,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a pattern generator offers, see `PatternGenerator::capabilities`.",
@@ -102,7 +102,7 @@
         (ident: Some("analyzer_start"), default: None, since: None, ty: Bool, docs: [
             "[Start::AnalyzerTrigger] works.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "How often a pattern plays.",
     ], ident: "Repeat", generics: [], variants: [
@@ -154,7 +154,7 @@
             "Levels before the start and after the end, bit `i` for `channels[i]`.",
         ], slot: None, series_opaque: false),
         (ident: Some("start"), default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `PatternGenerator::configure` actually set.",
     ], ident: "PgActual", generics: [], fields: Named([
@@ -166,7 +166,7 @@
         (ident: Some("width"), default: None, since: None, ty: NumericAny(Base(U8)), docs: [
             "Raw words the generator expects ([ww_logic_analyzer::RawLayout::width]).",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 4, type_name: "CommonError", signature: [
         187,
         44,
@@ -191,24 +191,24 @@
         ], ident: "NoSuchChannel", fields: Unit, discriminant: 1, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 3, type_name: "StreamChunk", signature: [
-        49,
-        99,
-        241,
-        86,
-        21,
-        88,
-        62,
-        49,
+        226,
+        39,
+        39,
+        109,
+        44,
+        187,
+        36,
+        10,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        167,
-        149,
-        168,
-        126,
-        75,
-        17,
-        20,
-        62,
+        201,
+        216,
+        13,
+        38,
+        84,
+        139,
+        83,
+        180,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Where a pattern generator stands, see `PatternGenerator::status`.",
@@ -279,14 +279,14 @@
         ]), discriminant: 5, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Volt", signature: [
-        150,
-        173,
-        63,
-        134,
-        54,
-        13,
-        101,
-        149,
+        136,
+        102,
+        94,
+        81,
+        55,
+        113,
+        73,
+        118,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One output\'s waveform, see `WaveformChannel::set`.",
@@ -308,7 +308,7 @@
         (ident: Some("phase"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "0..=65535 = 0..360°, against the other channels started together.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What `WaveformChannel::set` actually does.",
     ], ident: "WaveformActual", generics: [], fields: Named([
@@ -321,7 +321,7 @@
         (ident: Some("offset"), default: None, since: None, ty: Instance(type_idx: 2, args: [
             Type(OutOfLine(type_idx: 17)),
         ]), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "Errors of `WaveformGenerator`: the common ones first, then `NoSuchChannel`. Each method lists the variants it",
         "returns.",
@@ -403,14 +403,14 @@
         (ident: Some("formats"), default: None, since: None, ty: MaxLen(max_len: Fixed(8), ty: Vec(OutOfLine(type_idx: 15))), docs: [
             "Table formats.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What a device\'s DACs offer, see `WaveformGenerator::capabilities`.",
     ], ident: "WgCapabilities", generics: [], fields: Named([
         (ident: Some("channels"), default: None, since: None, ty: MaxLen(max_len: Fixed(32), ty: Vec(OutOfLine(type_idx: 23))), docs: [
             "`channel[n]` is `channels[n]`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "Digital channels driven from a pattern at a fixed rate, all switching on the same tick.",

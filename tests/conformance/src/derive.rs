@@ -787,6 +787,17 @@ pub fn table() -> Vec<Typed> {
         case("stdlib.si.point.celsius", PointCelsius::from_raw(-1234)),
         case("stdlib.si.point.bounded", point_bounded(-400)),
         case("stdlib.si.point.bounded.rejected", point_bounded(1250)),
+        case(
+            "stdlib.si.index.in_struct",
+            WithIndex {
+                slot: ww_si::Index::new(1000),
+                tag: 7,
+            },
+        ),
+        case("stdlib.si.index_from_1", index_from_1(4)),
+        case("stdlib.si.index_from_1.zero.rejected", index_from_1(1)),
+        case("stdlib.si.index_from_1.bounded.rejected", index_from_1(1)),
+        case("stdlib.si.seq.nibble_wrap", seq_wrap(15)),
         case("stdlib.si.offset.zero", ww_si::Offset::ZERO),
         case("stdlib.si.offset.celsius", ww_si::Offset::decimal(27315, -2)),
         case("stdlib.si.offset.minus_forty", ww_si::Offset::int(-40)),
@@ -885,6 +896,19 @@ type PointBounded = ww_si::Point<
 
 fn point_bounded(dd: i16) -> PointBounded {
     PointBounded::new(ww_si::Fixed::try_new(dd).unwrap())
+}
+
+fn index_from_1(n: u8) -> ww_si::IndexFrom1<ww_si::units::Item, u8, ww_si::Range<1, 4>> {
+    ww_si::IndexFrom1::try_new(n).unwrap()
+}
+
+/// `n`, then the one after it: 15 wraps to 0.
+fn seq_wrap(n: u8) -> SeqPair {
+    let last = ww_si::Seq::new(Nibble::new(n).unwrap());
+    SeqPair {
+        last,
+        next: last.next(),
+    }
 }
 
 fn dim(d: ww_si::Dim<'_>) -> ww_si::DimOwned {

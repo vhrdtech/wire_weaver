@@ -1197,6 +1197,48 @@
       "note": "126.6 °C is above Range<-400, 1250>: refused on decode, as for the Fixed alone (STD-64)"
     },
     {
+      "name": "stdlib.si.index.in_struct",
+      "type": "with_index",
+      "value": {"slot": {"index": 1000}, "tag": 7},
+      "bytes": "e803000007",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Index<Sample, u32> at 1000 next to a byte: its u32 alone, the table it points into is only in the type (STD-58)"
+    },
+    {
+      "name": "stdlib.si.index_from_1",
+      "type": "index_from_1",
+      "value": {"number": 4},
+      "bytes": "04",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "IndexFrom1<Item, u8, Range<1, 4>>, the fourth item: its u8 as people count it, 4 (STD-58)"
+    },
+    {
+      "name": "stdlib.si.index_from_1.zero.rejected",
+      "type": "index_from_1",
+      "value": null,
+      "bytes": "00",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "IndexFrom1 refuses 0 by a ww_si rule of the type, checked by ww_si-aware clients (CLT-54)", "explain": "IndexFrom1 refuses 0 by a ww_si rule of the type, checked by ww_si-aware clients (CLT-54)", "python": "IndexFrom1 refuses 0 by a ww_si rule of the type, checked by ww_si-aware clients (CLT-54)"},
+      "note": "0 is no 1-based number: refused on decode (STD-58)"
+    },
+    {
+      "name": "stdlib.si.index_from_1.bounded.rejected",
+      "type": "index_from_1",
+      "value": null,
+      "bytes": "05",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "5 is above Range<1, 4>: refused on decode (STD-58)"
+    },
+    {
+      "name": "stdlib.si.seq.nibble_wrap",
+      "type": "seq_pair",
+      "value": {"last": {"seq": 15}, "next": {"seq": 0}},
+      "bytes": "f0",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Seq<Frame, Nibble> 15 and the one after it, 0: a nibble each, the sequence wraps modulo 16 (STD-58)"
+    },
+    {
       "name": "stdlib.si.offset.zero",
       "type": "offset",
       "value": {"negative": false, "magnitude": null},

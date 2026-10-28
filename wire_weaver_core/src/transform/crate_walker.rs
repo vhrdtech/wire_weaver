@@ -3,6 +3,7 @@ use super::cargo_source::{CargoSources, DepSpec, Dependent};
 use super::cfg::{
     DepRequest, Features, all_features, dep_requests, enabled_features, expand_cfg_attrs,
 };
+use super::markers::expand_marker_macros;
 use super::meta::{MetaSite, get_meta};
 use super::util::{UseLeaf, collect_docs, use_tree_leaves, use_tree_path_to};
 use anyhow::{Context, Result, anyhow};
@@ -996,7 +997,10 @@ fn load_lib_rs(crate_path: &Path) -> Result<File> {
 fn parse_rs(path: &Path) -> Result<File> {
     let contents =
         fs::read_to_string(path).context(format!("Failed to read {}", path.display()))?;
-    syn::parse_file(&contents).context(format!("Failed to parse {}", path.display()))
+    let mut file =
+        syn::parse_file(&contents).context(format!("Failed to parse {}", path.display()))?;
+    expand_marker_macros(&mut file.items).with_context(|| path.display().to_string())?;
+    Ok(file)
 }
 
 fn find_trait_if_none(trait_name: Option<String>, lib_rs: &File) -> Result<String> {

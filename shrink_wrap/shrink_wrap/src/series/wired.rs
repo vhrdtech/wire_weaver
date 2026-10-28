@@ -206,6 +206,8 @@ where
 {
     type Reader = OpaqueReader<'i>;
     const TAGGED: bool = false;
+    const MAX_ITEM_BITS: Option<usize> = super::bound::opaque_run_item_bits(W::MAX_SIZE);
+    const MAX_FIXED_BITS: Option<usize> = super::bound::opaque_run_fixed_bits(W::MAX_SIZE);
 
     fn write_group<'a, I, S, P>(
         items: I,

@@ -30,9 +30,9 @@
 ///   a -1]` for a volt, `[]` for a ratio), or `counted`: a counted base of its own named by the crate and the marker
 ///   ([counted!](crate::counted)).
 /// - The scale, coherent when left out: `Pow10(-3)`, `Exact(1 / 180, pi 1)` (`num / den`, then optionally `pow10 e`,
-///   `pow2 e`, `pi e` in that order, see [Magnitude::new](crate::Magnitude::new)), `Factor(1.602176634e-19)` or
-///   `Affine { factor: 1.0, offset: 273.15 }`; see [Scale](crate::Scale). Prefer `Exact` over `Factor`: every reader
-///   computes the same value.
+///   `pow2 e`, `pi e` in that order, see [Magnitude::new](crate::Magnitude::new)), so every reader computes the same
+///   value; or `Affine { factor: 1.0, offset: 273.15 }` for a unit with an offset (moves to origins, STD-64). A float
+///   factor isn't a unit's scale: an exact one is a `Magnitude`, and a factor known only at run time is a value.
 ///
 /// Literal values only: the walker reads them from source, it doesn't evaluate constants.
 #[macro_export]
@@ -176,9 +176,6 @@ macro_rules! __unit_scale {
     };
     (Pow10 ($e:literal)) => {
         $crate::Scale::Pow10($e)
-    };
-    (Factor ($f:literal)) => {
-        $crate::Scale::Factor($f)
     };
     (Affine { factor: $f:literal, offset: $o:literal $(,)? }) => {
         $crate::Scale::Affine {

@@ -1168,9 +1168,10 @@ struct Wrapper<'b> {
 
 impl Wrapper<'_> {
     fn is_fixed(&self) -> bool {
-        self.def
-            .as_ref()
-            .is_some_and(|(krate, name)| is_ww_si(krate, name, "Fixed"))
+        self.def.as_ref().is_some_and(|(krate, name)| {
+            // exact_units' since STD-61, ww_si re-exports it; ww_si's own before
+            is_named(krate, name, "exact_units", "Fixed") || is_ww_si(krate, name, "Fixed")
+        })
     }
 }
 
@@ -1293,7 +1294,11 @@ fn is_quantity(bundle: &ApiBundleOwned, ty: &TypeOwned) -> bool {
 }
 
 fn is_ww_si(krate: &str, qualified_name: &str, name: &str) -> bool {
-    krate == "ww_si" && qualified_name.rsplit("::").next() == Some(name)
+    is_named(krate, qualified_name, "ww_si", name)
+}
+
+fn is_named(krate: &str, qualified_name: &str, in_crate: &str, name: &str) -> bool {
+    krate == in_crate && qualified_name.rsplit("::").next() == Some(name)
 }
 
 /// The definition of type `type_idx`: in-line, or for a skipped one (a `ww_si` type in an API) the definition with the

@@ -148,8 +148,9 @@ mod tests {
     /// Signatures saved before INT-13 stay: a plain struct (`ww_date_time::DateTime`, as `ww_board_info` 0.1.0 refers
     /// to it) and a trait using a unit marker that has a definition since (`ww_timebase::Clock`, `ww_si::Second`, as
     /// the nucleo_g0b1re_api fixture refers to it). Deployed devices refer to these definitions by signature.
-    /// `Clock`'s changed once since, with `Quantity<U, B>` (STD-59, a stated break of the unpublished ww_si and
-    /// ww_timebase): `Second` is `Quantity<units::Second, Unbounded>` in the model.
+    /// `Clock`'s changed since, with `Quantity<U, B>` (STD-59, a stated break of the unpublished ww_si and
+    /// ww_timebase): `Second` is `Quantity<units::Second, Unbounded>` in the model; and with `Prefix`'s table-free
+    /// scales and its `Unknown(u16)` catch-all (STD-59, DER-25).
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -183,7 +184,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x5c, 0x98, 0x85, 0x64, 0xee, 0xd4, 0xeb, 0x32]);
+        assert_eq!(signature, [0x01, 0xd7, 0x82, 0x6b, 0x97, 0x3d, 0xd2, 0x9e]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

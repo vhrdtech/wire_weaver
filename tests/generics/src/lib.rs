@@ -497,10 +497,11 @@ mod tests {
             panic!("property");
         };
         assert!(matches!(ty, TypeOwned::OutOfLine { .. }));
-        // `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition: alias names are not in ww_self
+        // `Ampere` is `ww_si::Quantity<units::Ampere>` (STD-38), named by its definition: alias names are not in
+        // ww_self, and the bounds are explicit in the model, `Unbounded` too (STD-59)
         assert_eq!(
             ty.human_name(false, bundle).unwrap(),
-            "Timed<Quantity<Ampere>>"
+            "Timed<Quantity<Ampere, Unbounded>>"
         );
         let ApiItemKindOwned::Property { ty, .. } = &bundle.get_item(&[4]).unwrap().kind else {
             panic!("property");

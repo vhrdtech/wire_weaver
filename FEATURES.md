@@ -414,6 +414,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   ExactScale)`: one byte in Rust, the full magnitude on the wire, STD-59). In a `Series` the field is an opaque run of
   `W`'s bytes (`series::WiredOpaque`, the model marks it series-opaque) while store and cells keep the handle. Tests
   `shrink_wrap/tests/wire_as_user.rs`.
+- ✅ **DER-24 An enum's tag in a niche**: `niche` leaves the `#[repr]` the derive gives an enum (`u32` for `unib32`)
+  out, so Rust keeps the tag in a field's spare values (`exact_units::Prefix` with `Exact(ExactScale)` is 1 B, not 8).
+  The same bytes, `discriminant()` a `match`. Whether `niche` becomes the default for every enum is open (Roman).
+  Tests `shrink_wrap/tests/niche.rs`.
 - ✅ **API-1 Methods, properties, streams and sinks**, nested traits (`docs/api/overview.md`).
 - ✅ **API-2 Arrays of resources** with `ValidIndices` and a built-in array size getter returning a range or list.
 - ✅ **API-3 Global traits** from `ww_stdlib` (`impl Trait`) and trait attachments (`examples/all_gpio`).

@@ -175,6 +175,7 @@ fn generate_inner(
                 return Err("For enums, ww_repr must be specified".into());
             };
             let mut ww_item_enum = ItemEnum::from_syn(item_enum, repr)?;
+            ww_item_enum.niche = args.niche;
             ww_item_enum.apply_future_version_arg(
                 &args.future_version,
                 &args.size_assumption,
@@ -917,6 +918,7 @@ impl<'a> CGSeed<'a> {
             crate_path: self.crate_path,
             generics: &ww_item_enum.generics,
             base: self.base && ident == &self.ident,
+            niche: ww_item_enum.niche,
             attrs: if self.base && ident == &self.ident {
                 &ww_item_enum.attrs
             } else {

@@ -241,6 +241,30 @@ Rules for the variant, written or generated:
 Either directive is an error next to a written `#[future_version]` variant, and `future_version = <Name>` is an
 error on an enum that can't get one (not `Unsized`, or every discriminant taken).
 
+### `niche` (enums only)
+
+The generated enum gets no `#[repr]`, so Rust is free to keep the tag in a niche of a variant's field. Without it,
+the derive sets the enum's repr to the native type of its `ww_repr` (`u32` for `unib32`), which makes the tag that
+wide in memory. The bytes on the wire are the same either way, and so is `discriminant()` (a `match` instead of a
+read of the tag):
+
+```rust
+// a one-byte handle with spare values
+#[derive_shrink_wrap(borrowed, sized, ww_repr = u4)]
+enum Handle { A, B, C }
+
+#[derive_shrink_wrap(borrowed, self_describing, ww_repr = unib32, niche)]
+enum Prefix { Unit, Milli, Kilo, Exact(Handle) }
+
+// without `niche`: a u32 tag and the handle, 8 bytes
+assert_eq!(size_of::<Prefix>(), 1);
+```
+
+Rust fills a niche when one variant carries data and the others don't (or when the data of all of them fits around
+the same niche); otherwise the enum is as large as a tagged one, never larger. Variants don't get explicit
+discriminant values in Rust, so `as` casts of the enum don't compile; read the wire discriminant through
+`discriminant()`. `exact_units::Prefix` uses it: a scale chosen at run time in one byte. Tests `tests/niche.rs`.
+
 ### `discriminants` (enums only)
 
 Also generates a fieldless `{Name}Discriminants` enum, with only the variants (no payloads) and its own

@@ -13,7 +13,7 @@ Three derive directives that change how a type is laid out, for cases the defaul
 | [`sparse`](#sparse-a-struct-of-optional-fields)              | a struct of many optional fields, where only the present ones are written                  |
 
 `fixed_layout` keeps the regular `shrink_wrap` bytes and adds a fast path; `head_tail` and `sparse` are encodings of
-their own.
+their own. How an enum is laid out in memory, not on the wire, is [`niche`](#niche-an-enums-tag-in-memory)'s.
 
 ## `fixed_layout`: fields at fixed offsets
 
@@ -201,3 +201,11 @@ Rules, checked at compile time:
 An older reader reads the fields it knows and ignores the rest, a newer reader reads the new fields as `None`. A
 reader whose struct has a gap where the data has a present value fails with `Error::OptionAnyVecUnknownSlot`: a gap
 is never filled later.
+
+## `niche`: an enum's tag in memory
+
+The derive gives an enum the repr of its `ww_repr`'s native type, so a `ww_repr = unib32` enum has a `u32` tag in
+memory: four bytes for a fieldless enum, eight for one with a one-byte field. `niche` leaves the repr out, so Rust can
+put the tag in a field's spare values: `exact_units::Prefix` (29 named prefixes and `Exact` with a one-byte handle of
+200 values) is one byte, and a quantity that holds one doesn't grow. The wire bytes don't change; see
+[the derive reference](derive_reference.md#niche-enums-only) for the rules.

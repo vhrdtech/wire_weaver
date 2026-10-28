@@ -1099,6 +1099,63 @@
       "note": "Fixed<Times<PoundForce, Second>, Milli, i32> of -2 lbf·s: its i32 on the wire, the unit only in the type (STD-72)"
     },
     {
+      "name": "stdlib.si.quantity.milli",
+      "type": "quantity_volt",
+      "value": {"prefix": "Milli", "value": {"U32": 3300}},
+      "bytes": "13e40c0000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "3300 mV: a named prefix is one nibble, no unit on the wire (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.kibi",
+      "type": "quantity_byte",
+      "value": {"prefix": "Kibi", "value": {"U32": 64}},
+      "bytes": "933040000000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "64 KiB: a binary prefix is a named one, one nibble like Milli (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.exact.duty16",
+      "type": "quantity_ratio",
+      "value": {"prefix": {"Exact": {"pow10": -2, "rest": {"pow2": 2, "irrational": null, "factors": [{"prime": 3, "exp": -2}, {"prime": 17, "exp": -2}, {"prime": 257, "exp": -2}, null, null, null, null, null, null, null, null, null]}}}, "value": {"U32": 32768}},
+      "bytes": "d3fe800243fe8920fe8984fe000300800000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "32768 · 1/65535: an Exact prefix carries its full Magnitude, the scale a Duty16 has (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.exact.pow10",
+      "type": "quantity_second",
+      "value": {"prefix": {"Exact": {"pow10": -8, "rest": null}}, "value": {"U32": 12345}},
+      "bytes": "d3f80339300000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "12345 · 10⁻⁴ s: a power of ten with no SI prefix is Exact, as Fixed's Pow10<-4> (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.exact.bam",
+      "type": "quantity_angle",
+      "value": {"prefix": {"Exact": {"pow10": 0, "rest": {"pow2": -30, "irrational": {"pi": 2, "ln2": 0, "ln10": 0}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}}}, "value": {"U32": 16384}},
+      "bytes": "d30080e280020000000300400000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "16384 · π/2¹⁵ rad = π/2: a binary angle (BAM) scale as Exact (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded",
+      "type": "quantity_rail",
+      "value": {"prefix": "Milli", "value": {"U32": 3300}},
+      "bytes": "13e40c0000",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "Quantity<Volt, RangeDec<0, 33, -1>> at its upper bound 3.3 V, the same bytes as an unbounded Volt (STD-59)"
+    },
+    {
+      "name": "stdlib.si.quantity.bounded.rejected",
+      "type": "quantity_rail",
+      "value": null,
+      "bytes": "13e50c0000",
+      "direction": "reject",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)", "dynamic": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "explain": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)", "python": "bounds are ww_si markers in the type arguments, checked by ww_si-aware clients (CLT-54)"},
+      "note": "3301 mV is above RangeDec<0, 33, -1> (3.3 V): refused on decode, whatever the prefix (STD-59)"
+    },
+    {
       "name": "stdlib.si.magnitude.one",
       "type": "magnitude",
       "value": {"pow10": 0, "rest": null},

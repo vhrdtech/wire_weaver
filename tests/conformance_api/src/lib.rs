@@ -130,6 +130,13 @@ trait Conformance {
     // an imperial unit (STD-72): the same i32, lbf·s only in the type
     property!(rw fixed_customary: ww_si::Fixed<ww_si::units::Times<ww_si::units::PoundForce, ww_si::units::Second>, ww_si::prefix::Milli, i32>);
     property!(rw magnitude: ww_si::Magnitude);
+    // ww_si::Quantity (STD-59): a prefix and a number; binary and Exact prefixes, bounds in the type
+    property!(rw quantity_volt: ww_si::Volt);
+    property!(rw quantity_byte: ww_si::Quantity<ww_si::units::Byte>);
+    property!(rw quantity_ratio: ww_si::Quantity<ww_si::units::Ratio>);
+    property!(rw quantity_second: ww_si::Second);
+    property!(rw quantity_angle: ww_si::Quantity<ww_si::units::Radian>);
+    property!(rw quantity_rail: ww_si::Quantity<ww_si::units::Volt, ww_si::RangeDec<0, 33, -1>>);
     // ww_si::Point (STD-64): the number alone, the origin is in the type
     property!(rw point_celsius: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Centi, i16>>);
     property!(rw point_bounded: ww_si::Point<ww_si::origins::Celsius, ww_si::Fixed<ww_si::units::Kelvin, ww_si::prefix::Deci, i16, ww_si::Range<-400, 1250>>>);

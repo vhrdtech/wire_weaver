@@ -63,8 +63,8 @@ fn corpus() {
     );
 }
 
-/// The requantize cases (STD-63) are well formed; Python and C, which convert nothing yet, carry a gap mark on each
-/// (Python checks its own in `test_conformance.py`).
+/// The requantize cases (STD-63) are well formed: unique names, gap marks only of consumers that can have them
+/// (Python runs its own in `test_conformance.py`).
 #[test]
 fn requantize_corpus() {
     let corpus = corpus::load();
@@ -82,11 +82,6 @@ fn requantize_corpus() {
                 case.name
             );
         }
-        assert!(
-            case.gap("c").is_some(),
-            "requantize case '{}': C converts nothing yet, give it a gap mark",
-            case.name
-        );
     }
 }
 
@@ -98,6 +93,11 @@ fn requantize_derive() {
 #[test]
 fn requantize_dynamic() {
     conformance::run_requantize("dynamic", conformance::requantize::dynamic);
+}
+
+#[test]
+fn requantize_c() {
+    conformance::run_requantize("c", conformance::c::requantize);
 }
 
 #[test]

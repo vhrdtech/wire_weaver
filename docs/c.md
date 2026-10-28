@@ -97,12 +97,50 @@ octets per word has to be unpacked into one octet per element first, and packed 
 Checked so far: builds without warnings with `-std=c99 -pedantic -Wconversion -Wsign-conversion` on the host, and
 for MSP430 (16-bit `int` and `size_t`), Cortex-M0 and RV32 with clang. Not tested on a C2000 compiler yet.
 
+## Requantize
+
+`sw_requantize.h` and `sw_requantize.c` next to them convert a stored number to another scale and storage with a
+named rounding and overflow policy, the same number as Rust's `exact_units::Requantizer` and the typed
+`Fixed::requantize`, bit for bit (see [Rounding and overflow](std_library/rounding.md)). They don't need the
+reader and writer, and nothing from libc beyond `<stdint.h>`, `<stdbool.h>` and `<string.h>`.
+
+The factor (the source scale over the target scale) is worked out on the host, as typed Rust does at compile time,
+and given as constants: an exact ratio `num / den` (two 64-bit halves each) or, for a factor that isn't a fraction
+of integers (π, a half exponent), the fixed point `m * 2^shift` of `Magnitude::fixed_point()`; `f_num / f_den` is
+what a float is multiplied with. `shrink_wrap_c::requantize::CFactor::of(&magnitude)` computes them and
+`c_initializer()` writes them as C. Millivolts in an `int16_t` to decivolts in an `int8_t`, rounded to the nearest
+with ties to even:
+
+```c
+#include "sw_requantize.h"
+
+static const sw_requantizer mv_to_dv = {
+    {.ratio = true, .num_hi = 0, .num_lo = 1, .den_hi = 0, .den_lo = 100, .f_num = 1.0, .f_den = 100.0},
+    {SW_NUM_INT, 8},
+    SW_ROUND_NEAREST_EVEN,
+    SW_OVERFLOW_CHECKED,
+};
+
+sw_num x = {SW_NUM_INT, {.i = 1250}}, dv;
+if (sw_requantize(&mv_to_dv, x, &dv)) {
+    /* dv.v.i == 12 */
+}
+```
+
+Integers are converted exactly in 128 bits (sign and magnitude in two 64-bit halves, no `__int128`), whatever the
+storages: rounding is `SW_ROUND_TRUNCATE`, `_FLOOR`, `_CEIL`, `_NEAREST_EVEN` or `_NEAREST_AWAY`, overflow
+`SW_OVERFLOW_CHECKED` (`false`, no value), `_SATURATE` or `_WRAP`. A float storage (`SW_NUM_F32`, `SW_NUM_F64`)
+multiplies in doubles; with `SW_NO_F64` only integers are there. The conversion decides the policy at run time, so
+for a hot path on a small MCU the typed Rust conversion (constants and policy fixed at compile time) is cheaper.
+
 ## Tests
 
 `shrink_wrap/c` is also a Rust crate (`shrink_wrap_c`, not published) that builds the C with the `cc` crate and
 checks it against the Rust one in `just test`: golden vectors for every primitive, the length layouts and
 `finish()`, the errors and the latch (`tests/golden.rs`), and a proptest cross-check of random sequences of
-writes and reads, in both directions, on truncated and corrupted input too (`tests/cross.rs`). `just lint` builds
+writes and reads, in both directions, on truncated and corrupted input too (`tests/cross.rs`). `sw_requantize()`
+is cross-checked against `exact_units::Requantizer` on random factors, storages, policies and values and on every
+storage's edge values (`tests/requantize.rs`), and runs the requantize cases of the conformance corpus. `just lint` builds
 the C on its own with `-std=c99 -Wall -Wextra -Werror -pedantic`.
 
 Not ported: `TailSize`, `Series`, `fill_*`, and the code size

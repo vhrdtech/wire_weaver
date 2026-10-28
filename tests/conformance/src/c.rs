@@ -7,16 +7,20 @@
 //!   and run on the golden bytes, every field compared with the case's value;
 //! * a `head_tail` type (SW-46): its generated C reader and tail walker, the same way.
 //!
+//! The requantize cases (STD-63) run through `sw_requantize()` (`shrink_wrap/c/sw_requantize.c`, CLT-54) in one
+//! generated program: [requantize].
+//!
 //! The generated C readers have no writers yet, so those cases are decode only (their gap mark says so). Every
 //! other type waits for C generated from the model (API-26).
 
-use crate::corpus::{Case, Direction};
+use crate::corpus::{Case, Direction, RequantizeCase};
 use crate::dynamic::{bundle, property_ty};
 use crate::json::int;
 use conformance_api::*;
 use serde_json::Value as J;
 use shrink_wrap_c::CReader;
 use shrink_wrap_c::model::{Op, Val, c_bytes, c_read, expected};
+use shrink_wrap_c::requantize::{CFactor, c_overflow, c_rounding, c_storage};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -26,6 +30,7 @@ use wire_weaver::shrink_wrap::fixed_layout::FixedLayout;
 use wire_weaver::shrink_wrap::head_tail::HeadTail;
 use ww_numeric::{NumericAnyTypeOwned, NumericBaseType as B};
 use ww_self::{FieldsOwned, TypeOwned};
+use ww_si::exact_units::Repr;
 
 const PREFIX: &str = "t_";
 
@@ -320,7 +325,7 @@ fn run_generated() -> HashMap<String, crate::DecodeResult> {
         );
     }
     let _ = writeln!(program, "    return 0;\n}}");
-    let output = compile_and_run(&program);
+    let output = compile_and_run("conformance", &program, &[]);
     let mut results = HashMap::new();
     for line in output.lines() {
         let (idx, msg) = line.split_once(' ').expect("index and message");
@@ -336,12 +341,15 @@ fn run_generated() -> HashMap<String, crate::DecodeResult> {
     results
 }
 
-fn compile_and_run(program: &str) -> String {
+/// `program` built as `name` (a name of its own per test: nextest runs tests in parallel processes) with the C
+/// runtime's `sources` (in `shrink_wrap/c`, which is on the include path), and run.
+fn compile_and_run(name: &str, program: &str, sources: &[&str]) -> String {
     // target/conformance_c, next to the build of this crate
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/conformance_c");
     std::fs::create_dir_all(&dir).unwrap();
-    let src = dir.join("conformance.c");
-    let exe = dir.join("conformance");
+    let runtime = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../shrink_wrap/c");
+    let src = dir.join(format!("{name}.c"));
+    let exe = dir.join(name);
     std::fs::write(&src, program).unwrap();
     let cc = std::env::var("CC").unwrap_or_else(|_| "cc".into());
     let out = Command::new(&cc)
@@ -356,7 +364,10 @@ fn compile_and_run(program: &str) -> String {
             "-o",
         ])
         .arg(&exe)
+        .arg("-I")
+        .arg(&runtime)
         .arg(&src)
+        .args(sources.iter().map(|s| runtime.join(s)))
         .output()
         .unwrap_or_else(|e| panic!("{cc}: {e} (the C consumer needs a C compiler, `CC` or `cc`)"));
     assert!(
@@ -614,4 +625,128 @@ fn head_tail_checks(
         }
     }
     Ok(())
+}
+
+/// A requantize case (STD-63) through the C requantize (`sw_requantize.c`, CLT-54): the factor's constants worked
+/// out on the host from the `Magnitude` the model gives (`CFactor::of`) and emitted into a generated C program, as a
+/// code generator would; one program runs every case.
+pub fn requantize(case: &RequantizeCase) -> Result<(), String> {
+    let got = requantize_results()
+        .get(&case.name)
+        .ok_or("not in the generated C program")?
+        .clone()?;
+    crate::requantize::compare(got, case)
+}
+
+fn requantize_results() -> &'static HashMap<String, Result<Option<Repr>, String>> {
+    static RESULTS: OnceLock<HashMap<String, Result<Option<Repr>, String>>> = OnceLock::new();
+    RESULTS.get_or_init(run_requantize)
+}
+
+fn run_requantize() -> HashMap<String, Result<Option<Repr>, String>> {
+    const PRELUDE: &str = r#"#include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
+#include "sw_requantize.h"
+
+static sw_num f64_of(uint64_t bits) {
+    sw_num x;
+    x.kind = SW_NUM_F64;
+    memcpy(&x.v.f, &bits, sizeof bits);
+    return x;
+}
+
+static void put(int idx, const sw_requantizer *q, sw_num x) {
+    sw_num n;
+    uint64_t bits;
+    if (!sw_requantize(q, x, &n)) {
+        printf("%d none\n", idx);
+    } else if (n.kind == SW_NUM_INT) {
+        printf("%d i %" PRId64 "\n", idx, n.v.i);
+    } else if (n.kind == SW_NUM_UINT) {
+        printf("%d u %" PRIu64 "\n", idx, n.v.u);
+    } else {
+        memcpy(&bits, &n.v.f, sizeof bits);
+        printf("%d f %" PRIx64 "\n", idx, bits);
+    }
+}
+
+int main(void) {
+"#;
+    let corpus = crate::corpus::load();
+    let mut results = HashMap::new();
+    let mut program = String::from(PRELUDE);
+    let mut names = vec![];
+    for case in &corpus.requantize {
+        match requantize_case(case) {
+            Ok((q, x)) => {
+                let idx = names.len();
+                names.push(case.name.clone());
+                let _ = writeln!(
+                    program,
+                    "    {{\n        static const sw_requantizer q = {q};\n        put({idx}, &q, {x});\n    }}"
+                );
+            }
+            Err(e) => {
+                results.insert(case.name.clone(), Err(e));
+            }
+        }
+    }
+    program.push_str("    return 0;\n}\n");
+    let output = compile_and_run("requantize", &program, &["sw_requantize.c"]);
+    for line in output.lines() {
+        let mut parts = line.split(' ');
+        let (idx, kind, v) = (parts.next(), parts.next(), parts.next());
+        let name = names[idx.and_then(|i| i.parse::<usize>().ok()).expect("an index")].clone();
+        let int = |v: Result<i128, std::num::ParseIntError>| {
+            v.map(|i| Some(Repr::Int(i))).map_err(|e| e.to_string())
+        };
+        let got = match (kind, v) {
+            (Some("none"), None) => Ok(None),
+            (Some("i"), Some(v)) => int(v.parse::<i64>().map(i128::from)),
+            (Some("u"), Some(v)) => int(v.parse::<u64>().map(i128::from)),
+            (Some("f"), Some(v)) => u64::from_str_radix(v, 16)
+                .map(|b| Some(Repr::Float(f64::from_bits(b))))
+                .map_err(|e| e.to_string()),
+            _ => Err(format!("C printed '{line}'")),
+        };
+        results.insert(name, got);
+    }
+    assert_eq!(
+        results.len(),
+        corpus.requantize.len(),
+        "every case printed: {output}"
+    );
+    results
+}
+
+/// A case in C: the requantizer's initializer, with the factor's constants as a code generator emits them, and the
+/// input number's expression.
+fn requantize_case(case: &RequantizeCase) -> Result<(String, String), String> {
+    use crate::requantize as rq;
+    let factor = CFactor::of(&rq::factor(case)?);
+    let q = format!(
+        "{{{}, {}, {}, {}}}",
+        factor.c_initializer(),
+        c_storage(rq::storage(&case.to)?),
+        c_rounding(rq::rounding(&case.rounding)?),
+        c_overflow(rq::overflow(&case.overflow)?),
+    );
+    let beyond = |i: i128| format!("{i} is beyond 64 bits, C takes up to 64");
+    let x = match rq::repr(&case.value)? {
+        Repr::Int(i) if i < 0 => {
+            let i = i64::try_from(i).map_err(|_| beyond(i))?;
+            // -2^63 has no literal of its own
+            format!(
+                "(sw_num){{SW_NUM_INT, {{.i = -INT64_C({}) - 1}}}}",
+                (i + 1).unsigned_abs()
+            )
+        }
+        Repr::Int(i) => {
+            let u = u64::try_from(i).map_err(|_| beyond(i))?;
+            format!("(sw_num){{SW_NUM_UINT, {{.u = UINT64_C({u})}}}}")
+        }
+        Repr::Float(f) => format!("f64_of(UINT64_C({:#x}))", f.to_bits()),
+    };
+    Ok((q, x))
 }

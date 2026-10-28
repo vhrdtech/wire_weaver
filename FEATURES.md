@@ -1813,7 +1813,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   checked; same bytes, `Fixed::of` / `with_overflow`. Bounds prove conversions infallible: `into_rounded`, `From` of a
   `Range`-bounded value for a whole factor, a compile error where the proof fails. Run-time `requantize` /
   `Requantizer` for dynamic clients. [Rounding and overflow](docs/std_library/rounding.md),
-  `exact_units/tests/rounding.rs`, conformance `requantize.*` (derive, dynamic; Python and C wait on CLT-54).
+  `exact_units/tests/rounding.rs`, conformance `requantize.*` (derive, dynamic, Python `ww.requantize`, C `sw_requantize()`).
   `Seq` wrapping comes with STD-58.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,

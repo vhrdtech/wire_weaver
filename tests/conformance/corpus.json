@@ -1387,7 +1387,6 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "12.5 dV: a tie"
     },
     {
@@ -1398,8 +1397,7 @@
       "value": 1250,
       "rounding": "floor",
       "overflow": "checked",
-      "result": 12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 12
     },
     {
       "name": "requantize.milli_to_deci.tie.ceil",
@@ -1409,8 +1407,7 @@
       "value": 1250,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": 13,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 13
     },
     {
       "name": "requantize.milli_to_deci.tie.nearest_even",
@@ -1420,8 +1417,7 @@
       "value": 1250,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 12
     },
     {
       "name": "requantize.milli_to_deci.tie.nearest_away",
@@ -1431,8 +1427,7 @@
       "value": 1250,
       "rounding": "nearest_away",
       "overflow": "checked",
-      "result": 13,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 13
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.truncate",
@@ -1442,8 +1437,7 @@
       "value": -1250,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": -12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -12
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.floor",
@@ -1453,8 +1447,7 @@
       "value": -1250,
       "rounding": "floor",
       "overflow": "checked",
-      "result": -13,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -13
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.ceil",
@@ -1464,8 +1457,7 @@
       "value": -1250,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": -12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -12
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.nearest_even",
@@ -1475,8 +1467,7 @@
       "value": -1250,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": -12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -12
     },
     {
       "name": "requantize.milli_to_deci.negative_tie.nearest_away",
@@ -1486,8 +1477,7 @@
       "value": -1250,
       "rounding": "nearest_away",
       "overflow": "checked",
-      "result": -13,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -13
     },
     {
       "name": "requantize.milli_to_deci.tie_up_to_even",
@@ -1498,7 +1488,6 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": 14,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "13.5 to 14, the even neighbour above"
     },
     {
@@ -1509,8 +1498,7 @@
       "value": 1249,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 12,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 12
     },
     {
       "name": "requantize.milli_to_deci.overflow.checked",
@@ -1521,7 +1509,6 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "200 dV in an i8"
     },
     {
@@ -1532,8 +1519,7 @@
       "value": 20000,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 127,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 127
     },
     {
       "name": "requantize.milli_to_deci.overflow.wrap",
@@ -1543,8 +1529,7 @@
       "value": 20000,
       "rounding": "nearest_even",
       "overflow": "wrap",
-      "result": -56,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -56
     },
     {
       "name": "requantize.milli_to_deci.underflow.saturate",
@@ -1554,8 +1539,7 @@
       "value": -20000,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": -128,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -128
     },
     {
       "name": "requantize.micro_to_milli_unsigned.negative.checked",
@@ -1566,7 +1550,6 @@
       "rounding": "floor",
       "overflow": "checked",
       "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-2 mV in a u8"
     },
     {
@@ -1577,8 +1560,7 @@
       "value": -1500,
       "rounding": "floor",
       "overflow": "saturate",
-      "result": 0,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 0
     },
     {
       "name": "requantize.micro_to_milli_unsigned.negative.wrap",
@@ -1588,8 +1570,7 @@
       "value": -1500,
       "rounding": "floor",
       "overflow": "wrap",
-      "result": 254,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 254
     },
     {
       "name": "requantize.micro_to_milli_unsigned.top",
@@ -1599,8 +1580,7 @@
       "value": 255499,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 255,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 255
     },
     {
       "name": "requantize.micro_to_milli_unsigned.tie_past_top.checked",
@@ -1611,7 +1591,6 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "255.5 rounds to 256, past a u8"
     },
     {
@@ -1622,8 +1601,7 @@
       "value": 255500,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 255,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 255
     },
     {
       "name": "requantize.q15_to_q7.tie_past_top.checked",
@@ -1634,7 +1612,6 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "128.5 rounds to 128, past an i8"
     },
     {
@@ -1645,8 +1622,7 @@
       "value": 16448,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 127,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 127
     },
     {
       "name": "requantize.q15_to_q7.tie.nearest_even",
@@ -1656,8 +1632,7 @@
       "value": 16192,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 126,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 126
     },
     {
       "name": "requantize.q15_to_q7.tie.nearest_away",
@@ -1667,8 +1642,7 @@
       "value": 16192,
       "rounding": "nearest_away",
       "overflow": "checked",
-      "result": 127,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 127
     },
     {
       "name": "requantize.q15_to_q7.negative_end",
@@ -1679,7 +1653,6 @@
       "rounding": "nearest_even",
       "overflow": "checked",
       "result": -128,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-128.5 to -128, the even end of an i8"
     },
     {
@@ -1691,7 +1664,6 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 233,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "a factor of 7/3: 233.33"
     },
     {
@@ -1702,8 +1674,7 @@
       "value": 100,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": 234,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 234
     },
     {
       "name": "requantize.seven_thirds.nearest_even",
@@ -1713,8 +1684,7 @@
       "value": 100,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 233,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 233
     },
     {
       "name": "requantize.seven_thirds.negative.floor",
@@ -1724,8 +1694,7 @@
       "value": -100,
       "rounding": "floor",
       "overflow": "checked",
-      "result": -234,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -234
     },
     {
       "name": "requantize.seven_thirds.negative.truncate",
@@ -1735,8 +1704,7 @@
       "value": -100,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": -233,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -233
     },
     {
       "name": "requantize.seven_thirds.exact_top",
@@ -1746,8 +1714,7 @@
       "value": 14043,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": 32767,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 32767
     },
     {
       "name": "requantize.seven_thirds.past_top.checked",
@@ -1757,8 +1724,7 @@
       "value": 14044,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": null
     },
     {
       "name": "requantize.seven_thirds.past_top.saturate",
@@ -1768,8 +1734,7 @@
       "value": 14044,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 32767,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 32767
     },
     {
       "name": "requantize.seven_thirds.past_top.wrap",
@@ -1779,8 +1744,7 @@
       "value": 14044,
       "rounding": "nearest_even",
       "overflow": "wrap",
-      "result": -32767,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -32767
     },
     {
       "name": "requantize.milli_to_micro.fits",
@@ -1790,8 +1754,7 @@
       "value": 65,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": 65000,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 65000
     },
     {
       "name": "requantize.milli_to_micro.overflow.checked",
@@ -1802,7 +1765,6 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "70000 µV in a u16"
     },
     {
@@ -1813,8 +1775,7 @@
       "value": 70,
       "rounding": "truncate",
       "overflow": "saturate",
-      "result": 65535,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 65535
     },
     {
       "name": "requantize.milli_to_micro.overflow.wrap",
@@ -1824,8 +1785,7 @@
       "value": 70,
       "rounding": "truncate",
       "overflow": "wrap",
-      "result": 4464,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 4464
     },
     {
       "name": "requantize.bam16_to_bam8.truncate",
@@ -1836,7 +1796,6 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 255,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "255.5 of 256 steps"
     },
     {
@@ -1847,8 +1806,7 @@
       "value": 65408,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": null
     },
     {
       "name": "requantize.bam16_to_bam8.full_turn.saturate",
@@ -1858,8 +1816,7 @@
       "value": 65408,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 255,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 255
     },
     {
       "name": "requantize.bam16_to_bam8.full_turn.wrap",
@@ -1870,7 +1827,6 @@
       "rounding": "nearest_even",
       "overflow": "wrap",
       "result": 0,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "rounds to 256: a full turn, which a binary angle wraps to 0"
     },
     {
@@ -1881,8 +1837,7 @@
       "value": 16512,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 64,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 64
     },
     {
       "name": "requantize.float_to_int.tie.nearest_even",
@@ -1892,8 +1847,7 @@
       "value": 2.5,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 2,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 2
     },
     {
       "name": "requantize.float_to_int.tie.nearest_away",
@@ -1903,8 +1857,7 @@
       "value": 2.5,
       "rounding": "nearest_away",
       "overflow": "checked",
-      "result": 3,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 3
     },
     {
       "name": "requantize.float_to_int.negative_tie.nearest_even",
@@ -1914,8 +1867,7 @@
       "value": -2.5,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": -2,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -2
     },
     {
       "name": "requantize.float_to_int.negative.floor",
@@ -1925,8 +1877,7 @@
       "value": -2.5,
       "rounding": "floor",
       "overflow": "checked",
-      "result": -3,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -3
     },
     {
       "name": "requantize.float_to_int.tie_past_top.checked",
@@ -1936,8 +1887,7 @@
       "value": 32767.5,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": null
     },
     {
       "name": "requantize.float_to_int.tie_past_top.saturate",
@@ -1947,8 +1897,7 @@
       "value": 32767.5,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 32767,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 32767
     },
     {
       "name": "requantize.float_to_int.huge.saturate",
@@ -1958,8 +1907,7 @@
       "value": 10000000000.0,
       "rounding": "truncate",
       "overflow": "saturate",
-      "result": 32767,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 32767
     },
     {
       "name": "requantize.float_to_int.huge.wrap",
@@ -1970,7 +1918,6 @@
       "rounding": "truncate",
       "overflow": "wrap",
       "result": 7168,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "-10¹⁰ modulo 2¹⁶"
     },
     {
@@ -1981,8 +1928,7 @@
       "value": 1250,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 1.25,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 1.25
     },
     {
       "name": "requantize.degree_to_radian.45000.truncate",
@@ -1993,7 +1939,6 @@
       "rounding": "truncate",
       "overflow": "checked",
       "result": 785398,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"},
       "note": "a factor of 50π/9: no fraction of integers"
     },
     {
@@ -2004,8 +1949,7 @@
       "value": 45000,
       "rounding": "floor",
       "overflow": "checked",
-      "result": 785398,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 785398
     },
     {
       "name": "requantize.degree_to_radian.45000.ceil",
@@ -2015,8 +1959,7 @@
       "value": 45000,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": 785399,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 785399
     },
     {
       "name": "requantize.degree_to_radian.45000.nearest_even",
@@ -2026,8 +1969,7 @@
       "value": 45000,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 785398,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 785398
     },
     {
       "name": "requantize.degree_to_radian.90000.truncate",
@@ -2037,8 +1979,7 @@
       "value": 90000,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": 1570796,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 1570796
     },
     {
       "name": "requantize.degree_to_radian.90000.floor",
@@ -2048,8 +1989,7 @@
       "value": 90000,
       "rounding": "floor",
       "overflow": "checked",
-      "result": 1570796,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 1570796
     },
     {
       "name": "requantize.degree_to_radian.90000.ceil",
@@ -2059,8 +1999,7 @@
       "value": 90000,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": 1570797,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 1570797
     },
     {
       "name": "requantize.degree_to_radian.90000.nearest_even",
@@ -2070,8 +2009,7 @@
       "value": 90000,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 1570796,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 1570796
     },
     {
       "name": "requantize.degree_to_radian.1.truncate",
@@ -2081,8 +2019,7 @@
       "value": 1,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": 17,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 17
     },
     {
       "name": "requantize.degree_to_radian.1.floor",
@@ -2092,8 +2029,7 @@
       "value": 1,
       "rounding": "floor",
       "overflow": "checked",
-      "result": 17,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 17
     },
     {
       "name": "requantize.degree_to_radian.1.ceil",
@@ -2103,8 +2039,7 @@
       "value": 1,
       "rounding": "ceil",
       "overflow": "checked",
-      "result": 18,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 18
     },
     {
       "name": "requantize.degree_to_radian.1.nearest_even",
@@ -2114,8 +2049,7 @@
       "value": 1,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 17,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 17
     },
     {
       "name": "requantize.degree_to_radian.negative.floor",
@@ -2125,8 +2059,7 @@
       "value": -45000,
       "rounding": "floor",
       "overflow": "checked",
-      "result": -785399,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -785399
     },
     {
       "name": "requantize.degree_to_radian.negative.truncate",
@@ -2136,8 +2069,7 @@
       "value": -45000,
       "rounding": "truncate",
       "overflow": "checked",
-      "result": -785398,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -785398
     },
     {
       "name": "requantize.degree_to_radian_i64.big",
@@ -2147,8 +2079,7 @@
       "value": 900000000000000,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": 15707963267948966,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 15707963267948966
     },
     {
       "name": "requantize.degree_to_radian_i64.past_top.checked",
@@ -2158,8 +2089,7 @@
       "value": 2000000000000000000,
       "rounding": "nearest_even",
       "overflow": "checked",
-      "result": null,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": null
     },
     {
       "name": "requantize.degree_to_radian_i64.past_top.saturate",
@@ -2169,8 +2099,7 @@
       "value": 2000000000000000000,
       "rounding": "nearest_even",
       "overflow": "saturate",
-      "result": 9223372036854775807,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": 9223372036854775807
     },
     {
       "name": "requantize.degree_to_radian_i64.past_bottom.saturate",
@@ -2180,8 +2109,7 @@
       "value": -2000000000000000000,
       "rounding": "floor",
       "overflow": "saturate",
-      "result": -9223372036854775808,
-      "gaps": {"c": "no unit conversions in C yet: Fixed in C (CLT-54)"}
+      "result": -9223372036854775808
     }
   ]
 }

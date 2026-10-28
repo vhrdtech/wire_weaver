@@ -105,7 +105,7 @@ impl CFactor {
     /// floats).
     pub fn c_initializer(&self) -> String {
         format!(
-            "{{.ratio = {}, .num_hi = {}u, .num_lo = {}u, .den_hi = {}u, .den_lo = {}u, .m = {}u, .shift = {}, \
+            "{{.ratio = {}, .num_hi = {}, .num_lo = {}, .den_hi = {}, .den_lo = {}, .m = {}, .shift = {}, \
              .f_num = {}, .f_den = {}}}",
             self.ratio,
             hex_u64(self.num_hi),

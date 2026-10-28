@@ -104,7 +104,10 @@ consumer has to give bit for bit.
 - `gaps`, `note` and `wire_change` as for a case: a `result` is as frozen as golden bytes.
 
 Results are worked out independently of the Rust code (exact fractions, and 60 digits of π for scales with π).
-Python and C have no unit conversions yet and carry a gap mark naming CLT-54 on every case.
+Python runs every case through `ww.requantize` (the factor as the model gives it, its bytes). C runs them through
+`sw_requantize()` (`shrink_wrap/c/sw_requantize.h`): `tests/conformance/src/c.rs` works out each factor's constants
+on the host from the same `Magnitude`, as a code generator would, emits them into one C program for all cases, and
+compiles and runs it.
 
 ## Frozen golden bytes
 

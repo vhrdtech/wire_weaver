@@ -5,7 +5,7 @@
 //! group over the items in the variant, in discriminant order.
 
 use crate::ast::generics::Generics;
-use crate::ast::item_enum::{Fields, Variant};
+use crate::ast::item_enum::{Fields, FutureVersion, Variant};
 use crate::ast::item_struct::{Field, StructKind};
 use crate::ast::ty::Type;
 use crate::codegen::item_struct::transparent_init;
@@ -300,16 +300,18 @@ impl SeriesSeed<'_> {
         )
     }
 
-    /// `impl SeriesStore` of an enum: an array of discriminants (all of a `#[future_version]` one's `u32`, else the
+    /// `impl SeriesStore` of an enum: an array of discriminants (all of a `#[future_version]` one's field type, else the
     /// smallest unsigned type that holds the largest), and a store per field of each data variant, written only for
     /// the items in that variant.
     fn series_store_enum(
         &self,
         variants: &[Variant],
         data: &[(&Variant, Vec<SeriesField>)],
-        future_version: Option<&Ident>,
+        future_version: Option<&FutureVersion>,
         max_tag: u32,
     ) -> TokenStream {
+        let fv_ty = future_version.map(|fv| &fv.ty);
+        let future_version = future_version.map(|fv| &fv.ident);
         if !self.store
             || data
                 .iter()
@@ -321,8 +323,8 @@ impl SeriesSeed<'_> {
         let store_ident = format_ident!("__{}SeriesStore", self.ident);
         let init_store_at = self.sc(quote! { init_store_at });
         let fill_array = self.sc(quote! { fill_array });
-        let tag_ty = match (future_version, max_tag) {
-            (Some(_), _) => quote! { u32 },
+        let tag_ty = match (fv_ty, max_tag) {
+            (Some(ty), _) => quote! { #ty },
             (None, 0..=0xFF) => quote! { u8 },
             (None, 0x100..=0xFFFF) => quote! { u16 },
             (None, _) => quote! { u32 },
@@ -611,9 +613,11 @@ impl SeriesSeed<'_> {
     fn series_cells_enum(
         &self,
         data: &[(&Variant, Vec<SeriesField>)],
-        future_version: Option<&Ident>,
+        future_version: Option<&FutureVersion>,
         max_tag: u32,
     ) -> TokenStream {
+        let fv_ty = future_version.map(|fv| &fv.ty);
+        let future_version = future_version.map(|fv| &fv.ident);
         if !self.store
             || !self.cells
             || data
@@ -625,8 +629,8 @@ impl SeriesSeed<'_> {
         let cells_trait = self.sc(quote! { SeriesCells });
         let word = self.sc(quote! { CellWord });
         let cells_ident = format_ident!("__{}SeriesCells", self.ident);
-        let tag_ty = match (future_version, max_tag) {
-            (Some(_), _) => quote! { u32 },
+        let tag_ty = match (fv_ty, max_tag) {
+            (Some(ty), _) => quote! { #ty },
             (None, 0..=0xFF) => quote! { u8 },
             (None, 0x100..=0xFFFF) => quote! { u16 },
             (None, _) => quote! { u32 },
@@ -1278,8 +1282,9 @@ impl SeriesSeed<'_> {
     pub(crate) fn series_enum(
         &self,
         variants: &[Variant],
-        future_version: Option<&Ident>,
+        future_version_variant: Option<&FutureVersion>,
     ) -> Result<TokenStream, String> {
+        let future_version = future_version_variant.map(|fv| &fv.ident);
         let owner = self.ident.to_string();
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
         let ident = self.ident;
@@ -1505,8 +1510,8 @@ impl SeriesSeed<'_> {
                 __fixed
             }
         };
-        let store = self.series_store_enum(variants, &data, future_version, max_tag);
-        let cells = self.series_cells_enum(&data, future_version, max_tag);
+        let store = self.series_store_enum(variants, &data, future_version_variant, max_tag);
+        let cells = self.series_cells_enum(&data, future_version_variant, max_tag);
         let store = quote! { #store #cells };
 
         let params = self.impl_params();

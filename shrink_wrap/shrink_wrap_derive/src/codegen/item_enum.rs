@@ -132,10 +132,11 @@ impl<'i> CGItemEnum<'i> {
         let future_version = self.future_version.map(|fv| {
             let docs = &fv.docs;
             let ident = &fv.ident;
+            let ty = &fv.ty;
             if self.niche {
-                quote! { #docs #ident(u32), }
+                quote! { #docs #ident(#ty), }
             } else {
-                quote! { #docs #ident(u32) = #native_repr::MAX, }
+                quote! { #docs #ident(#ty) = #native_repr::MAX, }
             }
         });
         let repr = maybe_quote(!self.niche, || quote! { #[repr(#native_repr)] });
@@ -656,7 +657,7 @@ impl ToTokens for CGEnumSer<'_> {
             let error = self.item_enum.crate_path.error();
             tokens.append_all(quote! {
                 if let Self::#ident(discriminant) = self {
-                    if *discriminant > #max #(|| *discriminant == #known)* {
+                    if *discriminant as u32 > #max #(|| *discriminant == #known)* {
                         return Err(#error::SubtypeOutOfRange);
                     }
                 }
@@ -813,9 +814,13 @@ impl ToTokens for CGEnumDes<'_> {
             Some(fv) => {
                 let ident = &fv.ident;
                 let enum_name = &self.item_enum.ident;
+                let ty = &fv.ty;
                 quote! {
                     #check_kept
-                    #enum_name::#ident(discriminant as u32)
+                    // DER-25: beyond a narrower field it fails as without the variant
+                    #enum_name::#ident(
+                        <#ty>::try_from(discriminant).map_err(|_| #error::EnumFutureVersionOrMalformedData)?,
+                    )
                 }
             }
             None => quote! {

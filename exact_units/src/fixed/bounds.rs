@@ -14,6 +14,9 @@ use shrink_wrap::{Nibble, UNib32, UVlq32, UVlq64};
 pub trait Bounds<T: Storage>: Copy + Default + 'static {
     const MIN: Option<T>;
     const MAX: Option<T>;
+    /// `MIN ..= MAX` as integers, for `const` code: what [into_rounded](super::Fixed::into_rounded) proves its result
+    /// range from. `None` (the default) proves from the whole range of `T`, which is never narrower.
+    const INT_RANGE: Option<(i128, i128)> = None;
 
     /// `MIN <= x <= MAX`; `false` for `NaN` when there is a bound.
     #[inline(always)]
@@ -47,9 +50,31 @@ impl core::fmt::Display for OutOfBounds {
 
 impl core::error::Error for OutOfBounds {}
 
-/// No bounds: the whole range of the storage. The default of [Fixed](super::Fixed)'s `B`.
+/// No bounds: the whole range of the storage. The default of [Fixed](super::Fixed)'s `B`. Its overflow policy is
+/// checked: `+` is `T`'s (a panic on overflow in debug builds), and `checked_*`, `saturating_*` and `wrapping_*` name
+/// the others.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Unbounded;
+
+/// No bounds, and `+`, `-`, `*` and `/` wrap modulo 2^bits of the storage (two's complement for a signed one): a
+/// binary angle ([Bam16](crate::Bam16), where 2^bits steps are a turn) or a free-running counter (a cycle counter, a
+/// timer). Only the overflow policy is in the marker, the bytes are the storage's.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Wrapping;
+
+/// No bounds, and `+`, `-`, `*` and `/` stop at the ends of the storage: the Q formats ([Q15](crate::Q15)), as
+/// CMSIS-DSP's `__QADD16` and friends do. Only the overflow policy is in the marker, the bytes are the storage's.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Saturating;
+
+/// A bounds marker without limits: [Unbounded], [Wrapping] or [Saturating]. The three are the same values and
+/// convert into each other for free ([Fixed::with_overflow](super::Fixed::with_overflow)); they differ in what
+/// arithmetic does at the ends of the storage.
+pub trait Unlimited<T: Storage>: Bounds<T> {}
+
+impl<T: Storage> Unlimited<T> for Unbounded {}
+impl<T: Storage> Unlimited<T> for Wrapping {}
+impl<T: Storage> Unlimited<T> for Saturating {}
 
 /// `MIN ..= MAX` for an integer storage up to 64 bits (`u8`..`u64`, `i8`..`i64`, `UNib32`, `UVlq32`, `UVlq64`,
 /// `Nibble`). For a `u64` above `i64::MAX`, [RangeU64].
@@ -66,6 +91,16 @@ pub struct RangeU64<const MIN: u64, const MAX: u64>;
 pub struct RangeDec<const MIN: i64, const MAX: i64, const EXP: i8>;
 
 impl<T: Storage> Bounds<T> for Unbounded {
+    const MIN: Option<T> = None;
+    const MAX: Option<T> = None;
+}
+
+impl<T: Storage> Bounds<T> for Wrapping {
+    const MIN: Option<T> = None;
+    const MAX: Option<T> = None;
+}
+
+impl<T: Storage> Bounds<T> for Saturating {
     const MIN: Option<T> = None;
     const MAX: Option<T> = None;
 }
@@ -96,6 +131,7 @@ macro_rules! range {
                 let $x = fits(MAX as i128, $min as i128, $max as i128);
                 Some($wrap)
             };
+            const INT_RANGE: Option<(i128, i128)> = Some((MIN as i128, MAX as i128));
         }
     )*};
 }
@@ -127,6 +163,7 @@ impl<const MIN: u64, const MAX: u64> Bounds<u64> for RangeU64<MIN, MAX> {
         Some(MIN)
     };
     const MAX: Option<u64> = Some(MAX);
+    const INT_RANGE: Option<(i128, i128)> = Some((MIN as i128, MAX as i128));
 }
 
 #[cfg(feature = "shrink_wrap")]
@@ -136,6 +173,7 @@ impl<const MIN: u64, const MAX: u64> Bounds<UVlq64> for RangeU64<MIN, MAX> {
         None => None,
     };
     const MAX: Option<UVlq64> = Some(UVlq64(MAX));
+    const INT_RANGE: Option<(i128, i128)> = Some((MIN as i128, MAX as i128));
 }
 
 impl<const MIN: i64, const MAX: i64, const EXP: i8> Bounds<f64> for RangeDec<MIN, MAX, EXP> {

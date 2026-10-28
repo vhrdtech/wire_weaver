@@ -1,6 +1,6 @@
 //! `#[wire(W)] field: T` with a user type `W` (DER-23): a one-byte handle in Rust, the full value it stands for on
-//! the wire. Each type here has a twin with `W` as the field type, whose bytes it must match, also in a `Series`; a
-//! value without a handle is an error when it is read.
+//! the wire. Each type here has a twin with `W` as the field type, whose bytes it must match, also in a `Series` (as
+//! a `#[series(opaque)]` field); a value without a handle is an error when it is read.
 
 use core::mem::MaybeUninit;
 use shrink_wrap::Error;
@@ -48,12 +48,6 @@ impl WireAs<ScaleId> for Scale {
             .position(|s| *s == self)
             .map(|i| ScaleId(i as u8))
             .ok_or(Error::SubtypeOutOfRange)
-    }
-}
-
-impl WireAsRef<ScaleId> for Scale {
-    fn wire_ref(value: &ScaleId) -> &Self {
-        &SCALES[value.0 as usize]
     }
 }
 
@@ -107,6 +101,7 @@ struct Reading {
 #[derive_shrink_wrap(borrowed, owned, series, derive(Debug, PartialEq, Clone, Copy))]
 struct ReadingTwin {
     value: u16,
+    #[series(opaque)]
     scale: Scale,
 }
 
@@ -136,14 +131,20 @@ enum Prefix {
 enum PrefixTwin {
     Unit,
     Milli,
-    Exact(Scale),
+    // a named field: the same bytes, and `#[series(opaque)]` is only on named fields
+    Exact {
+        #[series(opaque)]
+        scale: Scale,
+    },
 }
 
 fn twin(p: Prefix) -> PrefixTwin {
     match p {
         Prefix::Unit => PrefixTwin::Unit,
         Prefix::Milli => PrefixTwin::Milli,
-        Prefix::Exact(id) => PrefixTwin::Exact(SCALES[id.0 as usize]),
+        Prefix::Exact(id) => PrefixTwin::Exact {
+            scale: SCALES[id.0 as usize],
+        },
     }
 }
 
@@ -197,7 +198,7 @@ fn bytes_are_the_wire_type() {
 #[test]
 fn a_value_without_a_handle_is_an_error() {
     let unknown = Scale { num: 7, den: 3 };
-    let b = bytes(&PrefixTwin::Exact(unknown));
+    let b = bytes(&PrefixTwin::Exact { scale: unknown });
     assert_eq!(Prefix::from_ww_bytes(&b), Err(Error::SubtypeOutOfRange));
     assert_eq!(
         Prefix::from_ww_bytes_owned(&b),

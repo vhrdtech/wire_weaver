@@ -638,7 +638,7 @@ impl<'i> OpaqueReader<'i> {
     }
 
     /// Skims the run over `ctx`'s items, every value checked with `check`, so that iterating can't fail.
-    fn skim<C: SeriesCtx>(
+    pub(crate) fn skim<C: SeriesCtx>(
         rd: &mut BufReader<'i>,
         ctx: &C,
         check: impl Fn(&'i [u8]) -> Result<(), Error>,

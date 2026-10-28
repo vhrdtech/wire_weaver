@@ -65,7 +65,7 @@ pub mod tail_size;
 pub use tail_size::TailSize;
 pub mod un;
 pub mod wire_as;
-pub use wire_as::{WireAs, WireAsRef};
+pub use wire_as::WireAs;
 
 pub use nib::Nibble;
 
@@ -188,6 +188,6 @@ pub mod prelude {
     pub use crate::un::*;
     pub use crate::vlq32::{UVlq32, UVlq32Backfill};
     pub use crate::vlq64::UVlq64;
-    pub use crate::wire_as::{WireAs, WireAsRef};
+    pub use crate::wire_as::WireAs;
     pub use shrink_wrap_derive::{ShrinkWrap, derive_shrink_wrap};
 }

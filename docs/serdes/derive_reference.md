@@ -627,10 +627,11 @@ struct Reading {
 }
 ```
 
-In a `Series` the field is `W`'s column (`series::Wired<W, T>` for an integer, `series::WiredRef<W, T>` for a user
-type) and keeps `T` in a store and in cells, so a one-byte handle stays one byte per row. A user `W` there also
-implements `WireAsRef<T>`, which lends the wire value from where it lives (a `static` table): `W` itself derives
-`series`, `T` implements `SeriesStore` (and `SeriesCells` for `series(cells)`).
+In a `Series` an integer `W` is its numeric column (`series::Wired<W, T>`); a user `W` is an opaque run of its bytes
+(`series::WiredOpaque<W, T>`), the same bytes as a `#[series(opaque)]` field of type `W`, each changed value built with
+`from_plain` as it is written (the API model marks the field series-opaque, so the dynamic client reads it the same
+way). Both keep `T` in a store and in cells, so a one-byte handle stays one byte per row: `T` implements
+`SeriesStore` (and `SeriesCells` for `series(cells)`), `T: Clone + PartialEq`, and `W` needs no `series` of its own.
 
 `#[cfg_attr(pred, wire(W))]` works too (rustc leaves a field's `cfg_attr` to the derive), for crates with shrink_wrap
 optional; a compile error when `pred` is off while the type is serialized, so the bytes never depend on a cfg. Not

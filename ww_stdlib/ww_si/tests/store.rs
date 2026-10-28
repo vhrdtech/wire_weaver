@@ -28,16 +28,16 @@ fn round_trip() {
     }
 }
 
-/// With every number type (the default `std` build): 19 bytes per quantity (prefix, variant, a `u128` payload,
-/// `UN` / `IN` width), 38 per item.
+/// With every number type (the default `std` build): 20 bytes per quantity (prefix code in 2 bytes, variant, a
+/// `u128` payload, `UN` / `IN` width), 40 per item.
 #[cfg(feature = "std")]
 #[test]
 fn size_all_number_types() {
-    assert_eq!(size_of::<Store>(), 32 * 38);
+    assert_eq!(size_of::<Store>(), 32 * 40);
 }
 
-/// A firmware with `U8`, `U32`, `I32` and `F32` only: 6 bytes per quantity (prefix, variant, a `u32` payload), 12
-/// per item, where `[Timed<Ampere>; 32]` takes 24 per item (`cargo test -p ww_si --no-default-features --features
+/// A firmware with `U8`, `U32`, `I32` and `F32` only: 7 bytes per quantity (prefix code in 2 bytes, variant, a `u32`
+/// payload), 14 per item, where `[Timed<Ampere>; 32]` takes 24 per item (`cargo test -p ww_si --no-default-features --features
 /// time,electrical,u32,i32,f32 --test store`, run by `just test`).
 #[cfg(not(any(
     feature = "u64",
@@ -51,7 +51,7 @@ fn size_all_number_types() {
 )))]
 #[test]
 fn size_up_to_32_bits() {
-    assert_eq!(size_of::<Store>(), 32 * 12);
+    assert_eq!(size_of::<Store>(), 32 * 14);
     assert_eq!(size_of::<[Timed<Ampere>; 32]>(), 32 * 24);
 }
 

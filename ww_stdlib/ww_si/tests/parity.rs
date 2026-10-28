@@ -1,6 +1,8 @@
-//! Parity of [Fixed] and [Quantity] (STD-59): every `Fixed` value is a `Quantity` and back exactly, whatever its
-//! scale (a named prefix, else `Prefix::Exact`), and adding, converting and comparing give the same result or the same
-//! refusal on both sides. STD-74 extends this to kinds, points, levels and niches.
+//! Parity of [Fixed] and [Quantity] (STD-59): a `Fixed` value whose scale has a run-time prefix (a named one,
+//! `Pow10`, `Pow2`, `FullScale`) is a `Quantity` and back exactly, and adding, converting and comparing give the same
+//! result or the same refusal on both sides. Any other scale (a binary angle, an ADC step of 3.3 V / 4096) is refused
+//! by `Quantity` and goes into an `AnyQuantity` exactly instead, never a silent loss; `which_side` says which scale
+//! goes where. STD-74 extends this to kinds, points, levels and niches.
 #![cfg(feature = "std")]
 
 use core::fmt::Debug;
@@ -11,7 +13,7 @@ use ww_si::prefix::{
 };
 use ww_si::units::{Byte, Radian, Ratio, Second, Volt};
 use ww_si::ww_numeric::NumericValue;
-use ww_si::{Fixed, Prefix, Quantity, Unbounded};
+use ww_si::{AnyQuantityOwned, Fixed, Prefix, Quantity, Unbounded, UnknownScale};
 
 ww_si::exact_units::scale! {
     /// One step of a 16-bit binary angle in radians, 2π/65536
@@ -24,7 +26,36 @@ ww_si::exact_units::scale! {
 fn quantity<U: Unit, P: FixedScale, T: Storage + Into<NumericValue>, B: Bounds<T>>(
     f: Fixed<U, P, T, B>,
 ) -> Quantity<U> {
-    Quantity::try_from_fixed(f).expect("every scale has a run-time prefix on std")
+    Quantity::try_from_fixed(f).expect("a scale with a run-time prefix")
+}
+
+/// A scale without a run-time prefix: `Quantity` refuses it, `AnyQuantity` holds it exactly and gives it back, also
+/// converted into another scale and storage as `Fixed::to` does.
+fn any<
+    U: Unit,
+    P: FixedScale,
+    T: Storage + Into<NumericValue> + Debug,
+    P2: FixedScale,
+    T2: Storage + Debug,
+>(
+    a: T,
+) {
+    let f = Fixed::<U, P, T>::new(a);
+    assert_eq!(
+        Quantity::try_from_fixed(f),
+        Err(UnknownScale),
+        "{}",
+        P::NAME
+    );
+    let q = AnyQuantityOwned::from_fixed(f);
+    assert_eq!(q.to_fixed::<U, P, T, Unbounded>(), Some(f), "{a:?} back");
+    assert_eq!(
+        f.to::<P2, T2>(),
+        q.to_fixed::<U, P2, T2, Unbounded>(),
+        "{a:?} {} -> {}",
+        P::NAME,
+        P2::NAME
+    );
 }
 
 /// Round trip, comparison and (for integers) sum of two values of one `Fixed` type.
@@ -77,7 +108,7 @@ fn convert<
 type Adc = FullScale<Rational<33, 10>, 12>;
 
 #[test]
-fn every_scale_has_a_prefix() {
+fn which_side() {
     let prefix = |q: Quantity<Volt>| q.prefix;
     assert_eq!(
         prefix(quantity(Fixed::<Volt, Milli, u16>::new(1))),
@@ -87,14 +118,32 @@ fn every_scale_has_a_prefix() {
         quantity(Fixed::<Byte, Kibi, u16>::new(1)).prefix,
         Prefix::Kibi
     );
+    // a Quantity with a scale prefix
+    assert_eq!(
+        quantity(Fixed::<Second, Pow10<-4>, u32>::new(1)).prefix,
+        Prefix::from_pow10(-4).unwrap()
+    );
+    assert_eq!(
+        quantity(Fixed::<Second, Pow2<-15>, u32>::new(1)).prefix,
+        Prefix::from_pow2(-15).unwrap()
+    );
     for p in [
         quantity(Fixed::<Second, Pow10<-4>, u32>::new(1)).prefix,
         quantity(Fixed::<Ratio, FullScaleMax<One, 16>, u16>::new(1)).prefix,
-        quantity(Fixed::<Radian, Bam16Rad, u16>::new(1)).prefix,
-        prefix(quantity(Fixed::<Volt, Adc, u16>::new(1))),
     ] {
         assert!(!p.is_named(), "{p:?}");
     }
+    // an AnyQuantity: π in the scale, a rational times a full scale
+    assert_eq!(
+        Quantity::try_from_fixed(Fixed::<Radian, Bam16Rad, u16>::new(1)),
+        Err(UnknownScale)
+    );
+    assert_eq!(
+        Quantity::try_from_fixed(Fixed::<Volt, Adc, u16>::new(1)),
+        Err(UnknownScale)
+    );
+    let bam = AnyQuantityOwned::from_fixed(Fixed::<Radian, Bam16Rad, u16>::new(16384));
+    assert!((bam.to_si_f64().unwrap() - core::f64::consts::FRAC_PI_2).abs() < 1e-15);
     // shown alike: the number, then the factor and the unit
     let duty = Fixed::<Ratio, FullScaleMax<One, 16>, u16>::new(32768);
     assert_eq!(duty.to_string(), "32768·1/65535");
@@ -137,17 +186,22 @@ proptest! {
     }
 
     #[test]
-    fn bam_u16(a: u16, b: u16) {
-        pair::<Radian, Bam16Rad, u16>(a, b, true);
-        // into a scale without π `Fixed` refuses at compile time, `Quantity` at run time: not comparable here
-        convert::<Radian, Bam16Rad, u16, Bam8Rad, u8>(a);
+    fn bam_u16(a: u16) {
+        // into a scale without π `Fixed` refuses at compile time, `AnyQuantity` at run time: not comparable here
+        any::<Radian, Bam16Rad, u16, Bam8Rad, u8>(a);
     }
 
     #[test]
-    fn adc_u16(a in 0u16..4096, b in 0u16..4096) {
-        pair::<Volt, Adc, u16>(a, b, true);
-        convert::<Volt, Adc, u16, Micro, u32>(a);
-        convert::<Volt, Adc, u16, FullScale<Rational<33, 10>, 16>, u16>(a);
+    fn adc_u16(a in 0u16..4096) {
+        any::<Volt, Adc, u16, Micro, u32>(a);
+        any::<Volt, Adc, u16, FullScale<Rational<33, 10>, 16>, u16>(a);
+    }
+
+    #[test]
+    fn half_ms_pow2_u32(a: u32, b: u32) {
+        pair::<Second, Pow2<-15>, u32>(a, b, true);
+        convert::<Second, Pow2<-15>, u32, Micro, u64>(a);
+        convert::<Second, Pow2<-15>, u32, Pow2<-10>, u32>(a);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 // ww_timebase 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: c99f9aa43b47f0b07d2cc8c424040bc96723f8089b0ace25d603a886dbe073b9
+// shrink_wrap sha256: d3f7aa6293d86a4bca96978effc698d7a6584f420623d0de68398f7792399af2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device time and synchronisation over WireWeaver.",
     "",
@@ -39,14 +39,14 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        95,
-        53,
-        125,
-        144,
-        137,
-        155,
-        252,
-        235,
+        86,
+        157,
+        223,
+        136,
+        160,
+        153,
+        255,
+        229,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "A format a sync line can carry, see `ClockInfo::sync_formats`.",

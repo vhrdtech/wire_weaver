@@ -264,8 +264,8 @@ impl DynQuantity {
             });
         }
         let unit = unit_of(ty, bundle)?;
-        // decoded by the derived type: the unit is only in the type, every `Quantity<U>` has the same bytes, and an
-        // `Exact` prefix (STD-59) comes back with its scale
+        // decoded by the derived type: the unit is only in the type, every `Quantity<U>` has the same bytes, and a
+        // `Pow10`, `Pow2` or `FullScale` prefix (STD-59) comes back with its scale
         let bytes = value.ser_shrink_wrap_dyn(ty, bundle).ok()?;
         let q = ww_si::Quantity::<ww_si::units::Ratio>::from_ww_bytes(&bytes).ok()?;
         Some(DynQuantity {

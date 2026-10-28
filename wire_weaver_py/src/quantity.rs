@@ -22,20 +22,28 @@ impl Quantity {
         numeric_to_py(py, &self.q.value)
     }
 
-    /// The prefix's name: `"Milli"`, `"Kibi"`, `"Unit"` for none, `"Exact"` for an exact scale ([scale](Self::scale)).
+    /// The prefix's name: `"Milli"`, `"Kibi"`, `"Unit"` for none, `"Pow10"`, `"Pow2"` or `"FullScale"` for a scale
+    /// without a name, its number in [prefix_param](Self::prefix_param).
     #[getter]
     fn prefix(&self) -> &'static str {
         self.q.prefix.name()
     }
 
-    /// The prefix as a power of ten: `-3` for milli, `-4` for an `Exact` 10⁻⁴; `None` for a binary prefix and any
-    /// other exact scale.
+    /// The number of a scale without a name: `-4` for `Pow10` 10⁻⁴, `-15` for `Pow2` 2⁻¹⁵, `16` for `FullScale`
+    /// 1/65535; `None` for a named prefix.
+    #[getter]
+    fn prefix_param(&self) -> Option<i8> {
+        self.q.prefix.param()
+    }
+
+    /// The prefix as a power of ten: `-3` for milli, `-4` for `Pow10` 10⁻⁴; `None` for a binary prefix, `Pow2` and
+    /// `FullScale`.
     #[getter]
     fn exponent(&self) -> Option<i8> {
         self.q.prefix.pow10()
     }
 
-    /// The prefix's scale as a float: `0.001` for milli, `1024.0` for kibi, `1/65535` for an `Exact` one.
+    /// The prefix's scale as a float: `0.001` for milli, `1024.0` for kibi, `1/65535` for `FullScale` 16.
     #[getter]
     fn scale(&self) -> f64 {
         self.q.prefix.scale_f64(1.0)

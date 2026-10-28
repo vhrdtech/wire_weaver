@@ -29,6 +29,7 @@
 extern crate std;
 
 mod declare;
+mod exact_scale;
 mod fixed;
 #[cfg(feature = "counting")]
 mod index;
@@ -43,6 +44,7 @@ pub mod tree;
 mod unit;
 pub mod units;
 
+pub use exact_scale::{COMPUTED as EXACT_SCALES_COMPUTED, EXACT_SCALES, ExactScale};
 #[cfg(feature = "information")]
 pub use fixed::Bytes;
 #[cfg(feature = "angle")]

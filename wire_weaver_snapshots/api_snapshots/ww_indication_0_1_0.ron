@@ -1,6 +1,6 @@
 // ww_indication 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: f5fc60774b4553b272b7ff9654667e82989e1d95aa6d914a764ec673ce494bc1
+// shrink_wrap sha256: d836fa6bd2cd6cd1fd04d28e9d009470507f9264d31733d60e8e5c244cc60eb5
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Device indication control (STD-28): one global mode every indicator (LED, buzzer, ...) follows.",
     "",
@@ -66,14 +66,14 @@
         62,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        190,
-        99,
-        105,
-        144,
-        195,
-        49,
-        220,
-        202,
+        230,
+        15,
+        222,
+        166,
+        15,
+        199,
+        77,
+        231,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,

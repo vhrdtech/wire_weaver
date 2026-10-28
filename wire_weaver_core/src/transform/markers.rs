@@ -268,7 +268,7 @@ impl Parse for UnitLine {
                 "Affine" => {
                     let content;
                     syn::braced!(content in input);
-                    let mut field = |name: &str| -> syn::Result<f64> {
+                    let field = |name: &str| -> syn::Result<f64> {
                         let ident: Ident = content.parse()?;
                         if ident != name {
                             return Err(syn::Error::new(

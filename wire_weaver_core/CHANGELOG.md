@@ -6,6 +6,7 @@
 
 ### 🐛 Fixes
 
+- An API snapshot also takes in the types of a module a crate re-exports (`pub use fixed::prefix`) and types re-exported through a private module (`pub use fixed::Range` with `pub use bounds::Range` in `fixed`): the `exact_units` snapshot had no scale markers (`prefix::Milli`, `Pow10`, `Rational`, `FullScale`) and no bounds (`Range`, `Unbounded`), so devices sent their definitions.
 - The crate walker follows modules brought in by `use` (`pub use fixed::prefix`, `use ww_si::units`, `use ww_si as si`), and generated code names a type in such a module by the re-export when its own modules are private (API-46): `ww_si::prefix::Milli` failed with "Module prefix not found", then "not reachable from other crates".
 - A type named `Range` or `RangeInclusive` that is defined in or imported from a user crate (`ww_si::Range<1, 5000>`, a bound marker) is read as that type, not as `core::ops::Range`: before, `Fixed<.., Range<1, 5000>>` failed with "expected Range<T>, got GenericArgument::Const". Imported from `core`, `std` or `alloc`, or not imported at all, it stays the range.
 - Generated client methods and stream functions with arguments take `&self` instead of `&mut self` (CLT-48): nothing in them needs it, and it kept two calls with arguments on the same client out of one `MultiCall` tuple (`(client.add(1, 2), client.add(3, 4)).multi_call()` didn't compile). Callers holding the client as `let mut` only for these calls get an `unused_mut` warning.

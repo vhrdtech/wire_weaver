@@ -2,7 +2,7 @@ use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
     ty::{convert_named_def, is_phantom_data},
-    util::{collect_docs, use_tree_names},
+    util::{collect_docs, use_tree_names, use_tree_path_to},
 };
 use anyhow::{Context, Result};
 use shrink_wrap::UNib32;
@@ -103,8 +103,8 @@ fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) 
                 let is_local = path.first().is_some_and(|first| {
                     *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
                 });
-                if is_local && is_snapshot_ty(&*cx.resolve_path(path, scratch)?, name) {
-                    convert_named_ty(name, cx, scratch)?;
+                if is_local {
+                    convert_reexport(&*cx.resolve_path(path, scratch)?, name, cx, scratch)?;
                 }
             }
         }
@@ -115,6 +115,40 @@ fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) 
             }
         }
         _ => {}
+    }
+    Ok(())
+}
+
+/// What `pub use path::name` in `cx` re-exports from `module`: a type, a module (`pub use fixed::prefix`), or a name
+/// `module` re-exports in turn (`pub use fixed::Range` with `pub use bounds::Range` in `fixed`).
+fn convert_reexport(
+    module: &CrateContext,
+    name: &Ident,
+    cx: &CrateContext,
+    scratch: &mut Scratch,
+) -> Result<()> {
+    if is_snapshot_ty(module, name) {
+        return convert_named_ty(name, cx, scratch);
+    }
+    if module.has_module(&name.to_string()) {
+        let reexported = module.resolve_path([name], scratch)?;
+        for item in &reexported.lib_rs_ast.items {
+            convert_snapshot_item(item, &reexported, scratch)?;
+        }
+        return Ok(());
+    }
+    for item in &module.lib_rs_ast.items {
+        let Item::Use(item_use) = item else {
+            continue;
+        };
+        if let Some((path, leaf)) = use_tree_path_to(&item_use.tree, &name.to_string())
+            && leaf == name
+            && path.first().is_some_and(|first| {
+                *first == "self" || module.has_module(&first.to_string())
+            })
+        {
+            convert_reexport(&*module.resolve_path(path, scratch)?, name, cx, scratch)?;
+        }
     }
     Ok(())
 }

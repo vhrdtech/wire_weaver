@@ -78,7 +78,7 @@ case 'fixed.numbers', consumer dynamic: encode: bytes differ at byte 0: got 1256
 
 ## A requantize case
 
-The `requantize` list holds conversions instead of bytes (STD-63, [Rounding and overflow](../api/rounding.md)): a
+The `requantize` list holds conversions instead of bytes (STD-63, [Rounding and overflow](../std_library/rounding.md)): a
 stored number of one scale and storage converted to another with a named rounding and overflow policy, which every
 consumer has to give bit for bit.
 

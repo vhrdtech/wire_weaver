@@ -100,8 +100,8 @@ exact or `None` for integers.
 
 ## What a magnitude is not
 
-- An offset: °C against K, gauge against absolute pressure, register formulas like `raw/256 + 25` are points with an
-  origin (STD-64).
+- An offset: °C against K, gauge against absolute pressure, register formulas like `raw/256 + 25` are [points with an
+  origin](points.md).
 - A level: dBm, dB SPL and pH take a logarithm of the value, not a factor (STD-67). Only the factor between two
   logarithmic units (dB in Np) is a magnitude.
 - A non-linear scale: AWG, Beaufort, mpg against L/100 km are named conversion functions (STD-75).

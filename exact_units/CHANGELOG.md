@@ -16,6 +16,23 @@
   readers compute different values. On the wire `Affine` is now nibble `2` and `Exact` `3` (were `3` and `4`): a
   `SIExpr` with °C from a device built with `ww_si` before this reads wrong (no published release had it).
 
+* `Point<O, F>` and origins (STD-64): a position against an origin, its number a `Fixed` (`transparent`, on the wire
+  exactly the number). Point ± vector = point, point − point = vector (`PointDiff`, signed for an origin that wraps),
+  point + point and point · x don't compile; `checked_add`, `checked_sub`, `checked_diff`, `try_from_raw`, `Display`
+  in the origin's own scale (`98.6 °F`), `Debug`, `defmt::Format`.
+  * `Origin` (unit, `Reference`, `Modulus`, `OFFSET`, `STEP`, `SHOWN`, `DEF: OriginDef`) and `origin!`, declaring one
+    from the unit's zero (`{ unit:, symbol:, offset: [, step:][, reference:][, modulus:] }`) or above another
+    (`{ above: Celsius, offset: Offset::int(25) }`, a register formula).
+  * `Offset`: a signed exact `Magnitude` (`Offset::int`, `ratio`, `decimal`), canonical, `final_structure` on the wire,
+    a negative zero refused on decode.
+  * `origins`: `AbsoluteZero`, `Celsius`, `Rankine`, `Fahrenheit`, `Vacuum`, `Gauge`, `AboveStandardAtmosphere`,
+    `Angle<Turn>`, `Angle<Degree>`, `Angle<Radian>`; references `UnitZero`, `AmbientPressure`; moduli `Linear`,
+    `Modulo<S>`.
+  * `to::<O2, P2, T2>()` converts between origins of the same unit and reference with factor and offset worked out at
+    compile time, exact or `None`; gauge to absolute doesn't compile, `against(zero)` takes the reference at run time.
+  * Wrapping: a period of 2^BITS steps (`Bam16`) in the storage's wrapping arithmetic, any other by `rem_euclid`; a
+    period that isn't a whole number of steps doesn't compile.
+
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the
 same paths as before.

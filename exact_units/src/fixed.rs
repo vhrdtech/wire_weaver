@@ -571,7 +571,7 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> fmt::Display for Fixed<U,
 }
 
 /// An integer at a power of ten below the unit, exactly: 1500 at 10⁻⁶ is `0.0015`.
-fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+pub(crate) fn write_decimal(x: i128, e: i8, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     if !(-38..0).contains(&e) {
         return write!(f, "{}", Magnitude::pow10(e).apply_f64(x as f64));
     }

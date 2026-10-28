@@ -1,8 +1,8 @@
 use crate::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ApiLevelOwned,
     ArgumentOwned, Batching, ClaimMode, Delivery, ErrorVariantOwned, FieldOwned, FieldsOwned,
-    FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructOwned, Length,
-    Multiplicity, Repr, TypeLocationOwned, TypeOwned,
+    FlowControl, GenericArgOwned, GenericParamOwned, ItemEnumOwned, ItemStructExtraOwned,
+    ItemStructOwned, Length, MarkerDefOwned, Multiplicity, Repr, TypeLocationOwned, TypeOwned,
 };
 use anyhow::{Result, anyhow, bail};
 use shrink_wrap::ElementSize;
@@ -336,7 +336,7 @@ impl TypeOwned {
                 "type parameter {} of a generic definition, not an instance of it",
                 idx.0
             )),
-            TypeOwned::Struct(item_struct) if item_struct.transparent => {
+            TypeOwned::Struct(item_struct) if item_struct.is_transparent() => {
                 item_struct.transparent_field()?.ty.is_unsized(api_bundle)
             }
             TypeOwned::Struct(item_struct) => Ok(item_struct.is_unsized()),
@@ -852,16 +852,39 @@ impl ItemStructOwned {
         self.fields.is_lifetime(api_bundle, &mut HashSet::new())
     }
 
-    /// Whether [Self::size] is `Unsized`. For a [transparent](Self::transparent) struct that is never the case, the
+    /// `#[derive_shrink_wrap(transparent, ..)]` (DER-18), see [ItemStructExtra::transparent](crate::ItemStructExtra::transparent).
+    pub fn is_transparent(&self) -> bool {
+        self.extra.as_ref().is_some_and(|e| e.transparent)
+    }
+
+    /// The definition of a unit or scale marker (INT-13), see [ItemStructExtra::marker](crate::ItemStructExtra::marker).
+    pub fn marker(&self) -> Option<&MarkerDefOwned> {
+        self.extra.as_ref().and_then(|e| e.marker.as_ref())
+    }
+
+    /// [ItemStructExtra](crate::ItemStructExtra) with these properties, `None` when it would be all defaults (a plain struct).
+    pub fn extra_of(
+        transparent: bool,
+        marker: Option<MarkerDefOwned>,
+    ) -> Option<Box<ItemStructExtraOwned>> {
+        (transparent || marker.is_some()).then(|| {
+            Box::new(ItemStructExtraOwned {
+                transparent,
+                marker,
+            })
+        })
+    }
+
+    /// Whether [Self::size] is `Unsized`. For a [transparent](Self::is_transparent) struct that is never the case, the
     /// size class is its field's: see [TypeOwned::is_unsized].
     pub fn is_unsized(&self) -> bool {
         self.size == ElementSize::Unsized
     }
 
-    /// The one field of a [transparent](Self::transparent) struct, an error for any other struct, or for a
+    /// The one field of a [transparent](Self::is_transparent) struct, an error for any other struct, or for a
     /// transparent one without exactly one field (malformed).
     pub fn transparent_field(&self) -> Result<&FieldOwned> {
-        if !self.transparent {
+        if !self.is_transparent() {
             bail!("struct {} is not transparent", self.ident);
         }
         match &self.fields {

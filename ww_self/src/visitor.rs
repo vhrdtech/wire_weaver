@@ -383,8 +383,7 @@ mod tests {
             generics: vec![],
             fields: FieldsOwned::Named(vec![field(Some("a"), TypeOwned::Bool)]),
             sparse: false,
-            transparent: false,
-            marker: None,
+            extra: None,
         });
         let item_enum = TypeOwned::Enum(ItemEnumOwned {
             instance_of: None,

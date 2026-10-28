@@ -1,6 +1,6 @@
 // ww_si 0.2.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 51100fe3751f5e21b84c32d5e08b350ce917a322b46f5c2f1be9c557fbae4df4
+// shrink_wrap sha256: 3bd3c6c895d2e52de91b2a5d009d7950c4c948a03456674fafd97196f54e94f7
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SI quantities for device APIs: a [Prefix] and a [NumericValue] in whatever number type the device picks, with the",
     "unit in the type (`Volt::milli(3300u16)` is a [Quantity] of [units::Volt]), so the API says what a value means and",
@@ -45,14 +45,14 @@
         181,
     ]),
     SkippedFullVersion(crate_idx: 1, type_name: "SIExpr", signature: [
-        55,
-        150,
-        82,
-        96,
-        126,
-        111,
+        14,
+        40,
+        16,
+        225,
+        129,
+        107,
+        69,
         39,
-        122,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value whose unit is only known at run time: a prefix, a number in whatever storage the device picks, and the",
@@ -74,16 +74,16 @@
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
         (ident: Some("unit"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "units::Second", signature: [
-        201,
-        216,
-        13,
-        38,
-        84,
-        139,
-        83,
-        180,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
     ]),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value of the unit `U`: a prefix and a number in whatever storage the device picks. The unit is only in the type,",
@@ -124,7 +124,7 @@
     ], fields: Named([
         (ident: Some("prefix"), default: None, since: None, ty: OutOfLine(type_idx: 0), docs: [], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value with the time it was taken: a sample of a property, an item of a stream (`Timed<Ampere>`,",
         "`Timed<IvSample>`).",
@@ -144,17 +144,17 @@
             "When `value` was taken, device time.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: Param(0), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A level in decibels, dB, without a prefix (a logarithm, not a [Ratio]).",
     ], ident: "DeciBel", generics: [], fields: Named([
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A power level in decibels relative to 1 mW, dBm, without a prefix.",
     ], ident: "DeciBelmW", generics: [], fields: Named([
         (ident: Some("value"), default: None, since: None, ty: OutOfLine(type_idx: 1), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "ww_si", version: (major: 0, minor: 2, patch: 0, pre: None, build: None)),
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

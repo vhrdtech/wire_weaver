@@ -1,6 +1,6 @@
 // ww_counters 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 6705fdc752492361189d40e43e2a84d47b85d95faad842c79c640047f6bb14e8
+// shrink_wrap sha256: 13607c15460845b039f6d440aa595ab6b18711d4a0d5ce6d8da461cb5cbab83a
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The device\'s [`cnt`](https://crates.io/crates/cnt) counters over WireWeaver (STD-25).",
     "",
@@ -67,7 +67,7 @@
         (ident: Some("capacity_words"), default: None, since: None, ty: NumericAny(Base(U16)), docs: [
             "Size of the buffer.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The counter buffers of this firmware and how to decode them, see [Counters::INFO].",
     ], ident: "CountersInfo", generics: [], fields: Named([
@@ -84,7 +84,7 @@
             "GNU build id of the firmware (20 bytes with sha1), to find its ELF; empty when the firmware didn\'t keep the",
             "note in flash (the host then can\'t check its ELF). The same as `ww_firmware_info::FirmwareInfo::BUILD_ID`.",
         ], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Enum((size: Sized(size_bits: 0), repr: BitAligned(1), crate_idx: 0, docs: [
         "One of the two `cnt` buffers.",
     ], ident: "CounterBuffer", generics: [], variants: [
@@ -115,14 +115,14 @@
         ]), discriminant: 0, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 2, type_name: "units::Second", signature: [
-        201,
-        216,
-        13,
-        38,
-        84,
-        139,
-        83,
-        180,
+        167,
+        149,
+        168,
+        126,
+        75,
+        17,
+        20,
+        62,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
         190,
@@ -141,13 +141,13 @@
             "Word index in the buffer.",
         ], slot: None, series_opaque: false),
         (ident: Some("value"), default: None, since: None, ty: NumericAny(Base(UVlq32)), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Counter words that changed, see [Counters::watch].",
     ], ident: "CounterChanges", generics: [], fields: Named([
         (ident: Some("buffer"), default: None, since: None, ty: OutOfLine(type_idx: 2), docs: [], slot: None, series_opaque: false),
         (ident: Some("words"), default: None, since: None, ty: MaxLen(max_len: Fixed(64), ty: Vec(OutOfLine(type_idx: 7))), docs: [], slot: None, series_opaque: false),
-    ]), sparse: false, path: None, instance_of: None, transparent: false, marker: None)), crate_idx: 0),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The device\'s `cnt` counters: raw buffer words, decoded on the host with the firmware\'s ELF (`cnt_core`).",

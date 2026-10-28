@@ -1168,9 +1168,10 @@ struct Wrapper<'b> {
 
 impl Wrapper<'_> {
     fn is_fixed(&self) -> bool {
-        self.def
-            .as_ref()
-            .is_some_and(|(krate, name)| is_ww_si(krate, name, "Fixed"))
+        self.def.as_ref().is_some_and(|(krate, name)| {
+            // exact_units' since STD-61, ww_si re-exports it; ww_si's own before
+            is_named(krate, name, "exact_units", "Fixed") || is_ww_si(krate, name, "Fixed")
+        })
     }
 }
 
@@ -1186,7 +1187,7 @@ fn wrapper<'b>(
         let Some(def @ TypeOwned::Struct(def_struct)) = type_def(bundle, type_idx.0) else {
             return Ok(None);
         };
-        if !def_struct.transparent {
+        if !def_struct.is_transparent() {
             return Ok(None);
         }
         let (field, name) = match bundle.types.get(type_idx.0 as usize) {
@@ -1217,7 +1218,7 @@ fn wrapper<'b>(
     let ResolvedTy::Ty(TypeOwned::Struct(s)) = resolve(bundle, ty)? else {
         return Ok(None);
     };
-    if !s.transparent {
+    if !s.is_transparent() {
         return Ok(None);
     }
     let field = Cow::Borrowed(&s.transparent_field().map_err(|e| e.to_string())?.ty);
@@ -1293,7 +1294,11 @@ fn is_quantity(bundle: &ApiBundleOwned, ty: &TypeOwned) -> bool {
 }
 
 fn is_ww_si(krate: &str, qualified_name: &str, name: &str) -> bool {
-    krate == "ww_si" && qualified_name.rsplit("::").next() == Some(name)
+    is_named(krate, qualified_name, "ww_si", name)
+}
+
+fn is_named(krate: &str, qualified_name: &str, in_crate: &str, name: &str) -> bool {
+    krate == in_crate && qualified_name.rsplit("::").next() == Some(name)
 }
 
 /// The definition of type `type_idx`: in-line, or for a skipped one (a `ww_si` type in an API) the definition with the

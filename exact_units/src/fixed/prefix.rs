@@ -1,7 +1,9 @@
 //! Scale markers: zero-size types that fix the scale of a [Fixed](crate::Fixed) in its type (`Fixed<Second, Micro,
 //! u32>`), never sent themselves. The decimal SI prefixes `Quecto` to `Quetta` with [One] for none, the binary `Kibi`
 //! to `Tebi` (2¹⁰ to 2⁴⁰), which exist only as markers (the run-time [Prefix] of a `ww_si::Quantity` is
-//! decimal), and exact factors without a name: [Pow10] and [Rational].
+//! decimal), and exact factors without a name: [Pow10], [Pow2], [Rational] and the full-scale fractions [FullScale]
+//! and [FullScaleMax]. Every marker's scale is a [Magnitude], so markers of the same factor are the same scale
+//! however spelled (`Milli`, `Pow10<-3>`, `Rational<1, 1000>`): conversions between them are free.
 //!
 //! The markers are literal structs, so the snapshot of this crate holds them with their docs, like the unit markers.
 
@@ -33,20 +35,70 @@ pub trait SubSecond: DecimalPrefix {
 }
 
 /// `10^E` for a decimal step without a prefix of its own: tenths of a millisecond are `Fixed<Second, Pow10<-4>, u32>`.
-/// A step that has a prefix is written with it (`Milli`, not `Pow10<-3>`), so one scale has one type.
+/// A step that has a prefix reads better with it (`Milli`); `Pow10<-3>` is the same scale. `|E|` up to 63.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Pow10<const E: i8>;
 
+/// `2^E`: binary fractions and multiples, the Q formats (`Pow2<-15>` in [Q15](crate::Q15)), a binary angle
+/// (`Pow2<-16>` of a turn, [Bam16](crate::Bam16)). `|E|` up to 63.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Pow2<const E: i8>;
+
 /// `NUM / DEN`, an exact scale that isn't a power of ten: a 16-bit duty where 65535 is 100 % is
-/// `Fixed<Ratio, Rational<1, 65535>, u16>` ([Duty16](crate::Duty16)). Not reduced in the type, the [Magnitude] is.
+/// `Fixed<Ratio, Rational<1, 65535>, u16>` ([Duty16](crate::Duty16)), a gyro at 70 mdps per LSB
+/// `Fixed<DegreePerSecond, Rational<70, 1000>, i16>`. Not reduced in the type, the [Magnitude] is (factored into
+/// primes at compile time; a prime factor above `u32::MAX` doesn't compile).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Rational<const NUM: u64, const DEN: u64>;
+
+/// `V / 2^BITS`: one step of a `BITS`-bit converter whose full scale `2^BITS` is `V` (a scale marker), the common ADC
+/// convention (LSB = Vref / 2ᴺ). A 12-bit ADC at 3.3 V is `Fixed<Volt, FullScale<Rational<33, 10>, 12>, u16>`, a
+/// step of 3.3/4096 V.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct FullScale<V, const BITS: u8>(core::marker::PhantomData<V>);
+
+/// `V / (2^BITS - 1)`: one step of a `BITS`-bit value whose largest code `2^BITS - 1` is `V`, the convention of a PWM
+/// duty or a DAC that reaches its reference: [Duty16](crate::Duty16) is `FullScaleMax<One, 16>`'s scale, 1/65535.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct FullScaleMax<V, const BITS: u8>(core::marker::PhantomData<V>);
 
 impl<const E: i8> FixedScale for Pow10<E> {
     const SCALE: Magnitude = Magnitude::pow10(E);
     const SYMBOL: &'static str = "";
     const NAME: &'static str = "Pow10";
     const RUNTIME: Option<Prefix> = None;
+}
+
+impl<const E: i8> FixedScale for Pow2<E> {
+    const SCALE: Magnitude = Magnitude::pow2(E);
+    const SYMBOL: &'static str = "";
+    const NAME: &'static str = "Pow2";
+    const RUNTIME: Option<Prefix> = None;
+}
+
+impl<V: FixedScale, const BITS: u8> FixedScale for FullScale<V, BITS> {
+    const SCALE: Magnitude = V::SCALE.div(Magnitude::pow2(bits(BITS)));
+    const SYMBOL: &'static str = "";
+    const NAME: &'static str = "FullScale";
+    const RUNTIME: Option<Prefix> = None;
+}
+
+impl<V: FixedScale, const BITS: u8> FixedScale for FullScaleMax<V, BITS> {
+    const SCALE: Magnitude = V::SCALE.div(Magnitude::ratio(max_code(BITS), 1));
+    const SYMBOL: &'static str = "";
+    const NAME: &'static str = "FullScaleMax";
+    const RUNTIME: Option<Prefix> = None;
+}
+
+/// `BITS` of a full-scale marker, a compile error above 63.
+const fn bits(b: u8) -> i8 {
+    assert!(b >= 1 && b <= 63, "a full scale of 1 to 63 bits");
+    b as i8
+}
+
+/// `2^BITS - 1`.
+const fn max_code(b: u8) -> u64 {
+    (1u64 << bits(b)) - 1
 }
 
 impl<const NUM: u64, const DEN: u64> FixedScale for Rational<NUM, DEN> {

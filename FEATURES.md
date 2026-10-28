@@ -1776,6 +1776,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   field with its unit in dynamic clients waits on CLT-54. [Imperial and US customary](docs/std_library/customary.md),
   conformance `stdlib.si.fixed.customary`, `stdlib.si.si_expr.pound_force` (derive, dynamic, Python; C waits on
   API-26).
+- ✅ **STD-58 `Index`, `IndexFrom1` and `Seq`** · `v0.5` — `exact_units` (feature `counting`, re-exported by
+  `ww_si`): `Index<Of, T, B>`, a 0-based position in a table of `Of` (index ± amount = index, index − index = a
+  `Fixed<Of, One, T>` distance, index + index and index · x don't compile, checked forms for bounded ones);
+  `IndexFrom1<Of, T, B>`, 1-based as people count, refuses 0 on construction and decode, `to_index` / `from_index`;
+  `Seq<Of, T>`, a wrapping sequence number (`next`, `wrapping_add`, `distance` as a `Wrapping` amount, RFC 1982
+  `is_before` / `serial_cmp` within half the range, no `Ord`, no `Seq + Seq`). All `transparent`, the bytes of `T`; in
+  the model instances of `Index` / `IndexFrom1` `[Of, T, B]` and `Seq` `[Of, T]`, shown and checked by clients with
+  CLT-54. [Indices and sequence numbers](docs/std_library/indices.md), conformance `stdlib.si.index.*`,
+  `stdlib.si.index_from_1.*`, `stdlib.si.seq.*` (derive, dynamic, Python; C waits on API-26).
 - ✅ **STD-64 Points and origins** · `v0.5` — `exact_units::Point<O, Fixed<..>>`: a position against an origin, a
   zero-size marker declared with `origin!` carrying its unit, an exact `Offset` (sign and `Magnitude`), its reference
   and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
@@ -2042,8 +2051,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **STD-56 Plain fields with a unit in their name become `Fixed`** — `shared_us: u64`, `rate_ppb: i32`,
   `ring_capacity_bytes: u64`, `queue_len: u32` and about 80 more across `ww_stdlib`, `ww_link`, `ww_stream`,
   `ww_client_server` and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.
-- 📋 **STD-58 `Index`, `IndexFrom1` and `Seq`** · `v0.5` — positions in a table of something (0- and 1-based) and
-  wrapping sequence numbers as types of their own, same bytes as the number, no `+` where it makes no sense.
 - 📋 **STD-59 Runtime `ww_si` improvements** · `v0.5` — binary prefixes in `Prefix`, bounds on `Quantity`
   (`Quantity<U, B>`, range in coherent units; a break: `B` explicit in the model), docs on `Quantity` vs `Fixed` vs `AnyQuantity`.
 - 📋 **STD-65 Instants and clocks with named epochs** · `v0.5` — `Instant<Clock, ..>`: device-monotonic, Unix, TAI, GPS

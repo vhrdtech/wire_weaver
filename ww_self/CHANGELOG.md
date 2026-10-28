@@ -136,6 +136,7 @@
 
 ### 🚀 Features
 
+* `FutureVersion::Variant::bits: Option<u8>` (`#[default = None]`, DER-25): the width of a written `#[future_version]` variant's field when narrower than `u32` (`Unknown(u16)`), `None` for `u32` and in models written before, whose bytes don't change. The dynamic reader fails on a discriminant beyond it, as the derive does.
 * `UnitDef::provenance: exact_units::Provenance` (STD-72), appended with `#[default]` (`Defined`): whether a unit's `magnitude` is its definition or a value a source prints for a unit fixed by a physical property (`Conventional { source: "NIST SP 811", year: 2008 }` for inHg at 32 °F). A bundle saved before reads every unit as `Defined`.
 
 - New `units` module (std, INT-13): `unit_of(ty, bundle)` resolves a unit type through the bundle's marker definitions (named units, `Per`, `Times`, `Sqrt`) to a `CanonicalUnit`: the sorted product of the named units in it (`MarkerName` crate + qualified name, powers doubled for roots), its `dim` and exact `magnitude`; equal when the same units to the same powers (F#-style), `factor_to` converts between units of one dimension, `Display` writes `m·s⁻¹`, `(rad/s)⁻¹·N·m`. `scale_of(ty, bundle)` gives the exact factor of a scale marker (named, `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`).

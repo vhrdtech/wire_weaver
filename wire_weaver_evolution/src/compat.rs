@@ -994,7 +994,7 @@ impl<'a> TypeCheck<'a> {
 
     /// A variant the reader doesn't know is read as its `#[future_version]` catch-all (SW-47, EVO-10), if it has one
     /// and can skip the variant's fields: an `Unsized` enum skips them with its size slot, any other only reads past
-    /// a unit variant.
+    /// a unit variant. A catch-all narrower than `u32` (DER-25) doesn't hold a discriminant beyond its field.
     fn check_unknown_variant(
         &self,
         variant: &VariantOwned,
@@ -1005,15 +1005,25 @@ impl<'a> TypeCheck<'a> {
             variant.ident, self.reader_name
         );
         match &r.future_version {
-            Some(FutureVersionOwned::Variant { ident }) => {
+            Some(FutureVersionOwned::Variant { ident, bits })
+                if bits.is_some_and(|bits| variant.discriminant.0 >= 1u32 << bits) =>
+            {
+                Err(format!(
+                    "{unknown}, its discriminant {} doesn't fit the catch-all {ident}(u{})",
+                    variant.discriminant.0,
+                    bits.unwrap_or(32)
+                ))
+            }
+            Some(FutureVersionOwned::Variant { ident, bits }) => {
                 if matches!(r.size, ElementSize::Unsized)
                     || matches!(variant.fields, FieldsOwned::Unit)
                 {
                     Ok(())
                 } else {
                     Err(format!(
-                        "{unknown}, its catch-all {ident}(u32) can't skip the variant's fields: only Unsized \
-                         enums can gain variants with fields"
+                        "{unknown}, its catch-all {ident}(u{}) can't skip the variant's fields: only Unsized \
+                         enums can gain variants with fields",
+                        bits.unwrap_or(32)
                     ))
                 }
             }

@@ -592,7 +592,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-const BUILT_IN: [(&str, MarkerDefOwned); 13] = [
+const BUILT_IN: [(&str, MarkerDefOwned); 15] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -606,6 +606,8 @@ const BUILT_IN: [(&str, MarkerDefOwned); 13] = [
     ("RangeU64", MarkerDefOwned::RangeU64),
     ("RangeDec", MarkerDefOwned::RangeDec),
     ("Angle", MarkerDefOwned::Angle),
+    ("Wrapping", MarkerDefOwned::Wrapping),
+    ("Saturating", MarkerDefOwned::Saturating),
 ];
 
 /// The crate whose markers [BUILT_IN] names.

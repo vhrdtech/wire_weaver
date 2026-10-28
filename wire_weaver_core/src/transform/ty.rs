@@ -809,11 +809,7 @@ fn convert_item_enum(
     let mut written_future_version = None;
     for variant in &item_enum.variants {
         // holds a discriminant from a newer version, it is not a variant on the wire (SW-16)
-        if variant
-            .attrs
-            .iter()
-            .any(|a| a.path().is_ident("future_version"))
-        {
+        if variant.attrs.iter().any(is_future_version_attr) {
             written_future_version =
                 Some((variant.ident.to_string(), future_version_bits(variant)));
             continue;
@@ -1303,6 +1299,24 @@ fn future_version(
             .unwrap_or_else(|| "Unknown".into()),
         bits: None,
     }
+}
+
+/// `#[future_version]`, or `#[cfg_attr(pred, future_version)]` on a type whose derive is behind a `cfg_attr`
+/// (`exact_units::Prefix`).
+fn is_future_version_attr(attr: &Attribute) -> bool {
+    if attr.path().is_ident("future_version") {
+        return true;
+    }
+    if !attr.path().is_ident("cfg_attr") {
+        return false;
+    }
+    let Meta::List(list) = &attr.meta else {
+        return false;
+    };
+    list.parse_args_with(syn::punctuated::Punctuated::<Meta, syn::Token![,]>::parse_terminated)
+        .is_ok_and(|metas| {
+            metas.len() == 2 && matches!(&metas[1], Meta::Path(p) if p.is_ident("future_version"))
+        })
 }
 
 /// Width of a written `#[future_version]` variant's field when narrower than `u32` (DER-25), the derive checks it

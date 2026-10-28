@@ -32,7 +32,7 @@
             "A provisional record a bench or developer wrote in editable storage (flash), standing in for the production",
             "record until it is written; not a production record.",
         ], ident: "Provisional", fields: Unit, discriminant: 3, since: Some((major: 0, minor: 2, patch: 0))),
-    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown")))), crate_idx: 0),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     SkippedFullVersion(crate_idx: 1, type_name: "DateTime", signature: [
         29,
         39,

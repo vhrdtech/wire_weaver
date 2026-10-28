@@ -43,10 +43,10 @@ pub(crate) fn pow10_between(from: Prefix, to: Prefix) -> Option<i8> {
 }
 
 /// `from`'s scale over `to`'s: what a value in units of `from` is multiplied by to be in units of `to`. `None` out of
-/// `Magnitude`'s range.
+/// `Magnitude`'s range, and for a scale from a newer version (`Prefix::Unknown`).
 #[inline(never)]
 pub(crate) fn ratio_between(from: Prefix, to: Prefix) -> Option<Magnitude> {
-    from.magnitude().checked_div(to.magnitude()).ok()
+    from.magnitude()?.checked_div(to.magnitude()?).ok()
 }
 
 /// `x · num / den` for the rational `ratio`, truncated toward zero; `None` for an irrational ratio or on overflow.
@@ -124,7 +124,8 @@ fn exact_slow(x: Integer, from: Prefix, to: Prefix) -> Option<Integer> {
 pub(crate) fn finer(a: Prefix, b: Prefix) -> Prefix {
     let a_finer = match (a.si_pow10(), b.si_pow10()) {
         (Some(a), Some(b)) => a <= b,
-        _ => a.magnitude().to_f64() <= b.magnitude().to_f64(),
+        // NaN for `Unknown`: `b`, and the conversion to it is refused
+        _ => a.scale_f64(1.0) <= b.scale_f64(1.0),
     };
     if a_finer { a } else { b }
 }
@@ -151,6 +152,10 @@ fn compare_slow(
     b_prefix: Prefix,
     b: &NumericValue,
 ) -> Option<Ordering> {
+    // one scale, also one from a newer version (`Prefix::Unknown`): the numbers alone
+    if a_prefix == b_prefix {
+        return compare_pow10(0, a, 0, b);
+    }
     if let (Some(x), Some(y)) = (a.to_i128(), b.to_i128()) {
         // a · ma <=> b · mb is a · num <=> b · den for ma / mb = num / den
         let exact = ratio_between(a_prefix, b_prefix)
@@ -193,7 +198,7 @@ pub(crate) fn cmp_limit(prefix: Prefix, value: &NumericValue, limit: &Limit) -> 
 fn cmp_limit_slow(prefix: Prefix, x: Integer, limit: &Limit) -> Option<Ordering> {
     // x · m <=> l · 10^exp is x · num <=> l · den for m / 10^exp = num / den
     let exact = Magnitude::checked_pow10(limit.exp)
-        .and_then(|l| prefix.magnitude().checked_div(l).ok())
+        .and_then(|l| prefix.magnitude()?.checked_div(l).ok())
         .and_then(|r| r.to_ratio())
         .and_then(|(num, den)| {
             let (num, den) = (i128::try_from(num).ok()?, i128::try_from(den).ok()?);

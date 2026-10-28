@@ -356,7 +356,7 @@ pub fn write_unit<'t, E: Tree<'t>>(
 ) -> fmt::Result {
     if !prefix.is_named() {
         // a factor without a symbol: after the number, then the unit
-        write!(f, "{}", prefix.magnitude())?;
+        write!(f, "{prefix}")?;
         return write_unit(Prefix::Unit, unit, f);
     }
     if is_ratio(unit) {

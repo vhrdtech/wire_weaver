@@ -100,3 +100,16 @@ fn quantities_written_column_by_column() {
     items[7] = Ampere::new(Prefix::Micro, 5);
     check(&items, DeltaPacked, false);
 }
+
+/// DER-25: a store keeps any scale from a newer version as `Unknown(u16::MAX)` (its tag doesn't fit the prefix
+/// code); a `Series` refuses such an item either way.
+#[test]
+fn unknown_prefix_in_a_store() {
+    let mut store = Timed::<Ampere>::empty_store::<32>();
+    let item = Timed::new(Second::micro(5), Ampere::new(Prefix::Unknown(1000), 3));
+    Timed::set(&mut store, 0, &item);
+    assert_eq!(
+        Timed::<Ampere>::get(&store, 0).value.prefix,
+        Prefix::Unknown(u16::MAX)
+    );
+}

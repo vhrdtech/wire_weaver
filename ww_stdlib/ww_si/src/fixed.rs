@@ -23,7 +23,7 @@ impl core::error::Error for UnknownScale {}
 impl<U: Unit> Quantity<U> {
     /// The value in the prefix `P` and storage `T` of a [Fixed], if it is exact (as [Fixed::to]) and within `B`.
     pub fn to_fixed<P: FixedScale, T: Storage, B: Bounds<T>>(&self) -> Option<Fixed<U, P, T, B>> {
-        Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude())
+        Fixed::from_scaled(repr(&self.value)?, self.prefix.magnitude()?)
     }
 
     /// The same value as a [Fixed] has it, prefix and number as they are. Only for number types `NumericValue` has
@@ -111,7 +111,7 @@ mod any {
                 .ok()?;
             Fixed::from_scaled(
                 repr(&self.value)?,
-                self.prefix.magnitude().checked_mul(to_u).ok()?,
+                self.prefix.magnitude()?.checked_mul(to_u).ok()?,
             )
         }
     }

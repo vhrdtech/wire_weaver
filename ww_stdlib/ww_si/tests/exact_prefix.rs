@@ -21,10 +21,28 @@ fn duty16() -> Prefix {
 }
 
 #[test]
-fn prefix_is_two_bytes() {
-    // a tag and the scale's parameter, inline
-    assert_eq!(size_of::<Prefix>(), 2);
-    assert_eq!(size_of::<Option<Prefix>>(), 2);
+fn prefix_is_four_bytes() {
+    // a tag and the scale's parameter inline, or a newer scale's u16 tag (DER-25)
+    assert_eq!(size_of::<Prefix>(), 4);
+    assert_eq!(size_of::<Option<Prefix>>(), 4);
+}
+
+/// DER-25: a scale from a newer version is read as `Unknown(tag)`, the rest of the message intact; nothing converts it.
+#[test]
+fn unknown_prefix_is_read_past_and_refused() {
+    let q = Volt::new(Prefix::Unknown(1000), 5u8);
+    let mut buf = [0u8; 16];
+    let bytes = (q, 7u8).to_ww_bytes(&mut buf).unwrap();
+    assert_eq!(<(Volt, u8)>::from_ww_bytes(bytes).unwrap(), (q, 7));
+    assert!(q.to_f64().is_nan());
+    assert_eq!(q.with_prefix(Prefix::Unit), None);
+    assert_eq!(q.checked_add(&Volt::new(Prefix::Unit, 1u8)), None);
+    assert_eq!(std::format!("{q}"), "5·<scale 1000> V");
+    assert_eq!(Prefix::Unknown(1000).magnitude(), None);
+    // one unknown scale compares by the numbers, another doesn't compare
+    assert!(q < Volt::new(Prefix::Unknown(1000), 6u8));
+    assert_eq!(q.partial_cmp(&Volt::new(Prefix::Unknown(1001), 5u8)), None);
+    assert_eq!(q.partial_cmp(&Volt::new(Prefix::Unit, 5u8)), None);
 }
 
 #[test]

@@ -51,8 +51,7 @@ impl DeviceTime {
         let (num, den) = now
             .prefix
             .magnitude()
-            .checked_mul(Magnitude::pow10(9))
-            .ok()
+            .and_then(|m| m.checked_mul(Magnitude::pow10(9)).ok())
             .and_then(|m| m.to_ratio())
             .ok_or(DeviceTimeError::NotATime)?;
         let ns_per_unit = (

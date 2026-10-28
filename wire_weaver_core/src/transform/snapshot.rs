@@ -2,11 +2,12 @@ use super::{
     api::convert_trait,
     crate_walker::{CrateContext, Scratch},
     ty::{convert_named_def, is_phantom_data},
-    util::{collect_docs, use_tree_names, use_tree_path_to},
+    util::{collect_docs, use_tree_globs, use_tree_names, use_tree_path_to},
 };
 use anyhow::{Context, Result};
 use shrink_wrap::UNib32;
 use std::path::Path;
+use std::rc::Rc;
 use syn::{Attribute, Ident, Item, Visibility};
 use ww_self::signature::{no_resolve, trait_signature, type_signature};
 use ww_self::visit::{self, Visit};
@@ -39,6 +40,7 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
     let (entry, items) = scratch.walk(|scratch| {
         let entry = CrateContext::load_all_features(crate_path, scratch)?;
         let mut items = vec![];
+        let mut globs = vec![];
         for item in &entry.lib_rs_ast.items {
             match item {
                 Item::Trait(item_trait)
@@ -59,7 +61,19 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
                         meta: None,
                     });
                 }
-                _ => convert_snapshot_item(item, &entry, scratch)?,
+                _ => convert_snapshot_item(item, &entry, scratch, &mut globs)?,
+            }
+        }
+        // after everything else, so a glob re-export only appends what isn't in yet; each module once
+        let mut globbed = std::collections::HashSet::new();
+        while !globs.is_empty() {
+            for module in std::mem::take(&mut globs) {
+                if !globbed.insert(module.module_names()) {
+                    continue;
+                }
+                for item in &module.lib_rs_ast.items {
+                    convert_snapshot_item(item, &module, scratch, &mut globs)?;
+                }
             }
         }
         Ok((entry, items))
@@ -88,8 +102,13 @@ pub fn load_crate(crate_path: &Path) -> Result<ApiBundleOwned> {
 }
 
 /// The types `item` of `cx` (the crate root or a module) puts into a snapshot: itself, what it re-exports, or the
-/// types of a `pub mod`.
-fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) -> Result<()> {
+/// types of a `pub mod`. A module re-exported by a glob (`pub use thermal::*`) goes into `globs`, converted last.
+fn convert_snapshot_item(
+    item: &Item,
+    cx: &CrateContext,
+    scratch: &mut Scratch,
+    globs: &mut Vec<Rc<CrateContext>>,
+) -> Result<()> {
     match item {
         Item::Struct(item_struct) if is_snapshot_struct(item_struct) => {
             convert_named_ty(&item_struct.ident, cx, scratch)?;
@@ -104,14 +123,23 @@ fn convert_snapshot_item(item: &Item, cx: &CrateContext, scratch: &mut Scratch) 
                     *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
                 });
                 if is_local {
-                    convert_reexport(&*cx.resolve_path(path, scratch)?, name, cx, scratch)?;
+                    convert_reexport(&*cx.resolve_path(path, scratch)?, name, cx, scratch, globs)?;
+                }
+            }
+            // `mod thermal { .. } pub use thermal::*;`: everything the module has
+            for path in use_tree_globs(&item_use.tree) {
+                let is_local = path.first().is_some_and(|first| {
+                    *first == "self" || *first == "crate" || cx.has_module(&first.to_string())
+                });
+                if is_local && !path.is_empty() {
+                    globs.push(cx.resolve_path(path, scratch)?);
                 }
             }
         }
         Item::Mod(item_mod) if matches!(item_mod.vis, Visibility::Public(_)) => {
             let module = cx.resolve_path([&item_mod.ident], scratch)?;
             for item in &module.lib_rs_ast.items {
-                convert_snapshot_item(item, &module, scratch)?;
+                convert_snapshot_item(item, &module, scratch, globs)?;
             }
         }
         _ => {}
@@ -126,6 +154,7 @@ fn convert_reexport(
     name: &Ident,
     cx: &CrateContext,
     scratch: &mut Scratch,
+    globs: &mut Vec<Rc<CrateContext>>,
 ) -> Result<()> {
     if is_snapshot_ty(module, name) {
         return convert_named_ty(name, cx, scratch);
@@ -133,7 +162,7 @@ fn convert_reexport(
     if module.has_module(&name.to_string()) {
         let reexported = module.resolve_path([name], scratch)?;
         for item in &reexported.lib_rs_ast.items {
-            convert_snapshot_item(item, &reexported, scratch)?;
+            convert_snapshot_item(item, &reexported, scratch, globs)?;
         }
         return Ok(());
     }
@@ -147,7 +176,13 @@ fn convert_reexport(
                 .first()
                 .is_some_and(|first| *first == "self" || module.has_module(&first.to_string()))
         {
-            convert_reexport(&*module.resolve_path(path, scratch)?, name, cx, scratch)?;
+            convert_reexport(
+                &*module.resolve_path(path, scratch)?,
+                name,
+                cx,
+                scratch,
+                globs,
+            )?;
         }
     }
     Ok(())

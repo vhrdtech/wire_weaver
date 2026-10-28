@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: a89b355f02c9a9dff9a929d26ca082aa5d298aaf72c88db17ef198f7aaa1a59f
+// shrink_wrap sha256: 80aeb6335fcb235ecf5535edba13720662f5299e77d3258c2eca35b47335a9f2
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -915,6 +915,87 @@
         (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
         (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Thermodynamic temperature, from absolute zero: `Point<AbsoluteZero, Fixed<Kelvin, Milli, u32>>` is a",
+        "temperature in mK.",
+    ], ident: "AbsoluteZero", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "K", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Degrees Celsius: 0 °C is 273.15 K, a degree is 1 K (SI Brochure 2.3.4).",
+    ], ident: "Celsius", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°C", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+        (3, 4),
+        (607, 2),
+    ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+        (3, 4),
+        (607, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Degrees Rankine: from absolute zero, a degree is 5/9 K (NIST SP 811 B.8). Numbers in steps of °R are",
+        "`Fixed<Kelvin, Rational<5, 9>, T>`.",
+    ], ident: "Rankine", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°R", reference: None, offset: (), modulus: None, step: (pow10: 2, pow2: -2, primes: [
+        (3, -4),
+    ]), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Degrees Fahrenheit: 0 °F is 459.67 °R, so 45967/180 K (255.372.. K, NIST SP 811 B.8); a degree is 5/9 K.",
+        "Numbers in steps of °F are `Fixed<Kelvin, Rational<5, 9>, T>`, tenths `Rational<1, 18>`.",
+    ], ident: "Fahrenheit", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "K", dim: (s: 0, m: 0, kg: 0, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "°F", reference: None, offset: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+        (3, -4),
+        (43, 2),
+        (1069, 2),
+    ]))), modulus: None, step: (pow10: 2, pow2: -2, primes: [
+        (3, -4),
+    ]), shown: (magnitude: Some((pow10: -2, pow2: -2, primes: [
+        (3, -4),
+        (43, 2),
+        (1069, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absolute pressure, from vacuum.",
+    ], ident: "Vacuum", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa", reference: None, offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Gauge pressure, from the ambient pressure (a tyre, a compressor): converts to [Vacuum] only with the",
+        "ambient pressure at run time ([Point::against](crate::Point::against)), never at compile time.",
+    ], ident: "Gauge", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa (gauge)", reference: Some((crate_id: "exact_units", name: "AmbientPressure")), offset: (), modulus: None, step: (pow10: 0), shown: ()))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Pressure above one standard atmosphere, 101325 Pa (ISO 2533): gauge pressure with its reference stated,",
+        "so it converts to [Vacuum] at compile time.",
+    ], ident: "AboveStandardAtmosphere", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Origin((unit: (symbol: "Pa", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), symbol: "Pa (above 1 atm)", reference: None, offset: (magnitude: Some((pow10: 4, pow2: -4, primes: [
+        (3, 2),
+        (7, 2),
+        (193, 2),
+    ]))), modulus: None, step: (pow10: 0), shown: (magnitude: Some((pow10: 4, pow2: -4, primes: [
+        (3, 2),
+        (7, 2),
+        (193, 2),
+    ])))))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "An angle from the unit\'s zero that wraps every turn: `Point<Angle<Turn>, Bam16>` is a binary angle whose",
+        "differences are signed and the shortest way round. The modulus is one turn in `U`: 1 rev, 360 °, 2π rad (only",
+        "a float storage holds a period of 2π rad exactly in steps). A heading from north or an encoder\'s index is an",
+        "origin of its own ([origin!](crate::origin) with `modulus: Modulo<..>`).",
+    ], ident: "Angle", generics: [
+        (ident: "U", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Angle))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "2π: a turn in radians.",
+    ], ident: "TwoPi", generics: [], fields: Unit, sparse: false, path: Some([
+        "origins",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Scale((symbol: "", magnitude: (pow10: 0, pow2: 2, pi: 2)))))))), crate_idx: 0),
 ], traits: [], ext_crates: [
     (crate_id: "exact_units", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

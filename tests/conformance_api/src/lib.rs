@@ -127,7 +127,7 @@ trait Conformance {
     property!(rw fixed_pow10: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Pow10<-4>, u32>);
     property!(rw duty16: ww_si::Duty16);
     property!(rw fixed_bounded: ww_si::Fixed<ww_si::units::Second, ww_si::prefix::Milli, u16, ww_si::Range<1, 5000>>);
-    property!(rw exact_scale: ww_si::ExactScale);
+    property!(rw magnitude: ww_si::Magnitude);
     property!(rw si_expr: ww_si::SIExpr<'i>);
 }
 

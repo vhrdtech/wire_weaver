@@ -2,6 +2,12 @@
 
 ### 🚀 Features
 
+* `unit!` and `scale!` (INT-13): unit and scale markers declared as data, one line each (`pub struct Rpm = "rpm",
+  [rad 1, s -1], Exact(1 / 30, pi 1);`, `pub struct Lsb70 = "", Exact(70 / 1000);`), expanding to the marker struct
+  and its `Unit` / `FixedScale` (and `DecimalPrefix`) impl. WireWeaver's walker reads the same lines, so an API's own
+  markers are known to its clients. Every marker of `units` and the named prefixes of `prefix` are declared this way;
+  their impls are the same consts as before. A hand-written `impl Unit` still compiles.
+
 First release (STD-61): the compile-time core of `ww_si`, as a crate of its own, so code that only needs units in its
 types doesn't depend on `ww_si`'s run-time quantities and `ww_numeric`. `ww_si` re-exports everything here at the
 same paths as before.

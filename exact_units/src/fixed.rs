@@ -213,16 +213,11 @@ impl<U: Unit, P: FixedScale, T: Storage, B: Bounds<T>> Fixed<U, P, T, B> {
     /// ```
     ///
     /// ```compile_fail
-    /// use exact_units::{Fixed, FixedScale, Magnitude, Prefix, prefix::One, units::Radian};
+    /// use exact_units::{Fixed, prefix::One, units::Radian};
     ///
-    /// /// Steps of π rad.
-    /// #[derive(Copy, Clone, Default)]
-    /// struct PiSteps;
-    /// impl FixedScale for PiSteps {
-    ///     const SCALE: Magnitude = Magnitude::PI;
-    ///     const SYMBOL: &'static str = "";
-    ///     const NAME: &'static str = "PiSteps";
-    ///     const RUNTIME: Option<Prefix> = None;
+    /// exact_units::scale! {
+    ///     /// Steps of π rad.
+    ///     struct PiSteps = "", Exact(1 / 1, pi 1);
     /// }
     /// // π is not a fraction of integers: in an integer storage that is a compile error, in a float it scales
     /// let _ = Fixed::<Radian, PiSteps, i32>::new(1).to::<One, i32>();

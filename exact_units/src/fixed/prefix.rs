@@ -5,12 +5,15 @@
 //! and [FullScaleMax]. Every marker's scale is a [Magnitude], so markers of the same factor are the same scale
 //! however spelled (`Milli`, `Pow10<-3>`, `Rational<1, 1000>`): conversions between them are free.
 //!
-//! The markers are literal structs, so the snapshot of this crate holds them with their docs, like the unit markers.
+//! The named markers are declared with [scale!](crate::scale), like the unit markers with [unit!](crate::unit): the
+//! snapshot of this crate holds them with their docs and factors (INT-13).
 
 use crate::{Magnitude, Prefix};
 
 /// A scale fixed at compile time, the `P` of [Fixed](crate::Fixed): a zero-size marker, never sent. A prefix
-/// ([Micro], [Kibi]) or a factor without a name ([Pow10], [Rational]). The markers of this crate are in this module.
+/// ([Micro], [Kibi]) or a factor without a name ([Pow10], [Rational]). The markers of this crate are in this module; an
+/// API crate declares its own with [scale!](crate::scale) (a hand-written impl compiles, but WireWeaver refuses an API
+/// that uses it, as for [Unit](crate::Unit)).
 pub trait FixedScale: Copy + Default + 'static {
     /// `10⁻⁶` for [Micro], `2¹⁰` for [Kibi], `1/65535` for `Rational<1, 65535>`.
     const SCALE: Magnitude;
@@ -108,184 +111,93 @@ impl<const NUM: u64, const DEN: u64> FixedScale for Rational<NUM, DEN> {
     const RUNTIME: Option<Prefix> = None;
 }
 
-/// Quecto, `q`, 10⁻³⁰.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Quecto;
+crate::scale! {
+    /// Quecto, `q`, 10⁻³⁰.
+    pub struct Quecto = "q", Pow10(-30), prefix Quecto;
 
-/// Ronto, `r`, 10⁻²⁷.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Ronto;
+    /// Ronto, `r`, 10⁻²⁷.
+    pub struct Ronto = "r", Pow10(-27), prefix Ronto;
 
-/// Yocto, `y`, 10⁻²⁴.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Yocto;
+    /// Yocto, `y`, 10⁻²⁴.
+    pub struct Yocto = "y", Pow10(-24), prefix Yocto;
 
-/// Zepto, `z`, 10⁻²¹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Zepto;
+    /// Zepto, `z`, 10⁻²¹.
+    pub struct Zepto = "z", Pow10(-21), prefix Zepto;
 
-/// Atto, `a`, 10⁻¹⁸.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Atto;
+    /// Atto, `a`, 10⁻¹⁸.
+    pub struct Atto = "a", Pow10(-18), prefix Atto;
 
-/// Femto, `f`, 10⁻¹⁵.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Femto;
+    /// Femto, `f`, 10⁻¹⁵.
+    pub struct Femto = "f", Pow10(-15), prefix Femto;
 
-/// Pico, `p`, 10⁻¹².
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Pico;
+    /// Pico, `p`, 10⁻¹².
+    pub struct Pico = "p", Pow10(-12), prefix Pico;
 
-/// Nano, `n`, 10⁻⁹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Nano;
+    /// Nano, `n`, 10⁻⁹.
+    pub struct Nano = "n", Pow10(-9), prefix Nano;
 
-/// Micro, `µ`, 10⁻⁶.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Micro;
+    /// Micro, `µ`, 10⁻⁶.
+    pub struct Micro = "µ", Pow10(-6), prefix Micro;
 
-/// Milli, `m`, 10⁻³.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Milli;
+    /// Milli, `m`, 10⁻³.
+    pub struct Milli = "m", Pow10(-3), prefix Milli;
 
-/// Centi, `c`, 10⁻².
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Centi;
+    /// Centi, `c`, 10⁻².
+    pub struct Centi = "c", Pow10(-2), prefix Centi;
 
-/// Deci, `d`, 10⁻¹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Deci;
+    /// Deci, `d`, 10⁻¹.
+    pub struct Deci = "d", Pow10(-1), prefix Deci;
 
-/// No prefix, 10⁰.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct One;
+    /// No prefix, 10⁰.
+    pub struct One = "", Pow10(0), prefix Unit;
 
-/// Deca, `da`, 10¹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Deca;
+    /// Deca, `da`, 10¹.
+    pub struct Deca = "da", Pow10(1), prefix Deca;
 
-/// Hecto, `h`, 10².
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Hecto;
+    /// Hecto, `h`, 10².
+    pub struct Hecto = "h", Pow10(2), prefix Hecto;
 
-/// Kilo, `k`, 10³.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Kilo;
+    /// Kilo, `k`, 10³.
+    pub struct Kilo = "k", Pow10(3), prefix Kilo;
 
-/// Mega, `M`, 10⁶.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Mega;
+    /// Mega, `M`, 10⁶.
+    pub struct Mega = "M", Pow10(6), prefix Mega;
 
-/// Giga, `G`, 10⁹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Giga;
+    /// Giga, `G`, 10⁹.
+    pub struct Giga = "G", Pow10(9), prefix Giga;
 
-/// Tera, `T`, 10¹².
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Tera;
+    /// Tera, `T`, 10¹².
+    pub struct Tera = "T", Pow10(12), prefix Tera;
 
-/// Peta, `P`, 10¹⁵.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Peta;
+    /// Peta, `P`, 10¹⁵.
+    pub struct Peta = "P", Pow10(15), prefix Peta;
 
-/// Exa, `E`, 10¹⁸.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Exa;
+    /// Exa, `E`, 10¹⁸.
+    pub struct Exa = "E", Pow10(18), prefix Exa;
 
-/// Zetta, `Z`, 10²¹.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Zetta;
+    /// Zetta, `Z`, 10²¹.
+    pub struct Zetta = "Z", Pow10(21), prefix Zetta;
 
-/// Yotta, `Y`, 10²⁴.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Yotta;
+    /// Yotta, `Y`, 10²⁴.
+    pub struct Yotta = "Y", Pow10(24), prefix Yotta;
 
-/// Ronna, `R`, 10²⁷.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Ronna;
+    /// Ronna, `R`, 10²⁷.
+    pub struct Ronna = "R", Pow10(27), prefix Ronna;
 
-/// Quetta, `Q`, 10³⁰.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Quetta;
+    /// Quetta, `Q`, 10³⁰.
+    pub struct Quetta = "Q", Pow10(30), prefix Quetta;
 
-/// kibi, `Ki`, 2¹⁰ (binary, only as a marker).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Kibi;
+    /// kibi, `Ki`, 2¹⁰ (binary, only as a marker).
+    pub struct Kibi = "Ki", Pow2(10);
 
-/// mebi, `Mi`, 2²⁰ (binary, only as a marker).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Mebi;
+    /// mebi, `Mi`, 2²⁰ (binary, only as a marker).
+    pub struct Mebi = "Mi", Pow2(20);
 
-/// gibi, `Gi`, 2³⁰ (binary, only as a marker).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Gibi;
+    /// gibi, `Gi`, 2³⁰ (binary, only as a marker).
+    pub struct Gibi = "Gi", Pow2(30);
 
-/// tebi, `Ti`, 2⁴⁰ (binary, only as a marker).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct Tebi;
-
-macro_rules! decimal {
-    ($($ty:ident $prefix:ident $symbol:literal $e:literal;)*) => {
-        $(
-            impl FixedScale for $ty {
-                const SCALE: Magnitude = Magnitude::pow10($e);
-                const SYMBOL: &'static str = $symbol;
-                const NAME: &'static str = stringify!($ty);
-                const RUNTIME: Option<Prefix> = Some(Prefix::$prefix);
-            }
-            impl DecimalPrefix for $ty {
-                const PREFIX: Prefix = Prefix::$prefix;
-            }
-        )*
-    };
-}
-
-macro_rules! binary {
-    ($($ty:ident $symbol:literal $e:literal;)*) => {
-        $(
-            impl FixedScale for $ty {
-                const SCALE: Magnitude = Magnitude::pow2($e);
-                const SYMBOL: &'static str = $symbol;
-                const NAME: &'static str = stringify!($ty);
-                const RUNTIME: Option<Prefix> = None;
-            }
-        )*
-    };
-}
-
-decimal! {
-    Quecto Quecto "q" -30;
-    Ronto Ronto "r" -27;
-    Yocto Yocto "y" -24;
-    Zepto Zepto "z" -21;
-    Atto Atto "a" -18;
-    Femto Femto "f" -15;
-    Pico Pico "p" -12;
-    Nano Nano "n" -9;
-    Micro Micro "µ" -6;
-    Milli Milli "m" -3;
-    Centi Centi "c" -2;
-    Deci Deci "d" -1;
-    One Unit "" 0;
-    Deca Deca "da" 1;
-    Hecto Hecto "h" 2;
-    Kilo Kilo "k" 3;
-    Mega Mega "M" 6;
-    Giga Giga "G" 9;
-    Tera Tera "T" 12;
-    Peta Peta "P" 15;
-    Exa Exa "E" 18;
-    Zetta Zetta "Z" 21;
-    Yotta Yotta "Y" 24;
-    Ronna Ronna "R" 27;
-    Quetta Quetta "Q" 30;
-}
-
-binary! {
-    Kibi "Ki" 10;
-    Mebi "Mi" 20;
-    Gibi "Gi" 30;
-    Tebi "Ti" 40;
+    /// tebi, `Ti`, 2⁴⁰ (binary, only as a marker).
+    pub struct Tebi = "Ti", Pow2(40);
 }
 
 impl SubSecond for One {

@@ -2,6 +2,9 @@
 
 ### 🚀 Features
 
+* Re-exports `exact_units`' `unit!` and `scale!` (INT-13): `ww_si::unit! { pub struct Rpm = "rpm", [rad 1, s -1],
+  Exact(1 / 30, pi 1); }`.
+
 * No 64- or 128-bit code on small targets (STD-43): comparisons (`PartialEq` / `PartialOrd` of `Quantity`, `DeciBel`,
   `DeciBelmW`), `with_prefix`, the exact arithmetic (`checked_add`, `checked_sub`, `checked_mul_int`, `wrapping_add`,
   `wrapping_sub`, `steps`), `Display` and `defmt::Format` work on `ww_numeric::Integer` instead of widening every value

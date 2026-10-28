@@ -98,7 +98,7 @@ const _: () = assert!(MAX_COUNTED == 4, "the array length in Dim");
 const FIXED: usize = 9;
 
 /// An exponent in `const` code, a compile error (a panic at run time) when out of -8..=7.
-pub(crate) const fn exp(e: i8) -> i8 {
+pub const fn exp(e: i8) -> i8 {
     if !in_range(e) {
         panic!("exponent of a dimension out of -8..=7");
     }
@@ -772,31 +772,23 @@ impl fmt::Display for UnitExpr {
 }
 
 /// A unit marker: a zero-size type that is never sent, only named in types (`Fixed<units::Volt, Milli, u16>`). The markers of
-/// this crate are in [units](crate::units); an API crate can declare its own the same way.
+/// this crate are in [units](crate::units); an API crate declares its own the same way, with [unit!](crate::unit):
 ///
 /// ```
-/// use exact_units::{Dim, Magnitude, Fixed, Scale, Unit, UnitExpr, prefix::One};
+/// use exact_units::{Fixed, Unit, prefix::One};
 ///
-/// /// Revolutions per minute.
-/// #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-/// pub struct Rpm;
-///
-/// impl Unit for Rpm {
-///     // rad/s
-///     const DIM: Dim<'static> = Dim::new(-1, 0, 0, 0, 0, 0, 0).with_rad(1);
-///     const EXPR: &'static UnitExpr = &UnitExpr::Named {
-///         name: "Rpm",
-///         symbol: "rpm",
-///         dim: Self::DIM,
-///         // 2π rad / 60 s, exactly
-///         scale: Scale::Exact(Magnitude::new(1, 30, 0, 0, 1)),
-///     };
+/// exact_units::unit! {
+///     /// Revolutions per minute: 2π rad / 60 s, exactly.
+///     pub struct Rpm = "rpm", [rad 1, s -1], Exact(1 / 30, pi 1);
 /// }
 ///
 /// let speed = Fixed::<Rpm, One, u8>::new(60);
 /// assert_eq!(format!("{speed}"), "60 rpm");
 /// assert!((<Rpm as Unit>::EXPR.factor() * 60.0 - core::f64::consts::TAU).abs() < 1e-12); // rad/s
 /// ```
+///
+/// A hand-written impl compiles too, but WireWeaver refuses an API that uses such a marker: its walker reads a unit's
+/// definition from the `unit!` line, so that clients know it (INT-13).
 pub trait Unit: Copy + Default + 'static {
     /// The dimension: SI base-unit exponents, angle, information and counted bases.
     const DIM: Dim<'static>;

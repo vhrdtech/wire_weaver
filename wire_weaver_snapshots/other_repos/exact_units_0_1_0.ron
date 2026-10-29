@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 2c1ff93474c1c96e79eb5f72a15b59489a1c3f3f8d25546c4e5205fff042770c
+// shrink_wrap sha256: b9b43487f8040fa27122b19afb6a6faab9910b6a42e120369935c45dcfd61b9d
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -285,15 +285,32 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "bit", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in nibbles, nibble (4 [Bit]): a hex digit, a BCD digit, a 4-bit field. Not to be confused with",
+        "shrink_wrap\'s `Nibble`, the 4-bit storage a `Fixed` may hold its number in.",
+    ], ident: "Nibble", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "nibble", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 4)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in bytes, B (8 [Bit]): a data size, a buffer\'s capacity, an offset. A rate is `Per<Byte, Second>`.",
     ], ident: "Byte", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "B", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in 16-bit halfwords, halfword (2 [Byte]): Arm\'s halfword, a 16-bit register, bus or DMA transfer.",
+    ], ident: "Halfword", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "halfword", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 8)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Information in 32-bit words, word (4 [Byte]): flash and RAM sizes of a 32-bit MCU.",
     ], ident: "Word", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "word", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 10)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Information in 64-bit doublewords, doubleword (8 [Byte]): Arm\'s doubleword, the program width of an STM32G0\'s",
+        "or L4\'s flash, a 64-bit DMA or bus transfer.",
+    ], ident: "Doubleword", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "doubleword", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 1, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0, pow2: 12)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A count of things, item: a queue\'s length, a number of filters, channels, presses, repeats, steps.",
     ], ident: "Item", generics: [], fields: Unit, sparse: false, path: Some([
@@ -801,10 +818,10 @@
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 2.",
         ], slot: None, series_opaque: false),
-        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 109)), docs: [
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 112)), docs: [
             "π, ln 2 and ln 10, `None` when all their exponents are 0.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 110))), docs: [
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 113))), docs: [
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -832,7 +849,7 @@
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 111)), docs: [
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 114)), docs: [
             "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -868,7 +885,7 @@
         "wire (`final_structure`): the sign bit, then the [Magnitude] behind an option bit; zero is 2 bits.",
     ], ident: "Offset", generics: [], fields: Named([
         (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 112)), docs: [
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 115)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -973,7 +990,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 119))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 122))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1000,7 +1017,7 @@
             "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s, eV",
             "1.602176634·10⁻¹⁹ J. Every reader computes the same value.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 112), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 115), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
@@ -1018,31 +1035,31 @@
         ], ident: "Named", fields: Named([
             (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
             (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 120), docs: [], slot: None, series_opaque: false),
-            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 121), docs: [], slot: None, series_opaque: false),
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 123), docs: [], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 124), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 122)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 125)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [

@@ -7139,6 +7139,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   messages. Device side <code>local_socket::device::device_medium()</code> for <code>ww_device::Server</code>
   (<code>docs/transport/hub.md</code>). Tested on Linux, end to end with the device e2e suite; check open on macOS and Windows
   (compiles for both).</li>
+<li>✅ <strong>TR-17 USB VID:PID</strong> · <code>v0.5.x</code> — <code>wire_weaver_usb_embassy::usb_init</code>'s <code>config_mut</code> closure couldn't set
+  <code>Config::vendor_id</code>/<code>product_id</code> (<code>pub(crate)</code> in embassy-usb 0.6), so every device shared the <code>0xc0de:0xcafe</code>
+  test ID; its doc wrongly said to set them there. <code>UsbIds { vid, pid }</code> (<code>Default</code> = <code>0xc0de:0xcafe</code>) plus
+  additive <code>usb_init_with_ids()</code> / <code>usb_init_with_endpoints_with_ids()</code> let a caller pass its own assigned VID:PID;
+  <code>usb_init()</code> / <code>usb_init_with_endpoints()</code> keep working unchanged, forwarding <code>UsbIds::default()</code>. Needed by
+  embedded_bedrock's board presets (<code>[usb] vid/pid</code>, <code>gen-board-hw</code>).</li>
 <li>💡 <strong>TR-10 One-shot connect</strong> — no link setup at all: the host sends the API hash and its requests in one go; when
   the hash matches, the device runs them right away, else it answers with its hash and drops them and the normal setup
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra

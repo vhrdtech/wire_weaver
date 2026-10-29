@@ -5791,7 +5791,8 @@ On the wire and in memory it is exactly the <code>T</code>: <code>shared_us: u64
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="fm">assert_eq!</span><span class="p">(</span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">::</span><span class="n">from</span><span class="p">(</span><span class="n">t</span><span class="p">),</span><span class="w"> </span><span class="n">core</span><span class="p">::</span><span class="n">time</span><span class="p">::</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_micros</span><span class="p">(</span><span class="mi">1500</span><span class="p">));</span>
 </span></code></pre></div>
 <p><code>Micros::&lt;u32&gt;::new(1500)</code> is 4 bytes on the wire, <code>dc 05 00 00</code>, the bytes of the <code>u32</code> 1500.</p>
-<p>The crate is <code>no_std</code> and needs no allocator. <a href="../ww_si/">ww_si</a> is built on it and re-exports everything, so
+<p>The crate lives in its own repository, <a href="https://github.com/romixlab/exact_units">romixlab/exact_units</a>: it doesn't depend on WireWeaver, the wire
+format is its optional <code>shrink_wrap</code> feature. It is <code>no_std</code> and needs no allocator. <a href="../ww_si/">ww_si</a> is built on it and re-exports everything, so
 <code>ww_si::Fixed</code> and <code>exact_units::Fixed</code> are the same type; an API that already uses <code>ww_si</code> writes <code>ww_si::..</code>.</p>
 <h2 id="fixed-or-quantity">Fixed or Quantity<a class="headerlink" href="#fixed-or-quantity" title="Permanent link">&para;</a></h2>
 <table>

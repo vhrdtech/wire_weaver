@@ -7515,7 +7515,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   behind features. <code>ww_si</code> re-exports it and keeps the runtime side (<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code>); units are
   named <code>exact_units::..</code> in the model (a counted base costs 6 bytes more on the wire). Walked and snapshotted like an
   API crate. <a href="../docs/std_library/exact_units/">exact_units</a>, <code>exact_units/tests</code>, CI legs without features and on
-  thumbv6m.</li>
+  thumbv6m. Moved to a repository of its own, <a href="https://github.com/romixlab/exact_units">romixlab/exact_units</a>, with its
+  history (28 Oct 2026): wire_weaver takes it by git, its snapshot is saved from that source into
+  <code>wire_weaver_snapshots/other_repos</code> (<code>ww api save --dep exact_units --snapshots-dir</code>).</li>
 <li>✅ <strong>STD-55 <code>exact_units::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> —
   a value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (DER-18 <code>transparent</code>; no prefix, no
   <code>NumericValue</code> tag, so a <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix

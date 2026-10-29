@@ -17,7 +17,7 @@ use std::fmt;
 use exact_units::{DimOwned, Magnitude, ProvenanceOwned as Provenance};
 use shrink_wrap::ElementSize;
 use ww_self::signature;
-use ww_self::units::{self, CanonicalUnit};
+use ww_self::units::{self, CanonicalUnit, UnitKind};
 use ww_self::{
     ApiBundleOwned, ApiItemKindOwned, ApiItemOwned, ApiLevelLocationOwned, ArgumentOwned, Delivery,
     FieldOwned, FieldsOwned, FutureVersionOwned, GenericArgOwned, GenericParamKindOwned,
@@ -819,15 +819,26 @@ impl<'a> TypeCheck<'a> {
         let step = |dim: &DimOwned, magnitude| Step {
             dim: dim.clone(),
             magnitude,
+            kind: UnitKind::Plain,
+        };
+        let kind_of = |def: &MarkerDefOwned| match def.kind() {
+            Some(k) => UnitKind::Named(k.to_string()),
+            None => UnitKind::Plain,
         };
         let one = || exact_units::DimOwned::from(exact_units::Dim::ONE);
         let what = |kind: &str| format!("{kind} {} redefined", r.ident);
         if let (Some(w_unit), Some(r_unit)) = (w_def.unit_def(), r_def.unit_def()) {
             let changed = what("unit");
-            let (w_step, r_step) = (
+            let (mut w_step, mut r_step) = (
                 step(&w_unit.dim, w_unit.magnitude),
                 step(&r_unit.dim, r_unit.magnitude),
             );
+            (w_step.kind, r_step.kind) = (kind_of(w_def), kind_of(r_def));
+            // a kind of its own given to (or taken from) the unit under its name: the same values (STD-68)
+            if w_step.same_but_kind_added(&r_step) {
+                self.note_kind_added(&w_step.kind, &r_step.kind);
+                r_step.kind = w_step.kind.clone();
+            }
             let (w_prov, r_prov) = (w_def.provenance(), r_def.provenance());
             return match (&w_prov, &r_prov) {
                 (Provenance::Defined, Provenance::Defined) => {
@@ -982,6 +993,10 @@ impl<'a> TypeCheck<'a> {
                     w_step.mul(w).map_err(at)?;
                     if w_alone.same(&r_alone) {
                         r_step.mul(r).map_err(at)?;
+                    } else if !*renamed && w_alone.same_but_kind_added(&r_alone) {
+                        // the unit gained a kind of its own under its name (STD-68): the same step
+                        self.note_kind_added(&w_alone.kind, &r_alone.kind);
+                        r_step.mul(w).map_err(at)?;
                     } else if !*renamed
                         && w_alone.dim.as_dim().same(r_alone.dim.as_dim())
                         && self.conventional_updated(w_ty, r_ty)
@@ -1033,6 +1048,14 @@ impl<'a> TypeCheck<'a> {
                 w.dim.as_dim(),
                 r.dim.as_dim(),
                 self.reader_name
+            ));
+        }
+        if w.kind != r.kind {
+            self.rule = Some(Rule::Meaning);
+            return Err(format!(
+                "{changed}: {} vs {}, another kind of quantity of one dimension: the {} would take one for the \
+                 other (a voltage gain for a ratio, a transimpedance for a resistance)",
+                w.kind, r.kind, self.reader_name
             ));
         }
         if w.magnitude == r.magnitude {
@@ -1141,6 +1164,17 @@ impl<'a> TypeCheck<'a> {
             }),
             false => bundle,
         }
+    }
+
+    /// A unit that gained or lost a kind of its own under its name (STD-68): the same values, listed apart.
+    fn note_kind_added(&mut self, w: &UnitKind, r: &UnitKind) {
+        self.note_compatible(Unwrapped {
+            path: self.path.clone(),
+            writer_name: self.writer_name,
+            written: format!("kind {w}"),
+            read: format!("kind {r}"),
+            same: "kind of its own added",
+        });
     }
 
     fn note_compatible(&mut self, unwrapped: Unwrapped) {
@@ -2026,10 +2060,12 @@ fn provenance(p: &Provenance) -> String {
     }
 }
 
-/// One step of a number: the units and scales of an instance multiplied, in coherent SI.
+/// One step of a number: the units and scales of an instance multiplied, in coherent SI, and the kind of quantity
+/// it is of (STD-68).
 struct Step {
     dim: DimOwned,
     magnitude: Magnitude,
+    kind: UnitKind,
 }
 
 impl Step {
@@ -2037,11 +2073,21 @@ impl Step {
         Step {
             dim: exact_units::Dim::ONE.into(),
             magnitude: Magnitude::ONE,
+            kind: UnitKind::Plain,
         }
     }
 
     fn same(&self, other: &Step) -> bool {
-        self.dim.as_dim().same(other.dim.as_dim()) && self.magnitude == other.magnitude
+        self.dim.as_dim().same(other.dim.as_dim())
+            && self.magnitude == other.magnitude
+            && self.kind == other.kind
+    }
+
+    /// The same but for a kind on one side only: a unit that gained (or lost) a kind of its own under its name.
+    fn same_but_kind_added(&self, other: &Step) -> bool {
+        self.dim.as_dim().same(other.dim.as_dim())
+            && self.magnitude == other.magnitude
+            && (self.kind == UnitKind::Plain) != (other.kind == UnitKind::Plain)
     }
 
     fn mul(&mut self, meaning: &Meaning) -> Result<(), String> {
@@ -2050,6 +2096,13 @@ impl Step {
             Meaning::Scale(scale) => (None, *scale),
             Meaning::Origin(_) => return Ok(()),
         };
+        if let (Some(dim), Meaning::Unit(unit)) = (dim, meaning) {
+            self.kind = self
+                .kind
+                .as_kind()
+                .mul(self.dim.as_dim(), unit.kind.as_kind(), dim.as_dim())
+                .into();
+        }
         if let Some(dim) = dim {
             self.dim = self
                 .dim

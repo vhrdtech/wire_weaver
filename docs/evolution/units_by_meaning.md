@@ -73,6 +73,22 @@ model (STD-72, see [imperial and US customary units](../std_library/customary.md
 * **Another unit by convention** (`InchOfMercury32f` -> `InchOfMercury60f`): another unit, compared by its step as
   above.
 
+## Kinds of quantity
+
+Some quantities share a dimension and still are not the same: a voltage gain V/V, a current gain A/A, a power gain
+W/W and a duty cycle are all dimension one; a transimpedance V/A has the dimension of a resistance Ω (STD-68). A
+step of the number has the kind of its unit next to its dimension and factor, by `exact_units`' rules (its `kind`
+module): a quotient of one dimension keeps what cancelled, `Ohm` and `Siemens` are kinds of their own (`kind
+"resistance"` on their `unit!` lines, a `MarkerDef::KindUnit` in the model), anything else is plain.
+
+* **Another kind of one dimension** (`Per<Volt, Volt>` -> `Ratio` or `Per<Ampere, Ampere>`, `Per<Volt, Ampere>` ->
+  `Ohm`): breaking, under `Rule::Meaning`, with both kinds in the finding (`plain vs resistance, another kind of
+  quantity`). The reader would take one for the other.
+* **Another scale within a kind** (`Per<Volt, Volt>` in `Milli` and in `Pow10<-3>`): the same value, as above.
+* **A unit that gains a kind of its own under its name** (`Ohm` once `exact_units` gave it one, or a unit of your
+  own): compatible, its values don't change. Listed apart as `kind plain -> kind resistance, kind of its own added`.
+  Another kind under the same name (`resistance` -> `impedance`) is breaking.
+
 ## Origins
 
 An origin is where a point's zero lies (`Celsius`: 273.15 K; a register formula of your own). Two origins are the

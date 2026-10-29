@@ -1567,9 +1567,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Origins by dimension, reference, zero and period (`Celsius` = an own origin at 273.15 K, `Angle<Degree>` =
   `Angle<Radian>`). `Saturating` is `Unbounded`'s values, `Wrapping` on one side only is breaking (`Rule::Meaning`). A
   unit by convention (STD-72 provenance) with its value updated is listed as `conventional value updated`, defined ↔
-  conventional is breaking. Levels, kinds and sentinels get their checks with STD-67, STD-68 and STD-66 (rules written
-  down); until then a marker kind the checker doesn't know is the same only when its definition is
-  (`docs/evolution/units_by_meaning.md`; `wire_weaver_evolution` tests `tests::by_meaning`).
+  conventional is breaking. Kinds of quantity are compared (STD-68: another kind of one dimension is breaking, a unit
+  gaining a kind under its name is `kind of its own added`); levels and sentinels get their checks with STD-67 and
+  STD-66 (rules written down); until then a marker kind the checker doesn't know is the same only when its definition
+  is (`docs/evolution/units_by_meaning.md`; `wire_weaver_evolution` tests `tests::by_meaning`).
 - ✅ **TOOL-1 `ww` CLI**: `list` with filters, `introspect` as a resource tree (`--raw-as-sent`, `--types`), dynamic shell
   completions (`docs/cli.md`).
 - ✅ **TOOL-2 `ww api save` / `check` / `diff`** for API bundles and snapshots.
@@ -2114,16 +2115,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   encoding it gives back the same code, so the bytes don't change. Niche codes and `Bounds` are checked disjoint and
   every code to fit `T` at compile time. Clipped / rail codes are a value with a saturation mark (at least / at most),
   not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.
-- 📋 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.5` — `Level<Kind, Ref>` on the point algebra:
-  level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine or square
-  convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave, decade,
-  shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and the
-  reference may be absent (a pure gain), a quantity or dimension one; gains compose (dB/km, Np/s ≠ Hz).
-- 📋 **STD-68 Kinds that share a dimension** · `v0.5` — relative humidity, duty cycle, state of charge, strain, volume
-  fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic temperature;
-  explicit casts between siblings. W / VA / var and their energies, Gy / Sv; a kind survives a product with plain
-  units (var·h stays reactive energy, never kW·h). Kinds with arguments: gas volume and density at stated reference
-  conditions (`StandardVolume<Ref>`: DIN 1343, ISO 13443, US SCF), with an opt-in exact ideal-gas bridge to mol.
+- 🚧 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.5` — first piece done: a gain's dB by its kind
+  (STD-68), `Fixed::to_db` / `from_db` with 20·lg for ratios of root-power quantities (V/V, A/A, Pa/Pa) and 10·lg for
+  powers (W/W, J/J), a plain `Ratio` refused at compile time. Missing: the rest below. `Level<Kind, Ref>` on the point
+  algebra: level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine
+  or square convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave,
+  decade, shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and
+  the reference may be absent (a pure gain), a quantity or dimension one; gains compose (dB/km, Np/s ≠ Hz).
+- 🚧 **STD-68 Kinds that share a dimension** · `v0.5` — first piece done (gain kinds): `exact_units::Kind` as
+  `Unit::KIND` next to `DIM`, checked by `Fixed::convert` at compile time (rules after ISO 80000-1 / mp-units: a
+  quotient of one dimension keeps what cancelled, V/V ≠ A/A ≠ W/W ≠ `Ratio`; a dimension-one factor keeps the other's
+  kind; any other product plain, V/V · V = V); `Ohm` `resistance` and `Siemens` `conductance` (`kind ".."` on a
+  `unit!` line), apart from V/A and A/V; named steps `as_ratio` / `as_gain`, `as_resistance` / `as_transimpedance`,
+  `as_conductance` / `as_transconductance`; in the model as `MarkerDef::KindUnit` and
+  `ww_self::units::CanonicalUnit::kind`, compared by the evolution check (EVO-17), conformance case
+  `model.marker_def.unit_kind`. Missing: the rest below. relative humidity, duty cycle, state of charge, strain,
+  volume fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic
+  temperature; explicit casts between siblings. W / VA / var and their energies, Gy / Sv; a kind survives a product
+  with plain units (var·h stays reactive energy, never kW·h). Kinds with arguments: gas volume and density at stated
+  reference conditions (`StandardVolume<Ref>`: DIN 1343, ISO 13443, US SCF), with an opt-in exact ideal-gas bridge to
+  mol.
 - 📋 **STD-69 More counted units** · `v0.5` — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
   each a dimension of its own; `AVOGADRO` bridges `Particle` and mol exactly.
 - 📋 **STD-77 Runtime scale parts and reference values** · `v0.5` — what device standards do at run time, without a

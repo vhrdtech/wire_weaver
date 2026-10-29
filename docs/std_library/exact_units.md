@@ -97,6 +97,16 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
   is 3000 µs, an error when it doesn't fit.
 - `Display` as `1500 µs`, `{:#}` in the unit itself (`0.0015 s`); `Debug` as `Second(1500 µs u32)` (with the bounds
   when there are some: `Second(100 ms u16, 1..=5000)`); `defmt::Format` with the `defmt` feature.
+- Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain `Per<Volt, Volt>` is
+  not a current gain `Per<Ampere, Ampere>`, a power gain `Per<Watt, Watt>` or a `Ratio` (a duty cycle), and a
+  transimpedance `Per<Volt, Ampere>` is not an `Ohm` (resistance), nor `Per<Ampere, Volt>` a `Siemens`. A quotient
+  of one dimension keeps what cancelled, a gain times a voltage is a plain voltage; a scale still converts within a
+  kind (mV/V to V/V). Crossing is a named step that keeps the number: `as_ratio` / `as_gain::<Volt>()`,
+  `as_resistance` / `as_transimpedance`, `as_conductance` / `as_transconductance`. The rules are in the `kind`
+  module of `exact_units`.
+- A gain in dB by its kind (std): `Fixed::<Per<Volt, Volt>, One, f64>::new(10.0).to_db()` is 20 dB (20·lg for
+  V/V, A/A, Pa/Pa), a power gain W/W 10·lg; `from_db` the other way. A plain `Ratio` has no level form and doesn't
+  compile there: 0.5 duty is not −3 dB.
 - Cycles per second become hertz only through the named `to_hertz`: a cycle is a counted thing, not a dimensionless
   1 (see [dimensions](ww_si.md#dimensions)).
 - A `Fixed` is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a

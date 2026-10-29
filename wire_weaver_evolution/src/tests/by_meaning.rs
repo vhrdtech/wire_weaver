@@ -25,6 +25,8 @@ const OWN_MARKERS: &str = r#"
         pub struct KmPerHour = "km/h", [m 1, s -1], Exact(5 / 18);
         /// Millivolts as a unit of their own.
         pub struct MilliVolt = "mV", [kg 1, m 2, s -3, a -1], Pow10(-3);
+        /// Ohms of the crate's own, of no kind beyond the dimension.
+        pub struct OwnOhm = "Ω", [kg 1, m 2, s -3, a -2];
     }
 
     ww_si::origin! {
@@ -271,6 +273,68 @@ fn another_scale_or_dimension_is_breaking() {
     assert_meaning(
         &report("Fixed<Volt, Milli, i32>", "Fixed<MilliVolt, Milli, i32>"),
         "1 on the old version is 1000 (exactly 1·10³) on the new version",
+    );
+}
+
+/// Kinds of one dimension (STD-68): a voltage gain is no current gain, power gain or ratio in the same bytes; a scale
+/// within a kind is the same value.
+#[test]
+fn gains_by_kind() {
+    let gain = "Fixed<Per<Volt, Volt>, Milli, i32>";
+    assert_eq!(report(gain, gain).change, Change::None);
+    assert_same_value(gain, "Fixed<Per<Volt, Volt>, Pow10<-3>, i32>");
+    for other in [
+        "Fixed<ww_si::units::Ratio, Milli, i32>",
+        "Fixed<Per<ww_si::units::Ampere, ww_si::units::Ampere>, Milli, i32>",
+        "Fixed<Per<ww_si::units::Watt, ww_si::units::Watt>, Milli, i32>",
+    ] {
+        assert_meaning(&report(gain, other), "another kind of quantity");
+    }
+    assert_meaning(
+        &report("Fixed<ww_si::units::Ratio, Milli, i32>", gain),
+        "another kind of quantity",
+    );
+}
+
+/// A transimpedance V/A is no resistance, a transconductance A/V no conductance (STD-68); a plain unit of the
+/// crate's own of V/A's dimension is still a transimpedance.
+#[test]
+fn transimpedance_is_no_resistance() {
+    let transimpedance = "Fixed<Per<Volt, ww_si::units::Ampere>, One, i32>";
+    assert_meaning(
+        &report(transimpedance, "Fixed<ww_si::units::Ohm, One, i32>"),
+        "plain vs resistance, another kind of quantity",
+    );
+    assert_meaning(
+        &report(
+            "Fixed<Per<ww_si::units::Ampere, Volt>, One, i32>",
+            "Fixed<ww_si::units::Siemens, One, i32>",
+        ),
+        "plain vs conductance",
+    );
+    assert_same_value(transimpedance, "Fixed<OwnOhm, One, i32>");
+}
+
+/// A unit of the crate's own that gains a kind of its own under its name keeps its values, listed apart; another
+/// kind under the same name is another meaning (STD-68).
+#[test]
+fn kind_added_under_the_same_name() {
+    let ty = "Fixed<OwnOhm, One, i32>";
+    let resistance = OWN_MARKERS.replace("a -2];", "a -2] kind \"resistance\";");
+    let report_ = report_of(&api(ty), &api_with(ty, &resistance));
+    assert_eq!(report_.change, Change::Compatible, "{report_:#?}");
+    assert!(
+        report_
+            .compatible
+            .iter()
+            .any(|c| c.ends_with("kind plain -> kind resistance, kind of its own added")),
+        "{:#?}",
+        report_.compatible
+    );
+    let impedance = OWN_MARKERS.replace("a -2];", "a -2] kind \"impedance\";");
+    assert_meaning(
+        &report_of(&api_with(ty, &resistance), &api_with(ty, &impedance)),
+        "resistance vs impedance, another kind of quantity",
     );
 }
 

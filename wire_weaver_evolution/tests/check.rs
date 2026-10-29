@@ -24,8 +24,9 @@ struct TestCrate {
 
 impl TestCrate {
     fn new(name: &str) -> Self {
-        let dir = std::env::temp_dir()
-            .join("ww_evolution_check_tests")
+        // under the workspace, so the walker finds its Cargo.lock and [patch]es for git dependencies (exact_units)
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_evolution_check_tests")
             .join(format!("{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("src")).unwrap();

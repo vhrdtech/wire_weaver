@@ -769,8 +769,9 @@ mod tests {
     }
 
     fn load_uncached(version: &str, lib_rs: &str, dependencies: &str) -> ApiBundleOwned {
-        let dir: PathBuf = std::env::temp_dir()
-            .join("ww_evolution_tests")
+        // under the workspace, so the walker finds its Cargo.lock and [patch]es for git dependencies (exact_units)
+        let dir: PathBuf = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/ww_evolution_tests")
             .join(format!(
                 "{version}-{}-{:?}",
                 std::process::id(),

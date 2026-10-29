@@ -2563,6 +2563,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#kinds-of-quantity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Kinds of quantity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5550,6 +5561,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#kinds-of-quantity" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Kinds of quantity
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#origins" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5760,6 +5782,21 @@ model (STD-72, see <a href="../../std_library/customary/">imperial and US custom
   definition, and the reader would take one for the other.</li>
 <li><strong>Another unit by convention</strong> (<code>InchOfMercury32f</code> -&gt; <code>InchOfMercury60f</code>): another unit, compared by its step as
   above.</li>
+</ul>
+<h2 id="kinds-of-quantity">Kinds of quantity<a class="headerlink" href="#kinds-of-quantity" title="Permanent link">&para;</a></h2>
+<p>Some quantities share a dimension and still are not the same: a voltage gain V/V, a current gain A/A, a power gain
+W/W and a duty cycle are all dimension one; a transimpedance V/A has the dimension of a resistance Ω (STD-68). A
+step of the number has the kind of its unit next to its dimension and factor, by <code>exact_units</code>' rules (its <code>kind</code>
+module): a quotient of one dimension keeps what cancelled, <code>Ohm</code> and <code>Siemens</code> are kinds of their own (<code>kind
+"resistance"</code> on their <code>unit!</code> lines, a <code>MarkerDef::KindUnit</code> in the model), anything else is plain.</p>
+<ul>
+<li><strong>Another kind of one dimension</strong> (<code>Per&lt;Volt, Volt&gt;</code> -&gt; <code>Ratio</code> or <code>Per&lt;Ampere, Ampere&gt;</code>, <code>Per&lt;Volt, Ampere&gt;</code> -&gt;
+  <code>Ohm</code>): breaking, under <code>Rule::Meaning</code>, with both kinds in the finding (<code>plain vs resistance, another kind of
+  quantity</code>). The reader would take one for the other.</li>
+<li><strong>Another scale within a kind</strong> (<code>Per&lt;Volt, Volt&gt;</code> in <code>Milli</code> and in <code>Pow10&lt;-3&gt;</code>): the same value, as above.</li>
+<li><strong>A unit that gains a kind of its own under its name</strong> (<code>Ohm</code> once <code>exact_units</code> gave it one, or a unit of your
+  own): compatible, its values don't change. Listed apart as <code>kind plain -&gt; kind resistance, kind of its own added</code>.
+  Another kind under the same name (<code>resistance</code> -&gt; <code>impedance</code>) is breaking.</li>
 </ul>
 <h2 id="origins">Origins<a class="headerlink" href="#origins" title="Permanent link">&para;</a></h2>
 <p>An origin is where a point's zero lies (<code>Celsius</code>: 273.15 K; a register formula of your own). Two origins are the

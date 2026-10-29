@@ -5883,6 +5883,16 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
   is 3000 µs, an error when it doesn't fit.</li>
 <li><code>Display</code> as <code>1500 µs</code>, <code>{:#}</code> in the unit itself (<code>0.0015 s</code>); <code>Debug</code> as <code>Second(1500 µs u32)</code> (with the bounds
   when there are some: <code>Second(100 ms u16, 1..=5000)</code>); <code>defmt::Format</code> with the <code>defmt</code> feature.</li>
+<li>Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain <code>Per&lt;Volt, Volt&gt;</code> is
+  not a current gain <code>Per&lt;Ampere, Ampere&gt;</code>, a power gain <code>Per&lt;Watt, Watt&gt;</code> or a <code>Ratio</code> (a duty cycle), and a
+  transimpedance <code>Per&lt;Volt, Ampere&gt;</code> is not an <code>Ohm</code> (resistance), nor <code>Per&lt;Ampere, Volt&gt;</code> a <code>Siemens</code>. A quotient
+  of one dimension keeps what cancelled, a gain times a voltage is a plain voltage; a scale still converts within a
+  kind (mV/V to V/V). Crossing is a named step that keeps the number: <code>as_ratio</code> / <code>as_gain::&lt;Volt&gt;()</code>,
+  <code>as_resistance</code> / <code>as_transimpedance</code>, <code>as_conductance</code> / <code>as_transconductance</code>. The rules are in the <code>kind</code>
+  module of <code>exact_units</code>.</li>
+<li>A gain in dB by its kind (std): <code>Fixed::&lt;Per&lt;Volt, Volt&gt;, One, f64&gt;::new(10.0).to_db()</code> is 20 dB (20·lg for
+  V/V, A/A, Pa/Pa), a power gain W/W 10·lg; <code>from_db</code> the other way. A plain <code>Ratio</code> has no level form and doesn't
+  compile there: 0.5 duty is not −3 dB.</li>
 <li>Cycles per second become hertz only through the named <code>to_hertz</code>: a cycle is a counted thing, not a dimensionless
   1 (see <a href="../ww_si/#dimensions">dimensions</a>).</li>
 <li>A <code>Fixed</code> is an amount (5 K, 3 ms). A reading against a zero that isn't the unit's (25 °C, gauge pressure, a

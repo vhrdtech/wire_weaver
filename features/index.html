@@ -7594,6 +7594,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>,
   <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>). <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
   <a href="../docs/std_library/ww_si/#dimensions">ww_si dimensions</a>, <code>ww_stdlib/ww_si/tests/quantities.rs</code>.</li>
+<li>✅ <strong>STD-83 Typed products and quotients of quantities</strong> · <code>v0.5</code> — in <code>exact_units</code> (locked at 93a1607): <code>a * b</code>
+  is a <code>Fixed&lt;Times&lt;U1, U2&gt;, Product&lt;P1, P2&gt;, T&gt;</code>, <code>a / b</code> a <code>Fixed&lt;Per&lt;U1, U2&gt;, Quotient&lt;P1, P2&gt;, T&gt;</code>, one multiply
+  or division of <code>T</code>; <code>prefix::Product</code> / <code>prefix::Quotient</code> carry the exact result scale as a type (<code>Product&lt;Milli,
+  Milli&gt;</code> is <code>Micro</code>), overflow by the operands' policy, <code>checked_</code> / <code>saturating_</code> / <code>wrapping_times</code> and <code>_per</code>,
+  <code>times_into</code> / <code>per_into</code> rounded once into another scale and storage; <code>Fixed</code> of one unit, scale and storage
+  compare across bounds. In the model as <code>MarkerDef::Product</code> / <code>Quotient</code> (appended, older readers get <code>Unknown</code>),
+  a client computes the scale as rustc does; the evolution check compares them by meaning (test in
+  <code>tests/quantities</code>).</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
@@ -7842,7 +7850,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.</li>
 <li>🚧 <strong>STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI</strong> · <code>v0.5</code> — first piece done: a gain's dB by its kind
   (STD-68), <code>Fixed::to_db</code> / <code>from_db</code> with 20·lg for ratios of root-power quantities (V/V, A/A, Pa/Pa) and 10·lg for
-  powers (W/W, J/J), a plain <code>Ratio</code> refused at compile time. Missing: the rest below. <code>Level&lt;Kind, Ref&gt;</code> on the point
+  powers (W/W, J/J), a plain <code>Ratio</code> refused at compile time; <code>to_db</code> / <code>from_db</code> in <code>f64</code> and <code>f32</code>, without <code>std</code>
+  through the <code>libm</code> feature; <code>db!()</code> works the stored value out exactly at compile time. Missing: the rest below.
+  <code>Level&lt;Kind, Ref&gt;</code> on the point
   algebra: level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine
   or square convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave,
   decade, shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and

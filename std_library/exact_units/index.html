@@ -5846,6 +5846,8 @@ another). <code>Quantity::to_fixed</code> and <code>Quantity::from_fixed</code> 
 <li><code>Rational&lt;NUM, DEN&gt;</code> (<code>u64</code>), a fraction: <code>Duty16</code> is <code>Fixed&lt;Ratio, Rational&lt;1, 65535&gt;, u16&gt;</code>, where 65535 is 100 %;</li>
 <li><code>FullScale&lt;V, BITS&gt;</code> and <code>FullScaleMax&lt;V, BITS&gt;</code>, one step of a converter whose <code>2^BITS</code> codes (or largest code)
   span <code>V</code>.</li>
+<li><code>Product&lt;A, B&gt;</code> and <code>Quotient&lt;A, B&gt;</code>, the scale of a product or quotient of two <code>Fixed</code> values: mV times mA is a
+  <code>Product&lt;Milli, Milli&gt;</code>, a step of 1 µW.</li>
 </ul>
 <p>Every scale is a <a href="../magnitude/"><code>Magnitude</code></a>, a canonical product of prime powers with powers of π, ln 2 and ln 10,
 so <code>Milli</code>, <code>Pow10&lt;-3&gt;</code> and <code>Rational&lt;1, 1000&gt;</code> are the same scale. A conversion with <code>to::&lt;P2, T2&gt;()</code> is exact or
@@ -5878,7 +5880,14 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
   overflow policy, <code>into_rounded</code> and <code>From</code> are the infallible ones the bounds prove: see
   <a href="../rounding/">Rounding and overflow</a>.</li>
 <li><code>PartialEq</code>, <code>Ord</code> and <code>Hash</code> compare the numbers; values of different scales are different types, convert them
-  with <code>to</code> first.</li>
+  with <code>to</code> first. <code>==</code> and <code>&lt;</code> also compare two <code>Fixed</code> of one unit, scale and storage with different bounds (a
+  <code>Range</code>-bounded reading against an unbounded threshold); <code>Eq</code>, <code>Ord</code> and <code>Hash</code> stay within one type.</li>
+<li>Products and quotients of two <code>Fixed</code> (STD-83): <code>a * b</code> is a <code>Fixed&lt;Times&lt;U1, U2&gt;, Product&lt;P1, P2&gt;, T&gt;</code>, <code>a / b</code>
+  a <code>Fixed&lt;Per&lt;U1, U2&gt;, Quotient&lt;P1, P2&gt;, T&gt;</code>, one multiply or division of <code>T</code> with the exact result scale as a type
+  (mV · mA is a <code>Product&lt;Milli, Milli&gt;</code>, a step of 1 µW), overflow by the operands' policy. <code>checked_times</code>,
+  <code>saturating_times</code>, <code>wrapping_times</code> and the <code>_per</code> twins take operands of any bounds; <code>times_into</code> / <code>per_into</code>
+  give the result in another scale and storage, rounded once (mV · mA into mW). <code>convert</code> reaches the named unit
+  (V · A to <code>Watt</code>).</li>
 <li><code>core::time::Duration</code> both ways for s, ds, cs, ms, µs and ns: <code>Micros::&lt;u32&gt;::try_from(Duration::from_millis(3))</code>
   is 3000 µs, an error when it doesn't fit.</li>
 <li><code>Display</code> as <code>1500 µs</code>, <code>{:#}</code> in the unit itself (<code>0.0015 s</code>); <code>Debug</code> as <code>Second(1500 µs u32)</code> (with the bounds

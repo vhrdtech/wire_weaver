@@ -5768,6 +5768,10 @@ wouldn't know the unit.</p>
 <td><code>exact_units</code>' generic scales, their const arguments say the value</td>
 </tr>
 <tr>
+<td><code>Product</code>, <code>Quotient</code></td>
+<td>the scale of <code>Fixed * Fixed</code> and <code>Fixed / Fixed</code>, its scale arguments are the instance's</td>
+</tr>
+<tr>
 <td><code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code></td>
 <td>the bounds of a <code>Fixed</code></td>
 </tr>
@@ -5805,9 +5809,11 @@ Two units are equal when they name the same markers to the same powers, as in F#
 their expressions differ: <code>factor_to</code> gives the exact factor (π/30 from <code>rpm</code> to <code>rad/s</code>), <code>None</code> across dimensions.
 It is shown with its symbols, <code>(rad/s)⁻¹·N·m</code> for <code>Per&lt;Torque, AngularVelocity&gt;</code>.</p>
 <p><code>ww_self::units::scale_of(ty, bundle)</code> gives the exact factor of a <code>Fixed</code>'s scale: a named scale, <code>Pow10&lt;E&gt;</code>,
-<code>Pow2&lt;E&gt;</code>, <code>Rational&lt;NUM, DEN&gt;</code>, <code>FullScale&lt;V, BITS&gt;</code> (<code>V / 2^BITS</code>) or <code>FullScaleMax&lt;V, BITS&gt;</code> (<code>V / (2^BITS - 1)</code>).</p>
-<p>A bundle from a device is untrusted: both walk at most <code>MAX_UNIT_NESTING</code> (16) levels of <code>Per</code>, <code>Times</code>, <code>Sqrt</code> and
-full-scale markers, and an overflowing dimension or factor is an error, not a panic.</p>
+<code>Pow2&lt;E&gt;</code>, <code>Rational&lt;NUM, DEN&gt;</code>, <code>FullScale&lt;V, BITS&gt;</code> (<code>V / 2^BITS</code>), <code>FullScaleMax&lt;V, BITS&gt;</code> (<code>V / (2^BITS - 1)</code>), or
+<code>Product&lt;A, B&gt;</code> / <code>Quotient&lt;A, B&gt;</code> (<code>A · B</code>, <code>A / B</code>), the scale a product or quotient of two <code>Fixed</code> values has:
+<code>Fixed&lt;Watt, Product&lt;Milli, Milli&gt;, i32&gt;</code> is a step of 10⁻⁶ W, the factor rustc gives <code>Product&lt;Milli, Milli&gt;::SCALE</code>.</p>
+<p>A bundle from a device is untrusted: both walk at most <code>MAX_UNIT_NESTING</code> (16) levels of <code>Per</code>, <code>Times</code>, <code>Sqrt</code>,
+full-scale, <code>Product</code> and <code>Quotient</code> markers, and an overflowing dimension or factor is an error, not a panic.</p>
 <h2 id="origins">Origins<a class="headerlink" href="#origins" title="Permanent link">&para;</a></h2>
 <p>The origin of a <a href="../points/"><code>Point&lt;O, F&gt;</code></a> is a marker as well, its definition a <code>MarkerDef::Origin(OriginDef)</code>:</p>
 <table>

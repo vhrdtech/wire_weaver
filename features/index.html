@@ -7589,10 +7589,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
   <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
-  <code>Bit</code>, <code>Byte</code>, <code>Word</code>, feature <code>information</code>) and a root flag for half exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't
-  convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>, <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a
-  sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>,
-  <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>). <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
+  <code>Bit</code>, <code>Nibble</code>, <code>Byte</code>, <code>Halfword</code>, <code>Word</code>, <code>Doubleword</code>, feature <code>information</code>) and a root flag for half
+  exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>,
+  <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at
+  compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>, <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>).
+  <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
   <a href="../docs/std_library/ww_si/#dimensions">ww_si dimensions</a>, <code>ww_stdlib/ww_si/tests/quantities.rs</code>.</li>
 <li>✅ <strong>STD-83 Typed products and quotients of quantities</strong> · <code>v0.5</code> — in <code>exact_units</code> (locked at 93a1607): <code>a * b</code>
   is a <code>Fixed&lt;Times&lt;U1, U2&gt;, Product&lt;P1, P2&gt;, T&gt;</code>, <code>a / b</code> a <code>Fixed&lt;Per&lt;U1, U2&gt;, Quotient&lt;P1, P2&gt;, T&gt;</code>, one multiply

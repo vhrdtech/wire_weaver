@@ -6104,7 +6104,7 @@ Bounds cost no bytes on the wire: a bounded quantity has the bytes of the unboun
 </tr>
 <tr>
 <td><code>information</code></td>
-<td><code>Bit</code>, <code>Byte</code> (8 bit), <code>Word</code> (4 byte, 32 bit) (bit is a dimension)</td>
+<td><code>Bit</code>, <code>Nibble</code> (4 bit), <code>Byte</code> (8 bit), <code>Halfword</code> (2 byte, 16 bit), <code>Word</code> (4 byte, 32 bit), <code>Doubleword</code> (8 byte, 64 bit) (bit is a dimension)</td>
 </tr>
 <tr>
 <td><code>counting</code></td>
@@ -6361,8 +6361,10 @@ SI alone would call the same:</p>
   themselves, a code goes from one to the other with an explicit 2π (or through <code>Cycle</code> per second); a moment of
   inertia is kg·m²/rad² (<code>Per&lt;Torque, AngularAcceleration&gt;</code>), so torque over angular acceleration balances; an arc
   length r·θ carries rad (<code>Times&lt;Meter, Radian&gt;</code>), it isn't a plain length.
-- <strong>Information (bit).</strong> <code>Bit</code> is the coherent unit, <code>Byte</code> is 8 bit and <code>Word</code> 32 bit (a scale, like <code>Gram</code> to
-  kilogram). Bytes are never a <code>Ratio</code> or an angle, and <code>Per&lt;Byte, Second&gt;</code> is a data rate, not a frequency.
+- <strong>Information (bit).</strong> <code>Bit</code> is the coherent unit; <code>Nibble</code> (4 bit), <code>Byte</code> (8 bit), <code>Halfword</code> (16 bit), <code>Word</code>
+  (32 bit) and <code>Doubleword</code> (64 bit) are scales of it, like <code>Gram</code> to kilogram. <code>units::Nibble</code> is this unit, not
+  <code>shrink_wrap::Nibble</code>, the 4-bit storage a <code>Fixed</code> may hold its number in. Bytes are never a <code>Ratio</code> or an angle,
+  and <code>Per&lt;Byte, Second&gt;</code> is a data rate, not a frequency.
 - <strong>Counted bases.</strong> <code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code> and <code>Code</code> count
   things: each is a dimension of its own, so <code>Per&lt;Sample, Second&gt;</code> (s⁻¹·Sample) isn't <code>Hertz</code> and samples aren't
   packets. A base is known by its crate and marker name together (<code>Counted { crate_name, name, exp }</code>): two crates'

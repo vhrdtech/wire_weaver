@@ -1875,6 +1875,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   sample only through `Per<Byte, Sample>`; checked at compile time (`Unit::DIM`) and at run time (`SIExpr`,
   `wire_weaver_client::DynUnit`, Python `Quantity.dim`). `Torque` is J/rad (written N·m). Wire change EVO-16.
   [ww_si dimensions](docs/std_library/ww_si.md#dimensions), `ww_stdlib/ww_si/tests/quantities.rs`.
+- ✅ **STD-83 Typed products and quotients of quantities** · `v0.5` — in `exact_units` (locked at 93a1607): `a * b`
+  is a `Fixed<Times<U1, U2>, Product<P1, P2>, T>`, `a / b` a `Fixed<Per<U1, U2>, Quotient<P1, P2>, T>`, one multiply
+  or division of `T`; `prefix::Product` / `prefix::Quotient` carry the exact result scale as a type (`Product<Milli,
+  Milli>` is `Micro`), overflow by the operands' policy, `checked_` / `saturating_` / `wrapping_times` and `_per`,
+  `times_into` / `per_into` rounded once into another scale and storage; `Fixed` of one unit, scale and storage
+  compare across bounds. In the model as `MarkerDef::Product` / `Quotient` (appended, older readers get `Unknown`),
+  a client computes the scale as rustc does; the evolution check compares them by meaning (test in
+  `tests/quantities`).
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
@@ -2184,10 +2192,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   features.
 - 📋 **STD-82 Unit metadata in Arrow and Polars** — a column's unit and scale as Arrow field metadata, read back
   exactly, Polars through it. Later, optional feature.
-- 🚧 **STD-83 Typed products and quotients of quantities** — `Fixed * Fixed` → `Times`, `/` → `Per`, the exact result
-  scale as a type, overflow by the storage policy; `checked_times` / `saturating_times` / `wrapping_times`, the same
-  for `per`, and `times_into` / `per_into` with rounding. In progress on `exact_units` (branch
-  `s/29oct2026-fixed-product`), not yet on its `main`.
 
 ## Examples (`EX`)
 

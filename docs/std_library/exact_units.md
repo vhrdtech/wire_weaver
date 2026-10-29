@@ -94,7 +94,14 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
   overflow policy, `into_rounded` and `From` are the infallible ones the bounds prove: see
   [Rounding and overflow](rounding.md).
 - `PartialEq`, `Ord` and `Hash` compare the numbers; values of different scales are different types, convert them
-  with `to` first.
+  with `to` first. `==` and `<` also compare two `Fixed` of one unit, scale and storage with different bounds (a
+  `Range`-bounded reading against an unbounded threshold); `Eq`, `Ord` and `Hash` stay within one type.
+- Products and quotients of two `Fixed` (STD-83): `a * b` is a `Fixed<Times<U1, U2>, Product<P1, P2>, T>`, `a / b`
+  a `Fixed<Per<U1, U2>, Quotient<P1, P2>, T>`, one multiply or division of `T` with the exact result scale as a type
+  (mV · mA is a `Product<Milli, Milli>`, a step of 1 µW), overflow by the operands' policy. `checked_times`,
+  `saturating_times`, `wrapping_times` and the `_per` twins take operands of any bounds; `times_into` / `per_into`
+  give the result in another scale and storage, rounded once (mV · mA into mW). `convert` reaches the named unit
+  (V · A to `Watt`).
 - `core::time::Duration` both ways for s, ds, cs, ms, µs and ns: `Micros::<u32>::try_from(Duration::from_millis(3))`
   is 3000 µs, an error when it doesn't fit.
 - `Display` as `1500 µs`, `{:#}` in the unit itself (`0.0015 s`); `Debug` as `Second(1500 µs u32)` (with the bounds

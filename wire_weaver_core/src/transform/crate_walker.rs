@@ -1047,7 +1047,41 @@ fn load_lib_rs(crate_path: &Path) -> Result<File> {
     parse_rs(&crate_path.canonicalize()?.join("src").join("lib.rs"))
 }
 
+/// A parsed file with the size and modification time it had.
+type ParsedFile = (u64, Option<std::time::SystemTime>, File);
+
+/// [parse_rs_uncached] once per file, size and modification time on this thread: every walk of an API parses its
+/// dependencies' source (ww_si, exact_units) again, and a process that walks several crates or versions (`ww api
+/// check`, the evolution tests) parsed the same unchanged files each time. `syn`'s trees aren't `Send`, so the cache
+/// is per thread, and not used inside a proc macro.
 fn parse_rs(path: &Path) -> Result<File> {
+    thread_local! {
+        static PARSED: std::cell::RefCell<HashMap<PathBuf, ParsedFile>> = Default::default();
+    }
+    // inside a proc macro (ww_trait, ww_codegen) a tree holds rustc's spans, valid for one macro invocation only:
+    // handing one to the next invocation hung rustc, so each invocation parses its own
+    if proc_macro::is_available() {
+        return parse_rs_uncached(path);
+    }
+    let meta = fs::metadata(path).context(format!("Failed to read {}", path.display()))?;
+    let stamp = (meta.len(), meta.modified().ok());
+    if let Some(file) = PARSED.with(|p| {
+        p.borrow()
+            .get(path)
+            .filter(|(len, modified, _)| (*len, *modified) == stamp)
+            .map(|(_, _, file)| file.clone())
+    }) {
+        return Ok(file);
+    }
+    let file = parse_rs_uncached(path)?;
+    PARSED.with(|p| {
+        p.borrow_mut()
+            .insert(path.to_path_buf(), (stamp.0, stamp.1, file.clone()))
+    });
+    Ok(file)
+}
+
+fn parse_rs_uncached(path: &Path) -> Result<File> {
     let contents =
         fs::read_to_string(path).context(format!("Failed to read {}", path.display()))?;
     let mut file =

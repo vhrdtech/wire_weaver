@@ -33,12 +33,6 @@ slow-timeout = { period = "15s", terminate-after = 1 }
 filter = '(package(shrink_wrap) & (test(series::type_tests::fuzz_like) | test(series::type_tests::random_bytes_never_panic))) | (package(ww_self) & (test(fuzz_bundle::tests::random_inputs) | test(fuzz_series::tests::generated_items_and_random_bytes)))'
 slow-timeout = { period = "15s", terminate-after = 1 }
 
-# EVO-17's fixture crates: each report walks two test crates with ww_si and exact_units from source, 1.5-2.1 s alone
-# at load 18, over 3 s with the rest of the package beside them
-[[profile.default.overrides]]
-filter = 'package(wire_weaver_evolution) & (test(by_meaning) | test(ww_si_fixed))'
-slow-timeout = { period = "15s", terminate-after = 1 }
-
 # `just test-power-cut`: ww_settings power cuts at every step in release, tens of seconds per test
 [profile.power-cut]
 slow-timeout = { period = "60s", terminate-after = 5 }

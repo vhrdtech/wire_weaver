@@ -1,3 +1,6 @@
+// `proc_macro::is_available`: whether the walker runs inside a proc macro (its parse cache)
+extern crate proc_macro;
+
 pub mod codegen;
 pub mod const_model;
 pub mod handler_model;

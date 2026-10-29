@@ -16,7 +16,7 @@ mod tests {
     };
     use wire_weaver_client::{ClientConfig, DynClient, DynResource};
     use ww_si::origins::Angle;
-    use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Rational};
+    use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
     use ww_si::units::{
         self, AngularVelocity, Degree, Frame, Item, Meter, Per, Ratio, Sample, Times, Torque,
     };
@@ -43,6 +43,10 @@ mod tests {
     type Delay = Fixed<units::Second, Micro, u32, Range<0, 5000000>>;
     type Waited = Fixed<units::Second, Milli, u32>;
     type Input = IndexFrom1<Item, u8, Range<1, 4>>;
+    /// mV times mA (STD-83)
+    type Power = Fixed<units::Watt, Product<Milli, Milli>, i32>;
+    /// mV per µA (STD-83)
+    type Transimpedance = Fixed<Per<units::Volt, units::Ampere>, Quotient<Milli, Micro>, i32>;
 
     struct Values {
         voltage: Volt,
@@ -447,6 +451,21 @@ mod tests {
             ) -> GetResult<Seq<Frame, u16>, ()> {
                 GetResult::Value(self.values.lock().unwrap().frame)
             }
+
+            fn get_power(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Power, ()> {
+                // 3.3 V at 152 mA
+                GetResult::Value(Power::new(501_600))
+            }
+
+            fn get_transimpedance(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+            ) -> GetResult<Transimpedance, ()> {
+                GetResult::Value(Transimpedance::new(47))
+            }
         }
 
         pub mod api_impl {
@@ -656,7 +675,7 @@ mod tests {
         assert_eq!(rpm.factor_to(&rpm), Some(Magnitude::ONE));
         // scales: a prefix, a full-scale step, a scale marker of the API's crate
         let mut scales = Vec::new();
-        for name in ["timeout", "adc", "gyro"] {
+        for name in ["timeout", "adc", "gyro", "power", "transimpedance"] {
             let (_, ty) = read(&client, &root, name).await;
             let Ok(TypeOwned::Struct(f)) = ty.get_in_line(bundle) else {
                 panic!("Fixed");
@@ -671,7 +690,24 @@ mod tests {
                 ww_self::units::scale_of(s, bundle).unwrap(),
             ));
         }
-        let [(_, timeout), (_, adc), (gyro_unit, gyro_scale)]: [_; 3] = scales.try_into().unwrap();
+        let [
+            (_, timeout),
+            (_, adc),
+            (gyro_unit, gyro_scale),
+            (power_unit, power),
+            (transimpedance_unit, transimpedance),
+        ]: [_; 5] = scales.try_into().unwrap();
+        // the scales of a product and a quotient of two Fixed values (STD-83), worked out from the model as rustc
+        // works them out from the types
+        assert_eq!(power, <Product<Milli, Milli> as FixedScale>::SCALE);
+        assert_eq!(power, Magnitude::pow10(-6));
+        assert_eq!(power_unit.to_string(), "W");
+        assert_eq!(
+            transimpedance,
+            <Quotient<Milli, Micro> as FixedScale>::SCALE
+        );
+        assert_eq!(transimpedance, Magnitude::pow10(3));
+        assert_eq!(transimpedance_unit.to_string(), "A⁻¹·V");
         assert_eq!(timeout, Magnitude::pow10(-3));
         assert_eq!(adc, <FullScale<Rational<33, 10>, 12> as FixedScale>::SCALE);
         assert_eq!(adc, Magnitude::ratio(33, 40960));
@@ -1120,7 +1156,7 @@ mod tests {
     async fn fixed_shown_as_typed() {
         let (device, _values) = start("quantities/fixed_shown");
         let (client, root) = connect(&device).await;
-        let typed: [(&str, String, String); 7] = [
+        let typed: [(&str, String, String); 9] = [
             (
                 "timeout",
                 Timeout::new(250).to_string(),
@@ -1155,6 +1191,16 @@ mod tests {
                 "buffer",
                 values().buffer.to_string(),
                 format!("{:#}", values().buffer),
+            ),
+            (
+                "power",
+                Power::new(501_600).to_string(),
+                format!("{:#}", Power::new(501_600)),
+            ),
+            (
+                "transimpedance",
+                Transimpedance::new(47).to_string(),
+                format!("{:#}", Transimpedance::new(47)),
             ),
         ];
         for (name, shown, alternate) in typed {

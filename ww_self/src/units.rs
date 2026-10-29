@@ -23,7 +23,7 @@ use anyhow::{Result, anyhow, bail};
 use exact_units::{DimOwned, Kind, Magnitude, Offset};
 use std::fmt;
 
-/// Deepest nesting of `Per`, `Times`, `Sqrt` and full-scale markers [unit_of] and [scale_of] follow: a bundle from a
+/// Deepest nesting of `Per`, `Times`, `Sqrt`, full-scale, `Product` and `Quotient` markers [unit_of] and [scale_of] follow: a bundle from a
 /// device is untrusted, a deeper unit is an error.
 pub const MAX_UNIT_NESTING: usize = 16;
 
@@ -261,7 +261,8 @@ pub fn unit_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<CanonicalUnit>
 }
 
 /// The exact factor of the scale marker `ty` is (the `S` of a `Fixed<U, S, ..>`): a named scale (`prefix::Milli`, a
-/// user's `scale!`), `Pow10<E>`, `Pow2<E>`, `Rational<NUM, DEN>`, `FullScale<V, BITS>` or `FullScaleMax<V, BITS>`.
+/// user's `scale!`), `Pow10<E>`, `Pow2<E>`, `Rational<NUM, DEN>`, `FullScale<V, BITS>`, `FullScaleMax<V, BITS>`, or
+/// `Product<A, B>` / `Quotient<A, B>` of two scales (exact, an error where the factor doesn't fit a `Magnitude`).
 pub fn scale_of(ty: &TypeOwned, bundle: &ApiBundleOwned) -> Result<Magnitude> {
     scale_in(ty, bundle, 0)
 }
@@ -448,6 +449,10 @@ fn scale_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Mag
         Some(GenericArgOwned::Type(v)) => scale_in(v, bundle, depth + 1),
         _ => bail!("{} without its full-scale value", s.ident),
     };
+    let scale_arg = |i: usize| match args.get(i) {
+        Some(GenericArgOwned::Type(p)) => scale_in(p, bundle, depth + 1),
+        _ => bail!("{} without its scales", s.ident),
+    };
     match definition(s, bundle)? {
         MarkerDefOwned::Scale(def) => Ok(def.magnitude),
         MarkerDefOwned::Pow10 => Magnitude::checked_pow10(small(0, 63)?)
@@ -467,6 +472,8 @@ fn scale_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Mag
                 .checked_div(Magnitude::checked_ratio(max_code, 1).map_err(error)?)
                 .map_err(error)
         }
+        MarkerDefOwned::Product => scale_arg(0)?.checked_mul(scale_arg(1)?).map_err(error),
+        MarkerDefOwned::Quotient => scale_arg(0)?.checked_div(scale_arg(1)?).map_err(error),
         _ => bail!("{} is not a scale", marker_name(s, bundle)?),
     }
 }

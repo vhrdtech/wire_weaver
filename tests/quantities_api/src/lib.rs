@@ -9,10 +9,10 @@
 use wire_weaver::prelude::*;
 use wire_weaver::shrink_wrap::Series;
 use ww_si::origins::{Angle, Celsius};
-use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Rational};
+use ww_si::prefix::{Centi, FullScale, Kibi, Micro, Milli, One, Product, Quotient, Rational};
 use ww_si::units::{
     self, AngularVelocity, Byte, Degree, Frame, Item, Meter, Per, Ratio, Sample, Second, Times,
-    Torque,
+    Torque, Watt,
 };
 use ww_si::{
     Ampere, AnyQuantity, Fixed, Index, IndexFrom1, Micros, Offset, Point, Quantity, Range,
@@ -66,6 +66,10 @@ trait Quantities {
     property!(rw sample: Index<Sample, u32>);
     /// The last frame's sequence number
     property!(rw frame: Seq<Frame, u16>);
+    /// mV times mA, as `Fixed * Fixed` gives it (STD-83): one step is 1 µW, the scale `Product<Milli, Milli>`
+    property!(ro power: Fixed<Watt, Product<Milli, Milli>, i32>);
+    /// mV per µA, as `Fixed / Fixed` gives it (STD-83): one step is 1 kV/A, the scale `Quotient<Milli, Micro>`
+    property!(ro transimpedance: Fixed<Per<units::Volt, units::Ampere>, Quotient<Milli, Micro>, i32>);
 }
 
 ww_si::origin! {

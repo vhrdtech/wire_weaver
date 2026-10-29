@@ -14,7 +14,7 @@ fn api(arg: &str, prop: &str, field: &str) -> String {
     format!(
         r#"
         use ww_si::{{Duty16, Fixed, Micros, Millis, Range, RangeU64, RangeDec, Unbounded, Quantity}};
-        use ww_si::prefix::{{Micro, Milli, One, Pow10, Pow2, Rational}};
+        use ww_si::prefix::{{Micro, Milli, One, Pow10, Pow2, Product, Quotient, Rational}};
         use ww_si::units;
         use ww_si::prefix;
         use ww_si::units::{{Second, Meter, Ratio}};
@@ -261,6 +261,12 @@ fn exact_scales_of_another_value_are_breaking() {
             "Fixed<Ratio, Rational<1, 65536>, u16>",
             "marker prefix::Rational<1, 65535> on the old version, prefix::Rational<1, 65536>",
         ),
+        (
+            "Fixed<Second, Product<Milli, Milli>, u32>",
+            "Fixed<Second, Quotient<Milli, Milli>, u32>",
+            "marker prefix::Product<prefix::Milli, prefix::Milli> on the old version, \
+             prefix::Quotient<prefix::Milli, prefix::Milli> on the new version",
+        ),
     ] {
         assert_rule(&report(&same(old), &same(new)), Rule::Meaning, marker);
         assert_eq!(report(&same(new), &same(new)).change, Change::None, "{new}");
@@ -279,6 +285,15 @@ fn exact_scales_of_the_same_value_are_compatible() {
         (
             "Fixed<Ratio, Pow2<-16>, u16>",
             "Fixed<Ratio, Rational<1, 65536>, u16>",
+        ),
+        // the scale of a product or quotient of two Fixed values (STD-83) by its factor
+        (
+            "Fixed<Second, Micro, u32>",
+            "Fixed<Second, Product<Milli, Milli>, u32>",
+        ),
+        (
+            "Fixed<Second, Pow10<3>, u32>",
+            "Fixed<Second, Quotient<Milli, Micro>, u32>",
         ),
     ] {
         let report_ = report(&same(old), &same(new));

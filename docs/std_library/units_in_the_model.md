@@ -51,6 +51,7 @@ A marker struct's definition is `ItemStructExtra::marker`, a `ww_self::MarkerDef
 | `Scale(ScaleDef { symbol, magnitude })`                        | a named scale: `prefix::Milli` (`"m"`, 10⁻³), a crate's `Mdps70`   |
 | `Per`, `Times`, `Sqrt`                                         | `exact_units`' unit combinators, their arguments are the instance's |
 | `Pow10`, `Pow2`, `Rational`, `FullScale`, `FullScaleMax`       | `exact_units`' generic scales, their const arguments say the value |
+| `Product`, `Quotient`                                          | the scale of `Fixed * Fixed` and `Fixed / Fixed`, its scale arguments are the instance's |
 | `Unbounded`, `Range`, `RangeU64`, `RangeDec`                   | the bounds of a `Fixed`                                            |
 | `Origin(OriginDef { unit, symbol, reference, offset, .. })`    | an origin of a `Point`: `origins::Celsius`, a crate's `origin!`    |
 | `Angle`                                                        | `origins::Angle<U>`, its unit argument is the instance's           |
@@ -79,10 +80,12 @@ their expressions differ: `factor_to` gives the exact factor (π/30 from `rpm` t
 It is shown with its symbols, `(rad/s)⁻¹·N·m` for `Per<Torque, AngularVelocity>`.
 
 `ww_self::units::scale_of(ty, bundle)` gives the exact factor of a `Fixed`'s scale: a named scale, `Pow10<E>`,
-`Pow2<E>`, `Rational<NUM, DEN>`, `FullScale<V, BITS>` (`V / 2^BITS`) or `FullScaleMax<V, BITS>` (`V / (2^BITS - 1)`).
+`Pow2<E>`, `Rational<NUM, DEN>`, `FullScale<V, BITS>` (`V / 2^BITS`), `FullScaleMax<V, BITS>` (`V / (2^BITS - 1)`), or
+`Product<A, B>` / `Quotient<A, B>` (`A · B`, `A / B`), the scale a product or quotient of two `Fixed` values has:
+`Fixed<Watt, Product<Milli, Milli>, i32>` is a step of 10⁻⁶ W, the factor rustc gives `Product<Milli, Milli>::SCALE`.
 
-A bundle from a device is untrusted: both walk at most `MAX_UNIT_NESTING` (16) levels of `Per`, `Times`, `Sqrt` and
-full-scale markers, and an overflowing dimension or factor is an error, not a panic.
+A bundle from a device is untrusted: both walk at most `MAX_UNIT_NESTING` (16) levels of `Per`, `Times`, `Sqrt`,
+full-scale, `Product` and `Quotient` markers, and an overflowing dimension or factor is an error, not a panic.
 
 ## Origins
 

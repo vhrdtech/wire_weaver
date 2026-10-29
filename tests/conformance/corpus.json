@@ -1419,6 +1419,22 @@
       "note": "exact_units' generic Per<A, B>: the variant alone, A and B are the instance's arguments (INT-13)"
     },
     {
+      "name": "model.marker_def.product",
+      "type": "marker_def",
+      "value": "Product",
+      "bytes": "c2",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' generic prefix::Product<A, B>, the scale of Fixed * Fixed (STD-83): the variant alone, its factor A · B comes from the instance's arguments; a reader from before it gets Unknown"
+    },
+    {
+      "name": "model.marker_def.quotient",
+      "type": "marker_def",
+      "value": "Quotient",
+      "bytes": "d2",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "exact_units' generic prefix::Quotient<A, B>, the scale of Fixed / Fixed (STD-83): the variant alone, its factor A / B comes from the instance's arguments; a reader from before it gets Unknown"
+    },
+    {
       "name": "model.marker_def.origin",
       "type": "marker_def",
       "value": {"Origin": {"unit": {"symbol": "K", "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 1, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": 0, "rest": null}}, "symbol": "°C", "reference": null, "offset": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}, "modulus": null, "step": {"pow10": 0, "rest": null}, "shown": {"negative": false, "magnitude": {"pow10": -2, "rest": {"pow2": -2, "irrational": null, "factors": [{"prime": 3, "exp": 4}, {"prime": 607, "exp": 2}, null, null, null, null, null, null, null, null, null, null]}}}}},

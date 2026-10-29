@@ -52,6 +52,8 @@ another). `Quantity::to_fixed` and `Quantity::from_fixed` convert between them.
 - `Rational<NUM, DEN>` (`u64`), a fraction: `Duty16` is `Fixed<Ratio, Rational<1, 65535>, u16>`, where 65535 is 100 %;
 - `FullScale<V, BITS>` and `FullScaleMax<V, BITS>`, one step of a converter whose `2^BITS` codes (or largest code)
   span `V`.
+- `Product<A, B>` and `Quotient<A, B>`, the scale of a product or quotient of two `Fixed` values: mV times mA is a
+  `Product<Milli, Milli>`, a step of 1 µW.
 
 Every scale is a [`Magnitude`](magnitude.md), a canonical product of prime powers with powers of π, ln 2 and ln 10,
 so `Milli`, `Pow10<-3>` and `Rational<1, 1000>` are the same scale. A conversion with `to::<P2, T2>()` is exact or

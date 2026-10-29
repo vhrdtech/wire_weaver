@@ -768,6 +768,13 @@ pub enum MarkerDef<'i> {
     /// [Self::Unit] that doesn't convert to or from another unit of its dimension (`Per<Volt, Ampere>`). A reader
     /// from before it gets `Unknown` and treats the struct as a marker it can't convert.
     KindUnit(KindUnitDef<'i>),
+    /// `exact_units::prefix::Product<A, B>`: `A · B`, the scale of a product of two `Fixed` values (STD-83):
+    /// `Product<Milli, Milli>` is 10⁻⁶. A reader from before it gets `Unknown` and treats the struct as a marker it
+    /// can't convert.
+    Product,
+    /// `exact_units::prefix::Quotient<A, B>`: `A / B`, the scale of a quotient of two `Fixed` values (STD-83):
+    /// `Quotient<Milli, Milli>` is 1. A reader from before it gets `Unknown`.
+    Quotient,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].

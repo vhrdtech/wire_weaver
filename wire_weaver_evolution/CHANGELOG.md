@@ -7,6 +7,7 @@
 
 ### 🐛 Fixes
 
+- The scales of a product and a quotient of two `Fixed` values, `Product<A, B>` / `Quotient<A, B>` (STD-83), are compared by their factor as other scales are: `Product<Milli, Milli>` for `Micro` is the same value, `Quotient<Milli, Milli>` for `Product<Milli, Milli>` is breaking.
 - `exact_units::Fixed` (what `ww_si::Fixed` re-exports since STD-61) is recognised as `Fixed`, so `Quantity` -> `Fixed` gets its hint again; a marker with its definition in the snapshot (INT-13) comes back in-line and is named without its module path in findings.
 - Upgrading wire_weaver alone no longer fails `Check::require_current` or reports a change (EVO-13): a field of the API model that a snapshot file has in no instance (written by an older wire_weaver, like `ItemEnum::future_version` from EVO-10 in a snapshot saved before it) is not recorded, and both sides are compared without it, instead of the source counting as changed. The rule needs no list of fields or `ww_self` versions, so the next field added to the model gets it as well (with shrink_wrap DER-17, also one that is not an `Option`). New `recorded` module (`Recorded`, `Unrecorded`), `compare_recorded(old, old_recorded, new, new_recorded)`, and `Report::unrecorded`, printed as "not compared: ..". `Check::save` reports a file that only lacks such fields as `SaveStatus::Reformatted`, never as refreshed. Test with the snapshots of `nucleo_g0b1re_api` 0.3.0 / 0.4.0 as saved by an older wire_weaver (`tests/check.rs`).
 

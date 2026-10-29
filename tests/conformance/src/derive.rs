@@ -858,6 +858,8 @@ pub fn table() -> Vec<Typed> {
             }),
         ),
         case("model.marker_def.per", ww_self::MarkerDefOwned::Per),
+        case("model.marker_def.product", ww_self::MarkerDefOwned::Product),
+        case("model.marker_def.quotient", ww_self::MarkerDefOwned::Quotient),
         case("model.marker_def.origin", celsius()),
         case("model.marker_def.angle", ww_self::MarkerDefOwned::Angle),
         case(

@@ -2123,7 +2123,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.
 - 🚧 **STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI** · `v0.5` — first piece done: a gain's dB by its kind
   (STD-68), `Fixed::to_db` / `from_db` with 20·lg for ratios of root-power quantities (V/V, A/A, Pa/Pa) and 10·lg for
-  powers (W/W, J/J), a plain `Ratio` refused at compile time. Missing: the rest below. `Level<Kind, Ref>` on the point
+  powers (W/W, J/J), a plain `Ratio` refused at compile time; `to_db` / `from_db` in `f64` and `f32`, without `std`
+  through the `libm` feature; `db!()` works the stored value out exactly at compile time. Missing: the rest below.
+  `Level<Kind, Ref>` on the point
   algebra: level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine
   or square convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave,
   decade, shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and
@@ -2182,6 +2184,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   features.
 - 📋 **STD-82 Unit metadata in Arrow and Polars** — a column's unit and scale as Arrow field metadata, read back
   exactly, Polars through it. Later, optional feature.
+- 🚧 **STD-83 Typed products and quotients of quantities** — `Fixed * Fixed` → `Times`, `/` → `Per`, the exact result
+  scale as a type, overflow by the storage policy; `checked_times` / `saturating_times` / `wrapping_times`, the same
+  for `per`, and `times_into` / `per_into` with rounding. In progress on `exact_units` (branch
+  `s/29oct2026-fixed-product`), not yet on its `main`.
 
 ## Examples (`EX`)
 

@@ -901,9 +901,10 @@ checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
+source = "git+https://github.com/romixlab/exact_units#8d1bc2cb7ebfa887494fed18745fa72f0dda2740"
 dependencies = [
  "serde",
- "shrink_wrap",
+ "shrink_wrap 0.2.0 (git+https://github.com/vhrdtech/wire_weaver)",
 ]
 
 [[package]]
@@ -2514,12 +2515,34 @@ dependencies = [
  "either",
  "paste",
  "serde",
- "shrink_wrap_derive",
+ "shrink_wrap_derive 0.2.0",
+]
+
+[[package]]
+name = "shrink_wrap"
+version = "0.2.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#6127f6711e989d86c95886780c9968b6d8410720"
+dependencies = [
+ "either",
+ "paste",
+ "serde",
+ "shrink_wrap_derive 0.2.0 (git+https://github.com/vhrdtech/wire_weaver)",
 ]
 
 [[package]]
 name = "shrink_wrap_derive"
 version = "0.2.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.2",
+]
+
+[[package]]
+name = "shrink_wrap_derive"
+version = "0.2.0"
+source = "git+https://github.com/vhrdtech/wire_weaver#6127f6711e989d86c95886780c9968b6d8410720"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -3461,7 +3484,7 @@ dependencies = [
  "ron 0.12.2",
  "semver",
  "serde",
- "shrink_wrap",
+ "shrink_wrap 0.2.0",
  "syn 3.0.2",
  "toml",
  "wire_weaver_snapshots",
@@ -3516,7 +3539,7 @@ dependencies = [
  "convert_case",
  "serde",
  "serde_json",
- "shrink_wrap",
+ "shrink_wrap 0.2.0",
 ]
 
 [[package]]
@@ -3524,7 +3547,7 @@ name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
  "serde",
- "shrink_wrap",
+ "shrink_wrap 0.2.0",
 ]
 
 [[package]]
@@ -3535,7 +3558,7 @@ dependencies = [
  "exact_units",
  "serde",
  "sha2",
- "shrink_wrap",
+ "shrink_wrap 0.2.0",
  "ww_numeric",
  "ww_version",
 ]
@@ -3547,7 +3570,7 @@ dependencies = [
  "hex",
  "semver",
  "serde",
- "shrink_wrap",
+ "shrink_wrap 0.2.0",
  "ww_global",
 ]
 

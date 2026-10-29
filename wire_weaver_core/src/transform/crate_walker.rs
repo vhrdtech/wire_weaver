@@ -240,6 +240,9 @@ pub(crate) struct Scratch {
     /// Child modules already parsed ([CrateContext::module]), by crate, parent module and name; `None` for a name
     /// that isn't a module. Resolving every path anew re-parsed the same files hundreds of times per API.
     modules: HashMap<(FullVersionOwned, Vec<ModSegment>, String), Option<Rc<CrateContext>>>,
+    /// `pub use` within the crate of each module already looked at ([CrateContext::local_reexports]), by crate and
+    /// module.
+    local_reexports: HashMap<(FullVersionOwned, Vec<ModSegment>), Rc<[LocalReexport]>>,
     /// Cargo.lock and Cargo's fetched sources, for git and registry dependencies.
     pub(crate) sources: CargoSources,
     /// A crate was loaded again with more features than it was read with first, so what was converted from it
@@ -248,6 +251,19 @@ pub(crate) struct Scratch {
     /// Unit-suffix hints found so far (TOOL-22), not part of the bundle: `load`/`load_crate` drop them,
     /// `load_with_hints`/`load_crate_with_hints` return them alongside it.
     pub(crate) unit_hints: Vec<super::UnitHint>,
+}
+
+/// A leaf of a `pub use` within the crate, with the module its path names ([CrateContext::local_reexports]).
+struct LocalReexport {
+    module: Rc<CrateContext>,
+    leaf: ReexportLeaf,
+}
+
+/// [UseLeaf], owned.
+enum ReexportLeaf {
+    Name(String),
+    Rename { name: String, rename: String },
+    Glob,
 }
 
 /// Crate and module-qualified name (`units::Volt`) of a user-defined type.
@@ -376,6 +392,8 @@ pub(crate) struct ModSegment {
 pub(crate) struct ManifestContext {
     crate_path: PathBuf,
     manifest: Manifest,
+    /// [Self::package_version], worked out once: every module's `crate::` and public path asks for it
+    package_version: std::cell::OnceCell<(String, semver::Version)>,
 }
 
 impl CrateContext {
@@ -412,6 +430,7 @@ impl CrateContext {
                 // its modules were parsed with fewer features
                 scratch.modules.retain(|(v, _, _), _| v != &version);
                 scratch.public_paths.retain(|(v, _, _), _| v != &version);
+                scratch.local_reexports.retain(|(v, _), _| v != &version);
                 scratch.features_grew = true;
                 features
             }
@@ -665,7 +684,7 @@ impl CrateContext {
             .zip(&module_paths)
             .filter_map(|(cx, module_path)| {
                 let module_path = module_path.as_ref()?;
-                let name = cx.exported_name(self, ident, scratch, 0)?;
+                let name = cx.exported_name(self, ident, scratch)?;
                 Some(
                     module_path
                         .iter()
@@ -742,20 +761,59 @@ impl CrateContext {
 
     /// The name under which this module makes `ident`, defined in `def_cx`, public: `ident` when this is `def_cx`,
     /// the name of a `pub use` of it (by name, renamed or through a glob) otherwise. Only re-exports within the crate
-    /// are followed, `depth` bounds the chain.
-    fn exported_name(
+    /// are followed.
+    fn exported_name(&self, def_cx: &Self, ident: &str, scratch: &mut Scratch) -> Option<String> {
+        self.exported_name_in(def_cx, ident, scratch, &mut HashMap::new())
+    }
+
+    /// [Self::exported_name], each module asked once: `seen` has the answer of every module already looked at
+    /// (`None` while one is in progress, so a re-export cycle back to it adds nothing). Following every chain of
+    /// glob re-exports anew asked the same modules hundreds of times per type of exact_units.
+    fn exported_name_in(
         &self,
         def_cx: &Self,
         ident: &str,
         scratch: &mut Scratch,
-        depth: u8,
+        seen: &mut HashMap<(FullVersionOwned, Vec<ModSegment>), Option<String>>,
     ) -> Option<String> {
         if self.version == def_cx.version && self.mod_path == def_cx.mod_path {
             return Some(ident.to_string());
         }
-        if depth >= 8 {
-            return None;
+        let key = (self.version.clone(), self.mod_path.clone());
+        if let Some(known) = seen.get(&key) {
+            return known.clone();
         }
+        seen.insert(key.clone(), None);
+        let mut found = None;
+        for reexport in self.local_reexports(scratch).iter() {
+            let exported = reexport
+                .module
+                .exported_name_in(def_cx, ident, scratch, seen);
+            let name = match (&reexport.leaf, exported) {
+                (_, None) => continue,
+                (ReexportLeaf::Name(name), Some(exported)) if *name == exported => exported,
+                (ReexportLeaf::Rename { name, rename }, Some(exported)) if *name == exported => {
+                    rename.clone()
+                }
+                (ReexportLeaf::Glob, Some(exported)) => exported,
+                _ => continue,
+            };
+            found = Some(name);
+            break;
+        }
+        seen.insert(key, found.clone());
+        found
+    }
+
+    /// This module's `pub use` of modules of its own crate, each leaf with the module it names, in source order;
+    /// `pub use self::*` and paths that don't resolve left out. Resolved once per module: [Self::exported_name] asks
+    /// for every type of the crate, and resolving the leaves each time made walking exact_units take a second.
+    fn local_reexports(&self, scratch: &mut Scratch) -> Rc<[LocalReexport]> {
+        let key = (self.version.clone(), self.mod_path.clone());
+        if let Some(reexports) = scratch.local_reexports.get(&key) {
+            return reexports.clone();
+        }
+        let mut reexports = vec![];
         for item in &self.lib_rs_ast.items {
             let Item::Use(item_use) = item else {
                 continue;
@@ -777,20 +835,20 @@ impl CrateContext {
                     // `pub use self::*`
                     continue;
                 }
-                let exported = module.exported_name(def_cx, ident, scratch, depth + 1);
-                let name = match (leaf, exported) {
-                    (_, None) => continue,
-                    (UseLeaf::Name(name), Some(exported)) if *name == exported => exported,
-                    (UseLeaf::Rename { name, rename }, Some(exported)) if *name == exported => {
-                        rename.to_string()
-                    }
-                    (UseLeaf::Glob, Some(exported)) => exported,
-                    _ => continue,
+                let leaf = match leaf {
+                    UseLeaf::Name(name) => ReexportLeaf::Name(name.to_string()),
+                    UseLeaf::Rename { name, rename } => ReexportLeaf::Rename {
+                        name: name.to_string(),
+                        rename: rename.to_string(),
+                    },
+                    UseLeaf::Glob => ReexportLeaf::Glob,
                 };
-                return Some(name);
+                reexports.push(LocalReexport { module, leaf });
             }
         }
-        None
+        let reexports: Rc<[LocalReexport]> = reexports.into();
+        scratch.local_reexports.insert(key, reexports.clone());
+        reexports
     }
 
     pub(crate) fn version(&self) -> &FullVersionOwned {
@@ -845,6 +903,7 @@ impl ManifestContext {
         Ok(Rc::new(ManifestContext {
             crate_path: crate_path.to_path_buf(),
             manifest,
+            package_version: Default::default(),
         }))
     }
 
@@ -879,10 +938,13 @@ impl ManifestContext {
 
     /// Package name and its full version (with pre-release and build metadata).
     fn package_version(&self, scratch: &mut Scratch) -> Result<(String, semver::Version)> {
+        if let Some(known) = self.package_version.get() {
+            return Ok(known.clone());
+        }
         let package = self
             .manifest
             .package
-            .clone()
+            .as_ref()
             .context("No package section found in Cargo.toml")?;
         let version = match &package.version {
             Inheritable::Set(version) => version.clone(),
@@ -899,7 +961,8 @@ impl ManifestContext {
                         .context(self.err_context())
                 })?,
         };
-        Ok((package.name, version))
+        let known = (package.name.clone(), version);
+        Ok(self.package_version.get_or_init(|| known).clone())
     }
 
     /// Features of this crate when nobody asks for any: its default ones.

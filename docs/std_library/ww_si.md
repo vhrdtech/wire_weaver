@@ -121,7 +121,7 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 | `radiation`    | `Becquerel`, `Gray`, `Sievert`, `ElectronVolt`                                                    |
 | `logarithmic`  | `DeciBel`, `DeciBelmW` (plain structs without a prefix)                                           |
 | `dimensionless` | `Ratio`: duty, probability, scale (a group of its own, as it is used next to any other)          |
-| `information`  | `Bit`, `Byte` (8 bit), `Word` (4 byte, 32 bit) (bit is a dimension)                              |
+| `information`  | `Bit`, `Nibble` (4 bit), `Byte` (8 bit), `Halfword` (2 byte, 16 bit), `Word` (4 byte, 32 bit), `Doubleword` (8 byte, 64 bit) (bit is a dimension) |
 | `counting`     | `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`: counted bases |
 | `quantities`   | all of the groups above                                                                           |
 | `host`         | host helpers: [`Unwrapper`](#second-as-a-timestamp)                                               |
@@ -275,8 +275,10 @@ SI alone would call the same:
   themselves, a code goes from one to the other with an explicit 2π (or through `Cycle` per second); a moment of
   inertia is kg·m²/rad² (`Per<Torque, AngularAcceleration>`), so torque over angular acceleration balances; an arc
   length r·θ carries rad (`Times<Meter, Radian>`), it isn't a plain length.
-- **Information (bit).** `Bit` is the coherent unit, `Byte` is 8 bit and `Word` 32 bit (a scale, like `Gram` to
-  kilogram). Bytes are never a `Ratio` or an angle, and `Per<Byte, Second>` is a data rate, not a frequency.
+- **Information (bit).** `Bit` is the coherent unit; `Nibble` (4 bit), `Byte` (8 bit), `Halfword` (16 bit), `Word`
+  (32 bit) and `Doubleword` (64 bit) are scales of it, like `Gram` to kilogram. `units::Nibble` is this unit, not
+  `shrink_wrap::Nibble`, the 4-bit storage a `Fixed` may hold its number in. Bytes are never a `Ratio` or an angle,
+  and `Per<Byte, Second>` is a data rate, not a frequency.
 - **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char` and `Code` count
   things: each is a dimension of its own, so `Per<Sample, Second>` (s⁻¹·Sample) isn't `Hertz` and samples aren't
   packets. A base is known by its crate and marker name together (`Counted { crate_name, name, exp }`): two crates'

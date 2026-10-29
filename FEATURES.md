@@ -1870,10 +1870,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-60 Angle, information and counted things as dimensions** · `v0.5` — `Dim<'i>` has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (`Item`, `Sample`, `Frame`, `Packet`,
   `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, feature `counting`, an API's own with `ww_si::counted!`;
-  `Bit`, `Byte`, `Word`, feature `information`) and a root flag for half exponents (V/√Hz, `Dim::sqrt`): bytes don't
-  convert into % or rad, `AngularVelocity` isn't `Hertz`, `Per<Sample, Second> × Second` is a `Sample`, bytes of a
-  sample only through `Per<Byte, Sample>`; checked at compile time (`Unit::DIM`) and at run time (`SIExpr`,
-  `wire_weaver_client::DynUnit`, Python `Quantity.dim`). `Torque` is J/rad (written N·m). Wire change EVO-16.
+  `Bit`, `Nibble`, `Byte`, `Halfword`, `Word`, `Doubleword`, feature `information`) and a root flag for half
+  exponents (V/√Hz, `Dim::sqrt`): bytes don't convert into % or rad, `AngularVelocity` isn't `Hertz`,
+  `Per<Sample, Second> × Second` is a `Sample`, bytes of a sample only through `Per<Byte, Sample>`; checked at
+  compile time (`Unit::DIM`) and at run time (`SIExpr`, `wire_weaver_client::DynUnit`, Python `Quantity.dim`).
+  `Torque` is J/rad (written N·m). Wire change EVO-16.
   [ww_si dimensions](docs/std_library/ww_si.md#dimensions), `ww_stdlib/ww_si/tests/quantities.rs`.
 - ✅ **STD-83 Typed products and quotients of quantities** · `v0.5` — in `exact_units` (locked at 93a1607): `a * b`
   is a `Fixed<Times<U1, U2>, Product<P1, P2>, T>`, `a / b` a `Fixed<Per<U1, U2>, Quotient<P1, P2>, T>`, one multiply

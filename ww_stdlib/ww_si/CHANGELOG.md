@@ -11,6 +11,10 @@
 
 ### 🚀 Features
 
+* `units::Nibble` (4 bit), `Halfword` (16 bit) and `Doubleword` (64 bit), exact scales of `Bit` next to `Byte` and
+  `Word` (feature `information`, STD-60): not to be confused with `shrink_wrap::Nibble`, the 4-bit storage a `Fixed`
+  may hold its number in.
+
 * Re-exports `exact_units::ProvenanceOwned` (with `std`), next to `Provenance` (STD-72).
 
 * Re-exports `exact_units::Provenance` (STD-72).

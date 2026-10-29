@@ -11,14 +11,16 @@
 //! The canonical expression is F#'s: `Per<Meter, Second>`, `Times<Per<Ratio, Second>, Meter>` and a user's own
 //! `Per<Meter, Second>` re-declared elsewhere are the same `m·s⁻¹` when they name the same markers with the same
 //! powers. Two units of the same [dimension](CanonicalUnit::dim) convert into each other by the quotient of their
-//! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`).
+//! [magnitudes](CanonicalUnit::magnitude) even when their expressions differ (`km/h` and `m/s`), when they are of
+//! the same [kind](CanonicalUnit::kind) (STD-68): `Per<Volt, Volt>` is a voltage gain, not a ratio, and
+//! `Per<Volt, Ampere>` is not an `Ohm`, by `exact_units`' rules ([exact_units::Kind]).
 
 use crate::{
-    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, MarkerDefOwned,
-    OriginDefOwned, TypeOwned, UnitDefOwned, ValueOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, GenericArgOwned, ItemStructOwned, KindUnitDefOwned,
+    MarkerDefOwned, OriginDefOwned, TypeOwned, UnitDefOwned, ValueOwned,
 };
 use anyhow::{Result, anyhow, bail};
-use exact_units::{DimOwned, Magnitude, Offset};
+use exact_units::{DimOwned, Kind, Magnitude, Offset};
 use std::fmt;
 
 /// Deepest nesting of `Per`, `Times`, `Sqrt` and full-scale markers [unit_of] and [scale_of] follow: a bundle from a
@@ -40,6 +42,48 @@ impl fmt::Display for MarkerName {
     }
 }
 
+/// The kind of quantity of a unit beyond its dimension (STD-68), owned: an [exact_units::Kind] read from a bundle.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UnitKind {
+    /// No kind beyond the dimension.
+    Plain,
+    /// A kind of its own (`resistance`), from a [KindUnit](MarkerDefOwned::KindUnit).
+    Named(String),
+    /// Dimension one, a ratio of two quantities of this dimension: `Per<Volt, Volt>`.
+    RatioOf(Box<DimOwned>),
+}
+
+impl UnitKind {
+    /// The kind as `exact_units` has it, for its rules.
+    pub fn as_kind(&self) -> Kind<'_> {
+        match self {
+            UnitKind::Plain => Kind::Plain,
+            UnitKind::Named(n) => Kind::Named(n),
+            UnitKind::RatioOf(d) => Kind::RatioOf(d.as_dim()),
+        }
+    }
+}
+
+impl From<Kind<'_>> for UnitKind {
+    fn from(k: Kind<'_>) -> Self {
+        match k {
+            Kind::Plain => UnitKind::Plain,
+            Kind::Named(n) => UnitKind::Named(n.to_string()),
+            Kind::RatioOf(d) => UnitKind::RatioOf(Box::new(d.into())),
+        }
+    }
+}
+
+/// `resistance`, `ratio of V` (by the dimension), `plain`.
+impl fmt::Display for UnitKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UnitKind::Plain => f.write_str("plain"),
+            kind => fmt::Display::fmt(&kind.as_kind(), f),
+        }
+    }
+}
+
 /// One named unit in a [CanonicalUnit] and its power.
 #[derive(Clone, Debug)]
 pub struct UnitPower {
@@ -58,13 +102,17 @@ pub struct CanonicalUnit {
     pub dim: DimOwned,
     /// The exact factor to the coherent SI unit of [Self::dim].
     pub magnitude: Magnitude,
+    /// The kind beyond the dimension: what a quotient of one dimension kept, a named unit's own kind.
+    pub kind: UnitKind,
 }
 
-/// The same unit: the same named units to the same powers. `km/h` and `m/s` are not the same, they are
+/// The same unit: the same named units to the same powers, of the same kind (`Per<Volt, Volt>` is no ratio,
+/// though both have no powers left). `km/h` and `m/s` are not the same, they are
 /// [convertible](CanonicalUnit::factor_to).
 impl PartialEq for CanonicalUnit {
     fn eq(&self, other: &Self) -> bool {
-        self.powers.len() == other.powers.len()
+        self.kind == other.kind
+            && self.powers.len() == other.powers.len()
             && self
                 .powers
                 .iter()
@@ -80,13 +128,14 @@ impl CanonicalUnit {
             powers: Vec::new(),
             dim: exact_units::Dim::ONE.into(),
             magnitude: Magnitude::ONE,
+            kind: UnitKind::Plain,
         }
     }
 
-    /// The exact factor a number in this unit is multiplied by to be in `other`, `None` when the dimensions
-    /// differ: 1/1000 from `m` to `km`, π/30 from `rpm` to `rad/s`.
+    /// The exact factor a number in this unit is multiplied by to be in `other`, `None` when the dimensions or the
+    /// kinds differ: 1/1000 from `m` to `km`, π/30 from `rpm` to `rad/s`; none from V/V to a ratio.
     pub fn factor_to(&self, other: &CanonicalUnit) -> Option<Magnitude> {
-        if !self.dim.as_dim().same(other.dim.as_dim()) {
+        if !self.dim.as_dim().same(other.dim.as_dim()) || self.kind != other.kind {
             return None;
         }
         self.magnitude.checked_div(other.magnitude).ok()
@@ -94,6 +143,12 @@ impl CanonicalUnit {
 
     fn checked_mul(self, other: CanonicalUnit, sign: i16) -> Result<Self> {
         let (a, b) = (self.dim.as_dim(), other.dim.as_dim());
+        let (ka, kb) = (self.kind.as_kind(), other.kind.as_kind());
+        let kind = match sign {
+            1 => ka.mul(a, kb, b),
+            _ => ka.div(a, kb, b),
+        }
+        .into();
         let dim = match sign {
             1 => a.checked_mul(b),
             _ => a.checked_div(b),
@@ -128,6 +183,7 @@ impl CanonicalUnit {
             powers,
             dim,
             magnitude,
+            kind,
         })
     }
 
@@ -149,10 +205,12 @@ impl CanonicalUnit {
             }
             p.exp_x2 /= 2;
         }
+        let kind = self.kind.as_kind().sqrt().into();
         Ok(CanonicalUnit {
             powers,
             dim,
             magnitude,
+            kind,
         })
     }
 }
@@ -339,17 +397,20 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
             Ok(CanonicalUnit::one())
         }
         MarkerDefOwned::Unit(def)
-        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. }) => {
-            Ok(CanonicalUnit {
-                powers: vec![UnitPower {
-                    marker: marker_name(s, bundle)?,
-                    symbol: def.symbol.clone(),
-                    exp_x2: 2,
-                }],
-                dim: def.dim.clone(),
-                magnitude: def.magnitude,
-            })
-        }
+        | MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned { unit: def, .. })
+        | MarkerDefOwned::KindUnit(KindUnitDefOwned { unit: def, .. }) => Ok(CanonicalUnit {
+            powers: vec![UnitPower {
+                marker: marker_name(s, bundle)?,
+                symbol: def.symbol.clone(),
+                exp_x2: 2,
+            }],
+            dim: def.dim.clone(),
+            magnitude: def.magnitude,
+            kind: match definition(s, bundle)?.kind() {
+                Some(k) => UnitKind::Named(k.to_string()),
+                None => UnitKind::Plain,
+            },
+        }),
         MarkerDefOwned::Per => arg(0)?.checked_mul(arg(1)?, -1),
         MarkerDefOwned::Times => arg(0)?.checked_mul(arg(1)?, 1),
         MarkerDefOwned::Sqrt => arg(0)?.checked_sqrt(),

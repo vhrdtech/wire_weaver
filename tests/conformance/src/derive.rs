@@ -849,6 +849,7 @@ pub fn table() -> Vec<Typed> {
         ),
         case("model.marker_def.unit", rpm()),
         case("model.marker_def.unit_conventional", inch_of_mercury_32f()),
+        case("model.marker_def.unit_kind", ohm()),
         case(
             "model.marker_def.scale",
             ww_self::MarkerDefOwned::Scale(ww_self::ScaleDefOwned {
@@ -970,6 +971,18 @@ fn inch_of_mercury_32f() -> ww_self::MarkerDefOwned {
         },
         source: "NIST SP 811".into(),
         year: 2008,
+    })
+}
+
+/// `unit!(Ohm, "Ω", [..] kind "resistance")`: a unit of a kind of its own (STD-68), no `Per<Volt, Ampere>`.
+fn ohm() -> ww_self::MarkerDefOwned {
+    ww_self::MarkerDefOwned::KindUnit(ww_self::KindUnitDefOwned {
+        unit: ww_self::UnitDefOwned {
+            symbol: "Ω".into(),
+            dim: dim(ww_si::Dim::new(-3, 2, 1, -2, 0, 0, 0)),
+            magnitude: ww_si::Magnitude::ONE,
+        },
+        kind: "resistance".into(),
     })
 }
 

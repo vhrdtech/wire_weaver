@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 8fb363b9823fbf4a48338bab97ee37a3e1436b73c59823826bf72840120e1e4c
+// shrink_wrap sha256: 501a590f7709a36f26c70e2864ac4ce2a690d4659c31222a3c5d5325608d4066
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -62,9 +62,10 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "V", dim: (s: -3, m: 2, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Resistance, reactance or impedance in ohms, Ω (kg·m²·s⁻³·A⁻², V/A).",
+        "Of the kind `resistance`: a transimpedance `Per<Volt, Ampere>` becomes one only by `as_resistance`.",
     ], ident: "Ohm", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Ω", dim: (s: -3, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "Ω", dim: (s: -3, m: 2, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "resistance"))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Capacitance in farads, F (kg⁻¹·m⁻²·s⁴·A², C/V).",
     ], ident: "Farad", generics: [], fields: Unit, sparse: false, path: Some([
@@ -72,9 +73,10 @@
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "F", dim: (s: 4, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Admittance, conductance or susceptance in siemens, S (kg⁻¹·m⁻²·s³·A², A/V).",
+        "Of the kind `conductance`: a transconductance `Per<Ampere, Volt>` becomes one only by `as_conductance`.",
     ], ident: "Siemens", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
-    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "S", dim: (s: 3, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "S", dim: (s: 3, m: -2, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "conductance"))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Inductance in henries, H (kg·m²·s⁻²·A⁻², Wb/A).",
     ], ident: "Henry", generics: [], fields: Unit, sparse: false, path: Some([
@@ -334,6 +336,9 @@
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "`A / B`, a unit outside the named list: `Per<Torque, AngularVelocity>` is N·m/(rad/s). Not normalized,",
         "`Per<Meter, Second>` is not [Speed] (convert with `to_si_f64` / `from_f32`).",
+        "",
+        "A quotient of one dimension keeps it as its [Kind]: `Per<Volt, Volt>` is a voltage gain, which",
+        "doesn\'t convert to `Per<Ampere, Ampere>` or a [Ratio] (`as_ratio` is the step), and has a level in dB (`to_db`).",
     ], ident: "Per", generics: [
         (ident: "A", kind: Type),
         (ident: "B", kind: Type),

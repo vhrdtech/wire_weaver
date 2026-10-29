@@ -764,6 +764,10 @@ pub enum MarkerDef<'i> {
     /// A unit by convention (STD-72, `exact_units`' `customary` units like inHg): a [Self::Unit] with the source of
     /// its value. A reader from before it gets `Unknown` and treats the struct as a marker it can't convert.
     ConventionalUnit(ConventionalUnitDef<'i>),
+    /// A unit of a kind of quantity of its own (STD-68, `kind "resistance"` on a `unit!` line: `Ohm`): a
+    /// [Self::Unit] that doesn't convert to or from another unit of its dimension (`Per<Volt, Ampere>`). A reader
+    /// from before it gets `Unknown` and treats the struct as a marker it can't convert.
+    KindUnit(KindUnitDef<'i>),
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].
@@ -794,6 +798,19 @@ pub struct ConventionalUnitDef<'i> {
     pub source: &'i str,
     /// Its edition.
     pub year: u16,
+}
+
+/// A unit of a kind of its own, see [MarkerDef::KindUnit]. A variant of its own, so a plain unit's bytes don't pay
+/// for it.
+#[derive_shrink_wrap(
+    owned(feature = "std"),
+    cfg_attr_owned(feature = "serde", derive(serde::Deserialize, serde::Serialize)),
+    derive(Clone, Debug, PartialEq)
+)]
+pub struct KindUnitDef<'i> {
+    pub unit: UnitDef<'i>,
+    /// The kind, by its ISO 80000 name: `"resistance"`, `"conductance"` ([exact_units::Kind::Named]).
+    pub kind: &'i str,
 }
 
 /// A named scale: `"m"`, 10⁻³. A number with this scale is the number times [Self::magnitude] of its unit.

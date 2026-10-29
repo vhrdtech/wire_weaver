@@ -1395,6 +1395,14 @@
       "note": "a unit fixed by a physical property: its scale is the value NIST SP 811 (2008) prints, carried as Conventional (STD-72)"
     },
     {
+      "name": "model.marker_def.unit_kind",
+      "type": "marker_def",
+      "value": {"KindUnit": {"unit": {"symbol": "Ω", "dim": {"s": -3, "m": 2, "kg": 1, "a": -2, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "magnitude": {"pow10": 0, "rest": null}}, "kind": "resistance"}},
+      "bytes": "b2cea9d21e000000000002726573697374616e636529296a",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "a unit of a kind of quantity of its own (STD-68): Ohm is a resistance, which Per<Volt, Ampere> (a transimpedance) of the same dimension is not; a reader from before it gets Unknown"
+    },
+    {
       "name": "model.marker_def.scale",
       "type": "marker_def",
       "value": {"Scale": {"symbol": "", "magnitude": {"pow10": -4, "rest": {"pow2": 0, "irrational": null, "factors": [{"prime": 7, "exp": 2}, null, null, null, null, null, null, null, null, null, null, null]}}}},

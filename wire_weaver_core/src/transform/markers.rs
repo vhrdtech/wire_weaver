@@ -18,8 +18,8 @@ use syn::{
 };
 use ww_self::units::{marker_name_of, origin_of, scale_of, unit_of};
 use ww_self::{
-    ApiBundleOwned, ConventionalUnitDefOwned, MarkerDefOwned, MarkerRefOwned, OriginDefOwned,
-    ScaleDefOwned, UnitDefOwned,
+    ApiBundleOwned, ConventionalUnitDefOwned, KindUnitDefOwned, MarkerDefOwned, MarkerRefOwned,
+    OriginDefOwned, ScaleDefOwned, UnitDefOwned,
 };
 
 /// Name of the attribute a struct made from a `unit!` / `scale!` line carries, with the line after its `=`.
@@ -714,15 +714,19 @@ pub(crate) fn marker_def(
                 dim,
                 magnitude,
             };
-            match line.provenance {
-                Some((source, year)) => {
+            match (line.provenance, line.kind) {
+                (Some(_), Some(_)) => bail!(
+                    "unit marker {ident}: a unit by convention of a kind of its own isn't in the model yet"
+                ),
+                (Some((source, year)), None) => {
                     MarkerDefOwned::ConventionalUnit(ConventionalUnitDefOwned {
                         unit,
                         source,
                         year,
                     })
                 }
-                None => MarkerDefOwned::Unit(unit),
+                (None, Some(kind)) => MarkerDefOwned::KindUnit(KindUnitDefOwned { unit, kind }),
+                (None, None) => MarkerDefOwned::Unit(unit),
             }
         }
         MarkerLineDef::Scale(line) => {
@@ -786,11 +790,13 @@ fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
         .map_err(|e| anyhow!("{} / {} · {powers:?}: {e:?}", m.num, m.den))
 }
 
-/// `"<symbol>", <dimension>[, <scale>]` of a `unit!` line.
+/// `"<symbol>", <dimension>[ kind "<kind>"][, <scale>]` of a `unit!` line.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct UnitLine {
     pub(crate) symbol: String,
     pub(crate) dim: DimLine,
+    /// `kind "resistance"` after the dimension: a kind of quantity of its own (STD-68).
+    pub(crate) kind: Option<String>,
     pub(crate) scale: UnitScaleLine,
     /// `conventional("<source>", <year>)` after the scale: a value a source prints, not a definition.
     pub(crate) provenance: Option<(String, u16)>,
@@ -878,6 +884,18 @@ impl Parse for UnitLine {
             }
             DimLine::Counted
         };
+        let kind = if input.peek(Ident) {
+            let word: Ident = input.parse()?;
+            if word != "kind" {
+                return Err(syn::Error::new(
+                    word.span(),
+                    "after the dimension only `kind \"<name>\"`",
+                ));
+            }
+            Some(input.parse::<LitStr>()?.value())
+        } else {
+            None
+        };
         let scale = if input.is_empty() {
             UnitScaleLine::Coherent
         } else {
@@ -939,6 +957,7 @@ impl Parse for UnitLine {
         Ok(UnitLine {
             symbol,
             dim,
+            kind,
             scale,
             provenance,
         })
@@ -1135,6 +1154,18 @@ mod tests {
                 }
             };
             assert_eq!(marker.as_ref().unwrap().provenance(), compiled, "{name}");
+            // STD-68: the kind the walker read is the one rustc compiled (plain for all but these)
+            let compiled_kind = match *name {
+                "Ohm" => <exact_units::units::Ohm as exact_units::Unit>::KIND,
+                "Siemens" => <exact_units::units::Siemens as exact_units::Unit>::KIND,
+                _ => exact_units::Kind::Plain,
+            };
+            let walked = marker
+                .as_ref()
+                .unwrap()
+                .kind()
+                .map_or(exact_units::Kind::Plain, exact_units::Kind::Named);
+            assert_eq!(walked, compiled_kind, "{name}");
         }
         macro_rules! scales {
             ($($name:ident)*) => {
@@ -1335,6 +1366,7 @@ mod tests {
             UnitLine {
                 symbol: "rpm".into(),
                 dim: DimLine::Exps(vec![("rad".into(), 1), ("s".into(), -1)]),
+                kind: None,
                 scale: UnitScaleLine::Exact(MagnitudeLine {
                     num: 1,
                     den: 30,
@@ -1469,6 +1501,8 @@ mod tests {
             r#"unit! { pub struct A = "a", [s 1], Pow2(1); }"#,
             r#"scale! { pub struct A = "a", Factor(2.0); }"#,
             r#"unit! { pub struct A = "a", [s 1], Factor(2.0); }"#,
+            r#"unit! { pub struct A = "a", [s 1] knd "x"; }"#,
+            r#"unit! { pub struct A = "a", [s 1] kind x; }"#,
             r#"unit! { pub struct A = "a", [s 1] }"#,
         ] {
             let mut file = syn::parse_file(src).unwrap();

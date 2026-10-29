@@ -843,12 +843,22 @@ pub fn qualified_name(path: Option<&[String]>, ident: &str) -> String {
 }
 
 impl MarkerDefOwned {
-    /// The unit of a [Unit](MarkerDefOwned::Unit) or [ConventionalUnit](MarkerDefOwned::ConventionalUnit), `None`
-    /// for any other marker.
+    /// The unit of a [Unit](MarkerDefOwned::Unit), [ConventionalUnit](MarkerDefOwned::ConventionalUnit) or
+    /// [KindUnit](MarkerDefOwned::KindUnit), `None` for any other marker.
     pub fn unit_def(&self) -> Option<&UnitDefOwned> {
         match self {
             MarkerDefOwned::Unit(def) => Some(def),
             MarkerDefOwned::ConventionalUnit(c) => Some(&c.unit),
+            MarkerDefOwned::KindUnit(k) => Some(&k.unit),
+            _ => None,
+        }
+    }
+
+    /// The kind of a [KindUnit](MarkerDefOwned::KindUnit) (`"resistance"`), `None` for any other marker: a plain
+    /// unit has no kind beyond its dimension (STD-68).
+    pub fn kind(&self) -> Option<&str> {
+        match self {
+            MarkerDefOwned::KindUnit(k) => Some(&k.kind),
             _ => None,
         }
     }

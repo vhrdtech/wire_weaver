@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- The local trait (`local_trait = "Name"`, CLT-57) takes `cx: &wire_weaver::CallContext` before the arguments of every function and answers `wire_weaver::call::Error` / `CallError<E>` / `ItemStream<T>` instead of `wire_weaver_client`'s types (SRV-48): an API crate's `local` feature needs `wire_weaver` with `std` and no `wire_weaver_client`. The `Dyn` companion's functions take `<'a>(&'a self, cx: &'a CallContext, ..)`. The client's implementation applies `cx`'s priority and deadline to the request. Local implementations return the API's error as `CallError::Api(e)` (was `Device(e)`).
 - `GenServerConfig`, `GenServerConfigRaw`, `GenClientConfig` and `GenClientConfigRaw` have a `crate_paths: CratePaths` field (API-60): code built with a struct literal adds `crate_paths: Default::default()` (every crate named by its own name, as before) or the paths from `load_dep_with_paths`.
 
 ### 🐛 Fixes

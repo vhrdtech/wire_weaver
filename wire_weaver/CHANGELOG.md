@@ -2,6 +2,7 @@
 
 ### ⚠️ Breaking
 
+- `Context` holds a `CallContext` instead of `seq` and `priority` (SRV-48): 72 B more per server request context (80 B instead of 8 B). On the STM32H725 USB examples (`opt-level = "z"`) the dispatch frames are unchanged, the server task's static future grows by 72 B; the blinking example's flash by 132 B. `wire_weaver` depends on `exact_units` (for `Millis`, a type alias) and with `std` on `futures-core`.
 - Deferred replies carry the request's priority (CLT-50, SRV-42): `ReplyTo` has a `priority` field, generated `<method>_send_return(out, reply_to, ..)` / `_send_return_blocking` take the `ReplyTo` (from `cx.reply_to()`) instead of its `seq`. `MessageSink` / `BlockingMessageSink` have `send_reply(message, priority)` and `EventOut` / `BlockingEventOut` `send_reply_with(priority, ser)` / `send_reply_with_blocking`, with defaults that send as `send` does; a sink that flushes by priority (`ww_device`'s) overrides them.
 - `ValidIndices` gets `Unknown(u32)` (SW-47), an index form from a newer version: it contains no index and iterates
   over nothing. `DisconnectReason` gets `Newer(u32)` (its own `Unknown` stays). Exhaustive matches need the arm.
@@ -18,6 +19,8 @@
 ### 🚀 Features
 
 - `EventOut::send_reply_bytes` / `BlockingEventOut::send_reply_bytes_blocking` (CLT-55): send a serialized reply as is. `EventWriter` hands it to the sink without copying, the default copies it through `send_reply_with`. Generated `no_alloc = false` servers send replies longer than the scratch buffer with it.
+- `CallContext` (SRV-48): who asked and under which terms, one `no_std`, `Copy` value per call: `seq`, `priority`, `peer: Peer` (`Local`, `Unix { uid, gid, pid }`, `Key(PeerKey)`, `Addr(SocketAddr)`, `Unknown`; `Uid`, `Gid`, `Pid`, `PeerKey` newtypes), `trace: Option<TraceContext>` (W3C: `TraceId`, `SpanId`, `TraceFlags`), `deadline: Option<Millis<u32>>`, `connection: ConnectionId`. `CallContext::local()` is what an in-process caller passes, `CallContext::new(seq)` a request from a peer the transport doesn't name. `Context` holds one: `cx.call()`, `Context::with_call(call, medium, out)`; `seq()`, `priority()`, `with_priority` and `reply_to()` read it as before.
+- `wire_weaver::call` (feature `std`, SRV-48): `Error` (an `ErrorKind`: `Unimplemented`, `Denied`, `Unavailable`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Internal`, and its cause), `CallError<E>` (`Api(E)` and one variant per kind), `ItemStream<T>`, `item_stream`, `BoxFuture`: the errors and streams of an API's local trait (CLT-57), so an API crate names them without `wire_weaver_client`.
 - `Priority` (CLT-50): a request's priority, 0..=15, `NORMAL` (4) by default, `is_urgent()` from `URGENT` (8) up, `nibble()` / `from_nibble()` for the wire. `Context::priority()` gives a handler the request's.
 - `wire_weaver::handler` (`sync`, `r#async`, `SyncReturn`, `AsyncReturn`; hidden, for generated code): the checks around handler calls of SRV-21 `handler_model`, so a handler written as `fn` where `async fn` is expected (or the other way round) is a compile error that says so.
 - Observed properties (SRV-18): `property!(ro+observe ..)` / `rw+observe` are observable by hosts with `Observe`

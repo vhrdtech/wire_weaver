@@ -2,6 +2,9 @@
 
 pub mod api_doc;
 pub mod api_id;
+#[cfg(feature = "std")]
+pub mod call;
+mod call_context;
 mod context;
 mod disconnect_reason;
 #[doc(hidden)]
@@ -11,6 +14,9 @@ mod rpc;
 mod test;
 mod valid_indices;
 
+pub use call_context::{
+    CallContext, ConnectionId, Gid, Peer, PeerKey, Pid, SpanId, TraceContext, TraceFlags, TraceId, Uid,
+};
 pub use context::{
     BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter, MessageSink,
     ReplyTo, SendError,
@@ -39,7 +45,7 @@ pub mod prelude {
     pub use crate::valid_indices::ValidIndicesOwned;
     pub use crate::ww_unimplemented;
     pub use crate::{
-        BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter,
+        BlockingEventOut, BlockingMessageSink, CallContext, Context, EventOut, EventQueue, EventWriter,
         MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend, WireWeaverAsyncApiBackend,
     };
     pub use shrink_wrap;

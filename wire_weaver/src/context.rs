@@ -5,7 +5,7 @@ use core::future::Future;
 
 use shrink_wrap::prelude::{BufWriter, SerializeShrinkWrap, ShrinkWrapError};
 
-use crate::Priority;
+use crate::{CallContext, Priority};
 
 /// Sends serialized messages (`ww_client_server::Event`s) out, e.g., into a framer of a link.
 pub trait MessageSink {
@@ -330,42 +330,51 @@ impl BlockingEventOut for EventQueue<'_> {
     }
 }
 
-/// Passed to every server handler: who asked and where to send events to.
+/// Passed to every server handler: who asked ([CallContext], [Context::call]) and where to send events to.
 ///
 /// `O` is [EventOut] for servers generated with `use_async = true` and [BlockingEventOut] otherwise,
 /// `M` is the medium type given with `ww_codegen!(.., medium = "path::to::Medium")`, `()` by default.
 pub struct Context<'c, O, M = ()> {
-    seq: u32,
-    priority: Priority,
+    call: CallContext,
     medium: M,
     out: &'c mut O,
 }
 
 impl<'c, O, M: Copy> Context<'c, O, M> {
+    /// Request `seq` from a peer the transport doesn't identify ([CallContext::new]).
     pub fn new(seq: u32, medium: M, out: &'c mut O) -> Self {
         Context {
-            seq,
-            priority: Priority::NORMAL,
+            call: CallContext::new(seq),
             medium,
             out,
         }
     }
 
+    /// A request described by `call`.
+    pub fn with_call(call: CallContext, medium: M, out: &'c mut O) -> Self {
+        Context { call, medium, out }
+    }
+
     /// The request's priority, [Priority::NORMAL] unless set.
     pub fn with_priority(mut self, priority: Priority) -> Self {
-        self.priority = priority;
+        self.call.priority = priority;
         self
+    }
+
+    /// Who asked and under which terms (SRV-48): peer, trace, deadline, connection, `seq` and priority.
+    pub fn call(&self) -> &CallContext {
+        &self.call
     }
 
     /// Sequence number of the request being served, 0 if the client does not expect a reply.
     pub fn seq(&self) -> u32 {
-        self.seq
+        self.call.seq
     }
 
     /// Priority of the request being served (CLT-50): a deferred reply to it inherits it through
     /// [Context::reply_to].
     pub fn priority(&self) -> Priority {
-        self.priority
+        self.call.priority
     }
 
     /// Medium the request came from (USB, CAN, ...), as passed to the server's `process_request_bytes`.
@@ -375,10 +384,10 @@ impl<'c, O, M: Copy> Context<'c, O, M> {
 
     /// Where to send a deferred reply to, None if the client does not expect a reply.
     pub fn reply_to(&self) -> Option<ReplyTo<M>> {
-        (self.seq != 0).then_some(ReplyTo {
+        self.call.is_reply_expected().then_some(ReplyTo {
             medium: self.medium,
-            seq: self.seq,
-            priority: self.priority,
+            seq: self.call.seq,
+            priority: self.call.priority,
         })
     }
 

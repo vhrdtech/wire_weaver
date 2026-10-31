@@ -9,8 +9,8 @@ use futures_lite::StreamExt;
 use local_trait_api::{Counter, CounterError, SnapshotOwned};
 use std::sync::Mutex;
 use tokio::sync::broadcast;
-use wire_weaver_client::local::{ItemStream, item_stream};
-use wire_weaver_client::{CallError, Error, StreamError};
+use wire_weaver::{CallContext, Peer};
+use wire_weaver::call::{CallError, Error, ErrorKind, ItemStream, item_stream};
 
 /// The counter in this process: a plain struct implementing [Counter].
 pub struct LocalCounter {
@@ -35,7 +35,7 @@ impl LocalCounter {
 }
 
 impl Counter for LocalCounter {
-    async fn add(&self, by: u32) -> Result<u32, Error> {
+    async fn add(&self, _cx: &CallContext, by: u32) -> Result<u32, Error> {
         let total = {
             let mut state = self.state.lock().unwrap();
             state.total = state.total.wrapping_add(by.wrapping_mul(state.step));
@@ -46,14 +46,14 @@ impl Counter for LocalCounter {
         Ok(total)
     }
 
-    async fn split(&self, parts: u32) -> Result<u32, CallError<CounterError>> {
+    async fn split(&self, _cx: &CallContext, parts: u32) -> Result<u32, CallError<CounterError>> {
         if parts == 0 {
-            return Err(CallError::Device(CounterError::DivByZero));
+            return Err(CallError::Api(CounterError::DivByZero));
         }
         Ok(self.state.lock().unwrap().total / parts)
     }
 
-    async fn snapshot(&self) -> Result<SnapshotOwned, Error> {
+    async fn snapshot(&self, _cx: &CallContext) -> Result<SnapshotOwned, Error> {
         let state = self.state.lock().unwrap();
         Ok(SnapshotOwned {
             name: self.name.clone(),
@@ -62,16 +62,20 @@ impl Counter for LocalCounter {
         })
     }
 
-    async fn read_step(&self) -> Result<u32, Error> {
+    async fn read_step(&self, _cx: &CallContext) -> Result<u32, Error> {
         Ok(self.state.lock().unwrap().step)
     }
 
-    async fn write_step(&self, step: u32) -> Result<(), Error> {
+    async fn write_step(&self, cx: &CallContext, step: u32) -> Result<(), Error> {
+        // a policy reads who asked, the same behind a server and in the same process
+        if let Peer::Addr(addr) = cx.peer {
+            return Err(Error::denied(format!("{addr}: the step is not set over the network")));
+        }
         self.state.lock().unwrap().step = step;
         Ok(())
     }
 
-    async fn totals(&self) -> Result<ItemStream<u32>, Error> {
+    async fn totals(&self, _cx: &CallContext) -> Result<ItemStream<u32>, Error> {
         let rx = self.totals.subscribe();
         Ok(item_stream(futures_lite::stream::unfold(
             rx,
@@ -81,7 +85,7 @@ impl Counter for LocalCounter {
                     Err(broadcast::error::RecvError::Closed) => None,
                     // fell behind: the stream's queue was full, like a device stream's on the host
                     Err(broadcast::error::RecvError::Lagged(_)) => {
-                        Some((Err(StreamError::Closed), rx))
+                        Some((Err(ErrorKind::Overloaded.into()), rx))
                     }
                 }
             },
@@ -100,18 +104,21 @@ pub struct Report {
 }
 
 /// The call site, written once: the same code drives a [LocalCounter] and a remote counter.
-pub async fn exercise(counter: &impl Counter) -> Result<Report, Box<dyn std::error::Error>> {
-    let mut totals = counter.totals().await?;
-    counter.write_step(2).await?;
-    let step = counter.read_step().await?;
-    counter.add(3).await?;
-    counter.add(1).await?;
-    let half = counter.split(2).await?;
+pub async fn exercise(
+    counter: &impl Counter,
+    cx: &CallContext,
+) -> Result<Report, Box<dyn std::error::Error>> {
+    let mut totals = counter.totals(cx).await?;
+    counter.write_step(cx, 2).await?;
+    let step = counter.read_step(cx).await?;
+    counter.add(cx, 3).await?;
+    counter.add(cx, 1).await?;
+    let half = counter.split(cx, 2).await?;
     let div_by_zero = matches!(
-        counter.split(0).await,
-        Err(CallError::Device(CounterError::DivByZero))
+        counter.split(cx, 0).await,
+        Err(CallError::Api(CounterError::DivByZero))
     );
-    let snapshot = counter.snapshot().await?;
+    let snapshot = counter.snapshot(cx).await?;
     let mut seen = vec![];
     for _ in 0..2 {
         match totals.next().await {
@@ -134,7 +141,7 @@ pub mod server {
     use super::LocalCounter;
     use local_trait_api::{Counter, CounterError, SnapshotOwned};
     use wire_weaver::prelude::*;
-    use wire_weaver_client::CallError;
+    use wire_weaver::call::CallError;
 
     pub struct CounterServer {
         pub core: LocalCounter,
@@ -142,7 +149,7 @@ pub mod server {
 
     impl CounterServer {
         async fn add(&mut self, cx: &mut Context<'_, impl EventOut>, by: u32) -> RpcResult<u32> {
-            let Ok(total) = self.core.add(by).await else {
+            let Ok(total) = self.core.add(cx.call(), by).await else {
                 return Unimplemented.into();
             };
             // the local stream reaches local listeners, a remote one gets the total here
@@ -152,21 +159,21 @@ pub mod server {
 
         async fn split(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
             parts: u32,
         ) -> RpcResult<Result<u32, CounterError>> {
-            match self.core.split(parts).await {
+            match self.core.split(cx.call(), parts).await {
                 Ok(v) => Ready(Ok(v)),
-                Err(CallError::Device(e)) => Ready(Err(e)),
+                Err(CallError::Api(e)) => Ready(Err(e)),
                 Err(_) => Unimplemented.into(),
             }
         }
 
         async fn snapshot(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
         ) -> RpcResult<SnapshotOwned> {
-            match self.core.snapshot().await {
+            match self.core.snapshot(cx.call()).await {
                 Ok(s) => Ready(s),
                 Err(_) => Unimplemented.into(),
             }
@@ -174,17 +181,17 @@ pub mod server {
 
         async fn set_step(
             &mut self,
-            _cx: &mut Context<'_, impl EventOut>,
+            cx: &mut Context<'_, impl EventOut>,
             value: u32,
         ) -> SetResult<()> {
-            match self.core.write_step(value).await {
+            match self.core.write_step(cx.call(), value).await {
                 Ok(()) => Set,
                 Err(_) => Unimplemented.into(),
             }
         }
 
-        async fn get_step(&mut self, _cx: &mut Context<'_, impl EventOut>) -> GetResult<u32, ()> {
-            match self.core.read_step().await {
+        async fn get_step(&mut self, cx: &mut Context<'_, impl EventOut>) -> GetResult<u32, ()> {
+            match self.core.read_step(cx.call()).await {
                 Ok(v) => Value(v),
                 Err(_) => Unimplemented.into(),
             }
@@ -301,30 +308,30 @@ mod tests {
     #[tokio::test]
     async fn generic_call_site_on_a_local_struct() {
         let local = LocalCounter::new("local");
-        assert_eq!(exercise(&local).await.unwrap(), expected("local"));
+        assert_eq!(exercise(&local, &CallContext::local()).await.unwrap(), expected("local"));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generic_call_site_on_the_client() {
         let device = start_device("local_trait/client");
         let client = connect(&device).await;
-        assert_eq!(exercise(&client).await.unwrap(), expected("served"));
+        assert_eq!(exercise(&client, &CallContext::local()).await.unwrap(), expected("served"));
     }
 
     /// Picked at run time: a trait object of either kind goes through the same call site.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generic_call_site_on_trait_objects() {
         let local: Box<dyn CounterDyn> = Box::new(LocalCounter::new("local"));
-        assert_eq!(exercise(&local).await.unwrap(), expected("local"));
+        assert_eq!(exercise(&local, &CallContext::local()).await.unwrap(), expected("local"));
 
         let device = start_device("local_trait/dyn");
         let remote: Arc<dyn CounterDyn> = Arc::new(connect(&device).await);
-        assert_eq!(exercise(&remote).await.unwrap(), expected("served"));
+        assert_eq!(exercise(&remote, &CallContext::local()).await.unwrap(), expected("served"));
     }
 
     /// A generic caller can run on another task: the trait's futures are `Send`.
     async fn add_on_a_task<C: Counter + 'static>(counter: Arc<C>, by: u32) -> u32 {
-        tokio::spawn(async move { counter.add(by).await.unwrap() })
+        tokio::spawn(async move { counter.add(&CallContext::local(), by).await.unwrap() })
             .await
             .unwrap()
     }

@@ -65,6 +65,7 @@ embassy-futures = "0.1"
 embedded-hal = "1.0"
 embedded-hal-async = "1.0"
 embedded-storage-async = "0.4.2"
+futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 hex = { version = "0.4", default-features = false }
 hex-literal = "1"
 interprocess = { version = "2.4", features = ["tokio"] }

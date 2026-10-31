@@ -54,7 +54,7 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                 let output = call_output(api_bundle, return_ty.as_ref());
                 let names = args.iter().map(|(n, _)| n);
                 fns.push(LocalFn {
-                    client_body: quote! { Self::#ident(self, #(#names),*).call().await },
+                    client_body: quote! { Self::#ident(self, #(#names),*).with_call_context(cx).call().await.map_err(::core::convert::Into::into) },
                     ident,
                     docs: item.docs.clone(),
                     args,
@@ -81,11 +81,11 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                 ) {
                     let read = Ident::new(&format!("read_{}", item.ident), Span::call_site());
                     fns.push(LocalFn {
-                        client_body: quote! { Self::#read(self).read().await },
+                        client_body: quote! { Self::#read(self).with_call_context(cx).read().await.map_err(::core::convert::Into::into) },
                         ident: read,
                         docs: item.docs.clone(),
                         args: vec![],
-                        output: quote! { Result<#ty, wire_weaver_client::Error> },
+                        output: quote! { Result<#ty, wire_weaver::call::Error> },
                     });
                 }
                 if matches!(
@@ -96,12 +96,12 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                     let err = match write_err_ty {
                         Some(e) => {
                             let e = ty_def(api_bundle, e, true, TyPos::Arg).unwrap();
-                            quote! { wire_weaver_client::CallError<#e> }
+                            quote! { wire_weaver::call::CallError<#e> }
                         }
-                        None => quote! { wire_weaver_client::Error },
+                        None => quote! { wire_weaver::call::Error },
                     };
                     fns.push(LocalFn {
-                        client_body: quote! { Self::#write(self, #ident).write().await },
+                        client_body: quote! { Self::#write(self, #ident).with_call_context(cx).write().await.map_err(::core::convert::Into::into) },
                         ident: write,
                         docs: item.docs.clone(),
                         args: vec![(ident, ty)],
@@ -137,18 +137,18 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                     })
                     .collect::<Vec<_>>();
                 let names = args.iter().map(|(n, _)| n);
-                let handle = quote! { wire_weaver_client::local::ItemStream<#item_ty> };
+                let handle = quote! { wire_weaver::call::ItemStream<#item_ty> };
                 let (output, adapt) = match stream.return_ty.map(|t| t.get_in_line(api_bundle)) {
                     Some(Ok(TypeOwned::Result { ok_ty, err_ty })) => {
                         let ok_ty = ty_def(api_bundle, ok_ty, true, TyPos::Arg).unwrap();
                         let err_ty = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
                         (
-                            quote! { Result<Result<(#ok_ty, #handle), #err_ty>, wire_weaver_client::Error> },
+                            quote! { Result<Result<(#ok_ty, #handle), #err_ty>, wire_weaver::call::Error> },
                             quote! { .map(|r| r.map(|(a, s)| (a, s.into_item_stream()))) },
                         )
                     }
                     None => (
-                        quote! { Result<#handle, wire_weaver_client::Error> },
+                        quote! { Result<#handle, wire_weaver::call::Error> },
                         quote! { .map(|s| s.into_item_stream()) },
                     ),
                     Some(_) => {
@@ -160,7 +160,7 @@ fn local_fns(api_bundle: &CodegenBundle) -> (Vec<LocalFn>, Vec<String>) {
                     }
                 };
                 fns.push(LocalFn {
-                    client_body: quote! { Self::#ident(self, #(#names),*).call().await #adapt },
+                    client_body: quote! { Self::#ident(self, #(#names),*).with_call_context(cx).call().await.map_err(wire_weaver::call::Error::from) #adapt },
                     ident,
                     docs: item.docs.clone(),
                     args,
@@ -186,14 +186,14 @@ fn call_output(api_bundle: &CodegenBundle, return_ty: Option<&TypeOwned>) -> Tok
             TypeOwned::Result { ok_ty, err_ty } => {
                 let ok_ty = ty_def(api_bundle, ok_ty, true, TyPos::Arg).unwrap();
                 let err_ty = ty_def(api_bundle, err_ty, true, TyPos::Arg).unwrap();
-                quote! { Result<#ok_ty, wire_weaver_client::CallError<#err_ty>> }
+                quote! { Result<#ok_ty, wire_weaver::call::CallError<#err_ty>> }
             }
             _ => {
                 let ty = ty_def(api_bundle, return_ty, true, TyPos::Arg).unwrap();
-                quote! { Result<#ty, wire_weaver_client::Error> }
+                quote! { Result<#ty, wire_weaver::call::Error> }
             }
         },
-        None => quote! { Result<(), wire_weaver_client::Error> },
+        None => quote! { Result<(), wire_weaver::call::Error> },
     }
 }
 
@@ -233,7 +233,13 @@ pub fn gen_local_trait(
     let sig = |f: &LocalFn| {
         let ident = &f.ident;
         let args = f.args.iter().map(|(n, t)| quote! { #n: #t });
-        quote! { #ident(&self, #(#args),*) }
+        quote! { #ident(&self, cx: &wire_weaver::CallContext, #(#args),*) }
+    };
+    // the boxed future borrows both `self` and `cx`
+    let dyn_sig = |f: &LocalFn| {
+        let ident = &f.ident;
+        let args = f.args.iter().map(|(n, t)| quote! { #n: #t });
+        quote! { #ident<'a>(&'a self, cx: &'a wire_weaver::CallContext, #(#args),*) }
     };
     let trait_fns = fns.iter().map(|f| {
         let sig = sig(f);
@@ -245,22 +251,22 @@ pub fn gen_local_trait(
         }
     });
     let dyn_fns = fns.iter().map(|f| {
-        let sig = sig(f);
+        let sig = dyn_sig(f);
         let output = &f.output;
         let docs = f.docs.iter().map(|d| quote! { #[doc = #d] });
         quote! {
             #(#docs)*
-            fn #sig -> wire_weaver_client::local::BoxFuture<'_, #output>;
+            fn #sig -> wire_weaver::call::BoxFuture<'a, #output>;
         }
     });
     let blanket_fns = fns.iter().map(|f| {
-        let sig = sig(f);
+        let sig = dyn_sig(f);
         let output = &f.output;
         let ident = &f.ident;
         let names = f.args.iter().map(|(n, _)| n);
         quote! {
-            fn #sig -> wire_weaver_client::local::BoxFuture<'_, #output> {
-                Box::pin(<T as #trait_ident>::#ident(self, #(#names),*))
+            fn #sig -> wire_weaver::call::BoxFuture<'a, #output> {
+                Box::pin(<T as #trait_ident>::#ident(self, cx, #(#names),*))
             }
         }
     });
@@ -273,7 +279,8 @@ pub fn gen_local_trait(
             let names = f.args.iter().map(|(n, _)| n);
             quote! {
                 fn #sig -> impl ::core::future::Future<Output = #output> + Send {
-                    <dyn #dyn_ident as #dyn_ident>::#ident(&**self, #(#names),*)
+                    // a block borrowing both: the boxed future's one lifetime can't be named here
+                    async move { <dyn #dyn_ident as #dyn_ident>::#ident(&**self, cx, #(#names),*).await }
                 }
             }
         })
@@ -323,7 +330,7 @@ pub fn gen_local_trait_client_impl(
         let output = &f.output;
         let body = &f.client_body;
         quote! {
-            async fn #ident(&self, #(#args),*) -> #output {
+            async fn #ident(&self, cx: &wire_weaver::CallContext, #(#args),*) -> #output {
                 #body
             }
         }

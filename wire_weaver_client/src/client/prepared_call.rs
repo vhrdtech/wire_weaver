@@ -46,6 +46,13 @@ impl<T, D: DeserializeShrinkWrapOwned + Debug> PreparedCall<T, CallError<D>> {
 }
 
 impl<T: DeserializeShrinkWrapOwned, E: DecodeReply<T>> PreparedCall<T, E> {
+    /// The terms of a call through an API's local trait (SRV-48): `cx.priority` when it isn't
+    /// [Priority::NORMAL](crate::Priority::NORMAL) (the Commander's default stays otherwise), `cx.deadline` as the
+    /// timeout. The trace goes on the request once the wire carries it (SRV-47).
+    pub fn with_call_context(self, cx: &wire_weaver::CallContext) -> Self {
+        crate::local::apply_call_context(self, cx, Self::priority, Self::with_timeout)
+    }
+
     /// Send this request at `priority` instead of the Commander's default
     /// ([Commander::set_default_priority](crate::Commander::set_default_priority)). An urgent one
     /// ([Priority::is_urgent](crate::Priority::is_urgent), [Priority::URGENT](crate::Priority::URGENT) and up) leaves

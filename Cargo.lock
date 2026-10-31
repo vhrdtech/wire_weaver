@@ -2958,7 +2958,6 @@ name = "local_trait_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
- "wire_weaver_client",
 ]
 
 [[package]]
@@ -5891,6 +5890,8 @@ name = "wire_weaver"
 version = "0.5.0"
 dependencies = [
  "defmt 1.1.1",
+ "exact_units",
+ "futures-core",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_error",

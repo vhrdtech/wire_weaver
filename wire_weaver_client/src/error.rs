@@ -4,6 +4,7 @@ use ww_client_server::ErrorKindOwned;
 use ww_version::FullVersionOwned;
 
 use crate::DeviceInfo;
+use wire_weaver::call::ErrorKind as CallErrorKind;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -193,6 +194,86 @@ impl Error {
     }
 }
 
+impl Error {
+    /// What kind of failure this is for a caller of an API's local trait (SRV-48), see
+    /// [wire_weaver::call::ErrorKind]: an error converts into a [wire_weaver::call::Error] of this kind, kept whole as
+    /// its cause.
+    pub fn call_kind(&self) -> CallErrorKind {
+        use ErrorKindOwned as Remote;
+        match self {
+            Error::NotImplementedByDevice { .. } | Error::Unsupported { .. } => {
+                CallErrorKind::Unimplemented
+            }
+            Error::RemoteError(e) => match e.kind {
+                Remote::Unimplemented
+                | Remote::TraitNotFound
+                | Remote::BadPath
+                | Remote::OperationNotSupported
+                | Remote::PathKindNotSupported => CallErrorKind::Unimplemented,
+                Remote::BadIndex
+                | Remote::ExpectedArrayIndexGotNone
+                | Remote::ArrayIndexDesFailed
+                | Remote::ArgsDesFailed
+                | Remote::PathDesFailed
+                | Remote::PropertyDesFailed
+                | Remote::ResponseSerFailed
+                | Remote::ReadPropertyWithSeqZero
+                | Remote::UserBytes(_)
+                | Remote::UserStr(_)
+                | Remote::StreamNoSession
+                | Remote::StreamStoreFailed
+                | Remote::Unknown(_) => CallErrorKind::Internal,
+            },
+            Error::Timeout => CallErrorKind::DeadlineExceeded,
+            Error::EventLoopNotRunning
+            | Error::RxDispatcherNotRunning
+            | Error::DeviceNotFound { .. }
+            | Error::ConnectFailed { .. }
+            | Error::LinkSetupTimeout
+            | Error::Disconnected
+            | Error::CmdTxDropped
+            | Error::ExitRequested
+            | Error::NoPingFromDevice
+            | Error::Transport(_)
+            | Error::HubRefused { .. } => CallErrorKind::Unavailable,
+            Error::NoTransportSelected
+            | Error::ShrinkWrap(_)
+            | Error::IncompatibleDeviceProtocol
+            | Error::IncompatibleLinkVersion { .. }
+            | Error::OlderProtocol(..)
+            | Error::IncompatibleResource { .. }
+            | Error::User(_)
+            | Error::Other(_)
+            | Error::AmbiguousDeviceChoice(_)
+            | Error::MultiReq(_)
+            | Error::AbsolutePathInTraitsOnly(_)
+            | Error::MessageTooBig { .. } => CallErrorKind::Internal,
+        }
+    }
+}
+
+/// The client's error as the light error of local traits, kept whole as its cause (downcast it back with
+/// [wire_weaver::call::Error::cause]).
+impl From<Error> for wire_weaver::call::Error {
+    fn from(e: Error) -> Self {
+        wire_weaver::call::Error::new(e.call_kind(), e)
+    }
+}
+
+/// The client's [CallError] as the one of local traits: [CallError::Device] is
+/// [Api](wire_weaver::call::CallError::Api), the others keep their client error as the cause.
+impl<E> From<CallError<E>> for wire_weaver::call::CallError<E> {
+    fn from(e: CallError<E>) -> Self {
+        match e {
+            CallError::Device(e) => wire_weaver::call::CallError::Api(e),
+            CallError::Unimplemented { resource } => wire_weaver::call::CallError::Unimplemented(
+                Some(format!("'{resource}' is not implemented by the device").into()),
+            ),
+            CallError::Client(e) => wire_weaver::call::Error::from(e).into(),
+        }
+    }
+}
+
 /// Error of a call to a method returning `Result<T, E>`, or of a write to a property with an error type.
 ///
 /// `call()`, `blocking_call()`, `write()` and the promises of such items return `Result<T, CallError<E>>`,
@@ -367,6 +448,34 @@ mod tests {
             <CallError<u8> as DecodeReply<u8>>::decode_reply(&err),
             Err(CallError::Device(4))
         ));
+    }
+
+    #[test]
+    fn into_the_call_errors_of_local_traits() {
+        use wire_weaver::call;
+        let e = call::Error::from(Error::Timeout);
+        assert_eq!(e.kind(), call::ErrorKind::DeadlineExceeded);
+        assert!(matches!(
+            e.cause().unwrap().downcast_ref::<Error>(),
+            Some(Error::Timeout)
+        ));
+        let e = call::Error::from(remote(ww_client_server::ErrorKind::Unimplemented));
+        assert_eq!(e.kind(), call::ErrorKind::Unimplemented);
+        assert_eq!(
+            call::Error::from(Error::Disconnected).kind(),
+            call::ErrorKind::Unavailable
+        );
+
+        let e: call::CallError<u8> = CallError::Device(5).into();
+        assert!(matches!(e, call::CallError::Api(5)));
+        let e: call::CallError<u8> = CallError::<u8>::Unimplemented {
+            resource: "T::m".into(),
+        }
+        .into();
+        assert!(e.is_unimplemented());
+        assert_eq!(e.to_string(), "'T::m' is not implemented by the device");
+        let e: call::CallError<u8> = CallError::<u8>::Client(Error::Disconnected).into();
+        assert!(matches!(e, call::CallError::Unavailable(Some(_))));
     }
 
     #[test]

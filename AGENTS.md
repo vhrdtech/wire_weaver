@@ -1,363 +1,290 @@
 # AGENTS.md
 
-This file provides guidance to all AI code assistants when working with code in this repository.
+Guidance for AI code assistants working in this repository.
 
 ## What this is
 
-WireWeaver is a collection of Rust crates for designing `#[no_std]` device APIs (RPC methods, streams, properties) with a
-custom wire format called `shrink_wrap`: zero-copy, no-alloc, bit/nibble-packed, and built-in backwards/forwards
-compatibility. It generates matching server (device/firmware) and client (host) code from a single trait
-definition, for both `no_std` and `std`, sync/async/blocking/promise flavors.
+WireWeaver is a set of Rust crates for designing `#[no_std]` device APIs (methods, streams, properties) with its own
+wire format, `shrink_wrap`: zero-copy, no-alloc, bit/nibble-packed, backwards and forwards compatible. One trait
+definition generates the server (firmware) and client (host) code, `no_std` and `std`, sync/async/blocking/promise.
+The dense wire format is useful on `std` too (many small objects without compression).
 
-While primary focus is no_std and no-alloc, std use have it's merits as well - wire format is very dense,
-which can be handy when storing large amount of small objects without resorting to compression.
+Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.md`, `docs/serdes/derive.md` with
+`derive_reference.md`, `size_assumptions.md` and `layouts.md` (read before touching any type definition),
+`docs/serdes/showcase.md` (byte-verified tricks), `docs/api/overview.md`, `docs/types.md`, and
+`docs/evolution/rules.md`. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the
+source and its comments are authoritative.
 
-Read `docs/index.md` first, then drill into `docs/serdes/shrink_wrap.md` (wire format overview) and
-`docs/serdes/wire_format.md` (its internals), `docs/serdes/derive.md` with `derive_reference.md`, `size_assumptions.md`
-and `layouts.md` next to it (the `#[derive_shrink_wrap]` macro — very detailed, read before touching any type
-definitions), `docs/serdes/showcase.md`
-(worked, byte-verified tricks — bit packing, `UNib32`, `Option`/`Result` as flags, `RefBox` self-reference, the
-patch-the-discriminant-later builder pattern), `docs/api/overview.md` (methods/streams/properties/traits), and
-`docs/evolution/rules.md` (what changes are wire-compatible). The docs site source (mkdocs/zensical) lives under
-`docs/`; prefer it before digging into source, but if unclear, source and comments in it are authoritative.
+## Quantities are typed: never a raw number with the unit in its name
 
-`FEATURES.md` is the feature tracker and roadmap (done, in progress, planned, per area and target release). Check it
-before starting a feature, and update the matching item in the same change when finishing one (see the conventions
-at its top). It is also the docs site's "Feature tracker" page, pulled in by `docs/features.md`, so edit the root file
-only, and run `just features-page` after a change: it regenerates `docs/features_today.md` ("Features"), which a test
-checks. An item that becomes done or in progress also needs a line in `tests/features_page/entries.md` (reading level,
-a short line on what it gives a user, a docs link); the test names what is missing.
+Every quantity in an API type (property, method argument or return, stream item, field of a `#[derive_shrink_wrap]`
+type) is an `exact_units` / `ww_si` type, never a `u32`/`u64`/`f32` with the unit in its name (`timeout_ms`,
+`uptime_s`) or in a comment (`/// percent`). `Fixed` is exactly its `T` on the wire, so this costs no byte and no
+cycle (DER-20), and clients, `ww`, Python and the evolution checker then know the unit, scale and bounds.
 
-- Items have stable IDs per area (`SW-3`, `SRV-4`, `CLT-12`): never renumber or reuse one; new items take the next
-  free number of their area. Reference them in commit messages, CHANGELOG entries and code `TODO`s
-  (`// TODO(SRV-4): ...`).
-- **Name IDs with a short slug when talking to the user** (answers, plans, summaries, tables): `CLT-12
-  stream-receive-timeout`, never a bare `CLT-12`. The slug is 2-4 kebab-case words from the item's title. Commit
-  messages, CHANGELOG and code `TODO`s keep the bare ID.
-- Don't track status anywhere else (README checklists, TODO files, external trackers).
+| What                              | Type                                                                         |
+|-----------------------------------|------------------------------------------------------------------------------|
+| durations, timeouts, periods      | `Millis<u16>`, `Micros<u32>`, `Nanos<T>`, `Fixed<Second, One, u32>`          |
+| sizes                             | `Bytes<u32>`, `Fixed<Byte, Kibi, u16>`, `Fixed<Bit, One, T>`                 |
+| ratios, percent, ppm              | `Fixed<Ratio, Centi, u8, Range<0, 100>>`, `Ppb<i32>`, `Duty16`, `Q15`        |
+| any physical value                | `Fixed<Volt, Milli, i16>`, `Fixed<Hertz, Kilo, u32>`, ADC codes as `FullScale` |
+| temperatures, headings           | `Point<Celsius, Fixed<Kelvin, Centi, i16>>`, `Point<Angle<Degree>, ..>`     |
+| positions in a table, channels    | `Index<Sample, u32>`, `IndexFrom1<Item, u8, Range<1, 4>>`                   |
+| sequence numbers                  | `Seq<Frame, u16>` (wraps, RFC 1982 compare)                                  |
+| device timestamps                 | `ww_si::Timed<T>`, `Second` from the `ww_timebase` clock                     |
+| unit chosen per device at run time | `ww_si::Quantity<U>` (prefix and number type on the wire), `AnyQuantity`    |
+
+- **Pick `T`** as the smallest storage that holds the largest value at the chosen step: integers by default
+  (`u16` ms up to 65 s, `u32` µs up to 71 min, `u64` µs for timestamps), signed only when the value can be negative,
+  `f32`/`f64` only for values without a fixed resolution. The step (`P`: `Milli`, `Centi`, `Kibi`, `Pow10<E>`,
+  `Rational<N, D>`, `FullScale<V, BITS>`) is the device's real resolution.
+- **Bounds** (`B`, default `Unbounded`): `Range<MIN, MAX>` (inclusive, `RangeU64`, `RangeDec` for floats) whenever
+  the device can't take every value of `T`. They are checked on decode, so an out-of-range `set` is refused before
+  the handler runs and clients refuse it before sending.
+- **Counted things** (`Sample`, `Frame`, `Packet`, `Item`, ...) are units. An API declares its own unit with
+  `unit!`, step with `scale!` and a register formula's zero with `origin!` (`tests/quantities_api/src/lib.rs`).
+- **Not yet**: instants with a named epoch (Unix, GPS; STD-65 instants-named-epochs) don't exist, so a wall-clock
+  timestamp is `Micros<u64>` with the epoch in its doc comment; sentinel codes inside a value (STD-66
+  sentinels-next-to-bounds) don't either, use `Option<Fixed<..>>`; the C consumer reads a `Fixed` as its `T` but has
+  gaps for `Point`/`Index`/`Seq` (API-26); `serde` forms are STD-78.
+- `ww api check` and `ww api scaffold` print a hint for a plain integer whose name ends in a unit suffix (TOOL-22);
+  silencing it with `#[no_unit_hint]` needs a reason (a register value, a raw protocol field).
+
+```rust
+// Before: the unit lives in names and comments, nothing checks it
+pub struct Status { pub uptime_s: u32, /** percent */ pub battery: u8, /** °C x100 */ pub temp: i16,
+                    pub frame_seq: u16, pub timeout_ms: u16 }
+// After: the same bytes, the unit and bounds in the type
+use ww_si::{Fixed, Millis, Point, Range, Seq, origins::Celsius, prefix::{Centi, One},
+            units::{Frame, Kelvin, Ratio, Second}};
+pub struct Status {
+    pub uptime: Fixed<Second, One, u32>,
+    pub battery: Fixed<Ratio, Centi, u8, Range<0, 100>>,
+    pub temp: Point<Celsius, Fixed<Kelvin, Centi, i16>>,
+    pub frame: Seq<Frame, u16>,
+    pub timeout: Millis<u16>,
+}
+```
+
+Docs: `docs/std_library/exact_units.md` (`Fixed`, scales, bounds, aliases, in clients), `ww_si.md` (`Quantity`,
+units, dimensions, timestamps), `points.md`, `indices.md`, `rounding.md`. `exact_units` lives in its own repository
+(romixlab/exact_units), taken by git and locked by commit in `Cargo.toml`; `ww_si` re-exports all of it, so an API
+writes `ww_si::..` and turns on the unit groups it needs as `ww_si` features (`time`, `electrical`, `counting`, ...).
+
+## FEATURES.md
+
+`FEATURES.md` is the feature tracker and roadmap, the only place status is kept (no README checklists, TODO files or
+external trackers). Check it before starting a feature and update the matching item in the same change when finishing
+one (conventions at its top). It is also the docs' "Feature tracker" page: edit the root file only, and an item that
+becomes done or in progress needs a line in `tests/features_page/entries.md`; then run `just features-page` (a test
+checks both).
+
+- IDs are stable per area (`SW-3`, `SRV-4`, `CLT-12`): never renumber or reuse one, new items take the next free
+  number of their area. Use them in commit messages, CHANGELOG entries and `// TODO(SRV-4): ...`.
+- When talking to the user, name an ID with a 2-4 word kebab-case slug from its title: `CLT-12
+  stream-receive-timeout`, never bare. Commits, CHANGELOG and TODOs keep the bare ID.
 
 ## Commands
 
 ```sh
-just check          # cargo check for repo-root workspace (+ ww_device with defmt/embassy-time), mcu/ and examples_mcu/
-just check-mcu       # cargo check the separate `mcu/` workspace (embassy-based, embedded)
-just check-examples-mcu   # cargo check every board in examples_mcu/ (excluded from root workspace)
-just install        # build ww (--profile deploy) and install it; works anywhere: with `tpm` it uses the release stack (the only ww on PATH), else `cargo install`
-just deploy         # pull --ff-only (refuses on local changes), install, check ww --version against main
-just test            # cargo nextest run --workspace --no-fail-fast
-just serve-docs       # local docs preview (uv run zensical serve)
-just build-docs        # build docs site
-just pre-commit         # cargo sort -w -g && cargo clippy
-just save-snapshots       # save API snapshots of ww_global and ww_stdlib/*, copy them into wire_weaver_snapshots
+just check            # cargo check: root workspace (+ ww_device/ww_si feature sets), mcu/, every examples_mcu/ board
+just test --changed   # nextest of the crates changed against main and their dependents; before tpm work ready
+just test             # everything (test-all: nextest, feature-set runs, Python conformance); the tpm land gate runs it
+just lint             # what CI checks besides tests: fmt, cargo sort -w -g, typos, clippy and rustdoc -D warnings, C
+just install          # build ww (--profile deploy) and install it (tpm install, or cargo install without tpm)
+just build-docs       # build the docs site and check its links
+just save-snapshots   # API snapshots of ww_global, ww_tap, ww_stdlib/* and exact_units into wire_weaver_snapshots
+just conformance-update   # fill in golden bytes of new conformance cases
 ```
 
-Single test: `cargo nextest run -p <crate> <test_name>` (nextest is required — see `.config/nextest.toml` for the
-slow-test timeout). To inspect the code a macro invocation actually generates, uncomment/add
-`debug_to_file = "../../target/some_name.rs"` to the `ww_codegen!`/`ww_impl!` call and check that file — this is the
-normal way to debug codegen, don't try to reason about macro output blind.
+`just --list` has the rest (fuzzing, QEMU, hardware, Python). Single test: `cargo nextest run -p <crate> <test>`
+(nextest is required). To see what a `ww_codegen!`/`ww_impl!` call generates, add `debug_to_file =
+"../../target/some_name.rs"` to it and read that file; don't reason about macro output blind.
 
-Test time limits (`.config/nextest.toml`) stay tight on purpose: the default kills a test after 3 s, so a test that
-got slow shows up as a failure and its slowness gets looked at, not hidden. A test that comes near 3 s (alone, or
-under the gate's parallel load) is a bug to find first: `quantities_with_their_units` took 1.5 s because the crate
-walker re-parsed the same module files over a hundred times per API. Only tests that are heavy by design (fuzz-like
-loops over thousands of inputs, power-cut runs, re-parsing every snapshot crate) get a per-test override with a
-comment saying why and how long they take alone; never raise the default. Tests must not assert wall-clock rates:
-`tests/observe` drives the device with a fake clock and counts per device microsecond (a device in real time falls
-behind on a busy PC). Check timing changes with `cargo nextest run --stress-count N` while CPU burners
-load the PC.
+CI (`.github/workflows/ci.yml`) fails on any warning; run `just lint` and the matching tests before calling a change
+done. Plain `cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`; project words go into
+`typos.toml`. Tests run with default features only (`defmt` breaks host linking). Crates under `examples/` and
+`tests/` are `publish = false`. `mcu/`, `examples_mcu/*` and `wire_weaver_tool` are separate workspaces (embedded
+targets, egui): build them from their directory or through `just`.
 
-The wire format has more than one implementation on purpose (the derive's own layout, and everything built on the
-`ww_self` model: dynamic client, Python, C), kept byte-identical by the conformance matrix (TEST-23,
-`docs/serdes/conformance.md`): one corpus, `tests/conformance/corpus.json`, run through every consumer by `just test`
-and CI. A new wire feature (or a change to one) lands only with its cases in the corpus and green across the
-consumers; a consumer that can't express a case yet gets a gap mark naming a `FEATURES.md` item for it, never a
-silent skip. Golden bytes don't change once in: changed bytes are a wire break. New case: `"bytes": "?"` plus the
-Rust value in `tests/conformance/src/derive.rs`, then `just conformance-update`. Two guards keep this honest: the
-`frozen_bytes` test (TEST-24) fails `just test` when a case sealed at the baseline commit (`CONFORMANCE_BASE` if
-set to a real commit, else the merge base with main) changed its bytes, direction or `bytes_from`, or disappeared
-(the escape for a real wire change is a new or reworded `"wire_change": "EVO-n / reason"` on the case — reusing
-the same mark across a later, unrelated change doesn't count — with the matching `EVO-n` item and a
-`**Breaking:**` CHANGELOG entry); the `coverage` test (TEST-25) fails when a wire-relevant `ww_self::Type` variant
-or `shrink_wrap_derive` directive is used by no case and not listed as a gap in `tests/conformance/src/coverage.rs`.
+### Test time limits
 
-CI (`.github/workflows/ci.yml`) fails on any warning: `cargo fmt --check`, `cargo sort -w -g --check` (plain
-`cargo sort` flattens the grouped `[workspace.dependencies]`, always pass `-g`), `typos` (project words go into
-`typos.toml`), clippy and rustdoc with `-D warnings` (also `--all-features`), nextest + doctests (default features
-only, `defmt` breaks linking host tests), `cargo semver-checks` of crates already on crates.io, and `cargo check` of
-`mcu/` and every `examples_mcu/` board. Run the matching command locally before declaring a change done. Crates
-under `examples/` and `tests/` are `publish = false`, keep it that way for new ones.
+`.config/nextest.toml` kills a test after 3 s on purpose, so a slow test fails and gets looked at. A test near 3 s
+(alone or under parallel load) is a bug to find first. Only tests heavy by design (fuzz-like loops, power-cut runs,
+re-parsing every snapshot crate) get a per-test override with a comment saying why and how long they take; never
+raise the default. Tests don't assert wall-clock rates (`tests/observe` drives the device with a fake clock). Check
+timing changes with `cargo nextest run --stress-count N` under CPU load.
 
-`mcu/`, `examples_mcu/*`, and `wire_weaver_tool` are **excluded** from the root Cargo workspace
-(different targets/toolchains — embedded, egui GUI) and must be built from their own directory or via the `just`
-recipes above.
+### Conformance matrix
+
+The wire format has several implementations on purpose (the derive's layout, and the `ww_self`-based dynamic client,
+Python and C), kept byte-identical by one corpus, `tests/conformance/corpus.json` (TEST-23,
+`docs/serdes/conformance.md`). A new or changed wire feature lands only with its cases in the corpus, green across
+the consumers; a consumer that can't express a case gets a gap mark naming a `FEATURES.md` item, never a silent
+skip. New case: `"bytes": "?"` plus the Rust value in `tests/conformance/src/derive.rs`, then `just
+conformance-update`. Golden bytes don't change once in: `frozen_bytes` (TEST-24) fails when a case sealed at the merge
+base (or `CONFORMANCE_BASE`) changed or disappeared; the only escape is a new `"wire_change": "EVO-n / reason"` on
+the case with that `EVO-n` item and a breaking CHANGELOG entry. `coverage` (TEST-25) fails when a wire-relevant
+`ww_self::Type` variant or derive directive has no case and no gap in `tests/conformance/src/coverage.rs`.
 
 ## Proper fixes, never a lost capability
 
-- A bug or limit found on the way (in codegen, the wire format, a test) is fixed where it lives, as its own commit,
-  or as its own piece when it is big. Never sidestep it with renames, special cases or workarounds in the code that
-  found it.
-- A removal, replacement or refactor keeps everything that worked before. If dropping a type or a code path would
-  take a capability away (an encode path, a client, a target, a test), build what replaces it first. Never narrow
-  tests, docs or `FEATURES.md` to fit a loss: scope limits what a change adds, not what it may break.
-- When such a prerequisite is too big for the change at hand, stop and say so with an estimate and a plan (what is
-  missing, how large it is, what it blocks). Don't take the shortcut and flag it afterwards.
-- Flaky and slow tests follow the same rule (see the test time limits above): find the cause, never raise a limit.
+- A bug or limit found on the way (codegen, wire format, a test) is fixed where it lives, as its own commit or piece.
+  Never sidestep it with renames, special cases or workarounds in the code that found it.
+- A removal, replacement or refactor keeps everything that worked before: build the replacement first. Never narrow
+  tests, docs or `FEATURES.md` to fit a loss; scope limits what a change adds, not what it may break.
+- When such a prerequisite is too big for the change, stop and say so with an estimate and a plan, before taking a
+  shortcut.
+- Flaky and slow tests: find the cause, never raise a limit.
 
 ## Firmware: stack, cycles and flash
 
-The device side runs on small MCUs, often inside interrupts, so every change to server codegen, `ww_stream`,
-`shrink_wrap`'s writers or `ww_stdlib` types that firmware uses is checked for stack, cycles and flash, not only for
-correctness. Today's lessons:
+The device side runs on small MCUs, often in interrupts: every change to server codegen, `ww_stream`, `shrink_wrap`'s
+writers or `ww_stdlib` types firmware uses is checked for stack, cycles and flash, not only correctness.
 
-- **Stack.** Big state (stores, outboxes, `ObserveState`, buffers) lives in a `static` and is set up in place: a
-  `const fn new`, or an `init` into `&'static mut MaybeUninit<_>` (`ObserveState::init`). Never build it by value and
-  move or return it: that once cost a 31-35 KB frame, more than an M3's RAM. Check frames when touching such code
-  (`-Z emit-stack-sizes` / `cargo call-stack`, or run the bin on QEMU's M3 model with its 64 KB RAM), and keep the hot
-  path's frame small (an observe cells row is ~50 B).
-- **Optimization level.** Measure at the profile firmware ships with, and say which one: `opt-level = "z"` was 2.4x
-  slower than `3` on the Series writers, and a per-package `opt-level` for the library crates doesn't help, since
-  generic code is instantiated in the firmware crate. Small hot functions on per-item paths (store `set`/`put`, column
-  writers) get `#[inline(always)]` so `z` doesn't leave them out of line.
-- **Measure, don't guess.** Instruction counts with `examples_mcu/qemu_icount` (bounded: `--max-insns`, `--timeout`,
-  the trace read from QEMU's stderr, never a trace file in `/tmp`); cycles with DWT `CYCCNT` on real silicon (the
-  STM32H725 on omarchy-m1). Instructions are not cycles: report both units as what they are, with the clock to give
-  time. Benchmark bins exit QEMU on a HardFault, so a crash doesn't become an endless trace.
-- **Flash.** A choice fixed at build time is a type or const parameter, not a runtime value, so the linker drops what
-  isn't used (`DeltaPacked` as a type: 15 KB of encoder instead of 91 KB). Shared crates don't turn on wide types or
-  optional features for everyone (`ww_client_server` once enabled `u64` on every firmware: `NumericValue` 16 instead
-  of 8 B, +7.7 KB flash); hosts get them through `std` / `host`.
-- **Data layout.** Per-item generic walks are slow on MCUs: loops over struct-of-arrays columns (SW-64's column-wise
-  writer, observe cells) were 2-4x faster with the same bytes. Interrupt-side capture is a few stores and a counter
-  (observe cells), with encoding in task context.
+- **Stack.** Big state (stores, outboxes, `ObserveState`, buffers) lives in a `static`, set up in place: a
+  `const fn new` or an `init` into `&'static mut MaybeUninit<_>` (`ObserveState::init`). Never build it by value and
+  move it (that once cost a 31-35 KB frame). Check frames (`-Z emit-stack-sizes`, `cargo call-stack`, or QEMU's M3
+  with 64 KB RAM); keep the hot path small (an observe cells row is ~50 B).
+- **Optimization level.** Measure at the profile firmware ships with and say which: `opt-level = "z"` was 2.4x
+  slower than `3` on the Series writers. Generic code is instantiated in the firmware crate, so a per-package
+  `opt-level` doesn't help; small hot per-item functions get `#[inline(always)]`.
+- **Measure, don't guess.** Instruction counts with `examples_mcu/qemu_icount` (bounded `--max-insns`, `--timeout`,
+  trace from QEMU's stderr), cycles with DWT `CYCCNT` on real silicon (the STM32H725 on omarchy-m1), `just
+  units-budget` / `units-elf` for unit types. Instructions are not cycles: report both as what they are, with the
+  clock. Benchmark bins exit QEMU on a HardFault.
+- **Flash.** A choice fixed at build time is a type or const parameter, so the linker drops what isn't used
+  (`DeltaPacked` as a type: 15 KB instead of 91 KB). Shared crates don't turn on wide types or optional features for
+  everyone (a `u64` in `ww_client_server` once cost every firmware 7.7 KB); hosts get them through `std` / `host`.
+- **Data layout.** Per-item generic walks are slow on MCUs: loops over struct-of-arrays columns were 2-4x faster with
+  the same bytes. Interrupt-side capture is a few stores and a counter (observe cells), encoding in task context.
 
-## Workspace layout and crate roles
+## Workspace layout
 
-The codegen pipeline (read `wire_weaver_derive` → `wire_weaver_core` in that order to understand macro expansion):
+The codegen pipeline (read `wire_weaver_derive`, then `wire_weaver_core`):
 
-- **`shrink_wrap/`** — the wire format itself, no dependency on the rest of the workspace. `shrink_wrap/shrink_wrap`
-  has `BufReader`/`BufWriter` and the core traits (`SerializeShrinkWrap`/`DeserializeShrinkWrap` + `..Owned`
-  variants); `shrink_wrap/shrink_wrap_derive` implements the `#[derive_shrink_wrap(..)]` proc macro. Usable
-  completely standalone if you just need a serialization format.
-- **`wire_weaver_derive/`** — thin proc-macro crate exposing `ww_trait`/`ww_api_root` (attribute, marks a trait
-  definition — produces no code, just a marker parsed back out of source), `ww_codegen!`/`ww_impl!` (the macros that
-  actually re-parse the marked trait's source file and emit server/client code), and `full_version!`/`compact_version!`.
-- **`wire_weaver_core/`** — where the real work happens: `transform/` turns a `ww_trait`-annotated source file into
-  an AST (`api.rs`, `ty.rs`, `crate_walker.rs` — it literally walks and re-parses dependency crates' source to find
-  trait defs), `codegen/` turns that AST into server code (`codegen/server`), client code (`codegen/client`), and
-  shared type/serdes code (`ty_def.rs`). `method_model`/`property_model` (with `.pest` grammars in
-  `wire_weaver_core/grammar/`) parse the small `"pattern=keyword, ..."` DSL used in `method_model = "..."` /
-  `property_model = "..."` macro arguments. Exposes `gen_client`/`gen_server` for use from a `build.rs` as an
-  alternative to the proc macro.
-- **`wire_weaver/`** — the user-facing crate: re-exports `shrink_wrap`, the derive/codegen macros, `ww_version`, and
-  defines `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend` (the sans-IO server-side traits), the handler
-  `Context` (request seq, medium, `EventOut`/`BlockingEventOut` to send stream/property updates and deferred replies,
-  `EventWriter`/`EventQueue`) and `RpcResult`/`GetResult`/`SetResult` (method/property call outcomes, including
-  deferred replies). This is what a user's API/firmware/driver
-  crate depends on. Generated server code is IO-free by design — transport is always separate.
-- **`wire_weaver_client/`** — generated `std` client runtime: event loop, `Commander`, USB/RTT/tracing client glue,
-  used by code the `client = "..."` codegen argument produces. No-std client generation doesn't exist yet.
-- **Transport crates** — `ww_link` (link-layer abstraction), `ww_framer` (packs many small messages into one
-  packet, or splits a big message across several — used by both USB and UDP transports), `ww_device` (device side:
-  sans-IO `DeviceLink` + async `Server` with `wait()`/`handle()` for a user-owned event loop + `blocking::Server`,
-  RTT and WebSocket media behind the `rtt` / `ws` features, `embassy-net` sockets with `embassy-net`),
-  `mcu/wire_weaver_usb_embassy` (embassy-usb class and packet IO on top of `ww_device`,
-  lives in the separate `mcu` workspace). Host-side transports (USB, RTT, WebSocket, UDP, in-process) live in
-  `wire_weaver_client` behind features, each a `Transport` impl (`event_loop/transport.rs`) driven by the shared
-  event loop core.
-- **`mcu/ww_ecc_flash`** — `EccSafeFlash`, a `NorFlash` wrapper for stores in STM32 flash: a word with an
-  uncorrectable ECC error (power cut) reads as zeros instead of an NMI (G0) or bus error (H7), or as `Error::Ecc` in
-  strict mode (`new_strict`, bootloaders, chunky), see `docs/api/ecc_flash.md`; host tests on a simulated flash
-  (`just test-ecc-flash`), hardware tests `examples_mcu/ecc_flash_g0b1` and `ecc_flash_h7`. Needs a family feature (`stm32g0`/`stm32h7`).
-- **`ww_bus_slave/`** — device side of the `ww_i2c` / `ww_spi` slave modes (SRV-26): `I2cSlave` / `SpiSlave`, a
-  register map, answer queue and event ring driven by byte-level hooks from the firmware's interrupt handler, see
-  `docs/api/bus_slave.md`.
-- **`wire_weaver_cli/`** (package `wire_weaver_cli`, binary name `ww`, run via `cargo ww` alias from `.cargo/config.toml`) — CLI with
-  introspection and USB loopback subcommands (`src/cmd/`). Also a library: `plugin` is the API of `ww-NAME` plugins
-  (`ww NAME` runs `ww-NAME` from PATH, `ww dfu flash` runs `ww-chunky` of chunky_mcu_updater; docs `cli_reference.md#plugins`).
-  Nothing in this repository depends on another repository by path (chunky_mcu_updater depends on this one by git): keep
-  it so, `just check-clean-clone` builds `ww` from a fresh clone.
-- **`wire_weaver_tool/`** — egui-based GUI (Trunk-buildable) for viewing parsed AST / generated code side by side,
-  no_std vs host toggle; see `docs/dev_tool.md` for current/planned features.
-- **`ww_stdlib/`** (separate crates, some vendored here under `ww_stdlib/*`, canonical home is the
-  `vhrdtech/ww_stdlib` repo) — reusable API traits and data types meant to be shared across unrelated projects by
-  publishing to crates.io (date/time, version, numeric/SI, GPIO, I2C, SPI, UART, CAN bus, DFU, logging).
-  Prefer reusing/extending one of these over inventing a project-local equivalent.
-- **`ww_self/`**, **`ww_global/`** — framework-level base types that live in this repo, not in `ww_stdlib`:
-  `ww_self` is the API model AST used for introspection and API snapshots, `ww_global` is the global type ID
-  registry. Versioned like API crates (own version, the version is the identity, see
-  `docs/evolution/crate_layers.md`).
-- **`wire_weaver_snapshots/`** — API snapshots (`api_snapshots/*.ron`, saved by `ww api save`) of `ww_global` and
-  `ww_stdlib/*`, copied in and embedded. Codegen leaves traits and types known from them out of the introspection
-  data a device sends, `wire_weaver_client` puts them back. After changing any trait or type in those crates, run
-  `just save-snapshots` (a `wire_weaver_core` test fails otherwise). It refreshes the snapshot of a crate's current
-  version, which is only right for a version never published (`cargo info --registry crates-io <crate>`): bump a
-  published one first; `--force` (saving a version not bumped enough) only for versions never published.
-- **`examples/`** — paired `<name>_api` (trait + types, no_std-compatible) / `<name>` (server+client wiring, tests)
-  crates; this pairing is the intended project shape end users should copy (see `docs/api/folder_structure.md`).
-  `examples_mcu/` has real firmware targets per dev board (excluded from root workspace).
-  `examples/compare_wire_formats` benchmarks `shrink_wrap` against other formats.
-- **`tests/`** — one integration-test crate per API feature (`methods`, `properties`, `streams`,
-  `array_of_streams`, `traits`), each with a `<name>_api` companion crate defining the trait/types under test —
-  this is the best place to see minimal working examples of a specific macro argument or feature combination.
-  `tests_common::start_device` runs the generated server on `ww_device::Server` in a device thread, connected through
-  `wire_weaver_client`'s `in_process` transport, so tests go through the real host event loop (link setup, timeouts,
-  streams); `TestDevice::drop_requests` simulates a stuck device, `TestDevice::send` pushes stream events.
-  The device side is tested end-to-end against the real host event loop in
-  `wire_weaver_client/src/event_loop/device_e2e_tests.rs` (in-memory packets, real framers on both ends).
-- **`tests/conformance`** (with `tests/conformance_api`) — the wire-format conformance matrix (TEST-23): one corpus of
-  type, value and golden bytes, run through the derive, the `ww_self` dynamic client, Python and C.
-- **`fuzz/`** — fuzzes `ww_framer` tx/rx round-tripping (`cargo fuzz run framer-tx-rx`).
+- **`shrink_wrap/`**: the wire format, no dependency on the rest. `shrink_wrap` has `BufReader`/`BufWriter` and the
+  `SerializeShrinkWrap`/`DeserializeShrinkWrap` (+ `..Owned`) traits, `shrink_wrap_derive` the `#[derive_shrink_wrap]`
+  macro, `shrink_wrap/c` the C runtime. Usable standalone.
+- **`wire_weaver_derive/`**: `ww_trait`/`ww_api_root` (markers, expand to nothing), `ww_codegen!`/`ww_impl!` (re-parse
+  the marked trait's source and emit server/client code), `full_version!`/`compact_version!`.
+- **`wire_weaver_core/`**: `transform/` turns the source into an AST (`api.rs`, `ty.rs`, `crate_walker.rs` walks
+  and re-parses dependency crates, `unit_hint.rs`), `codegen/` emits server (`codegen/server`, with the scaffold),
+  client (`codegen/client`) and type code (`ty_def.rs`). `method_model`/`property_model` parse the `"pattern=keyword"`
+  DSL (grammars in `grammar/`). `gen_client`/`gen_server` serve `build.rs` use.
+- **`wire_weaver/`**: the user-facing crate: re-exports, `WireWeaverAsyncApiBackend`/`WireWeaverApiBackend`
+  (sans-IO server traits), the handler `Context` (seq, medium, `EventOut`/`BlockingEventOut`), `RpcResult`/
+  `GetResult`/`SetResult`. Generated server code is IO-free; transport is separate.
+- **`wire_weaver_client/`**: the `std` client runtime (event loop, `Commander`, the dynamic client, `quantity`);
+  host transports (USB, RTT, WebSocket, UDP, local socket, in-process, hub) are `Transport` impls behind features
+  (`event_loop/transport.rs`). There is no `no_std` client yet (CLT-14).
+- **Transport and device**: `ww_link` (link layer), `ww_framer` (packs small messages into packets and splits big
+  ones), `ww_device` (sans-IO `DeviceLink`, async `Server` with `wait()`/`handle()`, `blocking::Server`; RTT,
+  WebSocket, UDP and `embassy-net` behind features), `mcu/wire_weaver_usb_embassy` (embassy-usb class).
+- **Device-side crates**: `ww_stream` (streams, observe), `ww_settings`, `ww_bus_slave` (I2C/SPI slave, SRV-26),
+  `mcu/ww_ecc_flash` (`EccSafeFlash`, `docs/api/ecc_flash.md`), `ww_lz4`, `ww_tape`, `ww_defmt_logger`.
+- **Host tools**: `wire_weaver_cli` (binary `ww`, `cargo ww`; plugins `ww NAME` run `ww-NAME` from PATH),
+  `ww_hub`/`ww_hub_api` (the per-user hub), `ww_clock_sync`, `ww_tap`, `wire_weaver_py` (Python),
+  `wire_weaver_evolution` (the compatibility checker), `wire_weaver_tool` (egui viewer, `docs/dev_tool.md`). Nothing
+  here depends on another repository by path (`just check-clean-clone`); `exact_units` comes by git.
+- **`ww_stdlib/`**: reusable API traits and types for unrelated projects (units, time, numeric, GPIO, I2C, SPI, UART,
+  CAN, DFU, logs, ...; canonical home `vhrdtech/ww_stdlib`). Reuse or extend one of these before inventing a
+  project-local equivalent.
+- **`ww_self/`**, **`ww_global/`**: the API model AST (introspection, snapshots) and the global type ID registry;
+  versioned like API crates (`docs/evolution/crate_layers.md`).
+- **`wire_weaver_snapshots/`**: API snapshots of the crates `just save-snapshots` covers; codegen leaves types known
+  from them out of a device's introspection data and the client puts them back. After changing a type there, run
+  `just save-snapshots` (a test fails otherwise). It refreshes the crate's current version, right only for a version
+  never published (`cargo info --registry crates-io <crate>`): bump a published one first.
+- **`examples/`**: paired `<name>_api` (trait and types, `no_std`) and `<name>` (server and client) crates, the
+  project shape users copy (`docs/api/folder_structure.md`); `examples_mcu/` has firmware per board.
+- **`tests/`**: one integration-test crate per feature, each with a `<name>_api` companion: the best place for minimal
+  working examples of a macro argument or type (`tests/quantities_api` for units). `tests_common::start_device`
+  runs the server on `ww_device::Server` in a thread through the real host event loop (`drop_requests`, `send`).
+  `tests/conformance` is the conformance matrix.
+- **`fuzz/`**: framer and `shrink_wrap` fuzz targets (`just fuzz-*`).
 
-## The core pattern to recognize
+## The core pattern
 
-A trait is declared with `#[ww_trait]` (or `#[ww_api_root]` for the top-level one) — this expands to nothing by
-itself, it's a marker. Elsewhere, `wire_weaver::ww_codegen!(my_api_crate :: MyTrait for MyStruct, server = true, client = "...", no_alloc = ..., use_async = ..., method_model = "...", property_model = "...")`
-re-parses that trait's source and generates the actual serdes + dispatch (server) or call-builder (client) code
-implemented on `MyStruct`. Data types crossing the wire use `#[derive_shrink_wrap(...)]`, not plain `#[derive]`
-(see `docs/serdes/derive.md` for the full directive reference — `borrowed`/`owned`, `final_structure` /
-`self_describing` / `sized`, `ww_repr`, `#[default = ..]` for evolvable fields, etc.). Grep `tests/*/src/lib.rs` for
-worked examples of any specific combination before writing new codegen-invoking code from scratch.
+A trait is declared with `#[ww_trait]` (`#[ww_api_root]` for the top one), a marker. Elsewhere `ww_codegen!(my_api ::
+MyTrait for MyStruct, server = true, client = "...", no_alloc = .., use_async = .., method_model = "..",
+property_model = "..")` re-parses its source and generates serdes and dispatch (server) or call builders (client).
+Types crossing the wire use `#[derive_shrink_wrap(..)]` (directives in `docs/serdes/derive_reference.md`). Grep
+`tests/*_api/src/lib.rs` for a worked example of any combination before writing codegen-invoking code.
 
 ## Server handlers: scaffold and sync with the API
 
-The generated server dispatcher calls handlers the user implements on the server struct (`fn <name>`,
-`get_`/`set_<name>`, `changed_<name>`, `sideband_`/`write_<name>`, `valid_indices_root_<..>`, prefixed with the trait
-item chain for nested traits; `observe_state()` once for an API with `+observe` properties). Their exact names and
-signatures depend on the `ww_codegen!` arguments, so don't write them by hand — `ww api scaffold <api_crate>
-[--name Trait]` (`cargo ww api scaffold ...`) prints the struct, a stub for every handler (`Unimplemented.into()`, empty bodies, no valid indices) and the matching `ww_codegen!` call. Pass the
-same options the target `ww_codegen!` uses: `--use-async`, `--method-model`, `--property-model`, `--server <Struct>`,
-`--alloc` for `no_alloc = false`.
+Handler names and signatures depend on the `ww_codegen!` arguments, so don't write them by hand: `ww api scaffold
+<api_crate> [--name Trait]` prints the struct, a stub per handler and the matching `ww_codegen!` call. Pass the same
+options as the target `ww_codegen!` (`ww api scaffold --help`: `--use-async`, `--method-model`, `--medium`,
+`--alloc`, ...).
 
-To bring an existing server in line after the API changed (or to fill in a partly written one):
+To bring an existing server in line after the API changed:
 
-1. Find its `ww_codegen!(api :: Trait for path::Server, server = true, ..)` call and read the options from it.
-2. Run `ww api scaffold` with those options into the scratchpad — this is the expected handler list.
-3. Collect the existing handlers: every `impl Server` block, in any inline or out-of-line `mod`, across files.
-4. Compare by name, then by signature. Treat as equal what compiles the same: type paths vs. imported names
-   (`shrink_wrap::RefVec` vs `RefVec`), elided vs `'_` lifetimes, `impl EventOut` vs a generic bound, `&self`
-   where `&mut self` is expected, parameter names.
-5. Edit in place, don't regenerate the file: add missing stubs next to the handlers of the same trait level, fix
-   mismatched signatures keeping the body and the user's parameter names, add missing `value_on_changed` struct
-   fields. Don't delete handlers that aren't expected — they may be stale resources or helper methods — list them
-   for the user instead.
-6. `cargo check` the crate; errors in bodies after a signature change are expected, point them out.
+1. Read the options from its `ww_codegen!(api :: Trait for path::Server, server = true, ..)` call.
+2. Run `ww api scaffold` with them into the scratchpad: the expected handler list.
+3. Collect the existing handlers from every `impl Server` block, in any module or file.
+4. Compare by name, then signature; equal is what compiles the same (paths vs imports, elided vs `'_` lifetimes,
+   `impl EventOut` vs a generic bound, parameter names).
+5. Edit in place: add missing stubs next to their trait level, fix signatures keeping bodies and parameter names, add
+   missing `value_on_changed` fields. Don't delete unexpected handlers; list them for the user.
+6. `cargo check` the crate and point out body errors from changed signatures.
 
 Every handler takes `cx: &mut Context<'_, impl EventOut, Medium>` (`BlockingEventOut` for `use_async = false`)
-right after `&mut self`; `Medium` comes from `ww_codegen!(.., medium = "..")` (`--medium` for the scaffold), `()` by
-default. Deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`.
+after `&mut self`; deferred methods answer later with `<method>_send_return(out, cx.reply_to().seq, ..)`.
 
-## Compatibility rules (don't guess — check `docs/evolution/rules.md`)
+## Compatibility
 
-Types default to `Unsized` (fully evolvable: fields can be appended with `#[default = ..]`, renamed but not
-reordered). `final_structure`, `self_describing`, and `sized` trade evolvability for a smaller wire size and have
-different, more restrictive rules once chosen — they cannot be un-chosen later. An API's data types are part of its
-SemVer contract: breaking a type used in the API requires bumping the API crate's major version, and the API model
-crate itself (e.g. `ww_client_server`) participates in that same compatibility surface (see `docs/api/folder_structure.md`
-for why the API crate's own name+version acts as a global identifier). Run the evolution checker
-(`docs/evolution/checker_tool.md`) rather than eyeballing compatibility when in doubt.
+Read `docs/evolution/rules.md` and `docs/evolution/crate_layers.md` before any breaking change, wire or Rust API, in
+any crate: they explain the crate layers (`shrink_wrap` → `ww_stdlib` → framework → user API), why a `shrink_wrap`
+break cascades, which framework code is wire-defining (`ww_framer`, `ww_link`, `ww_client_server`, codegen), and
+which version position to bump. Types default to unsized and evolvable (fields appended with `#[default = ..]`);
+`final_structure`, `self_describing` and `sized` trade that for size and can't be undone. A type used in an API is
+part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeballing. Tell the user when a change
+breaks the wire and which deployed devices and hosts it affects.
 
-**Before making any breaking change — wire or Rust API, in any crate — read `docs/evolution/rules.md` and
-`docs/evolution/crate_layers.md`** and follow them. They explain the crate layers (`shrink_wrap` → `ww_stdlib` →
-framework → user API), why a `shrink_wrap` break cascades to every other crate, which framework code is actually wire-defining (`ww_framer`, `ww_link`,
-`ww_client_server`, server/client codegen), and which version position to bump. Tell the user explicitly when a change
-breaks the wire, and which deployed devices/hosts it affects.
-
-`ElementSize::Sized { size_bits }` is the exact number of bits of the value's own fields (SW-35): for an enum, the
-discriminant plus one variant, and a `sized` enum whose variants differ in size is a compile error (it has to be
-`self_describing`, same bytes). Alignment padding is not part of `size_bits` (`struct { a: bool, b: u8 }` is 9 bits
-and takes 2 bytes), so for space math verify with a real `to_ww_bytes()` call (see "Editing `docs/`" below).
+`ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
+is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
 
 ## Editing `docs/`
 
-`just build-docs` runs zensical's own link/anchor checker across the whole site, not just a build — it flags a
-`page does not exist` or `anchor does not exist` warning for any broken internal link, including cross-file ones
-(`other.md#some-heading`). Run it after touching any `docs/*.md` and treat new warnings it reports as bugs to fix
-(some pre-existing ones predate this instruction, e.g. `docs/serdes/derive.md`'s self-link to `ww_repr`).
-There is no check-only mode: the build writes `site/` and `--clean` wipes zensical's cache, both in the checkout it
-runs in, so it breaks a `just serve-docs` running in that same checkout and nothing else. Before running it, check
-for one there (`pgrep -af "zensical serve"` and its working directory); if one runs in that checkout, don't build
-there. A session's own worktree is a different checkout and is fine.
+- `just build-docs` runs zensical's link and anchor checker over the whole site; new warnings are bugs to fix. It
+  writes `site/` and wipes the cache in the checkout it runs in, breaking a `just serve-docs` there (`pgrep -af
+  "zensical serve"`); a session's own worktree is fine. `rm -rf site/` when done.
+- Anchors: the heading lower-cased, every run of non-alphanumerics collapsed to one `-`
+  (``### `ww_repr = <repr>` (enums only)`` is `#ww_repr-repr-enums-only`); grep the built `site/` if unsure.
+- A new page needs an entry in `zensical.toml`'s `nav` and a reading level in its front matter (`level: basic`,
+  `advanced` or `nomicon`, `docs/levels.md`).
+- Claims about bytes or bit layout are never hand-derived: run a temporary `examples/scratch_*.rs`
+  (`cargo run --example scratch_*`), copy the output, delete the example.
 
-Anchor slugs are generated by lower-casing the heading and collapsing every run of non-alphanumeric characters (spaces,
-backticks, `=`, `<>`, `:`, ...) to a **single** hyphen — a heading like ``### `ww_repr = <repr>` (enums only)``
-becomes `#ww_repr-repr-enums-only`, not `#ww_repr--repr-enums-only`; don't guess, grep the built `site/**/index.html`
-for `id="..."` if unsure. Adding a new page also requires a manual entry in `zensical.toml`'s `nav` list — it's not
-inferred from the file tree. `site/` is build output, not checked in; `rm -rf` it when done poking at it.
+## Changelogs, commits and versions
 
-Pages carry a reading level in their front matter (`level: basic`, `advanced` or `nomicon`, see `docs/levels.md`),
-drawn as a badge above the title; a nav section lists its Basic pages first, then `Advanced` and `Nomicon`
-sub-sections. The SerDes section is done this way, the other sections follow; give a new page its level.
+- Every user-visible change gets an entry under `## Unreleased` in the `CHANGELOG.md` of each affected crate, in the
+  same change (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`; name the public items; for breaking changes say
+  what users must change). Create the file if a crate has none. The root `CHANGELOG.md` is the project's history: one
+  summary line per change under `[Unreleased]` pointing at the crate changelogs, a summary section per release; don't
+  run `git cliff -o` over it. "What's new" is answered from these changelogs, with FEATURES.md for status.
+- Commits use Conventional Commits with a scope (`feat(usb): ...`): a short imperative summary, a blank line, a body
+  saying what and why, a bullet per crate or area. Work happens on a session branch (`tpm work new SLUG`), one commit
+  per finished step with its changelogs. `tpm land` puts it on main when the user agrees; publishes, OTA and prod
+  wait for the user.
+- Session commits don't bump versions. At landing, a changed crate gets its **minor** bumped (pre-1.0 the breaking
+  position), except purely additive `shrink_wrap`/`shrink_wrap_derive` changes and wire-compatible additions to API
+  crates (`ww_stdlib/*`, `*_api`), which bump patch; once per release cycle (skip it when the version is already above
+  `cargo info --registry crates-io <crate>`); never-published crates and docs/CI-only changes stay. Crates with
+  `version.workspace = true` share the root `[workspace.package]` version; path dependencies carry the version in the
+  root `[workspace.dependencies]`, also in `docs/` strings and `mcu/Cargo.lock` (`just check-mcu`). For API crates
+  the version is the API's identity (`docs/api/folder_structure.md`): never skip it.
+- Dependencies and metadata live in the root workspace: crates inherit `authors`, `edition`, `license`, `repository`
+  (`ww_stdlib/*` point at `vhrdtech/ww_stdlib`); every in-repo crate and every external crate used by more than one
+  member is in `[workspace.dependencies]` and used as `dep.workspace = true`. A workspace entry with
+  `default-features = false` makes members list the defaults they need (usually `["std"]`); the reverse doesn't work.
+  Inline exceptions: `semver` in `ww_version`, `either` in `shrink_wrap`.
+- CLIs print version, git SHA and build time in `--version` (`tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026 18:20)`)
+  from a small `build.rs` without extra crates; firmware reports the same through `fw_info`.
 
-When a docs page makes a specific claim about serialized bytes or bit layout (as `docs/serdes/showcase.md` does
-throughout), don't hand-derive it — add a temporary `examples/scratch_*.rs` in the relevant crate (usually
-`shrink_wrap/shrink_wrap/`), run it with `cargo run --example scratch_*`, copy the real output into the docs, then
-delete the example. `derive.md`'s own examples follow this same "checked against the current macro implementation"
-rule.
+## Naming
 
-## Changelogs and commits
-
-Every user-visible change (features, fixes, breaking changes) gets an entry under `## Unreleased` in the
-`CHANGELOG.md` of each affected crate, written in the same change — don't leave it for later. Follow the existing
-format (`### ⚠️ Breaking`, `### 🚀 Features`, `### 🐛 Fixes`), name the public items involved, and for breaking changes
-say what users must change. Create the file if a crate doesn't have one yet. Questions like "what's new" or
-"what changed since X" are answered from these changelogs, newest sections first (the user's version or date as
-the cutoff), with FEATURES.md for current status.
-
-The root `CHANGELOG.md` is the project's history as a whole (eras back to 2017, one summary per release); it is
-not where individual changes go. When a version is released, add a short summary section for it there, pointing at
-the per-crate changelogs. `cliff.toml` is not used to generate it, don't run `git cliff -o` over it.
-
-Every change to a crate also bumps its **minor** version (`0.4.0` → `0.5.0`; pre-1.0, minor is the SemVer-breaking
-position, so don't try to decide whether a patch bump would do). Exceptions, see `docs/evolution/crate_layers.md`: purely
-additive changes to `shrink_wrap`/`shrink_wrap_derive` and wire-compatible additions to API crates (`ww_stdlib/*`,
-`*_api`) bump **patch**, so the rest of the ecosystem doesn't have to be re-released and old devices still connect. Bump once per release cycle: if the crate's version
-is already above its latest crates.io release (check with `cargo info --registry crates-io <crate>`; plain
-`cargo info` inside the repo shows the local version), it has been bumped and stays as is. Never-published crates
-are left alone. How to bump:
-
-- Crates with `version.workspace = true` (`wire_weaver`, `wire_weaver_core`, `wire_weaver_derive`,
-  `wire_weaver_client`, `wire_weaver_cli`, `ww_device`, `ww_link`, `ww_framer`, ...) share `[workspace.package]
-  version` in the root `Cargo.toml` — bump that one, never give them their own version.
-- Path dependencies carry a version too (`cargo publish` rejects them otherwise). They are all declared once in the
-  root `[workspace.dependencies]`, so the version is updated there; also update version strings in `docs/` (e.g.
-  `docs/serdes/derive.md`) and `mcu/Cargo.lock` (run `just check-mcu`).
-- For API crates (`ww_stdlib/*`, `*_api`), the version is part of the API's identity (see
-  `docs/api/folder_structure.md`), so the bump is exactly what tells old and new APIs apart — don't skip it.
-
-Keep dependencies and metadata in the root workspace: every crate inherits `authors`, `edition`, `license` and
-`repository` with `key.workspace = true` (except `ww_stdlib/*`, whose `repository` is `vhrdtech/ww_stdlib`), every in-repo crate and every external crate used by more than one member is
-declared in `[workspace.dependencies]` and used as `dep.workspace = true` (plus `features`/`optional` as needed). When
-the workspace entry has `default-features = false`, a member that needs the defaults lists them in `features` (usually
-`["std"]`); the reverse doesn't work, a member can't turn defaults off if the workspace entry keeps them. The only
-inline exceptions are a few crates that must disable defaults of a dependency other members use with defaults
-(`semver` in `ww_version`, `either` in `shrink_wrap`). `mcu/`, `examples_mcu/*` and
-`wire_weaver_tool` are separate workspaces and keep their own.
-
-Commit messages use Conventional Commits with a scope (`feat(usb): ...`, `fix(client): ...`): a short imperative
-summary line, a blank line, then a body explaining what changed and why, with a bullet per crate or area for
-multi-crate changes.
-
-Commit on your own initiative (tpm CLAUDE.md "Commits are free, prod is gated"): work happens on a session branch
-(`tpm work new SLUG`), each finished step is one commit with the changelogs updated in it. When the work is done and
-the user agrees, `tpm land` puts it on main; pushing is the housekeeping timer's job. Anything that reaches clients
-(prod deploy, firmware/OTA release, registry publish) still waits for the user's OK.
-
-## Naming convention
-
-`wire_weaver_` prefix = core crates implementing the framework itself. `ww_` prefix = crates built on top of
-WireWeaver providing reusable types/traits/tools (`ww_stdlib` and friends) — use this prefix too for anything
-you write that's meant to be reusable across projects, not project-specific.
-
-## Versions
-
-Landing bumps the version, not each work commit (tpm CLAUDE.md "Landing bumps the version"), so any build from main
-traces back to a release commit:
-- Session commits add CHANGELOG entries under `[Unreleased]` without bumping. `tpm land` turns them into the next
-  version's section with the manifest bump in one `release: x.y.z` commit: minor for Added/Changed/Removed/Deprecated,
-  else patch; major only when the owner says so (`tpm land --version`).
-- In a workspace, bump the changed crates by hand on the branch, then `tpm land --no-bump`. Docs-only, CI-only and
-  no-behaviour-change refactors land without a bump.
-- CLIs print version, git SHA and build time in `--version`, e.g. `tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026
-  18:20)`: a small `build.rs` without extra crates (`git rev-parse --short HEAD`, `-dirty` when
-  `git status --porcelain` isn't empty, `rerun-if-changed` on `.git/HEAD` and `.git/index`, `unknown` without
-  git). Firmware reports the same through `fw_info`. When touching a CLI that lacks it, add it.
+`wire_weaver_` crates implement the framework itself; `ww_` crates are built on it as reusable types, traits and
+tools: use `ww_` for anything meant to be reused across projects.

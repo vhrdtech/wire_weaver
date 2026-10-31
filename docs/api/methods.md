@@ -11,8 +11,8 @@ return value.
 #[ww_trait]
 trait MyDevice {
     fn led_on();
-    fn set_brightness(value: f32);
-    fn temperature() -> f32;
+    fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);
+    fn temperature() -> Point<Celsius, Fixed<Kelvin, Centi, i16>>;
     fn user_type(state: State);
     fn user_ret_type() -> UserType<'i>;
 }
@@ -35,7 +35,8 @@ pub struct UserType<'i> {
 
 Any number of arguments are supported, of any [ShrinkWrap](../serdes/shrink_wrap.md) type. Arguments evolve like
 struct fields, e.g. an `Option<T>` argument can be appended later (see [evolution rules](../evolution/rules.md)). A method
-that can fail returns `Result<T, E>`, see [Errors](errors.md).
+that can fail returns `Result<T, E>`, see [Errors](errors.md). A quantity has its unit in its type (`Fixed`, `Point`, from `ww_si`), never in
+the argument's name: see [Numbers with units](overview.md#numbers-with-units).
 
 ## Server side
 
@@ -74,8 +75,11 @@ impl ServerState {
         /* do things */
         Ready(())
     }
-    async fn temperature(&mut self, _cx: &mut Context<'_, impl EventOut>) -> RpcResult<f32> {
-        Ready(20.0)
+    async fn temperature(
+        &mut self,
+        _cx: &mut Context<'_, impl EventOut>,
+    ) -> RpcResult<Point<Celsius, Fixed<Kelvin, Centi, i16>>> {
+        Ready(Point::from_raw(2000)) // 20.00 °C
     }
     async fn user_type(&mut self, _cx: &mut Context<'_, impl EventOut>, state: State) -> RpcResult<()> {
         Ready(())

@@ -114,16 +114,19 @@ host code at all, `ww introspect` and [Python](../python.md) talk to the device 
 ## What an API can have
 
 ```rust
+use ww_si::{Fixed, Point, Range, origins::Celsius, prefix::{Centi, Milli}};
+use ww_si::units::{Ampere, Kelvin, Meter, Per, Ratio, Second};
+
 #[ww_api_root]
 trait MyDevice {
     /// Methods: any number of arguments, any return type, Result for errors.
-    fn set_brightness(value: f32);
-    fn temperature() -> f32;
+    fn set_brightness(value: Fixed<Ratio, Centi, u8, Range<0, 100>>);
+    fn temperature() -> Point<Celsius, Fixed<Kelvin, Centi, i16>>;
     fn read() -> Result<u16, SensorError<'i>>;
 
     /// Properties: values the host reads, writes or observes.
-    property!(rw speed: f32);
-    property!(ro+observe current: f32);
+    property!(rw speed: Fixed<Per<Meter, Second>, Milli, i32>);
+    property!(ro+observe current: Fixed<Ampere, Milli, i32>);
 
     /// Streams out of the device, sinks into it.
     stream!(button: ButtonEvent);
@@ -149,3 +152,28 @@ GPIO, I2C, UART, firmware updates, logs and more.
 
 The API and its types can evolve: newer hosts work with older devices and the other way round, as long as the
 [evolution rules](../evolution/rules.md) are followed.
+
+## Numbers with units
+
+Every quantity in an API (an argument, a return value, a property, a stream item, a field of a data type) has its
+unit in its type: an [`exact_units::Fixed`](../std_library/exact_units.md) (re-exported by `ww_si`), never a `u32`
+or `f32` with the unit in its name or in a comment. `timeout_ms: u16` becomes `timeout: Millis<u16>`, the same two
+bytes on the wire and the same code on the device, and `ww`, Python and the dynamic client show `100 ms`, take
+`q!(0.1 s)` and refuse what doesn't fit.
+
+| Instead of                                | Write                                                   |
+|-------------------------------------------|---------------------------------------------------------|
+| `timeout_ms: u16`, `uptime_s: u32`        | `timeout: Millis<u16>`, `uptime: Fixed<Second, One, u32>` |
+| `buffer_kib: u16`                         | `buffer: Fixed<Byte, Kibi, u16>`                        |
+| `battery: u8` (percent)                   | `battery: Fixed<Ratio, Centi, u8, Range<0, 100>>`       |
+| `temp: i16` (°C × 100)                    | `temp: Point<Celsius, Fixed<Kelvin, Centi, i16>>`       |
+| `channel: u8` (1 to 4)                    | `channel: IndexFrom1<Item, u8, Range<1, 4>>`            |
+| `frame_seq: u16`                          | `frame: Seq<Frame, u16>`                                |
+
+Choose the number type as the smallest that holds the largest value at the device's real resolution (integers unless
+the value has no fixed resolution), and give bounds whenever the device can't take every value: they are checked on
+every read from the wire. A value whose resolution each device picks is a [`ww_si::Quantity`](../std_library/ww_si.md).
+Positions and sequence numbers are on [Indices](../std_library/indices.md), temperatures and other readings against a
+zero on [Points](../std_library/points.md). An instant against a named epoch (Unix, GPS) has no type yet (STD-65):
+until then it is a `Micros<u64>` with the epoch in its doc comment. `ww api check` points at plain integers whose names
+end in a unit (`_ms`, `_us`, `_hz`, `_bytes`, ...).

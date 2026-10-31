@@ -5764,7 +5764,7 @@ return value.</p>
 <p>Any number of arguments are supported, of any <a href="../../serdes/shrink_wrap/">ShrinkWrap</a> type. Arguments evolve like
 struct fields, e.g. an <code>Option&lt;T&gt;</code> argument can be appended later (see <a href="../../evolution/rules/">evolution rules</a>). A method
 that can fail returns <code>Result&lt;T, E&gt;</code>, see <a href="../errors/">Errors</a>. A quantity has its unit in its type (<code>Fixed</code>, <code>Point</code>, from <code>ww_si</code>), never in
-the argument's name: see <a href="../overview/#numbers-with-units">Numbers with units</a>.</p>
+the argument's name: see <a href="../overview/#numbers-are-typed">Numbers are typed</a>.</p>
 <h2 id="server-side">Server side<a class="headerlink" href="#server-side" title="Permanent link">&para;</a></h2>
 <p>Server side is responsible for deserializing requests from clients and dispatching them to user-provided functions.
 On a high level, this is the process that takes place:</p>

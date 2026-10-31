@@ -1516,10 +1516,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#numbers-with-units" class="md-nav__link">
+  <a href="#numbers-are-typed" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Numbers with units
+        Numbers are typed
       </span>
     </span>
   </a>
@@ -5547,10 +5547,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#numbers-with-units" class="md-nav__link">
+  <a href="#numbers-are-typed" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Numbers with units
+        Numbers are typed
       </span>
     </span>
   </a>
@@ -5768,12 +5768,14 @@ devices that lack them, <a href="../observing/">observed</a> without polling, an
 GPIO, I2C, UART, firmware updates, logs and more.</p>
 <p>The API and its types can evolve: newer hosts work with older devices and the other way round, as long as the
 <a href="../../evolution/rules/">evolution rules</a> are followed.</p>
-<h2 id="numbers-with-units">Numbers with units<a class="headerlink" href="#numbers-with-units" title="Permanent link">&para;</a></h2>
-<p>Every quantity in an API (an argument, a return value, a property, a stream item, a field of a data type) has its
-unit in its type: an <a href="../../std_library/exact_units/"><code>exact_units::Fixed</code></a> (re-exported by <code>ww_si</code>), never a <code>u32</code>
-or <code>f32</code> with the unit in its name or in a comment. <code>timeout_ms: u16</code> becomes <code>timeout: Millis&lt;u16&gt;</code>, the same two
-bytes on the wire and the same code on the device, and <code>ww</code>, Python and the dynamic client show <code>100 ms</code>, take
-<code>q!(0.1 s)</code> and refuse what doesn't fit.</p>
+<h2 id="numbers-are-typed">Numbers are typed<a class="headerlink" href="#numbers-are-typed" title="Permanent link">&para;</a></h2>
+<p>Almost every number in an API (an argument, a return value, a property, a stream item, a field of a data type) is
+typed, not a bare <code>u32</code> or <code>f32</code>: a physical quantity has its unit in its type, an
+<a href="../../std_library/exact_units/"><code>exact_units::Fixed</code></a> (re-exported by <code>ww_si</code>); a count is a counted unit; an
+identifier is a newtype; a position or sequence number is <code>Index</code>/<code>IndexFrom1</code>/<code>Seq</code>. <code>timeout_ms: u16</code> becomes
+<code>timeout: Millis&lt;u16&gt;</code>, the same two bytes on the wire and the same code on the device, and <code>ww</code>, Python and the
+dynamic client show <code>100 ms</code>, take <code>q!(0.1 s)</code> and refuse what doesn't fit. A bare integer or float stays only with
+a reason: a raw protocol field or a truly dimensionless scale.</p>
 <table>
 <thead>
 <tr>
@@ -5797,6 +5799,14 @@ bytes on the wire and the same code on the device, and <code>ww</code>, Python a
 <tr>
 <td><code>temp: i16</code> (°C × 100)</td>
 <td><code>temp: Point&lt;Celsius, Fixed&lt;Kelvin, Centi, i16&gt;&gt;</code></td>
+</tr>
+<tr>
+<td><code>item_count: u32</code></td>
+<td><code>items: Fixed&lt;Item, One, u32&gt;</code></td>
+</tr>
+<tr>
+<td><code>scale_id: u8</code></td>
+<td><code>scale: ScaleId</code> (<code>pub struct ScaleId(u8);</code>)</td>
 </tr>
 <tr>
 <td><code>channel: u8</code> (1 to 4)</td>

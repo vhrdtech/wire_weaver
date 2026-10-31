@@ -7885,6 +7885,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   explicit in the model; <code>Quantity::try_from_fixed</code> and Fixed/Quantity parity proptests; conformance cases (derive,
   dynamic, Python; C gap API-26); docs (<a href="../std_library/ww_si/#quantity-fixed-or-anyquantity"><code>ww_si</code></a>). The
   client-side bounds check is CLT-54.</li>
+<li>✅ <strong>STD-84 <code>Minute</code>, <code>Hour</code>, <code>Day</code>, <code>Week</code> and the Unix epoch</strong> — <code>exact_units</code> 8584aad: <code>Secs&lt;T&gt;</code>, <code>Minutes&lt;T&gt;</code>,
+  <code>Hours&lt;T&gt;</code>, <code>Days&lt;T&gt;</code> (<code>Fixed&lt;Second|Minute|Hour|Day, One, T&gt;</code>) and <code>origins::UnixEpoch</code> with <code>UnixSecs&lt;T&gt;</code> /
+  <code>UnixMillis&lt;T&gt;</code> / <code>UnixMicros&lt;T&gt;</code> / <code>UnixNanos&lt;T&gt;</code> (<code>T</code> defaults to <code>u64</code>), a <code>Point&lt;UnixEpoch, Secs&lt;T&gt;|..&gt;</code> for
+  POSIX time (<code>time_t</code>, journald's <code>__REALTIME_TIMESTAMP</code>). <code>ww_si</code> re-exports <code>Secs</code>, <code>Minutes</code>, <code>Hours</code>, <code>Days</code>
+  next to <code>Micros</code>, <code>Millis</code>, <code>Nanos</code>; <code>units::{Minute, Hour, Day, Week}</code> and <code>origins::{UnixEpoch, UnixSecs, ..}</code>
+  reach <code>ww_si::..</code> through its existing <code>units</code> / <code>origins</code> re-exports (feature <code>time</code>). Docs:
+  <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/points/#origins">points</a>.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric

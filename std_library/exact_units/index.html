@@ -5946,16 +5946,32 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 </thead>
 <tbody>
 <tr>
-<td><code>Micros&lt;T&gt;</code></td>
-<td><code>Fixed&lt;Second, Micro, T&gt;</code></td>
+<td><code>Secs&lt;T&gt;</code></td>
+<td><code>Fixed&lt;Second, One, T&gt;</code></td>
 </tr>
 <tr>
 <td><code>Millis&lt;T&gt;</code></td>
 <td><code>Fixed&lt;Second, Milli, T&gt;</code></td>
 </tr>
 <tr>
+<td><code>Micros&lt;T&gt;</code></td>
+<td><code>Fixed&lt;Second, Micro, T&gt;</code></td>
+</tr>
+<tr>
 <td><code>Nanos&lt;T&gt;</code></td>
 <td><code>Fixed&lt;Second, Nano, T&gt;</code></td>
+</tr>
+<tr>
+<td><code>Minutes&lt;T&gt;</code></td>
+<td><code>Fixed&lt;Minute, One, T&gt;</code></td>
+</tr>
+<tr>
+<td><code>Hours&lt;T&gt;</code></td>
+<td><code>Fixed&lt;Hour, One, T&gt;</code></td>
+</tr>
+<tr>
+<td><code>Days&lt;T&gt;</code></td>
+<td><code>Fixed&lt;Day, One, T&gt;</code></td>
 </tr>
 <tr>
 <td><code>Bytes&lt;T&gt;</code></td>
@@ -5993,6 +6009,10 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 </table>
 <p>The Q formats saturate and the binary angles wrap in arithmetic; they are made with <code>Fixed::of</code>, see
 <a href="../rounding/#the-policy-of-a-type">Rounding and overflow</a>.</p>
+<p>A moment in POSIX time (<code>time_t</code>, journald's <code>__REALTIME_TIMESTAMP</code>) since the Unix epoch is a <code>Point</code> of
+<code>origins::UnixEpoch</code> (see <a href="../points/#origins">points</a>), aliased as <code>UnixSecs&lt;T&gt;</code>, <code>UnixMillis&lt;T&gt;</code>, <code>UnixMicros&lt;T&gt;</code>
+and <code>UnixNanos&lt;T&gt;</code> (<code>T</code> defaults to <code>u64</code>), each a <code>Point&lt;UnixEpoch, Secs&lt;T&gt;&gt;</code> / <code>Millis&lt;T&gt;</code> / <code>Micros&lt;T&gt;</code> /
+<code>Nanos&lt;T&gt;</code>.</p>
 <h2 id="in-an-api">In an API<a class="headerlink" href="#in-an-api" title="Permanent link">&para;</a></h2>
 <p><code>Fixed</code> goes into properties, method arguments, <code>Timed</code> values and <code>Series</code> like any type. The bounds may be left out
 in Rust source; the walker fills in <code>Unbounded</code>, and the API model, snapshots, <code>ww</code>, Python and the scaffold always

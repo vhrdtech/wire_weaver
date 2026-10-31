@@ -36,7 +36,7 @@ pub struct UserType<'i> {
 Any number of arguments are supported, of any [ShrinkWrap](../serdes/shrink_wrap.md) type. Arguments evolve like
 struct fields, e.g. an `Option<T>` argument can be appended later (see [evolution rules](../evolution/rules.md)). A method
 that can fail returns `Result<T, E>`, see [Errors](errors.md). A quantity has its unit in its type (`Fixed`, `Point`, from `ww_si`), never in
-the argument's name: see [Numbers with units](overview.md#numbers-with-units).
+the argument's name: see [Numbers are typed](overview.md#numbers-are-typed).
 
 ## Server side
 

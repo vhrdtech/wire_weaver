@@ -153,13 +153,15 @@ GPIO, I2C, UART, firmware updates, logs and more.
 The API and its types can evolve: newer hosts work with older devices and the other way round, as long as the
 [evolution rules](../evolution/rules.md) are followed.
 
-## Numbers with units
+## Numbers are typed
 
-Every quantity in an API (an argument, a return value, a property, a stream item, a field of a data type) has its
-unit in its type: an [`exact_units::Fixed`](../std_library/exact_units.md) (re-exported by `ww_si`), never a `u32`
-or `f32` with the unit in its name or in a comment. `timeout_ms: u16` becomes `timeout: Millis<u16>`, the same two
-bytes on the wire and the same code on the device, and `ww`, Python and the dynamic client show `100 ms`, take
-`q!(0.1 s)` and refuse what doesn't fit.
+Almost every number in an API (an argument, a return value, a property, a stream item, a field of a data type) is
+typed, not a bare `u32` or `f32`: a physical quantity has its unit in its type, an
+[`exact_units::Fixed`](../std_library/exact_units.md) (re-exported by `ww_si`); a count is a counted unit; an
+identifier is a newtype; a position or sequence number is `Index`/`IndexFrom1`/`Seq`. `timeout_ms: u16` becomes
+`timeout: Millis<u16>`, the same two bytes on the wire and the same code on the device, and `ww`, Python and the
+dynamic client show `100 ms`, take `q!(0.1 s)` and refuse what doesn't fit. A bare integer or float stays only with
+a reason: a raw protocol field or a truly dimensionless scale.
 
 | Instead of                                | Write                                                   |
 |-------------------------------------------|---------------------------------------------------------|
@@ -167,6 +169,8 @@ bytes on the wire and the same code on the device, and `ww`, Python and the dyna
 | `buffer_kib: u16`                         | `buffer: Fixed<Byte, Kibi, u16>`                        |
 | `battery: u8` (percent)                   | `battery: Fixed<Ratio, Centi, u8, Range<0, 100>>`       |
 | `temp: i16` (°C × 100)                    | `temp: Point<Celsius, Fixed<Kelvin, Centi, i16>>`       |
+| `item_count: u32`                         | `items: Fixed<Item, One, u32>`                          |
+| `scale_id: u8`                            | `scale: ScaleId` (`pub struct ScaleId(u8);`)            |
 | `channel: u8` (1 to 4)                    | `channel: IndexFrom1<Item, u8, Range<1, 4>>`            |
 | `frame_seq: u16`                          | `frame: Seq<Frame, u16>`                                |
 

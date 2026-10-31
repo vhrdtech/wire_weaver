@@ -15,12 +15,15 @@ Read `docs/index.md` first, then `docs/serdes/shrink_wrap.md` and `wire_format.m
 `docs/evolution/rules.md`. Prefer the docs (`docs/`, built with zensical) to the source; where they are unclear, the
 source and its comments are authoritative.
 
-## Quantities are typed: never a raw number with the unit in its name
+## Numbers are typed: never a bare integer or float
 
-Every quantity in an API type (property, method argument or return, stream item, field of a `#[derive_shrink_wrap]`
-type) is an `exact_units` / `ww_si` type, never a `u32`/`u64`/`f32` with the unit in its name (`timeout_ms`,
-`uptime_s`) or in a comment (`/// percent`). `Fixed` is exactly its `T` on the wire, so this costs no byte and no
-cycle (DER-20), and clients, `ww`, Python and the evolution checker then know the unit, scale and bounds.
+Almost every number in an API type (property, method argument or return, stream item, field of a
+`#[derive_shrink_wrap]` type) is typed, not a bare `u32`/`u64`/`f32` with its meaning in the name (`timeout_ms`,
+`item_count`, `scale_id`) or in a comment (`/// percent`): a physical quantity is an `exact_units` / `ww_si` type, a
+count is a counted unit, an identifier is a newtype, a position or sequence number is `Index`/`IndexFrom1`/`Seq`.
+`Fixed` and a single-field newtype are exactly their `T` on the wire, so this costs no byte and no cycle (DER-20),
+and clients, `ww`, Python and the evolution checker then know what the number means. A bare integer or float stays
+only with a reason: a raw protocol field (a register, a wire-format byte) or a truly dimensionless scale.
 
 | What                              | Type                                                                         |
 |-----------------------------------|------------------------------------------------------------------------------|
@@ -29,6 +32,8 @@ cycle (DER-20), and clients, `ww`, Python and the evolution checker then know th
 | ratios, percent, ppm              | `Fixed<Ratio, Centi, u8, Range<0, 100>>`, `Ppb<i32>`, `Duty16`, `Q15`        |
 | any physical value                | `Fixed<Volt, Milli, i16>`, `Fixed<Hertz, Kilo, u32>`, ADC codes as `FullScale` |
 | temperatures, headings           | `Point<Celsius, Fixed<Kelvin, Centi, i16>>`, `Point<Angle<Degree>, ..>`     |
+| counts                            | `Fixed<Item, One, u32>` (a counted unit; declare your own with `unit!`)      |
+| identifiers                       | a newtype: `pub struct ScaleId(u8);` (`#[derive_shrink_wrap]`)              |
 | positions in a table, channels    | `Index<Sample, u32>`, `IndexFrom1<Item, u8, Range<1, 4>>`                   |
 | sequence numbers                  | `Seq<Frame, u16>` (wraps, RFC 1982 compare)                                  |
 | device timestamps                 | `ww_si::Timed<T>`, `Second` from the `ww_timebase` clock                     |
@@ -65,6 +70,9 @@ pub struct Status {
     pub timeout: Millis<u16>,
 }
 ```
+
+A count: `item_count: u32` becomes `items: Fixed<Item, One, u32>`. An id: `scale_id: u8` becomes `scale: ScaleId`
+(`#[derive_shrink_wrap] pub struct ScaleId(u8);` defined once, reused everywhere that id crosses the wire).
 
 Docs: `docs/std_library/exact_units.md` (`Fixed`, scales, bounds, aliases, in clients), `ww_si.md` (`Quantity`,
 units, dimensions, timestamps), `points.md`, `indices.md`, `rounding.md`. `exact_units` lives in its own repository

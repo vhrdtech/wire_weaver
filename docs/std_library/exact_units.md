@@ -123,23 +123,30 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 
 ## Aliases
 
-| Alias        | Type                                                   |
-|--------------|--------------------------------------------------------|
-| `Secs<T>`    | `Fixed<Second, One, T>`                                |
-| `Millis<T>`  | `Fixed<Second, Milli, T>`                              |
-| `Micros<T>`  | `Fixed<Second, Micro, T>`                              |
-| `Nanos<T>`   | `Fixed<Second, Nano, T>`                               |
-| `Minutes<T>` | `Fixed<Minute, One, T>`                                |
-| `Hours<T>`   | `Fixed<Hour, One, T>`                                  |
-| `Days<T>`    | `Fixed<Day, One, T>`                                   |
-| `Bytes<T>`   | `Fixed<Byte, One, T>`                                  |
-| `Ppb<T>`     | `Fixed<Ratio, Nano, T>`                                |
-| `Duty16`     | `Fixed<Ratio, Rational<1, 65535>, u16>`                |
-| `Q15<U>`     | `Fixed<U, Pow2<-15>, i16, Saturating>` (`U` = `Ratio`) |
-| `Q31<U>`     | `Fixed<U, Pow2<-31>, i32, Saturating>`                 |
-| `UQ16_16<U>` | `Fixed<U, Pow2<-16>, u32, Saturating>`                 |
-| `Bam16`      | `Fixed<Turn, Pow2<-16>, u16, Wrapping>`                |
-| `Bam32`      | `Fixed<Turn, Pow2<-32>, u32, Wrapping>`                |
+| Alias             | Type                                                   |
+|-------------------|---------------------------------------------------------|
+| `Secs<T>`         | `Fixed<Second, One, T>`                                |
+| `Millis<T>`       | `Fixed<Second, Milli, T>`                              |
+| `Micros<T>`       | `Fixed<Second, Micro, T>`                              |
+| `Nanos<T>`        | `Fixed<Second, Nano, T>`                               |
+| `Minutes<T>`      | `Fixed<Minute, One, T>`                                |
+| `Hours<T>`        | `Fixed<Hour, One, T>`                                  |
+| `Days<T>`         | `Fixed<Day, One, T>`                                   |
+| `Hz<T>`           | `Fixed<Hertz, One, T>`                                 |
+| `Bytes<T>`        | `Fixed<Byte, One, T>`                                  |
+| `Kibibytes<T>`    | `Fixed<Byte, Kibi, T>`                                 |
+| `Mebibytes<T>`    | `Fixed<Byte, Mebi, T>`                                 |
+| `Gibibytes<T>`    | `Fixed<Byte, Gibi, T>`                                 |
+| `Count<Of, T>`    | `Fixed<Of, One, T>`                                    |
+| `Percent<T>`      | `Fixed<Ratio, Centi, T>`                               |
+| `Permille<T>`     | `Fixed<Ratio, Milli, T>`                               |
+| `Ppb<T>`          | `Fixed<Ratio, Nano, T>`                                |
+| `Duty16`          | `Fixed<Ratio, Rational<1, 65535>, u16>`                |
+| `Q15<U>`          | `Fixed<U, Pow2<-15>, i16, Saturating>` (`U` = `Ratio`) |
+| `Q31<U>`          | `Fixed<U, Pow2<-31>, i32, Saturating>`                 |
+| `UQ16_16<U>`      | `Fixed<U, Pow2<-16>, u32, Saturating>`                 |
+| `Bam16`           | `Fixed<Turn, Pow2<-16>, u16, Wrapping>`                |
+| `Bam32`           | `Fixed<Turn, Pow2<-32>, u32, Wrapping>`                |
 
 The Q formats saturate and the binary angles wrap in arithmetic; they are made with `Fixed::of`, see
 [Rounding and overflow](rounding.md#the-policy-of-a-type).

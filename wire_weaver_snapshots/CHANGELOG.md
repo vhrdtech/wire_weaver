@@ -16,6 +16,7 @@
 - The `exact_units` snapshot is saved in `other_repos/` (the crate lives in its own repository now) and copied into `api_snapshots/` like the others; it is unchanged.
 - The `exact_units` snapshot holds `units::Nibble`, `Halfword` and `Doubleword` (STD-60), exact scales of `Bit` next to `Byte` and `Word`.
 - The `exact_units` snapshot holds `units::Minute`, `Hour`, `Day`, `Week` and the `origins::UnixEpoch` origin (STD-84).
+- The `exact_units` snapshot holds `units::Line`, `Row`, `Record` and `Entry`, counted bases beside `Item`, `Sample`, `Frame`, `Packet` (STD-85).
 - Snapshots of `ww_can_bus`, `ww_dfu`, `ww_gpio`, `ww_i2c`, `ww_pin_diag`, `ww_spi` and `ww_uart` saved again with their `#[claim(exclusive)]` traits (SRV-34).
 - `inline_skipped_or_cached(bundle, cache_dir)` (EVO-9): `inline_skipped` that also looks up definitions by signature
   in the definition cache.

@@ -45,20 +45,20 @@ mod timestamp;
 pub use timestamp::{UnwrapError, Unwrapper};
 
 pub use exact_units;
-#[cfg(feature = "information")]
-pub use exact_units::Bytes;
 pub use exact_units::{
-    Bounds, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH, Magnitude,
-    Offset, Origin, OutOfBounds, Point, PointDiff, Prefix, Provenance, Range, RangeDec, RangeU64,
-    Repr, SIExpr, Scale, Storage, Unbounded, Unit, UnitDiv, UnitExpr, UnitMul, UnsignedStorage,
-    counted, origin, origins, prefix, scale, unit, units,
+    Bounds, Count, Counted, DecimalPrefix, Dim, Fixed, FixedScale, MAX_COUNTED, MAX_UNIT_DEPTH,
+    Magnitude, Offset, Origin, OutOfBounds, Point, PointDiff, Prefix, Provenance, Range, RangeDec,
+    RangeU64, Repr, SIExpr, Scale, Storage, Unbounded, Unit, UnitDiv, UnitExpr, UnitMul,
+    UnsignedStorage, counted, origin, origins, prefix, scale, unit, units,
 };
+#[cfg(feature = "information")]
+pub use exact_units::{Bytes, Gibibytes, Kibibytes, Mebibytes};
 #[cfg(feature = "std")]
 pub use exact_units::{CountedOwned, DimOwned, ProvenanceOwned, SIExprOwned};
 #[cfg(feature = "time")]
-pub use exact_units::{Days, Hours, Micros, Millis, Minutes, Nanos, Secs};
+pub use exact_units::{Days, Hours, Hz, Micros, Millis, Minutes, Nanos, Secs};
 #[cfg(feature = "dimensionless")]
-pub use exact_units::{Duty16, Ppb};
+pub use exact_units::{Duty16, Percent, Permille, Ppb};
 #[cfg(feature = "counting")]
 pub use exact_units::{Index, IndexFrom1, Seq};
 

@@ -6,6 +6,11 @@
   `UnixSecs<T>` / `UnixMillis<T>` / `UnixMicros<T>` / `UnixNanos<T>` (`T` defaults to `u64`), a `Point<UnixEpoch,
   Secs<T>|..>` for POSIX time, reach `ww_si::..` through the existing `units` / `origins` re-exports. Re-exports
   `exact_units::{Secs, Minutes, Hours, Days}` next to `Micros`, `Millis`, `Nanos` (feature `time`).
+* `exact_units` taken at d28ec86 (STD-85): `units::{Line, Row, Record, Entry}` (feature `counting`), counted bases
+  beside `Item`, `Sample`, `Frame`, `Packet`, reach `ww_si::..` through the existing `units` re-export. Re-exports
+  `exact_units::Count` (unconditional), `exact_units::{Gibibytes, Kibibytes, Mebibytes}` next to `Bytes` (feature
+  `information`), `exact_units::Hz` next to `Secs`/`Minutes`/`Hours`/`Days` (feature `time`), and
+  `exact_units::{Percent, Permille}` next to `Ppb`/`Duty16` (feature `dimensionless`).
 
 ### ⚠️ Breaking
 

@@ -2142,6 +2142,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   next to `Micros`, `Millis`, `Nanos`; `units::{Minute, Hour, Day, Week}` and `origins::{UnixEpoch, UnixSecs, ..}`
   reach `ww_si::..` through its existing `units` / `origins` re-exports (feature `time`). Docs:
   [`exact_units`](std_library/exact_units.md#aliases), [points](std_library/points.md#origins).
+- ✅ **STD-85 `Count`, `Percent`/`Permille`, binary byte sizes, `Hz`, and counted `Line`/`Row`/`Record`/`Entry`** —
+  `exact_units` d28ec86: `Count<Of, T>` (`Fixed<Of, One, T>`, a count of `Of`s, unconditional), `Percent<T>` and
+  `Permille<T>` (`Fixed<Ratio, Centi|Milli, T>`, feature `dimensionless`), `Kibibytes<T>` / `Mebibytes<T>` /
+  `Gibibytes<T>` beside `Bytes<T>` (feature `information`) and `Hz<T>` (`Fixed<Hertz, One, T>`, feature `time`):
+  aliases cat_stack's APIs had declared for themselves, now one set for every crate. `units::{Line, Row, Record,
+  Entry}` (feature `counting`), counted bases beside `Item`/`Sample`/`Frame`/`Packet`. `ww_si` re-exports all of
+  them; they reach `ww_si::..` through its existing `units` re-export. Docs:
+  [`exact_units`](std_library/exact_units.md#aliases), [`ww_si`](std_library/ww_si.md#dimensions),
+  [indices](std_library/indices.md).
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric

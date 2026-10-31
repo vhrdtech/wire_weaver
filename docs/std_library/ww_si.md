@@ -122,7 +122,7 @@ Everything is a cargo feature, so a firmware compiles only what it uses. `std` (
 | `logarithmic`  | `DeciBel`, `DeciBelmW` (plain structs without a prefix)                                           |
 | `dimensionless` | `Ratio`: duty, probability, scale (a group of its own, as it is used next to any other)          |
 | `information`  | `Bit`, `Nibble` (4 bit), `Byte` (8 bit), `Halfword` (2 byte, 16 bit), `Word` (4 byte, 32 bit), `Doubleword` (8 byte, 64 bit) (bit is a dimension) |
-| `counting`     | `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`: counted bases |
+| `counting`     | `Item`, `Sample`, `Frame`, `Packet`, `Line`, `Row`, `Record`, `Entry`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`: counted bases |
 | `quantities`   | all of the groups above                                                                           |
 | `host`         | host helpers: [`Unwrapper`](#second-as-a-timestamp)                                               |
 | `u16`, `f32`, .. `all` | number types of `NumericValue`, passed on to `ww_numeric` (see [ww_numeric](ww_numeric.md)) |
@@ -279,9 +279,9 @@ SI alone would call the same:
   (32 bit) and `Doubleword` (64 bit) are scales of it, like `Gram` to kilogram. `units::Nibble` is this unit, not
   `shrink_wrap::Nibble`, the 4-bit storage a `Fixed` may hold its number in. Bytes are never a `Ratio` or an angle,
   and `Per<Byte, Second>` is a data rate, not a frequency.
-- **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`, `Chunk`, `Char` and `Code` count
-  things: each is a dimension of its own, so `Per<Sample, Second>` (s⁻¹·Sample) isn't `Hertz` and samples aren't
-  packets. A base is known by its crate and marker name together (`Counted { crate_name, name, exp }`): two crates'
+- **Counted bases.** `Item`, `Sample`, `Frame`, `Packet`, `Line`, `Row`, `Record`, `Entry`, `Cycle`, `Block`,
+  `Sector`, `Chunk`, `Char` and `Code` count things: each is a dimension of its own, so `Per<Sample, Second>`
+  (s⁻¹·Sample) isn't `Hertz` and samples aren't packets. A base is known by its crate and marker name together (`Counted { crate_name, name, exp }`): two crates'
   `Sample` are different bases, and a marker moved to another module of its crate stays the same base. It is shown by
   the marker name alone. An API crate's own counted marker takes its dimension from `ww_si::counted!(Bucket)`, which
   fills in the crate. A dimension holds up to four of them (`MAX_COUNTED`), sorted by crate and name; a `Dim` on the

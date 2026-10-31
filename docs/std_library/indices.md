@@ -16,8 +16,9 @@ has a type for each, with the same algebra as [points](points.md): the table's s
 | `IndexFrom1<Of, T, B>`  | 1-based position, as people and datasheets count | 0, outside `B`                 |
 | `Seq<Of, T>`            | wrapping sequence number of `Of`               | nothing, every `T` is one        |
 
-`Of` names what is counted: a counted marker (`Item`, `Sample`, `Frame`, `Packet`, `Cycle`, `Block`, `Sector`,
-`Chunk`, `Char`, `Code`, or an API's own from `unit!`), or any other unit (`Byte` for an offset). `T` is an unsigned
+`Of` names what is counted: a counted marker (`Item`, `Sample`, `Frame`, `Packet`, `Line`, `Row`, `Record`, `Entry`,
+`Cycle`, `Block`, `Sector`, `Chunk`, `Char`, `Code`, or an API's own from `unit!`), or any other unit (`Byte` for an
+offset). `T` is an unsigned
 storage (`u8` .. `u64`, `Nibble`, `UNib32`, `UVlq64`). `B` are `Fixed`'s bounds markers, `Unbounded` by default.
 
 ## Index

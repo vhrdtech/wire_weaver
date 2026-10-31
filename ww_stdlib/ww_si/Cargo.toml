@@ -56,7 +56,8 @@ logarithmic = []
 dimensionless = ["exact_units/dimensionless"]
 # Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own
 information = ["exact_units/information"]
-# Item, Sample, Frame, Packet, Cycle, Block, Sector, Chunk, Char, Code: counted bases, each a dimension of its own
+# Item, Sample, Frame, Packet, Line, Row, Record, Entry, Cycle, Block, Sector, Chunk, Char, Code: counted bases,
+# each a dimension of its own
 counting = ["exact_units/counting"]
 # imperial, US customary and other units outside the SI (exact_units' customary): inch, pound, psi, gallon, Btu, ...
 # Opt-in only, not in `quantities` or `std`: an API without them pays nothing for them

@@ -293,7 +293,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#8584aaddb0fbf7ba78a6ae21a6a70250c28d38df"
+source = "git+https://github.com/romixlab/exact_units#d28ec8669ffff648280439d9d1140d05556130b4"
 dependencies = [
  "serde",
  "shrink_wrap",

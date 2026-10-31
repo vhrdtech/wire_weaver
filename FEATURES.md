@@ -914,7 +914,29 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   informing the device.
 - 📋 **SRV-10 Collect error codes into an ELF section** for easier error decoding · `v0.5.x`.
 - 📋 **SRV-11 Link statistics** in `ww_device` (`TODO` in `link.rs`).
-- 💡 **SRV-12 std server on Tower** · `v0.5`.
+- 📋 **SRV-12 Host server runtime** — `wire_weaver_server` (std, tokio), the counterpart of `wire_weaver_client`:
+  many concurrent clients, each connection driving `ww_device::DeviceLink` with its peer from the transport;
+  listeners for the local socket, an in-memory pair for tests and an inherited fd (systemd socket activation);
+  per-connection inherent backends (the hub's pattern) or a shared trait backend (SRV-49); limits on connections and
+  requests in flight, graceful shutdown, a stream fan-out helper; `serve()` is a future on the program's own runtime,
+  so a process can embed a small server. Then `ww_hub` serves its API on it.
+- 📋 **SRV-46 Peer identity and policy** — who called, from the transport only (SO_PEERCRED, `getpeereid`, the
+  Windows user, a key handed in with a stream, the address), never from `ClientMeta`; a listener policy (same user by
+  default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
+  authorization hook run before any handler with the resource's path and `ww_self` metadata (SRV-34 claims). Feeds
+  SRV-37.
+- 📋 **SRV-47 Request context on the wire** — optional request extensions (W3C trace context, deadline budget),
+  `RequestKind::Cancel` and the error kinds `Denied`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Internal`:
+  appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
+  The client fills them from its tracing span and call timeout, the server opens a span per request.
+- 📋 **SRV-48 Call context** — `wire_weaver::CallContext` (`no_std`, `Copy`): the request's seq, priority, peer,
+  trace context, deadline and connection, carried by the handler `Context`, passed to the local trait (CLT-57) and
+  read by the client; light `CallError`/`Error` types and `ItemStream` in `wire_weaver::call` (std), so API crates
+  name them without `wire_weaver_client`.
+- 📋 **SRV-49 Server forwarding to the local trait** — `ww_codegen!(.., server = true, serve_trait = "..")`
+  generates a std server that forwards every request to one shared implementation of the API's local trait
+  (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
+  writes as barriers; deadline and cancel drop the call; streams are pumped from the implementation's `ItemStream`.
 - 📋 **SRV-13 ww hub: one device, many programs** · `v0.5.x` — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
@@ -1125,6 +1147,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
       servers keep their handlers: the trait's owned types and boxed futures don't fit firmware.
     - Naming: the `#[ww_trait]` name is taken by the doc-only trait rustdoc shows; with `std` the doc trait could
       become this trait, so `impl CounterApi for LocalCounter` reads as the API itself.
+
+    Follow-ups: SRV-48 (errors and the caller's context), SRV-49 (the forwarding server), CLT-58 (levels, arrays,
+    observing), SRV-46 (peer identity).
+- 📋 **CLT-55 Large messages** — the client's message size limit from `ClientConfig` instead of a 16 KiB constant,
+  the agreed limit from link setup used by both sides with an error naming both, growable reply buffers for
+  `no_alloc = false` servers, and a documented idiom for result sets bigger than a message (a stream of rows, or
+  paging). Each connection's host API version and client app version are kept for skew checks.
+- 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
+  `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,
@@ -1460,6 +1491,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
   round trip (introspection skipped by hash, CLT-7). Open: replayed and duplicate packets (CLT-17), which requests may
   run unannounced, how the hash is versioned. Needed by `ww_dfu` updates over slow links.
+- 📋 **TR-19 Byte-stream transport** — client and server over any `AsyncRead + AsyncWrite` with the local socket's
+  framing and preamble: TCP, stdio (an ssh forced command on one side, a spawned command on the other) and any stream
+  the caller accepted, handed in with its peer (an iroh stream); a `Service(name)` preamble target so one listener
+  serves several APIs.
+- 📋 **TR-20 TLS** — TR-19 over rustls: a server certificate, the client verifying by CA or pinned key, optional
+  client certificates as the peer's key (SRV-46).
 - 💡 **TR-11 MQTT / store-and-forward transport** — devices offline most of the time pick up a retained message on
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.
 - 🚧 **TR-12 USB throughput on small MCUs** — measured with `ww usb-loopback` on Donguru (STM32G0B1, Cortex-M0+
@@ -2268,6 +2305,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   UI feedback, the demo itself.
 - 📋 **EX-12 Hubris based example** with sync code · `v0.5.x`.
 - 📋 **EX-13 Advanced example / project template**.
+- 📋 **EX-16 Host service** — an API whose plain implementation is called in-process and served on a local socket
+  with a uid policy, over TCP and over stdio, with a second API on the same listener, a result set as a stream and a
+  trace id across the call; one generic call site runs against all of them.
 
 ## Documentation (`DOC`)
 

@@ -1,10 +1,11 @@
 //! Types of the local trait an API gets with `ww_codegen!(crate :: Api, local_trait = "Name")` (CLT-57): the
 //! trait is implemented by the generated client and by local types, so a call site generic over it works with both.
 
-use crate::{Stream, StreamError};
+use crate::{RawStreamEvent, Stream, StreamError};
 use std::future::Future;
 use std::pin::Pin;
 use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
+use ww_client_server::StreamSideband;
 
 /// Future of a function of a local trait's `Dyn` companion.
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -21,8 +22,8 @@ pub fn item_stream<T>(
 }
 
 impl<T: DeserializeShrinkWrapOwned + Send + 'static> Stream<T> {
-    /// This stream as the [ItemStream] of a local trait: each [Stream::recv], ending at [StreamError::Closed]; any
-    /// other error is the last item.
+    /// This stream as the [ItemStream] of a local trait: each [Stream::recv], ending when the device closes the
+    /// stream or the handle's channel is gone ([StreamError::Closed]); any other error is the last item.
     pub fn into_item_stream(self) -> ItemStream<T> {
         Box::pin(futures_lite::stream::unfold(
             Some(self),
@@ -30,7 +31,10 @@ impl<T: DeserializeShrinkWrapOwned + Send + 'static> Stream<T> {
                 let mut stream = stream?;
                 match stream.recv().await {
                     Ok(item) => Some((Ok(item), Some(stream))),
-                    Err(StreamError::Closed) => None,
+                    Err(StreamError::Closed)
+                    | Err(StreamError::UnexpectedEvent(RawStreamEvent::Sideband(
+                        StreamSideband::Close,
+                    ))) => None,
                     Err(e) => Some((Err(e), None)),
                 }
             },

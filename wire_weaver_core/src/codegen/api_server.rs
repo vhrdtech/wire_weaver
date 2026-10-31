@@ -305,6 +305,27 @@ pub fn gen_server(
     } else {
         quote! { WrittenOk(EventKindBuilder) }
     };
+    let growable_reply_helpers = maybe_quote(
+        !config.no_alloc,
+        quote! {
+            #[allow(dead_code)]
+            fn ww_owned_bytes<T: wire_weaver::shrink_wrap::SerializeShrinkWrapOwned>(value: &T) -> Result<Vec<u8>, ShrinkWrapError> {
+                let mut wr = wire_weaver::shrink_wrap::BufWriterOwned::new();
+                value.ser_shrink_wrap_owned(&mut wr)?;
+                wr.finish_and_take()
+            }
+
+            #[allow(dead_code)]
+            fn ww_value_event(seq: u32, value: &[u8]) -> Result<Vec<u8>, ShrinkWrapError> {
+                const HEAD_MAX_LEN: usize = 8;
+                let mut event = Vec::new();
+                event.resize(value.len() + HEAD_MAX_LEN, 0u8);
+                let len = ser_ok_event(&mut event, seq, EventKind::Value { data: TailBytes(value) })?.len();
+                event.truncate(len);
+                Ok(event)
+            }
+        },
+    );
     let finalize_event_kind = if cx.multi_req {
         // normal requests create EventKindBuilder reserving a discriminant and return it wrapped in Some()
         // multi requests do nothing and simply write to wr
@@ -462,6 +483,7 @@ pub fn gen_server(
 
         #observe_items
         #cells_errors
+        #growable_reply_helpers
 
         #stream_send_methods
 
@@ -1536,19 +1558,47 @@ impl ApiServerCGContext<'_> {
 
     /// The answer to a read or call with a handler's value: as an element of a multi request, else as the root.
     fn ser_handler_value(&self, value: TokenStream, es: TokenStream) -> TokenStream {
-        let root = self.ser_root_value(value.clone());
+        let root = if self.no_alloc {
+            let root = self.ser_root_value(value.clone());
+            quote! { #root.map_err(|_| Error::response_ser_failed(#es))?; }
+        } else {
+            self.ser_growable_reply(value.clone(), es.clone())
+        };
         if self.multi_req {
             let element = self.write_value(value);
             quote! {
                 if in_multi {
                     #element.map_err(|_| Error::response_ser_failed(#es))?;
                 } else {
-                    #root.map_err(|_| Error::response_ser_failed(#es))?;
+                    #root
                 }
             }
         } else {
-            quote! {
-                #root.map_err(|_| Error::response_ser_failed(#es))?;
+            root
+        }
+    }
+
+    /// The answer of a `no_alloc = false` server (CLT-55): the value is serialized into a growable buffer and goes
+    /// into `wr` when it fits; a longer one is sent from there as a whole event, up to the link's message limit.
+    fn ser_growable_reply(&self, value: TokenStream, es: TokenStream) -> TokenStream {
+        let es_over_limit = fixed_err_seq("REPLY_OVER_LIMIT");
+        let send = if self.use_async {
+            quote! { wire_weaver::EventOut::send_reply_bytes(&mut *cx, priority, &event).await }
+        } else {
+            quote! { wire_weaver::BlockingEventOut::send_reply_bytes_blocking(&mut *cx, priority, &event) }
+        };
+        quote! {
+            let bytes = ww_owned_bytes(&#value).map_err(|_| Error::response_ser_failed(#es))?;
+            if wr.write_raw_slice(&bytes).is_err() {
+                if request.seq.0 != 0 {
+                    let event = ww_value_event(request.seq.0, &bytes).map_err(|_| Error::response_ser_failed(#es))?;
+                    let priority = cx.priority();
+                    #send.map_err(|e| match e {
+                        wire_weaver::SendError::Sink => Error::response_ser_failed(#es_over_limit),
+                        wire_weaver::SendError::Serialize(_) => Error::response_ser_failed(#es),
+                    })?;
+                }
+                return Ok(WrAction::Deferred);
             }
         }
     }
@@ -2756,6 +2806,24 @@ fn deferred_method_return_ser_methods(
                 }
             },
         );
+        let es_over_limit = fixed_err_seq("REPLY_OVER_LIMIT");
+        // an unanswered call would wait for its timeout: a reply the sink refused is answered with the error instead
+        let send_owned = |send: TokenStream, send_error: TokenStream| {
+            quote! {
+                let bytes = ww_owned_bytes(&output)?;
+                let event = ww_value_event(seq, &bytes)?;
+                let sent = #send;
+                if let Err(wire_weaver::SendError::Sink) = sent {
+                    _ = #send_error;
+                }
+                sent
+            }
+        };
+        let ser_error = quote! {
+            |scratch: &mut [u8]| -> Result<usize, ShrinkWrapError> {
+                Ok(ser_err_event(scratch, seq, Error::response_ser_failed(#es_over_limit))?.len())
+            }
+        };
         let ser_event = quote! {
             |scratch: &mut [u8]| -> Result<usize, ShrinkWrapError> {
                 let mut wr = BufWriter::new(scratch);
@@ -2775,6 +2843,22 @@ fn deferred_method_return_ser_methods(
             format!("{prefixed}_send_return_blocking").as_str(),
             Span::call_site(),
         );
+        let send_async = if !no_alloc && return_ty.is_some() {
+            send_owned(
+                quote! { wire_weaver::EventOut::send_reply_bytes(out, reply_to.priority, &event).await },
+                quote! { wire_weaver::EventOut::send_reply_with(out, reply_to.priority, #ser_error).await },
+            )
+        } else {
+            quote! { wire_weaver::EventOut::send_reply_with(out, reply_to.priority, #ser_event).await }
+        };
+        let send_blocking = if !no_alloc && return_ty.is_some() {
+            send_owned(
+                quote! { wire_weaver::BlockingEventOut::send_reply_bytes_blocking(out, reply_to.priority, &event) },
+                quote! { wire_weaver::BlockingEventOut::send_reply_with_blocking(out, reply_to.priority, #ser_error) },
+            )
+        } else {
+            quote! { wire_weaver::BlockingEventOut::send_reply_with_blocking(out, reply_to.priority, #ser_event) }
+        };
         ts.extend(quote! {
             pub fn #fn_name<'i>(scratch_args: &'i mut [u8], scratch_event: &'i mut [u8], seq: u32 #maybe_output) -> Result<&'i [u8], Error<'static>> {
                 #ser_output_or_unit
@@ -2784,14 +2868,14 @@ fn deferred_method_return_ser_methods(
             /// inherits its priority, an urgent one is flushed at once (SRV-42).
             pub async fn #send_fn_name<'i, M>(out: &mut impl wire_weaver::EventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
                 let seq = reply_to.seq;
-                wire_weaver::EventOut::send_reply_with(out, reply_to.priority, #ser_event).await
+                #send_async
             }
 
             /// Send the return value of a deferred call, `reply_to` is `cx.reply_to()` of the original call: the reply
             /// inherits its priority, an urgent one is flushed at once (SRV-42).
             pub fn #send_blocking_fn_name<'i, M>(out: &mut impl wire_weaver::BlockingEventOut, reply_to: wire_weaver::ReplyTo<M> #maybe_output) -> Result<(), wire_weaver::SendError> {
                 let seq = reply_to.seq;
-                wire_weaver::BlockingEventOut::send_reply_with_blocking(out, reply_to.priority, #ser_event)
+                #send_blocking
             }
         });
     }

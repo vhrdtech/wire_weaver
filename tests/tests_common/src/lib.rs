@@ -297,6 +297,25 @@ pub fn start_device_usb_with_window<S: TestProcessEvents<Medium = ()> + Send + '
     )
 }
 
+/// Same as [start_device_async] with a message limit of its own instead of [MAX_MESSAGE_LEN], which stays the size of
+/// the device's scratch buffers: replies longer than those need a `no_alloc = false` server (CLT-55).
+pub fn start_device_async_with_limit<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
+    path: &str,
+    max_message_len: usize,
+    server: S,
+    version: FullVersion<'static>,
+    api_hash: ApiHashPair<'static>,
+) -> TestDevice {
+    start_on(
+        path,
+        Media::Messages(max_message_len),
+        AsyncServer(server),
+        version,
+        api_hash,
+        (),
+    )
+}
+
 /// Same as [start_device], for servers generated with `use_async = true`.
 pub fn start_device_async<S: TestProcessEventsAsync<Medium = ()> + Send + 'static>(
     path: &str,
@@ -418,8 +437,8 @@ pub fn start_device_async_usb<S: TestProcessEventsAsync<Medium = ()> + Send + 's
 /// How the device is connected to the host.
 #[derive(Clone)]
 enum Media {
-    /// Whole messages.
-    Messages,
+    /// Whole messages of at most this many bytes.
+    Messages(usize),
     /// Simulated USB packets of at most this many bytes.
     Usb(usize),
     /// Whole messages on a local socket at this path, one client at a time (a hub in another process).
@@ -481,7 +500,14 @@ fn start<S: Process + Send + 'static>(
     api_hash: ApiHashPair<'static>,
     medium: S::Medium,
 ) -> TestDevice {
-    start_on(path, Media::Messages, server, version, api_hash, medium)
+    start_on(
+        path,
+        Media::Messages(MAX_MESSAGE_LEN),
+        server,
+        version,
+        api_hash,
+        medium,
+    )
 }
 
 fn start_on<S: Process + Send + 'static>(
@@ -527,8 +553,8 @@ fn start_with<S: Process + Send + 'static>(
         config.accumulation_time = t;
     }
     match media {
-        Media::Messages => {
-            let (tx, rx) = in_process::device(path, MAX_MESSAGE_LEN);
+        Media::Messages(max_message_len) => {
+            let (tx, rx) = in_process::device(path, max_message_len);
             std::thread::spawn(move || {
                 block_on(serve(config, tx, rx, backend, medium, from_test, links));
             });

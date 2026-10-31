@@ -110,6 +110,18 @@ pub trait EventOut {
         _ = priority;
         self.send_with(ser)
     }
+
+    /// Send a serialized reply to a request of `priority` as is: one built outside of the scratch buffer, as the
+    /// long replies of a `no_alloc = false` server are (CLT-55), reaches the sink without being copied. By default
+    /// it is copied through [send_reply_with](Self::send_reply_with), and fails with [SendError::Serialize] when
+    /// longer than the scratch buffer.
+    fn send_reply_bytes(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> impl Future<Output = Result<(), SendError>> {
+        self.send_reply_with(priority, |scratch| copy_into(message, scratch))
+    }
 }
 
 /// Same as [EventOut], for code without async (`use_async = false` servers, blocking event loops).
@@ -136,6 +148,23 @@ pub trait BlockingEventOut {
         _ = priority;
         self.send_with_blocking(ser)
     }
+
+    /// Same as [EventOut::send_reply_bytes].
+    fn send_reply_bytes_blocking(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> Result<(), SendError> {
+        self.send_reply_with_blocking(priority, |scratch| copy_into(message, scratch))
+    }
+}
+
+fn copy_into(message: &[u8], scratch: &mut [u8]) -> Result<usize, ShrinkWrapError> {
+    let to = scratch
+        .get_mut(..message.len())
+        .ok_or(ShrinkWrapError::OutOfBoundsWriteRawSlice)?;
+    to.copy_from_slice(message);
+    Ok(message.len())
 }
 
 fn ser_into<T: SerializeShrinkWrap>(
@@ -181,6 +210,17 @@ impl<S: MessageSink> EventOut for EventWriter<'_, S> {
             .await
             .map_err(|_| SendError::Sink)
     }
+
+    async fn send_reply_bytes(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> Result<(), SendError> {
+        self.sink
+            .send_reply(message, priority)
+            .await
+            .map_err(|_| SendError::Sink)
+    }
 }
 
 impl<S: BlockingMessageSink> BlockingEventOut for EventWriter<'_, S> {
@@ -201,6 +241,16 @@ impl<S: BlockingMessageSink> BlockingEventOut for EventWriter<'_, S> {
         let len = ser(self.scratch)?;
         self.sink
             .send_reply(&self.scratch[..len], priority)
+            .map_err(|_| SendError::Sink)
+    }
+
+    fn send_reply_bytes_blocking(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> Result<(), SendError> {
+        self.sink
+            .send_reply(message, priority)
             .map_err(|_| SendError::Sink)
     }
 }
@@ -355,6 +405,14 @@ impl<O: EventOut, M> EventOut for Context<'_, O, M> {
     {
         self.out.send_reply_with(priority, ser)
     }
+
+    fn send_reply_bytes(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> impl Future<Output = Result<(), SendError>> {
+        self.out.send_reply_bytes(priority, message)
+    }
 }
 
 impl<O: BlockingEventOut, M> BlockingEventOut for Context<'_, O, M> {
@@ -371,6 +429,14 @@ impl<O: BlockingEventOut, M> BlockingEventOut for Context<'_, O, M> {
     {
         self.out.send_reply_with_blocking(priority, ser)
     }
+
+    fn send_reply_bytes_blocking(
+        &mut self,
+        priority: Priority,
+        message: &[u8],
+    ) -> Result<(), SendError> {
+        self.out.send_reply_bytes_blocking(priority, message)
+    }
 }
 
 /// Request to answer later, from [Context::reply_to]. Pass it to a generated `<method>_send_return` through the
@@ -382,4 +448,50 @@ pub struct ReplyTo<M = ()> {
     pub medium: M,
     pub seq: u32,
     pub priority: Priority,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Default)]
+    struct Sent(Vec<(Vec<u8>, Priority)>);
+
+    impl BlockingMessageSink for Sent {
+        fn send(&mut self, _message: &[u8]) -> Result<(), ()> {
+            unreachable!("replies go through send_reply")
+        }
+
+        fn send_reply(&mut self, message: &[u8], priority: Priority) -> Result<(), ()> {
+            self.0.push((message.to_vec(), priority));
+            Ok(())
+        }
+    }
+
+    /// Replies built outside of the scratch buffer aren't limited by it (CLT-55).
+    #[test]
+    fn reply_bytes_reach_the_sink_as_they_are() {
+        let mut scratch = [0u8; 4];
+        let mut out = EventWriter::new(Sent::default(), &mut scratch);
+        let long = [7u8; 100];
+        out.send_reply_bytes_blocking(Priority::NORMAL, &long)
+            .unwrap();
+        assert_eq!(out.sink.0, [(long.to_vec(), Priority::NORMAL)]);
+    }
+
+    #[test]
+    fn reply_bytes_copied_through_scratch_by_default() {
+        let mut buf = [0u8; 16];
+        let mut queue = EventQueue::new(&mut buf);
+        queue
+            .send_reply_bytes_blocking(Priority::NORMAL, &[1, 2, 3])
+            .unwrap();
+        assert_eq!(
+            queue.send_reply_bytes_blocking(Priority::NORMAL, &[0; 16]),
+            Err(SendError::Serialize(
+                ShrinkWrapError::OutOfBoundsWriteRawSlice
+            ))
+        );
+        assert_eq!(queue.iter().collect::<Vec<_>>(), [&[1u8, 2, 3][..]]);
+    }
 }

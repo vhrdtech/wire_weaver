@@ -17,6 +17,7 @@
 
 ### 🚀 Features
 
+- `EventOut::send_reply_bytes` / `BlockingEventOut::send_reply_bytes_blocking` (CLT-55): send a serialized reply as is. `EventWriter` hands it to the sink without copying, the default copies it through `send_reply_with`. Generated `no_alloc = false` servers send replies longer than the scratch buffer with it.
 - `Priority` (CLT-50): a request's priority, 0..=15, `NORMAL` (4) by default, `is_urgent()` from `URGENT` (8) up, `nibble()` / `from_nibble()` for the wire. `Context::priority()` gives a handler the request's.
 - `wire_weaver::handler` (`sync`, `r#async`, `SyncReturn`, `AsyncReturn`; hidden, for generated code): the checks around handler calls of SRV-21 `handler_model`, so a handler written as `fn` where `async fn` is expected (or the other way round) is a compile error that says so.
 - Observed properties (SRV-18): `property!(ro+observe ..)` / `rw+observe` are observable by hosts with `Observe`

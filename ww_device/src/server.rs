@@ -99,8 +99,8 @@ pub struct Server<'a, Tx, Rx, C, M = ()> {
 
 impl<'a, Tx: MessageTx, Rx: MessageRx, C: Clock> Server<'a, Tx, Rx, C> {
     /// `scratch` is used to serialize replies, `event_scratch` to serialize events sent from handlers or through
-    /// [sink](Self::sink) (stream updates, deferred replies), so they limit their size, together with the host's
-    /// maximum message length. Sync backends (`use_async = false`) also queue all events sent while handling one
+    /// [sink](Self::sink) (stream updates, deferred replies), so they limit their size, together with the link's
+    /// message limit; a `no_alloc = false` server sends longer replies from a growable buffer. Sync backends (`use_async = false`) also queue all events sent while handling one
     /// request in `event_scratch`, see [EventWriter::queued].
     pub fn new(
         config: LinkConfig<'a>,

@@ -54,6 +54,7 @@ nav = [
                     "api/arrays.md",
                     { "Sync and async handlers" = "api/handlers.md" },
                     { "Local trait" = "api/local_trait.md" },
+                    { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
                     { "Metadata: claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",

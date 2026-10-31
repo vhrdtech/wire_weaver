@@ -1150,10 +1150,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
     Follow-ups: SRV-48 (errors and the caller's context), SRV-49 (the forwarding server), CLT-58 (levels, arrays,
     observing), SRV-46 (peer identity).
-- 📋 **CLT-55 Large messages** — the client's message size limit from `ClientConfig` instead of a 16 KiB constant,
+- ✅ **CLT-55 Large messages** — the client's message size limit from `ClientConfig` instead of a 16 KiB constant,
   the agreed limit from link setup used by both sides with an error naming both, growable reply buffers for
   `no_alloc = false` servers, and a documented idiom for result sets bigger than a message (a stream of rows, or
   paging). Each connection's host API version and client app version are kept for skew checks.
+  See `docs/api/large_messages.md`, tests in `tests/large_messages`.
 - 📋 **CLT-58 Local trait for nested levels and arrays** — one trait per nested level and resource arrays by index,
   `+observe` properties as a stream of updates, on the client, plain implementations and SRV-49's server.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.

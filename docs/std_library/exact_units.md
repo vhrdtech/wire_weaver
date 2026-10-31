@@ -125,9 +125,13 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 
 | Alias        | Type                                                   |
 |--------------|--------------------------------------------------------|
-| `Micros<T>`  | `Fixed<Second, Micro, T>`                              |
+| `Secs<T>`    | `Fixed<Second, One, T>`                                |
 | `Millis<T>`  | `Fixed<Second, Milli, T>`                              |
+| `Micros<T>`  | `Fixed<Second, Micro, T>`                              |
 | `Nanos<T>`   | `Fixed<Second, Nano, T>`                               |
+| `Minutes<T>` | `Fixed<Minute, One, T>`                                |
+| `Hours<T>`   | `Fixed<Hour, One, T>`                                  |
+| `Days<T>`    | `Fixed<Day, One, T>`                                   |
 | `Bytes<T>`   | `Fixed<Byte, One, T>`                                  |
 | `Ppb<T>`     | `Fixed<Ratio, Nano, T>`                                |
 | `Duty16`     | `Fixed<Ratio, Rational<1, 65535>, u16>`                |
@@ -139,6 +143,11 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 
 The Q formats saturate and the binary angles wrap in arithmetic; they are made with `Fixed::of`, see
 [Rounding and overflow](rounding.md#the-policy-of-a-type).
+
+A moment in POSIX time (`time_t`, journald's `__REALTIME_TIMESTAMP`) since the Unix epoch is a `Point` of
+`origins::UnixEpoch` (see [points](points.md#origins)), aliased as `UnixSecs<T>`, `UnixMillis<T>`, `UnixMicros<T>`
+and `UnixNanos<T>` (`T` defaults to `u64`), each a `Point<UnixEpoch, Secs<T>>` / `Millis<T>` / `Micros<T>` /
+`Nanos<T>`.
 
 ## In an API
 

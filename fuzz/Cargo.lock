@@ -201,7 +201,7 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "exact_units"
 version = "0.1.0"
-source = "git+https://github.com/romixlab/exact_units#41e6a99f0ed0ded311d99cf6c3fc2dc20fb47a1b"
+source = "git+https://github.com/romixlab/exact_units#8584aaddb0fbf7ba78a6ae21a6a70250c28d38df"
 dependencies = [
  "serde",
  "shrink_wrap 0.2.0 (git+https://github.com/vhrdtech/wire_weaver)",

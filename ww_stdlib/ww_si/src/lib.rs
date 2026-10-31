@@ -55,12 +55,12 @@ pub use exact_units::{
 };
 #[cfg(feature = "std")]
 pub use exact_units::{CountedOwned, DimOwned, ProvenanceOwned, SIExprOwned};
+#[cfg(feature = "time")]
+pub use exact_units::{Days, Hours, Micros, Millis, Minutes, Nanos, Secs};
 #[cfg(feature = "dimensionless")]
 pub use exact_units::{Duty16, Ppb};
 #[cfg(feature = "counting")]
 pub use exact_units::{Index, IndexFrom1, Seq};
-#[cfg(feature = "time")]
-pub use exact_units::{Micros, Millis, Nanos};
 
 use core::marker::PhantomData;
 use shrink_wrap::prelude::*;

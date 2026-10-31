@@ -62,6 +62,7 @@ An origin is a zero-size marker that is never sent. It carries:
 | `Angle<Turn>`             | rev    | 0                     | wraps every turn                              |
 | `Angle<Degree>`           | °      | 0                     | wraps every 360°                              |
 | `Angle<Radian>`           | rad    | 0                     | wraps every 2π (float storages only)          |
+| `UnixEpoch`               | s      | 0                     | 1970-01-01 00:00:00 UTC, POSIX time (feature `time`) |
 
 A crate declares its own with `origin!`, from the unit's zero:
 

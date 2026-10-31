@@ -2135,6 +2135,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   explicit in the model; `Quantity::try_from_fixed` and Fixed/Quantity parity proptests; conformance cases (derive,
   dynamic, Python; C gap API-26); docs ([`ww_si`](std_library/ww_si.md#quantity-fixed-or-anyquantity)). The
   client-side bounds check is CLT-54.
+- ✅ **STD-84 `Minute`, `Hour`, `Day`, `Week` and the Unix epoch** — `exact_units` 8584aad: `Secs<T>`, `Minutes<T>`,
+  `Hours<T>`, `Days<T>` (`Fixed<Second|Minute|Hour|Day, One, T>`) and `origins::UnixEpoch` with `UnixSecs<T>` /
+  `UnixMillis<T>` / `UnixMicros<T>` / `UnixNanos<T>` (`T` defaults to `u64`), a `Point<UnixEpoch, Secs<T>|..>` for
+  POSIX time (`time_t`, journald's `__REALTIME_TIMESTAMP`). `ww_si` re-exports `Secs`, `Minutes`, `Hours`, `Days`
+  next to `Micros`, `Millis`, `Nanos`; `units::{Minute, Hour, Day, Week}` and `origins::{UnixEpoch, UnixSecs, ..}`
+  reach `ww_si::..` through its existing `units` / `origins` re-exports (feature `time`). Docs:
+  [`exact_units`](std_library/exact_units.md#aliases), [points](std_library/points.md#origins).
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric

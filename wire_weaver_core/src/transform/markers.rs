@@ -1197,7 +1197,7 @@ mod tests {
             };
         }
         for (name, compiled) in origins!(
-            AbsoluteZero Celsius Rankine Fahrenheit Vacuum Gauge AboveStandardAtmosphere
+            AbsoluteZero Celsius Rankine Fahrenheit Vacuum Gauge AboveStandardAtmosphere UnixEpoch
         ) {
             let Some(MarkerDefOwned::Origin(def)) = markers.remove(name) else {
                 panic!("{name}: no origin definition in the model");

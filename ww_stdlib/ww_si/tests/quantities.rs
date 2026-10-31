@@ -176,7 +176,7 @@ fn units_and_dimensions() {
     assert!(matches!(volt, UnitExpr::Named { symbol: "V", .. }));
     assert_eq!(volt, Volt::unit());
     assert!(ww_si::units::by_name("Volts").is_none());
-    assert_eq!(ww_si::units::ALL.len(), 61);
+    assert_eq!(ww_si::units::ALL.len(), 65);
 }
 
 #[test]

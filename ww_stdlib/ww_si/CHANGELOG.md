@@ -1,5 +1,12 @@
 ## Unreleased
 
+### 🚀 Features
+
+* `exact_units` taken at 8584aad (STD-84): `units::{Minute, Hour, Day, Week}` and `origins::UnixEpoch` with
+  `UnixSecs<T>` / `UnixMillis<T>` / `UnixMicros<T>` / `UnixNanos<T>` (`T` defaults to `u64`), a `Point<UnixEpoch,
+  Secs<T>|..>` for POSIX time, reach `ww_si::..` through the existing `units` / `origins` re-exports. Re-exports
+  `exact_units::{Secs, Minutes, Hours, Days}` next to `Micros`, `Millis`, `Nanos` (feature `time`).
+
 ### ⚠️ Breaking
 
 * `exact_units` lives in its own repository, [romixlab/exact_units](https://github.com/romixlab/exact_units), with its history (STD-61), and comes from there by git until it is on crates.io; it still depends on `shrink_wrap` (its `shrink_wrap` feature) by git from this repository, which a workspace building `ww_si` `[patch]`es to its own `shrink_wrap` (`[patch."https://github.com/vhrdtech/wire_weaver"]`, see the root `Cargo.toml`, `mcu/` and `examples_mcu/*`).

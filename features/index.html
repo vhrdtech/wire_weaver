@@ -1632,6 +1632,8 @@
       
         
       
+        
+      
     
     
     
@@ -1718,6 +1720,33 @@
     
   
   Sync and async handlers
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/local_trait/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Local trait
 
     
   </span>
@@ -6815,6 +6844,34 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   place: <code>event_loop::transport::link_setup_timeout</code>), retries back off (first after 1/20 of it, doubling up to &frac14;),
   <code>ClientConfig::link_setup_timeout()</code> and <code>ww --link-setup-timeout-ms</code> / <code>WW_LINK_SETUP_TIMEOUT_MS</code> /
   <code>link_setup_timeout_ms</code> in ww.toml override it (<code>wire_weaver_client/src/event_loop/transport.rs</code>, <code>event_loop/core.rs</code> tests). On a J-Link + STM32G0 over RTT the old 250 ms was not what failed in the test: connects succeeded with both budgets once TR-13 was fixed.</li>
+<li>🚧 <strong>CLT-57 Local trait: one call site, local or remote</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name")</code> emits the
+  API as an async Rust trait (<code>fn</code> returning <code>impl Future + Send</code>, owned types, every result a <code>Result</code> with the
+  client's error types) and a <code>NameDyn</code> companion with boxed futures for trait objects (<code>Box</code>/<code>Arc&lt;dyn NameDyn&gt;</code>
+  implement the trait); <code>impl_local_trait = ".."</code> implements it on the std client, a plain struct implements it with
+  <code>async fn</code>s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
+  remote one. Methods, property reads and writes and plain streams (<code>ItemStream&lt;T&gt;</code>) of the root level are done
+  (<code>examples/local_trait</code>, <code>tests/methods</code> <code>local_trait_on_the_client</code>, <a href="../docs/api/local_trait/">Local trait</a>).
+  Missing, and how they could map:<ul>
+<li>Nested trait levels and resource arrays: one trait per level, reached by <code>fn plug(&amp;self) -&gt; impl Plug</code> /
+  <code>fn unit(&amp;self, index: u32) -&gt; impl Unit</code>; the client's level structs borrow it (<code>UnitClient&lt;'_&gt;</code>), so
+  the level trait needs a lifetime or owned level handles.</li>
+<li>Observing (<code>+observe</code> properties), sinks, counted, reliable and batched streams: today only the client has
+  them. Observing could be an <code>ItemStream</code> of updates; sinks a <code>futures</code> <code>Sink</code>; counted and reliable streams
+  need cursors in the trait (<code>resume(cursor)</code>), which a local implementation would have to keep.</li>
+<li>Errors: the trait names <code>wire_weaver_client::Error</code> and <code>CallError</code>, so the API crate depends on
+  <code>wire_weaver_client</code> (behind a feature, but with its transports). They belong in a small crate (or in
+  <code>wire_weaver</code> under <code>std</code>) that API crates can name without the client runtime.</li>
+<li>The caller's identity (SRV-46 peer-identity): a local call has no peer, a server handler gets it in <code>Context</code>.
+  Forwarding it through the trait needs an argument or a task-local, not decided.</li>
+<li>Server side: handlers stay inherent methods with <code>Context</code> and <code>RpcResult</code>, which don't fit the trait (deferred
+  replies, <code>Unimplemented</code>, stream sends, <code>&amp;mut self</code>, no_std/no_alloc borrowed types). Async alloc servers can
+  forward each handler to a local implementation (the example does); a generated forwarding server
+  (<code>server = true, forward_to = "field"</code>) would remove that boilerplate for std servers. no_std/no_alloc
+  servers keep their handlers: the trait's owned types and boxed futures don't fit firmware.</li>
+<li>Naming: the <code>#[ww_trait]</code> name is taken by the doc-only trait rustdoc shows; with <code>std</code> the doc trait could
+  become this trait, so <code>impl CounterApi for LocalCounter</code> reads as the API itself.</li>
+</ul>
+</li>
 <li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,

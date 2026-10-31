@@ -34,6 +34,9 @@
         <loc>https://ww.vhrd.tech/api/handlers/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/local_trait/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/metadata/</loc>
       </url>
       <url>

@@ -430,7 +430,18 @@ async fn process_request<B: WireWeaverAsyncApiBackend, Tx: MessageTx, C: Clock>(
             reply
         }
     };
-    if !reply.is_empty() {
-        _ = out.sink.send_message(reply).await;
+    if reply.is_empty() {
+        return;
+    }
+    let len = reply.len();
+    if let Err(SendError::TooBig) = out.sink.send_message(reply).await {
+        warn!(
+            "reply of {} bytes is over the link's limit of {}, answering with an error",
+            len,
+            out.sink.link.agreed_max_message_len()
+        );
+        if let Some(error) = crate::over_limit_reply(request, scratch) {
+            _ = out.sink.send_message(error).await;
+        }
     }
 }

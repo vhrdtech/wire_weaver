@@ -15,7 +15,7 @@
 //!   calls later; same numbers for every method.
 //! - **Level sites**, `LEVEL_*`: errors of a trait level's dispatch rather than of an item (no item with that id, an
 //!   index that isn't valid, ...), same numbers on every level; the request path says where it stopped.
-//! - **Request sites**, `REQUEST_*`, `MULTI_*`, `OBSERVE_*`, `INTROSPECT`: errors before the path is followed or of
+//! - **Request sites**, `REQUEST_*`, `MULTI_*`, `OBSERVE_*`, `INTROSPECT`, `REPLY_OVER_LIMIT`: errors before the path is followed or of
 //!   a whole request (a global trait path that doesn't resolve, a path too deep, multi requests, observe requests,
 //!   introspection).
 //!
@@ -153,6 +153,9 @@ pub const OBSERVE_ARRAY: u32 = 57;
 pub const OBSERVE_PATH: u32 = 58;
 /// Introspection: an event of the introspection data couldn't be sent.
 pub const INTROSPECT: u32 = 59;
+/// The answer is longer than the link's message limit, the smaller of the host's and the device's (CLT-55):
+/// `ww_device` sends this error with [ResponseSerFailed](crate::ErrorKind::ResponseSerFailed) instead.
+pub const REPLY_OVER_LIMIT: u32 = 60;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -166,7 +169,7 @@ pub enum Site {
     DeferredReturn(u32),
     /// The dispatch of a trait level on the request's path, one of the `LEVEL_*` sites (and [REPLY_START]).
     Level(u32),
-    /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites or [INTROSPECT].
+    /// The request as a whole, one of the `REQUEST_*`, `MULTI_*`, `OBSERVE_*` sites, [INTROSPECT] or [REPLY_OVER_LIMIT].
     Request(u32),
     /// [GENERIC].
     Generic,
@@ -180,7 +183,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=INTROSPECT => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=REPLY_OVER_LIMIT => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -233,6 +236,7 @@ impl Site {
             OBSERVE_ARRAY => "observe request: level in a resource array",
             OBSERVE_PATH => "observe request: no observable level there",
             INTROSPECT => "introspection: event not sent",
+            REPLY_OVER_LIMIT => "answer longer than the link's message limit",
             _ => return None,
         })
     }
@@ -275,7 +279,7 @@ mod tests {
             "level site 40 (no such item)"
         );
         // every site in a range has a name
-        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=INTROSPECT) {
+        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=REPLY_OVER_LIMIT) {
             let site = Site::of(seq);
             if !matches!(site, Site::Unknown(_)) {
                 assert!(site.name().is_some(), "{seq}");

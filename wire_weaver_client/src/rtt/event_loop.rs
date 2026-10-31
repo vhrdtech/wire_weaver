@@ -76,6 +76,7 @@ impl Transport for RttTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let handle = handle
             .downcast::<RttHandle>()
@@ -91,12 +92,12 @@ impl Transport for RttTransport {
             &crate::tap::host_session(
                 ww_tap::Medium::Rtt,
                 crate::tap::STREAM_PLAIN,
-                crate::DEFAULT_MAX_MESSAGE_SIZE,
+                max_message_len,
                 &peer,
             ),
         );
         let opened: stream::StreamOpened<RttHead, RttChecksum, RttTail> =
-            stream::open(CONFIG, tap, move || {
+            stream::open(CONFIG, tap, max_message_len, move || {
                 ProbeRtt::attach(*handle).map_err(|e| format!("RTT: {e:#}"))
             })
             .await?;

@@ -51,10 +51,11 @@ pub(crate) type StreamOpened<H, C, T> = Opened<StreamTx<H, C, T>, StreamRx<H, C,
 
 /// Start the IO thread and wait until `open` returns on it (e.g., attaching to a probe, which takes a
 /// while), so that nothing is sent before the medium is usable.
-/// Messages up to [DEFAULT_MAX_MESSAGE_SIZE](crate::DEFAULT_MAX_MESSAGE_SIZE) can be sent and received.
+/// Messages up to `max_message_len` can be sent and received.
 pub(crate) async fn open<I, H, C, T>(
     config: StreamConfig,
     tap: ww_tap::RecorderLink,
+    max_message_len: usize,
     open: impl FnOnce() -> Result<I, String> + Send + 'static,
 ) -> Result<StreamOpened<H, C, T>, String>
 where
@@ -102,7 +103,7 @@ where
     let overhead = overhead::<H, C, T>();
     Ok(Opened {
         tx: StreamTx {
-            framer: ww_framer::TxOwned::new(crate::DEFAULT_MAX_MESSAGE_SIZE + overhead),
+            framer: ww_framer::TxOwned::new(max_message_len + overhead),
             to_io: Some(to_io),
             stop,
             exited,
@@ -111,9 +112,7 @@ where
             tap: tap.clone(),
         },
         rx: StreamRx {
-            framer: ww_framer::FramedRxOwned::new(
-                crate::DEFAULT_MAX_MESSAGE_SIZE + overhead + config.read_chunk,
-            ),
+            framer: ww_framer::FramedRxOwned::new(max_message_len + overhead + config.read_chunk),
             from_io,
             chunk: vec![],
             chunk_pos: 0,

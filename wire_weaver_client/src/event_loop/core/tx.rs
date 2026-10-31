@@ -11,7 +11,7 @@ use ww_version::{FullVersionOwned, VersionOwned};
 
 use super::loopback::{LOOPBACK_HEADER_LEN, LoopbackTest, Status, TestOut};
 use super::{FullRetry, ToRx, ToTx, is_due};
-use crate::DEFAULT_MAX_MESSAGE_SIZE;
+use crate::DEFAULT_MAX_MESSAGE_LEN;
 use crate::event_loop::DeviceHandle;
 use crate::event_loop::command::{
     Adopted, Command, EventLoopExitReason, EventLoopResidual, LoopbackParams, StreamOpenHook,
@@ -53,9 +53,9 @@ pub(crate) enum TxInput {
 }
 
 pub(crate) enum TxOutput {
-    /// Open a transport to the device behind this handle (from [Command::Connect]),
-    /// then feed [TxInput::TransportUp] or [TxInput::TransportError].
-    Connect(DeviceHandle, RecorderLink),
+    /// Open a transport to the device behind this handle (from [Command::Connect]), its buffers taking messages up
+    /// to the host's limit, then feed [TxInput::TransportUp] or [TxInput::TransportError].
+    Connect(DeviceHandle, RecorderLink, usize),
     /// Link message to write into the framer. Frames that fill up along the way are sent right away,
     /// a partially filled one is kept until [TxOutput::Flush].
     Send {
@@ -164,8 +164,11 @@ pub(crate) struct TxCore {
     token: u64,
     /// Requested by a device, how long to accumulate messages into one frame before sending it out
     frame_accumulation_time: Duration,
-    /// From DeviceInfo, requests bigger than this are rejected
+    /// From DeviceInfo: the longest message the device takes
     device_max_message_len: usize,
+    /// [Command::Connect]`::max_message_len`, sent in LinkSetup: the longest message this host takes. Requests
+    /// longer than the smaller of the two are refused ([MessageLimit](crate::MessageLimit), CLT-55).
+    host_max_message_len: usize,
 
     // Timers
     /// Transport's default, [Command::Connect] can override it
@@ -225,12 +228,13 @@ pub(crate) struct TxPart {
 
 fn link_setup<'a>(
     client_version: ww_version::FullVersion<'a>,
+    host_max_message_len: usize,
     token: u64,
     meta: Option<&'a ww_link::ClientMetaOwned>,
 ) -> Message<'a> {
     Message::LinkSetup(LinkSetup {
         host_user_version: client_version,
-        host_max_message_len: DEFAULT_MAX_MESSAGE_SIZE as u32,
+        host_max_message_len: host_max_message_len.try_into().unwrap_or(u32::MAX),
         token,
         client_meta: meta.map(crate::client_meta::as_wire),
     })
@@ -242,7 +246,7 @@ impl TxCore {
         TxCore {
             phase: Phase::Idle,
             output: VecDeque::new(),
-            scratch: vec![0u8; DEFAULT_MAX_MESSAGE_SIZE],
+            scratch: vec![0u8; DEFAULT_MAX_MESSAGE_LEN],
             events: LinkEvents::default(),
             recorder: None,
             pending_tracers: Vec::new(),
@@ -253,7 +257,8 @@ impl TxCore {
             client_meta: None,
             token: 0,
             frame_accumulation_time: Duration::from_millis(1),
-            device_max_message_len: DEFAULT_MAX_MESSAGE_SIZE,
+            device_max_message_len: DEFAULT_MAX_MESSAGE_LEN,
+            host_max_message_len: DEFAULT_MAX_MESSAGE_LEN,
             link_setup_timeout,
             link_setup_deadline: None,
             link_setup_interval: Duration::ZERO,
@@ -321,6 +326,19 @@ impl TxCore {
 
     /// The paused link's state, for the link residual (CLT-44).
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
+    /// The longest message this host takes, as sent in LinkSetup.
+    pub fn host_max_message_len(&self) -> usize {
+        self.host_max_message_len
+    }
+
+    /// This host's and the device's limits; the link's is the smaller one.
+    pub fn message_limit(&self) -> crate::MessageLimit {
+        crate::MessageLimit {
+            host: self.host_max_message_len,
+            device: self.device_max_message_len,
+        }
+    }
+
     pub fn link_part(&self) -> TxPart {
         let mut in_flight: Vec<SeqTy> = self.in_flight.iter().copied().collect();
         in_flight.sort_unstable();
@@ -457,6 +475,7 @@ impl TxCore {
                 handle,
                 client_version,
                 max_seq,
+                max_message_len,
                 link_setup_timeout_ms,
                 tap,
                 client_meta,
@@ -480,6 +499,10 @@ impl TxCore {
                 }
                 self.exited_tx = failed_tx;
                 self.max_seq = max_seq;
+                let max_message_len = max_message_len as usize;
+                self.host_max_message_len = max_message_len;
+                // link messages (link setup, loopback) are encoded here, at most what the host takes
+                self.scratch = vec![0u8; max_message_len];
                 if let Some(ms) = link_setup_timeout_ms {
                     self.link_setup_timeout = Duration::from_millis(ms.get().into());
                 }
@@ -506,10 +529,11 @@ impl TxCore {
                     None => handle,
                 };
                 self.output
-                    .push_back(TxOutput::Connect(handle, link.clone()));
+                    .push_back(TxOutput::Connect(handle, link.clone(), max_message_len));
                 // rx needs these to check DeviceInfo and to report the connection
                 self.output.push_back(TxOutput::ToRx(ToRx::TransportUp {
                     client_version,
+                    host_max_message_len: max_message_len,
                     token: self.token,
                     connected_tx,
                     link,
@@ -670,15 +694,15 @@ impl TxCore {
         let error = match ww_client_server::Request::set_seq(&mut bytes, seq).map(|t| t.len()) {
             Ok(trimmed_len) => {
                 bytes.drain(..bytes.len() - trimmed_len);
-                if bytes.len() > self.device_max_message_len {
-                    warn!(
-                        "request of {} bytes exceeds device max message length {}, dropping",
-                        bytes.len(),
-                        self.device_max_message_len
-                    );
-                    Some(Error::Other(
-                        "request exceeds device max message length".into(),
-                    ))
+                let limit = self.message_limit();
+                if bytes.len() > limit.agreed() {
+                    let error = Error::MessageTooBig {
+                        what: "request",
+                        len: Some(bytes.len()),
+                        limit,
+                    };
+                    warn!("{error}, dropping");
+                    Some(error)
                 } else {
                     None
                 }
@@ -837,7 +861,12 @@ impl TxCore {
                     .unwrap_or(FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)));
                 // the meta is for people to read: it never takes the link down because a device can't receive it
                 let meta = self.meta_to_send(&client_version);
-                let msg = link_setup(client_version.as_ref(), self.token, meta.as_ref());
+                let msg = link_setup(
+                    client_version.as_ref(),
+                    self.host_max_message_len,
+                    self.token,
+                    meta.as_ref(),
+                );
                 self.send(&msg)?;
                 self.flush(now);
             }
@@ -999,7 +1028,7 @@ impl TxCore {
             return;
         }
         // the device echoes messages back as they are, so both sides must accept them
-        let max = self.device_max_message_len.min(DEFAULT_MAX_MESSAGE_SIZE);
+        let max = self.message_limit().agreed();
         let message_len = packet_size.unwrap_or(max).clamp(LOOPBACK_HEADER_LEN, max);
         info!("starting loopback test: {duration:?} per stage, {message_len} bytes per message");
         // what was written so far goes out before the test
@@ -1056,7 +1085,12 @@ impl TxCore {
         let full = self.client_meta.as_deref()?;
         let max = self.device_max_message_len;
         for meta in [full.clone(), crate::client_meta::shortened(full)] {
-            let msg = link_setup(client_version.as_ref(), self.token, Some(&meta));
+            let msg = link_setup(
+                client_version.as_ref(),
+                self.host_max_message_len,
+                self.token,
+                Some(&meta),
+            );
             if msg
                 .encode(&mut self.scratch)
                 .is_ok_and(|(_, p)| p.len() <= max)

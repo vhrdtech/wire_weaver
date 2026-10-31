@@ -187,6 +187,7 @@ impl Transport for LocalSocketTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<LocalTx, LocalRx>, String> {
         let tunnel = match handle.downcast::<LocalTarget>() {
             Ok(to) => match open(&to.path, to.target.clone()).await {
@@ -209,28 +210,33 @@ impl Transport for LocalSocketTransport {
                 &tunnel.shown,
             ),
         );
-        let (tx, rx) = halves((tunnel.rx, tunnel.tx), claim);
+        let (tx, rx) = halves((tunnel.rx, tunnel.tx), claim, max_message_len);
         Ok(Opened { tx, rx })
     }
 }
 
 impl Tunnel {
-    /// Its message halves, sharing `claim`.
+    /// Its message halves, sharing `claim`, taking messages up to `max_message_len`.
     #[cfg_attr(not(feature = "hub"), allow(dead_code))]
-    pub(crate) fn into_halves(self, claim: SharedClaim) -> (LocalTx, LocalRx) {
-        halves((self.rx, self.tx), claim)
+    pub(crate) fn into_halves(
+        self,
+        claim: SharedClaim,
+        max_message_len: usize,
+    ) -> (LocalTx, LocalRx) {
+        halves((self.rx, self.tx), claim, max_message_len)
     }
 }
 
-/// The message halves of an opened connection, sharing `claim`.
-fn halves((rx, tx): (RecvHalf, SendHalf), claim: SharedClaim) -> (LocalTx, LocalRx) {
+/// The message halves of an opened connection, sharing `claim`, taking messages up to `max_message_len`.
+fn halves(
+    (rx, tx): (RecvHalf, SendHalf),
+    claim: SharedClaim,
+    max_message_len: usize,
+) -> (LocalTx, LocalRx) {
     (
         LocalTx(MessageWriter::new(tx), claim.clone()),
         // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-        LocalRx(
-            MessageReader::new(rx, crate::DEFAULT_MAX_MESSAGE_SIZE),
-            claim,
-        ),
+        LocalRx(MessageReader::new(rx, max_message_len), claim),
     )
 }
 
@@ -741,9 +747,10 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<LocalTx, LocalRx>, String> {
             LocalSocketTransport
-                .connect(Box::new(self.0.clone()), tap)
+                .connect(Box::new(self.0.clone()), tap, max_message_len)
                 .await
         }
     }
@@ -824,6 +831,7 @@ mod tests {
                     target: Target::Device(String::new()),
                 }),
                 crate::tap::default_recorder().link(),
+                crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;
         let Err(e) = r else {
@@ -852,6 +860,7 @@ mod tests {
                     target: Target::Device("usb:c0de:cafe:1".into()),
                 }),
                 crate::tap::default_recorder().link(),
+                crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;
         let Err(e) = r else { panic!("refused") };

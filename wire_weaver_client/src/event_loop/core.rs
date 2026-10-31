@@ -124,6 +124,8 @@ pub(crate) enum ToRx {
     TransportUp {
         /// Used for the compatibility check against DeviceInfo, empty crate_id = skip
         client_version: Box<ww_version::FullVersionOwned>,
+        /// [Command::Connect]`::max_message_len`, for [DeviceApiInfo::host_max_message_size](crate::DeviceApiInfo)
+        host_max_message_len: usize,
         /// This connection's setup token: rx drops everything until a DeviceInfo carrying it
         token: u64,
         connected_tx: Option<oneshot::Sender<crate::device_info::ConnectionInfo>>,
@@ -274,7 +276,7 @@ async fn tx_task<T: Transport>(
         let mut exit = None;
         while let Some(output) = core.poll_output() {
             match output {
-                TxOutput::Connect(handle, link) => {
+                TxOutput::Connect(handle, link, max_message_len) => {
                     let Some(msg_rx_tx) = msg_rx_tx.take() else {
                         // proper way to re-connect to the same device, or another one, is to tear down this event loop
                         // then take the residual and start a new one, sending a connect command there
@@ -282,7 +284,10 @@ async fn tx_task<T: Transport>(
                         warn!("ignoring connect command, while already connected, this is a bug");
                         continue;
                     };
-                    match connector.connect(handle, link.clone()).await {
+                    match connector
+                        .connect(handle, link.clone(), max_message_len)
+                        .await
+                    {
                         Ok(o) => {
                             msg_tx = Some(o.tx.into());
                             let mut l = link.clone();
@@ -738,6 +743,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -771,7 +777,7 @@ mod tests {
         };
         assert_eq!(
             setup.host_max_message_len,
-            crate::DEFAULT_MAX_MESSAGE_SIZE as u32
+            crate::DEFAULT_MAX_MESSAGE_LEN as u32
         );
         assert_eq!(setup.host_user_version.crate_id, "test");
         assert_eq!(
@@ -802,6 +808,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -1173,6 +1180,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -1500,6 +1508,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -1657,6 +1666,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms,
                 tap: None,
                 client_meta: None,
@@ -1718,6 +1728,7 @@ mod tests {
             Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -1871,6 +1882,7 @@ mod tests {
                         "".into(),
                         VersionOwned::new(0, 0, 0),
                     )),
+                    host_max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN,
                     token: 1,
                     connected_tx: None,
                     link,

@@ -283,7 +283,17 @@ impl<'a, P: PacketSink> Ctx<'_, 'a, P> {
                     }
                 };
                 if !reply.is_empty() {
-                    _ = self.send_message(reply);
+                    let len = reply.len();
+                    if let Err(SendError::TooBig) = self.send_message(reply) {
+                        warn!(
+                            "reply of {} bytes is over the link's limit of {}, answering with an error",
+                            len,
+                            self.link.agreed_max_message_len()
+                        );
+                        if let Some(error) = crate::over_limit_reply(request, scratch) {
+                            _ = self.send_message(error);
+                        }
+                    }
                 }
                 // TODO(SRV-44): serve waiting requests by priority, the highest first
                 // the reply to an urgent request goes out at once, the rest within the window (CLT-50)

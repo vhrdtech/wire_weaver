@@ -31,6 +31,9 @@ pub enum Command {
         client_version: Box<FullVersionOwned>,
         /// Largest request seq number to use, see [ClientConfig::max_seq](crate::ClientConfig::max_seq).
         max_seq: SeqTy,
+        /// The longest message this host takes, [ClientConfig::max_message_len](crate::ClientConfig::max_message_len):
+        /// sent in LinkSetup, the transport's buffers are sized for it. A `u32` as on the wire, to keep [Command] small.
+        max_message_len: u32,
         /// How long link setup may take, [ClientConfig::link_setup_timeout](crate::ClientConfig::link_setup_timeout).
         /// None - transport's default. Milliseconds, to keep [Command] small.
         link_setup_timeout_ms: Option<std::num::NonZeroU32>,
@@ -324,7 +327,8 @@ pub enum EventLoopExitReason {
 }
 
 const _: () = {
-    // was 56, then 64 until Connect took the tap, 72 until it took the client meta, 80 until keep_streams_on_loss
+    // was 56, then 64 until Connect took the tap, 72 until it took the client meta, 80 until keep_streams_on_loss;
+    // max_message_len fits next to link_setup_timeout_ms
     assert!(size_of::<Command>() <= 88);
 };
 

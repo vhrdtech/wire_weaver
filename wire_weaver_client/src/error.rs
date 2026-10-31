@@ -59,6 +59,17 @@ pub enum Error {
     Disconnected,
     #[error("Remote device returned {}", .0)]
     RemoteError(ww_client_server::ErrorOwned),
+    /// A request or reply longer than the link's message limit (CLT-55): the smaller of the host's
+    /// ([ClientConfig::max_message_len](crate::ClientConfig::max_message_len)) and the device's. A request is
+    /// refused before it is sent, a reply by the device, which then answers with this error instead.
+    #[error("{what}{} is over the link's message limit of {limit}", describe_len(*.len))]
+    MessageTooBig {
+        /// `"request"` or `"reply"`
+        what: &'static str,
+        /// Its length, when known (the device doesn't say how long a refused reply was)
+        len: Option<usize>,
+        limit: crate::MessageLimit,
+    },
     #[error("All command senders were dropped")]
     CmdTxDropped,
     #[error("Exit command received")]
@@ -104,6 +115,11 @@ impl Error {
     pub fn is_lent(&self) -> bool {
         matches!(self, Error::HubRefused { status, .. } if *status == crate::connection_event::STATUS_LENT)
     }
+}
+
+fn describe_len(len: Option<usize>) -> String {
+    len.map(|len| format!(" of {len} bytes"))
+        .unwrap_or_default()
 }
 
 fn describe_not_found(filters: &[String], unmatched: &[DeviceInfo], over_rtt: bool) -> String {

@@ -32,6 +32,7 @@
   a refusal of the hub's preamble answer (before, a refusal became a `ConnectFailed` string); exhaustive matches need
   the arm. A local socket connection (`ipc_path`, `hub_api`, `hub_device`) opens its tunnel before the event loop
   starts, so a refusal fails `connect()` as this error.
+- `DeviceApiInfo` has a new field `host_max_message_size` (CLT-55): the longest message this host takes, as sent in link setup; code building one with a struct literal adds it. `Error` has a new variant `MessageTooBig { what, len, limit }`: exhaustive matches need the arm.
 
 ### 🐛 Fixes
 
@@ -164,6 +165,7 @@
 - The tap decoder and `envelope::explain_request` name a `PathKind::GlobalCompact` path through the `ww_global` registry and decode the call from the trait's snapshot like a `GlobalFull` one (API-20, P2401#20oct-1439); `envelope::compact_trait_name` gives the crate version and trait name of a compact id, or why it names none (unknown id, a crate, retired).
 - Global trait calls go out with the trait's `ww_global` id (`PathKind::GlobalCompact`, API-20) whenever the registry has one (every `ww_stdlib` trait), also when asked for with `GlobalFull`: 2 bytes and up instead of the crate name. A device built before the trait had an id answers `TraitNotFound`; the event loop then sends the same request again with `GlobalFull`, and sends that trait version's later requests that way for the rest of the connection. The internal, always empty `gid_map` is gone.
 - The tap decoder and `envelope` (TOOL-9, TOOL-14): `explain_request` / `explain_event` take the device API as an `Option` and explain requests through `GlobalFull` paths from the snapshots (`envelope::global_trait`), `explain_reply` (an `Observe`'s answer is `ObserveGranted`, not a property), `PropertyUpdate` data read by the level's `+observe` properties (`DynResource::observe_schema`), `Envelope::types` (the types of the payload values, to show units) and `Envelope::resource`. `Decoder::add_bundle` and describe blocks take a device's bundle as it was sent, snapshot-known traits are put back.
+- `ClientConfig::max_message_len(bytes)` (CLT-55): the longest message this host takes, sent to the device in link setup instead of the fixed 16 KiB (`DEFAULT_MAX_MESSAGE_LEN`, now public), with every transport's receive buffers sized for it. The link's limit is the smaller of the host's and the device's, both ways: a longer request is refused before it is sent, a longer reply is refused by the device, and either fails with `Error::MessageTooBig`, whose message names the length, both limits and which side set the link's (`request of 20000 bytes is over the link's message limit of 1024 bytes, set by the device (device 1024 from its DeviceInfo, host 16384 from ClientConfig::max_message_len)`). `DeviceApiInfo::message_limit()` and `MessageLimit` (`agreed()`, `set_by()`) give the numbers. Before, an over-limit request failed with `Other("request exceeds device max message length")` and an over-limit reply was dropped by the device, so the call timed out.
 
 ### 🐛 Fixes
 

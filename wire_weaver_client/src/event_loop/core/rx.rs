@@ -64,6 +64,8 @@ pub(crate) struct RxCore {
 
     connected_tx: Option<oneshot::Sender<ConnectionInfo>>,
     client_version: Option<FullVersionOwned>,
+    /// [ToRx::TransportUp]`::host_max_message_len`
+    host_max_message_len: usize,
     device_api_info: Option<DeviceApiInfo>,
     /// This connection's setup token, see [ww_link::Message::GetDeviceInfo]
     token: u64,
@@ -105,6 +107,7 @@ impl RxCore {
             events: LinkEvents::default(),
             connected_tx: None,
             client_version: None,
+            host_max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN,
             device_api_info: None,
             token: 0,
             token_seen: false,
@@ -231,6 +234,7 @@ impl RxCore {
             ToRx::Disconnecting => self.disconnecting = true,
             ToRx::TransportUp {
                 client_version,
+                host_max_message_len,
                 token,
                 connected_tx,
                 link,
@@ -240,6 +244,7 @@ impl RxCore {
                 self.keep_streams_on_loss = keep_streams_on_loss;
                 self.phase = Phase::LinkSetup;
                 self.client_version = Some(*client_version);
+                self.host_max_message_len = host_max_message_len;
                 self.token = token;
                 self.token_seen = false;
                 self.connected_tx = connected_tx;
@@ -265,6 +270,7 @@ impl RxCore {
                 let info = DeviceApiInfo {
                     link_version: compact_to_full(&device_info.dev_link_version),
                     max_message_size: device_info.dev_max_message_len as usize,
+                    host_max_message_size: self.host_max_message_len,
                     api_model_version: compact_to_full(&device_info.api_model_version),
                     user_api_version: device_info.user_api_version.clone(),
                     user_api_hash: device_info.hash.clone(),
@@ -273,6 +279,7 @@ impl RxCore {
                     ),
                 };
                 info!("adopted a live link to {:?}", info.user_api_version);
+                self.dispatcher.message_limit = Some(info.message_limit());
                 self.device_api_info = Some(info.clone());
                 self.token_seen = true;
                 self.phase = Phase::Up;
@@ -418,7 +425,7 @@ impl RxCore {
                     return Ok(None);
                 }
                 self.token_seen = true;
-                let device_api_info = device_api_info(&info);
+                let device_api_info = device_api_info(&info, self.host_max_message_len);
                 info!(
                     "connected device: {device_api_info:?}, acc_window = {}us",
                     info.packet_accumulation_time_us
@@ -429,6 +436,7 @@ impl RxCore {
                 {
                     return Err(anyhow!(Error::IncompatibleDeviceProtocol));
                 }
+                self.dispatcher.message_limit = Some(device_api_info.message_limit());
                 self.device_api_info = Some(device_api_info);
                 self.output
                     .push_back(RxOutput::ToTx(ToTx::DeviceInfo(Box::new(
@@ -550,10 +558,11 @@ impl RxCore {
 }
 
 /// What a device's `DeviceInfo` says, as the client keeps it.
-fn device_api_info(info: &ww_link::DeviceInfo<'_>) -> DeviceApiInfo {
+fn device_api_info(info: &ww_link::DeviceInfo<'_>, host_max_message_len: usize) -> DeviceApiInfo {
     DeviceApiInfo {
         link_version: compact_to_full(&info.dev_link_version),
         max_message_size: info.dev_max_message_len as usize,
+        host_max_message_size: host_max_message_len,
         api_model_version: compact_to_full(&info.api_model_version),
         user_api_version: info.user_api_version.make_owned(),
         user_api_hash: info.hash.make_owned(),

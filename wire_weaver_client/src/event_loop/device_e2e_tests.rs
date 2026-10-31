@@ -99,6 +99,7 @@ impl Transport for PipeTransport {
         &mut self,
         _: DeviceHandle,
         _: ww_tap::RecorderLink,
+        _max_message_len: usize,
     ) -> Result<Opened<HostTx, HostRx>, String> {
         self.0.take().ok_or("already connected".into())
     }
@@ -310,6 +311,7 @@ async fn connect_with_meta(
         .send(Command::Connect {
             handle: Box::new(()),
             max_seq: crate::DEFAULT_MAX_SEQ,
+            max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
             link_setup_timeout_ms: None,
             tap: None,
             client_meta,
@@ -382,7 +384,7 @@ fn start_with(
                 packets: host_to_dev_tx,
             },
             rx: HostRx {
-                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + PACKET),
+                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_LEN + PACKET),
                 packets: dev_to_host_rx,
             },
         })),
@@ -449,6 +451,7 @@ impl Transport for StreamPipe {
         &mut self,
         _: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
         let (up, down) = self.0.take().ok_or("already connected")?;
         let config = StreamConfig {
@@ -456,7 +459,10 @@ impl Transport for StreamPipe {
             poll_interval: Duration::from_millis(1),
             read_chunk: 256,
         };
-        stream::open(config, tap, move || Ok(HostIo { up, down })).await
+        stream::open(config, tap, max_message_len, move || {
+            Ok(HostIo { up, down })
+        })
+        .await
     }
 }
 
@@ -900,13 +906,17 @@ async fn stream_open_error_fails_connect() {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<Self::Tx, Self::Rx>, String> {
             let config = StreamConfig {
                 name: "test_stream",
                 poll_interval: Duration::from_millis(1),
                 read_chunk: 256,
             };
-            stream::open(config, tap, || Err::<HostIo, _>("no probe".to_string())).await
+            stream::open(config, tap, max_message_len, || {
+                Err::<HostIo, _>("no probe".to_string())
+            })
+            .await
         }
     }
     let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);

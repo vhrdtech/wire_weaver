@@ -148,10 +148,15 @@ pub(crate) trait Transport {
     /// `tap` records the link (TR-14): a transport gives it the [Session](ww_tap::Session) once it knows the medium
     /// and, if it has frames, every frame both ways ([Tap::frame](ww_tap::Tap::frame), when
     /// [wanted](ww_tap::Tap::wants_frames)); messages and link events are recorded by the event loop.
+    ///
+    /// `max_message_len` is the longest message this host takes
+    /// ([ClientConfig::max_message_len](crate::ClientConfig::max_message_len), sent in link setup): receive buffers
+    /// hold one such message and what the medium adds to it.
     fn connect(
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> impl Future<Output = Result<Opened<Self::Tx, Self::Rx>, String>> + Send;
 
     /// Whether the medium can be handed over live (CLT-44): the methods below do something.

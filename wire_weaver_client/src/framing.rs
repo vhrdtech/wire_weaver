@@ -153,10 +153,10 @@ impl FramerCarryOwned {
     }
 
     /// Bounds the sizes against the medium's packets and the largest message this host takes.
-    pub fn check(&self, max_packet: usize) -> Result<(), String> {
+    pub fn check(&self, max_packet: usize, max_message_len: usize) -> Result<(), String> {
         if let Some(p) = &self.rx_partial {
             let total = p.total as usize;
-            if total > crate::DEFAULT_MAX_MESSAGE_SIZE || p.bytes.len() >= total {
+            if total > max_message_len || p.bytes.len() >= total {
                 return Err(format!(
                     "partial message of {} / {} bytes",
                     p.bytes.len(),
@@ -295,7 +295,7 @@ mod tests {
         tx.flush_to_vec().unwrap();
         let carry = FramerCarryOwned::take(&mut tx, &rx);
         assert!(carry.rx_partial.is_some());
-        carry.check(64).unwrap();
+        carry.check(64, crate::DEFAULT_MAX_MESSAGE_LEN).unwrap();
         let bytes = carry.to_ww_bytes_owned().unwrap();
         let carry = FramerCarryOwned::from_ww_bytes_owned(&bytes).unwrap();
 
@@ -308,6 +308,6 @@ mod tests {
         assert_eq!(messages, [(0, long)]);
         let mut bad = carry.clone();
         bad.rx_staged = vec![0; 65];
-        assert!(bad.check(64).is_err());
+        assert!(bad.check(64, crate::DEFAULT_MAX_MESSAGE_LEN).is_err());
     }
 }

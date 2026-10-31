@@ -600,12 +600,16 @@ impl UsbSimResidualOwned {
     }
 
     /// Decodes the residual of a simulated USB link and bounds its sizes.
-    pub fn decode(medium: &crate::adopt::MediumResidualOwned) -> Result<Self, String> {
+    /// `max_message_len` is the longest message this host takes.
+    pub fn decode(
+        medium: &crate::adopt::MediumResidualOwned,
+        max_message_len: usize,
+    ) -> Result<Self, String> {
         let r = Self::from_ww_bytes_owned(medium.of(Self::KIND)?).map_err(|e| format!("{e:?}"))?;
         if !(8..=1024).contains(&r.max_packet) {
             return Err(format!("max packet {}", r.max_packet));
         }
-        r.framers.check(r.max_packet as usize)?;
+        r.framers.check(r.max_packet as usize, max_message_len)?;
         Ok(r)
     }
 }
@@ -622,10 +626,14 @@ impl Transport for UsbSimTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
         let (handle, adopted) = match handle.downcast::<Adopting>() {
-            Ok(a) => (a.handle, Some(UsbSimResidualOwned::decode(&a.medium)?)),
+            Ok(a) => (
+                a.handle,
+                Some(UsbSimResidualOwned::decode(&a.medium, max_message_len)?),
+            ),
             Err(handle) => (handle, None),
         };
         let target = handle
@@ -650,7 +658,7 @@ impl Transport for UsbSimTransport {
         );
         let mut tx_framer = TxFramer::new(seq_prefix, max_packet);
         // one maximum message plus one more packet, see FramedRx docs
-        let mut rx_framer = RxFramer::new(seq_prefix, crate::DEFAULT_MAX_MESSAGE_SIZE + max_packet);
+        let mut rx_framer = RxFramer::new(seq_prefix, max_message_len + max_packet);
         if let Some(adopted) = adopted {
             if (adopted.max_packet as usize, adopted.seq_prefix) != (max_packet, seq_prefix) {
                 return Err(format!(
@@ -871,12 +879,15 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<super::Tx, super::Rx>, String> {
             let target = UsbSimTarget {
                 path: self.0.clone(),
                 claim: None,
             };
-            UsbSimTransport.connect(Box::new(target), tap).await
+            UsbSimTransport
+                .connect(Box::new(target), tap, max_message_len)
+                .await
         }
     }
 

@@ -81,6 +81,7 @@ impl Transport for UdpTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<UdpTx, UdpRx>, String> {
         let addr = handle
             .downcast::<String>()
@@ -102,7 +103,7 @@ impl Transport for UdpTransport {
             },
             rx: UdpRx {
                 // must hold one maximum message plus one more frame, see FramedRx docs
-                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + MAX_RX_DATAGRAM_LEN),
+                framer: RxFramer::new(max_message_len + MAX_RX_DATAGRAM_LEN),
                 datagram: vec![0; MAX_RX_DATAGRAM_LEN],
                 socket,
                 tap,
@@ -246,8 +247,11 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<UdpTx, UdpRx>, String> {
-            UdpTransport.connect(Box::new(self.0.clone()), tap).await
+            UdpTransport
+                .connect(Box::new(self.0.clone()), tap, max_message_len)
+                .await
         }
     }
 
@@ -399,6 +403,7 @@ mod tests {
             .connect(
                 Box::new("no-such-host.invalid:9000".to_string()),
                 crate::tap::default_recorder().link(),
+                crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;
         let Err(e) = r else {

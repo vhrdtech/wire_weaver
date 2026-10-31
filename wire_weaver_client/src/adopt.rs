@@ -188,12 +188,19 @@ impl LinkResidualOwned {
 
 impl MediumResidualOwned {
     /// Has the medium of [Self::kind] decode and bound its bytes: an error for a medium this build doesn't have.
+    /// A partial message is bounded only by the wire's `u32` here: the medium bounds it by the host's limit when it
+    /// takes the link over.
     pub fn check(&self) -> Result<(), String> {
+        let max_message_len = u32::MAX as usize;
         match self.kind {
             #[cfg(feature = "usb")]
-            MediumKindOwned::Usb => crate::usb::UsbResidualOwned::decode(self).map(drop),
+            MediumKindOwned::Usb => {
+                crate::usb::UsbResidualOwned::decode(self, max_message_len).map(drop)
+            }
             #[cfg(feature = "local_socket")]
-            MediumKindOwned::UsbSim => crate::usb_sim::UsbSimResidualOwned::decode(self).map(drop),
+            MediumKindOwned::UsbSim => {
+                crate::usb_sim::UsbSimResidualOwned::decode(self, max_message_len).map(drop)
+            }
             ref kind => Err(format!("a medium this build doesn't have: {kind:?}")),
         }
     }

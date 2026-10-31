@@ -14,6 +14,9 @@ use crate::{ClientMeta, DeviceInfo, SeqTy};
 /// [ClientConfig::hub_reconnect] by default: a connection through the hub gives up after this long without a link.
 pub const DEFAULT_HUB_GIVE_UP: Duration = Duration::from_secs(60);
 
+/// Smallest [ClientConfig::max_message_len]: link setup and short replies must fit.
+const MIN_MAX_MESSAGE_LEN: usize = 128;
+
 /// Configuration of device enumeration, selection and connection.
 /// Flexible filters allow for many different scenarios:
 /// - Specific device selection
@@ -39,6 +42,7 @@ pub struct ClientConfig {
     default_priority: Option<wire_weaver::Priority>,
     client_version: Option<Box<FullVersionOwned>>,
     max_seq: Option<SeqTy>,
+    max_message_len: Option<usize>,
     traits_only: bool,
     stream_queue_bytes: Option<usize>,
     no_stream_compression: bool,
@@ -81,6 +85,8 @@ pub(crate) struct ValidatedConfig {
     pub(crate) default_priority: wire_weaver::Priority,
     pub(crate) client_version: Box<FullVersionOwned>,
     pub(crate) max_seq: SeqTy,
+    /// [ClientConfig::max_message_len]
+    pub(crate) max_message_len: usize,
     pub(crate) stream_queue_bytes: usize,
     /// [ClientConfig::stream_compression]
     pub(crate) stream_compression: bool,
@@ -291,6 +297,13 @@ impl ClientConfig {
         if max_seq == 0 {
             bail!("max_seq must be at least 1");
         }
+        let max_message_len = s.max_message_len.unwrap_or(crate::DEFAULT_MAX_MESSAGE_LEN);
+        if !(MIN_MAX_MESSAGE_LEN..=u32::MAX as usize).contains(&max_message_len) {
+            bail!(
+                "max_message_len must be {MIN_MAX_MESSAGE_LEN}..={} bytes, not {max_message_len}",
+                u32::MAX
+            );
+        }
         if s.link_setup_timeout.is_some_and(|t| t.is_zero()) {
             bail!("link_setup_timeout must not be zero");
         }
@@ -312,6 +325,7 @@ impl ClientConfig {
             default_priority: s.default_priority.unwrap_or_default(),
             client_version,
             max_seq,
+            max_message_len,
             stream_queue_bytes: s
                 .stream_queue_bytes
                 .unwrap_or(crate::DEFAULT_STREAM_QUEUE_BYTES),
@@ -669,6 +683,22 @@ impl ClientConfig {
     pub fn max_seq(self, max_seq: SeqTy) -> Self {
         let mut c = self;
         c.max_seq = Some(max_seq);
+        c
+    }
+
+    /// The longest message this host takes, default [DEFAULT_MAX_MESSAGE_LEN](crate::DEFAULT_MAX_MESSAGE_LEN)
+    /// (16 KiB): sent to the device in link setup, and the transport's receive buffers are sized for it (CLT-55).
+    /// The link's limit is the smaller of it and the device's (`dev_max_message_len` of its `DeviceInfo`), both
+    /// ways: a longer request is refused before it is sent, a longer reply is refused by the device, each with
+    /// [Error::MessageTooBig](crate::Error::MessageTooBig) naming both limits
+    /// ([DeviceApiInfo::message_limit](crate::DeviceApiInfo::message_limit)).
+    ///
+    /// Raise it for a device that answers with bigger messages, but keep results that grow with the data out of
+    /// single replies: one big message holds up every other call on the link while it is sent. Return them as a
+    /// stream or in pages instead (`docs/api/large_messages.md`). At least 128 bytes.
+    pub fn max_message_len(self, bytes: usize) -> Self {
+        let mut c = self;
+        c.max_message_len = Some(bytes);
         c
     }
 

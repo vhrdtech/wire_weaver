@@ -114,12 +114,16 @@ impl UsbResidualOwned {
     }
 
     /// Decodes the residual of a USB link and bounds its sizes.
-    pub fn decode(medium: &crate::adopt::MediumResidualOwned) -> Result<Self, String> {
+    /// `max_message_len` is the longest message this host takes.
+    pub fn decode(
+        medium: &crate::adopt::MediumResidualOwned,
+        max_message_len: usize,
+    ) -> Result<Self, String> {
         let r = Self::from_ww_bytes_owned(medium.of(Self::KIND)?).map_err(|e| format!("{e:?}"))?;
         if !(8..=MAX_PACKET).contains(&r.max_packet) {
             return Err(format!("max packet {}", r.max_packet));
         }
-        r.framers.check(r.max_packet as usize)?;
+        r.framers.check(r.max_packet as usize, max_message_len)?;
         Ok(r)
     }
 
@@ -172,10 +176,14 @@ impl Transport for NusbTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<Tx, Rx>, String> {
         // an adopted link (CLT-44): the framers go on where the other program's stopped
         let (handle, adopted) = match handle.downcast::<crate::event_loop::transport::Adopting>() {
-            Ok(a) => (a.handle, Some(UsbResidualOwned::decode(&a.medium)?)),
+            Ok(a) => (
+                a.handle,
+                Some(UsbResidualOwned::decode(&a.medium, max_message_len)?),
+            ),
             Err(handle) => (handle, None),
         };
         let target = handle
@@ -195,10 +203,7 @@ impl Transport for NusbTransport {
         };
         let mut tx_framer = TxFramer::new(dev.seq_prefix, dev.max_packet_size);
         // must hold one maximum message plus one more packet, see FramedRx docs
-        let mut rx_framer = RxFramer::new(
-            dev.seq_prefix,
-            crate::DEFAULT_MAX_MESSAGE_SIZE + dev.max_packet_size,
-        );
+        let mut rx_framer = RxFramer::new(dev.seq_prefix, max_message_len + dev.max_packet_size);
         if let Some(adopted) = adopted {
             adopted.fits(eps)?;
             adopted.framers.apply(&mut tx_framer, &mut rx_framer)?;
@@ -545,6 +550,7 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             _: ww_tap::RecorderLink,
+            _max_message_len: usize,
         ) -> Result<Opened<MockTx, MockRx>, String> {
             self.0.take().ok_or("already connected".into())
         }
@@ -631,7 +637,7 @@ mod tests {
         let len = tx.flush();
         packets.push(tx.buf()[..len].to_vec());
 
-        let mut rx = RxFramer::new(false, crate::DEFAULT_MAX_MESSAGE_SIZE + 64);
+        let mut rx = RxFramer::new(false, crate::DEFAULT_MAX_MESSAGE_LEN + 64);
         let mut packets = packets.into_iter();
         let mut read_message = |rx: &mut RxFramer| -> Option<(u8, Vec<u8>)> {
             loop {
@@ -676,6 +682,7 @@ mod tests {
             .send(Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,
@@ -731,6 +738,7 @@ mod tests {
             .send(Command::Connect {
                 handle: Box::new(()),
                 max_seq: crate::DEFAULT_MAX_SEQ,
+                max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
                 link_setup_timeout_ms: None,
                 tap: None,
                 client_meta: None,

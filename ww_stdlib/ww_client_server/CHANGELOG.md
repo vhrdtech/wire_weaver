@@ -106,6 +106,7 @@ Wire-incompatible with 0.1.0.
   API (`wire_weaver_client::client::multi`).
 * `PathKind::global()`.
 * `COMPACT_VERSION`, using global id `ww_global::WW_CLIENT_SERVER`.
+* `err_seq::REPLY_OVER_LIMIT` (60, a request site): the answer was longer than the link's message limit (CLT-55); `Site` names it. Not a wire change: it is a new number in the existing `err_seq` field.
 
 ### 🐛 Fixes
 

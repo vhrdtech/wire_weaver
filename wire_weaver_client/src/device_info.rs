@@ -98,8 +98,11 @@ pub struct ConnectionInfo {
 pub struct DeviceApiInfo {
     /// Link carries API model messages (e.g., ww_link).
     pub link_version: FullVersionOwned,
-    /// Maximum message size supported by the device.
+    /// Maximum message size supported by the device (`dev_max_message_len` of its `DeviceInfo`).
     pub max_message_size: usize,
+    /// Maximum message size this host takes, [ClientConfig::max_message_len](crate::ClientConfig::max_message_len)
+    /// as sent in link setup.
+    pub host_max_message_size: usize,
     /// API model defines what operations can be performed (call, write, etc. from e.g., ww_client_server).
     pub api_model_version: FullVersionOwned,
     /// User-defined API carried by API model.
@@ -110,10 +113,19 @@ pub struct DeviceApiInfo {
 }
 
 impl DeviceApiInfo {
+    /// Both sides' limits; messages either way are at most the smaller one (CLT-55).
+    pub fn message_limit(&self) -> MessageLimit {
+        MessageLimit {
+            host: self.host_max_message_size,
+            device: self.max_message_size,
+        }
+    }
+
     pub fn empty() -> Self {
         DeviceApiInfo {
             link_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             max_message_size: 0,
+            host_max_message_size: 0,
             api_model_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_version: FullVersionOwned::new("".into(), VersionOwned::new(0, 0, 0)),
             user_api_hash: ApiHashPairOwned {
@@ -251,5 +263,44 @@ impl From<&probe_rs::probe::DebugProbeInfo> for DeviceInfo {
             api: None,
             usb: None,
         }
+    }
+}
+
+/// The longest message each side of a link takes, from link setup (CLT-55): the host's from
+/// [ClientConfig::max_message_len](crate::ClientConfig::max_message_len), the device's from its `DeviceInfo`. Both
+/// sides keep to the smaller one ([Self::agreed]), requests and replies alike.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct MessageLimit {
+    pub host: usize,
+    pub device: usize,
+}
+
+impl MessageLimit {
+    /// The link's limit: the smaller of the two.
+    pub fn agreed(&self) -> usize {
+        self.host.min(self.device)
+    }
+
+    /// Which side's limit is the link's: `"device"` or `"host"` (also when both are equal).
+    pub fn set_by(&self) -> &'static str {
+        if self.device < self.host {
+            "device"
+        } else {
+            "host"
+        }
+    }
+}
+
+/// `16384 bytes, set by the device (device 16384, host 65536 from ClientConfig::max_message_len)`
+impl std::fmt::Display for MessageLimit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} bytes, set by the {} (device {} from its DeviceInfo, host {} from ClientConfig::max_message_len)",
+            self.agreed(),
+            self.set_by(),
+            self.device,
+            self.host
+        )
     }
 }

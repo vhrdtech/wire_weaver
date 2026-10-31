@@ -41,7 +41,7 @@ mod tests;
 use fmt::error;
 
 pub use buffer::RxBuffer;
-pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, PeerMeta, SendError};
+pub use link::{DeviceLink, DownReason, LinkConfig, LinkEvent, PeerMeta, PeerVersion, SendError};
 #[cfg(feature = "embassy-time")]
 pub use server::EmbassyClock;
 pub use server::{Clock, Ready, Server, Sink};
@@ -65,6 +65,20 @@ pub fn generic_error_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<
         return None;
     }
     let error = ww_client_server::Error::response_ser_failed(GENERIC_ERROR_SEQ);
+    ww_client_server::util::ser_err_event(scratch, seq, error).ok()
+}
+
+/// The answer to a request whose reply is longer than the link's message limit (CLT-55,
+/// [DeviceLink::agreed_max_message_len]): `ResponseSerFailed` at
+/// [REPLY_OVER_LIMIT](ww_client_server::err_seq::REPLY_OVER_LIMIT), which a host shows with both sides' limits.
+/// None if the request has no seq (no reply expected) or `scratch` is too small.
+pub fn over_limit_reply<'s>(request: &[u8], scratch: &'s mut [u8]) -> Option<&'s [u8]> {
+    let seq = ww_client_server::Request::peek_seq(request).ok()?;
+    if seq == 0 {
+        return None;
+    }
+    let error =
+        ww_client_server::Error::response_ser_failed(ww_client_server::err_seq::REPLY_OVER_LIMIT);
     ww_client_server::util::ser_err_event(scratch, seq, error).ok()
 }
 

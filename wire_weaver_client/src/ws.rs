@@ -80,11 +80,14 @@ impl Transport for WsTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<WsTx, WsRx>, String> {
         let url = handle
             .downcast::<String>()
             .map_err(|_| "expected WebSocket URL".to_string())?;
-        let (ws, _response) = connect(&url).await.map_err(|e| format!("{url}: {e}"))?;
+        let (ws, _response) = connect(&url, max_message_len)
+            .await
+            .map_err(|e| format!("{url}: {e}"))?;
         let (tx, rx) = ws.split();
         // one message per WebSocket message, no frames of its own
         let mut tap = tap;
@@ -104,6 +107,7 @@ impl Transport for WsTransport {
 
 async fn connect(
     url: &str,
+    max_message_len: usize,
 ) -> Result<
     (
         Ws,
@@ -112,7 +116,7 @@ async fn connect(
     tokio_tungstenite::tungstenite::Error,
 > {
     // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-    let max = crate::DEFAULT_MAX_MESSAGE_SIZE + 1;
+    let max = max_message_len + 1;
     let config = WebSocketConfig::default()
         .max_message_size(Some(max))
         .max_frame_size(Some(max));
@@ -215,8 +219,11 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<WsTx, WsRx>, String> {
-            WsTransport.connect(Box::new(self.0.clone()), tap).await
+            WsTransport
+                .connect(Box::new(self.0.clone()), tap, max_message_len)
+                .await
         }
     }
 
@@ -292,6 +299,7 @@ mod tests {
             .connect(
                 Box::new(format!("ws://{addr}/ww")),
                 crate::tap::default_recorder().link(),
+                crate::DEFAULT_MAX_MESSAGE_LEN,
             )
             .await;
         let Err(e) = r else {

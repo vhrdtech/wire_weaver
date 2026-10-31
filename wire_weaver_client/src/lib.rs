@@ -58,7 +58,7 @@ pub use client::stream::{RawStreamEvent, Stream, StreamError, TypedStreamEvent};
 pub use client_meta::{ClientKind, ClientMeta};
 pub use config::{ClientConfig, DEFAULT_HUB_GIVE_UP};
 pub use connection_event::{ConnectionEvent, GapReason};
-pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, UsbLocation};
+pub use device_info::{ApiInfo, DeviceApiInfo, DeviceInfo, MessageLimit, UsbLocation};
 pub use event_loop::commander::Commander;
 pub use wire_weaver::Priority;
 pub use ww_stream::StreamCursor;
@@ -95,9 +95,9 @@ mod udp;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(1);
 const DEFAULT_CMD_QUEUE_SIZE: usize = 8_192;
-/// Maximum ww_client_server message this host can receive; advertised to a device during link setup
-/// and used to size rx assembly buffers.
-pub(crate) const DEFAULT_MAX_MESSAGE_SIZE: usize = 16_384;
+/// Default for [ClientConfig::max_message_len]: the longest message this host receives, advertised to a device in
+/// link setup (CLT-55). The link's limit is the smaller of it and the device's.
+pub const DEFAULT_MAX_MESSAGE_LEN: usize = 16_384;
 pub type SeqTy = u32;
 /// Default for [ClientConfig::max_seq], the largest request seq number that is serialized into 3 bytes.
 pub const DEFAULT_MAX_SEQ: SeqTy = (1 << 21) - 1;

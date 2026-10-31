@@ -7,6 +7,7 @@
 - Replies follow the request's priority (CLT-50, SRV-42): `Server::handle` (and `blocking::Server`) no longer flush a reply at once when no other request waits; a default-priority reply waits for the accumulation window like every message, a reply to an urgent request is flushed at once. Deferred replies sent through `Server::sink()` do the same (`Sink` implements `MessageSink::send_reply`): before, they always waited for the window.
 - `PacketSink` / `PacketSource` (and `blocking::PacketSink`) have an associated `type Framing: ww_link::Framing` (TR-15): `FramedTx` / `FramedRx` / `blocking::Server` frame in the medium's framing instead of always the USB one, so the UDP medium now uses `UdpFraming` (frame prefix, CRC-32 on every message). Implementations add `type Framing = ww_link::UsbFraming;` (or the medium's own). `TxFramer` / `RxFramer` take the framing as a parameter. The UDP medium only takes a datagram with a good CRC as the start of a link setup, so a corrupted one can't take over.
 - Link setup token (TR-15): `DeviceLink` echoes the host's token in `DeviceInfo` and `LinkReady`, takes `LinkSetup` only with the token of the last `GetDeviceInfo`, and answers a host without a token with `Disconnect(IncompatibleVersion)`. On every `GetDeviceInfo`, `poll_transmit` first returns the new `Transmit::NewSession`: `Server` and `blocking::Server` call `MessageTx::new_session()` (new, `reset()` by default; `FramedTx` / `StreamTx` start the framer's next session), so a frame being filled and a half-sent message of the previous session are dropped and the reply starts in a fresh frame. Code matching `Transmit` handles the new variant.
+- `PeerMeta` has a new field `app_version` (CLT-55): the program's own version from `ClientMeta`, cut to 24 bytes; code building one with a struct literal adds it.
 
 ### 🚀 Features
 
@@ -17,6 +18,8 @@
 - `Server::wait_until(at: Option<Instant>)` (SRV-25): `wait()` that also returns when `at` comes, `Ready::is_due()`, so the event loop sleeps until the device's own next deadline (`ObserveState::next_wake`) instead of waking on a fixed tick; `handle` does nothing with a due `Ready`. `Server::now()`, the server's clock.
 - `GENERIC_ERROR_SEQ` is `ww_client_server::err_seq::GENERIC` (SRV-22), same value.
 - `FramedTx::with_tap` / `FramedRx::with_tap` (and `tap_mut`): frames and messages go to a `ww_tap::Tap` as they cross the medium (TR-14), tx frames at submit time. `FramedTx<'a, P, T = NoTap>` / `FramedRx<'a, P, T = NoTap>`: `new` keeps `NoTap`, whose calls compile away (a G0 USB firmware is the same size).
+- The link's message limit is the smaller of the device's and the host's (CLT-55, `DeviceLink::agreed_max_message_len`): `check_send` refuses longer messages, and `Server` / `blocking::Server` answer a request whose reply is over it with `ResponseSerFailed` at `err_seq::REPLY_OVER_LIMIT` (`over_limit_reply`) instead of dropping the reply, so the host fails the call at once with both limits named. Before, the device only kept to the host's limit.
+- `DeviceLink::peer_version()` and `PeerVersion` (CLT-55): the user API version the host connected with (crate id cut to 32 bytes, major, minor, patch), kept per session with `PeerMeta::app_version` so that version skew between a device and its hosts can be seen. About 70 bytes of RAM in `DeviceLink`.
 
 ### 🐛 Bug Fixes
 

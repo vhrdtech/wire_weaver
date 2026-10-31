@@ -383,9 +383,10 @@ pub(crate) fn test_transport(path: &str) -> impl Transport + 'static {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<HostTx, HostRx>, String> {
             InProcessTransport
-                .connect(Box::new(self.0.clone()), tap)
+                .connect(Box::new(self.0.clone()), tap, max_message_len)
                 .await
         }
     }
@@ -443,6 +444,7 @@ impl Transport for InProcessTransport {
         &mut self,
         handle: DeviceHandle,
         tap: ww_tap::RecorderLink,
+        max_message_len: usize,
     ) -> Result<Opened<HostTx, HostRx>, String> {
         let path = handle
             .downcast::<String>()
@@ -479,9 +481,8 @@ impl Transport for InProcessTransport {
             rx: HostRx {
                 from_device: to_host_rx,
                 message: None,
-                framer: usb_packet.map(|p| {
-                    UsbRxFramer::new(p.seq_prefix, crate::DEFAULT_MAX_MESSAGE_SIZE + p.max_size)
-                }),
+                framer: usb_packet
+                    .map(|p| UsbRxFramer::new(p.seq_prefix, max_message_len + p.max_size)),
                 tap,
             },
         })
@@ -616,9 +617,10 @@ mod tests {
             &mut self,
             _: DeviceHandle,
             tap: ww_tap::RecorderLink,
+            max_message_len: usize,
         ) -> Result<Opened<HostTx, HostRx>, String> {
             InProcessTransport
-                .connect(Box::new(self.0.clone()), tap)
+                .connect(Box::new(self.0.clone()), tap, max_message_len)
                 .await
         }
     }

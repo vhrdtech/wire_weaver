@@ -213,7 +213,7 @@ async fn start_event_loop(
                 packets: host_to_dev_tx,
             },
             rx: HostRx {
-                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + PACKET),
+                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_LEN + PACKET),
                 packets: dev_to_host_rx,
             },
         })),
@@ -224,6 +224,7 @@ async fn start_event_loop(
         .send(Command::Connect {
             handle: Box::new(()),
             max_seq: crate::DEFAULT_MAX_SEQ,
+            max_message_len: crate::DEFAULT_MAX_MESSAGE_LEN as u32,
             link_setup_timeout_ms: None,
             tap: None,
             client_meta: None,

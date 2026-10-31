@@ -259,7 +259,7 @@ mod with_hub {
                 return Outcome::HandedOff;
             }
         };
-        let (htx, hrx) = tunnel.into_halves(None);
+        let (htx, hrx) = tunnel.into_halves(None, core.host_max_message_len());
         if let Err(e) = medium::relink(core, tx, &mut rx, (htx.into(), hrx.into())) {
             warn!("{key}: {e}");
             give_back(rx);

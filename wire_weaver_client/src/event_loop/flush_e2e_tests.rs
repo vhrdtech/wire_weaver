@@ -158,7 +158,7 @@ async fn start() -> (mpsc::Sender<Command>, Arc<AtomicU32>) {
                 packets: host_to_dev_tx,
             },
             rx: HostRx {
-                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_SIZE + PACKET),
+                framer: RxFramer::new(crate::DEFAULT_MAX_MESSAGE_LEN + PACKET),
                 packets: dev_to_host_rx,
             },
         })),

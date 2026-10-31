@@ -171,6 +171,8 @@ pub struct PeerMeta {
     pub kind: Option<ww_link::ClientKind>,
     pub pid: u32,
     pub instance_id: u64,
+    /// The program's own version, free text, empty if it sent none (CLT-55: kept for skew checks).
+    pub app_version: wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }>,
 }
 
 impl PeerMeta {
@@ -185,12 +187,39 @@ impl PeerMeta {
             kind: Some(meta.kind),
             pid: meta.pid,
             instance_id: meta.instance_id,
+            app_version: cut(meta.app_version),
         }
     }
 }
 
-fn cut(s: &str) -> wire_weaver::shrink_wrap::ArrayString<{ PeerMeta::STR_LEN }> {
-    let mut end = s.len().min(PeerMeta::STR_LEN);
+/// The host's user API version from [ww_link::LinkSetup::host_user_version] (CLT-55), kept per session so that
+/// version skew between a device and its hosts can be seen: the crate (cut to [PeerVersion::CRATE_ID_LEN] bytes,
+/// empty for a dynamic host that works through introspection) and its SemVer numbers, without a pre-release tag.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct PeerVersion {
+    pub crate_id: wire_weaver::shrink_wrap::ArrayString<{ PeerVersion::CRATE_ID_LEN }>,
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+}
+
+impl PeerVersion {
+    /// Longest crate id kept; a longer one is cut at a character boundary.
+    pub const CRATE_ID_LEN: usize = 32;
+
+    fn from_wire(version: &ww_link::FullVersion<'_>) -> Self {
+        PeerVersion {
+            crate_id: cut(version.crate_id),
+            major: version.version.major.0,
+            minor: version.version.minor.0,
+            patch: version.version.patch.0,
+        }
+    }
+}
+
+fn cut<const N: usize>(s: &str) -> wire_weaver::shrink_wrap::ArrayString<N> {
+    let mut end = s.len().min(N);
     while !s.is_char_boundary(end) {
         end -= 1;
     }
@@ -211,6 +240,8 @@ pub struct DeviceLink<'a> {
     token: u64,
     /// [DeviceLink::peer_meta]
     peer_meta: Option<PeerMeta>,
+    /// [DeviceLink::peer_version]
+    peer_version: Option<PeerVersion>,
     pending: Pending,
     event: Option<LinkEvent>,
 
@@ -231,6 +262,7 @@ impl<'a> DeviceLink<'a> {
             remote_max_message_len: 0,
             token: 0,
             peer_meta: None,
+            peer_version: None,
             pending: Pending::default(),
             event: None,
             last_rx_at: None,
@@ -243,6 +275,12 @@ impl<'a> DeviceLink<'a> {
     /// nothing (a host built before [ww_link::ClientMeta]). Set before [LinkEvent::Up] is reported.
     pub fn peer_meta(&self) -> Option<&PeerMeta> {
         self.peer_meta.as_ref()
+    }
+
+    /// The user API version the host of the current (or, after [LinkEvent::Down], the last) session connected with
+    /// (CLT-55), `None` before the first link setup. Set before [LinkEvent::Up] is reported.
+    pub fn peer_version(&self) -> Option<&PeerVersion> {
+        self.peer_version.as_ref()
     }
 
     pub fn phase(&self) -> Phase {
@@ -265,6 +303,12 @@ impl<'a> DeviceLink<'a> {
     /// Maximum message length the host accepts, valid when the link is up.
     pub fn remote_max_message_len(&self) -> usize {
         self.remote_max_message_len as usize
+    }
+
+    /// The link's message limit while it is up: the smaller of this device's and the host's (CLT-55). Messages
+    /// either way are at most this long; [Self::check_send] refuses a longer one.
+    pub fn agreed_max_message_len(&self) -> usize {
+        self.max_message_len.min(self.remote_max_message_len) as usize
     }
 
     /// Medium became usable (e.g., USB configured by the host).
@@ -363,6 +407,7 @@ impl<'a> DeviceLink<'a> {
                     info!("host connected: {:?}", setup.host_user_version);
                     self.remote_max_message_len = setup.host_max_message_len;
                     self.peer_meta = setup.client_meta.as_ref().map(PeerMeta::from_wire);
+                    self.peer_version = Some(PeerVersion::from_wire(&setup.host_user_version));
                     self.pending.link_ready = true;
                     if self.phase != Phase::Up {
                         self.phase = Phase::Up;
@@ -512,7 +557,7 @@ impl<'a> DeviceLink<'a> {
         if self.phase != Phase::Up {
             return Err(SendError::NotConnected);
         }
-        if len > self.remote_max_message_len as usize {
+        if len > self.agreed_max_message_len() {
             return Err(SendError::TooBig);
         }
         Ok(())

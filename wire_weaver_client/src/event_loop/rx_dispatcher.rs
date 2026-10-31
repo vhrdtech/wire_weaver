@@ -126,6 +126,9 @@ pub(crate) struct RxDispatcher {
     /// last [Self::take_freed].
     /// The tx side allocates seq numbers and needs to know when they can be reused.
     freed: Vec<SeqTy>,
+    /// Both sides' limits of the current link, from link setup: a reply the device refused for its length is
+    /// answered with [Error::MessageTooBig] naming them
+    pub(crate) message_limit: Option<crate::MessageLimit>,
 }
 
 struct ResponseSenderWrapper(Option<ResponseSender>);
@@ -531,12 +534,30 @@ impl RxDispatcher {
                     let hook = self.stream_opens.remove(&seq);
                     self.retries.push((retry, done_tx, timeout, hook));
                 } else if let Some(mut done_tx) = self.take_response(seq) {
-                    _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
+                    _ = done_tx.send(Err(self.remote_error(e.make_owned())));
                 } else {
                     self.unexpected_reply(event.seq.0);
                     debug!("remote err: {e:?}");
                 }
             }
+        }
+    }
+
+    /// The error a request is answered with: a reply the device refused for being longer than the link's limit
+    /// ([REPLY_OVER_LIMIT](ww_client_server::err_seq::REPLY_OVER_LIMIT)) as [Error::MessageTooBig], others as they are.
+    fn remote_error(&self, e: ww_client_server::ErrorOwned) -> Error {
+        match self.message_limit {
+            Some(limit)
+                if e.err_seq.0 == ww_client_server::err_seq::REPLY_OVER_LIMIT
+                    && matches!(e.kind, ww_client_server::ErrorKindOwned::ResponseSerFailed) =>
+            {
+                Error::MessageTooBig {
+                    what: "reply",
+                    len: None,
+                    limit,
+                }
+            }
+            _ => Error::RemoteError(e),
         }
     }
 

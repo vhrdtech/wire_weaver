@@ -15,6 +15,7 @@
 
 ### 🚀 Features
 
+- `ww_codegen!(crate :: Api, local_trait = "Name")` emits the API as an async Rust trait `Name` (and `NameDyn` for trait objects) in the API crate itself, `impl_local_trait = "api::Name"` implements it on the `std_client` (CLT-57, `docs/api/local_trait.md`). `for <struct>` is optional when only `local_trait` is generated.
 - `ww_codegen!` / `ww_impl!` name types of a crate the calling crate doesn't depend on through a crate it does depend on that re-exports it (API-60, `wire_weaver_core::load_dep_with_paths`): a server depending on `ww_si` alone compiles when `ww_si`'s types come from `exact_units`.
 - The rustdoc trait of `#[ww_trait]` notes `#[claim]`, `#[shares]` and `#[label]` of an item or trait (SRV-34).
 - `ww_codegen!(.., handler_model = "device.settings.*=async, _=sync")` (SRV-21): which handlers of an async server are plain `fn`s, see `docs/api/handlers.md`.

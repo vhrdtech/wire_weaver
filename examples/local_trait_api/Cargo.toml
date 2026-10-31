@@ -1,0 +1,18 @@
+[package]
+name = "local_trait_api"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["local"]
+std = ["wire_weaver/std"]
+# The API as an async Rust trait (`Counter`), implemented by a local type and by the generated client (CLT-57)
+local = ["std", "dep:wire_weaver_client"]
+
+[dependencies]
+wire_weaver.workspace = true
+wire_weaver_client = { workspace = true, optional = true }

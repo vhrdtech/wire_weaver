@@ -1,17 +1,17 @@
 use darling::FromMeta;
 use darling::ast::NestedMeta;
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
+use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::{Error, ExprArray, Ident, Path, Result, Token};
 use wire_weaver_core::codegen::omit::Omit;
 
 pub(crate) struct ApiArgs {
+    /// The API crate, or `crate` for the crate the macro is called in (`local_trait` only, CLT-57).
     pub(crate) dep_name: Ident,
-    _colon_colon: Token![::],
     pub(crate) trait_name: Ident,
-    _for: Token![for],
-    pub(crate) context_ident: Path,
-    _comma: Token![,],
+    /// `for <server or client struct>`, optional when only `local_trait` is generated.
+    pub(crate) context_ident: Option<Path>,
     pub(crate) ext: ImplExtArgs,
 }
 
@@ -22,6 +22,14 @@ pub(crate) struct ImplExtArgs {
 
     #[darling(default)]
     pub(crate) server: bool,
+
+    /// Emit the API as an async Rust trait of this name, with its `<Name>Dyn` companion (CLT-57).
+    #[darling(default)]
+    pub(crate) local_trait: String,
+
+    /// Path of the trait made by `local_trait`, to implement on the generated client (CLT-57).
+    #[darling(default)]
+    pub(crate) impl_local_trait: String,
 
     #[darling(default)]
     pub(crate) no_alloc: bool,
@@ -73,13 +81,20 @@ pub(crate) struct ImplExtArgs {
 
 impl Parse for ApiArgs {
     fn parse(input: ParseStream) -> Result<Self> {
+        let dep_name = Ident::parse_any(input)?;
+        let _: Token![::] = input.parse()?;
+        let trait_name = input.parse()?;
+        let context_ident = if input.peek(Token![for]) {
+            let _: Token![for] = input.parse()?;
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        let _: Token![,] = input.parse()?;
         Ok(ApiArgs {
-            dep_name: input.parse()?,
-            _colon_colon: input.parse()?,
-            trait_name: input.parse()?,
-            _for: input.parse()?,
-            context_ident: input.parse()?,
-            _comma: input.parse()?,
+            dep_name,
+            trait_name,
+            context_ident,
             ext: input.parse()?,
         })
     }

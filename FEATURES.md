@@ -1099,6 +1099,32 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   place: `event_loop::transport::link_setup_timeout`), retries back off (first after 1/20 of it, doubling up to 1/4),
   `ClientConfig::link_setup_timeout()` and `ww --link-setup-timeout-ms` / `WW_LINK_SETUP_TIMEOUT_MS` /
   `link_setup_timeout_ms` in ww.toml override it (`wire_weaver_client/src/event_loop/transport.rs`, `event_loop/core.rs` tests). On a J-Link + STM32G0 over RTT the old 250 ms was not what failed in the test: connects succeeded with both budgets once TR-13 was fixed.
+- 🚧 **CLT-57 Local trait: one call site, local or remote** — `ww_codegen!(crate :: Api, local_trait = "Name")` emits the
+  API as an async Rust trait (`fn` returning `impl Future + Send`, owned types, every result a `Result` with the
+  client's error types) and a `NameDyn` companion with boxed futures for trait objects (`Box`/`Arc<dyn NameDyn>`
+  implement the trait); `impl_local_trait = ".."` implements it on the std client, a plain struct implements it with
+  `async fn`s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
+  remote one. Methods, property reads and writes and plain streams (`ItemStream<T>`) of the root level are done
+  (`examples/local_trait`, `tests/methods` `local_trait_on_the_client`, [Local trait](docs/api/local_trait.md)).
+  Missing, and how they could map:
+    - Nested trait levels and resource arrays: one trait per level, reached by `fn plug(&self) -> impl Plug` /
+      `fn unit(&self, index: u32) -> impl Unit`; the client's level structs borrow it (`UnitClient<'_>`), so
+      the level trait needs a lifetime or owned level handles.
+    - Observing (`+observe` properties), sinks, counted, reliable and batched streams: today only the client has
+      them. Observing could be an `ItemStream` of updates; sinks a `futures` `Sink`; counted and reliable streams
+      need cursors in the trait (`resume(cursor)`), which a local implementation would have to keep.
+    - Errors: the trait names `wire_weaver_client::Error` and `CallError`, so the API crate depends on
+      `wire_weaver_client` (behind a feature, but with its transports). They belong in a small crate (or in
+      `wire_weaver` under `std`) that API crates can name without the client runtime.
+    - The caller's identity (SRV-46 peer-identity): a local call has no peer, a server handler gets it in `Context`.
+      Forwarding it through the trait needs an argument or a task-local, not decided.
+    - Server side: handlers stay inherent methods with `Context` and `RpcResult`, which don't fit the trait (deferred
+      replies, `Unimplemented`, stream sends, `&mut self`, no_std/no_alloc borrowed types). Async alloc servers can
+      forward each handler to a local implementation (the example does); a generated forwarding server
+      (`server = true, forward_to = "field"`) would remove that boilerplate for std servers. no_std/no_alloc
+      servers keep their handlers: the trait's owned types and boxed futures don't fit firmware.
+    - Naming: the `#[ww_trait]` name is taken by the doc-only trait rustdoc shows; with `std` the doc trait could
+      become this trait, so `impl CounterApi for LocalCounter` reads as the API itself.
 - 🚧 **CLT-10 Trait calls that work on any device** · `v0.5` — serial, user label, a CLI that works with all devices.
   `ww list` with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: `ClientConfig::traits_only()`, `DynClient::global_attachment()` (served through API-20,

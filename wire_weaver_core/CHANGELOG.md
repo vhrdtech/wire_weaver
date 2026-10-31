@@ -20,6 +20,7 @@
 
 ### 🚀 Features
 
+- `codegen::local_trait::gen_local_trait` and `gen_local_trait_client_impl` (CLT-57): the API's root level as an async Rust trait (`impl Future + Send` functions with owned types, every result a `Result`), its `<Name>Dyn` companion with boxed futures and its implementation for `Box`/`Arc<dyn <Name>Dyn>`, and the trait implemented on a generated std client; items it can't express yet are listed in the trait's docs. `CratePaths::insert` names a crate by another path (`crate` for code generated in the API crate itself).
 - The walker parses each source file once per thread while its size and modification time stay the same: a process that walks several crates or versions (`ww api check`, the evolution tests) no longer parses the same ww_si and exact_units files on every walk (a fixture load 0.3 s → 0.1 s). Not inside a proc macro, whose syntax trees hold spans valid for one invocation only.
 - `dependency_dir(crate_path, dep_name)`: the directory of a dependency as Cargo builds it (path, git or registry source), for saving the snapshot of a crate kept in another repository (`exact_units`, STD-61).
 - A field `#[wire(W)]` with a user type `W` (shrink_wrap DER-23) is `series_opaque` in the API model, as the derive writes it in a `Series` (an opaque run of `W`'s bytes, `series::WiredOpaque`); the integer wire types of DER-19 stay columns. Test `user_wire_fields_are_series_opaque`.

@@ -8,12 +8,13 @@ use std::path::PathBuf;
 use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
 use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, IntrospectMode};
+use wire_weaver_core::codegen::local_trait::{gen_local_trait, gen_local_trait_client_impl};
 use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
-use wire_weaver_core::load_dep_with_paths;
 use wire_weaver_core::method_model::{MethodModel, MethodModelKind};
 use wire_weaver_core::property_model::{PropertyModel, PropertyModelKind};
 use wire_weaver_core::{ClientModel, gen_client, gen_server};
+use wire_weaver_core::{CratePaths, load, load_dep_with_paths};
 
 pub fn ww_api(args: ApiArgs) -> TokenStream {
     api_inner(args).unwrap_or_else(|e| syn::Error::new(Span::call_site(), e).to_compile_error())
@@ -27,9 +28,33 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
     let manifest_dir = PathBuf::from(
         std::env::var("CARGO_MANIFEST_DIR").expect("env variable CARGO_MANIFEST_DIR should be set"),
     );
-    let (api_bundle, crate_paths) =
-        load_dep_with_paths(args.dep_name.to_string(), Some(args.trait_name.to_string()))
+    let own_crate = args.dep_name == "crate";
+    let (api_bundle, crate_paths) = if own_crate {
+        // the API crate itself (local_trait, CLT-57): its types are named through `crate::`
+        let bundle = load(&manifest_dir, Some(args.trait_name.to_string()), false)
             .map_err(|e| format!("{e:?}"))?;
+        let mut paths = CratePaths::default();
+        let name = bundle
+            .root
+            .crate_name(&bundle)
+            .map_err(|e| format!("{e:?}"))?
+            .to_string();
+        paths.insert(name, vec!["crate".to_string()]);
+        (bundle, paths)
+    } else {
+        load_dep_with_paths(args.dep_name.to_string(), Some(args.trait_name.to_string()))
+            .map_err(|e| format!("{e:?}"))?
+    };
+    if own_crate && (args.ext.server || !args.ext.client.is_empty()) {
+        return Err("`crate :: Trait` only generates `local_trait`, server and client code is generated from \
+                    another crate depending on the API crate"
+            .into());
+    }
+    let context_ident = || {
+        args.context_ident.clone().ok_or_else(|| {
+            "server and client code need `for <struct>`: ww_codegen!(api :: Trait for Struct, ..)".to_string()
+        })
+    };
 
     let property_model = if args.ext.property_model.is_empty() {
         PropertyModel {
@@ -62,11 +87,21 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             .as_str(),
         args.trait_name.span(),
     );
-    let mut codegen_ts = quote! {
-        // unused when the call comes from a `macro_rules!` whose module is not reachable from outside
-        #[allow(unused_imports)]
-        pub use #dep_name :: #full_gid_const as _SOURCE_MARKER;
+    let mut codegen_ts = if own_crate {
+        quote! {}
+    } else {
+        quote! {
+            // unused when the call comes from a `macro_rules!` whose module is not reachable from outside
+            #[allow(unused_imports)]
+            pub use #dep_name :: #full_gid_const as _SOURCE_MARKER;
+        }
     };
+
+    if !args.ext.local_trait.is_empty() {
+        let ident = syn::parse_str::<Ident>(&args.ext.local_trait)
+            .map_err(|e| format!("local_trait must be a trait name: {e}"))?;
+        codegen_ts.append_all(gen_local_trait(&api_bundle, &crate_paths, &ident));
+    }
 
     // generate server code if requested
     if args.ext.server {
@@ -98,7 +133,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 method_model,
                 property_model,
                 const_model,
-                server_struct_path: args.context_ident.clone(),
+                server_struct_path: context_ident()?,
                 introspect_mode,
                 multi_req: args.ext.multi_req,
                 medium,
@@ -136,11 +171,26 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
             &api_bundle,
             GenClientConfigRaw {
                 model,
-                client_struct_path: args.context_ident.clone(),
+                client_struct_path: context_ident()?,
                 crate_paths: crate_paths.clone(),
             },
         );
         codegen_ts.append_all(ts);
+        if !args.ext.impl_local_trait.is_empty() {
+            let trait_path = syn::parse_str::<syn::Path>(&args.ext.impl_local_trait)
+                .map_err(|e| format!("impl_local_trait must be a trait path: {e}"))?;
+            codegen_ts.append_all(gen_local_trait_client_impl(
+                &api_bundle,
+                &crate_paths,
+                &trait_path,
+                &context_ident()?,
+            ));
+        }
+    } else if !args.ext.impl_local_trait.is_empty() {
+        return Err(
+            "impl_local_trait is implemented on the generated client: add client = \"std_client\""
+                .into(),
+        );
     }
 
     // save debug output to file if requested

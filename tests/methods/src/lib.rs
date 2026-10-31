@@ -479,7 +479,18 @@ mod tests {
             wire_weaver::ww_codegen!(
                 methods_api :: Methods for super::StdClient,
                 client = "std_client",
+                impl_local_trait = "super::local::MethodsLocal",
                 // debug_to_file = "../../target/tests_methods_client.rs"
+            );
+        }
+
+        /// The API as an async trait (CLT-57), made here instead of in the API crate: methods with errors, user
+        /// types and sub-byte arguments; the nested level and the resource array are left out.
+        pub mod local {
+            wire_weaver::ww_codegen!(
+                methods_api::Methods,
+                local_trait = "MethodsLocal",
+                // debug_to_file = "../../target/tests_methods_local_trait.rs"
             );
         }
     }
@@ -521,6 +532,34 @@ mod tests {
         StdClient::config(|c| c.in_process_path(device.path()))
             .connect_blocking()
             .expect("connect")
+    }
+
+    /// Calls through the local trait (CLT-57) reach the device like the client's own calls.
+    async fn through_local_trait(m: &impl std_client::local::MethodsLocal) {
+        use methods_api::I2cAddress;
+        use wire_weaver::shrink_wrap::un::{I10, U7, U10};
+        assert_eq!(m.plain_return().await.unwrap(), 0xAA);
+        assert_eq!(m.fallible(4).await.unwrap(), 2);
+        assert!(matches!(
+            m.fallible(3).await,
+            Err(wire_weaver_client::CallError::Device(MethodError::Odd))
+        ));
+        assert!(m.fallible_absent().await.unwrap_err().is_unimplemented());
+        let r = m.user_defined_return().await.unwrap();
+        assert_eq!(r.a, 37);
+        let seven = I2cAddress::Seven(U7::new(0x50).unwrap());
+        let sum = m
+            .sub_byte(U7::new(1).unwrap(), I10::new(2).unwrap(), seven)
+            .await
+            .unwrap();
+        assert_eq!(sum, U10::new(0x53).unwrap());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn local_trait_on_the_client() {
+        let (device, _data) = start("methods/local_trait");
+        let client = connect(&device).await;
+        through_local_trait(&client).await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

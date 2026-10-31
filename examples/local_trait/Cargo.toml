@@ -1,0 +1,20 @@
+[package]
+name = "local_trait"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+futures-lite = "2.6"
+local_trait_api.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client.workspace = true
+ww_client_server.workspace = true
+
+[dev-dependencies]
+tests_common.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

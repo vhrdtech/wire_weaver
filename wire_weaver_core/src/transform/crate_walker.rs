@@ -131,6 +131,12 @@ impl CratePaths {
         self.paths.get(crate_name).map(|path| path.as_slice())
     }
 
+    /// Name `crate_name` by `path` in generated code: `["crate"]` for code generated inside that crate itself
+    /// (`ww_codegen!(crate :: Trait, local_trait = ..)`, CLT-57).
+    pub fn insert(&mut self, crate_name: impl Into<String>, path: Vec<String>) {
+        self.paths.insert(crate_name.into(), path);
+    }
+
     /// Paths for the crates of `bundle` that `current`, the generating crate, doesn't depend on: through the root
     /// re-exports of the crates it does depend on, transitively, among the crates walked for `bundle`.
     fn find(current: &ManifestContext, bundle: &ApiBundleOwned, scratch: &Scratch) -> Self {

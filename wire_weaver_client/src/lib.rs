@@ -23,6 +23,7 @@ pub mod expr;
 pub mod follow;
 pub mod holders;
 pub mod hub;
+pub mod local;
 /// Observing properties (CLT-28), see [client::observe](crate::observe)
 pub use client::observe;
 mod local_registry;

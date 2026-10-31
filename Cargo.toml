@@ -210,6 +210,7 @@ io_pwm_api = { version = "0.1.0", path = "./tests/io_pwm_api" }
 io_spi_api = { version = "0.1.0", path = "./tests/io_spi_api" }
 io_timebase_api = { version = "0.1.0", path = "./tests/io_timebase_api" }
 io_uart_api = { version = "0.1.0", path = "./tests/io_uart_api" }
+local_trait_api = { version = "0.1.0", path = "./examples/local_trait_api" }
 log_defmt_api = { version = "0.1.0", path = "./tests/log_defmt_api" }
 methods_api = { version = "0.1.0", path = "./tests/methods_api" }
 module_paths_api = { version = "0.1.0", path = "./tests/module_paths_api" }

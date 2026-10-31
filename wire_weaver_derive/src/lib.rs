@@ -27,6 +27,10 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///     * "trait_client" - std client for one trait only, independent of where a device implements it
 ///     * "raw" - no_std client, currently not working (FEATURES CLT-14)
 /// * server = true/false - whether to generate server code or not.
+/// * local_trait = "Name" - emit the API as an async Rust trait `Name` (with `NameDyn` for trait objects) that the
+///   generated client and plain local types implement (CLT-57, `docs/api/local_trait.md`). Usually called in the
+///   API crate itself as `ww_codegen!(crate :: Api, local_trait = "Name")`: `crate ::` and no `for <struct>`.
+/// * impl_local_trait = "api_crate::Name" - with `client = "std_client"`, implement that trait on the client.
 /// * no_alloc = true/false - whether to use std types or RefVec for strings, vectors. Lifetime will be added automatically if no_alloc = true.
 /// * use_async - whether to generate async-aware code.
 /// * handler_model = "device.settings.*|meter.reading=async, _=sync" - which user handlers are `async fn` and which

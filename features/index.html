@@ -7892,6 +7892,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   next to <code>Micros</code>, <code>Millis</code>, <code>Nanos</code>; <code>units::{Minute, Hour, Day, Week}</code> and <code>origins::{UnixEpoch, UnixSecs, ..}</code>
   reach <code>ww_si::..</code> through its existing <code>units</code> / <code>origins</code> re-exports (feature <code>time</code>). Docs:
   <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/points/#origins">points</a>.</li>
+<li>✅ <strong>STD-85 <code>Count</code>, <code>Percent</code>/<code>Permille</code>, binary byte sizes, <code>Hz</code>, and counted <code>Line</code>/<code>Row</code>/<code>Record</code>/<code>Entry</code></strong> —
+  <code>exact_units</code> d28ec86: <code>Count&lt;Of, T&gt;</code> (<code>Fixed&lt;Of, One, T&gt;</code>, a count of <code>Of</code>s, unconditional), <code>Percent&lt;T&gt;</code> and
+  <code>Permille&lt;T&gt;</code> (<code>Fixed&lt;Ratio, Centi|Milli, T&gt;</code>, feature <code>dimensionless</code>), <code>Kibibytes&lt;T&gt;</code> / <code>Mebibytes&lt;T&gt;</code> /
+  <code>Gibibytes&lt;T&gt;</code> beside <code>Bytes&lt;T&gt;</code> (feature <code>information</code>) and <code>Hz&lt;T&gt;</code> (<code>Fixed&lt;Hertz, One, T&gt;</code>, feature <code>time</code>):
+  aliases cat_stack's APIs had declared for themselves, now one set for every crate. <code>units::{Line, Row, Record,
+  Entry}</code> (feature <code>counting</code>), counted bases beside <code>Item</code>/<code>Sample</code>/<code>Frame</code>/<code>Packet</code>. <code>ww_si</code> re-exports all of
+  them; they reach <code>ww_si::..</code> through its existing <code>units</code> re-export. Docs:
+  <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/ww_si/#dimensions"><code>ww_si</code></a>,
+  <a href="../std_library/indices/">indices</a>.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric

@@ -6137,7 +6137,7 @@ Bounds cost no bytes on the wire: a bounded quantity has the bytes of the unboun
 </tr>
 <tr>
 <td><code>counting</code></td>
-<td><code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>: counted bases</td>
+<td><code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Line</code>, <code>Row</code>, <code>Record</code>, <code>Entry</code>, <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>: counted bases</td>
 </tr>
 <tr>
 <td><code>quantities</code></td>
@@ -6394,9 +6394,9 @@ SI alone would call the same:</p>
   (32 bit) and <code>Doubleword</code> (64 bit) are scales of it, like <code>Gram</code> to kilogram. <code>units::Nibble</code> is this unit, not
   <code>shrink_wrap::Nibble</code>, the 4-bit storage a <code>Fixed</code> may hold its number in. Bytes are never a <code>Ratio</code> or an angle,
   and <code>Per&lt;Byte, Second&gt;</code> is a data rate, not a frequency.
-- <strong>Counted bases.</strong> <code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code> and <code>Code</code> count
-  things: each is a dimension of its own, so <code>Per&lt;Sample, Second&gt;</code> (s⁻¹·Sample) isn't <code>Hertz</code> and samples aren't
-  packets. A base is known by its crate and marker name together (<code>Counted { crate_name, name, exp }</code>): two crates'
+- <strong>Counted bases.</strong> <code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Line</code>, <code>Row</code>, <code>Record</code>, <code>Entry</code>, <code>Cycle</code>, <code>Block</code>,
+  <code>Sector</code>, <code>Chunk</code>, <code>Char</code> and <code>Code</code> count things: each is a dimension of its own, so <code>Per&lt;Sample, Second&gt;</code>
+  (s⁻¹·Sample) isn't <code>Hertz</code> and samples aren't packets. A base is known by its crate and marker name together (<code>Counted { crate_name, name, exp }</code>): two crates'
   <code>Sample</code> are different bases, and a marker moved to another module of its crate stays the same base. It is shown by
   the marker name alone. An API crate's own counted marker takes its dimension from <code>ww_si::counted!(Bucket)</code>, which
   fills in the crate. A dimension holds up to four of them (<code>MAX_COUNTED</code>), sorted by crate and name; a <code>Dim</code> on the

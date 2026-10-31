@@ -5727,8 +5727,9 @@ has a type for each, with the same algebra as <a href="../points/">points</a>: t
 </tr>
 </tbody>
 </table>
-<p><code>Of</code> names what is counted: a counted marker (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Cycle</code>, <code>Block</code>, <code>Sector</code>,
-<code>Chunk</code>, <code>Char</code>, <code>Code</code>, or an API's own from <code>unit!</code>), or any other unit (<code>Byte</code> for an offset). <code>T</code> is an unsigned
+<p><code>Of</code> names what is counted: a counted marker (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>, <code>Line</code>, <code>Row</code>, <code>Record</code>, <code>Entry</code>,
+<code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, or an API's own from <code>unit!</code>), or any other unit (<code>Byte</code> for an
+offset). <code>T</code> is an unsigned
 storage (<code>u8</code> .. <code>u64</code>, <code>Nibble</code>, <code>UNib32</code>, <code>UVlq64</code>). <code>B</code> are <code>Fixed</code>'s bounds markers, <code>Unbounded</code> by default.</p>
 <h2 id="index">Index<a class="headerlink" href="#index" title="Permanent link">&para;</a></h2>
 <div class="language-rust highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Index</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::</span><span class="n">Sample</span><span class="p">};</span>

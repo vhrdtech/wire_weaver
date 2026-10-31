@@ -9,8 +9,8 @@ use futures_lite::StreamExt;
 use local_trait_api::{Counter, CounterError, SnapshotOwned};
 use std::sync::Mutex;
 use tokio::sync::broadcast;
-use wire_weaver::{CallContext, Peer};
 use wire_weaver::call::{CallError, Error, ErrorKind, ItemStream, item_stream};
+use wire_weaver::{CallContext, Peer};
 
 /// The counter in this process: a plain struct implementing [Counter].
 pub struct LocalCounter {
@@ -69,7 +69,9 @@ impl Counter for LocalCounter {
     async fn write_step(&self, cx: &CallContext, step: u32) -> Result<(), Error> {
         // a policy reads who asked, the same behind a server and in the same process
         if let Peer::Addr(addr) = cx.peer {
-            return Err(Error::denied(format!("{addr}: the step is not set over the network")));
+            return Err(Error::denied(format!(
+                "{addr}: the step is not set over the network"
+            )));
         }
         self.state.lock().unwrap().step = step;
         Ok(())
@@ -140,8 +142,8 @@ pub async fn exercise(
 pub mod server {
     use super::LocalCounter;
     use local_trait_api::{Counter, CounterError, SnapshotOwned};
-    use wire_weaver::prelude::*;
     use wire_weaver::call::CallError;
+    use wire_weaver::prelude::*;
 
     pub struct CounterServer {
         pub core: LocalCounter,
@@ -308,25 +310,37 @@ mod tests {
     #[tokio::test]
     async fn generic_call_site_on_a_local_struct() {
         let local = LocalCounter::new("local");
-        assert_eq!(exercise(&local, &CallContext::local()).await.unwrap(), expected("local"));
+        assert_eq!(
+            exercise(&local, &CallContext::local()).await.unwrap(),
+            expected("local")
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generic_call_site_on_the_client() {
         let device = start_device("local_trait/client");
         let client = connect(&device).await;
-        assert_eq!(exercise(&client, &CallContext::local()).await.unwrap(), expected("served"));
+        assert_eq!(
+            exercise(&client, &CallContext::local()).await.unwrap(),
+            expected("served")
+        );
     }
 
     /// Picked at run time: a trait object of either kind goes through the same call site.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generic_call_site_on_trait_objects() {
         let local: Box<dyn CounterDyn> = Box::new(LocalCounter::new("local"));
-        assert_eq!(exercise(&local, &CallContext::local()).await.unwrap(), expected("local"));
+        assert_eq!(
+            exercise(&local, &CallContext::local()).await.unwrap(),
+            expected("local")
+        );
 
         let device = start_device("local_trait/dyn");
         let remote: Arc<dyn CounterDyn> = Arc::new(connect(&device).await);
-        assert_eq!(exercise(&remote, &CallContext::local()).await.unwrap(), expected("served"));
+        assert_eq!(
+            exercise(&remote, &CallContext::local()).await.unwrap(),
+            expected("served")
+        );
     }
 
     /// A generic caller can run on another task: the trait's futures are `Send`.
@@ -344,5 +358,24 @@ mod tests {
         );
         let device = start_device("local_trait/send");
         assert_eq!(add_on_a_task(Arc::new(connect(&device).await), 5).await, 5);
+    }
+}
+
+/// Only [Counter] in scope here: with `CounterDyn` too, the calls are ambiguous.
+#[cfg(test)]
+mod policy_tests {
+    use super::*;
+
+    /// A local implementation decides by who asked: the same `CallContext` a server forwards with `cx.call()`.
+    #[tokio::test]
+    async fn policy_reads_the_peer() {
+        let local = LocalCounter::new("local");
+        let addr = "192.0.2.1:4000".parse().unwrap();
+        let remote = CallContext::new(7).with_peer(Peer::Addr(addr));
+        let err = local.write_step(&remote, 5).await.unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::Denied);
+        assert_eq!(local.read_step(&remote).await.unwrap(), 1);
+        local.write_step(&CallContext::local(), 5).await.unwrap();
+        assert_eq!(local.read_step(&CallContext::local()).await.unwrap(), 5);
     }
 }

@@ -104,7 +104,11 @@ pub enum Peer {
     Local,
     /// A process on this machine, from the unix socket's peer credentials. `pid` is None where the system doesn't
     /// tell it (`getpeereid` on macOS).
-    Unix { uid: Uid, gid: Gid, pid: Option<Pid> },
+    Unix {
+        uid: Uid,
+        gid: Gid,
+        pid: Option<Pid>,
+    },
     /// A peer that proved a key: an iroh node id, a client certificate's SPKI SHA-256.
     Key(PeerKey),
     /// A network peer known by its address only (TCP, UDP): an address is not an identity.

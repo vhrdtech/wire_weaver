@@ -15,7 +15,8 @@ mod test;
 mod valid_indices;
 
 pub use call_context::{
-    CallContext, ConnectionId, Gid, Peer, PeerKey, Pid, SpanId, TraceContext, TraceFlags, TraceId, Uid,
+    CallContext, ConnectionId, Gid, Peer, PeerKey, Pid, SpanId, TraceContext, TraceFlags, TraceId,
+    Uid,
 };
 pub use context::{
     BlockingEventOut, BlockingMessageSink, Context, EventOut, EventQueue, EventWriter, MessageSink,
@@ -45,8 +46,9 @@ pub mod prelude {
     pub use crate::valid_indices::ValidIndicesOwned;
     pub use crate::ww_unimplemented;
     pub use crate::{
-        BlockingEventOut, BlockingMessageSink, CallContext, Context, EventOut, EventQueue, EventWriter,
-        MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend, WireWeaverAsyncApiBackend,
+        BlockingEventOut, BlockingMessageSink, CallContext, Context, EventOut, EventQueue,
+        EventWriter, MessageSink, Priority, ReplyTo, SendError, WireWeaverApiBackend,
+        WireWeaverAsyncApiBackend,
     };
     pub use shrink_wrap;
     pub use shrink_wrap::prelude::*;

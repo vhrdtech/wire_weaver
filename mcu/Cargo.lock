@@ -505,6 +505,7 @@ name = "exact_units"
 version = "0.1.0"
 source = "git+https://github.com/romixlab/exact_units?rev=e89f64edb1fd7522d8a53f4f26f67550c4c8d8f9#e89f64edb1fd7522d8a53f4f26f67550c4c8d8f9"
 dependencies = [
+ "defmt 1.1.1",
  "serde",
  "shrink_wrap",
 ]
@@ -1167,6 +1168,7 @@ name = "wire_weaver"
 version = "0.5.0"
 dependencies = [
  "defmt 1.1.1",
+ "exact_units",
  "shrink_wrap",
  "wire_weaver_derive",
  "ww_error",

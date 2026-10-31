@@ -1065,6 +1065,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   provision-ab-dfu`, which erases its settings: the person's call); no `ww settings` command writes to a device yet (`dump` reads a file), one that
   does takes `Exclusive` the same way. Clients reconnect after a lend with the `Lent` reason (CLT-40), and the hub's
   steering pauses while the root is held (SRV-31, `tests/hub` `a_root_claim_pauses_steering`).
+- ✅ **SRV-48 call-context One `CallContext` for who asked** — `wire_weaver::CallContext`, one `no_std`, `Copy`
+  value per call without an allocator: `seq`, `priority`, `peer: Peer` (`Local`, `Unix { uid, gid, pid }`,
+  `Key(PeerKey)`, `Addr`, `Unknown`; `Uid`, `Gid`, `Pid`, `PeerKey` newtypes), `trace: Option<TraceContext>` (W3C),
+  `deadline: Option<Millis<u32>>`, `connection: ConnectionId`. Every server `Context` carries it (`cx.call()`),
+  `CallContext::local()` is what a caller in the same process passes. `wire_weaver::call` (`std`, no transports) has
+  the light call errors (`Error` with an `ErrorKind`, `CallError<E>`: `Api`, `Unimplemented`, `Denied`,
+  `Unavailable`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `Internal`) and `ItemStream`;
+  `wire_weaver_client`'s errors convert into them, and `with_call_context(&cx)` on a prepared call applies its
+  priority and its deadline as the timeout. The CLT-57 local trait takes `cx: &CallContext` first and answers these
+  errors, so an API crate's `local` feature needs no `wire_weaver_client`
+  ([Local trait](docs/api/local_trait.md#who-asked-callcontext), `examples/local_trait`). Firmware: the STM32H725
+  USB examples' dispatch frames did not grow, the server's static future grew by 72 B. Not here: transports filling
+  in the peer (SRV-46 peer-identity, a remote caller is `Unknown` until then), trace and deadline on the wire
+  (SRV-47 request-context), the trace of the current `tracing` span in `CallContext::local()` (needs W3C ids,
+  with SRV-47).
 - 📋 **SRV-33 Hub federation between PCs** · `v0.5.x` — remote devices through another PC's hub, as `HOST/<key>`,
   with who may connect decided by the hub that owns the device (security design reviewed before code). Steps:
   SRV-36 ssh (full access), SRV-37 principals and per-device rights, SRV-38 restricted ssh keys, SRV-39 the browser
@@ -1214,10 +1229,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `link_setup_timeout_ms` in ww.toml override it (`wire_weaver_client/src/event_loop/transport.rs`, `event_loop/core.rs` tests). On a J-Link + STM32G0 over RTT the old 250 ms was not what failed in the test: connects succeeded with both budgets once TR-13 was fixed.
 - 🚧 **CLT-57 Local trait: one call site, local or remote** — `ww_codegen!(crate :: Api, local_trait = "Name")` emits the
   API as an async Rust trait (`fn` returning `impl Future + Send`, owned types, every result a `Result` with the
-  client's error types) and a `NameDyn` companion with boxed futures for trait objects (`Box`/`Arc<dyn NameDyn>`
-  implement the trait); `impl_local_trait = ".."` implements it on the std client, a plain struct implements it with
+  errors of `wire_weaver::call`, SRV-48) and a `NameDyn` companion with boxed futures for trait objects
+  (`Box`/`Arc<dyn NameDyn>` implement the trait); `impl_local_trait = ".."` implements it on the std client, a plain struct implements it with
   `async fn`s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
-  remote one. Methods, property reads and writes and plain streams (`ItemStream<T>`) of the root level are done
+  remote one. Every function takes the caller's `cx: &CallContext` first (SRV-48 call-context), so a server
+  forwards who asked with `cx.call()`; the API crate's `local` feature needs `wire_weaver` with `std` only, no
+  `wire_weaver_client`. Methods, property reads and writes and plain streams (`ItemStream<T>`) of the root level are done
   (`examples/local_trait`, `tests/methods` `local_trait_on_the_client`, [Local trait](docs/api/local_trait.md)).
   Missing, and how they could map:
     - Nested trait levels and resource arrays: one trait per level, reached by `fn plug(&self) -> impl Plug` /
@@ -1226,11 +1243,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     - Observing (`+observe` properties), sinks, counted, reliable and batched streams: today only the client has
       them. Observing could be an `ItemStream` of updates; sinks a `futures` `Sink`; counted and reliable streams
       need cursors in the trait (`resume(cursor)`), which a local implementation would have to keep.
-    - Errors: the trait names `wire_weaver_client::Error` and `CallError`, so the API crate depends on
-      `wire_weaver_client` (behind a feature, but with its transports). They belong in a small crate (or in
-      `wire_weaver` under `std`) that API crates can name without the client runtime.
-    - The caller's identity (SRV-46 peer-identity): a local call has no peer, a server handler gets it in `Context`.
-      Forwarding it through the trait needs an argument or a task-local, not decided.
     - Server side: handlers stay inherent methods with `Context` and `RpcResult`, which don't fit the trait (deferred
       replies, `Unimplemented`, stream sends, `&mut self`, no_std/no_alloc borrowed types). Async alloc servers can
       forward each handler to a local implementation (the example does); a generated forwarding server

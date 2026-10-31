@@ -6,10 +6,10 @@
 use crate::{Priority, RawStreamEvent, Stream, StreamError};
 use std::time::Duration;
 use wire_weaver::CallContext;
-use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 use ww_client_server::StreamSideband;
 
 pub use wire_weaver::call::{BoxFuture, ItemStream, item_stream};
+use wire_weaver::shrink_wrap::DeserializeShrinkWrapOwned;
 
 impl<T: DeserializeShrinkWrapOwned + Send + 'static> Stream<T> {
     /// This stream as the [ItemStream] of a local trait: each [Stream::recv], ending when the device closes the

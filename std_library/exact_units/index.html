@@ -3939,6 +3939,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#serde" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        serde
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#units" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5665,6 +5676,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#serde" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        serde
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#units" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5920,7 +5942,9 @@ storage (<code>Range&lt;-5, 300&gt;</code> on a <code>u8</code>) doesn't build.<
 <li><code>core::time::Duration</code> both ways for s, ds, cs, ms, µs and ns: <code>Micros::&lt;u32&gt;::try_from(Duration::from_millis(3))</code>
   is 3000 µs, an error when it doesn't fit.</li>
 <li><code>Display</code> as <code>1500 µs</code>, <code>{:#}</code> in the unit itself (<code>0.0015 s</code>); <code>Debug</code> as <code>Second(1500 µs u32)</code> (with the bounds
-  when there are some: <code>Second(100 ms u16, 1..=5000)</code>); <code>defmt::Format</code> with the <code>defmt</code> feature.</li>
+  when there are some: <code>Second(100 ms u16, 1..=5000)</code>); <code>defmt::Format</code> with the <code>defmt</code> feature. <code>{:#}</code> takes the
+  formatter's precision and width, rounding to the nearest (a tie to even): <code>{:#.3}</code> of a Q15 of 0.8 is <code>0.800</code>,
+  <code>{:#10.2}</code> of 1500 mV is <code>1.50 V</code>.</li>
 <li>Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain <code>Per&lt;Volt, Volt&gt;</code> is
   not a current gain <code>Per&lt;Ampere, Ampere&gt;</code>, a power gain <code>Per&lt;Watt, Watt&gt;</code> or a <code>Ratio</code> (a duty cycle), and a
   transimpedance <code>Per&lt;Volt, Ampere&gt;</code> is not an <code>Ohm</code> (resistance), nor <code>Per&lt;Ampere, Volt&gt;</code> a <code>Siemens</code>. A quotient
@@ -6097,6 +6121,70 @@ else is a <code>ValueError</code> with the same text as above.</p>
 <code>DynPrefix</code>, <code>Storage { base, bounds }</code>), <code>DynQuantity::from_value</code> reads a value of it, and <code>DynQuantity::to_value</code>
 writes into it exactly or returns the error above. <code>quantity::DynCount</code> does the same for indices and sequence
 numbers. The C consumer of the <a href="../../serdes/conformance/">conformance matrix</a> reads a <code>Fixed</code> as its <code>T</code>.</p>
+<h2 id="serde">serde<a class="headerlink" href="#serde" title="Permanent link">&para;</a></h2>
+<p>With the feature <code>serde</code> the numbers are <code>Serialize</code> / <code>Deserialize</code>, <code>no_std</code> and without alloc (STD-94). Each is
+written as the number it stores, as on the wire, since the unit, scale and bounds are in the type: a
+<code>Fixed&lt;Second, Milli, u16&gt;</code> of 1500 ms is <code>1500</code> in JSON and the <code>u16</code>'s bytes in postcard.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Written as</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Fixed</code> (Q15, <code>Bam16</code>, <code>PhaseBam16</code>, ..)</td>
+<td>the stored number</td>
+</tr>
+<tr>
+<td><code>Point</code>, <code>Index</code>, <code>IndexFrom1</code>, <code>Seq</code></td>
+<td>the stored number</td>
+</tr>
+<tr>
+<td><code>Complex</code></td>
+<td><code>{ re, im }</code>, a tuple's bytes in postcard; <code>[re, im]</code> reads</td>
+</tr>
+<tr>
+<td><code>Polar</code></td>
+<td><code>{ abs, arg }</code></td>
+</tr>
+<tr>
+<td><code>Decibels</code></td>
+<td><code>"-3.01"</code> in JSON, TOML, RON; <code>(num, decimals)</code> in postcard</td>
+</tr>
+</tbody>
+</table>
+<p><code>Complex</code> is a struct of named parts and not a pair: in a binary format the bytes are the same, and in a config the
+parts can't be swapped by mistake. Reading checks what construction checks and never builds a value that breaks it:
+a <code>Fixed</code> or an index outside its bounds, an <code>IndexFrom1</code> of 0, a level with more than 9 decimals. The error names
+the value and the bound, as <code>ww</code> does:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>6000 ms is out of 1..=5000 ms (Second, u16)
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>index 0 of a table counted from 1
+</span></code></pre></div>
+<p>For text a person writes, a field takes <code>#[serde(with = "exact_units::serde::with_unit")]</code> (<code>with_unit::option</code>
+for an <code>Option</code>): it is written as <code>{:#}</code> writes it, <code>"0.0015 s"</code>, and read as a number with the field's unit and
+any SI or binary prefix, the space optional: <code>"1.5 ms"</code>, <code>"1500 us"</code>, <code>"4 KiB"</code>, <code>"25 %"</code> for a ratio. The value
+goes into the field's scale and storage exactly, or it is an error that says why:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">use</span><span class="w"> </span><span class="n">exact_units</span><span class="p">::{</span><span class="n">Fixed</span><span class="p">,</span><span class="w"> </span><span class="n">Millis</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="p">,</span><span class="w"> </span><span class="n">prefix</span><span class="p">::</span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="n">units</span><span class="p">::{</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Volt</span><span class="p">}};</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="cp">#[derive(serde::Serialize, serde::Deserialize)]</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">struct</span><span class="w"> </span><span class="nc">Config</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="n">period</span><span class="p">:</span><span class="w"> </span><span class="nc">Millis</span><span class="o">&lt;</span><span class="kt">u32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">                                   </span><span class="c1">// 20</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span><span class="n">timeout</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="p">,</span><span class="w"> </span><span class="n">Range</span><span class="o">&lt;</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">5000</span><span class="o">&gt;&gt;</span><span class="p">,</span><span class="w">    </span><span class="c1">// 250, 6000 is refused</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">    </span><span class="cp">#[serde(with = </span><span class="s">&quot;exact_units::serde::with_unit&quot;</span><span class="cp">)]</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="n">rail</span><span class="p">:</span><span class="w"> </span><span class="nc">Fixed</span><span class="o">&lt;</span><span class="n">Volt</span><span class="p">,</span><span class="w"> </span><span class="n">Milli</span><span class="p">,</span><span class="w"> </span><span class="kt">u16</span><span class="o">&gt;</span><span class="p">,</span><span class="w">                         </span><span class="c1">// &quot;3.3 V&quot;, &quot;3300 mV&quot;</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">}</span>
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>&quot;5 kg&quot; is not in V (with or without an SI prefix)
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>&quot;3.3005 V&quot; is not a whole number of 1 mV steps; the nearest are 3.3 V and 3.301 V
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>&quot;70 V&quot; doesn&#39;t fit u16 in 1 mV steps
+</span></code></pre></div>
+<p>Every value reads back from the text it was written as, also where <code>{:#}</code> writes a float (a <code>Duty16</code>'s steps of
+1/65535, a scale with π): that text reads as the value it came from, while a decimal between two steps is refused
+with the two. A float storage takes the nearest float. <code>Magnitude</code> and <code>Offset</code> are serde with <code>serde</code> and <code>std</code>,
+and the owned wire mirrors (<code>DimOwned</code>, <code>CountedOwned</code>, <code>ProvenanceOwned</code>, for RON snapshots of APIs) with <code>serde</code>,
+<code>std</code> and <code>shrink_wrap</code>.</p>
 <h2 id="units">Units<a class="headerlink" href="#units" title="Permanent link">&para;</a></h2>
 <p>The unit markers are in <code>exact_units::units</code>, grouped by cargo features a firmware turns on as it needs them
 (<code>time</code>, <code>electrical</code>, <code>mechanical</code>, <code>angle</code>, <code>thermal</code>, <code>chemical</code>, <code>photometric</code>, <code>radiation</code>, <code>dimensionless</code>,

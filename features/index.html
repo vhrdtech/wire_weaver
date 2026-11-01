@@ -6659,7 +6659,29 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
-<li>💡 <strong>SRV-12 std server on Tower</strong> · <code>v0.5</code>.</li>
+<li>📋 <strong>SRV-12 Host server runtime</strong> — <code>wire_weaver_server</code> (std, tokio), the counterpart of <code>wire_weaver_client</code>:
+  many concurrent clients, each connection driving <code>ww_device::DeviceLink</code> with its peer from the transport;
+  listeners for the local socket, an in-memory pair for tests and an inherited fd (systemd socket activation);
+  per-connection inherent backends (the hub's pattern) or a shared trait backend (SRV-49); limits on connections and
+  requests in flight, graceful shutdown, a stream fan-out helper; <code>serve()</code> is a future on the program's own runtime,
+  so a process can embed a small server. Then <code>ww_hub</code> serves its API on it.</li>
+<li>📋 <strong>SRV-46 Peer identity and policy</strong> — who called, from the transport only (SO_PEERCRED, <code>getpeereid</code>, the
+  Windows user, a key handed in with a stream, the address), never from <code>ClientMeta</code>; a listener policy (same user by
+  default, a uid/gid allow-list, or any user with the identity passed through) with socket modes to match, and an
+  authorization hook run before any handler with the resource's path and <code>ww_self</code> metadata (SRV-34 claims). Feeds
+  SRV-37.</li>
+<li>📋 <strong>SRV-47 Request context on the wire</strong> — optional request extensions (W3C trace context, deadline budget),
+  <code>RequestKind::Cancel</code> and the error kinds <code>Denied</code>, <code>DeadlineExceeded</code>, <code>Cancelled</code>, <code>Overloaded</code>, <code>Internal</code>:
+  appended forms that a side sends only after the other announced them in link setup, so existing bytes don't change.
+  The client fills them from its tracing span and call timeout, the server opens a span per request.</li>
+<li>📋 <strong>SRV-48 Call context</strong> — <code>wire_weaver::CallContext</code> (<code>no_std</code>, <code>Copy</code>): the request's seq, priority, peer,
+  trace context, deadline and connection, carried by the handler <code>Context</code>, passed to the local trait (CLT-57) and
+  read by the client; light <code>CallError</code>/<code>Error</code> types and <code>ItemStream</code> in <code>wire_weaver::call</code> (std), so API crates
+  name them without <code>wire_weaver_client</code>.</li>
+<li>📋 <strong>SRV-49 Server forwarding to the local trait</strong> — <code>ww_codegen!(.., server = true, serve_trait = "..")</code>
+  generates a std server that forwards every request to one shared implementation of the API's local trait
+  (CLT-57), the same one in-process callers use: requests of a connection run concurrently, started in order with
+  writes as barriers; deadline and cancel drop the call; streams are pumped from the implementation's <code>ItemStream</code>.</li>
 <li>📋 <strong>SRV-13 ww hub: one device, many programs</strong> · <code>v0.5.x</code> — a per-user hub that starts itself on first use and
   exits when idle (sccache / ssh ControlMaster style, no system service, Linux, macOS and Windows), holds the
   devices (USB, RTT, later UDP) and serves every client over a user-only local socket (TR-16); it is itself a
@@ -6844,14 +6866,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   place: <code>event_loop::transport::link_setup_timeout</code>), retries back off (first after 1/20 of it, doubling up to &frac14;),
   <code>ClientConfig::link_setup_timeout()</code> and <code>ww --link-setup-timeout-ms</code> / <code>WW_LINK_SETUP_TIMEOUT_MS</code> /
   <code>link_setup_timeout_ms</code> in ww.toml override it (<code>wire_weaver_client/src/event_loop/transport.rs</code>, <code>event_loop/core.rs</code> tests). On a J-Link + STM32G0 over RTT the old 250 ms was not what failed in the test: connects succeeded with both budgets once TR-13 was fixed.</li>
-<li>🚧 <strong>CLT-57 Local trait: one call site, local or remote</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name")</code> emits the
+<li>
+<p>🚧 <strong>CLT-57 Local trait: one call site, local or remote</strong> — <code>ww_codegen!(crate :: Api, local_trait = "Name")</code> emits the
   API as an async Rust trait (<code>fn</code> returning <code>impl Future + Send</code>, owned types, every result a <code>Result</code> with the
   client's error types) and a <code>NameDyn</code> companion with boxed futures for trait objects (<code>Box</code>/<code>Arc&lt;dyn NameDyn&gt;</code>
   implement the trait); <code>impl_local_trait = ".."</code> implements it on the std client, a plain struct implements it with
   <code>async fn</code>s, so a generic call site runs against a direct local implementation (no server, no serialization) or a
   remote one. Methods, property reads and writes and plain streams (<code>ItemStream&lt;T&gt;</code>) of the root level are done
   (<code>examples/local_trait</code>, <code>tests/methods</code> <code>local_trait_on_the_client</code>, <a href="../docs/api/local_trait/">Local trait</a>).
-  Missing, and how they could map:<ul>
+  Missing, and how they could map:</p>
+<ul>
 <li>Nested trait levels and resource arrays: one trait per level, reached by <code>fn plug(&amp;self) -&gt; impl Plug</code> /
   <code>fn unit(&amp;self, index: u32) -&gt; impl Unit</code>; the client's level structs borrow it (<code>UnitClient&lt;'_&gt;</code>), so
   the level trait needs a lifetime or owned level handles.</li>
@@ -6871,36 +6895,43 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
 <li>Naming: the <code>#[ww_trait]</code> name is taken by the doc-only trait rustdoc shows; with <code>std</code> the doc trait could
   become this trait, so <code>impl CounterApi for LocalCounter</code> reads as the API itself.</li>
 </ul>
-</li>
-<li>🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
+<p>Follow-ups: SRV-48 (errors and the caller's context), SRV-49 (the forwarding server), CLT-58 (levels, arrays,
+observing), SRV-46 (peer identity).
+- 📋 <strong>CLT-55 Large messages</strong> — the client's message size limit from <code>ClientConfig</code> instead of a 16 KiB constant,
+  the agreed limit from link setup used by both sides with an error naming both, growable reply buffers for
+  <code>no_alloc = false</code> servers, and a documented idiom for result sets bigger than a message (a stream of rows, or
+  paging). Each connection's host API version and client app version are kept for skew checks.
+- 📋 <strong>CLT-58 Local trait for nested levels and arrays</strong> — one trait per nested level and resource arrays by index,
+  <code>+observe</code> properties as a stream of updates, on the client, plain implementations and SRV-49's server.
+- 🚧 <strong>CLT-10 Trait calls that work on any device</strong> · <code>v0.5</code> — serial, user label, a CLI that works with all devices.
   <code>ww list</code> with filters and USB interface string metadata are done, and global trait calls on any device whatever
   its API version: <code>ClientConfig::traits_only()</code>, <code>DynClient::global_attachment()</code> (served through API-20,
   <code>tests/cross_version</code>), <code>ww dfu reboot</code>, <code>ww counters</code> (STD-25) and <code>ww info</code> / <code>ww report</code> (CLT-25).
-  Missing: CLI commands for the other <code>ww_stdlib</code> traits (GPIO, UART, ...).</li>
-<li>📋 <strong>CLT-11 Typed property handles</strong> · <code>v0.5</code> — <code>RwProperty</code>/<code>RoProperty</code>/<code>WoProperty</code> so that
-  <code>.prop_name().read()</code>, <code>.prepare_write(1).blocking()</code>, <code>.asynch().await</code> work.</li>
-<li>📋 <strong>CLT-12 Stream receive timeout</strong> · <code>v0.5</code> — and a beat timeout between updates.</li>
-<li>🔍 <strong>CLT-13 Typed attachments with <code>TraitMarker</code></strong> · <code>v0.5</code> — trait attachments exist (<code>Attachment</code>,
-  <code>examples/all_gpio</code>); check whether a typed marker is still wanted.</li>
-<li>💡 <strong>CLT-14 <code>no_std</code> client</strong> (<code>client = "raw"</code>) — documented as not working in <code>ClientModel::Raw</code>, its test is
+  Missing: CLI commands for the other <code>ww_stdlib</code> traits (GPIO, UART, ...).
+- 📋 <strong>CLT-11 Typed property handles</strong> · <code>v0.5</code> — <code>RwProperty</code>/<code>RoProperty</code>/<code>WoProperty</code> so that
+  <code>.prop_name().read()</code>, <code>.prepare_write(1).blocking()</code>, <code>.asynch().await</code> work.
+- 📋 <strong>CLT-12 Stream receive timeout</strong> · <code>v0.5</code> — and a beat timeout between updates.
+- 🔍 <strong>CLT-13 Typed attachments with <code>TraitMarker</code></strong> · <code>v0.5</code> — trait attachments exist (<code>Attachment</code>,
+  <code>examples/all_gpio</code>); check whether a typed marker is still wanted.
+- 💡 <strong>CLT-14 <code>no_std</code> client</strong> (<code>client = "raw"</code>) — documented as not working in <code>ClientModel::Raw</code>, its test is
   commented out in <code>tests/traits</code>. Its generated code serializes arguments into a fixed 128 byte scratch and
   then calls <code>.to_vec()</code>, which isn't <code>no_std</code>; it should write into a caller-provided buffer instead. The std
-  clients (<code>std_client</code>, <code>trait_client</code>) already serialize with <code>to_ww_bytes_owned()</code> and have no size limit.</li>
-<li>✅ <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — servers with <code>multi_req = true</code> dispatch <code>MultiRead</code>, <code>MultiCall</code>
+  clients (<code>std_client</code>, <code>trait_client</code>) already serialize with <code>to_ww_bytes_owned()</code> and have no size limit.
+- ✅ <strong>CLT-15 Multi read/write/call</strong> · <code>v0.5.x</code> — servers with <code>multi_req = true</code> dispatch <code>MultiRead</code>, <code>MultiCall</code>
   and <code>MultiWrite</code> (<code>Same</code> or <code>Different</code> args), each index answered on its own (<code>Either&lt;Error, value&gt;</code>), and answer
   malformed multi requests with errors instead of panicking (<code>tests/multi_req</code>). Client side: generic <code>MultiRead</code>/
   <code>MultiCall</code>/<code>MultiWrite</code> tuple traits (any arity 2..=8, any depth, not just root 2-tuples), <code>read_array</code>/
   <code>call_array</code>/<code>write_array</code> for homogeneous requests across an array's indices (<code>List</code>/<code>Range</code>/<code>Mask32</code>, <code>Same</code> or
   <code>Different</code> args chosen automatically), and a <code>DynResource</code> equivalent for the dynamic client
   (<code>docs/api/multi_requests.md</code>, <code>tests/properties</code>, <code>tests/methods</code>, <code>tests/dynamic</code>). Deferred methods inside a multi request are refused with
-  <code>OperationNotSupported</code>.</li>
-<li>📋 <strong>CLT-32 Generic definitions from another revision by the evolution rules</strong> · <code>v0.5.x</code> — a definition a device
+  <code>OperationNotSupported</code>.
+- 📋 <strong>CLT-32 Generic definitions from another revision by the evolution rules</strong> · <code>v0.5.x</code> — a definition a device
   leaves out that differs from the host's snapshot (an unpublished crate changed without a bump) is found in the
   definition cache and compared by the evolution rules, but only when it is not generic: for an instance of a generic
   definition (<code>ww_si::Quantity&lt;U&gt;</code>, <code>Timed&lt;T&gt;</code>) <code>check_instances</code> compares identity and signature only, so a docs-only
   change reads as incompatible. Compare the two generic definitions field by field with the arguments substituted.
-  Found by STD-38 (<code>wire_weaver_client</code> <code>compat::tests::other_revision</code> now use the marker <code>units::Volt</code>).</li>
-<li>✅ <strong>CLT-34 stm32-rom-dfu: STM32 system bootloader (ROM DFU) as an updater</strong> — <code>stm32_dfu_host</code> (<code>ww_stm32_dfu</code>), a
+  Found by STD-38 (<code>wire_weaver_client</code> <code>compat::tests::other_revision</code> now use the marker <code>units::Volt</code>).
+- ✅ <strong>CLT-34 stm32-rom-dfu: STM32 system bootloader (ROM DFU) as an updater</strong> — <code>stm32_dfu_host</code> (<code>ww_stm32_dfu</code>), a
   pure-Rust DfuSe host on nusb in a crate of its own (library first, to move to its own repo like <code>picoboot_host</code>):
   lists <code>0483:DF11</code>, parses the alt setting's memory layout string (<code>@Internal Flash /0x08000000/08*128Kg</code>), erases
   only the sectors an image touches, writes in flash words (32 B, padded with <code>0xFF</code>), reads back and compares,
@@ -6916,19 +6947,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   is 0x93 (V9.3, AN2606 Table 134: only V9.1/V9.2 lock PWR_CR3, <code>flash</code> says "unplug and replug" for them), "get
   commands" answers 0x00 first (the command's code, no version), 220 KB erased, written and verified in 7.7 s.
   "Leave" jumps to the firmware with the ROM's clocks and USB still on: the firmware must reset first (B135 does).
-  Missing: option bytes / OTP alt settings are listed but not written.</li>
-<li>📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).</li>
-<li>📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
-  a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.</li>
-<li>🔍 <strong>CLT-18 Backpressure</strong> — commands already go through a bounded channel (<code>ClientConfig::cmd_queue_size</code>), so
+  Missing: option bytes / OTP alt settings are listed but not written.
+- 📋 <strong>CLT-16 Verify the hash of a cached API bundle</strong> · <code>v0.5.x</code> (<code>wire_weaver_client/src/local_registry.rs</code>).
+- 📋 <strong>CLT-17 Reliable requests over unreliable media</strong> · <code>v0.5.x</code> — a second, non-increasing seq number to guard against
+  a lost reply for a request that was executed, when executing twice is not OK. Relevant for UDP.
+- 🔍 <strong>CLT-18 Backpressure</strong> — commands already go through a bounded channel (<code>ClientConfig::cmd_queue_size</code>), so
   user code should block or yield when the queue is full; add tests for it. A request sent while every
   request id is in flight waits for one. Flow control
-  towards the device for sinks: API-28 credit-sinks.</li>
-<li>📋 <strong>CLT-19 Connection priority</strong> in the client config (<code>TODO</code> in <code>config.rs</code>).</li>
-<li>📋 <strong>CLT-20 Bound check of generated byte sink writes</strong> · <code>v0.5.x</code> — a <code>sink!(x: MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;)</code> write
+  towards the device for sinks: API-28 credit-sinks.
+- 📋 <strong>CLT-19 Connection priority</strong> in the client config (<code>TODO</code> in <code>config.rs</code>).
+- 📋 <strong>CLT-20 Bound check of generated byte sink writes</strong> · <code>v0.5.x</code> — a <code>sink!(x: MaxLen&lt;RefVec&lt;'i, u8&gt;, N&gt;)</code> write
   from a generated client is sent as raw bytes without a length check, the device rejects a longer one
-  (<code>ArgsDesFailed</code>); the dynamic client and Python already check before sending.</li>
-<li>🚧 <strong>CLT-21 Follow a device across a reboot into other firmware</strong> — for DFU (<code>ww_dfu</code> <code>BootControl::reboot(Updater)</code>):
+  (<code>ArgsDesFailed</code>); the dynamic client and Python already check before sending.
+- 🚧 <strong>CLT-21 Follow a device across a reboot into other firmware</strong> — for DFU (<code>ww_dfu</code> <code>BootControl::reboot(Updater)</code>):
   reconnect to the same device by serial number, whatever answers there, with a timeout. Done for USB:
   <code>wire_weaver_client::follow</code> (<code>Follow</code>, <code>Bus</code>, <code>Found</code>), and the RP2350 / RP2040 boot ROM as the updater:
   <code>ww_picoboot</code> (PICOBOOT host on nusb, <code>SimRp2350</code> for tests), <code>follow::rp2_update()</code>, <code>ww dfu rp</code>, tested end to end
@@ -6943,11 +6974,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (what <code>tests/follow_reboot</code> runs against a simulated device) needs neither it nor <code>usb</code>. <code>ww dfu rp flash</code> takes a
   UF2, an ELF (detected by magic bytes, taken by its <code>PT_LOAD</code> segments' flash physical address — no <code>objcopy</code>/
   <code>elf2uf2</code> needed) or a raw binary. Missing: a run against a Pico 2 / rePort; RTT (another control block: a second
-  ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.</li>
-<li>📋 <strong>CLT-22 One <code>Sink::send</code> for borrowed and owned items</strong> — owned types (<code>FooOwned</code>) implement only
+  ELF or a RAM scan) and UDP / WebSocket (the port may change); asking for the reboot from the CLI needs CLT-10.
+- 📋 <strong>CLT-22 One <code>Sink::send</code> for borrowed and owned items</strong> — owned types (<code>FooOwned</code>) implement only
   <code>SerializeShrinkWrapOwned</code>, so they go through <code>send_owned</code>; one <code>send</code> for both (a sink item trait, or the derive
-  implementing both), then drop <code>send_owned</code>.</li>
-<li>🚧 <strong>CLT-23 Stream positions, gaps and resume on the host</strong> · <code>v0.5</code> — <code>Commander::prepare_stream_open</code> /
+  implementing both), then drop <code>send_owned</code>.
+- 🚧 <strong>CLT-23 Stream positions, gaps and resume on the host</strong> · <code>v0.5</code> — <code>Commander::prepare_stream_open</code> /
   <code>prepare_stream_resume</code> (what generated code calls, <code>PreparedStreamOpen</code>, <code>StreamOpenResult</code>), <code>PositionedStream</code>
   with <code>StreamEvent::Item</code> / <code>Gap</code> / <code>Resumed</code> / <code>BackfillDone</code> / <code>Disconnected</code>, live and backfill runs and
   <code>split()</code>, <code>StreamStats</code>, <code>AckMode::OnReceive</code> / <code>Explicit</code>, cursors; every stream's queue is bounded
@@ -6957,8 +6988,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   stuck, S6 host restart, resume after a reconnect (<code>wire_weaver_client/src/event_loop/stream_e2e_tests.rs</code>).
   Generated clients open streams through it (<code>tests/streams_reliable</code>, API-31); the dynamic client and Python pass
   the stream function's arguments and return its result. Missing: counted and reliable streams on trait paths
-  (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).</li>
-<li>✅ <strong>CLT-47 ww-plugins</strong> · <code>v0.5.x</code> — <code>ww NAME ARGS..</code> runs <code>ww-NAME ARGS..</code> from PATH, as <code>cargo</code> does: the device
+  (events carry the absolute path), the reconnect itself (EX-10), lossy-medium scenarios (TEST-19).
+- ✅ <strong>CLT-47 ww-plugins</strong> · <code>v0.5.x</code> — <code>ww NAME ARGS..</code> runs <code>ww-NAME ARGS..</code> from PATH, as <code>cargo</code> does: the device
   selection given before NAME reaches the plugin as the <code>WW_*</code> variables, its exit code is <code>ww</code>'s, an unknown NAME says
   there is no <code>ww-NAME</code> on PATH. <code>ww dfu flash ARGS..</code> runs <code>ww-chunky flash ARGS..</code> (chunky_mcu_updater's <code>ww_chunky</code>;
   the error without it names the install step), which cut the repository cycle: <code>wire_weaver_cli</code> no longer depends on
@@ -6966,8 +6997,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   on any PC. The completion lists plugins on PATH and asks them for the words after their name (<code>ww dfu flash --&lt;TAB&gt;</code>
   gives the flags of <code>ww-chunky flash</code>). <code>wire_weaver_cli</code> is a library too: <code>wire_weaver_cli::plugin</code> is the plugin
   API (<code>DeviceArgs</code>, <code>Selection</code>, <code>take_exclusive</code>, <code>complete_if_requested</code>, <code>escape</code>), so a plugin has the connection
-  options, the config file and the completion of <code>ww</code>. <code>just check-clean-clone</code> builds <code>ww</code> from a fresh clone.</li>
-<li>🚧 <strong>CLT-33 <code>ww dfu flash</code>: updates of a chunky device</strong> — <code>ww dfu flash &lt;ELF|sealed image|bin&gt;</code>, <code>status</code>,
+  options, the config file and the completion of <code>ww</code>. <code>just check-clean-clone</code> builds <code>ww</code> from a fresh clone.
+- 🚧 <strong>CLT-33 <code>ww dfu flash</code>: updates of a chunky device</strong> — <code>ww dfu flash &lt;ELF|sealed image|bin&gt;</code>, <code>status</code>,
   <code>confirm</code>, <code>revert</code> (<code>ww_chunky/src/commands.rs</code> in chunky_mcu_updater; <code>ww dfu status | confirm | revert</code> also run in <code>wire_weaver_cli/src/cmd/dfu.rs</code>) on the host library <code>chunky_ww_host</code> of chunky_mcu_updater
   (NET-2), now the <code>ww-chunky</code> plugin of chunky_mcu_updater that <code>ww dfu flash</code> runs (CLT-47): seals an ELF or a
   binary for the device (product and seal scheme from <code>NodeInfo</code>, which carries <code>product_id</code> and <code>seal</code> for it,
@@ -6976,8 +7007,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   follows the device by serial number and waits for its confirm or revert. <code>reboot --into updater</code> on an A/B app
   that takes updates itself says it goes to the boot ROM (<code>ww dfu stm32</code>, CLT-34). Tested end to end in
   chunky_mcu_updater (<code>chunky_ww_host/tests/e2e.rs</code>: simulated USB HS, delta, full image, lost reply, re-plan,
-  revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.</li>
-<li>✅ <strong>CLT-41 client-metadata</strong> · <code>v0.5.x</code> — who connects: <code>ww_link::ClientMeta</code> (program, app version, label, kind
+  revert). Open: on hardware (B135, HW-5 there), the version from the ELF, a CLI-level test.
+- ✅ <strong>CLT-41 client-metadata</strong> · <code>v0.5.x</code> — who connects: <code>ww_link::ClientMeta</code> (program, app version, label, kind
   <code>Cli|Gui|Notebook|Service|Hub|Test</code>, pid, user, host, purpose, random instance id) in an appended
   <code>#[default = None]</code> field of <code>LinkSetup</code> (wire-compatible, conformance cases <code>link_setup.*</code>).
   <code>ClientConfig::client_meta(ClientMeta)</code> overrides; defaults are found by the library (executable name, pid, login
@@ -6985,8 +7016,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>windows-sys</code> Toolhelp on Windows), <code>no_client_meta()</code> sends nothing, a device that can't receive it gets a
   shortened form or none. <code>DeviceLink::peer_meta()</code> on the device; <code>wire_weaver_py</code> sets <code>Notebook</code>. Docs:
   <code>docs/transport/hub.md</code>. Tested on Linux; the macOS and Windows parent-process detection compiles by inspection
-  only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).</li>
-<li>🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 4-bit priority (<code>ww_client_server::Request</code>'s
+  only (no such target here). Used by the hub (SRV-13) and the holder lock files (CLT-38).
+- 🧪 <strong>CLT-50 Request priority</strong> · <code>v0.5.x</code> — every request carries a 4-bit priority (<code>ww_client_server::Request</code>'s
   <code>priority</code> nibble, <code>wire_weaver::Priority</code>: 0..=15, <code>NORMAL</code> = 4 by default, <code>URGENT</code> = 8, wire change EVO-14).
   Default traffic follows one plain rule on both ends: a frame goes out when it is full or when the device's
   accumulation window is over, never later (CLT-53), also for a request or reply alone. An urgent request (8 and up)
@@ -6999,13 +7030,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   to be queued. Docs: <code>docs/transport/ww_framer.md#latency-and-priority</code>; tests
   <code>wire_weaver_client</code> <code>flush_e2e_tests</code>, <code>core::tests::urgent_request_flushes_at_once</code>, <code>ww_device</code>
   <code>async_server::replies_flushed_by_priority</code>. On hardware: re-measure the rePort B200A round trips (scratch fixes:
-  immediate call 2.69 → 0.54 ms p50, deferred <code>i2c_read</code> 5.3 → 2.3 ms).</li>
-<li>🧪 <strong>CLT-53 An accumulation window never costs more than itself</strong> · <code>v0.5.x</code> — the host waited for the window with
+  immediate call 2.69 → 0.54 ms p50, deferred <code>i2c_read</code> 5.3 → 2.3 ms).
+- 🧪 <strong>CLT-53 An accumulation window never costs more than itself</strong> · <code>v0.5.x</code> — the host waited for the window with
   <code>tokio::time::sleep_until</code>, which rounds up to whole milliseconds: a 1 ms window (rePort B200A,
   <code>UsbTimings::fs_higher_speed</code>) cost ~2.2 ms per request. The tx task now waits on a fine timer
   (<code>event_loop/fine_timer.rs</code>: one thread per process for deadlines under 2 ms away, tokio's timer for the rest),
-  within tens of µs of the deadline. On hardware: part of CLT-50's re-measure.</li>
-<li>✅ <strong>CLT-38 Who holds a device</strong> · <code>v0.5.x</code> — <code>wire_weaver_client::holders</code> (<code>key_for</code>, <code>holder_of</code>, <code>list</code>),
+  within tens of µs of the deadline. On hardware: part of CLT-50's re-measure.
+- ✅ <strong>CLT-38 Who holds a device</strong> · <code>v0.5.x</code> — <code>wire_weaver_client::holders</code> (<code>key_for</code>, <code>holder_of</code>, <code>list</code>),
   always on, not gated by a feature: before claiming a USB interface or RTT probe, <code>claim()</code> takes an exclusive
   <code>std::fs::File::try_lock</code> on <code>&lt;runtime dir&gt;/ww/holders/&lt;key&gt;.lock</code> (<code>$XDG_RUNTIME_DIR/ww</code> on Linux, <code>$TMPDIR/ww</code>
   on macOS, <code>%LOCALAPPDATA%\ww\run</code> on Windows, created 0700 and refused if not owned by us) and writes <code>key = value</code>
@@ -7017,13 +7048,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   by dg, pid 4711, direct, since 14:02:03 UTC"; without a lock file (a non-ww program: probe-rs CLI, minicom,
   dfu-util), Linux scans <code>/proc/*/fd</code> for the device node and names the process, elsewhere it just says "another
   program". Tested with a real second holder (a child process, killed to simulate a crash) and a released claim's
-  stale content never reported as held.</li>
-<li>✅ <strong>CLT-36 A call on a link that went down fails at once</strong> — after the device resets or the link goes (its event
+  stale content never reported as held.
+- ✅ <strong>CLT-36 A call on a link that went down fails at once</strong> — after the device resets or the link goes (its event
   loop exits), a call fails with <code>Error::Disconnected</code> until <code>Commander::reconnect</code> connects again, instead of waiting
   in the command channel the residual keeps: a keeper task holds the channel between event loops and answers every
   command that comes in (<code>prepared_connection.rs</code>'s <code>keep</code>). Tested in <code>tests/methods</code>
-  (<code>call_while_disconnected_fails_at_once</code>).</li>
-<li>🚧 <strong>CLT-39 Hub routing in <code>connect</code></strong> · <code>v0.5.x</code> — direct by default, the hub when it pays off: a device the hub
+  (<code>call_while_disconnected_fails_at_once</code>).
+- 🚧 <strong>CLT-39 Hub routing in <code>connect</code></strong> · <code>v0.5.x</code> — direct by default, the hub when it pays off: a device the hub
   holds is reached through it, and repeated short connections (N opens within T seconds, shell-launched calls weighted)
   move a device into the hub, so a loop of <code>ww</code> calls doesn't re-open it every time. <code>HubMode</code> <code>Auto</code>, <code>Prefer</code>,
   <code>Required</code>, <code>Direct</code> (<code>WW_HUB</code>); hub found or started (start lock, readiness, newest hub executable: <code>WW_HUB_EXE</code>,
@@ -7039,8 +7070,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   unit tests for the modes). Missing: the open counter counts USB only (RTT and <code>ipc_exclusive</code> local sockets go through the hub when it holds them,
   their holder hands them over (CLT-43) or in <code>Prefer</code> / <code>Required</code>; the rest connect directly); a routed USB connection through the
   SRV-29 tunnels is only tested on hardware (P2401#21oct-2103e, the routing picks USB devices only, which tests
-  can't fake); a check on macOS and Windows (compiles for both).</li>
-<li>🧪 <strong>CLT-40 Reconnect after a hub restart</strong> · <code>v0.5.x</code> — the client reconnects by itself, re-opens its streams and
+  can't fake); a check on macOS and Windows (compiles for both).
+- 🧪 <strong>CLT-40 Reconnect after a hub restart</strong> · <code>v0.5.x</code> — the client reconnects by itself, re-opens its streams and
   observe subscriptions and tells the app (<code>Reconnected</code>); requests in flight fail, never replayed. Built
   (<code>docs/transport/hub.md#reconnect-after-a-hub-restart-clt-40</code>): a connection through the hub that loses its link
   (hub exited, crashed, killed, handed over, device lent) is reconnected by the keeper of its command channel
@@ -7049,8 +7080,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>GapReason</code> from <code>Commander::connection_events()</code>; <code>ClientConfig::hub_reconnect(give_up)</code> (60 s, lent time not
   counted, no hub started while lent). Tested on Linux in <code>tests/hub_reconnect</code> (<code>restart.rs</code>; <code>kill.rs</code>: <code>SIGKILL</code>
   twice under load, back in ~90 ms, stream resumed, nothing sent twice); check on macOS and Windows open. Plain
-  streams end with the link, as on an unplug.</li>
-<li>🧪 <strong>CLT-46 Clock steering in every direct connection</strong> · <code>v0.5.x</code> — a program that holds a device directly steers
+  streams end with the link, as on an unplug.
+- 🧪 <strong>CLT-46 Clock steering in every direct connection</strong> · <code>v0.5.x</code> — a program that holds a device directly steers
   its clock onto the PC's UTC without code of its own, as the hub does for the devices it holds (SRV-31): on by
   default, <code>ClientConfig::clock_sync(false)</code> or <code>WW_CLOCK_SYNC=off</code> to turn it off, <code>clock_sync_options</code> for the pace;
   <code>Phase::ThroughHub</code> (no steering) while the connection goes through a hub, again after a reconnect that reaches it
@@ -7063,8 +7094,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>docs/std_library/ww_timebase.md#steering-in-every-direct-connection</code>; tests <code>tests/io_timebase</code>
   (<code>a_direct_connection_steers_by_itself</code>, <code>own_steering_never_keeps_the_connection_open</code>), <code>tests/hub</code>
   (<code>ThroughHub</code>). Hardware check open: a board (rePort, Donguru on omarchy-m1) steered by a direct <code>ww</code> command or
-  app, <code>ww sync</code> with a hub showing it followed, no second steerer with the hub.</li>
-<li>🧪 <strong>CLT-43 Polite handover to the hub</strong> · <code>v0.5.x</code> — a direct holder that allows it (by default command-line tools,
+  app, <code>ww sync</code> with a hub showing it followed, no second steerer with the hub.
+- 🧪 <strong>CLT-43 Polite handover to the hub</strong> · <code>v0.5.x</code> — a direct holder that allows it (by default command-line tools,
   notebooks and tests, not GUIs or services) hands its device to the hub when another program wants it, and goes on
   through the hub after a short gap; one that doesn't is named in the other's error. Built
   (<code>docs/transport/hub.md#polite-handover-from-a-direct-holder-clt-43</code>): <code>ClientConfig::allow_handover</code> (default by
@@ -7079,8 +7110,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (<code>tests/hub_reconnect</code> <code>polite_handover.rs</code>: a <code>Cli</code> holder hands over with a counted stream resumed, gap 4.6 ms
   median; a <code>Gui</code> holder refuses and is named). Real USB (rePort, omarchy-m1, <code>WW_LIVE_HANDOVER=off</code>): link gap 9.7 ms
   median, the calls in flight and in the gap failing (104-2068 per run of 20 calls in flight). Open: an RTT probe's
-  gap; a check on macOS and Windows (compiles by inspection only).</li>
-<li>🧪 <strong>CLT-44 Live link handover on Linux</strong> · <code>v0.5.x</code> — the hub adopts a direct holder's live link (link, requests
+  gap; a check on macOS and Windows (compiles by inspection only).
+- 🧪 <strong>CLT-44 Live link handover on Linux</strong> · <code>v0.5.x</code> — the hub adopts a direct holder's live link (link, requests
   in flight, streams and subscriptions), so the device never sees a reconnect and the holder goes on through the hub
   without a gap; elsewhere CLT-43's release and reopen. Built (<code>docs/transport/hub.md#live-link-handover-clt-44</code>): the
   holder pauses (OUT drained, IN cancelled and reaped into the framer), sends its residual
@@ -7099,18 +7130,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   or control transfer from the hub (its trace); CLT-43 on the same board: 104-2068 failed calls per run.
   <code>WW_LIVE_HANDOVER=off</code> falls back to CLT-43. Open: a usbmon trace of one handover showing nothing at all on the bus
   (root on omarchy-m1: <code>sudo modprobe usbmon</code>, <code>sudo cat /sys/kernel/debug/usb/usbmon/1u &gt; /tmp/usbmon-1u.txt</code> while
-  <code>live_bench</code> hands over the rePort on bus 1; no <code>Ci</code>/<code>Co</code> control transfers in the window).</li>
-<li>✅ <strong>CLT-45 Lock file names one per device key</strong> — <code>holders</code> used to map every character outside
+  <code>live_bench</code> hands over the rePort on bus 1; no <code>Ci</code>/<code>Co</code> control transfers in the window).
+- ✅ <strong>CLT-45 Lock file names one per device key</strong> — <code>holders</code> used to map every character outside
   <code>[A-Za-z0-9._-]</code> to <code>_</code>, so two keys could share a lock file (<code>...:a:b</code> and <code>...:a_b</code>) and a USB device with a
   crafted serial could make another one look held. Now lower-case letters, digits and <code>-</code> stay and every other byte
   is <code>_xx</code>, one file per key also on a case-insensitive filesystem; long names are the key's SHA-256 (the handover
-  socket's too, was FNV), and the key inside the file is checked on read.</li>
-<li>📋 <strong>CLT-48 Fallible methods in multi calls</strong> — <code>MultiCall</code> (CLT-15) only takes infallible methods, so a method
+  socket's too, was FNV), and the key inside the file is checked on read.
+- 📋 <strong>CLT-48 Fallible methods in multi calls</strong> — <code>MultiCall</code> (CLT-15) only takes infallible methods, so a method
   returning <code>Result</code> (<code>ww_i2c::I2c::i2c_read</code>, any method with <code>#[errors]</code>) can't be batched into one round trip;
   found on the rePort B200A bench run (report-i2c-master, 27 Oct 2026), where a write + read burst to a USB-C PD
   controller wants exactly that. Needs each index's answer to carry the method's own <code>Result</code> next to the
-  per-index <code>Error</code>.</li>
-<li>✅ <strong>CLT-48 Fallible methods in multi calls</strong> · <code>v0.5.x</code> — a method returning <code>Result&lt;T, E&gt;</code> (any with
+  per-index <code>Error</code>.
+- ✅ <strong>CLT-48 Fallible methods in multi calls</strong> · <code>v0.5.x</code> — a method returning <code>Result&lt;T, E&gt;</code> (any with
   <code>#[errors]</code>, e.g. <code>ww_i2c::I2c::i2c_read</code>/<code>i2c_write</code>) goes into a <code>MultiCall</code> tuple (CLT-15) and into
   <code>call_array</code>, mixed with methods without <code>Result</code>; each position answers what its single <code>call()</code> would,
   <code>Result&lt;T, CallError&lt;E&gt;&gt;</code> (<code>Device</code> checked against the <code>#[errors]</code> list, <code>Unimplemented</code>, <code>Client</code> for the
@@ -7119,15 +7150,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (was <code>&amp;mut self</code>), so two of them fit into one tuple. Found on the rePort B200A bench run (report-i2c-master,
   27 Oct 2026): a write + read burst to a USB-C PD controller in one USB round trip. Host-tested (<code>tests/methods</code>:
   2- and 3-tuples, <code>call_array</code> async and blocking, Ok, device <code>Err</code>, <code>Unimplemented</code> and <code>BadIndex</code> mixed),
-  <code>docs/api/multi_requests.md#methods-returning-result</code>.</li>
-<li>✅ <strong>CLT-49 Same method twice in a multi call</strong> · <code>v0.5.x</code> — a <code>MultiCall</code>/<code>MultiRead</code>/<code>MultiWrite</code> tuple
+  <code>docs/api/multi_requests.md#methods-returning-result</code>.
+- ✅ <strong>CLT-49 Same method twice in a multi call</strong> · <code>v0.5.x</code> — a <code>MultiCall</code>/<code>MultiRead</code>/<code>MultiWrite</code> tuple
   naming the same resource more than once (two <code>ww_i2c::I2c::i2c_write</code> in one burst) failed on the client with
   "resources are identical", though the server already handles <code>MultiIndex::List([id, id])</code>. The client now sends
   the repeated id, answers come back in tuple order. <code>call_array</code> and friends still refuse an accessor that builds
   the same path for every index. Host-tested (<code>tests/methods</code> <code>multi_call_same_method_twice</code>: 3-tuple at the root,
   2-tuple in an array item, <code>Same</code> and <code>Different</code> args, Ok and device <code>Err</code> mixed, infallible too),
-  <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.</li>
-<li>✅ <strong>CLT-54 <code>exact_units::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55)
+  <code>docs/api/multi_requests.md#several-resources-at-the-same-level</code>.
+- ✅ <strong>CLT-54 <code>exact_units::Fixed</code> in dynamic clients, <code>ww</code> and Python</strong> · <code>v0.5</code> — a <code>Fixed&lt;U, P, T, B&gt;</code> (STD-55)
   read from introspection data alone (<code>quantity::fixed_of</code>: unit, scale as a <code>DynPrefix</code> with the binary and a
   crate's own scales, <code>Storage { base, bounds }</code>), shown as the typed <code>Fixed</code> shows itself (<code>1730000000000000 µs</code>
   exactly from a <code>u64</code>, <code>4 KiB</code>), <code>ww introspect</code> with <code>[ms, 1..=5000]</code> after the type; written exactly into the
@@ -7139,11 +7170,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (property, method argument and return, stream item, counts through <code>in_process</code>), <code>tests/customary</code> (the MCO
   <code>Fixed</code> field), <code>wire_weaver_py/tests/test_offline.py</code>, conformance <code>stdlib.si.*</code> green in every consumer (C's
   model-built cases wait on API-26). A GUI's slider limits come from <code>Storage::bounds</code>; the widget is TOOL-6's.
-  <a href="../docs/std_library/exact_units/#in-ww-python-and-dynamic-clients">In clients</a>.</li>
-<li>📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
+  <a href="../docs/std_library/exact_units/#in-ww-python-and-dynamic-clients">In clients</a>.
+- 📋 <strong>CLT-52 Host sends waiting requests by priority</strong> — today priority (CLT-50) only decides when a frame is
   flushed; requests waiting for a free seq or for the transport go out in the order they were made. Sort that queue
   by priority (the event loop's, before the framer), so an urgent request overtakes a long queue of default ones.
-  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</li>
+  <code>TODO(CLT-52)</code> in <code>event_loop/core/tx.rs</code>.</p>
+</li>
 </ul>
 <h2 id="transports-and-protocols-tr">Transports and protocols (<code>TR</code>)<a class="headerlink" href="#transports-and-protocols-tr" title="Permanent link">&para;</a></h2>
 <ul>
@@ -7207,6 +7239,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   follows. With message aggregation both arrive in one packet or frame, so a request over LoRa or LTE-M costs no extra
   round trip (introspection skipped by hash, CLT-7). Open: replayed and duplicate packets (CLT-17), which requests may
   run unannounced, how the hash is versioned. Needed by <code>ww_dfu</code> updates over slow links.</li>
+<li>📋 <strong>TR-19 Byte-stream transport</strong> — client and server over any <code>AsyncRead + AsyncWrite</code> with the local socket's
+  framing and preamble: TCP, stdio (an ssh forced command on one side, a spawned command on the other) and any stream
+  the caller accepted, handed in with its peer (an iroh stream); a <code>Service(name)</code> preamble target so one listener
+  serves several APIs.</li>
+<li>📋 <strong>TR-20 TLS</strong> — TR-19 over rustls: a server certificate, the client verifying by CA or pinned key, optional
+  client certificates as the peer's key (SRV-46).</li>
 <li>💡 <strong>TR-11 MQTT / store-and-forward transport</strong> — devices offline most of the time pick up a retained message on
   wake (an update plan, config), replies queued on the broker. Look at MQTT-SN and LwM2M first.</li>
 <li>🚧 <strong>TR-12 USB throughput on small MCUs</strong> — measured with <code>ww usb-loopback</code> on Donguru (STM32G0B1, Cortex-M0+
@@ -7901,6 +7939,34 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   them; they reach <code>ww_si::..</code> through its existing <code>units</code> re-export. Docs:
   <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/ww_si/#dimensions"><code>ww_si</code></a>,
   <a href="../std_library/indices/">indices</a>.</li>
+<li>✅ <strong>STD-90 Polar form and levels of a <code>Complex</code></strong> — <code>exact_units</code> efc885e, c5349ab: <code>Polar&lt;U, P, T, A&gt;</code>, a magnitude
+  <code>Fixed</code> and a phase angle, with <code>Complex::to_polar</code> / <code>from_polar</code> and <code>Polar::to_complex</code>. Floats through <code>hypot</code>,
+  <code>atan2</code> and <code>sin</code>/<code>cos</code> (feature <code>std</code> or <code>libm</code>); integers without a float: <code>abs</code> the correctly rounded root of
+  the exact <code>norm_sqr</code> in the unsigned twin, <code>arg</code> by CORDIC into a <code>PhaseBam16</code> / <code>PhaseBam32</code> within 0.51 of a
+  step, <code>from_polar</code> by Q31 sin/cos. <code>to_db</code> from |z|², <code>norm_sqr_at(Decibels)</code> and <code>db!(norm_sqr -15)</code> as a typed
+  threshold; RF helpers on an impedance (Γ, VSWR, return loss), example <code>13_impedance_match</code>.</li>
+<li>✅ <strong>STD-91 IQ fixed-point DSP</strong> — <code>exact_units</code> 87f2e18, 041b72e: <code>CQ15&lt;U = Ratio&gt;</code> and <code>CQ31&lt;U = Ratio&gt;</code>, saturating
+  Q15 and Q31 IQ samples; complex multiplies rounded once into their own scale (<code>mul_round</code>, <code>mul_conj_round</code>, <code>mix</code>),
+  <code>Mac</code> summing products exactly in <code>i64</code> / <code>i128</code>, interleaved <code>[re, im, ..]</code> buffers without <code>unsafe</code>, <code>Nco</code> (a
+  <code>Bam32</code> phase accumulator with a CORDIC phasor), <code>cordic::sin_cos_32_q15</code>; example <code>14_iq_downconvert</code>.</li>
+<li>✅ <strong>STD-92 Complex power with its kinds</strong> — <code>exact_units</code> 4df3d43: <code>units::VoltAmpere</code> (<code>VA</code>, kind apparent power)
+  and <code>units::Var</code> (<code>var</code>, kind reactive power), the watt's dimension under a kind of their own, <code>Watt</code> staying
+  plain; S = V·I* as a <code>Complex&lt;VoltAmpere&gt;</code>.</li>
+<li>✅ <strong>STD-93 Decimal literals as exact constants</strong> — <code>exact_units</code> d4b5b1a, fce4739, 790d6f0: <code>fixed!(0.1)</code> is the
+  <code>Fixed</code> (or, of two literals, the <code>Complex</code>) its context names, holding the stored value nearest to the literal,
+  worked out at compile time (<code>fixed!(0.1)</code> in Q30 is <code>107_374_182</code>); a scale with π, a value past the storage or
+  its bounds doesn't compile; <code>Fixed::from_decimal</code> as a <code>const fn</code>. <code>Mac::mean_at_least(threshold, n)</code>: a mean
+  power against a typed threshold (<code>db!(norm_sqr -10)</code>) in one exact integer compare.</li>
+<li>✅ <strong>STD-94 serde for the numbers, for firmware and configs</strong> — <code>exact_units</code> feature <code>serde</code>, <code>no_std</code> without alloc
+  (the first two forms of STD-78): <code>Fixed</code>, <code>Point</code>, <code>Index</code>, <code>IndexFrom1</code>, <code>Seq</code> as their stored number, <code>Complex</code> as
+  <code>{ re, im }</code>, <code>Polar</code> as <code>{ abs, arg }</code>, <code>Decibels</code> as <code>"-3.01"</code> in text formats and <code>(num, decimals)</code> in binary
+  ones; reading refuses a value outside its bounds (<code>6000 ms is out of 1..=5000 ms (Second, u16)</code>) or an
+  <code>IndexFrom1</code> of 0. <code>exact_units::serde::with_unit</code> writes a field as <code>{:#}</code> text and reads a number with its unit
+  and an SI or binary prefix exactly into the field's scale and storage, or says why not (wrong unit, between two
+  steps with the nearest two, past the storage, out of bounds). Breaking: <code>serde</code> no longer turns on <code>std</code> and
+  <code>shrink_wrap</code>; <code>Magnitude</code> / <code>Offset</code> need <code>std</code> too, the owned mirrors <code>std</code> and <code>shrink_wrap</code> as before. Tests
+  <code>exact_units/tests/serde.rs</code>, properties <code>tests/props/serde_values.rs</code> (two Kani proofs); docs
+  <a href="../std_library/exact_units/#serde"><code>exact_units</code></a>.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
@@ -7967,8 +8033,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>Quantity</code> parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.</li>
 <li>📋 <strong>STD-75 Non-linear scales by name</strong> · <code>v0.5</code> — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
   conversion function each, or out of scope with the reason written down.</li>
-<li>📋 <strong>STD-78 <code>serde</code> for units, three forms per field</strong> · <code>v0.5</code> — an <code>exact_units</code> feature <code>serde</code> (Roman, 28 Oct
-  2026), the form chosen per field with <code>#[serde(with = ..)]</code> adapters: a plain number (the unit stated in the schema),
+<li>🚧 <strong>STD-78 <code>serde</code> for units, three forms per field</strong> · <code>v0.5</code> — STD-94 delivers the first two forms for
+  <code>exact_units</code>' typed numbers, the plain number and the <code>"5 ms"</code> text (<code>with_unit</code>); missing: the rest below. An
+  <code>exact_units</code> feature <code>serde</code> (Roman, 28 Oct 2026), the form chosen per field with <code>#[serde(with = ..)]</code> adapters: a plain number (the unit stated in the schema),
   a human string <code>"5 ms"</code> (STD-73's table, exact) or a self-describing <code>{ value, unit }</code>. Deserializing accepts any
   compatible unit and converts exactly; it refuses a wrong dimension, an inexact conversion, a value out of bounds and
   an ambiguous name; sentinels map to their meaning. Tests per form, and a docs page "Storing units": a fixed unit per
@@ -8018,6 +8085,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   UI feedback, the demo itself.</li>
 <li>📋 <strong>EX-12 Hubris based example</strong> with sync code · <code>v0.5.x</code>.</li>
 <li>📋 <strong>EX-13 Advanced example / project template</strong>.</li>
+<li>📋 <strong>EX-16 Host service</strong> — an API whose plain implementation is called in-process and served on a local socket
+  with a uid policy, over TCP and over stdio, with a second API on the same listener, a result set as a stream and a
+  trace id across the call; one generic call site runs against all of them.</li>
 </ul>
 <h2 id="documentation-doc">Documentation (<code>DOC</code>)<a class="headerlink" href="#documentation-doc" title="Permanent link">&para;</a></h2>
 <ul>

@@ -2188,6 +2188,24 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   them; they reach `ww_si::..` through its existing `units` re-export. Docs:
   [`exact_units`](std_library/exact_units.md#aliases), [`ww_si`](std_library/ww_si.md#dimensions),
   [indices](std_library/indices.md).
+- ✅ **STD-90 Polar form and levels of a `Complex`** — `exact_units` efc885e, c5349ab: `Polar<U, P, T, A>`, a magnitude
+  `Fixed` and a phase angle, with `Complex::to_polar` / `from_polar` and `Polar::to_complex`. Floats through `hypot`,
+  `atan2` and `sin`/`cos` (feature `std` or `libm`); integers without a float: `abs` the correctly rounded root of
+  the exact `norm_sqr` in the unsigned twin, `arg` by CORDIC into a `PhaseBam16` / `PhaseBam32` within 0.51 of a
+  step, `from_polar` by Q31 sin/cos. `to_db` from |z|², `norm_sqr_at(Decibels)` and `db!(norm_sqr -15)` as a typed
+  threshold; RF helpers on an impedance (Γ, VSWR, return loss), example `13_impedance_match`.
+- ✅ **STD-91 IQ fixed-point DSP** — `exact_units` 87f2e18, 041b72e: `CQ15<U = Ratio>` and `CQ31<U = Ratio>`, saturating
+  Q15 and Q31 IQ samples; complex multiplies rounded once into their own scale (`mul_round`, `mul_conj_round`, `mix`),
+  `Mac` summing products exactly in `i64` / `i128`, interleaved `[re, im, ..]` buffers without `unsafe`, `Nco` (a
+  `Bam32` phase accumulator with a CORDIC phasor), `cordic::sin_cos_32_q15`; example `14_iq_downconvert`.
+- ✅ **STD-92 Complex power with its kinds** — `exact_units` 4df3d43: `units::VoltAmpere` (`VA`, kind apparent power)
+  and `units::Var` (`var`, kind reactive power), the watt's dimension under a kind of their own, `Watt` staying
+  plain; S = V·I* as a `Complex<VoltAmpere>`.
+- ✅ **STD-93 Decimal literals as exact constants** — `exact_units` d4b5b1a, fce4739, 790d6f0: `fixed!(0.1)` is the
+  `Fixed` (or, of two literals, the `Complex`) its context names, holding the stored value nearest to the literal,
+  worked out at compile time (`fixed!(0.1)` in Q30 is `107_374_182`); a scale with π, a value past the storage or
+  its bounds doesn't compile; `Fixed::from_decimal` as a `const fn`. `Mac::mean_at_least(threshold, n)`: a mean
+  power against a typed threshold (`db!(norm_sqr -10)`) in one exact integer compare.
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric

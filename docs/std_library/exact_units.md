@@ -105,7 +105,9 @@ storage (`Range<-5, 300>` on a `u8`) doesn't build.
 - `core::time::Duration` both ways for s, ds, cs, ms, µs and ns: `Micros::<u32>::try_from(Duration::from_millis(3))`
   is 3000 µs, an error when it doesn't fit.
 - `Display` as `1500 µs`, `{:#}` in the unit itself (`0.0015 s`); `Debug` as `Second(1500 µs u32)` (with the bounds
-  when there are some: `Second(100 ms u16, 1..=5000)`); `defmt::Format` with the `defmt` feature.
+  when there are some: `Second(100 ms u16, 1..=5000)`); `defmt::Format` with the `defmt` feature. `{:#}` takes the
+  formatter's precision and width, rounding to the nearest (a tie to even): `{:#.3}` of a Q15 of 0.8 is `0.800`,
+  `{:#10.2}` of 1500 mV is `    1.50 V`.
 - Units of one dimension but another kind of quantity don't convert (STD-68): a voltage gain `Per<Volt, Volt>` is
   not a current gain `Per<Ampere, Ampere>`, a power gain `Per<Watt, Watt>` or a `Ratio` (a duty cycle), and a
   transimpedance `Per<Volt, Ampere>` is not an `Ohm` (resistance), nor `Per<Ampere, Volt>` a `Siemens`. A quotient
@@ -229,6 +231,59 @@ In Rust, `wire_weaver_client::quantity::fixed_of(&ty, &bundle)` reads the type a
 `DynPrefix`, `Storage { base, bounds }`), `DynQuantity::from_value` reads a value of it, and `DynQuantity::to_value`
 writes into it exactly or returns the error above. `quantity::DynCount` does the same for indices and sequence
 numbers. The C consumer of the [conformance matrix](../serdes/conformance.md) reads a `Fixed` as its `T`.
+
+## serde
+
+With the feature `serde` the numbers are `Serialize` / `Deserialize`, `no_std` and without alloc (STD-94). Each is
+written as the number it stores, as on the wire, since the unit, scale and bounds are in the type: a
+`Fixed<Second, Milli, u16>` of 1500 ms is `1500` in JSON and the `u16`'s bytes in postcard.
+
+| Type                                     | Written as                                                  |
+|------------------------------------------|-------------------------------------------------------------|
+| `Fixed` (Q15, `Bam16`, `PhaseBam16`, ..) | the stored number                                           |
+| `Point`, `Index`, `IndexFrom1`, `Seq`    | the stored number                                           |
+| `Complex`                                | `{ re, im }`, a tuple's bytes in postcard; `[re, im]` reads |
+| `Polar`                                  | `{ abs, arg }`                                              |
+| `Decibels`                               | `"-3.01"` in JSON, TOML, RON; `(num, decimals)` in postcard |
+
+`Complex` is a struct of named parts and not a pair: in a binary format the bytes are the same, and in a config the
+parts can't be swapped by mistake. Reading checks what construction checks and never builds a value that breaks it:
+a `Fixed` or an index outside its bounds, an `IndexFrom1` of 0, a level with more than 9 decimals. The error names
+the value and the bound, as `ww` does:
+
+```
+6000 ms is out of 1..=5000 ms (Second, u16)
+index 0 of a table counted from 1
+```
+
+For text a person writes, a field takes `#[serde(with = "exact_units::serde::with_unit")]` (`with_unit::option`
+for an `Option`): it is written as `{:#}` writes it, `"0.0015 s"`, and read as a number with the field's unit and
+any SI or binary prefix, the space optional: `"1.5 ms"`, `"1500 us"`, `"4 KiB"`, `"25 %"` for a ratio. The value
+goes into the field's scale and storage exactly, or it is an error that says why:
+
+```rust
+use exact_units::{Fixed, Millis, Range, prefix::Milli, units::{Second, Volt}};
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Config {
+    period: Millis<u32>,                                   // 20
+    timeout: Fixed<Second, Milli, u16, Range<1, 5000>>,    // 250, 6000 is refused
+    #[serde(with = "exact_units::serde::with_unit")]
+    rail: Fixed<Volt, Milli, u16>,                         // "3.3 V", "3300 mV"
+}
+```
+
+```
+"5 kg" is not in V (with or without an SI prefix)
+"3.3005 V" is not a whole number of 1 mV steps; the nearest are 3.3 V and 3.301 V
+"70 V" doesn't fit u16 in 1 mV steps
+```
+
+Every value reads back from the text it was written as, also where `{:#}` writes a float (a `Duty16`'s steps of
+1/65535, a scale with π): that text reads as the value it came from, while a decimal between two steps is refused
+with the two. A float storage takes the nearest float. `Magnitude` and `Offset` are serde with `serde` and `std`,
+and the owned wire mirrors (`DimOwned`, `CountedOwned`, `ProvenanceOwned`, for RON snapshots of APIs) with `serde`,
+`std` and `shrink_wrap`.
 
 ## Units
 

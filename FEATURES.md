@@ -2206,6 +2206,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   worked out at compile time (`fixed!(0.1)` in Q30 is `107_374_182`); a scale with π, a value past the storage or
   its bounds doesn't compile; `Fixed::from_decimal` as a `const fn`. `Mac::mean_at_least(threshold, n)`: a mean
   power against a typed threshold (`db!(norm_sqr -10)`) in one exact integer compare.
+- ✅ **STD-94 serde for the numbers, for firmware and configs** — `exact_units` feature `serde`, `no_std` without alloc
+  (the first two forms of STD-78): `Fixed`, `Point`, `Index`, `IndexFrom1`, `Seq` as their stored number, `Complex` as
+  `{ re, im }`, `Polar` as `{ abs, arg }`, `Decibels` as `"-3.01"` in text formats and `(num, decimals)` in binary
+  ones; reading refuses a value outside its bounds (`6000 ms is out of 1..=5000 ms (Second, u16)`) or an
+  `IndexFrom1` of 0. `exact_units::serde::with_unit` writes a field as `{:#}` text and reads a number with its unit
+  and an SI or binary prefix exactly into the field's scale and storage, or says why not (wrong unit, between two
+  steps with the nearest two, past the storage, out of bounds). Breaking: `serde` no longer turns on `std` and
+  `shrink_wrap`; `Magnitude` / `Offset` need `std` too, the owned mirrors `std` and `shrink_wrap` as before. Tests
+  `exact_units/tests/serde.rs`, properties `tests/props/serde_values.rs` (two Kani proofs); docs
+  [`exact_units`](std_library/exact_units.md#serde).
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric
@@ -2272,8 +2282,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `Quantity` parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.
 - 📋 **STD-75 Non-linear scales by name** · `v0.5` — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
   conversion function each, or out of scope with the reason written down.
-- 📋 **STD-78 `serde` for units, three forms per field** · `v0.5` — an `exact_units` feature `serde` (Roman, 28 Oct
-  2026), the form chosen per field with `#[serde(with = ..)]` adapters: a plain number (the unit stated in the schema),
+- 🚧 **STD-78 `serde` for units, three forms per field** · `v0.5` — STD-94 delivers the first two forms for
+  `exact_units`' typed numbers, the plain number and the `"5 ms"` text (`with_unit`); missing: the rest below. An
+  `exact_units` feature `serde` (Roman, 28 Oct 2026), the form chosen per field with `#[serde(with = ..)]` adapters: a plain number (the unit stated in the schema),
   a human string `"5 ms"` (STD-73's table, exact) or a self-describing `{ value, unit }`. Deserializing accepts any
   compatible unit and converts exactly; it refuses a wrong dimension, an inexact conversion, a value out of bounds and
   an ambiguous name; sentinels map to their meaning. Tests per form, and a docs page "Storing units": a fixed unit per

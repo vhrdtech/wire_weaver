@@ -2376,6 +2376,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   API-14, try one on a crates.io-shaped copy.
 - 📋 **DOC-10 Units docs section** · `v0.5` — choosing `Fixed`, `Point`, `Level`, `Quantity` or `AnyQuantity`, imperial
   / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose; links STD-78's "Storing units" page.
+- ✅ **DOC-11 WireWeaver syntax highlighting in the docs**: `docs/javascripts/ww_highlight.js`, loaded through
+  `extra_javascript` and run on every page via Zensical's `document$` observable, adds classes to WireWeaver tokens
+  inside the already-Pygments-highlighted ` ```rust ` blocks: `property!`/`method!`/`stream!` and their
+  `ro`/`rw`/`wo`/`observe` access modes, WireWeaver attributes, and exact_units' unit, prefix, origin and wrapper
+  names. No Pygments plugin and no Python at build time (Zensical is moving its own highlighting to Rust); the token
+  lists live in `docs/javascripts/ww_tokens.json`, checked against exact_units' source so `ww_lsp` and an editor
+  grammar can reuse them; colours reuse the theme's `--md-code-hl-*-color` variables for both palettes.
 
 ## Testing, CI and performance (`TEST`)
 

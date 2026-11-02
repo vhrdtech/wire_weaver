@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "purpose": "Token lists for docs/javascripts/ww_highlight.js, kept separate so ww_lsp and an editor grammar can reuse them.",
+    "source": "exact_units (romixlab/exact_units, git dependency of ww_si, see ../../Cargo.lock for the pinned commit)",
+    "checkedAgainstCommit": "a6e6f6b0e03d4251983088634c5df8aa1d704a22",
+    "regenerate": "units: grep -oE '^\\s*pub struct [A-Z][A-Za-z0-9]*' src/units.rs; prefixes: grep -oE 'pub struct [A-Za-z0-9]+ = \"[^\"]*\", Pow(10|2)\\(-?[0-9]+\\)' src/fixed/prefix.rs; origins: grep -oE 'pub struct [A-Za-z0-9]+ \\{ unit:' src/point/origins.rs -- run in a checkout of exact_units and re-diff against this file by hand"
+  },
+  "macros": ["property", "method", "stream"],
+  "accessModes": ["ro", "rw", "wo", "observe"],
+  "attributes": [
+    "ww_trait",
+    "ww_api_root",
+    "derive_shrink_wrap",
+    "errors",
+    "optional",
+    "no_unit_hint",
+    "default",
+    "flag",
+    "slot",
+    "future_version",
+    "wire"
+  ],
+  "wrappers": ["Fixed", "Point", "Index", "IndexFrom1", "Seq", "Timed", "Quantity", "AnyQuantity"],
+  "prefixes": [
+    "Quecto", "Ronto", "Yocto", "Zepto", "Atto", "Femto", "Pico", "Nano", "Micro", "Milli",
+    "Centi", "Deci", "One", "Deca", "Hecto", "Kilo", "Mega", "Giga", "Tera", "Peta", "Exa",
+    "Zetta", "Yotta", "Ronna", "Quetta", "Kibi", "Mebi", "Gibi", "Tebi"
+  ],
+  "units": [
+    "Acceleration", "Ampere", "AngularAcceleration", "AngularVelocity", "Baud", "Becquerel",
+    "Bit", "Block", "Byte", "Candela", "Char", "Chunk", "Code", "Coulomb", "Cycle", "Day",
+    "Degree", "DegreeCelsius", "Doubleword", "ElectronVolt", "Entry", "Farad", "Frame", "Gram",
+    "Gray", "Halfword", "Henry", "Hertz", "HertzPerSecond", "Hour", "Item", "Jerk", "Joule",
+    "Katal", "Kelvin", "Line", "Litre", "Lumen", "Lux", "Meter", "Minute", "Mole", "Newton",
+    "Nibble", "Ohm", "Packet", "Pascal", "Per", "Phase", "Radian", "Ratio", "Record", "Row",
+    "Sample", "Second", "Sector", "Siemens", "Sievert", "Snap", "Speed", "Sqrt", "Steradian",
+    "Tesla", "Times", "Torque", "Turn", "Var", "Volt", "VoltAmpere", "VolumetricFlow", "Watt",
+    "Weber", "Week", "Word", "Yank"
+  ],
+  "origins": ["UnixEpoch", "AbsoluteZero", "Celsius", "Rankine", "Vacuum", "AboveStandardAtmosphere"],
+  "aliases": [
+    "Q15", "Q31", "UQ16_16", "Duty16", "Percent", "Permille", "Ppb",
+    "CQ15", "CQ31", "Bam16", "Bam32", "PhaseBam16", "PhaseBam32",
+    "Bytes", "Gibibytes", "Kibibytes", "Mebibytes",
+    "Hz", "Micros", "Millis", "Minutes", "Hours", "Days", "Secs", "Nanos"
+  ]
+}

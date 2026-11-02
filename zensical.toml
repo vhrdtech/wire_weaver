@@ -200,7 +200,9 @@ nav = [
 ]
 
 extra_css = ["stylesheets/vhrd.css"]
-# extra_javascript = ["javascripts/extra.js"]
+# WireWeaver syntax highlighting on top of the Pygments-highlighted ```rust blocks (DOC-11); ww_tokens.json
+# is fetched by ww_highlight.js itself and doesn't need listing here.
+extra_javascript = ["javascripts/ww_highlight.js"]
 
 [project.theme]
 # variant = "classic"

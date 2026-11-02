@@ -8127,6 +8127,13 @@ observing), SRV-46 (peer identity).
   API-14, try one on a crates.io-shaped copy.</li>
 <li>📋 <strong>DOC-10 Units docs section</strong> · <code>v0.5</code> — choosing <code>Fixed</code>, <code>Point</code>, <code>Level</code>, <code>Quantity</code> or <code>AnyQuantity</code>, imperial
   / US customary with the ambiguity table, kinds, exactness and rounding rules, and what is out of scope on purpose; links STD-78's "Storing units" page.</li>
+<li>✅ <strong>DOC-11 WireWeaver syntax highlighting in the docs</strong>: <code>docs/javascripts/ww_highlight.js</code>, loaded through
+  <code>extra_javascript</code> and run on every page via Zensical's <code>document$</code> observable, adds classes to WireWeaver tokens
+  inside the already-Pygments-highlighted <code>```rust</code> blocks: <code>property!</code>/<code>method!</code>/<code>stream!</code> and their
+  <code>ro</code>/<code>rw</code>/<code>wo</code>/<code>observe</code> access modes, WireWeaver attributes, and exact_units' unit, prefix, origin and wrapper
+  names. No Pygments plugin and no Python at build time (Zensical is moving its own highlighting to Rust); the token
+  lists live in <code>docs/javascripts/ww_tokens.json</code>, checked against exact_units' source so <code>ww_lsp</code> and an editor
+  grammar can reuse them; colours reuse the theme's <code>--md-code-hl-*-color</code> variables for both palettes.</li>
 </ul>
 <h2 id="testing-ci-and-performance-test">Testing, CI and performance (<code>TEST</code>)<a class="headerlink" href="#testing-ci-and-performance-test" title="Permanent link">&para;</a></h2>
 <ul class="task-list">
@@ -8412,6 +8419,8 @@ observing), SRV-46 (peer identity).
     
     
       <script src="../assets/javascripts/bundle.d31f0ffa.min.js"></script>
+      
+        <script src="../javascripts/ww_highlight.js"></script>
       
     
   </body>

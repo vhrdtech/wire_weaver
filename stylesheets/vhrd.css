@@ -306,3 +306,31 @@
   background: var(--ww-bg);
   color: var(--ww-fg);
 }
+
+/* WireWeaver syntax highlighting (docs/javascripts/ww_highlight.js, DOC-11): classes it adds to tokens inside the
+   already-highlighted ```rust blocks, on top of Pygments. Reuses the theme's own --md-code-hl-*-color variables
+   (set per palette, light and dark) rather than fixed colours, so it always matches the current Pygments theme. */
+.highlight .ww-macro {
+  color: var(--md-code-hl-function-color);
+  font-weight: 600;
+}
+.highlight .ww-mode {
+  color: var(--md-code-hl-keyword-color);
+  font-weight: 600;
+}
+/* Not --md-code-hl-special-color: Pygments' .cp class (which #[attr] already gets) uses that one, so a WW-specific
+   attribute needs a colour of its own to stand out from a plain Rust attribute next to it. */
+.highlight .ww-attr {
+  color: var(--md-code-hl-generic-color);
+  font-weight: 600;
+}
+.highlight .ww-unit {
+  color: var(--md-code-hl-constant-color);
+}
+.highlight .ww-prefix {
+  color: var(--md-code-hl-number-color);
+}
+.highlight .ww-wrapper {
+  color: var(--md-code-hl-variable-color);
+  font-style: italic;
+}

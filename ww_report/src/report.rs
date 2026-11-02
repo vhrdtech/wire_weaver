@@ -252,7 +252,15 @@ pub fn render_info(info: &DeviceInfo) -> String {
                 for (i, r) in list.iter().enumerate() {
                     let label = if i == 0 { "Reworks    " } else { "           " };
                     let state = if r.applied { "applied" } else { "not applied" };
-                    let _ = writeln!(o, "{label}{} {} ({state})", r.id, r.title);
+                    let _ = match &r.title {
+                        Some(title) => writeln!(o, "{label}rework {}: {title} ({state})", r.id),
+                        None => writeln!(
+                            o,
+                            "{label}rework {} (unknown to this firmware): {state}, the board runs on its safe \
+                             features until a firmware that knows it",
+                            r.id
+                        ),
+                    };
                 }
             }
             Part::NotImplemented => {}

@@ -84,9 +84,11 @@ pub struct Board {
 /// One rework of the board, `ww_board_info::Rework`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Rework {
-    /// `rework-5`
-    pub id: String,
-    pub title: String,
+    /// Its number in the board revision's rework list
+    pub id: u16,
+    /// `None`: the unit's record has it applied and the firmware doesn't know it (the board runs on its safe
+    /// features)
+    pub title: Option<String>,
     pub applied: bool,
 }
 
@@ -227,8 +229,8 @@ async fn board(client: &BoardInfoClient) -> Part<Board> {
                     list.as_slice()
                         .iter()
                         .map(|r| Rework {
-                            id: r.id.to_string(),
-                            title: r.title.to_string(),
+                            id: r.id.0,
+                            title: r.title.as_ref().map(|t| t.to_string()),
                             applied: r.applied,
                         })
                         .collect(),

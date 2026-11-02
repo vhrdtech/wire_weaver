@@ -265,6 +265,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   animations to period boundaries of UTC, so they breathe in phase. `ww sync DEV...` keeps several devices steered
   and shows how well they follow.
 - `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
+- Recording a board rework from any host (STD-98): `ww_board_info` reworks are numbers (`ReworkId(u16)`, per board revision), the optional `BoardInfo::set_reworks` records them (all or nothing, dry run, refuses a number the firmware doesn't know), `REWORKS` lists an applied number the firmware doesn't know with `title: None`, and `ww_board_info::table` answers both from a firmware's own table. Breaking for `ww_board_info` 0.3.0 (never published): devices implementing `BoardInfo` add `"board.set_reworks"` to `omit` or implement it. See `ww_stdlib/ww_board_info/CHANGELOG.md`, `ww_report/CHANGELOG.md`.
 
 ### Changed
 

@@ -1880,11 +1880,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     `BUILD_ID` (GNU build id, finds the ELF) and optional `BUILD_RECORD`; `build::emit()` + `firmware_summary!()` for
     `build.rs`, `build_id()` reader; `LastReset` (`ResetRecord` with a `Fault` per architecture behind `cortex-m` /
     `riscv`, stack words, `boot_count`, `clear`). `BoardInfo::BOARD` with `RevisionSource` (`Record`, `Strap`, `Assumed`, `Provisional`) and optional `REWORKS`
-    (`Rework { id, title, applied }`, up to 16; `ww info` prints them). `Uid::IDS`, first id is
+    (`Rework { id, title, applied }`, up to 16, numbered since STD-98; `ww info` prints them). `Uid::IDS`, first id is
     the primary one (USB serial). `UserInfo` with bounded `name` / optional `notes`, `UserInfoError`, `CAPABILITIES`
     and the persistence rule. Docs `docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md`, tests
     `tests/{firmware_info,board_info,uid,user_info}`. The const items are served by `get_` handlers until constant
     items come from the introspection data; properties cannot carry `#[errors]` yet.
+- ✅ **STD-98 Recording a board rework** · `v0.5` — `ww_board_info` reworks are numbers, `ReworkId(u16)` per board
+    revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
+    `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: the
+    board runs on its safe features). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
+    run, `ReworkChange` (`Unchanged`, `WouldWrite`, `Written` from the next boot), `ReworkError` (`UnknownRework`, never
+    stored; `Conflict`; `ProductionRecord`; `Common`). `ww_board_info::table` (`no_std`) answers both from the
+    firmware's table (`ReworkTable`, `ReworkSet`, `apply`, `list`, `unknown`, `known_ids`). `ww info` prints unknown
+    ones. Docs `docs/std_library/ww_board_info.md#recording-a-rework`, tests `tests/board_info`, `tests/device_report`.
+    The `ww board rework` command is TOOL-28; the first device is usb_io_fw PLAT-17.
 - 🧪 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
     `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
     whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the

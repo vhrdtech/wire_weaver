@@ -312,14 +312,20 @@ mod tests {
                 MaxLen::new_unchecked(RefVec::Slice {
                     slice: &[
                         ww_board_info::Rework {
-                            id: MaxLen::new_unchecked("rework-1"),
-                            title: MaxLen::new_unchecked("0R to 10k on R12"),
+                            id: ww_board_info::ReworkId(1),
+                            title: Some(MaxLen::new_unchecked("0R to 10k on R12")),
                             applied: true,
                         },
                         ww_board_info::Rework {
-                            id: MaxLen::new_unchecked("rework-3"),
-                            title: MaxLen::new_unchecked("cut trace to U3 pin 4"),
+                            id: ww_board_info::ReworkId(3),
+                            title: Some(MaxLen::new_unchecked("cut trace to U3 pin 4")),
                             applied: false,
+                        },
+                        // written by a newer firmware
+                        ww_board_info::Rework {
+                            id: ww_board_info::ReworkId(9),
+                            title: None,
+                            applied: true,
                         },
                     ],
                 });
@@ -367,6 +373,7 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BUILD_ID=fn,IDS=fn,BOARD=fn,DEFMT=fn,INFO=fn",
+                omit = ["board.set_reworks"],
             );
         }
 
@@ -463,16 +470,23 @@ mod tests {
         assert_eq!(board.revision_source, "strap 2");
         assert_eq!(board.serial, "RP-0042");
         let reworks = board.reworks.value().expect("reworks");
-        assert_eq!(reworks.len(), 2);
-        assert_eq!(reworks[0].id, "rework-1");
+        assert_eq!(reworks.len(), 3);
+        assert_eq!(reworks[0].id, 1);
         assert!(reworks[0].applied && !reworks[1].applied);
+        assert_eq!(reworks[2].title, None);
         let text = ww_report::report::render_info(&info);
         assert!(
-            text.contains("Reworks    rework-1 0R to 10k on R12 (applied)"),
+            text.contains("Reworks    rework 1: 0R to 10k on R12 (applied)"),
             "{text}"
         );
         assert!(
-            text.contains("           rework-3 cut trace to U3 pin 4 (not applied)"),
+            text.contains("           rework 3: cut trace to U3 pin 4 (not applied)"),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "           rework 9 (unknown to this firmware): applied, the board runs on its safe features"
+            ),
             "{text}"
         );
 

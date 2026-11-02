@@ -24,7 +24,7 @@
     (id: 2, kind: Trait(trait_idx: 10, omitted: None), multiplicity: Flat, since: None, ident: "Dfu", docs: [], optional: None, meta: None),
     (id: 3, kind: Trait(trait_idx: 7, omitted: None), multiplicity: Flat, since: None, ident: "Settings", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
-    SkippedFullVersion(crate_idx: 5, type_name: "CommonError", signature: [
+    SkippedFullVersion(crate_idx: 3, type_name: "CommonError", signature: [
         187,
         44,
         45,
@@ -84,16 +84,16 @@
         85,
     ]),
     SkippedFullVersion(crate_idx: 2, trait_name: "BoardInfo", signature: [
-        4,
-        5,
-        65,
-        102,
-        157,
-        82,
-        16,
-        190,
+        36,
+        178,
+        155,
+        167,
+        2,
+        224,
+        165,
+        240,
     ]),
-    SkippedFullVersion(crate_idx: 3, trait_name: "Uid", signature: [
+    SkippedFullVersion(crate_idx: 4, trait_name: "Uid", signature: [
         248,
         15,
         49,
@@ -103,7 +103,7 @@
         138,
         75,
     ]),
-    SkippedFullVersion(crate_idx: 4, trait_name: "UserInfo", signature: [
+    SkippedFullVersion(crate_idx: 5, trait_name: "UserInfo", signature: [
         252,
         88,
         68,
@@ -273,9 +273,9 @@
     (crate_id: "nucleo_g0b1re_api", version: (major: 0, minor: 4, patch: 0, pre: None, build: None)),
     (crate_id: "ww_firmware_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_uid", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_user_info", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
-    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_counters", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_log", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
     (crate_id: "ww_dfu", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),

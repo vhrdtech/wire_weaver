@@ -1,12 +1,13 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 87ff35d5ea66e0932ce2c6f3e2b567341f7da8742c5e75e905e5d376443eab52
+// shrink_wrap sha256: 008aa7ccfc8cb2f94fb669d433fbe11bba6c8a616ac2c180d4eafa7613c44bb5
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
     "One const item, [BoardInfo::BOARD], answers everything a host or a support case asks about the board: its name,",
     "revision and **how the firmware knows that revision**, variant, BOM variant, serial number and build date.",
-    "[BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied.",
+    "[BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied, and [BoardInfo::set_reworks]",
+    "records a rework done on the bench (STD-98). [table] has what a firmware needs to answer both from its own table.",
 ], crate_idx: 0, trait_name: "ww_board_info", items: [
     (id: 0, kind: Trait(trait_idx: 0, omitted: None), multiplicity: Flat, since: None, ident: "BoardInfo", docs: [], optional: None, meta: None),
 ], compact_id: None, meta: None), types: [
@@ -69,20 +70,84 @@
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Number of a rework in the board revision\'s rework list, `7` for \"rework 7\". Numbers are per board revision.",
+    ], ident: "ReworkId", generics: [], fields: Unnamed([
+        (ident: None, default: None, since: None, ty: NumericAny(Base(U16)), docs: [], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "One rework of the board, see [BoardInfo::REWORKS].",
     ], ident: "Rework", generics: [], fields: Named([
-        (ident: Some("id"), default: None, since: None, ty: MaxLen(max_len: Fixed(16), ty: String), docs: [
-            "Stable short id, `rework-5`: the name used in the rework list of the board\'s documentation. Text, not an",
-            "`Interned` id: an id of the firmware\'s string table changes with every build and needs the ELF to read, while",
-            "a rework is a fact about the hardware that a support case must read from any unit.",
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [
+            "Its number in the board revision\'s rework list. A number, not text or an `Interned` id: the unit\'s record",
+            "keeps a bit per number, which any firmware and any support case can read.",
         ], slot: None, series_opaque: false),
-        (ident: Some("title"), default: None, since: None, ty: MaxLen(max_len: Fixed(48), ty: String), docs: [
-            "What it is, `cut trace to U3 pin 4`.",
+        (ident: Some("title"), default: None, since: None, ty: Option(some_ty: MaxLen(max_len: Fixed(48), ty: String)), docs: [
+            "What it is, `cut trace to U3 pin 4`, from the firmware\'s table. `None`: the unit\'s record has this rework",
+            "applied and this firmware doesn\'t know it (written by a newer one); the board then runs on its safe features",
+            "until a firmware that knows it is flashed.",
         ], slot: None, series_opaque: false),
         (ident: Some("applied"), default: None, since: None, ty: Bool, docs: [
             "Whether this unit has it applied.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "One change for [BoardInfo::set_reworks].",
+    ], ident: "ReworkState", generics: [], fields: Named([
+        (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        (ident: Some("applied"), default: None, since: None, ty: Bool, docs: [
+            "Applied on this unit from now on, or undone.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
+        "What [BoardInfo::set_reworks] did, or would do in a dry run.",
+    ], ident: "ReworkChange", generics: [], variants: [
+        (docs: [
+            "The record already says exactly this: nothing to write.",
+        ], ident: "Unchanged", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "Dry run: this would be written.",
+        ], ident: "WouldWrite", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "Written; the board runs on it from the next boot, `REWORKS` says so from then on.",
+        ], ident: "Written", fields: Unit, discriminant: 2, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
+    SkippedFullVersion(crate_idx: 2, type_name: "CommonError", signature: [
+        187,
+        44,
+        45,
+        126,
+        185,
+        208,
+        109,
+        112,
+    ]),
+    InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
+        "Why [BoardInfo::set_reworks] refused; nothing was written.",
+    ], ident: "ReworkError", generics: [], variants: [
+        (docs: [
+            "Common error: a storage fault (`Fault`), a stored record from a newer firmware (`WrongState`), ...",
+        ], ident: "Common", fields: Unnamed([
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 7), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 0, since: None),
+        (docs: [
+            "Unknown rework {id}: this firmware doesn\'t know it, update the firmware first",
+            "",
+            "`REWORKS` lists the ones it knows.",
+        ], ident: "UnknownRework", fields: Named([
+            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 1, since: None),
+        (docs: [
+            "Rework {id} conflicts with rework {with}: undo one in the same call",
+            "",
+            "Two ways of rewiring the same lines, say.",
+        ], ident: "Conflict", fields: Named([
+            (ident: Some("id"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+            (ident: Some("with"), default: None, since: None, ty: OutOfLine(type_idx: 3), docs: [], slot: None, series_opaque: false),
+        ]), discriminant: 2, since: None),
+        (docs: [
+            "A production record fixes this unit\'s reworks: a bench record would never be used",
+        ], ident: "ProductionRecord", fields: Unit, discriminant: 3, since: None),
+    ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
 ], traits: [
     InLine(level: (docs: [
         "The PCB and its assembly.",
@@ -92,12 +157,24 @@
         (id: 0, kind: Property(ty: OutOfLine(type_idx: 2), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: None, ident: "BOARD", docs: [
             "Everything the device knows about its board, in one value.",
         ], optional: None, meta: None),
-        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 3))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "REWORKS", docs: [
+        (id: 1, kind: Property(ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 4))), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "REWORKS", docs: [
             "Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this",
-            "unit; for bring-up boards, where units of one revision differ. Left out by devices that don\'t keep the list.",
+            "unit; for bring-up boards, where units of one revision differ. Every rework the firmware knows, in the order",
+            "of the board\'s rework list, then the ones the unit\'s record has applied and the firmware doesn\'t know",
+            "(`title: None`). Left out by devices that don\'t keep the list.",
+        ], optional: Some((group: None)), meta: None),
+        (id: 2, kind: Method(args: [
+            (ident: "changes", ty: MaxLen(max_len: Fixed(16), ty: Vec(OutOfLine(type_idx: 5)))),
+            (ident: "program", ty: Bool),
+        ], return_ty: Some(Result(ok_ty: OutOfLine(type_idx: 6), err_ty: OutOfLine(type_idx: 8))), errors: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "set_reworks", docs: [
+            "Record reworks done on this unit (or undone): every change or none. A number this firmware doesn\'t know is",
+            "refused ([ReworkError::UnknownRework]), never stored. `program` false is a dry run: everything is checked, nothing",
+            "written. The board runs on the record from its next boot: [BoardInfo::REWORKS], read once per connection,",
+            "shows the board as it booted. A device that serves this serves [BoardInfo::REWORKS] too.",
         ], optional: Some((group: None)), meta: None),
     ], compact_id: Some(10), meta: None), crate_idx: 0),
 ], ext_crates: [
     (crate_id: "ww_board_info", version: (major: 0, minor: 3, patch: 0, pre: None, build: None)),
     (crate_id: "ww_date_time", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
+    (crate_id: "ww_error", version: (major: 0, minor: 1, patch: 0, pre: None, build: None)),
 ], root_omitted: None)

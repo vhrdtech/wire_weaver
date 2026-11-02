@@ -9,10 +9,11 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std", "ww_date_time/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt"]
+std = ["wire_weaver/std", "ww_date_time/std", "ww_error/std"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
 wire_weaver.workspace = true
 ww_date_time.workspace = true
+ww_error = { workspace = true, default-features = false }

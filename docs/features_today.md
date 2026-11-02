@@ -339,6 +339,7 @@ They are shared, so a tool that knows one of them works with every device that i
 <p class="ww-features__level"><span class="ww-level ww-level--basic"><svg class="ww-level__icon" viewBox="0 0 14 12" aria-hidden="true"><rect x="0" y="7" width="3.2" height="5" rx="0.6"/><rect x="5.4" y="3.5" width="3.2" height="8.5" rx="0.6" class="ww-level__off"/><rect x="10.8" y="0" width="3.2" height="12" rx="0.6" class="ww-level__off"/></svg><span class="ww-level__label">Basic</span></span></p>
 
 - **[Device contract](std_library/device_contract.md)**: What every device answers: firmware, board, ids, user label and last reset.
+- **[Recording a board rework](std_library/ww_board_info.md#recording-a-rework)**: After a rework on the bench, any host records it by number on any device serving `ww_board_info`; a firmware refuses numbers it doesn't know and reports ones it finds in its record.
 - **[Common errors](std_library/ww_error.md)**: `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs.
 - **[Units and numbers](std_library/ww_si.md)**: `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values.
 - **[Units checked by the compiler](std_library/ww_si.md#unit-algebra)**: One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself.

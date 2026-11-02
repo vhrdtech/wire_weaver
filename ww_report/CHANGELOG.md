@@ -6,7 +6,9 @@
 
 - `ww info` / `ww report` print the board's reworks (`ww_board_info::BoardInfo::REWORKS`, STD-24) when the device
   serves them: `info::Board::reworks: Part<Vec<Rework>>`. `Part::from_error` maps `NotImplementedByDevice` to
-  `NotImplemented`.
+  `NotImplemented`. `info::Rework` follows `ww_board_info` 0.3.0 (STD-98): `id: u16`, `title: Option<String>`; a
+  rework the firmware doesn't know prints as `rework 9 (unknown to this firmware): applied, the board runs on its
+  safe features until a firmware that knows it`.
 - New crate: `collect_info` (`ww info`: firmware, board, ids, label, last reset of any device by global trait path),
   `collect_report` and `render_report` (`ww report`: info, counters, the stored `defmt` log and the crash's addresses
   decoded with the ELF found by build id), `Contract` (clients of every trait on one connection), `find_trait`

@@ -6078,6 +6078,7 @@ dependencies = [
  "defmt 1.1.1",
  "wire_weaver",
  "ww_date_time",
+ "ww_error",
 ]
 
 [[package]]

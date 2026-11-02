@@ -1,6 +1,6 @@
 // ww_pwm 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 92d6d768ff30530144ffc6938484adfa3e7b7e6cf787c54830dd606bd21ec998
+// shrink_wrap sha256: f28f9bf61adc3c1026e498b413bd185ce14424835515c06f16923e319222d7d5
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PWM outputs and pulse measurement over WireWeaver.",
     "",
@@ -69,14 +69,14 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 2, type_name: "Quantity", signature: [
-        140,
-        13,
-        123,
-        135,
-        223,
-        180,
-        28,
-        86,
+        96,
+        190,
+        107,
+        106,
+        110,
+        150,
+        181,
+        201,
     ]),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "What to set, see `PwmChannel::set_output`.",

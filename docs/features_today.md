@@ -347,6 +347,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Numbers with a fixed unit](std_library/exact_units.md)**: `Fixed<Micro, Second, u32>`: the unit, scale and bounds are in the type, the wire carries exactly the `u32`, and it prints as `1500 µs`.
 - **[Minutes, hours, days and Unix timestamps](std_library/exact_units.md#aliases)**: `Secs`, `Minutes`, `Hours` and `Days` next to the existing µs/ms/ns, and a moment in POSIX time since the Unix epoch as `UnixSecs`, `UnixMillis`, `UnixMicros` or `UnixNanos`.
 - **[Counts, percent, binary byte sizes and whole hertz](std_library/exact_units.md#aliases)**: `Count<Of, T>` for a count of things, `Percent`/`Permille` for a share of a `Ratio`, `Kibibytes`/`Mebibytes`/`Gibibytes` beside `Bytes`, `Hz`, and counted `Line`/`Row`/`Record`/`Entry` beside `Item`/`Sample`/`Frame`/`Packet`.
+- **SI derived units and radiometric groups**: 48 named markers for the SI derived units, `Nit` (luminance) among them, grouped by field (electrical, mechanical, ...) and by radiometric versus photometric quantity.
 - **[Units without WireWeaver](std_library/exact_units.md)**: `exact_units`, a `no_std` crate with no dependencies, gives dimensions, unit markers, exact scales and `Fixed` to any project; the wire format is a feature.
 - **[Angles, bytes and samples are dimensions](std_library/ww_si.md#dimensions)**: Bytes never convert into % or rad, rad/s isn't Hz, a torque isn't a joule, and samples per second aren't a frequency: the compiler and every client tell them apart.
 - **[Date and time](std_library/ww_date_time.md)**: `ww_date_time`.
@@ -369,12 +370,18 @@ They are shared, so a tool that knows one of them works with every device that i
 - **[Points and origins](std_library/points.md)**: A temperature in °C or °F, a register formula like raw/256 + 25 °C, gauge pressure or a heading that wraps is a point against an origin: point minus point is an amount, adding two points doesn't compile, and conversions between origins are exact.
 - **[Kinds that share a dimension](std_library/exact_units.md#arithmetic-and-conversions)**: A voltage gain V/V, a current gain A/A, a power gain W/W and a duty cycle never convert into each other, nor a transimpedance V/A into Ω: the compiler refuses, a named step crosses, and clients and the evolution check tell them apart. <span class="ww-status">in progress</span>
 - **[Gains in dB](std_library/exact_units.md#arithmetic-and-conversions)**: A gain's dB is 20·lg for V/V and A/A, 10·lg for W/W, by its kind; a duty cycle has no dB. <span class="ww-status">in progress</span>
+- **Levels in nepers**: The dB API's twin, `to_np`/`from_np` and the `np!` literal: a level in nepers, exact at compile time.
+- **Level rates**: A level's rate as a quantity of its own: the neper is a counted base, and a loss sits on its own base so a datasheet's positive dB/100 m never mixes with a gain; damping (δ, Λ, ζ, Q) and Beer-Lambert absorbance already land. <span class="ww-status">in progress</span>
 - **[Typed products and quotients](std_library/exact_units.md#arithmetic-and-conversions)**: Multiplying or dividing two quantities gives back a type that carries the exact result unit and scale, never silently truncated, with checked, saturating and wrapping forms for what doesn't fit.
+- **`Complex<U, P, T, B>`**: A complex quantity, `re` and `im` of the same unit and scale, checked, saturating and wrapping arithmetic, and the kind rules of multiplication and division (an impedance times an admittance converts to a ratio).
+- **Phase angles**: `Phase<A>`: a phase angle in the angle unit, never confused with a plane angle; `electrical(pole_pairs)` takes a motor's mechanical angle to its electrical one for field-oriented control.
 - **Complex numbers in polar form**: A `Complex` gives its magnitude and phase angle and back, exactly rounded with integers alone (CORDIC), and its level in dB from its squared magnitude.
 - **IQ samples in Q15 and Q31**: `CQ15`/`CQ31` samples with saturating complex multiplies rounded once, exact multiply-accumulate, interleaved buffers and an NCO mixer, for SDR and lock-in firmware.
 - **Apparent and reactive power**: VA and var are kinds of their own beside the watt, so S = V·I* is a `Complex` in VA and never mistaken for real power.
 - **Decimal literals as exact constants**: `fixed!(0.1)` is the stored value nearest to 0.1 in the type's own scale, worked out at compile time: no hand-computed Q30 constants.
+- **Niche codes next to `Bounds`**: `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space.
 - **[Numbers with units in configs (serde)](std_library/exact_units.md#serde)**: A typed number is serde as the number it stores, its bounds checked on reading with the value and bound in the error, or as text with its unit, `"1.5 ms"`, read back exactly into the field's scale: for firmware too, `no_std` and without alloc. <span class="ww-status">in progress</span>
+- **Levels and their rates, Np and dB**: A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident.
 - **[Indices and sequence numbers](std_library/indices.md)**: A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap.
 - **[Quantities without wide integers](std_library/ww_si.md#conversions-and-comparisons)**: On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked.
 - **[ADC](std_library/ww_adc.md)**: Single reads, sample streams and triggered captures.
@@ -399,8 +406,9 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - **[Request and event model](std_library/ww_client_server.md)**: `ww_client_server`, the messages every call is made of.
 - **[Tape blocks](transport/tap.md#tape-blocks)**: `ww_tape`: the generic blocks of track records that live feeds and log files (link captures) are made of.
+- **CORDIC**: `atan2`, `sin_cos` and integer square roots by CORDIC, `const fn`s on integers alone, sized for a Cortex-M0.
 
-<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo) in the feature tracker.</p>
+<p class="ww-features__more" markdown>Details and what is planned: [Evolution, versioning and compatibility](features.md#evolution-versioning-and-compatibility-evo), [Number core](features.md#number-core-num), [Units and markers](features.md#units-and-markers-unit), [Points and origins](features.md#points-and-origins-pt), [Levels](features.md#levels-lvl), [Complex quantities](features.md#complex-quantities-cpx), [Numbers and units at the edges](features.md#numbers-and-units-at-the-edges-io) in the feature tracker.</p>
 
 ## Examples
 

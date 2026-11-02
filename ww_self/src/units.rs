@@ -415,6 +415,18 @@ fn unit_in(ty: &TypeOwned, bundle: &ApiBundleOwned, depth: usize) -> Result<Cano
         MarkerDefOwned::Per => arg(0)?.checked_mul(arg(1)?, -1),
         MarkerDefOwned::Times => arg(0)?.checked_mul(arg(1)?, 1),
         MarkerDefOwned::Sqrt => arg(0)?.checked_sqrt(),
+        MarkerDefOwned::Phase => {
+            let unit = arg(0)?;
+            let mut rest = unit.dim.clone();
+            rest.rad -= 1;
+            if !rest.as_dim().is_one() || unit.kind != UnitKind::Plain {
+                bail!("Phase<{unit}>: {unit} is not a plane angle");
+            }
+            Ok(CanonicalUnit {
+                kind: UnitKind::Named("phase angle".to_string()),
+                ..unit
+            })
+        }
         _ => bail!("{} is not a unit", marker_name(s, bundle)?),
     }
 }

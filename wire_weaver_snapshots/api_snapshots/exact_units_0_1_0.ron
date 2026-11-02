@@ -1,6 +1,6 @@
 // exact_units 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: bfcce95804d533e47389e72593f50032fe57d8d5c25e605d61fd74f7f2fde8d7
+// shrink_wrap sha256: a5a33f6f403b47a0e232d7c01d5c3913cd95199162240672a6f70f484ad08c67
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "Units of measure fixed at compile time, exact: a number with its unit, scale and storage in the type, on the wire",
     "exactly the number.",
@@ -12,6 +12,10 @@
     "  products and quotients the compiler checks (`Volt · Ampere` is `Watt`).",
     "- [Dim]: the dimension as data: SI base exponents, angle, information, up to [MAX_COUNTED] counted bases and a",
     "  square root (V/√Hz). [Magnitude]: a factor of integers and powers of 10, 2 and π (`°` is π/180 rad).",
+    "- [Complex]`<U, P, T, B>`: a complex quantity, two `T` in unit `U` and scale `P`: an [Impedance], an",
+    "  [Admittance], a phasor, a Q15 IQ sample. Products and conversions by the rules of `Fixed`, part by part, and",
+    "  a complex multiply rounded once into a chosen scale. For IQ samples: [CQ15] and [CQ31], a multiply-accumulate",
+    "  in the wide type ([Mac]), interleaved buffers ([Interleaved]) and an [Nco] mixer.",
     "- [Point]`<O, Fixed<..>>`: a position against an [Origin] (°C, °F, gauge pressure, an angle that wraps at a",
     "  turn): point + vector = point, point − point = vector, conversions between origins exact or refused.",
     "- [Index]`<Of, T, B>`, [IndexFrom1] and [Seq]`<Of, T>` (feature `counting`): a position in a table of `Of`, 0- or",
@@ -19,16 +23,49 @@
     "  doesn\'t compile.",
     "- `SIExpr` (feature `shrink_wrap`): a unit as a tree on the wire, for a unit only known at run time.",
     "- [decibel]: levels in dB of a gain, 20·lg or 10·lg by its [Kind]: [db!] works the stored value out at compile",
-    "  time, exactly; `to_db` / `from_db` at run time in `f64` and `f32` (feature `std` or `libm`).",
+    "  time, exactly; `to_db` / `from_db` at run time in `f64` and `f32` (feature `std` or `libm`). Nepers are the same",
+    "  with [np!] and `to_np` / `from_np`.",
+    "- [level] (feature `levels`): a level as a quantity, the neper on a base of its own and the decibel a scaled",
+    "  unit of it, a loss on a second base (`Loss<Decibel>`, positive for a decay), absorbance and optical depth,",
+    "  rates like dB/m and Np/s, and the edge to a gain (`to_level`, `to_gain`), where 10·lg or 20·lg comes in.",
+    "- [literal]: [fixed!] turns a decimal literal into the stored value of the [Fixed] or [Complex] its context names",
+    "  at compile time, exactly rounded: `fixed!(0.1)` in Q30, no hand-computed `107_374_182`.",
+    "- `serde` (feature `serde`): every number as the number it stores, bounds checked on reading, and",
+    "  `serde::with_unit` for a field as text with its unit (`\"1.5 ms\"`), read back exactly; `no_std`, no alloc.",
     "",
     "`no_std`, no alloc, and no dependencies without features. `shrink_wrap` adds the wire format (`shrink_wrap`\'s),",
     "`std` every unit group and with `shrink_wrap` the owned forms of the wire types, `defmt` their `defmt::Format`,",
-    "`libm` the run-time dB without `std`. Unit groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`, `photometric`,",
-    "`radiation`, `dimensionless`, `information`, `counting`, `quantities` for all).",
+    "`serde` their serde, `libm` the run-time dB without `std`. Unit groups are cargo features (`time`, `electrical`, `mechanical`, `angle`, `thermal`, `chemical`, `photometric`,",
+    "`radiometric`, `radiation`, `fields`, `dimensionless`, `information`, `counting`, `levels`, `quantities` for all).",
     "",
     "Run-time quantities (a prefix and a number type chosen per value) are `ww_si`\'s `Quantity` and `AnyQuantity`,",
     "built on this crate.",
 ], crate_idx: 0, trait_name: "exact_units", items: [], compact_id: None, meta: None), types: [
+    InLine(ty: Struct((size: Sized(size_bits: 0), crate_idx: 0, docs: [
+        "A complex value `re + j·im` in unit `U` and scale `P`, both parts stored as `T`, with the overflow policy `B`. See",
+        "the [module](crate::complex) for the design.",
+    ], ident: "Complex", generics: [
+        (ident: "U", kind: Type),
+        (ident: "P", kind: Type),
+        (ident: "T", kind: Type),
+        (ident: "B", kind: Type),
+    ], fields: Named([
+        (ident: Some("re"), default: None, since: None, ty: Param(2), docs: [
+            "The real part, in steps of `P`.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("im"), default: None, since: None, ty: Param(2), docs: [
+            "The imaginary part, in steps of `P`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The |z|² of a complex value at a level in dB as a type: what `db!(norm_sqr -15)` names, a threshold for",
+        "[Complex::norm_sqr](crate::Complex::norm_sqr) ([Complex::norm_sqr_at](crate::Complex::norm_sqr_at)).",
+    ], ident: "NormSqrLevel", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "DECIMALS", kind: Const(ty: NumericAny(Base(U8)))),
+    ], fields: Unit, sparse: false, path: Some([
+        "decibel",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A level in dB as a type, `NUM · 10^-DECIMALS` dB: what [db!](crate::db) names, so the storage of the [Fixed] can",
         "come from the context.",
@@ -38,6 +75,126 @@
     ], fields: Unit, sparse: false, path: Some([
         "decibel",
     ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A level in Np as a type, `NUM · 10^-DECIMALS` Np: what [np!](crate::np) names.",
+    ], ident: "NeperLevel", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "DECIMALS", kind: Const(ty: NumericAny(Base(U8)))),
+    ], fields: Unit, sparse: false, path: Some([
+        "decibel",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal as a type, `NUM · 10^EXP`: what [fixed!](crate::fixed) names, so the scale and storage of the",
+        "[Fixed] can come from the context. A pair of them is a [Complex]\'s.",
+    ], ident: "Literal", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
+    ], fields: Unit, sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A decimal literal in the unit `S` as a type, `NUM · 10^EXP` of `S`: what `fixed!(17.7 in Decibel)` names.",
+    ], ident: "LiteralIn", generics: [
+        (ident: "NUM", kind: Const(ty: NumericAny(Base(I64)))),
+        (ident: "EXP", kind: Const(ty: NumericAny(Base(I16)))),
+        (ident: "S", kind: Type),
+    ], fields: Unnamed([]), sparse: false, path: Some([
+        "literal",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "The one-code set: `CODE` means null, no value. `Niched<V, Null<CODE>>` converts to and from `Option<V>`; Matter\'s",
+        "nullable integers are `Null<0xFF>` on an `u8` and `Null<-128>` on an `i8`.",
+    ], ident: "Null", generics: [
+        (ident: "CODE", kind: Const(ty: NumericAny(Base(I128)))),
+    ], fields: Unit, sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A value `V` or one of the niche codes of `N`, stored as the raw number: `size_of` and the bytes are the storage\'s.",
+        "[get](Self::get) answers the value or the code\'s meaning ([Reading]), so a code never passes for a number.",
+        "",
+        "The bounds of `V` must leave the codes out, and every code must fit the storage: checked at compile time.",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, Range, niche::{J1939U8, Niched}, prefix::One, units::Ratio};",
+        "",
+        "// 0xFE is an error code and inside 0..=254",
+        "type Bad = Niched<Fixed<Ratio, One, u8, Range<0, 254>>, J1939U8>;",
+        "let _ = Bad::try_from_raw(3);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, Range, niches, niche::Niched, prefix::One, units::Ratio};",
+        "",
+        "niches! {",
+        "    /// 3 is in both",
+        "    pub enum Overlap: u8 { Low = 1..=3, High = 3 }",
+        "}",
+        "let _ = Niched::<Fixed<Ratio, One, u8, Range<10, 20>>, Overlap>::try_from_raw(12);",
+        "```",
+        "",
+        "```compile_fail",
+        "use exact_units::{Fixed, niche::{Niched, Null}, prefix::One, units::Ratio};",
+        "",
+        "// without bounds every u8 is a value, and 0xFF too",
+        "let _ = Niched::<Fixed<Ratio, One, u8>, Null<0xFF>>::try_from_raw(3);",
+        "```",
+    ], ident: "Niched", generics: [
+        (ident: "V", kind: Type),
+        (ident: "N", kind: Type),
+        (ident: "T", kind: Type),
+    ], fields: Named([
+        (ident: Some("raw"), default: None, since: None, ty: Param(2), docs: [
+            "A value within `V`\'s bounds or a code of `N`.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Both ends are rails: an ADC reading 0 or full scale, a Q15 after saturation.",
+    ], ident: "BothRails", generics: [], fields: Unit, sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Only the lowest value is a rail: a sensor that reads its lowest value for everything below it.",
+    ], ident: "LowRail", generics: [], fields: Unit, sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Only the highest value is a rail: a counter or a reading that stops at its top.",
+    ], ident: "HighRail", generics: [], fields: Unit, sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: None)), crate_idx: 0),
+    InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
+        "A value whose lowest and highest values (the bounds of `V`, or its storage\'s ends without them) are rails, where",
+        "a reading stops when the true value is beyond it: an ADC at full scale, a Q15 after saturation, J1939 coolant at",
+        "−40 °C. [get](Self::get) marks such a value [AtLeast](Clip::AtLeast) or [AtMost](Clip::AtMost). The bytes are",
+        "`V`\'s; an integer storage only.",
+        "",
+        "A rail is a value with a mark, unlike a niche code, which is no value at all; the two combine:",
+        "`Niched<Clipped<V>, N>`.",
+        "",
+        "```",
+        "use exact_units::{Fixed, Range, niche::{Clip, Clipped}, prefix::Rational, units::Volt};",
+        "",
+        "// a 12-bit ADC on 3.3 V",
+        "type Volts = Fixed<Volt, Rational<33, 40950>, u16, Range<0, 4095>>;",
+        "type Adc = Clipped<Volts>;",
+        "",
+        "assert_eq!(Adc::try_from_raw(2048).map(Adc::get), Ok(Clip::Exact(Volts::bounded(2048))));",
+        "assert_eq!(Adc::try_from_raw(4095).map(Adc::get), Ok(Clip::AtLeast(Volts::bounded(4095))));",
+        "assert_eq!(Adc::try_from_raw(0).map(Adc::get), Ok(Clip::AtMost(Volts::bounded(0))));",
+        "```",
+    ], ident: "Clipped", generics: [
+        (ident: "V", kind: Type),
+        (ident: "R", kind: Type),
+    ], fields: Named([
+        (ident: Some("value"), default: None, since: None, ty: Param(0), docs: [
+            "The value.",
+        ], slot: None, series_opaque: false),
+    ]), sparse: false, path: Some([
+        "niche",
+    ]), instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Time in seconds, s.",
         "",
@@ -130,10 +287,24 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C", dim: (s: 1, m: 0, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Power in watts, W (kg·m²·s⁻³, J/s, V·A).",
+        "Power in watts, W (kg·m²·s⁻³, J/s, V·A): active power, P, of ISO 80000-6 (stays plain, next to the kinds",
+        "below).",
     ], ident: "Watt", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Apparent power in volt-amperes, VA (kg·m²·s⁻³, like [Watt]): |S|, ISO 80000-6\'s S, of the complex power",
+        "S = V·I*. Of the kind `apparent power`: a product `Times<Volt, Ampere>` becomes one only through",
+        "[Complex::apparent_power](crate::Complex::apparent_power), never a plain `convert`.",
+    ], ident: "VoltAmpere", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "VA", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "apparent power"))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Reactive power in volt-amperes reactive, var (kg·m²·s⁻³, like [Watt]): Im(S), ISO 80000-6\'s Q, of the",
+        "complex power S = V·I*. Of the kind `reactive power`: never a plain [Watt] by `convert`.",
+    ], ident: "Var", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "var", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "reactive power"))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Magnetic flux in webers, Wb (kg·m²·s⁻²·A⁻¹, V·s).",
     ], ident: "Weber", generics: [], fields: Unit, sparse: false, path: Some([
@@ -145,10 +316,94 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "T", dim: (s: -2, m: 0, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electric field strength in volts per meter, V/m (kg·m·s⁻³·A⁻¹, SI Brochure, 9th ed., table 6).",
+    ], ident: "ElectricFieldStrength", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "V/m", dim: (s: -3, m: 1, kg: 1, a: -1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Magnetic field strength in amperes per meter, A/m (SI Brochure, 9th ed., table 5).",
+    ], ident: "MagneticFieldStrength", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "A/m", dim: (s: 0, m: -1, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Current density in amperes per square meter, A/m² (SI Brochure, 9th ed., table 5): a trace\'s or a wire\'s A/mm²",
+        "is `Fixed<CurrentDensity, Mega, T>`.",
+    ], ident: "CurrentDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "A/m²", dim: (s: 0, m: -2, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electric charge density in coulombs per cubic meter, C/m³ (m⁻³·s·A, SI Brochure, 9th ed., table 6).",
+    ], ident: "ChargeDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C/m³", dim: (s: 1, m: -3, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electric displacement (electric flux density) or surface charge density in coulombs per square meter, C/m²",
+        "(m⁻²·s·A, SI Brochure, 9th ed., table 6).",
+    ], ident: "ElectricDisplacement", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C/m²", dim: (s: 1, m: -2, kg: 0, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Permittivity in farads per meter, F/m (kg⁻¹·m⁻³·s⁴·A², SI Brochure, 9th ed., table 6); also a cable\'s",
+        "capacitance per length.",
+    ], ident: "Permittivity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "F/m", dim: (s: 4, m: -3, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Permeability in henries per meter, H/m (kg·m·s⁻²·A⁻², SI Brochure, 9th ed., table 6); also a cable\'s",
+        "inductance per length.",
+    ], ident: "Permeability", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "H/m", dim: (s: -2, m: 1, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electrical resistivity in ohm meters, Ω·m (kg·m³·s⁻³·A⁻²): copper is about 17 nΩ·m.",
+    ], ident: "Resistivity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Ω·m", dim: (s: -3, m: 3, kg: 1, a: -2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Electrical conductivity in siemens per meter, S/m (kg⁻¹·m⁻³·s³·A²): seawater is about 5 S/m.",
+    ], ident: "Conductivity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "S/m", dim: (s: 3, m: -3, kg: -1, a: 2, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Length in meters, m.",
     ], ident: "Meter", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Length in kilometers, km: a fibre\'s own unit, so `Per<Loss<Decibel>, Kilometre>` reads as it prints,",
+        "\"dB/km\" (0.2 dB/km at 1550 nm is typical). A unit of its own, not `Meter` in a prefixed scale: the `with_unit`",
+        "text always writes a value in a unit\'s bare symbol ([write_unit](crate::tree::write_unit) with",
+        "[Prefix::Unit](crate::Prefix::Unit)), never moving an SI prefix onto a plain metre inside a quotient, so",
+        "\"dB/km\" needs its own marker, as [Litre] already does for volume.",
+    ], ident: "Kilometre", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "km", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Length in hundreds of meters, 100 m: a cable datasheet\'s own unit, so `Per<Loss<Decibel>, Metres100>` reads",
+        "as it prints, \"dB/100 m\".",
+    ], ident: "Metres100", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "100 m", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 4)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Length in hundreds of feet (international foot), 100 ft = 30.48 m: a cable datasheet\'s own unit, so",
+        "`Per<Loss<Decibel>, Feet100>` reads as it prints, \"dB/100 ft\". A crate convenience scaled on",
+        "[FootInternational], not a unit of its own in NIST SP 811, so it stays out of the sourced customary",
+        "catalogue (`customary::sourced`).",
+    ], ident: "Feet100", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "100 ft", dim: (s: 0, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: 6, primes: [
+        (3, 2),
+        (127, 2),
+    ])))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Length times frequency in centimetre-megahertz, cm·MHz (10⁴ m·Hz, the dimension of a speed): medical",
+        "ultrasound\'s own unit for frequency-scaled attenuation, α(f) = α₀·f, so `Per<Loss<Decibel>,",
+        "CentimetreMegahertz>` prints as a datasheet writes it, \"dB/(cm·MHz)\" (soft tissue ≈ 0.5), the middle dot",
+        "parenthesizing the denominator as a `rad/s` one already does. A marker of its own, not `Times<Meter, Hertz>`",
+        "in a prefixed scale, for the same reason as [Metres100] and [Kilometre].",
+    ], ident: "CentimetreMegahertz", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cm·MHz", dim: (s: -1, m: 1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 8)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Mass in grams, g (10⁻³ kg): 5 kg is `Gram::kilo(5u8)`.",
     ], ident: "Gram", generics: [], fields: Unit, sparse: false, path: Some([
@@ -181,7 +436,8 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "L", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Volumetric flow in cubic meters per second, m³/s.",
+        "Volumetric flow in cubic meters per second, m³/s. Written in litres from 10⁻³ m³/s down, like a [Volume]:",
+        "`5 L/s`, `5 mL/s`, `5 µL/s`.",
     ], ident: "VolumetricFlow", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m³/s", dim: (s: -1, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
@@ -211,12 +467,105 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N/s", dim: (s: -3, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Area in square meters, m² (SI Brochure, 9th ed., table 5). A prefix binds to the metre and the power applies",
+        "to both: a `Fixed<Area, Micro, T>` is written `5 mm²`, and a `Fixed<Area, Milli, T>`, which no prefix on the",
+        "metre makes, `5 m(m²)`.",
+    ], ident: "Area", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m²", dim: (s: 0, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Volume in cubic meters, m³ (SI Brochure, 9th ed., table 5); a litre is [Litre], 10⁻³ m³. Written in litres from",
+        "10⁻³ m³ down to 10⁻⁹ m³: a `Fixed<Volume, Milli, T>` is `5 L`, in `Micro` `5 mL`, in `Nano` `5 µL`.",
+    ], ident: "Volume", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m³", dim: (s: 0, m: 3, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Wavenumber in reciprocal meters, m⁻¹ (SI Brochure, 9th ed., table 5): the cm⁻¹ of spectroscopy is",
+        "`Fixed<Wavenumber, Hecto, T>`, 100 m⁻¹.",
+    ], ident: "Wavenumber", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m⁻¹", dim: (s: 0, m: -1, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Density, mass density or mass concentration in kilograms per cubic meter, kg/m³ (SI Brochure, 9th ed.,",
+        "table 5); g/L is the same unit.",
+    ], ident: "Density", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg/m³", dim: (s: 0, m: -3, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Density in grams per cubic centimetre, g/cm³ (10³ kg/m³, also kg/L): water is about 1 g/cm³.",
+    ], ident: "GramPerCubicCentimeter", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "g/cm³", dim: (s: 0, m: -3, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Surface density, mass per area, in kilograms per square meter, kg/m² (SI Brochure, 9th ed., table 5): a paper\'s",
+        "grammage in g/m² is `Fixed<SurfaceDensity, Milli, T>`.",
+    ], ident: "SurfaceDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg/m²", dim: (s: 0, m: -2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Specific volume in cubic meters per kilogram, m³/kg (SI Brochure, 9th ed., table 5).",
+    ], ident: "SpecificVolume", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m³/kg", dim: (s: 0, m: 3, kg: -1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Mass flow rate in kilograms per second, kg/s.",
+    ], ident: "MassFlow", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg/s", dim: (s: -1, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Momentum or impulse in kilogram meters per second, kg·m/s (N·s).",
+    ], ident: "Momentum", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg·m/s", dim: (s: -1, m: 1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Angular momentum in kilogram square meters per second, kg·m²/s, counted as joule seconds per radian",
+        "(kg·m²·s⁻¹·rad⁻¹), like [Torque]: a [MomentOfInertia] times an [AngularVelocity], and a [Torque] times a",
+        "[Second].",
+    ], ident: "AngularMomentum", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg·m²/s", dim: (s: -1, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Moment of inertia in kilogram square meters, kg·m², counted per square radian (kg·m²·rad⁻²): times an",
+        "[AngularAcceleration] it is a [Torque], and ½·I·ω² is a [Joule].",
+    ], ident: "MomentOfInertia", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg·m²", dim: (s: 0, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Surface tension in newtons per meter, N/m (kg·s⁻², SI Brochure, 9th ed., table 6); also a spring\'s stiffness.",
+    ], ident: "SurfaceTension", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "N/m", dim: (s: -2, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Dynamic viscosity in pascal seconds, Pa·s (kg·m⁻¹·s⁻¹, SI Brochure, 9th ed., table 6): water at 20 °C is about",
+        "1 mPa·s.",
+    ], ident: "DynamicViscosity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Pa·s", dim: (s: -1, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Kinematic viscosity, or a diffusivity, in square meters per second, m²/s: a dynamic viscosity over a density.",
+        "The centistokes of oils is `Fixed<KinematicViscosity, Micro, T>`, 1 mm²/s.",
+    ], ident: "KinematicViscosity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "m²/s", dim: (s: -1, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Energy density in joules per cubic meter, J/m³ (kg·m⁻¹·s⁻², SI Brochure, 9th ed., table 6). The dimension of a",
+        "[Pascal], so of the kind `energy density`: a pressure is not one, and `Per<Joule, Volume>` becomes one only by",
+        "`as_energy_density`.",
+    ], ident: "EnergyDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "J/m³", dim: (s: -2, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "energy density"))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Power density, or a volumetric heat source, in watts per cubic meter, W/m³ (kg·m⁻¹·s⁻³).",
+    ], ident: "PowerDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/m³", dim: (s: -3, m: -1, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Angle in radians, rad: a base dimension of its own here, so an angle doesn\'t mix with a [Ratio].",
     ], ident: "Radian", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
-        "Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact]).",
+        "Angle in degrees of arc, ° (π/180 rad, exactly: [Scale::Exact](crate::Scale::Exact)).",
     ], ident: "Degree", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "°", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -2, pow2: -2, pi: 2, primes: [
@@ -244,6 +593,60 @@
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "rad/s²", dim: (s: -2, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 1, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A level in nepers, Np: ln(F/F₀) of a root-power quantity, ½·ln(P/P₀) of a power, so a field level and its",
+        "power level are the same number (ISO 80000-3, IEC 60027-3). Signed as a gain: a decay is negative. A base of",
+        "its own here: [Fixed::to_level](crate::Fixed::to_level) and [to_gain](crate::Fixed::to_gain) cross from and to",
+        "a gain (V/V, W/W).",
+    ], ident: "Neper", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Np", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Neper", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A level in decibels, dB ((ln 10)/20 [Neper], exactly): 20·lg of a root-power ratio, 10·lg of a power ratio,",
+        "the same number for both. Signed as a gain.",
+    ], ident: "Decibel", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "dB", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "Neper", exp: 1)), None, None, None)), magnitude: (pow10: -2, pow2: -2, ln10: 2)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A loss in nepers, Np: a [Neper] level signed as a loss, positive for a decay, as attenuation coefficients and",
+        "datasheets write it. A base of its own, so a loss doesn\'t convert to a gain: `as_gain` negates. Written",
+        "`Loss<Neper>` ([Loss]).",
+    ], ident: "NeperLoss", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Np", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "NeperLoss", exp: 1)), None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A loss in decibels, dB ((ln 10)/20 [NeperLoss], exactly): a cable\'s 17.7 dB/100 m is",
+        "`Per<Loss<Decibel>, _>` of +17.7. Written `Loss<Decibel>` ([Loss]).",
+    ], ident: "DecibelLoss", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "dB", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "NeperLoss", exp: 1)), None, None, None)), magnitude: (pow10: -2, pow2: -2, ln10: 2)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absorbance A = −lg T of a transmitted power ratio T, AU ((ln 10)/2 [NeperLoss], exactly): the loss in bels of",
+        "power, so 1 AU is 10 dB. Decadic, and positive for a decay as a [DecibelLoss] is; a lab\'s \"OD\". `Fixed<Absorbance,",
+        "Milli, _>` prints mAU. [to_gain](crate::Fixed::to_gain) into `Per<Watt, Watt>` is T.",
+    ], ident: "Absorbance", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "AU", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "NeperLoss", exp: 1)), None, None, None)), magnitude: (pow10: 0, pow2: -2, ln10: 2)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Optical depth τ = −ln T of a transmitted power ratio T, τ (½ [NeperLoss], exactly): power falls as e^(−τ), its",
+        "field as e^(−τ/2), so 1 Np of loss is 2 of depth. τ = ln 10 · A of an [Absorbance], a conversion by name for",
+        "integers.",
+    ], ident: "OpticalDepth", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "τ", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (Some((crate_name: "exact_units", name: "NeperLoss", exp: 1)), None, None, None)), magnitude: (pow10: 0, pow2: -2)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A damping ratio, ζ: δ/ω₀ of a second-order system (x″ + 2ζω₀·x′ + ω₀²·x = 0), 1 at critical damping. A number of",
+        "the kind `damping ratio`, so it isn\'t a plain `Ratio` or a [QualityFactor] (Q = 1/(2ζ)): `damping_ratio` and",
+        "`quality_factor` are the steps.",
+    ], ident: "DampingRatio", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "damping ratio"))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A quality factor, Q: 1/(2ζ) of a second-order system, ω₀ over the half-power bandwidth. A number of the kind",
+        "`quality factor`, so it isn\'t a plain `Ratio` or a [DampingRatio].",
+    ], ident: "QualityFactor", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "", dim: (s: 0, m: 0, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "quality factor"))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Thermodynamic temperature in kelvins, K.",
     ], ident: "Kelvin", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -254,6 +657,52 @@
         "units",
     ]), instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Heat flux density in watts per square meter, W/m² (kg·s⁻³, SI Brochure, 9th ed., table 6): heat through a",
+        "surface. The same unit as [Irradiance], and converts to it.",
+    ], ident: "HeatFluxDensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/m²", dim: (s: -3, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Heat capacity in joules per kelvin, J/K (kg·m²·s⁻²·K⁻¹, SI Brochure, 9th ed., table 6). `Per<Joule, Kelvin>`",
+        "converts to it; an [Entropy] doesn\'t.",
+    ], ident: "HeatCapacity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J/K", dim: (s: -2, m: 2, kg: 1, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Entropy in joules per kelvin, J/K (SI Brochure, 9th ed., table 6). The dimension of a [HeatCapacity], so of the",
+        "kind `entropy`: one becomes the other only by `as_entropy` and `as_heat_capacity`.",
+    ], ident: "Entropy", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(KindUnit((unit: (symbol: "J/K", dim: (s: -2, m: 2, kg: 1, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)), kind: "entropy"))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Specific heat capacity in joules per kilogram kelvin, J/(kg·K) (m²·s⁻²·K⁻¹, SI Brochure, 9th ed., table 6):",
+        "water is about 4186 J/(kg·K).",
+    ], ident: "SpecificHeatCapacity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J/(kg·K)", dim: (s: -2, m: 2, kg: 0, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Thermal conductivity in watts per meter kelvin, W/(m·K) (kg·m·s⁻³·K⁻¹, SI Brochure, 9th ed., table 6): a",
+        "thermal pad\'s datasheet value.",
+    ], ident: "ThermalConductivity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/(m·K)", dim: (s: -3, m: 1, kg: 1, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Thermal conductance in watts per kelvin, W/K (kg·m²·s⁻³·K⁻¹): the inverse of a [ThermalResistance].",
+    ], ident: "ThermalConductance", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/K", dim: (s: -3, m: 2, kg: 1, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Thermal resistance in kelvins per watt, K/W (kg⁻¹·m⁻²·s³·K): a heatsink\'s, a package\'s θJA. Times a [Watt] it",
+        "is a temperature rise in [Kelvin].",
+    ], ident: "ThermalResistance", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "K/W", dim: (s: 3, m: -2, kg: -1, a: 0, k: 1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Heat transfer coefficient in watts per square meter kelvin, W/(m²·K) (kg·s⁻³·K⁻¹): convection from a surface.",
+    ], ident: "HeatTransferCoefficient", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/(m²·K)", dim: (s: -3, m: 0, kg: 1, a: 0, k: -1, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Amount of substance in moles, mol.",
     ], ident: "Mole", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
@@ -263,6 +712,49 @@
     ], ident: "Katal", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kat", dim: (s: -1, m: 0, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Amount concentration (molarity) in moles per cubic meter, mol/m³ (SI Brochure, 9th ed., table 5); a mol/L is",
+        "[MolePerLitre], 10³ mol/m³.",
+    ], ident: "MolarConcentration", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mol/m³", dim: (s: 0, m: -3, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Amount concentration in moles per litre, mol/L (10³ mol/m³): the chemist\'s molar, M.",
+    ], ident: "MolePerLitre", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mol/L", dim: (s: 0, m: -3, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 6)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A concentration times a path length in molar centimeters, M·cm (10 mol/m²): what a molar absorptivity is per,",
+        "`Per<Absorbance, MolarCentimeter>` printing AU/(M·cm), the L/(mol·cm) of tables.",
+    ], ident: "MolarCentimeter", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "M·cm", dim: (s: 0, m: -2, kg: 0, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 2)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Molality in moles per kilogram of solvent, mol/kg.",
+    ], ident: "Molality", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "mol/kg", dim: (s: 0, m: 0, kg: -1, a: 0, k: 0, mol: 1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Molar mass in kilograms per mole, kg/mol; the g/mol of tables is [GramPerMole].",
+    ], ident: "MolarMass", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "kg/mol", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: -1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Molar mass in grams per mole, g/mol (10⁻³ kg/mol): water is about 18.015 g/mol.",
+    ], ident: "GramPerMole", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "g/mol", dim: (s: 0, m: 0, kg: 1, a: 0, k: 0, mol: -1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -6)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Molar energy in joules per mole, J/mol (kg·m²·s⁻²·mol⁻¹, SI Brochure, 9th ed., table 6).",
+    ], ident: "MolarEnergy", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J/mol", dim: (s: -2, m: 2, kg: 1, a: 0, k: 0, mol: -1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Molar heat capacity in joules per mole kelvin, J/(mol·K) (SI Brochure, 9th ed., table 6): the gas constant R is",
+        "8.314.. J/(mol·K).",
+    ], ident: "MolarHeatCapacity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "J/(mol·K)", dim: (s: -2, m: 2, kg: 1, a: 0, k: -1, mol: -1, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Luminous intensity in candelas, cd.",
     ], ident: "Candela", generics: [], fields: Unit, sparse: false, path: Some([
@@ -278,6 +770,33 @@
     ], ident: "Lux", generics: [], fields: Unit, sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lx", dim: (s: 0, m: -2, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Luminance in candelas per square meter, cd/m² (SI Brochure, 9th ed., table 5), the nit: a display\'s",
+        "brightness. Text input also takes `nit` and `nt`.",
+    ], ident: "Nit", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "cd/m²", dim: (s: 0, m: -2, kg: 0, a: 0, k: 0, mol: 0, cd: 1, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Luminous efficacy in lumens per watt, lm/W (cd·rad²·kg⁻¹·m⁻²·s³): an LED\'s light per electrical watt.",
+    ], ident: "LuminousEfficacy", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "lm/W", dim: (s: 3, m: -2, kg: -1, a: 0, k: 0, mol: 0, cd: 1, rad: 2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Irradiance in watts per square meter, W/m² (kg·s⁻³, SI Brochure, 9th ed., table 6): sunlight on a solar panel,",
+        "about 1000 W/m² at noon. The same unit as [HeatFluxDensity], and converts to it.",
+    ], ident: "Irradiance", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/m²", dim: (s: -3, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Radiant intensity in watts per steradian, W/sr (kg·m²·s⁻³·rad⁻², SI Brochure, 9th ed., table 6): an IR LED\'s.",
+    ], ident: "RadiantIntensity", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/sr", dim: (s: -3, m: 2, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Radiance in watts per square meter steradian, W/(m²·sr) (kg·s⁻³·rad⁻², SI Brochure, 9th ed., table 6).",
+    ], ident: "Radiance", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "W/(m²·sr)", dim: (s: -3, m: 0, kg: 1, a: 0, k: 0, mol: 0, cd: 0, rad: -2, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "Radioactivity in becquerels, Bq (s⁻¹).",
     ], ident: "Becquerel", generics: [], fields: Unit, sparse: false, path: Some([
@@ -302,6 +821,24 @@
         (19, 2),
         (389, 2),
         (12043, 2),
+    ])))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Exposure to X and γ rays in coulombs per kilogram, C/kg (kg⁻¹·s·A, SI Brochure, 9th ed., table 6).",
+    ], ident: "Exposure", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "C/kg", dim: (s: 1, m: 0, kg: -1, a: 1, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Absorbed dose rate in grays per second, Gy/s (m²·s⁻³, SI Brochure, 9th ed., table 6).",
+    ], ident: "AbsorbedDoseRate", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Gy/s", dim: (s: -3, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: 0)))))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "Equivalent dose rate in sieverts per hour, Sv/h (1/3600 Sv/s): a dosimeter\'s µSv/h is",
+        "`Fixed<SievertPerHour, Micro, T>`.",
+    ], ident: "SievertPerHour", generics: [], fields: Unit, sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Unit((symbol: "Sv/h", dim: (s: -3, m: 2, kg: 0, a: 0, k: 0, mol: 0, cd: 0, rad: 0, bit: 0, root: false, counted: (None, None, None, None)), magnitude: (pow10: -4, pow2: -4, primes: [
+        (3, -4),
     ])))))))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A fraction: a duty cycle, a probability, a scale factor, an efficiency (dimensionless, 1). 0.5 is half, not a",
@@ -441,6 +978,32 @@
     ], fields: Named([]), sparse: false, path: Some([
         "units",
     ]), instance_of: None, extra: Some((transparent: false, marker: Some(Sqrt))))), crate_idx: 0),
+    InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
+        "A phase angle in the angle unit `A`: the argument of a phasor, an NCO\'s phase, a motor\'s electrical angle. Same",
+        "dimension, scale and symbol as `A`, but of the kind `phase angle` ([Kind::Named]), so it isn\'t a mechanical",
+        "angle: `Phase<Turn>` converts to `Phase<Degree>`, not to [Turn]. The steps between them are named: `as_phase` and",
+        "`as_plane_angle` (the same number), and `electrical(pole_pairs)` from a motor\'s mechanical angle to its electrical",
+        "angle, the phase a field-oriented control\'s Park transform takes.",
+        "",
+        "```",
+        "# #[cfg(feature = \"angle\")] {",
+        "use exact_units::{Bam16, Fixed, PhaseBam16, prefix::One, units::{Degree, Phase, Turn}};",
+        "",
+        "let half = Fixed::<Phase<Turn>, One, f32>::new(0.5);",
+        "assert_eq!(half.convert::<Phase<Degree>, One, f32>(), Some(Fixed::new(180.0)));",
+        "// a rotor at 0.3 turn with 7 pole pairs is at 2.1 turns electrical, 0.1 turn of phase",
+        "let mechanical: Bam16 = exact_units::fixed!(0.3);",
+        "let phase: PhaseBam16 = mechanical.electrical(7);",
+        "assert_eq!(phase.get(), 19661u16.wrapping_mul(7));",
+        "# }",
+        "```",
+        "",
+        "On the wire and in a unit\'s [UnitExpr] it is `A`: the kind is in the type, as for [Ohm].",
+    ], ident: "Phase", generics: [
+        (ident: "A", kind: Type),
+    ], fields: Named([]), sparse: false, path: Some([
+        "units",
+    ]), instance_of: None, extra: Some((transparent: false, marker: Some(Phase))))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A value in unit `U` and prefix `P`, stored as `T`, within the bounds `B`: on the wire exactly `T`, the unit,",
         "prefix and bounds are only in the type. `shared_us: u64` becomes `shared: Fixed<Second, Micro, u64>` (or",
@@ -489,7 +1052,9 @@
         (ident: "T", kind: Type),
         (ident: "B", kind: Type),
     ], fields: Named([
-        (ident: Some("value"), default: None, since: None, ty: Param(2), docs: [], slot: None, series_opaque: false),
+        (ident: Some("value"), default: None, since: None, ty: Param(2), docs: [
+            "The number of steps of `P`.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "A value outside its [Bounds], or one that doesn\'t fit the storage.",
@@ -789,7 +1354,9 @@
         (ident: "T", kind: Type),
         (ident: "B", kind: Type),
     ], fields: Named([
-        (ident: Some("index"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("index"), default: None, since: None, ty: Param(1), docs: [
+            "The position, 0 the first.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A 1-based position in a table of `Of`, as people and datasheets count: channel 1 to 4, pin 1, motor 1 to 4. Never",
@@ -812,7 +1379,9 @@
         (ident: "T", kind: Type),
         (ident: "B", kind: Type),
     ], fields: Named([
-        (ident: Some("number"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("number"), default: None, since: None, ty: Param(1), docs: [
+            "The number, 1 the first.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "A wrapping sequence number of `Of`, stored as `T`: a request\'s, an envelope\'s, a frame\'s (`Seq<Frame, u16>`,",
@@ -847,21 +1416,33 @@
         (ident: "Of", kind: Type),
         (ident: "T", kind: Type),
     ], fields: Named([
-        (ident: Some("seq"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("seq"), default: None, since: None, ty: Param(1), docs: [
+            "The sequence number.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "The powers of π, ln 2 and ln 10 in a [Magnitude], each twice the exponent: `π/180` has `pi = 2`, a decibel in",
         "neper (`ln10/20`) `ln10 = 2`. Treated as independent symbols, like the primes.",
     ], ident: "Irrational", generics: [], fields: Named([
-        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("pi"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of π.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 2.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("ln10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice the exponent of ln 10.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "`prime^(exp/2)` in a [Magnitude]: a prime other than 2 and 5, and twice its exponent (never 0).",
     ], ident: "PrimePower", generics: [], fields: Named([
-        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
+        (ident: Some("prime"), default: None, since: None, ty: NumericAny(Base(UNib32)), docs: [
+            "The prime: 3, 7, 11, ..",
+        ], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
+            "Twice its exponent.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: SelfDescribing, crate_idx: 0, docs: [
         "The part of a [Magnitude] after its power of 10: rarer, so it costs one bit on the wire when it is 1.",
@@ -869,10 +1450,10 @@
         (ident: Some("pow2"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 2.",
         ], slot: None, series_opaque: false),
-        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 120)), docs: [
+        (ident: Some("irrational"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 195)), docs: [
             "π, ln 2 and ln 10, `None` when all their exponents are 0.",
         ], slot: None, series_opaque: false),
-        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 121))), docs: [
+        (ident: Some("factors"), default: None, since: None, ty: Array(len: Fixed(12), ty: Option(some_ty: OutOfLine(type_idx: 196))), docs: [
             "Primes other than 2 and 5, ascending, used slots first.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -900,7 +1481,7 @@
         (ident: Some("pow10"), default: None, since: None, ty: NumericAny(Base(I8)), docs: [
             "Twice the exponent of 10.",
         ], slot: None, series_opaque: false),
-        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 122)), docs: [
+        (ident: Some("rest"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 197)), docs: [
             "Everything but the power of 10, `None` when it is 1.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -935,8 +1516,10 @@
         "Always canonical: zero is `magnitude: None` and never negative, so equal offsets are equal field by field. On the",
         "wire (`final_structure`): the sign bit, then the [Magnitude] behind an option bit; zero is 2 bits.",
     ], ident: "Offset", generics: [], fields: Named([
-        (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [], slot: None, series_opaque: false),
-        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 123)), docs: [
+        (ident: Some("negative"), default: None, since: None, ty: Bool, docs: [
+            "Below the reference; never for zero.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("magnitude"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 198)), docs: [
             "`None` for zero.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -985,7 +1568,9 @@
         (ident: "O", kind: Type),
         (ident: "F", kind: Type),
     ], fields: Named([
-        (ident: Some("coord"), default: None, since: None, ty: Param(1), docs: [], slot: None, series_opaque: false),
+        (ident: Some("coord"), default: None, since: None, ty: Param(1), docs: [
+            "The point\'s number: the amount from the origin.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: Some((transparent: true, marker: None)))), crate_idx: 0),
     InLine(ty: Struct((size: Unsized, crate_idx: 0, docs: [
         "The unit\'s own zero: 0 K, 0 Pa (vacuum), the zero of an angle.",
@@ -1004,7 +1589,9 @@
         (ident: Some("name"), default: None, since: None, ty: String, docs: [
             "The marker\'s name: `Sample`.",
         ], slot: None, series_opaque: false),
-        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("exp"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "The exponent: `Sample/s` has 1.",
+        ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
     InLine(ty: Struct((size: UnsizedFinalStructure, crate_idx: 0, docs: [
         "The dimension of a unit: exponents of the 7 SI base units s, m, kg, A, K, mol, cd, of angle (rad) and of",
@@ -1025,13 +1612,27 @@
         "by crate and name, with exponents that aren\'t 0, and `root` only with an odd exponent (a value that isn\'t so",
         "doesn\'t decode), so two equal dimensions have the same bytes: Volt is `d2 1f 00 00 00 00` (41 bits).",
     ], ident: "Dim", generics: [], fields: Named([
-        (ident: Some("s"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("kg"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("a"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("k"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("mol"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
-        (ident: Some("cd"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [], slot: None, series_opaque: false),
+        (ident: Some("s"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Time, second.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("m"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Length, metre.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("kg"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Mass, kilogram.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("a"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Electric current, ampere.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("k"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Thermodynamic temperature, kelvin.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("mol"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Amount of substance, mole.",
+        ], slot: None, series_opaque: false),
+        (ident: Some("cd"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
+            "Luminous intensity, candela.",
+        ], slot: None, series_opaque: false),
         (ident: Some("rad"), default: None, since: None, ty: NumericAny(Base(IB(4))), docs: [
             "Plane angle, radian.",
         ], slot: None, series_opaque: false),
@@ -1041,7 +1642,7 @@
         (ident: Some("root"), default: None, since: None, ty: Bool, docs: [
             "The square root of what the exponents describe, see above.",
         ], slot: None, series_opaque: false),
-        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 130))), docs: [
+        (ident: Some("counted"), default: None, since: None, ty: Array(len: Fixed(4), ty: Option(some_ty: OutOfLine(type_idx: 205))), docs: [
             "Counted bases, see [Counted]: used slots first, sorted by crate and name.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
@@ -1061,14 +1662,18 @@
         (docs: [
             "A factor and an offset: °C is K − 273.15, `Affine { factor: 1.0, offset: 273.15 }`.",
         ], ident: "Affine", fields: Named([
-            (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
-            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [], slot: None, series_opaque: false),
+            (ident: Some("factor"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [
+                "SI per unit.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("offset"), default: None, since: None, ty: NumericAny(Base(F64)), docs: [
+                "SI at the unit\'s zero.",
+            ], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "An exact factor, integers and a power of π: ° is π/180 rad, a turn 2π rad, rpm π/30 rad/s, eV",
             "1.602176634·10⁻¹⁹ J. Every reader computes the same value.",
         ], ident: "Exact", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 123), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: OutOfLine(type_idx: 198), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [
@@ -1084,33 +1689,41 @@
         (docs: [
             "A named unit: `name` is the marker\'s (`\"Volt\"`, a device\'s own `\"Rpm\"`), `symbol` as written after a number.",
         ], ident: "Named", fields: Named([
-            (ident: Some("name"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-            (ident: Some("symbol"), default: None, since: None, ty: String, docs: [], slot: None, series_opaque: false),
-            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 131), docs: [], slot: None, series_opaque: false),
-            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 132), docs: [], slot: None, series_opaque: false),
+            (ident: Some("name"), default: None, since: None, ty: String, docs: [
+                "The marker\'s name.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("symbol"), default: None, since: None, ty: String, docs: [
+                "As written after a number.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("dim"), default: None, since: None, ty: OutOfLine(type_idx: 206), docs: [
+                "The unit\'s dimension.",
+            ], slot: None, series_opaque: false),
+            (ident: Some("scale"), default: None, since: None, ty: OutOfLine(type_idx: 207), docs: [
+                "How a value in the unit becomes coherent SI.",
+            ], slot: None, series_opaque: false),
         ]), discriminant: 0, since: None),
         (docs: [
             "`A · B`, [Times](crate::units::Times).",
         ], ident: "Mul", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 1, since: None),
         (docs: [
             "`A / B`, [Per](crate::units::Per).",
         ], ident: "Div", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 2, since: None),
         (docs: [
             "`A` to an integer power.",
         ], ident: "Pow", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
             (ident: None, default: None, since: None, ty: NumericAny(Base(I8)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 3, since: None),
         (docs: [
             "`√A`, [Sqrt](crate::units::Sqrt): √Hz in V/√Hz.",
         ], ident: "Sqrt", fields: Unnamed([
-            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 133)), docs: [], slot: None, series_opaque: false),
+            (ident: None, default: None, since: None, ty: Box(OutOfLine(type_idx: 208)), docs: [], slot: None, series_opaque: false),
         ]), discriminant: 4, since: None),
     ], path: None, instance_of: None, future_version: Some(Off))), crate_idx: 0),
     InLine(ty: Enum((size: SelfDescribing, repr: UNib32, crate_idx: 0, docs: [
@@ -1128,31 +1741,81 @@
         "never bytes after it, so an older reader gets [Unknown(tag)](Prefix::Unknown), skips the self-describing value",
         "and reads the rest of the message.",
     ], ident: "Prefix", generics: [], variants: [
-        (docs: [], ident: "Unit", fields: Unit, discriminant: 0, since: None),
-        (docs: [], ident: "Milli", fields: Unit, discriminant: 1, since: None),
-        (docs: [], ident: "Micro", fields: Unit, discriminant: 2, since: None),
-        (docs: [], ident: "Nano", fields: Unit, discriminant: 3, since: None),
-        (docs: [], ident: "Pico", fields: Unit, discriminant: 4, since: None),
-        (docs: [], ident: "Kilo", fields: Unit, discriminant: 5, since: None),
-        (docs: [], ident: "Mega", fields: Unit, discriminant: 6, since: None),
-        (docs: [], ident: "Giga", fields: Unit, discriminant: 7, since: None),
-        (docs: [], ident: "Deca", fields: Unit, discriminant: 8, since: None),
-        (docs: [], ident: "Hecto", fields: Unit, discriminant: 9, since: None),
-        (docs: [], ident: "Tera", fields: Unit, discriminant: 10, since: None),
-        (docs: [], ident: "Peta", fields: Unit, discriminant: 11, since: None),
-        (docs: [], ident: "Exa", fields: Unit, discriminant: 12, since: None),
-        (docs: [], ident: "Zetta", fields: Unit, discriminant: 13, since: None),
-        (docs: [], ident: "Yotta", fields: Unit, discriminant: 14, since: None),
-        (docs: [], ident: "Ronna", fields: Unit, discriminant: 15, since: None),
-        (docs: [], ident: "Quetta", fields: Unit, discriminant: 16, since: None),
-        (docs: [], ident: "Deci", fields: Unit, discriminant: 17, since: None),
-        (docs: [], ident: "Centi", fields: Unit, discriminant: 18, since: None),
-        (docs: [], ident: "Femto", fields: Unit, discriminant: 19, since: None),
-        (docs: [], ident: "Atto", fields: Unit, discriminant: 20, since: None),
-        (docs: [], ident: "Zepto", fields: Unit, discriminant: 21, since: None),
-        (docs: [], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
-        (docs: [], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
-        (docs: [], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
+        (docs: [
+            "1, no prefix.",
+        ], ident: "Unit", fields: Unit, discriminant: 0, since: None),
+        (docs: [
+            "m, 10⁻³.",
+        ], ident: "Milli", fields: Unit, discriminant: 1, since: None),
+        (docs: [
+            "µ, 10⁻⁶.",
+        ], ident: "Micro", fields: Unit, discriminant: 2, since: None),
+        (docs: [
+            "n, 10⁻⁹.",
+        ], ident: "Nano", fields: Unit, discriminant: 3, since: None),
+        (docs: [
+            "p, 10⁻¹².",
+        ], ident: "Pico", fields: Unit, discriminant: 4, since: None),
+        (docs: [
+            "k, 10³.",
+        ], ident: "Kilo", fields: Unit, discriminant: 5, since: None),
+        (docs: [
+            "M, 10⁶.",
+        ], ident: "Mega", fields: Unit, discriminant: 6, since: None),
+        (docs: [
+            "G, 10⁹.",
+        ], ident: "Giga", fields: Unit, discriminant: 7, since: None),
+        (docs: [
+            "da, 10¹.",
+        ], ident: "Deca", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "h, 10².",
+        ], ident: "Hecto", fields: Unit, discriminant: 9, since: None),
+        (docs: [
+            "T, 10¹².",
+        ], ident: "Tera", fields: Unit, discriminant: 10, since: None),
+        (docs: [
+            "P, 10¹⁵.",
+        ], ident: "Peta", fields: Unit, discriminant: 11, since: None),
+        (docs: [
+            "E, 10¹⁸.",
+        ], ident: "Exa", fields: Unit, discriminant: 12, since: None),
+        (docs: [
+            "Z, 10²¹.",
+        ], ident: "Zetta", fields: Unit, discriminant: 13, since: None),
+        (docs: [
+            "Y, 10²⁴.",
+        ], ident: "Yotta", fields: Unit, discriminant: 14, since: None),
+        (docs: [
+            "R, 10²⁷.",
+        ], ident: "Ronna", fields: Unit, discriminant: 15, since: None),
+        (docs: [
+            "Q, 10³⁰.",
+        ], ident: "Quetta", fields: Unit, discriminant: 16, since: None),
+        (docs: [
+            "d, 10⁻¹.",
+        ], ident: "Deci", fields: Unit, discriminant: 17, since: None),
+        (docs: [
+            "c, 10⁻².",
+        ], ident: "Centi", fields: Unit, discriminant: 18, since: None),
+        (docs: [
+            "f, 10⁻¹⁵.",
+        ], ident: "Femto", fields: Unit, discriminant: 19, since: None),
+        (docs: [
+            "a, 10⁻¹⁸.",
+        ], ident: "Atto", fields: Unit, discriminant: 20, since: None),
+        (docs: [
+            "z, 10⁻²¹.",
+        ], ident: "Zepto", fields: Unit, discriminant: 21, since: None),
+        (docs: [
+            "y, 10⁻²⁴.",
+        ], ident: "Yocto", fields: Unit, discriminant: 22, since: None),
+        (docs: [
+            "r, 10⁻²⁷.",
+        ], ident: "Ronto", fields: Unit, discriminant: 23, since: None),
+        (docs: [
+            "q, 10⁻³⁰.",
+        ], ident: "Quecto", fields: Unit, discriminant: 24, since: None),
         (docs: [
             "2¹⁰",
         ], ident: "Kibi", fields: Unit, discriminant: 25, since: None),
@@ -3166,7 +3829,7 @@
         "to 2017).",
         "",
         "Clocks that count every SI second (TAI, GPS = TAI − 19 s) and UTC with its leap-second table come with",
-        "WireWeaver\'s STD-65 as clocks of their own; this origin stays POSIX time, and a conversion to them goes",
+        "WireWeaver\'s PT-3 as clocks of their own; this origin stays POSIX time, and a conversion to them goes",
         "through the table, never at compile time.",
     ], ident: "UnixEpoch", generics: [], fields: Unit, sparse: false, path: Some([
         "origins",

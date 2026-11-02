@@ -362,6 +362,7 @@ They are shared, so a tool that knows one of them works with every device that i
 - NUM-7 | Decimal literals as exact constants | `fixed!(0.1)` is the stored value nearest to 0.1 in the type's own scale, worked out at compile time: no hand-computed Q30 constants. |
 - NUM-8 | Niche codes next to `Bounds` | `Niched<V, N>` marks a sentinel value next to a `Fixed`'s bounds, so "no reading" needs no `Option` and costs no extra space. |
 - IO-1, IO-5 | Numbers with units in configs (serde) | A typed number is serde as the number it stores, its bounds checked on reading with the value and bound in the error, or as text with its unit, `"1.5 ms"`, read back exactly into the field's scale: for firmware too, `no_std` and without alloc. | std_library/exact_units.md#serde
+- STD-99 | Levels and their rates, Np and dB | A cable's attenuation in dB/100 m or dB/km, a resonator's damping in Np/s, is a quantity like any other, over the wire like any other; loss and gain are kept apart so a datasheet's positive number never flips sign by accident. |
 - NUM-5 | Indices and sequence numbers | A sample's place in a capture, channel 1 of 4 or a frame counter that wraps is a type of its own with the same bytes as the number: positions subtract to an amount, adding two doesn't compile, 1-based ones refuse 0, and sequence numbers compare correctly across the wrap. | std_library/indices.md
 - STD-43 | Quantities without wide integers | On a small MCU, comparing and converting quantities with 32-bit numbers takes only 32-bit code: no 64- or 128-bit arithmetic is linked. | std_library/ww_si.md#conversions-and-comparisons
 - STD-18 | ADC | Single reads, sample streams and triggered captures. | std_library/ww_adc.md
@@ -429,3 +430,4 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 - DOC-1, DOC-7, DOC-8, DOC-9, DOC-11 | This docs site itself.
 - TR-13 | A fixed bug (RTT server panic on the first request), not a feature.
+- STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.

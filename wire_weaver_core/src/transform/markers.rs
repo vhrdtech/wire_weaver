@@ -594,7 +594,7 @@ pub(crate) fn marker_line(attrs: &[Attribute]) -> Result<Option<MarkerLineDef>> 
 }
 
 /// `exact_units`' own generic markers, whose meaning is fixed by their name and generic arguments.
-const BUILT_IN: [(&str, MarkerDefOwned); 17] = [
+const BUILT_IN: [(&str, MarkerDefOwned); 18] = [
     ("Per", MarkerDefOwned::Per),
     ("Times", MarkerDefOwned::Times),
     ("Sqrt", MarkerDefOwned::Sqrt),
@@ -612,6 +612,7 @@ const BUILT_IN: [(&str, MarkerDefOwned); 17] = [
     ("Saturating", MarkerDefOwned::Saturating),
     ("Product", MarkerDefOwned::Product),
     ("Quotient", MarkerDefOwned::Quotient),
+    ("Phase", MarkerDefOwned::Phase),
 ];
 
 /// The crate whose markers [BUILT_IN] names.
@@ -672,7 +673,7 @@ pub(crate) fn marker_def(
                     }
                     dim
                 }
-                DimLine::Counted => DimOwned {
+                DimLine::Counted(base) => DimOwned {
                     s: 0,
                     m: 0,
                     kg: 0,
@@ -686,7 +687,7 @@ pub(crate) fn marker_def(
                     counted: [
                         Some(CountedOwned {
                             crate_name: crate_name.clone(),
-                            name: ident.clone(),
+                            name: base.clone().unwrap_or_else(|| ident.clone()),
                             exp: 1,
                         }),
                         None,
@@ -703,6 +704,8 @@ pub(crate) fn marker_def(
                     pow10: *e,
                     pow2: 0,
                     pi: 0,
+                    ln2: 0,
+                    ln10: 0,
                 })
                 .with_context(|| format!("unit marker {ident}"))?,
                 UnitScaleLine::Exact(m) => {
@@ -739,6 +742,8 @@ pub(crate) fn marker_def(
                     pow10: *e,
                     pow2: 0,
                     pi: 0,
+                    ln2: 0,
+                    ln10: 0,
                 },
                 ScaleFactorLine::Pow2(e) => MagnitudeLine {
                     num: 1,
@@ -746,6 +751,8 @@ pub(crate) fn marker_def(
                     pow10: 0,
                     pow2: *e,
                     pi: 0,
+                    ln2: 0,
+                    ln10: 0,
                 },
                 ScaleFactorLine::Exact(m) => m.clone(),
             };
@@ -770,7 +777,7 @@ pub(crate) fn marker_def(
     Ok(Some(def))
 }
 
-/// The exact magnitude a `num / den, pow10 a, pow2 b, pi c` line means.
+/// The exact magnitude a `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e` line means.
 fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
     let x2 = |e: i8| {
         e.checked_mul(2)
@@ -781,8 +788,8 @@ fn magnitude(m: &MagnitudeLine) -> Result<Magnitude> {
         x2(m.pow2)?,
         Irrational {
             pi: x2(m.pi)?,
-            ln2: 0,
-            ln10: 0,
+            ln2: x2(m.ln2)?,
+            ln10: x2(m.ln10)?,
         },
         [],
     )
@@ -808,8 +815,10 @@ pub(crate) struct UnitLine {
 pub(crate) enum DimLine {
     /// `[s 1, m -2]`: exponents by base name (`s`, `m`, `kg`, `a`, `k`, `mol`, `cd`, `rad`, `bit`).
     Exps(Vec<(String, i8)>),
-    /// `counted`: a counted base named by the crate and the marker.
-    Counted,
+    /// `counted` or `counted(Base)`: a counted base named by the crate and the marker, or, with `(Base)`, the same
+    /// counted base as another marker of this crate (`Decibel`'s `counted(Neper)` shares `Neper`'s base, so a
+    /// `Decibel` converts into a `Neper` by scale alone).
+    Counted(Option<String>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -820,7 +829,7 @@ pub(crate) enum UnitScaleLine {
     Exact(MagnitudeLine),
 }
 
-/// `num / den, pow10 a, pow2 b, pi c`.
+/// `num / den, pow10 a, pow2 b, pi c, ln2 d, ln10 e`.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MagnitudeLine {
     pub(crate) num: u64,
@@ -828,6 +837,8 @@ pub(crate) struct MagnitudeLine {
     pub(crate) pow10: i8,
     pub(crate) pow2: i8,
     pub(crate) pi: i8,
+    pub(crate) ln2: i8,
+    pub(crate) ln10: i8,
 }
 
 /// `"<symbol>", <factor>[, prefix <Prefix>]` of a `scale!` line.
@@ -881,10 +892,17 @@ impl Parse for UnitLine {
             if counted != "counted" {
                 return Err(syn::Error::new(
                     counted.span(),
-                    "a dimension is `[<base> <exponent>, ..]` or `counted`",
+                    "a dimension is `[<base> <exponent>, ..]`, `counted` or `counted(<Base>)`",
                 ));
             }
-            DimLine::Counted
+            let base = if input.peek(syn::token::Paren) {
+                let content;
+                parenthesized!(content in input);
+                Some(content.parse::<Ident>()?.to_string())
+            } else {
+                None
+            };
+            DimLine::Counted(base)
         };
         let kind = if input.peek(Ident) {
             let word: Ident = input.parse()?;
@@ -1014,6 +1032,8 @@ impl Parse for MagnitudeLine {
             pow10: 0,
             pow2: 0,
             pi: 0,
+            ln2: 0,
+            ln10: 0,
         };
         let mut next = 0;
         while input.peek(Token![,]) {
@@ -1022,11 +1042,12 @@ impl Parse for MagnitudeLine {
                 break;
             }
             let name: Ident = input.parse()?;
-            let order = ["pow10", "pow2", "pi"];
+            let order = ["pow10", "pow2", "pi", "ln2", "ln10"];
             let Some(pos) = order.iter().position(|o| name == o).filter(|p| *p >= next) else {
                 return Err(syn::Error::new(
                     name.span(),
-                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, each at most once and in this order",
+                    "after `num / den` come `pow10 e`, `pow2 e`, `pi e`, `ln2 e`, `ln10 e`, each at most once and in \
+                     this order",
                 ));
             };
             next = pos + 1;
@@ -1034,7 +1055,9 @@ impl Parse for MagnitudeLine {
             match pos {
                 0 => m.pow10 = e,
                 1 => m.pow2 = e,
-                _ => m.pi = e,
+                2 => m.pi = e,
+                3 => m.ln2 = e,
+                _ => m.ln10 = e,
             }
         }
         Ok(m)
@@ -1160,6 +1183,12 @@ mod tests {
             let compiled_kind = match *name {
                 "Ohm" => <exact_units::units::Ohm as exact_units::Unit>::KIND,
                 "Siemens" => <exact_units::units::Siemens as exact_units::Unit>::KIND,
+                "VoltAmpere" => <exact_units::units::VoltAmpere as exact_units::Unit>::KIND,
+                "Var" => <exact_units::units::Var as exact_units::Unit>::KIND,
+                "EnergyDensity" => <exact_units::units::EnergyDensity as exact_units::Unit>::KIND,
+                "DampingRatio" => <exact_units::units::DampingRatio as exact_units::Unit>::KIND,
+                "QualityFactor" => <exact_units::units::QualityFactor as exact_units::Unit>::KIND,
+                "Entropy" => <exact_units::units::Entropy as exact_units::Unit>::KIND,
                 _ => exact_units::Kind::Plain,
             };
             let walked = marker
@@ -1374,7 +1403,9 @@ mod tests {
                     den: 30,
                     pow10: 0,
                     pow2: 0,
-                    pi: 1
+                    pi: 1,
+                    ln2: 0,
+                    ln10: 0,
                 }),
                 provenance: None,
             }
@@ -1386,7 +1417,7 @@ mod tests {
         let Some(MarkerLineDef::Unit(line)) = marker_line(&bucket.attrs).unwrap() else {
             panic!()
         };
-        assert_eq!(line.dim, DimLine::Counted);
+        assert_eq!(line.dim, DimLine::Counted(None));
         let Item::Struct(deg_c) = &items[2] else {
             panic!()
         };

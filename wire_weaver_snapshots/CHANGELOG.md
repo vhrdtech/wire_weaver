@@ -10,6 +10,11 @@
   a device built before only through the definition cache.
 - Snapshots saved again in the ww_self 0.3 format (API-43): the definitions are the same, their signatures changed
   with the format. The `ww_si` 0.1.0 snapshot holds the generic `Timed<T>`.
+- Every `api_snapshots/*.ron` and `other_repos/exact_units_0_1_0.ron` saved again against `exact_units`' level-rates
+  main (STD-99, LVL-3): `ww_si`'s own snapshot carries the new markers, and every crate referencing `Quantity` /
+  `Prefix` / `SIExpr` as `SkippedFullVersion` carries their new signatures (unpublished crates, like STD-59's
+  `Prefix::Unknown` before). The pinned `ww_timebase::Clock` signature in `signatures_from_before_marker_definitions`
+  moved with it, as it did then.
 
 ### 🚀 Features
 

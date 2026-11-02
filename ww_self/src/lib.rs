@@ -775,6 +775,9 @@ pub enum MarkerDef<'i> {
     /// `exact_units::prefix::Quotient<A, B>`: `A / B`, the scale of a quotient of two `Fixed` values (STD-83):
     /// `Quotient<Milli, Milli>` is 1. A reader from before it gets `Unknown`.
     Quotient,
+    /// `exact_units::units::Phase<A>`: the unit `A` (a plane angle, rad¹) under the kind `phase angle`, so it
+    /// doesn't convert to `A` itself. A reader from before it gets `Unknown`.
+    Phase,
 }
 
 /// A named unit: `"V"`, kg·m²·s⁻³·A⁻¹, coherent. Its value in coherent SI is the number times [Self::magnitude].

@@ -1,6 +1,6 @@
 // ww_spi 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: bf69cdd93f49835c798c07e275327c880f265ccb5433558f69bb43039b6f459c
+// shrink_wrap sha256: c37de3ab87d468c316cd7817569ddd19dc27769d4f11efac0b282f883ccef402
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "SPI over WireWeaver: a device lets a host talk to the SPI devices on its bus, hold CS for several operations in",
     "one transaction, or watch a bus without taking part.",
@@ -100,14 +100,14 @@
         110,
     ]),
     SkippedFullVersion(crate_idx: 3, type_name: "Quantity", signature: [
-        140,
-        13,
-        123,
-        135,
-        223,
-        180,
-        28,
-        86,
+        96,
+        190,
+        107,
+        106,
+        110,
+        150,
+        181,
+        201,
     ]),
     InLine(ty: Enum((size: Unsized, repr: UNib32, crate_idx: 0, docs: [
         "One operation of a `Spi::transaction`.",

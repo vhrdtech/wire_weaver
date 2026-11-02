@@ -1370,6 +1370,14 @@
       "note": "V/√Hz as Per<Volt, Sqrt<Hertz>>: the Sqrt node is variant 4 (STD-55, EVO-16)"
     },
     {
+      "name": "stdlib.si.si_expr.decibel_loss_per_hundred_metres",
+      "type": "si_expr",
+      "value": {"Div": [{"Named": {"name": "DecibelLoss", "symbol": "dB", "dim": {"s": 0, "m": 0, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [{"crate_name": "exact_units", "name": "NeperLoss", "exp": 1}, null, null, null]}, "scale": {"Exact": {"pow10": -2, "rest": {"pow2": -2, "irrational": {"pi": 0, "ln2": 0, "ln10": 2}, "factors": [null, null, null, null, null, null, null, null, null, null, null, null]}}}}}, {"Named": {"name": "Metres100", "symbol": "100 m", "dim": {"s": 0, "m": 1, "kg": 0, "a": 0, "k": 0, "mol": 0, "cd": 0, "rad": 0, "bit": 0, "root": false, "counted": [null, null, null, null]}, "scale": {"Exact": {"pow10": 4, "rest": null}}}}]},
+      "bytes": "20004465636962656c4c6f73736442000000000465786163745f756e6974734e657065724c6f73731030fe80fe8000000200000291939239004d6574726573313030313030206d01000000000030040035192b7e",
+      "gaps": {"c": "no generated C for this type yet: C from the ww_self model (API-26)"},
+      "note": "LVL-3 dB/100 m, a cable datasheet's own rate: Per<Loss<Decibel>, Metres100> is Per<DecibelLoss, Metres100>, DecibelLoss sharing NeperLoss's counted base scaled ln10/20"
+    },
+    {
       "name": "stdlib.si.si_expr.rejected",
       "type": "si_expr",
       "value": null,

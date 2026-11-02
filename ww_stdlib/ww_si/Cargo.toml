@@ -50,8 +50,8 @@ chemical = ["exact_units/chemical"]
 photometric = ["exact_units/photometric"]
 # Becquerel, Gray, Sievert, ElectronVolt
 radiation = ["exact_units/radiation"]
-# DeciBel, DeciBelmW
-logarithmic = []
+# DeciBel, DeciBelmW; Neper, Decibel, NeperLoss, DecibelLoss, Absorbance, OpticalDepth, DampingRatio, QualityFactor
+logarithmic = ["exact_units/levels"]
 # Ratio (duty, probability, scale): used next to any other group, so a group of its own
 dimensionless = ["exact_units/dimensionless"]
 # Bit, Byte (8 Bit), Word (4 Byte): information, a base dimension of its own

@@ -844,6 +844,13 @@ pub fn table() -> Vec<Typed> {
             ),
         ),
         case(
+            // LVL-3: a cable datasheet's own rate, dB/100 m, a loss over the Decibel base scaled ln10/20 from Neper
+            "stdlib.si.si_expr.decibel_loss_per_hundred_metres",
+            si_expr(
+                <ww_si::units::Per<ww_si::units::Loss<ww_si::units::Decibel>, ww_si::units::Metres100> as ww_si::Unit>::EXPR,
+            ),
+        ),
+        case(
             "stdlib.si.si_expr.rejected",
             si_expr(<ww_si::units::Volt as ww_si::Unit>::EXPR),
         ),

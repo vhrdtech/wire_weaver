@@ -11,6 +11,12 @@
   `exact_units::Count` (unconditional), `exact_units::{Gibibytes, Kibibytes, Mebibytes}` next to `Bytes` (feature
   `information`), `exact_units::Hz` next to `Secs`/`Minutes`/`Hours`/`Days` (feature `time`), and
   `exact_units::{Percent, Permille}` next to `Ppb`/`Duty16` (feature `dimensionless`).
+* `exact_units` taken at b114829 (STD-99, LVL-3): `units::{Neper, Decibel, NeperLoss, DecibelLoss, Loss, Absorbance,
+  OpticalDepth, DampingRatio, QualityFactor}` and the length markers a rate's denominator reads as it prints
+  (`Metres100`, `Kilometre`, `Feet100`, `CentimetreMegahertz`), reach `ww_si::..` through the existing `units`
+  re-export; `logarithmic` now also turns on `exact_units/levels` (feature comment updated), next to the existing
+  `DeciBel`/`DeciBelmW`. No new `ww_si` type: a level never takes a runtime `Prefix` (`Quantity`'s own), so it's
+  written `Fixed<units::Decibel, ..>` as any other compile-time-scaled quantity, not a `Quantity` alias.
 
 ### ⚠️ Breaking
 

@@ -150,7 +150,8 @@ mod tests {
     /// the nucleo_g0b1re_api fixture refers to it). Deployed devices refer to these definitions by signature.
     /// `Clock`'s changed since, with `Quantity<U, B>` (STD-59, a stated break of the unpublished ww_si and
     /// ww_timebase): `Second` is `Quantity<units::Second, Unbounded>` in the model; and with `Prefix`'s table-free
-    /// scales and its `Unknown(u16)` catch-all (STD-59, DER-25).
+    /// scales and its `Unknown(u16)` catch-all (STD-59, DER-25); and again moving `exact_units` to its level-rates
+    /// main (STD-99), which changes `Quantity`'s skipped `Prefix` and `SIExpr` signatures the same way.
     #[test]
     fn signatures_from_before_marker_definitions() {
         use ww_self::signature::{trait_signature, type_signature};
@@ -184,7 +185,7 @@ mod tests {
             .position(|t| matches!(t, ApiLevelLocationOwned::InLine { level, .. } if level.trait_name == "Clock"))
             .unwrap();
         let signature = trait_signature(timebase, idx as u32, &resolve).unwrap();
-        assert_eq!(signature, [0x01, 0xd7, 0x82, 0x6b, 0x97, 0x3d, 0xd2, 0x9e]);
+        assert_eq!(signature, [0xae, 0xf0, 0x6b, 0x1d, 0x7d, 0x43, 0x9c, 0x09]);
     }
 
     /// Every skipped trait and type in snapshots is found in the snapshot of its crate, with the same signature.

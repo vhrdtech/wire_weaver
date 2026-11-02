@@ -13,6 +13,11 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- `exact_units` taken at b114829 (STD-99, LVL-3): levels and their rates as quantities (`Neper`, `Decibel`, a loss
+  base so a cable's dB/100 m never flips sign, damping, Beer-Lambert, dB/(cm·MHz) for ultrasound), reachable as
+  `ww_si::..` through the existing `units` re-export; the crate walker learns the new `unit!` syntax
+  (`counted(Base)`, `ln2`/`ln10` exponents) and `exact_units`' `Phase<A>` marker (STD-100, found on the way). See
+  `wire_weaver_core/`, `ww_self/`, `ww_si/` and `wire_weaver_snapshots/` CHANGELOGs.
 - WireWeaver syntax highlighting in the docs site (DOC-11): `docs/javascripts/ww_highlight.js`, run client-side on every page through Zensical's `document$` observable, colours `property!`/`method!`/`stream!` and their `ro`/`rw`/`wo`/`observe` access modes, WireWeaver attributes (`#[ww_trait]`, `#[derive_shrink_wrap(..)]`, `#[errors(..)]`, `#[optional]`, `#[default = ..]`, `#[flag]`, `#[slot]`, `#[future_version]`, `#[wire(..)]`) and exact_units' unit, prefix, origin and wrapper names inside the already-Pygments-highlighted ` ```rust ` blocks. No Pygments plugin, no Python at build time: Zensical's own highlighting stays untouched. Token lists live in `docs/javascripts/ww_tokens.json`, checked against exact_units' `src/units.rs`/`src/fixed/prefix.rs`/`src/point/origins.rs` and reusable by `ww_lsp` and an editor grammar. Colours reuse the theme's `--md-code-hl-*-color` variables, so light and dark palettes both work without new fixed colours.
 - `exact_units` taken at 8584aad (STD-84): `Minute`, `Hour`, `Day`, `Week` and the `UnixEpoch` origin, with `Secs`, `Minutes`, `Hours`, `Days` and `UnixSecs`/`UnixMillis`/`UnixMicros`/`UnixNanos` reachable as `ww_si::..`. See `ww_si/CHANGELOG.md`.
 - `exact_units` taken at d28ec86 (STD-85): `Count<Of, T>`, `Percent`/`Permille`, `Kibibytes`/`Mebibytes`/`Gibibytes`, `Hz`, and counted `Line`/`Row`/`Record`/`Entry` beside `Item`/`Sample`/`Frame`/`Packet`, all reachable as `ww_si::..`. See `ww_si/CHANGELOG.md`.

@@ -2100,6 +2100,29 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   explicit in the model; `Quantity::try_from_fixed` and Fixed/Quantity parity proptests; conformance cases (derive,
   dynamic, Python; C gap API-26); docs ([`ww_si`](std_library/ww_si.md#quantity-fixed-or-anyquantity)). The
   client-side bounds check is CLT-54.
+- ✅ **STD-99 Level rates on the wire** — the wire_weaver side of `exact_units` LVL-3 (was STD-97): the crate walker
+  (`wire_weaver_core/src/transform/markers.rs`) learns `counted(Base)` (a unit sharing another marker's counted
+  dimension, `Decibel`'s `counted(Neper)`) and `ln2` / `ln10` exponents in a `unit!` / `scale!` line's `Exact(..)`
+  magnitude, both already in the macros (STD-95, LVL-3 piece 1) but refused here until now. `exact_units`'s
+  dependency moved to its level-rates main (`Neper`, `Decibel`, `NeperLoss`, `DecibelLoss`, `Loss<L>`, `Absorbance`,
+  `OpticalDepth`, `DampingRatio`, `QualityFactor`, `Metres100`, `Kilometre`, `Feet100`, `CentimetreMegahertz`): the
+  markers reach the `ww_si` snapshot and every dependent crate's `Quantity`/`Prefix`/`SIExpr` signatures by
+  themselves, through the existing `units` re-export, so `ww_si`'s own change is one Cargo feature
+  (`logarithmic = ["exact_units/levels"]`, next to its existing `DeciBel`/`DeciBelmW`); `Loss<L>` needs no walker
+  support, an alias over the concrete `NeperLoss`/`DecibelLoss` the generic resolves to by the time a wire-visible
+  field names it. Conformance case `stdlib.si.si_expr.decibel_loss_per_hundred_metres` (`Per<Loss<Decibel>,
+  Metres100>`, dB/100 m); serde needed nothing more, the `with_unit` text and self-describing forms already read
+  the same symbol table (STD-94). `exact_units`' own `levels` feature pieces are tracked in its own FEATURES.md
+  (LVL-1..5).
+- ✅ **STD-100 The walker's generic markers catch up with `exact_units`' main** — found moving STD-99's dependency
+  forward, not itself about levels: `Phase<A>` (a phase angle, `Kind::Named("phase angle")` of a plane angle `A`,
+  hand-written like `Per`/`Times`) had no `BUILT_IN` entry, so the walker refused any crate snapshot that reaches
+  it; added next to `Per`/`Times`/`Sqrt`/`Angle` in `markers.rs` and `ww_self::units::unit_in`. The crate's own
+  `exact_units_definitions_match_the_compiled_consts` test's kind whitelist (`Ohm`, `Siemens`) was two features of
+  kinds behind (STD-92's `VoltAmpere`/`Var`, and `EnergyDensity`/`DampingRatio`/`QualityFactor`/`Entropy`); the
+  three `nucleo_g0b1re_api` (now `0.4.0`) fixture signatures and `wire_weaver_snapshots`' pinned `Clock` signature
+  updated the same way earlier STD-59 drift did (`exact_units::Prefix` changed without a version bump, unpublished
+  crates), and `ww_si::units::ALL`'s hardcoded count moved with the new markers.
 - 📋 **STD-53 `Volt` with a `u16` value fails to decode on a device** — `I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }` from the host gets `ArgsDesFailed` on the rePort B200A firmware, the same level as
   a `u32` value works (report-i2c-master bench run, 27 Oct 2026). Find where the `ww_si` value storage / numeric

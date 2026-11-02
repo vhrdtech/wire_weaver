@@ -48,10 +48,10 @@ only with a reason: a raw protocol field (a register, a wire-format byte) or a t
   the handler runs and clients refuse it before sending.
 - **Counted things** (`Sample`, `Frame`, `Packet`, `Item`, ...) are units. An API declares its own unit with
   `unit!`, step with `scale!` and a register formula's zero with `origin!` (`tests/quantities_api/src/lib.rs`).
-- **Not yet**: instants with a named epoch (Unix, GPS; STD-65 instants-named-epochs) don't exist, so a wall-clock
-  timestamp is `Micros<u64>` with the epoch in its doc comment; sentinel codes inside a value (STD-66
-  sentinels-next-to-bounds) don't either, use `Option<Fixed<..>>`; the C consumer reads a `Fixed` as its `T` but has
-  gaps for `Point`/`Index`/`Seq` (API-26); `serde` forms are STD-78.
+- **Not yet**: instants with a named epoch (Unix, GPS; exact_units PT-3 instants-named-epochs) don't exist, so a
+  wall-clock timestamp is `Micros<u64>` with the epoch in its doc comment; the C consumer reads a `Fixed` as its
+  `T` but has gaps for `Point`/`Index`/`Seq` (API-26); `serde` forms are exact_units IO-5. Sentinel codes next to
+  `Bounds` landed in exact_units (`NUM-8`): `Option<Fixed<..>>` is no longer the only way to mark a niche value.
 - `ww api check` and `ww api scaffold` print a hint for a plain integer whose name ends in a unit suffix (TOOL-22);
   silencing it with `#[no_unit_hint]` needs a reason (a register value, a raw protocol field).
 

@@ -643,7 +643,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (`docs/api/observing.md#which-rates-fit-an-mcu`, `tests/observe_batched`).
 - ✅ **API-60 Types from crates that aren't API crates** · `v0.5` — a crate without `wire_weaver` or `#[ww_trait]`
-  (`exact_units`, STD-61) is walked and snapshotted like an API crate; generated code names its types through a
+  (`exact_units`, NUM-1) is walked and snapshotted like an API crate; generated code names its types through a
   crate that re-exports it (`ww_si::exact_units::..`, `CratePaths` from `load_dep_with_paths`) when the generating
   crate doesn't depend on it; the walker follows `use dep as name;` and `use dep::module;` for leading path
   segments. With `shrink_wrap` optional (`#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]`) the walker
@@ -1785,9 +1785,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   expression input.
 
 - The `exact_units` crate's own items (units, `Fixed`, `Magnitude`, levels, `Complex`/`Polar`/IQ, serde for
-  the numbers, literals, printing, niches) moved to its own `exact_units/FEATURES.md`, ids unchanged (2 Nov
-  2026): `tpm work claim STD` from an `exact_units` worktree couldn't see this file and handed out STD-92
-  twice. An item below that is both stays here with a pointer to the `exact_units` id it depends on.
+  the numbers, literals, printing, niches) moved to its own `exact_units/FEATURES.md` (2 Nov 2026): `tpm work
+  claim STD` from an `exact_units` worktree couldn't see this file and handed out STD-92 twice. There they were
+  regrouped into six areas, each numbered from 1 in build order with a `(was STD-xx)` note: `NUM` (number core),
+  `UNIT` (units and markers), `PT` (points and origins), `LVL` (levels), `CPX` (complex quantities), `IO` (numbers
+  and units at the edges); `exact_units/FEATURES.md`'s own `STD → area id mapping` table at its end gives every
+  old `STD-NN` its new area id. An item below that is both stays here with a pointer to the new id.
 - ✅ **STD-1 `ww_client_server`** — the request/event model, pruned of sideband/subscribe/rate, variable length seq
   numbers.
 - ✅ **STD-2 `ww_version`**.
@@ -1870,7 +1873,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   exponents (V/√Hz, `Dim::sqrt`): bytes don't convert into % or rad, `AngularVelocity` isn't `Hertz`,
   `Per<Sample, Second> × Second` is a `Sample`, bytes of a sample only through `Per<Byte, Sample>`; checked at
   compile time (`Unit::DIM`) and at run time (`SIExpr`, `wire_weaver_client::DynUnit`, Python `Quantity.dim`).
-  `Torque` is J/rad (written N·m). Wire change EVO-16. `Dim` itself lives in `exact_units` (STD-61).
+  `Torque` is J/rad (written N·m). Wire change EVO-16. `Dim` itself lives in `exact_units` (NUM-1).
   [ww_si dimensions](docs/std_library/ww_si.md#dimensions), `ww_stdlib/ww_si/tests/quantities.rs`.
 - ✅ **STD-24 `ww_firmware_info` / `ww_board_info` / `ww_uid` / `ww_user_info` device contract** · `v0.5` — the info
     crates every device implements. `FirmwareInfo` const items `FIRMWARE` (name, version, git, build time, profile),

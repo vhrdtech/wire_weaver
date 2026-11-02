@@ -6389,7 +6389,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   -52 % encode cycles on an STM32H725, -46 % instructions on Cortex-M3/M4F
   (<code>docs/api/observing.md#which-rates-fit-an-mcu</code>, <code>tests/observe_batched</code>).</li>
 <li>✅ <strong>API-60 Types from crates that aren't API crates</strong> · <code>v0.5</code> — a crate without <code>wire_weaver</code> or <code>#[ww_trait]</code>
-  (<code>exact_units</code>, STD-61) is walked and snapshotted like an API crate; generated code names its types through a
+  (<code>exact_units</code>, NUM-1) is walked and snapshotted like an API crate; generated code names its types through a
   crate that re-exports it (<code>ww_si::exact_units::..</code>, <code>CratePaths</code> from <code>load_dep_with_paths</code>) when the generating
   crate doesn't depend on it; the walker follows <code>use dep as name;</code> and <code>use dep::module;</code> for leading path
   segments. With <code>shrink_wrap</code> optional (<code>#[cfg_attr(feature = "shrink_wrap", derive_shrink_wrap(..))]</code>) the walker
@@ -7534,9 +7534,16 @@ observing), SRV-46 (peer identity).
   expression input.</p>
 </li>
 <li>
-<p>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
-  numbers.</p>
+<p>The <code>exact_units</code> crate's own items (units, <code>Fixed</code>, <code>Magnitude</code>, levels, <code>Complex</code>/<code>Polar</code>/IQ, serde for
+  the numbers, literals, printing, niches) moved to its own <code>exact_units/FEATURES.md</code> (2 Nov 2026): <code>tpm work
+  claim STD</code> from an <code>exact_units</code> worktree couldn't see this file and handed out STD-92 twice. There they were
+  regrouped into six areas, each numbered from 1 in build order with a <code>(was STD-xx)</code> note: <code>NUM</code> (number core),
+  <code>UNIT</code> (units and markers), <code>PT</code> (points and origins), <code>LVL</code> (levels), <code>CPX</code> (complex quantities), <code>IO</code> (numbers
+  and units at the edges); <code>exact_units/FEATURES.md</code>'s own <code>STD → area id mapping</code> table at its end gives every
+  old <code>STD-NN</code> its new area id. An item below that is both stays here with a pointer to the new id.</p>
 </li>
+<li>✅ <strong>STD-1 <code>ww_client_server</code></strong> — the request/event model, pruned of sideband/subscribe/rate, variable length seq
+  numbers.</li>
 <li>✅ <strong>STD-2 <code>ww_version</code></strong>.</li>
 <li>✅ <strong>STD-3 <code>ww_si</code></strong> and <strong><code>ww_numeric</code></strong>.</li>
 <li>✅ <strong>STD-4 <code>ww_date_time</code></strong>.</li>
@@ -7610,77 +7617,6 @@ observing), SRV-46 (peer identity).
   float types. <code>to_i32_in</code> / <code>to_u32_in</code> / <code>to_u32_wrapping_in</code>; <code>to_i128_in</code> only with 64- or 128-bit types. 6 KiB
   less flash on Donguru (thumbv6m, <code>opt-level = "z"</code>). <code>docs/std_library/ww_si.md#conversions-and-comparisons</code>,
   <code>ww_stdlib/ww_si/tests/narrow.rs</code> and <code>ww_stdlib/ww_numeric/tests/integer.rs</code> (run with 32-bit types only too).</li>
-<li>✅ <strong>STD-61 <code>exact_units</code>: the compile-time unit core as a crate of its own</strong> · <code>v0.5</code> — a standalone <code>no_std</code>
-  crate, no dependencies without features (Roman, 27 Oct 2026): <code>Dim</code> (SI, rad, bit, counted bases, root flag), unit
-  markers and <code>Unit</code> (with <code>Sqrt&lt;U&gt;</code>), <code>ExactScale</code> (with a power of π), <code>Fixed</code>, bounds, const <code>sqrt_f64</code>;
-  <code>shrink_wrap</code> (wire format, <code>SIExpr</code>, through <code>#[wire(..)]</code> fields the same bytes as before), <code>std</code> and <code>defmt</code>
-  behind features. <code>ww_si</code> re-exports it and keeps the runtime side (<code>Quantity</code>, <code>AnyQuantity</code>, <code>Timed</code>); units are
-  named <code>exact_units::..</code> in the model (a counted base costs 6 bytes more on the wire). Walked and snapshotted like an
-  API crate. <a href="../docs/std_library/exact_units/">exact_units</a>, <code>exact_units/tests</code>, CI legs without features and on
-  thumbv6m. Moved to a repository of its own, <a href="https://github.com/romixlab/exact_units">romixlab/exact_units</a>, with its
-  history (28 Oct 2026): wire_weaver takes it by git, its snapshot is saved from that source into
-  <code>wire_weaver_snapshots/other_repos</code> (<code>ww api save --dep exact_units --snapshots-dir</code>).</li>
-<li>✅ <strong>STD-55 <code>exact_units::Fixed&lt;U, P, T, B = Unbounded&gt;</code>: unit, scale and bounds fixed at compile time</strong> · <code>v0.5</code> —
-  a value of unit <code>U</code> at scale <code>P</code> stored as <code>T</code>, on the wire exactly <code>T</code> (DER-18 <code>transparent</code>; no prefix, no
-  <code>NumericValue</code> tag, so a <code>u64</code> doesn't turn on <code>ww_numeric</code>'s <code>u64</code> for everyone); scale markers (every prefix
-  name, <code>Kibi</code>.., <code>Pow10&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code>), bounds (<code>Unbounded</code>, <code>Range</code>, <code>RangeU64</code>, <code>RangeDec</code>) checked on
-  decode and construction; information and counting units, exact <code>to</code>, <code>Quantity::to_fixed</code> / <code>from_fixed</code>,
-  <code>core::time::Duration</code>, checked / wrapping / saturating ops, <code>Display</code> (<code>1500 µs</code>); in the API model as an instance
-  of one generic definition with <code>B</code> explicit, so introspection shows the unit. Same code as a plain field on
-  Cortex-M (DER-20). <a href="../docs/std_library/exact_units/">exact_units</a>, conformance <code>stdlib.si.fixed.*</code>,
-  <code>tests/quantities</code>.</li>
-<li>✅ <strong>STD-72 Imperial and US customary units, complete</strong> · <code>v0.5</code> — feature <code>customary</code>, opt-in (not in <code>quantities</code> or <code>std</code>, free for an API without it; host clients turn it on):
-  166 markers in <code>exact_units::units</code>, each the exact rational of SI from its legal definition (1959 yard and pound,
-  NIST SP 811 and Handbook 44, UK WMA 1985, g_n), the source cited per unit and checked against a sourced catalogue
-  with SP 811's printed values. No bare ambiguous name (47 groups: US / imperial gallon, fl oz, pint, quart, bushel;
-  international / US survey foot and mile; short / long / metric ton; avoirdupois / troy; Btu and calorie variants;
-  horsepower variants; thou vs angular mil; inHg / mmHg conventional or at a temperature); <code>PoundAvdp</code> and <code>Slug</code>
-  mass, <code>PoundForce</code>, <code>Kip</code>, <code>Poundal</code> force; °F and °R are origins (STD-64). Measured units carry
-  <code>Provenance::Conventional</code>, in the API model a <code>MarkerDef::ConventionalUnit</code> (defined units keep their bytes). <code>Fixed::convert</code> between units of one dimension, exact or <code>None</code>, factor at compile
-  time; <code>DynQuantity::convert</code> and Python <code>Quantity.convert</code> the same at run time. The Mars Climate Orbiter case
-  (lbf·s read as N·s) in <code>tests/customary</code> (typed, dynamic) and Python: converts exactly or is refused; the <code>Fixed</code>
-  field too, with its unit in the dynamic client (CLT-54). <a href="../docs/std_library/customary/">Imperial and US customary</a>,
-  conformance <code>stdlib.si.fixed.customary</code>, <code>stdlib.si.si_expr.pound_force</code> (derive, dynamic, Python; C waits on
-  API-26).</li>
-<li>✅ <strong>STD-58 <code>Index</code>, <code>IndexFrom1</code> and <code>Seq</code></strong> · <code>v0.5</code> — <code>exact_units</code> (feature <code>counting</code>, re-exported by
-  <code>ww_si</code>): <code>Index&lt;Of, T, B&gt;</code>, a 0-based position in a table of <code>Of</code> (index ± amount = index, index − index = a
-  <code>Fixed&lt;Of, One, T&gt;</code> distance, index + index and index · x don't compile, checked forms for bounded ones);
-  <code>IndexFrom1&lt;Of, T, B&gt;</code>, 1-based as people count, refuses 0 on construction and decode, <code>to_index</code> / <code>from_index</code>;
-  <code>Seq&lt;Of, T&gt;</code>, a wrapping sequence number (<code>next</code>, <code>wrapping_add</code>, <code>distance</code> as a <code>Wrapping</code> amount, RFC 1982
-  <code>is_before</code> / <code>serial_cmp</code> within half the range, no <code>Ord</code>, no <code>Seq + Seq</code>). All <code>transparent</code>, the bytes of <code>T</code>; in
-  the model instances of <code>Index</code> / <code>IndexFrom1</code> <code>[Of, T, B]</code> and <code>Seq</code> <code>[Of, T]</code>, shown and checked by clients
-  (CLT-54). <a href="../docs/std_library/indices/">Indices and sequence numbers</a>, conformance <code>stdlib.si.index.*</code>,
-  <code>stdlib.si.index_from_1.*</code>, <code>stdlib.si.seq.*</code> (derive, dynamic, Python; C waits on API-26).</li>
-<li>✅ <strong>STD-64 Points and origins</strong> · <code>v0.5</code> — <code>exact_units::Point&lt;O, Fixed&lt;..&gt;&gt;</code>: a position against an origin, a
-  zero-size marker declared with <code>origin!</code> carrying its unit, an exact <code>Offset</code> (sign and <code>Magnitude</code>), its reference
-  and an optional modulus. Point ± vector = point, point − point = vector, point + point and point · x don't compile.
-  <code>origins</code>: <code>AbsoluteZero</code>, <code>Celsius</code> (273.15), <code>Rankine</code>, <code>Fahrenheit</code> (45967/180 K, steps of 5/9 K), <code>Vacuum</code>,
-  <code>Gauge</code> (reference: ambient pressure, converts only with <code>against</code> at run time), <code>AboveStandardAtmosphere</code>,
-  <code>Angle&lt;Turn | Degree | Radian&gt;</code> (wrap every turn, the difference signed and shortest). Register formulas are origins
-  <code>above</code> another (LSM6DS <code>raw/256 + 25 °C</code>, J1939 −40 °C). <code>to::&lt;O2, P2, T2&gt;()</code> between origins of the same unit and
-  reference, its factor and offset at compile time, exact or <code>None</code>. On the wire a point is its number; <code>OriginDef</code>
-  holds an origin as data for INT-13. <a href="../docs/std_library/points/">Points and origins</a>, conformance
-  <code>stdlib.si.point.*</code>, <code>stdlib.si.offset.*</code> (derive, dynamic, Python; C waits on API-26).</li>
-<li>✅ <strong>STD-62 One exact magnitude for every scale</strong> · <code>v0.5</code> — <code>exact_units::Magnitude</code>, a canonical product of prime
-  powers (2 and 5 as powers of 10 and 2) with powers of π, ln 2 and ln 10, whole or half exponents: every scale
-  (prefixes, <code>Pow10&lt;E&gt;</code>, <code>Pow2&lt;E&gt;</code>, <code>Rational&lt;N, D&gt;</code> with <code>u64</code> parameters factored at compile time, <code>Kibi</code>..,
-  <code>FullScale&lt;V, BITS&gt;</code>, <code>FullScaleMax&lt;V, BITS&gt;</code>) is one, equal however it is written (<code>Milli</code> = <code>Pow10&lt;-3&gt;</code> =
-  <code>Rational&lt;1, 1000&gt;</code>); closed under <code>*</code>, <code>/</code>, powers and roots, a product that needs more than 12 primes or leaves
-  ±63½ is a compile error. <code>Fixed::to</code> computes its factor at compile time: not a fraction of integers, or a multiply
-  that doesn't fit 64 bits (storages up to 32 bits) / 128 bits, doesn't compile, never a rounding. Q formats <code>Q15</code>,
-  <code>Q31</code>, <code>UQ16_16</code>, binary angles <code>Bam16</code>, <code>Bam32</code>. Replaces <code>ExactScale</code> in <code>Scale::Exact</code> (104 bytes in memory, a
-  decimal prefix 2 bytes on the wire). <a href="../docs/std_library/magnitude/">Exact magnitudes</a>, conformance
-  <code>stdlib.si.magnitude.*</code> (derive, dynamic, Python; C waits on API-26).</li>
-<li>✅ <strong>STD-63 Named rounding and overflow policies</strong> · <code>v0.5</code> — <code>to()</code> stays exact or <code>None</code>; lossy conversions name
-  their rounding (<code>Rounding</code>: truncate, floor, ceil, nearest ties-to-even, nearest ties-away) and overflow policy
-  (<code>Overflow</code>: checked, saturate, wrap): <code>Fixed::to_rounded</code>, <code>to_saturating</code>, <code>to_wrapping</code>, <code>requantize</code>, exact (the
-  true quotient rounded once), π/ln factors through a 64-bit fixed point (<code>Magnitude::fixed_point</code>). Arithmetic's
-  policy is in the bounds marker: <code>Wrapping</code> (<code>Bam16</code>, <code>Bam32</code>), <code>Saturating</code> (<code>Q15</code>, <code>Q31</code>, <code>UQ16_16</code>), <code>Unbounded</code>
-  checked; same bytes, <code>Fixed::of</code> / <code>with_overflow</code>. Bounds prove conversions infallible: <code>into_rounded</code>, <code>From</code> of a
-  <code>Range</code>-bounded value for a whole factor, a compile error where the proof fails. Run-time <code>requantize</code> /
-  <code>Requantizer</code> for dynamic clients. <a href="../docs/std_library/rounding/">Rounding and overflow</a>,
-  <code>exact_units/tests/rounding.rs</code>, conformance <code>requantize.*</code> (derive, dynamic, Python <code>ww.requantize</code>, C <code>sw_requantize()</code>).
-  <code>Seq</code> wrapping comes with STD-58.</li>
 <li>✅ <strong>STD-60 Angle, information and counted things as dimensions</strong> · <code>v0.5</code> — <code>Dim&lt;'i&gt;</code> has rad and bit as
   base dimensions and up to four counted bases known by crate and marker name (<code>Item</code>, <code>Sample</code>, <code>Frame</code>, <code>Packet</code>,
   <code>Cycle</code>, <code>Block</code>, <code>Sector</code>, <code>Chunk</code>, <code>Char</code>, <code>Code</code>, feature <code>counting</code>, an API's own with <code>ww_si::counted!</code>;
@@ -7688,16 +7624,8 @@ observing), SRV-46 (peer identity).
   exponents (V/√Hz, <code>Dim::sqrt</code>): bytes don't convert into % or rad, <code>AngularVelocity</code> isn't <code>Hertz</code>,
   <code>Per&lt;Sample, Second&gt; × Second</code> is a <code>Sample</code>, bytes of a sample only through <code>Per&lt;Byte, Sample&gt;</code>; checked at
   compile time (<code>Unit::DIM</code>) and at run time (<code>SIExpr</code>, <code>wire_weaver_client::DynUnit</code>, Python <code>Quantity.dim</code>).
-  <code>Torque</code> is J/rad (written N·m). Wire change EVO-16.
+  <code>Torque</code> is J/rad (written N·m). Wire change EVO-16. <code>Dim</code> itself lives in <code>exact_units</code> (NUM-1).
   <a href="../docs/std_library/ww_si/#dimensions">ww_si dimensions</a>, <code>ww_stdlib/ww_si/tests/quantities.rs</code>.</li>
-<li>✅ <strong>STD-83 Typed products and quotients of quantities</strong> · <code>v0.5</code> — in <code>exact_units</code> (locked at 93a1607): <code>a * b</code>
-  is a <code>Fixed&lt;Times&lt;U1, U2&gt;, Product&lt;P1, P2&gt;, T&gt;</code>, <code>a / b</code> a <code>Fixed&lt;Per&lt;U1, U2&gt;, Quotient&lt;P1, P2&gt;, T&gt;</code>, one multiply
-  or division of <code>T</code>; <code>prefix::Product</code> / <code>prefix::Quotient</code> carry the exact result scale as a type (<code>Product&lt;Milli,
-  Milli&gt;</code> is <code>Micro</code>), overflow by the operands' policy, <code>checked_</code> / <code>saturating_</code> / <code>wrapping_times</code> and <code>_per</code>,
-  <code>times_into</code> / <code>per_into</code> rounded once into another scale and storage; <code>Fixed</code> of one unit, scale and storage
-  compare across bounds. In the model as <code>MarkerDef::Product</code> / <code>Quotient</code> (appended, older readers get <code>Unknown</code>),
-  a client computes the scale as rustc does; the evolution check compares them by meaning (test in
-  <code>tests/quantities</code>).</li>
 <li>✅ <strong>STD-24 <code>ww_firmware_info</code> / <code>ww_board_info</code> / <code>ww_uid</code> / <code>ww_user_info</code> device contract</strong> · <code>v0.5</code> — the info
     crates every device implements. <code>FirmwareInfo</code> const items <code>FIRMWARE</code> (name, version, git, build time, profile),
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
@@ -7923,50 +7851,29 @@ observing), SRV-46 (peer identity).
   explicit in the model; <code>Quantity::try_from_fixed</code> and Fixed/Quantity parity proptests; conformance cases (derive,
   dynamic, Python; C gap API-26); docs (<a href="../std_library/ww_si/#quantity-fixed-or-anyquantity"><code>ww_si</code></a>). The
   client-side bounds check is CLT-54.</li>
-<li>✅ <strong>STD-84 <code>Minute</code>, <code>Hour</code>, <code>Day</code>, <code>Week</code> and the Unix epoch</strong> — <code>exact_units</code> 8584aad: <code>Secs&lt;T&gt;</code>, <code>Minutes&lt;T&gt;</code>,
-  <code>Hours&lt;T&gt;</code>, <code>Days&lt;T&gt;</code> (<code>Fixed&lt;Second|Minute|Hour|Day, One, T&gt;</code>) and <code>origins::UnixEpoch</code> with <code>UnixSecs&lt;T&gt;</code> /
-  <code>UnixMillis&lt;T&gt;</code> / <code>UnixMicros&lt;T&gt;</code> / <code>UnixNanos&lt;T&gt;</code> (<code>T</code> defaults to <code>u64</code>), a <code>Point&lt;UnixEpoch, Secs&lt;T&gt;|..&gt;</code> for
-  POSIX time (<code>time_t</code>, journald's <code>__REALTIME_TIMESTAMP</code>). <code>ww_si</code> re-exports <code>Secs</code>, <code>Minutes</code>, <code>Hours</code>, <code>Days</code>
-  next to <code>Micros</code>, <code>Millis</code>, <code>Nanos</code>; <code>units::{Minute, Hour, Day, Week}</code> and <code>origins::{UnixEpoch, UnixSecs, ..}</code>
-  reach <code>ww_si::..</code> through its existing <code>units</code> / <code>origins</code> re-exports (feature <code>time</code>). Docs:
-  <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/points/#origins">points</a>.</li>
-<li>✅ <strong>STD-85 <code>Count</code>, <code>Percent</code>/<code>Permille</code>, binary byte sizes, <code>Hz</code>, and counted <code>Line</code>/<code>Row</code>/<code>Record</code>/<code>Entry</code></strong> —
-  <code>exact_units</code> d28ec86: <code>Count&lt;Of, T&gt;</code> (<code>Fixed&lt;Of, One, T&gt;</code>, a count of <code>Of</code>s, unconditional), <code>Percent&lt;T&gt;</code> and
-  <code>Permille&lt;T&gt;</code> (<code>Fixed&lt;Ratio, Centi|Milli, T&gt;</code>, feature <code>dimensionless</code>), <code>Kibibytes&lt;T&gt;</code> / <code>Mebibytes&lt;T&gt;</code> /
-  <code>Gibibytes&lt;T&gt;</code> beside <code>Bytes&lt;T&gt;</code> (feature <code>information</code>) and <code>Hz&lt;T&gt;</code> (<code>Fixed&lt;Hertz, One, T&gt;</code>, feature <code>time</code>):
-  aliases cat_stack's APIs had declared for themselves, now one set for every crate. <code>units::{Line, Row, Record,
-  Entry}</code> (feature <code>counting</code>), counted bases beside <code>Item</code>/<code>Sample</code>/<code>Frame</code>/<code>Packet</code>. <code>ww_si</code> re-exports all of
-  them; they reach <code>ww_si::..</code> through its existing <code>units</code> re-export. Docs:
-  <a href="../std_library/exact_units/#aliases"><code>exact_units</code></a>, <a href="../std_library/ww_si/#dimensions"><code>ww_si</code></a>,
-  <a href="../std_library/indices/">indices</a>.</li>
-<li>✅ <strong>STD-90 Polar form and levels of a <code>Complex</code></strong> — <code>exact_units</code> efc885e, c5349ab: <code>Polar&lt;U, P, T, A&gt;</code>, a magnitude
-  <code>Fixed</code> and a phase angle, with <code>Complex::to_polar</code> / <code>from_polar</code> and <code>Polar::to_complex</code>. Floats through <code>hypot</code>,
-  <code>atan2</code> and <code>sin</code>/<code>cos</code> (feature <code>std</code> or <code>libm</code>); integers without a float: <code>abs</code> the correctly rounded root of
-  the exact <code>norm_sqr</code> in the unsigned twin, <code>arg</code> by CORDIC into a <code>PhaseBam16</code> / <code>PhaseBam32</code> within 0.51 of a
-  step, <code>from_polar</code> by Q31 sin/cos. <code>to_db</code> from |z|², <code>norm_sqr_at(Decibels)</code> and <code>db!(norm_sqr -15)</code> as a typed
-  threshold; RF helpers on an impedance (Γ, VSWR, return loss), example <code>13_impedance_match</code>.</li>
-<li>✅ <strong>STD-91 IQ fixed-point DSP</strong> — <code>exact_units</code> 87f2e18, 041b72e: <code>CQ15&lt;U = Ratio&gt;</code> and <code>CQ31&lt;U = Ratio&gt;</code>, saturating
-  Q15 and Q31 IQ samples; complex multiplies rounded once into their own scale (<code>mul_round</code>, <code>mul_conj_round</code>, <code>mix</code>),
-  <code>Mac</code> summing products exactly in <code>i64</code> / <code>i128</code>, interleaved <code>[re, im, ..]</code> buffers without <code>unsafe</code>, <code>Nco</code> (a
-  <code>Bam32</code> phase accumulator with a CORDIC phasor), <code>cordic::sin_cos_32_q15</code>; example <code>14_iq_downconvert</code>.</li>
-<li>✅ <strong>STD-92 Complex power with its kinds</strong> — <code>exact_units</code> 4df3d43: <code>units::VoltAmpere</code> (<code>VA</code>, kind apparent power)
-  and <code>units::Var</code> (<code>var</code>, kind reactive power), the watt's dimension under a kind of their own, <code>Watt</code> staying
-  plain; S = V·I* as a <code>Complex&lt;VoltAmpere&gt;</code>.</li>
-<li>✅ <strong>STD-93 Decimal literals as exact constants</strong> — <code>exact_units</code> d4b5b1a, fce4739, 790d6f0: <code>fixed!(0.1)</code> is the
-  <code>Fixed</code> (or, of two literals, the <code>Complex</code>) its context names, holding the stored value nearest to the literal,
-  worked out at compile time (<code>fixed!(0.1)</code> in Q30 is <code>107_374_182</code>); a scale with π, a value past the storage or
-  its bounds doesn't compile; <code>Fixed::from_decimal</code> as a <code>const fn</code>. <code>Mac::mean_at_least(threshold, n)</code>: a mean
-  power against a typed threshold (<code>db!(norm_sqr -10)</code>) in one exact integer compare.</li>
-<li>✅ <strong>STD-94 serde for the numbers, for firmware and configs</strong> — <code>exact_units</code> feature <code>serde</code>, <code>no_std</code> without alloc
-  (the first two forms of STD-78): <code>Fixed</code>, <code>Point</code>, <code>Index</code>, <code>IndexFrom1</code>, <code>Seq</code> as their stored number, <code>Complex</code> as
-  <code>{ re, im }</code>, <code>Polar</code> as <code>{ abs, arg }</code>, <code>Decibels</code> as <code>"-3.01"</code> in text formats and <code>(num, decimals)</code> in binary
-  ones; reading refuses a value outside its bounds (<code>6000 ms is out of 1..=5000 ms (Second, u16)</code>) or an
-  <code>IndexFrom1</code> of 0. <code>exact_units::serde::with_unit</code> writes a field as <code>{:#}</code> text and reads a number with its unit
-  and an SI or binary prefix exactly into the field's scale and storage, or says why not (wrong unit, between two
-  steps with the nearest two, past the storage, out of bounds). Breaking: <code>serde</code> no longer turns on <code>std</code> and
-  <code>shrink_wrap</code>; <code>Magnitude</code> / <code>Offset</code> need <code>std</code> too, the owned mirrors <code>std</code> and <code>shrink_wrap</code> as before. Tests
-  <code>exact_units/tests/serde.rs</code>, properties <code>tests/props/serde_values.rs</code> (two Kani proofs); docs
-  <a href="../std_library/exact_units/#serde"><code>exact_units</code></a>.</li>
+<li>✅ <strong>STD-99 Level rates on the wire</strong> — the wire_weaver side of <code>exact_units</code> LVL-3 (was STD-97): the crate walker
+  (<code>wire_weaver_core/src/transform/markers.rs</code>) learns <code>counted(Base)</code> (a unit sharing another marker's counted
+  dimension, <code>Decibel</code>'s <code>counted(Neper)</code>) and <code>ln2</code> / <code>ln10</code> exponents in a <code>unit!</code> / <code>scale!</code> line's <code>Exact(..)</code>
+  magnitude, both already in the macros (STD-95, LVL-3 piece 1) but refused here until now. <code>exact_units</code>'s
+  dependency moved to its level-rates main (<code>Neper</code>, <code>Decibel</code>, <code>NeperLoss</code>, <code>DecibelLoss</code>, <code>Loss&lt;L&gt;</code>, <code>Absorbance</code>,
+  <code>OpticalDepth</code>, <code>DampingRatio</code>, <code>QualityFactor</code>, <code>Metres100</code>, <code>Kilometre</code>, <code>Feet100</code>, <code>CentimetreMegahertz</code>): the
+  markers reach the <code>ww_si</code> snapshot and every dependent crate's <code>Quantity</code>/<code>Prefix</code>/<code>SIExpr</code> signatures by
+  themselves, through the existing <code>units</code> re-export, so <code>ww_si</code>'s own change is one Cargo feature
+  (<code>logarithmic = ["exact_units/levels"]</code>, next to its existing <code>DeciBel</code>/<code>DeciBelmW</code>); <code>Loss&lt;L&gt;</code> needs no walker
+  support, an alias over the concrete <code>NeperLoss</code>/<code>DecibelLoss</code> the generic resolves to by the time a wire-visible
+  field names it. Conformance case <code>stdlib.si.si_expr.decibel_loss_per_hundred_metres</code> (<code>Per&lt;Loss&lt;Decibel&gt;,
+  Metres100&gt;</code>, dB/100 m); serde needed nothing more, the <code>with_unit</code> text and self-describing forms already read
+  the same symbol table (STD-94). <code>exact_units</code>' own <code>levels</code> feature pieces are tracked in its own FEATURES.md
+  (LVL-1..5).</li>
+<li>✅ <strong>STD-100 The walker's generic markers catch up with <code>exact_units</code>' main</strong> — found moving STD-99's dependency
+  forward, not itself about levels: <code>Phase&lt;A&gt;</code> (a phase angle, <code>Kind::Named("phase angle")</code> of a plane angle <code>A</code>,
+  hand-written like <code>Per</code>/<code>Times</code>) had no <code>BUILT_IN</code> entry, so the walker refused any crate snapshot that reaches
+  it; added next to <code>Per</code>/<code>Times</code>/<code>Sqrt</code>/<code>Angle</code> in <code>markers.rs</code> and <code>ww_self::units::unit_in</code>. The crate's own
+  <code>exact_units_definitions_match_the_compiled_consts</code> test's kind whitelist (<code>Ohm</code>, <code>Siemens</code>) was two features of
+  kinds behind (STD-92's <code>VoltAmpere</code>/<code>Var</code>, and <code>EnergyDensity</code>/<code>DampingRatio</code>/<code>QualityFactor</code>/<code>Entropy</code>); the
+  three <code>nucleo_g0b1re_api</code> (now <code>0.4.0</code>) fixture signatures and <code>wire_weaver_snapshots</code>' pinned <code>Clock</code> signature
+  updated the same way earlier STD-59 drift did (<code>exact_units::Prefix</code> changed without a version bump, unpublished
+  crates), and <code>ww_si::units::ALL</code>'s hardcoded count moved with the new markers.</li>
 <li>📋 <strong>STD-53 <code>Volt</code> with a <code>u16</code> value fails to decode on a device</strong> — <code>I2cConfig { io_level:
   Some(Volt::milli(3300u16)), .. }</code> from the host gets <code>ArgsDesFailed</code> on the rePort B200A firmware, the same level as
   a <code>u32</code> value works (report-i2c-master bench run, 27 Oct 2026). Find where the <code>ww_si</code> value storage / numeric
@@ -7979,39 +7886,6 @@ observing), SRV-46 (peer identity).
 <li>📋 <strong>STD-56 Plain fields with a unit in their name become <code>Fixed</code></strong> — <code>shared_us: u64</code>, <code>rate_ppb: i32</code>,
   <code>ring_capacity_bytes: u64</code>, <code>queue_len: u32</code> and about 80 more across <code>ww_stdlib</code>, <code>ww_link</code>, <code>ww_stream</code>,
   <code>ww_client_server</code> and the host crates: same bytes, a Rust-API break per crate. On hold until STD-55 is built.</li>
-<li>📋 <strong>STD-65 Instants and clocks with named epochs</strong> · <code>v0.5</code> — <code>Instant&lt;Clock, ..&gt;</code>: device-monotonic, Unix, TAI, GPS
-  (TAI − 19 s), UTC through a versioned leap-second table on hosts; GPS week rollover as a <code>Seq</code> modulo 1024.</li>
-<li>📋 <strong>STD-66 Sentinels next to bounds</strong> · <code>v0.5</code> — named codes in a <code>Fixed</code>'s raw value: single codes or code ranges
-  (J1939 not-available / error ranges per 1, 2 and 4 bytes, SunSpec not-implemented 0x8000, Matter null, HCI RSSI
-  127, reserved ranges) decode to an enum (<code>Value</code>, <code>NotAvailable</code>, <code>Error</code>, <code>NotImplemented</code>, a user meaning), <code>Option</code>
-  only as the one-code shorthand. Stored as the raw <code>T</code> (size of <code>T</code>, no extra byte), <code>get()</code> gives the enum, and
-  encoding it gives back the same code, so the bytes don't change. Niche codes and <code>Bounds</code> are checked disjoint and
-  every code to fit <code>T</code> at compile time. Clipped / rail codes are a value with a saturation mark (at least / at most),
-  not an absent value. Published in the model and honoured by the dynamic client, Python and C, with conformance cases.</li>
-<li>🚧 <strong>STD-67 Levels: dB, dBm, dBV, dBFS, dBc, Np, LUFS, RSSI</strong> · <code>v0.5</code> — first piece done: a gain's dB by its kind
-  (STD-68), <code>Fixed::to_db</code> / <code>from_db</code> with 20·lg for ratios of root-power quantities (V/V, A/A, Pa/Pa) and 10·lg for
-  powers (W/W, J/J), a plain <code>Ratio</code> refused at compile time; <code>to_db</code> / <code>from_db</code> in <code>f64</code> and <code>f32</code>, without <code>std</code>
-  through the <code>libm</code> feature; <code>db!()</code> works the stored value out exactly at compile time. Missing: the rest below.
-  <code>Level&lt;Kind, Ref&gt;</code> on the point
-  algebra: level − level = gain, level + gain = level, references named (1 mW, 1 V, 20 µPa, full scale with its sine
-  or square convention). The log base comes from the level's unit (Np coherent on a log-ratio base, B, dB, octave,
-  decade, shannon, hartley, nat), the form is power, root-power or plain with a sign (pH and absorbance are −lg), and
-  the reference may be absent (a pure gain), a quantity or dimension one; gains compose (dB/km, Np/s ≠ Hz).</li>
-<li>🚧 <strong>STD-68 Kinds that share a dimension</strong> · <code>v0.5</code> — first piece done (gain kinds): <code>exact_units::Kind</code> as
-  <code>Unit::KIND</code> next to <code>DIM</code>, checked by <code>Fixed::convert</code> at compile time (rules after ISO 80000-1 / mp-units: a
-  quotient of one dimension keeps what cancelled, V/V ≠ A/A ≠ W/W ≠ <code>Ratio</code>; a dimension-one factor keeps the other's
-  kind; any other product plain, V/V · V = V); <code>Ohm</code> <code>resistance</code> and <code>Siemens</code> <code>conductance</code> (<code>kind ".."</code> on a
-  <code>unit!</code> line), apart from V/A and A/V; named steps <code>as_ratio</code> / <code>as_gain</code>, <code>as_resistance</code> / <code>as_transimpedance</code>,
-  <code>as_conductance</code> / <code>as_transconductance</code>; in the model as <code>MarkerDef::KindUnit</code> and
-  <code>ww_self::units::CanonicalUnit::kind</code>, compared by the evolution check (EVO-17), conformance case
-  <code>model.marker_def.unit_kind</code>. Missing: the rest below. relative humidity, duty cycle, state of charge, strain,
-  volume fraction; Hz vs Bq vs rad/s; electrical vs mechanical angle through pole pairs; colour vs thermodynamic
-  temperature; explicit casts between siblings. W / VA / var and their energies, Gy / Sv; a kind survives a product
-  with plain units (var·h stays reactive energy, never kW·h). Kinds with arguments: gas volume and density at stated
-  reference conditions (<code>StandardVolume&lt;Ref&gt;</code>: DIN 1343, ISO 13443, US SCF), with an opt-in exact ideal-gas bridge to
-  mol.</li>
-<li>📋 <strong>STD-69 More counted units</strong> · <code>v0.5</code> — Symbol (baud = Symbol/s), Packet, Pulse, Event, Tick, Chunk, Particle,
-  each a dimension of its own; <code>AVOGADRO</code> bridges <code>Particle</code> and mol exactly.</li>
 <li>📋 <strong>STD-77 Runtime scale parts and reference values</strong> · <code>v0.5</code> — what device standards do at run time, without a
   refactor later: a value whose exponent (decimal or binary) is a runtime field next to compile-time unit and scale
   (BLE GATT exponent in the format descriptor, USB HID unit exponent, a SunSpec <code>*_SF</code> scale-factor register), and a
@@ -8019,39 +7893,12 @@ observing), SRV-46 (peer identity).
   resource the scale comes from, the dynamic client, Python and C apply it exactly. Exponents of 10 or 2 only: a
   free runtime factor (calibration, currency) is a runtime value, not a unit: <code>ww_si::Quantity</code> / <code>AnyQuantity</code> or the
   application (TEST-28's list).</li>
-<li>📋 <strong>STD-70 Text unit codes in and out</strong> — UCUM, UNECE Rec 20, QUDT, SenML / RFC 8798, OpenMetrics: exact
-  imports, exports that say where they lose something. Later, in a separate optional crate <code>exact_units_interop</code>
-  (Roman, 27 Oct): this release builds the capability to represent them (STD-77, TEST-28), not the tables.</li>
-<li>📋 <strong>STD-71 Device-standard units in and out</strong> — BLE GATT 0x2904 / GSS, USB HID, BACnet, OPC UA EUInformation, CAN
-  DBC / J1939, IEEE 1451 TEDS, SunSpec, IODD, with exact decimal factors and sentinel tables, from public sources
-  only. Later, in <code>exact_units_interop</code> like STD-70.</li>
-<li>📋 <strong>STD-73 One table of unit symbols and spellings</strong> · <code>v0.5</code> — display and parsing of every unit from one table,
-  shared by Rust, si_dynamic, <code>ww</code> and Python, UCUM spelling where there is one; symbols are case-sensitive and a
-  bare ambiguous one is refused (<code>pH</code>: picohenry or pH, <code>B</code>: bel or byte).</li>
 <li>📋 <strong>STD-74 The runtime side catches up</strong> · <code>v0.5</code> — <code>Quantity</code>, <code>AnyQuantity</code> and <code>SIExpr</code> get the exact magnitude,
   the °C point / interval split, levels and sentinels, so <code>ww_si</code> never lags behind <code>exact_units</code>; the <code>Fixed</code> ↔
   <code>Quantity</code> parity test (STD-59) covers kinds, points, levels and sentinels too: same result or same refusal.</li>
-<li>📋 <strong>STD-75 Non-linear scales by name</strong> · <code>v0.5</code> — AWG, mpg ↔ L/100 km, Beaufort, Richter, shoe sizes: a named exact
-  conversion function each, or out of scope with the reason written down.</li>
-<li>🚧 <strong>STD-78 <code>serde</code> for units, three forms per field</strong> · <code>v0.5</code> — STD-94 delivers the first two forms for
-  <code>exact_units</code>' typed numbers, the plain number and the <code>"5 ms"</code> text (<code>with_unit</code>); missing: the rest below. An
-  <code>exact_units</code> feature <code>serde</code> (Roman, 28 Oct 2026), the form chosen per field with <code>#[serde(with = ..)]</code> adapters: a plain number (the unit stated in the schema),
-  a human string <code>"5 ms"</code> (STD-73's table, exact) or a self-describing <code>{ value, unit }</code>. Deserializing accepts any
-  compatible unit and converts exactly; it refuses a wrong dimension, an inexact conversion, a value out of bounds and
-  an ambiguous name; sentinels map to their meaning. Tests per form, and a docs page "Storing units": a fixed unit per
-  column is a <code>Fixed</code> with the unit in the schema and integers at the fixed scale (SQL aggregates stay right); a unit
-  that varies per row is an <code>AnyQuantity</code> or a unit column; <code>Quantity</code> is a wire tool, normalized before storing; text
-  headers like <code>vbus [mV]</code>. For configs, web APIs and queues, telemetry, logs and metrics, data files, CAD / EDA (nm
-  in better_erc) and Python bindings, not firmware only.</li>
-<li>📋 <strong>STD-79 JSON Schema with unit and range</strong> — a <code>schemars</code> feature: each unit field's schema names its unit and
-  bounds. Later, an optional feature like STD-78.</li>
-<li>📋 <strong>STD-80 Unit values on the command line</strong> — a <code>clap</code> value parser (<code>--timeout 5ms</code>) on STD-73's table, exact,
-  refusing what STD-78 refuses. Later, optional feature.</li>
 <li>📋 <strong>STD-81 Database columns with units</strong> — <code>sqlx</code> and <code>diesel</code> column types for <code>Fixed</code> (integer at the fixed
   scale) and <code>AnyQuantity</code>, the unit in the schema or a unit column as "Storing units" (STD-78) says. Later, optional
   features.</li>
-<li>📋 <strong>STD-82 Unit metadata in Arrow and Polars</strong> — a column's unit and scale as Arrow field metadata, read back
-  exactly, Polars through it. Later, optional feature.</li>
 </ul>
 <h2 id="examples-ex">Examples (<code>EX</code>)<a class="headerlink" href="#examples-ex" title="Permanent link">&para;</a></h2>
 <ul>
@@ -8255,8 +8102,6 @@ observing), SRV-46 (peer identity).
   longer, and a request that must not wait says so with <code>.urgent()</code>. Its measurement (B135 rev B, USB HS, 21 Oct
   2026): a property-like call 1.3 ms → 0.17 ms median, a 4 KB SD read 4.5 ms → 1.8 ms, CAN frames through a credit
   sink 3.8k → 7.2k/s.</li>
-<li><strong>STD-57 <code>Quantity</code> used at one fixed scale becomes <code>Fixed</code></strong> — dropped (Roman, 27 Oct 2026): the per-use list of
-  <code>Quantity</code> fields found none whose scale is fixed by contract, so nothing to change.</li>
 <li><strong>API-25 Refactor codegen to use an IR</strong> — decided against (18 Oct 2026). There are two wire-layout engines by
   design: <code>shrink_wrap_derive</code> keeps its own AST, as <code>ww_self</code>'s own types are encoded with <code>#[derive_shrink_wrap]</code>
   and the derive can't depend on <code>ww_self</code> (a bootstrapping cycle); the dynamic path (<code>ww_self</code> to the dynamic

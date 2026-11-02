@@ -773,6 +773,30 @@ ww report --serial 4B333720 -o report.md
 
 Reading the log does not empty the device's store.
 
+## `ww board`
+
+Tools around [`ww_board_info::BoardInfo`](std_library/ww_board_info.md), wherever in the device's API, through a
+global trait attachment: works whatever the device's API and version, like `ww info`. `ww board rework set` /
+`clear` [record a rework](std_library/ww_board_info.md#recording-a-rework) done on the bench:
+
+```
+$ ww board rework set 7
+✔ applied rework(s) 7; the board runs on it from the next boot
+
+$ ww board rework set 9
+Error: unknown rework 9: this firmware knows 1-5, 7, 8; update firmware first
+
+$ ww board rework clear 5,8 --dry-run
+? would undo rework(s) 5, 8 (dry run, nothing written)
+```
+
+| Option      | Default | Description                                              |
+|-------------|---------|------------------------------------------------------------|
+| `--dry-run` |         | Check without writing: every number is checked, nothing is stored |
+
+Numbers are comma separated (`7` or `1,3,5`); all of them or none, as `set_reworks` has it. `ww info` shows the
+record `set` and `clear` leave, as the board boots on it (read once per connection).
+
 ## `ww pins`
 
 Pin tests on any device serving [`ww_pin_diag::PinDiag`](std_library/ww_pin_diag.md), wherever in its API: found

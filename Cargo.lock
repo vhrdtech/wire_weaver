@@ -5901,6 +5901,7 @@ dependencies = [
  "wire_weaver_core",
  "wire_weaver_evolution",
  "wire_weaver_snapshots",
+ "ww_board_info",
  "ww_client_server",
  "ww_counters",
  "ww_dfu",

@@ -1,4 +1,5 @@
 use crate::cmd::api::ApiCommand;
+use crate::cmd::board::BoardCommand;
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
@@ -167,6 +168,12 @@ pub(crate) enum Commands {
     /// found say so, the rest is still there.
     Report(ReportArgs),
 
+    /// Tools around `ww_board_info::BoardInfo` (TOOL-28)
+    ///
+    /// Works with any device implementing `BoardInfo` anywhere in its API, whatever its API and version.
+    #[command(subcommand)]
+    Board(BoardCommand),
+
     /// Pin tests on any device serving ww_pin_diag::PinDiag: shorts to GND, the supply and each other, pulls (TOOL-15)
     ///
     /// Works wherever the device's API has PinDiag, found through its introspection data. `ww pins list` shows the
@@ -333,7 +340,7 @@ impl GlobalFlags {
         use GlobalFlags::*;
         Some(match path {
             "usb-loopback" | "introspect" | "observe" | "stream" | "dfu" | "counters" | "info"
-            | "report" | "pins" => DeviceAndTap,
+            | "report" | "pins" | "board" => DeviceAndTap,
             "list" | "sync" | "config" | "dfu rp" | "dfu stm32" | "explain" | "monitor"
             | "stats" | "capture" => Device,
             "api" | "elf" | "settings" | "hub" | "udev" => Neither,
@@ -380,6 +387,7 @@ impl Cli {
             Commands::Dfu(DfuCommand::Device(_))
                 | Commands::Counters(_)
                 | Commands::Info(_)
+                | Commands::Board(_)
                 | Commands::USBLoopback { .. }
         )
     }
@@ -403,7 +411,7 @@ impl Cli {
         // `ww explain` may connect, but only to look an API up
         if matches!(self.command, Commands::Explain(_)) || !self.need_device() {
             anyhow::bail!(
-                "--monitor and --capture need a command that opens a device connection (info, observe, stream, introspect, dfu, counters, report, pins, usb-loopback); this one doesn't"
+                "--monitor and --capture need a command that opens a device connection (info, observe, stream, introspect, dfu, counters, report, pins, board, usb-loopback); this one doesn't"
             );
         }
         self.tap.check()
@@ -424,6 +432,7 @@ impl Cli {
             Commands::Config(_) => false,
             Commands::Dfu(dfu) => dfu.needs_device(),
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
+            Commands::Board(_) => true,
             Commands::Pins(_) => true,
             Commands::Elf(_) => false,
             Commands::Settings(_) => false,

@@ -51,6 +51,7 @@ ww_local_socket.workspace = true
 
 wire_weaver_core.workspace = true
 wire_weaver_evolution = { workspace = true, features = ["source"] }
+ww_board_info = { workspace = true, features = ["std"] }
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_dfu = { workspace = true, features = ["std"] }
 ww_indication = { workspace = true, features = ["std"] }

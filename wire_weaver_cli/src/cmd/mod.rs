@@ -1,4 +1,5 @@
 pub(crate) mod api;
+pub(crate) mod board;
 pub(crate) mod bootsel;
 pub(crate) mod config;
 pub(crate) mod counters;

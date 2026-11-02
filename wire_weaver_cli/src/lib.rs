@@ -314,6 +314,9 @@ async fn run_command(
         Commands::Pins(pins_cmd) => {
             passed = cmd::pins::pins(pins_cmd, device.as_ref().unwrap()).await?
         }
+        Commands::Board(board_cmd) => {
+            cmd::board::board(board_cmd, device.as_ref().unwrap()).await?
+        }
         Commands::Elf(elf_cmd) => cmd::elf::elf(elf_cmd)?,
         Commands::Config(config_cmd) => {
             cmd::config::config(config_cmd, selection.as_ref().unwrap())?

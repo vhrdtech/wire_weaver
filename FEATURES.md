@@ -1713,6 +1713,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming arguments
   (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
+- ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
+  `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
+  API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`
+  passes `program = false` (nothing written, the would-be outcome printed). `UnknownRework` is shown with the
+  numbers the firmware knows, read from `REWORKS`: `unknown rework 7: this firmware knows 1-5, 8; update firmware
+  first`; `Conflict` and `ProductionRecord` print the device's own message. `wire_weaver_cli` `cmd::board`. The
+  first device is usb_io_fw PLAT-17.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the

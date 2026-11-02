@@ -95,7 +95,7 @@ widestring = "1"
 windows-sys = "0.61"
 
 # exact_units lives in its own repository; from git until it is on crates.io
-exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", default-features = false }
+exact_units = { version = "0.1.0", git = "https://github.com/romixlab/exact_units", rev = "e89f64edb1fd7522d8a53f4f26f67550c4c8d8f9", default-features = false }
 
 # framework crates, versioned together via [workspace.package] version (shrink_wrap* have their own)
 shrink_wrap = { version = "0.2.0", path = "./shrink_wrap/shrink_wrap", default-features = false }

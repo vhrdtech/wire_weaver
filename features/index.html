@@ -7631,11 +7631,20 @@ observing), SRV-46 (peer identity).
     <code>BUILD_ID</code> (GNU build id, finds the ELF) and optional <code>BUILD_RECORD</code>; <code>build::emit()</code> + <code>firmware_summary!()</code> for
     <code>build.rs</code>, <code>build_id()</code> reader; <code>LastReset</code> (<code>ResetRecord</code> with a <code>Fault</code> per architecture behind <code>cortex-m</code> /
     <code>riscv</code>, stack words, <code>boot_count</code>, <code>clear</code>). <code>BoardInfo::BOARD</code> with <code>RevisionSource</code> (<code>Record</code>, <code>Strap</code>, <code>Assumed</code>, <code>Provisional</code>) and optional <code>REWORKS</code>
-    (<code>Rework { id, title, applied }</code>, up to 16; <code>ww info</code> prints them). <code>Uid::IDS</code>, first id is
+    (<code>Rework { id, title, applied }</code>, up to 16, numbered since STD-98; <code>ww info</code> prints them). <code>Uid::IDS</code>, first id is
     the primary one (USB serial). <code>UserInfo</code> with bounded <code>name</code> / optional <code>notes</code>, <code>UserInfoError</code>, <code>CAPABILITIES</code>
     and the persistence rule. Docs <code>docs/std_library/ww_{firmware_info,board_info,uid,user_info}.md</code>, tests
     <code>tests/{firmware_info,board_info,uid,user_info}</code>. The const items are served by <code>get_</code> handlers until constant
     items come from the introspection data; properties cannot carry <code>#[errors]</code> yet.</li>
+<li>✅ <strong>STD-98 Recording a board rework</strong> · <code>v0.5</code> — <code>ww_board_info</code> reworks are numbers, <code>ReworkId(u16)</code> per board
+    revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
+    <code>Rework.title: Option&lt;..&gt;</code>, <code>None</code> for an applied number the firmware doesn't know (written by a newer one: the
+    board runs on its safe features). Optional <code>BoardInfo::set_reworks(changes, program)</code>: all changes or none, dry
+    run, <code>ReworkChange</code> (<code>Unchanged</code>, <code>WouldWrite</code>, <code>Written</code> from the next boot), <code>ReworkError</code> (<code>UnknownRework</code>, never
+    stored; <code>Conflict</code>; <code>ProductionRecord</code>; <code>Common</code>). <code>ww_board_info::table</code> (<code>no_std</code>) answers both from the
+    firmware's table (<code>ReworkTable</code>, <code>ReworkSet</code>, <code>apply</code>, <code>list</code>, <code>unknown</code>, <code>known_ids</code>). <code>ww info</code> prints unknown
+    ones. Docs <code>docs/std_library/ww_board_info.md#recording-a-rework</code>, tests <code>tests/board_info</code>, <code>tests/device_report</code>.
+    The <code>ww board rework</code> command is TOOL-28; the first device is usb_io_fw PLAT-17.</li>
 <li>🧪 <strong>STD-26 <code>ww_log</code> defmt over reliable streams</strong> · <code>v0.5</code> — <code>ww_log_bare_metal</code> renamed <code>ww_log</code>.
     <code>LogDefmt { const DEFMT (encoding, build id); frames() }</code>: a reliable stream whose unit is one <code>defmt</code> frame,
     whole frames per item (up to 512 B), so <code>lost</code> is the exact number of dropped messages and logs from before the

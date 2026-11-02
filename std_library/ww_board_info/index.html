@@ -3459,6 +3459,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reworks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recording-a-rework" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recording a rework
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-record-with-reworks-the-firmware-doesnt-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A record with reworks the firmware doesn't know
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-firmware-ww_board_infotable" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In firmware: <code>ww_board_info::table</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -5519,6 +5558,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reworks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recording-a-rework" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recording a rework
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-record-with-reworks-the-firmware-doesnt-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A record with reworks the firmware doesn't know
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-firmware-ww_board_infotable" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        In firmware: <code>ww_board_info::table</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -5725,11 +5803,11 @@ that keeps the list serves it as an optional const item:</p>
 <tbody>
 <tr>
 <td><code>id</code></td>
-<td>Stable short id, <code>rework-5</code>, as in the board's documentation (16 bytes)</td>
+<td><code>ReworkId(u16)</code>: its number in the board revision's rework list, <code>7</code> for "rework 7"</td>
 </tr>
 <tr>
 <td><code>title</code></td>
-<td>What it is, <code>cut trace to U3 pin 4</code> (48 bytes)</td>
+<td>What it is, <code>cut trace to U3 pin 4</code> (48 bytes), from the firmware's table; <code>None</code> for a rework the unit's record has applied and this firmware doesn't know</td>
 </tr>
 <tr>
 <td><code>applied</code></td>
@@ -5737,11 +5815,85 @@ that keeps the list serves it as an optional const item:</p>
 </tr>
 </tbody>
 </table>
-<p>The id is text, not an <code>Interned</code> (STD-48) index: an index changes with every firmware build and needs the ELF
-to read, while a rework is a fact about the hardware that any support case must read from any unit. A device that
-keeps no list leaves it out (<code>omit = ["board.REWORKS"]</code> in <code>ww_codegen!</code>, see <a href="../../api/optional_items/">optional items</a>):
-the client answers <code>NotImplementedByDevice</code> without asking. <code>ww info</code> and <code>ww report</code> print the list when it is served.
-Added in 0.3.0 as an appended item, so older devices and hosts are unaffected.</p>
+<p>The list has every rework the firmware knows, in the order of the board's rework list, then the applied ones it
+doesn't know. Numbers are per board revision. The id is a number, not text or an <code>Interned</code> (STD-48) index: the
+unit's record keeps a bit per number, so any firmware and any support case reads the same fact from any unit, and
+the titles stay in the firmware, out of the record.</p>
+<p>A device that keeps no list leaves it out (<code>omit = ["board.REWORKS"]</code> in <code>ww_codegen!</code>, see <a href="../../api/optional_items/">optional
+items</a>): the client answers <code>NotImplementedByDevice</code> without asking. <code>ww info</code> and
+<code>ww report</code> print the list when it is served:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Reworks    rework 1: analog buffer supply (applied)
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>           rework 3: 1.8 V LDO (TLV70218) (not applied)
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>           rework 9 (unknown to this firmware): applied, the board runs on its safe features until a firmware that knows it
+</span></code></pre></div>
+<h3 id="recording-a-rework">Recording a rework<a class="headerlink" href="#recording-a-rework" title="Permanent link">&para;</a></h3>
+<p>After a rework on the bench, the unit's record is changed through one optional method:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="cp">#[optional]</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">fn</span><span class="w"> </span><span class="nf">set_reworks</span><span class="p">(</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">changes</span><span class="p">:</span><span class="w"> </span><span class="nc">MaxLen</span><span class="o">&lt;</span><span class="n">RefVec</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkState</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">MAX_REWORKS</span><span class="o">&gt;</span><span class="p">,</span><span class="w"> </span><span class="c1">// { id, applied }</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="n">program</span><span class="p">:</span><span class="w"> </span><span class="kt">bool</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Result</span><span class="o">&lt;</span><span class="n">ReworkChange</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkError</span><span class="o">&lt;&#39;</span><span class="na">i</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+</span></code></pre></div>
+<ul>
+<li>All changes of a call or none: a swap (undo 5, apply 8) is one call, and a call with one bad number stores
+  nothing.</li>
+<li><code>program</code> false is a dry run: everything is checked, nothing written (<code>ReworkChange::WouldWrite</code>).</li>
+<li><code>Unchanged</code> when the record already says this, <code>Written</code> otherwise: the board runs on it from its next boot.
+  <code>REWORKS</code>, read once per connection, shows the board as it booted.</li>
+<li>A device that serves <code>set_reworks</code> serves <code>REWORKS</code> too, so a host can name what the firmware knows.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th><code>ReworkError</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UnknownRework { id }</code></td>
+<td>The firmware doesn't know the number: it is refused, never stored. Update the firmware first. Undoing an unknown number is refused too: the firmware can't judge it</td>
+</tr>
+<tr>
+<td><code>Conflict { id, with }</code></td>
+<td>The result would have two reworks that can't both be applied (two ways of rewiring the same lines)</td>
+</tr>
+<tr>
+<td><code>ProductionRecord</code></td>
+<td>A production record fixes this unit's reworks; a bench record would never be used</td>
+</tr>
+<tr>
+<td><code>Common(..)</code></td>
+<td>A storage fault (<code>Fault</code>), a stored record from a newer firmware (<code>WrongState</code>), ...</td>
+</tr>
+</tbody>
+</table>
+<p>The rule that matters is the first: a firmware never stores a number it can't name. A host shows the refusal with
+the numbers the firmware knows, from <code>REWORKS</code>: <code>unknown rework 7: this firmware knows 1-5, 8; update firmware
+first</code>.</p>
+<h3 id="a-record-with-reworks-the-firmware-doesnt-know">A record with reworks the firmware doesn't know<a class="headerlink" href="#a-record-with-reworks-the-firmware-doesnt-know" title="Permanent link">&para;</a></h3>
+<p>A record written by a newer firmware can hold a number the running one doesn't know (flashed back to an older
+build). The firmware then neither ignores the record nor that number: it can't know what the rework changed (a rework
+can remove a path the old firmware would drive). It serves the number with <code>title: None</code>, reports it where the device
+reports its record's state, and runs the board on its safe features until a firmware that knows the rework is
+flashed: what is safe on every unit of the revision, whatever its reworks.</p>
+<h3 id="in-firmware-ww_board_infotable">In firmware: <code>ww_board_info::table</code><a class="headerlink" href="#in-firmware-ww_board_infotable" title="Permanent link">&para;</a></h3>
+<p><code>table</code> answers both items from the firmware's own table, so every board answers the same way (<code>no_std</code>):</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">use</span><span class="w"> </span><span class="n">ww_board_info</span><span class="p">::{</span><span class="n">ReworkId</span><span class="p">,</span><span class="w"> </span><span class="n">table</span><span class="p">::{</span><span class="n">ReworkDef</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkSet</span><span class="p">,</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">}};</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">const</span><span class="w"> </span><span class="n">REWORKS</span><span class="p">:</span><span class="w"> </span><span class="nc">ReworkTable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ReworkTable</span><span class="p">::</span><span class="n">new</span><span class="p">(</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[</span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;analog buffer supply&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD full swap&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkDef</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;SD short swap&quot;</span><span class="p">)],</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="o">&amp;</span><span class="p">[(</span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span><span class="w"> </span><span class="n">ReworkId</span><span class="p">(</span><span class="mi">8</span><span class="p">))],</span><span class="w"> </span><span class="c1">// can&#39;t both be applied</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="p">);</span>
+</span></code></pre></div>
+<ul>
+<li><code>ReworkSet</code> is what the record stores, a bit per number (0-63).</li>
+<li><code>REWORKS.apply(stored, changes)</code> checks a request and returns the new set or the <code>ReworkError</code>.</li>
+<li><code>REWORKS.list(stored)</code> gives the <code>REWORKS</code> entries, unknown numbers last.</li>
+<li><code>REWORKS.unknown(stored)</code> is non-empty while the board must run on its safe features.</li>
+<li><code>REWORKS.known_ids()</code> prints <code>1, 5, 8</code> for messages.</li>
+</ul>
+<p><code>tests/board_info</code> has a complete server.</p>
 <p>Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.</p>
 <p><code>BoardSummary</code> has no <code>defmt::Format</code> (its <code>DateTime</code> has none).</p>

@@ -5580,17 +5580,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#dropped-and-superseded" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Dropped and superseded
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -5743,17 +5732,6 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Testing, CI and performance (<code>TEST</code>)
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dropped-and-superseded" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Dropped and superseded
       </span>
     </span>
   </a>
@@ -6450,11 +6428,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   feature, so <code>examples_mcu/rp2</code>'s <code>usb_log.rs</code> logs its log-store error without <code>Debug2Format</code> either. Same wire
   format; only the printed text of a <code>no_std</code> build without <code>defmt</code> changes. Not yet measured: TEST-30 checks that
   the variant names are not linked; est. 0.5-1 KB.</li>
-<li>📋 <strong>SW-71 Table decode for fieldless enums</strong> · <code>v0.5</code> — flash diet: des <code>exact_units::Prefix</code> is 574 B (5 copies)
-  for a value that is one <code>UNib32</code> tag: the derive matches every tag of its 31 prefixes and the tag-only scale kinds
-  (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
-  (tag -&gt; variant) and one shared lookup instead, in the derive, so every such enum gains, not only <code>Prefix</code>. Same
-  bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.</li>
+<li>✅ <strong>SW-71 Unit variants of a mixed enum decode apart</strong> · <code>v0.5</code> — flash diet: des <code>exact_units::Prefix</code> was 574 B
+  (5 copies in Donguru). The cost is the mix: a <code>match</code> with field-reading arms keeps LLVM's jump table and one arm
+  per tag. A fully fieldless enum already folds to about 48 B, so it needs nothing. The derive now puts the longest
+  run of consecutive unit tags behind a range check, and those arms fold to a tag -&gt; variant map, without any table of
+  our own. It does so for a run of at least 4 with at least 2 data arms (1 with <code>niche</code>). <code>Prefix</code>, decoded alone on
+  M0+: 624 -&gt; 324 B at <code>fw-z</code>, 576 -&gt; 460 B at <code>fw-3</code>. The ~100 B first estimated left out its three data arms and the
+  catch-all, which stay. Same bytes on the wire. Test <code>shrink_wrap/tests/enum_unit_run.rs</code>.</li>
 <li>✅ <strong>SW-72 <code>MaxLen&lt;_, N&gt;</code> checks through one helper</strong> · <code>v0.5</code> — flash diet: ser <code>MaxLen&lt;_, N&gt;</code> was monomorphised
   per bound (9 instances, 296 B in Donguru: <code>&amp;str</code> for N = 16, 32, 64, 128, <code>RefVec&lt;u8&gt;</code> for 16, 20, 32, 512) though
   the bodies differ only in N. <code>new</code>, <code>ser_shrink_wrap</code>, <code>ser_shrink_wrap_owned</code> and <code>des_shrink_wrap</code>'s <code>check_len</code>
@@ -8397,14 +8377,14 @@ observing), SRV-46 (peer identity).
   <code>ErrorKind::ReadPropertyWithSeqZero</code> is never actually raised by today's codegen (seq 0 silently suppresses the
   reply for a <code>Read</code> too, same as any other request kind); a path element past a leaf method's own path is simply
   unused, not <code>BadPath</code>. See <code>docs/serdes/conformance.md</code> for the pattern this follows.</li>
-<li>📋 <strong>TEST-32 Flash attribution by inlined frames</strong> · <code>v0.5</code> — the experiment's <code>attribute.py</code> and
-  <code>serdes_types.py</code> (typec_dongle, branch <code>s/03nov2026-flash-blank-handlers</code>) as a Rust subcommand,
-  <code>fw_budget --attribute ELF [--gen GENERATED.rs]</code>: every instruction symbolized with its inlined frames (gimli /
-  addr2line), bytes by crate of the innermost frame, by generated dispatcher function and by serdes impl with copies
-  and bytes beyond the first copy. For when TEST-30's totals move and the reason isn't obvious.</li>
-</ul>
-<h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
-<ul>
+<li>✅ <strong>TEST-32 Flash attribution by inlined frames</strong> · <code>v0.5</code> — <code>fw_budget --attribute ELF [--gen GENERATED.rs]
+  [--top N]</code> (<code>just flash-attribute ELF</code>, <code>examples_mcu/fw_budget/src/attribute.rs</code>, the experiment's <code>attribute.py</code>
+  and <code>serdes_types.py</code> in Rust): every instruction of the ELF (<code>llvm-objdump</code> boundaries) looked up with its
+  inlined frames (addr2line), bytes by crate of the innermost frame, by generated dispatcher function, by innermost
+  function and by serdes impl with copies, bytes beyond the first copy and, with <code>--gen</code> (a <code>ww_codegen!</code>
+  <code>debug_to_file</code> dump), the resource arms naming the type. On the nucleo_g0b1re <code>usb_blinky</code> at <code>opt-level = "z"</code> it
+  gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
+  debug info. For when TEST-30's totals move and the reason isn't obvious.</li>
 <li><strong>SRV-50 Server call gate</strong> — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   <code>ww_codegen!(.., call_gate = true)</code>, a <code>CallGate::admit</code> question per trait level (and per item where named) before

@@ -1979,6 +1979,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Budget">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-observe-costs-a-firmware-that-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What observe costs a firmware that doesn't
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5739,6 +5756,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Budget">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-observe-costs-a-firmware-that-doesnt" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What observe costs a firmware that doesn't
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -6101,7 +6135,18 @@ turn). What the device grants and clamps:</p>
   (<code>ObserveGranted::refused</code>), the rest of the request still applies. A request that doesn't decode, or lists more
   than 16 refused entries, fails outright (<code>ArgsDesFailed</code>/<code>BadIndex</code>) and changes nothing; an answer that doesn't
   fit the reply buffer fails with <code>ResponseSerFailed</code>, also undone.</li>
+<li>a server without any <code>+observe</code> property answers every <code>Observe</code> request, whatever its path, with <code>BadPath</code> at
+  error site 58 (<code>OBSERVE_PATH</code>, "no observable level there"), the same answer an observing server gives for a path
+  that isn't an observable level. The request is never walked as a call.</li>
 </ul>
+<h3 id="what-observe-costs-a-firmware-that-doesnt">What observe costs a firmware that doesn't<a class="headerlink" href="#what-observe-costs-a-firmware-that-doesnt" title="Permanent link">&para;</a></h3>
+<p>Close to nothing. Server code writes each kind of event it sends in place (<code>ww_client_server::util</code>, <code>ser_*_event</code>), never
+through <code>Event</code>'s serializer, which covers every <code>EventKind</code> and so would link the <code>Series&lt;Second&gt;</code> codec of
+<code>sample_times</code> and the <code>StreamHead</code> writer into every firmware. The body of a <code>RequestKind::Observe</code> is a
+<code>RefBox&lt;ObserveRequest&gt;</code>, decoded only by the generated observe code, so a server without <code>+observe</code> properties has
+no <code>ObserveRequest</code> decoder either. No feature to turn on or off, and the bytes on the wire are the same: on a
+Cortex-M0+ this took the floor of a one-method server from 26.3 KB to 14.5 KB at <code>opt-level = "z"</code>
+(<a href="../../articles/flash_budget/#observe-left-out-srv-54">flash budget</a>, SRV-54).</p>
 <h2 id="the-device-side">The device side<a class="headerlink" href="#the-device-side" title="Permanent link">&para;</a></h2>
 <p>Three things the user adds, for an API with any <code>+observe</code> properties: an <code>ObserveState</code> field, handed out by
 <code>observe_state()</code>, a <code>poll_properties</code> call in the event loop, and <code>mark_changed_&lt;name&gt;()</code> where the device changes

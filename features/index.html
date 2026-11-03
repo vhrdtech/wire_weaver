@@ -6713,6 +6713,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
   <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ <strong>SRV-54 observe-left-out Observe and the Series codec only where a firmware observes</strong> · <code>v0.5</code> — flash diet,
+  without a feature: device code needed <code>Event</code>'s serializer only for convenience, and that one covers every
+  <code>EventKind</code>, so every server linked the <code>Series&lt;Second&gt;</code> codec of <code>PropertyUpdate::sample_times</code> and the
+  <code>StreamHead</code> writer. Server code (deferred replies, introspection, stream sidebands, <code>ww_device</code>'s generic error)
+  now writes each event kind in place (<code>ww_client_server::util::ser_value_event</code>, <code>ser_stream_data_bytes_event</code>,
+  <code>ser_stream_sideband_event</code>; <code>ser_err_event</code> and <code>ser_unit_return_event</code> too), byte for byte the whole <code>Event</code>
+  (tests in <code>util.rs</code>). <code>RequestKind::Observe { cfg }</code> is a <code>RefBox&lt;ObserveRequest&gt;</code>, the same bytes, decoded only
+  by generated observe code: a malformed body is now <code>ArgsDesFailed</code> at <code>OBSERVE_MALFORMED</code> instead of a request
+  that doesn't decode. A server without <code>+observe</code> properties answers every <code>Observe</code> with <code>BadPath</code> at
+  <code>OBSERVE_PATH</code> (<code>tests/consts</code>). TEST-30 on a Cortex-M0+: the floor of a one-method server 26,274 → 14,510 B at
+  <code>fw-z</code>, 40,910 → 20,086 B at <code>fw-3</code> (sync; async alike), the lazy body 0.46 KB of it at <code>z</code>.
+  <code>docs/articles/flash_budget.md#observe-left-out-srv-54</code>, <code>docs/api/observing.md</code>.
 - ✅ <strong>SRV-34 per-resource-claims Per-resource claims through the hub</strong> · <code>v0.5.x</code> — typed metadata attributes,
     carried in introspection as data (<code>ww_self::Meta</code> on <code>ApiItem</code> and <code>ApiLevel</code>), checked when the API is loaded:
     <code>#[claim(exclusive | shared | observe)]</code> on a <code>ww_impl!</code> or trait definition (the root is always claimable),
@@ -6958,16 +6970,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Measured with TEST-30 and on Donguru (introspection on).</li>
 </ol>
 </li>
-<li>📋 <strong>SRV-54 Observe behind a feature</strong> · <code>v0.5</code> — flash diet: every server links the observe code even when it
-  observes nothing, mostly the <code>Series&lt;Second&gt;</code> codec of <code>EventKind::PropertyUpdate::sample_times</code> (ser 1,942 B in
-  Donguru, with <code>PackedWriter</code>, <code>FieldItems</code> and <code>Prefix</code>; 678 B of exact_units in the 2-method nucleo blinky)
-  because <code>Event</code>'s serializer has that branch, plus the <code>RequestKind::Observe</code> decoder. An <code>observe</code> feature (off by
-  default for <code>no_std</code>, on with <code>std</code>, turned on by a firmware that observes) leaves them out; shared crates
-  (<code>ww_client_server</code>, <code>ww_device</code>, <code>ww_stream</code>, <code>wire_weaver</code>) never turn it on for everyone (AGENTS.md "Flash").
-  No wire change: a device without it still decodes an <code>Observe</code> request and answers it with a defined error, never
-  a decode failure (which one is part of the piece, in <code>docs/</code>), and the host is unchanged. First check whether device code needs <code>Event</code>'s
-  serializer at all (the reply path writes events through <code>EventBuilder</code>); dropping that use may get most of the
-  bytes without a feature. Est. 2.5-3.5 KB.</li>
 </ul>
 <h2 id="client-host-side-clt">Client / host side (<code>CLT</code>)<a class="headerlink" href="#client-host-side-clt" title="Permanent link">&para;</a></h2>
 <ul>

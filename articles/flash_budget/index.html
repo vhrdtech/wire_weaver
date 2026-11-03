@@ -5482,6 +5482,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#observe-left-out-srv-54" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observe left out (SRV-54)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5605,6 +5616,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         SW-69: hand-written <code>Error</code> Debug
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#observe-left-out-srv-54" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Observe left out (SRV-54)
       </span>
     </span>
   </a>
@@ -5777,6 +5799,125 @@
 </table>
 <p>The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats <code>shrink_wrap::Error</code> with <code>Debug</code> or <code>Display</code>, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived <code>Debug</code> impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through <code>core::fmt::Debug</code>: fixed in this repo at <code>ww_settings::Error</code> / <code>LoadReport</code> (<code>examples_mcu/nucleo_{g0b1re,h743zi2}</code> <code>settings.rs</code>, both already <code>defmt::Format</code>) and <code>ww_stream::store::RamRingError</code> (<code>examples_mcu/rp2</code> <code>usb_log.rs</code>, now behind <code>ww_stream</code>'s new <code>defmt</code> feature); Donguru's own <code>settings.rs</code> has the same shape of fix to make, on its own branch.</p>
 <p>These absolute floor numbers run a little higher than the "Baseline" table above (e.g. 26378 B against 26286 B at <code>fw-z, sync</code>), measured the same day: most likely the checkout path (see the note above this page's Baseline table), since this worktree's path (<code>/home/roman/git/.wt/flash-sw-debug/wire_weaver</code>) is longer than whatever path the baseline table was built from, and panic locations carry it per source file. The before/after pair here was measured back to back from the same checkout, so the diff between them is the number that matters regardless.</p>
+<h2 id="observe-left-out-srv-54">Observe left out (SRV-54)<a class="headerlink" href="#observe-left-out-srv-54" title="Permanent link">&para;</a></h2>
+<p>Server code stopped serializing whole <code>Event</code>s: the reply of a deferred method, introspection, stream sidebands and <code>ww_device</code>'s generic error are written in place, one writer per event kind (<code>ww_client_server::util</code>). <code>Event</code>'s serializer covers every <code>EventKind</code>, so any use of it linked the <code>Series&lt;Second&gt;</code> codec of observe's <code>sample_times</code>, the <code>StreamHead</code> writer and their <code>exact_units</code> code into every firmware. The body of <code>RequestKind::Observe</code> became a <code>RefBox&lt;ObserveRequest&gt;</code> (the same bytes), so only a server that observes links its decoder. Measured on f62c99f5 (before) and with the change (after), both built in the same worktree, bytes:</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m</th>
+<th style="text-align: right;">z, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">z, async before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, async before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>floor, one method</td>
+<td style="text-align: right;">26274</td>
+<td style="text-align: right;">14510</td>
+<td style="text-align: right;">27098</td>
+<td style="text-align: right;">15502</td>
+<td style="text-align: right;">40910</td>
+<td style="text-align: right;">20086</td>
+<td style="text-align: right;">41694</td>
+<td style="text-align: right;">21118</td>
+</tr>
+<tr>
+<td>8 resources, two of each kind</td>
+<td style="text-align: right;">29482</td>
+<td style="text-align: right;">18722</td>
+<td style="text-align: right;">30454</td>
+<td style="text-align: right;">19354</td>
+<td style="text-align: right;">44458</td>
+<td style="text-align: right;">23698</td>
+<td style="text-align: right;">45194</td>
+<td style="text-align: right;">24622</td>
+</tr>
+<tr>
+<td>call, no arguments or output</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">129</td>
+<td style="text-align: right;">130</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">52</td>
+</tr>
+<tr>
+<td>call, an argument and an output</td>
+<td style="text-align: right;">240</td>
+<td style="text-align: right;">242</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">128</td>
+<td style="text-align: right;">124</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">21</td>
+</tr>
+<tr>
+<td>property, read and write</td>
+<td style="text-align: right;">193</td>
+<td style="text-align: right;">173</td>
+<td style="text-align: right;">172</td>
+<td style="text-align: right;">179</td>
+<td style="text-align: right;">263</td>
+<td style="text-align: right;">226</td>
+<td style="text-align: right;">158</td>
+<td style="text-align: right;">212</td>
+</tr>
+<tr>
+<td>stream</td>
+<td style="text-align: right;">496</td>
+<td style="text-align: right;">484</td>
+<td style="text-align: right;">201</td>
+<td style="text-align: right;">204</td>
+<td style="text-align: right;">353</td>
+<td style="text-align: right;">362</td>
+<td style="text-align: right;">209</td>
+<td style="text-align: right;">201</td>
+</tr>
+<tr>
+<td>call with types of its own</td>
+<td style="text-align: right;">438</td>
+<td style="text-align: right;">300</td>
+<td style="text-align: right;">76</td>
+<td style="text-align: right;">80</td>
+<td style="text-align: right;">184</td>
+<td style="text-align: right;">136</td>
+<td style="text-align: right;">96</td>
+<td style="text-align: right;">96</td>
+</tr>
+<tr>
+<td>mean of the four shared-type kinds</td>
+<td style="text-align: right;">245</td>
+<td style="text-align: right;">238</td>
+<td style="text-align: right;">115</td>
+<td style="text-align: right;">114</td>
+<td style="text-align: right;">218</td>
+<td style="text-align: right;">210</td>
+<td style="text-align: right;">111</td>
+<td style="text-align: right;">122</td>
+</tr>
+<tr>
+<td><code>Series</code> codec</td>
+<td style="text-align: right;">3796</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">3796</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">16286</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">16286</td>
+<td style="text-align: right;">0</td>
+</tr>
+</tbody>
+</table>
+<p>Of the floor's 11.8 KB at <code>z</code> (sync), the events written in place are about 11.2 KB and the lazy <code>Observe</code> body about 0.46 KB (0.87 KB at <code>3</code>), measured as two steps on ff395f1a. The 8-resource servers lose 1 KB less than the floor: their stream links the <code>StreamHead</code> writer again, which the floor carried before only through <code>Event</code>'s serializer. The per-resource cells stay within the inliner's noise. Firmware that observes is unchanged: <code>qemu-foc-observe</code> prints the same as before.</p>
 
 
 

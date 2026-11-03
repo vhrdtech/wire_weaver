@@ -66,3 +66,8 @@ panic = "immediate-abort"
 debug = 0
 strip = false
 overflow-checks = false
+
+# exact_units (its own repository, through ww_client_server) takes shrink_wrap from wire_weaver by git: use the one
+# here, so there is one shrink_wrap
+[patch."https://github.com/vhrdtech/wire_weaver"]
+shrink_wrap = { path = "../../shrink_wrap" }

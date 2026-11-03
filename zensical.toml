@@ -56,6 +56,7 @@ nav = [
                     { "Local trait" = "api/local_trait.md" },
                     { "Large messages and result sets" = "api/large_messages.md" },
                     "api/optional_items.md",
+                    "api/introspection.md",
                     { "Metadata: claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",
                     "api/observing.md",

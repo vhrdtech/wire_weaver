@@ -324,7 +324,8 @@ impl Decoder {
                 if self.bundles.contains_key(&hash) {
                     return;
                 }
-                if let Ok(b) = ApiBundleOwned::from_ww_bytes_owned(bytes.as_slice())
+                if let Ok(bytes) = ww_self::compressed::bundle_bytes(bytes.as_slice())
+                    && let Ok(b) = ApiBundleOwned::from_ww_bytes_owned(&bytes)
                     && let Some(b) = ready(b)
                 {
                     self.bundles.insert(hash, b);

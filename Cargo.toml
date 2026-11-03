@@ -202,6 +202,7 @@ hub_api = { version = "0.1.0", path = "./tests/hub_api" }
 hub_pytest_device_api = { version = "0.1.0", path = "./tests/hub_pytest_device_api" }
 hub_reconnect_api = { version = "0.1.0", path = "./tests/hub_reconnect_api" }
 indication_api = { version = "0.1.0", path = "./tests/indication_api" }
+introspect_compressed_api = { version = "0.1.0", path = "./tests/introspect_compressed_api" }
 io_adc_api = { version = "0.1.0", path = "./tests/io_adc_api" }
 io_can_api = { version = "0.1.0", path = "./tests/io_can_api" }
 io_can_group_api = { version = "0.1.0", path = "./tests/io_can_group_api" }

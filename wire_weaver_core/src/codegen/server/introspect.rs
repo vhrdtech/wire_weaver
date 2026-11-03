@@ -1,5 +1,6 @@
+use crate::codegen::api_server::IntrospectCompression;
 use crate::codegen::omit::Omissions;
-use crate::codegen::util::fixed_err_seq;
+use crate::codegen::util::{fixed_err_seq, maybe_quote};
 use convert_case::{Case, Casing};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -10,11 +11,14 @@ use ww_self::visit_mut::VisitMut;
 
 /// Introspection request handler and API hash consts. With omitted items (API-16) the bundle a device sends
 /// lists them, so with `omit_if` conditions the bytes and hashes are generated for each combination, under `#[cfg]`.
+/// With `compression` the device keeps and sends `WW_SELF_BYTES` compressed (INT-16), the hashes are those of the
+/// uncompressed bytes.
 pub(crate) fn introspect(
     api_bundle: &ApiBundleOwned,
     omissions: &Omissions,
     enabled: bool,
     include_docs: bool,
+    compression: IntrospectCompression,
     use_async: bool,
 ) -> (TokenStream, TokenStream) {
     let mut bytes_consts = TokenStream::new();
@@ -25,7 +29,7 @@ pub(crate) fn introspect(
             introspect_bytes,
             no_docs_hash,
             with_docs_hash,
-        } = introspect_prepare(&device_bundle, include_docs);
+        } = introspect_prepare(&device_bundle, include_docs, compression);
         let maybe_cfg = cfg.map(|cfg| quote! { #[cfg(#cfg)] });
         bytes_consts.extend(quote! {
             #maybe_cfg
@@ -44,7 +48,10 @@ pub(crate) fn introspect(
         &format!("{}_FULL_GID", root.trait_name).to_case(Case::Constant),
         Span::call_site(),
     );
+    // at module level, so that tests and tools see the bytes too; the device stores them where the arm uses them
+    let bytes_consts = maybe_quote(enabled, bytes_consts);
     let api_hash = quote! {
+        #bytes_consts
         #hash_consts
         /// API identity string (`ww:<crate>@<version> h=<hash>`), see [wire_weaver::api_id].
         pub const API_ID: &str = wire_weaver::api_id_string!(#crate_name::#full_gid, API_HASH_NO_DOCS);
@@ -75,14 +82,58 @@ pub(crate) fn introspect(
     let send_close = quote! {
         __ww_try!(wr, d, #send_close, #es0, ResponseSerFailed);
     };
+    let send_all = match compression {
+        IntrospectCompression::None => quote! {
+            for chunk in WW_SELF_BYTES.chunks(CHUNK) {
+                __ww_try!(wr, d, #send_chunk, #es0, ResponseSerFailed);
+            }
+            #send_close
+        },
+        // the marker first, so that a client that predates compression stops with an error instead of misreading
+        // the bytes; marker, chunks and `Close` through one send, each `send_with` costs code (1.8 KB on an async
+        // RP2350 server)
+        IntrospectCompression::Lz4 => {
+            let send_event = send_with(quote! {
+                // each sideband a constant: one chosen at run time would link the serializer of all of them
+                if i == 0 {
+                    ww_client_server::util::ser_stream_sideband_event(
+                        scratch,
+                        request.seq.0,
+                        &[],
+                        ww_client_server::StreamSideband::User(
+                            wire_weaver::shrink_wrap::UNib32(ww_client_server::INTROSPECT_COMPRESSED),
+                        ),
+                    )
+                } else if i == last {
+                    ww_client_server::util::ser_stream_sideband_event(
+                        scratch,
+                        request.seq.0,
+                        &[],
+                        ww_client_server::StreamSideband::Close,
+                    )
+                } else {
+                    let rest = WW_SELF_BYTES.get((i - 1) * CHUNK..).unwrap_or(&[]);
+                    let chunk = &rest[..rest.len().min(CHUNK)];
+                    ww_client_server::util::ser_stream_data_bytes_event(scratch, request.seq.0, &[], chunk)
+                }
+            });
+            quote! {
+                const LAST: usize = WW_SELF_BYTES.len().div_ceil(CHUNK) + 1;
+                let last = LAST;
+                for i in 0..=LAST {
+                    __ww_try!(wr, d, #send_event, #es0, ResponseSerFailed);
+                }
+            }
+        }
+    };
+    let send_all = quote! {
+        const CHUNK: usize = 128; // TODO: auto-determine better chunk size
+        #send_all
+    };
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
-                #bytes_consts
-                for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
-                    __ww_try!(wr, d, #send_chunk, #es0, ResponseSerFailed);
-                }
-                #send_close
+                #send_all
                 WrAction::Deferred
             }
         }
@@ -107,7 +158,14 @@ pub(crate) struct IntrospectTs {
 ///
 /// Traits and types known from embedded snapshots are left out ([crate::transform::skip_known]), both in what a device
 /// sends and in what a client embeds (a client puts them back at runtime). The API hash is calculated over these bytes.
-pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool) -> IntrospectTs {
+///
+/// With `compression` the bytes are compressed (`ww_self::compressed`) after the hashes are taken: a device's API
+/// identity doesn't depend on how it keeps its introspection data.
+pub(crate) fn introspect_prepare(
+    api_bundle: &ApiBundleOwned,
+    include_docs: bool,
+    compression: IntrospectCompression,
+) -> IntrospectTs {
     let sent = match crate::transform::skip_known(api_bundle) {
         Ok(sent) => sent,
         Err(e) => {
@@ -137,6 +195,10 @@ pub(crate) fn introspect_prepare(api_bundle: &ApiBundleOwned, include_docs: bool
         sent_with_docs_bytes
     } else {
         sent_no_docs_bytes
+    };
+    let introspect_bytes = match compression {
+        IntrospectCompression::None => introspect_bytes,
+        IntrospectCompression::Lz4 => ww_self::compressed::compress(&introspect_bytes),
     };
     IntrospectTs {
         introspect_bytes: bytes_to_ts(&introspect_bytes),

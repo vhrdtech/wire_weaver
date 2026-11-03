@@ -1038,6 +1038,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lz4_flex"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
+
+[[package]]
 name = "managed"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2053,6 +2059,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_lz4"
+version = "0.1.0"
+dependencies = [
+ "lz4_flex",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
@@ -2069,6 +2082,7 @@ dependencies = [
  "serde",
  "sha2 0.11.0",
  "shrink_wrap",
+ "ww_lz4",
  "ww_numeric",
  "ww_version",
 ]

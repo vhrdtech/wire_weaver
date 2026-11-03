@@ -1,0 +1,20 @@
+[package]
+name = "introspect_compressed"
+version = "0.1.0"
+publish = false
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+introspect_compressed_api.workspace = true
+tests_common.workspace = true
+tokio = { workspace = true, features = ["sync", "rt-multi-thread", "rt", "macros", "time"] }
+tracing-subscriber.workspace = true
+wire_weaver = { workspace = true, features = ["std"] }
+wire_weaver_client = { workspace = true, features = ["local_socket", "in_process"] }
+ww_client_server.workspace = true
+ww_hub.workspace = true
+ww_local_socket.workspace = true
+ww_self.workspace = true

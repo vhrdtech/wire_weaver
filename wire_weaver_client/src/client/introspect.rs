@@ -91,6 +91,13 @@ impl Introspect {
             };
         }
         self.cache_miss_msg();
+        self.download_promise()
+    }
+
+    /// Same as [Introspect::download], but returns a Promise that receives data chunks as it is polled: skips the
+    /// local cache lookup, and caches what it got. Must only be polled from synchronous code, see [Promise] docs.
+    #[must_use = "Promise does nothing, unless it is polled"]
+    pub fn download_promise(self) -> Promise<ApiBundleOwned> {
         let hash = self.hash;
         Promise::new_introspect(
             self.transport_cmd_tx,
@@ -134,7 +141,7 @@ impl Introspect {
             pending: Default::default(),
             _phantom: Default::default(),
         };
-        let ww_self_bytes = stream.recv_all_bytes_timeout(self.timeout).await?;
+        let ww_self_bytes = stream.recv_introspection_timeout(self.timeout).await?;
         decode_and_cache(&ww_self_bytes, &self.hash)
     }
 
@@ -148,7 +155,7 @@ impl Introspect {
             pending: Default::default(),
             _phantom: Default::default(),
         };
-        let ww_self_bytes = stream.recv_all_bytes_timeout_blocking(self.timeout)?;
+        let ww_self_bytes = stream.recv_introspection_timeout_blocking(self.timeout)?;
         decode_and_cache(&ww_self_bytes, &self.hash)
     }
 
@@ -160,14 +167,17 @@ impl Introspect {
 /// Introspection data as a device sends it (the bytes of its introspection stream, concatenated), decoded, with the
 /// traits and types it left out put back (snapshots, definition cache) and generic types instantiated: the API of a
 /// device whose traffic a program forwards rather than calls, as the ww hub does to find claimable resources (SRV-34).
-/// `None` for an empty stream (a device with introspection disabled); an error for malformed data.
+/// `None` for an empty stream (a device with introspection disabled); an error for malformed data. Compressed data
+/// (INT-16) is decompressed first.
 pub fn decode_introspection(ww_self_bytes: &[u8]) -> Result<Option<ApiBundleOwned>> {
     if ww_self_bytes.is_empty() {
         return Ok(None);
     }
-    inlined(ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?).map(Some)
+    let ww_self_bytes = ww_self::compressed::bundle_bytes(ww_self_bytes)?;
+    inlined(ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?).map(Some)
 }
 
+/// The bundle a device sent and its size, uncompressed (INT-16): the API hashes and the cache are over these bytes.
 fn decode_and_cache(
     ww_self_bytes: &[u8],
     hash: &ApiHashPairOwned,
@@ -175,6 +185,7 @@ fn decode_and_cache(
     if ww_self_bytes.is_empty() {
         return Ok(None);
     }
+    let ww_self_bytes = &*ww_self::compressed::bundle_bytes(ww_self_bytes)?;
     let api_bundle = ApiBundleOwned::from_ww_bytes_owned(ww_self_bytes)?;
     // cached as received, so that it matches the device reported hash
     local_registry::store(&api_bundle, ww_self_bytes, hash);

@@ -1214,7 +1214,8 @@ impl State {
             if let Some(queue) = self.tunnels.get(&requester.0) {
                 queue.push(Kind::Data0, event);
             }
-            if matches!(class, Unsolicited::Sideband { .. }) {
+            // a sideband before the data (`INTROSPECT_COMPRESSED`, INT-16) is part of the answer
+            if matches!(class, Unsolicited::Sideband { close: true, .. }) {
                 self.introspected(Some(()));
             }
             return;

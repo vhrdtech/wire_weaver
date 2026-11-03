@@ -287,6 +287,7 @@ impl ClientConfig {
             None
         } else if let Some((ww_self_bytes, api_hash)) = s.introspect_client {
             // same as a device sends, with known traits and types left out
+            let ww_self_bytes = ww_self::compressed::bundle_bytes(&ww_self_bytes)?;
             let sent_api_bundle = ApiBundleOwned::from_ww_bytes_owned(&ww_self_bytes)?;
             Some(IntrospectBundle::from_sent(
                 sent_api_bundle,

@@ -394,6 +394,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "lz4_flex"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecbdfe44b1bd960b68170b417450a628c43f7cf56bb3c5317e61cb230ee7f226"
+
+[[package]]
 name = "mcu_qemu"
 version = "0.1.0"
 dependencies = [
@@ -1069,6 +1075,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ww_lz4"
+version = "0.1.0"
+dependencies = [
+ "lz4_flex",
+]
+
+[[package]]
 name = "ww_numeric"
 version = "0.2.0"
 dependencies = [
@@ -1085,6 +1098,7 @@ dependencies = [
  "serde",
  "sha2",
  "shrink_wrap",
+ "ww_lz4",
  "ww_numeric",
  "ww_version",
 ]

@@ -322,6 +322,9 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                         *deadline = Instant::now() + *idle_timeout;
                     }
                     Ok(RawStreamEvent::Connected) => {}
+                    // a compressing device's first event (INT-16), the data says it again
+                    Ok(RawStreamEvent::Sideband(StreamSideband::User(code)))
+                        if code.0 == ww_client_server::INTROSPECT_COMPRESSED => {}
                     Ok(RawStreamEvent::Sideband(StreamSideband::Close)) => {
                         self.state = if bytes.is_empty() {
                             StateInner::Err(E::from_client(
@@ -329,15 +332,23 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                                 self.resource,
                             ))
                         } else {
-                            match T::from_ww_bytes_owned(bytes) {
-                                Ok(mut value) => match on_done.take().map(|f| f(&mut value, bytes))
-                                {
-                                    Some(Err(e)) => {
-                                        StateInner::Err(E::from_client(e, self.resource))
+                            match ww_self::compressed::bundle_bytes(bytes)
+                                .map_err(|e| Error::Other(e.to_string()))
+                                .and_then(|bytes| {
+                                    let bytes = bytes.into_owned();
+                                    T::from_ww_bytes_owned(&bytes)
+                                        .map(|value| (value, bytes))
+                                        .map_err(Error::from)
+                                }) {
+                                Ok((mut value, bytes)) => {
+                                    match on_done.take().map(|f| f(&mut value, &bytes)) {
+                                        Some(Err(e)) => {
+                                            StateInner::Err(E::from_client(e, self.resource))
+                                        }
+                                        _ => StateInner::Done(Some(value)),
                                     }
-                                    _ => StateInner::Done(Some(value)),
-                                },
-                                Err(e) => StateInner::Err(E::from_client(e.into(), self.resource)),
+                                }
+                                Err(e) => StateInner::Err(E::from_client(e, self.resource)),
                             }
                         };
                         break;

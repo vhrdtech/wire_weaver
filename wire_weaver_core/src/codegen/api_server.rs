@@ -45,6 +45,8 @@ pub struct GenServerConfig {
     pub server_struct_path: String,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
     pub introspect_mode: IntrospectMode,
+    /// How the introspection bytes are stored in flash and sent (INT-16), `introspect_compression = ".."`.
+    pub introspect_compression: IntrospectCompression,
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
@@ -75,6 +77,31 @@ pub enum IntrospectMode {
     Disabled,
     NoDocs,
     WithDocs,
+}
+
+/// How a device keeps its introspection bytes (INT-16): `ww_codegen!(.., introspect_compression = "none" | "lz4")`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum IntrospectCompression {
+    /// The serialized bundle as is.
+    #[default]
+    None,
+    /// LZ4 blocks compressed at build time (`ww_self::compressed`), announced by a
+    /// `StreamSideband::User(INTROSPECT_COMPRESSED)` before the data. The device carries no decoder, the client
+    /// decompresses; API hashes stay those of the uncompressed bundle.
+    Lz4,
+}
+
+impl IntrospectCompression {
+    /// From the `introspect_compression` argument of `ww_codegen!`, `""` is [IntrospectCompression::None].
+    pub fn parse(s: &str) -> Result<Self, String> {
+        match s {
+            "" | "none" => Ok(IntrospectCompression::None),
+            "lz4" => Ok(IntrospectCompression::Lz4),
+            u => Err(format!(
+                "Unknown introspect_compression '{u}', supported: \"none\" or \"\" and \"lz4\""
+            )),
+        }
+    }
 }
 
 /// Which global trait paths (`PathKind::GlobalFull`, `PathKind::GlobalCompact`, API-20) a server resolves itself
@@ -140,6 +167,8 @@ pub struct GenServerConfigRaw {
     pub server_struct_path: Path,
     /// Generate ww_self introspect bytes, fully describing all API methods and data types used.
     pub introspect_mode: IntrospectMode,
+    /// How the introspection bytes are stored in flash and sent (INT-16), `introspect_compression = ".."`.
+    pub introspect_compression: IntrospectCompression,
     /// Generate multi read, multi write and multi call support code.
     /// Takes a bit more FLASH, but allows for more efficient requests in some cases.
     pub multi_req: bool,
@@ -177,6 +206,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             const_model: config.const_model,
             server_struct_path: super::util::str_to_path(&config.server_struct_path),
             introspect_mode: config.introspect_mode,
+            introspect_compression: config.introspect_compression,
             multi_req: config.multi_req,
             medium: config.medium.as_deref().map(super::util::str_to_path),
             omit: config.omit,
@@ -284,6 +314,7 @@ pub fn gen_server(
         &omissions,
         introspect_enabled,
         include_docs,
+        config.introspect_compression,
         cx.use_async,
     );
     let no_observe_samples = !config.observe_samples;

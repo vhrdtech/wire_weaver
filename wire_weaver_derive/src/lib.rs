@@ -58,6 +58,11 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///   of 32-bit hashes of crate and trait name, no names in flash, plus the traits' `ww_global` ids), "none" with it
 ///   (the client resolves them from the introspection data). "compact": only `ww_global` ids. A path the server
 ///   doesn't resolve is answered with `TraitNotFound`.
+/// * introspect = "no_docs" | "with_docs" | "disabled" - whether the server answers introspection requests with the
+///   API's `ww_self` bundle (`WW_SELF_BYTES` in flash), with doc comments or without. Absent: disabled.
+/// * introspect_compression = "lz4" | "none" - keep `WW_SELF_BYTES` compressed (INT-16, `docs/api/introspection.md`):
+///   LZ4 blocks made at build time, sent after a `StreamSideband::User(INTROSPECT_COMPRESSED)` marker, decompressed by
+///   the client. The device carries no decoder; API hashes are those of the uncompressed bundle. Absent: none.
 /// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
 ///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`
 ///   if `use_async = false`) as the first argument, with request seq, medium and a way to send stream updates.

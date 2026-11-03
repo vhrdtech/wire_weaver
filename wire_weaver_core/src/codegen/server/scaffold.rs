@@ -42,6 +42,10 @@ pub struct ServerScaffoldConfig {
     pub observe_cells: Vec<String>,
     /// `false`: `ww_codegen!(.., observe_samples = false)` (SRV-56), no samples of `+batched` properties taken.
     pub observe_samples: bool,
+    /// `ww_codegen!(.., introspect = "..")`: `"no_docs"`, `"with_docs"`; empty leaves it out (disabled).
+    pub introspect: String,
+    /// `ww_codegen!(.., introspect_compression = "..")` (INT-16): `"lz4"`; empty leaves it out (none).
+    pub introspect_compression: String,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -265,6 +269,14 @@ pub fn gen_server_scaffold(
             s.consts
         )?;
     }
+    let introspect = [
+        ("introspect", &config.introspect),
+        ("introspect_compression", &config.introspect_compression),
+    ]
+    .iter()
+    .filter(|(_, v)| !v.is_empty())
+    .map(|(k, v)| format!("{k} = {v:?},\n"))
+    .collect::<String>();
     let handler_model = if config.handler_model.is_empty() {
         String::new()
     } else {
@@ -278,7 +290,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          {handler_model}method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {const_model}{omit}{medium}{observe_batch}{observe_cells}{observe_samples});\n\
+         {const_model}{omit}{medium}{observe_batch}{observe_cells}{observe_samples}{introspect});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -894,7 +906,28 @@ mod tests {
             omit: vec![],
             observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
             observe_samples: true,
+            introspect: String::new(),
+            introspect_compression: String::new(),
         }
+    }
+
+    /// `introspect` and `introspect_compression` (INT-16) go into the `ww_codegen!` call, left out when empty.
+    #[test]
+    fn introspect() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/properties_api");
+        let bundle = crate::load(&crate_path, Some("Properties".into()), false).unwrap();
+        let compressed = ServerScaffoldConfig {
+            introspect: "with_docs".into(),
+            introspect_compression: "lz4".into(),
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &compressed).unwrap();
+        assert!(
+            code.contains("introspect = \"with_docs\",\nintrospect_compression = \"lz4\",\n);"),
+            "{code}"
+        );
+        let plain = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(!plain.contains("introspect"), "{plain}");
     }
 
     /// `handler_model` (SRV-21): each item's handlers are `async fn` or `fn` as the model says, the rest follow

@@ -55,6 +55,10 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) introspect: String,
 
+    /// How the device keeps its introspection bytes (INT-16): `"none"` (or empty) or `"lz4"`.
+    #[darling(default)]
+    pub(crate) introspect_compression: String,
+
     #[darling(default)]
     pub(crate) multi_req: bool,
 

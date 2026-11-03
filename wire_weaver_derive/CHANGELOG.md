@@ -16,6 +16,7 @@
 ### 🚀 Features
 
 - `ww_codegen!(.., observe_samples = false)` (SRV-56): a firmware that takes no samples of its `+batched` properties links no batcher, outbox or `Series` encoder, with the same API and wire, see `docs/api/observing.md#a-firmware-that-takes-no-samples`.
+- `ww_codegen!(.., introspect_compression = "lz4")` (INT-16): the device keeps its introspection data compressed, `"none"` or absent as before. `introspect = ..` is documented in the macro's argument list too.
 - `ww_codegen!(.., global_paths = "full" | "compact" | "none")` (SRV-53): which global trait paths a server resolves itself. Not given: `"full"` without introspection, `"none"` with it (the client resolves them from the introspection data).
 - `ww_codegen!(crate :: Api, local_trait = "Name")` emits the API as an async Rust trait `Name` (and `NameDyn` for trait objects) in the API crate itself, `impl_local_trait = "api::Name"` implements it on the `std_client` (CLT-57, `docs/api/local_trait.md`). `for <struct>` is optional when only `local_trait` is generated.
 - `ww_codegen!` / `ww_impl!` name types of a crate the calling crate doesn't depend on through a crate it does depend on that re-exports it (API-60, `wire_weaver_core::load_dep_with_paths`): a server depending on `ww_si` alone compiles when `ww_si`'s types come from `exact_units`.

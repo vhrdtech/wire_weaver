@@ -1048,7 +1048,11 @@ fn connect_disconnect_methods(api_bundle: &CodegenBundle) -> TokenStream {
         introspect_bytes,
         no_docs_hash,
         with_docs_hash,
-    } = introspect_prepare(api_bundle, true);
+    } = introspect_prepare(
+        api_bundle,
+        true,
+        crate::codegen::api_server::IntrospectCompression::None,
+    );
     // API crate name and version, same constant the device reports, checked for compatibility during link setup
     let root = &api_bundle.root;
     let crate_name = Ident::new(root.crate_name(api_bundle).unwrap(), Span::call_site());

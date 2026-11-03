@@ -7,7 +7,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
-use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, GlobalPaths, IntrospectMode};
+use wire_weaver_core::codegen::api_server::{
+    GenServerConfigRaw, GlobalPaths, IntrospectCompression, IntrospectMode,
+};
 use wire_weaver_core::codegen::local_trait::{gen_local_trait, gen_local_trait_client_impl};
 use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
@@ -116,6 +118,8 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 ));
             }
         };
+        let introspect_compression =
+            IntrospectCompression::parse(&args.ext.introspect_compression)?;
         let global_paths = GlobalPaths::parse(&args.ext.global_paths)?;
         let medium = if args.ext.medium.is_empty() {
             None
@@ -136,6 +140,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 const_model,
                 server_struct_path: context_ident()?,
                 introspect_mode,
+                introspect_compression,
                 multi_req: args.ext.multi_req,
                 medium,
                 omit: args.ext.omit.clone(),

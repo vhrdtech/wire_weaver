@@ -97,6 +97,14 @@ pub enum ApiCommand {
         #[arg(long)]
         no_observe_samples: bool,
 
+        /// Introspection mode for ww_codegen!: `no_docs` or `with_docs`; absent: disabled
+        #[arg(long, value_parser = ["no_docs", "with_docs", "disabled"])]
+        introspect: Option<String>,
+
+        /// Keep the introspection data compressed in flash (INT-16): `lz4`; absent: none
+        #[arg(long, value_parser = ["lz4", "none"], requires = "introspect")]
+        introspect_compression: Option<String>,
+
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -212,6 +220,8 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             omit,
             observe_cells,
             no_observe_samples,
+            introspect,
+            introspect_compression,
             output,
         } => scaffold::scaffold(
             path,
@@ -228,6 +238,8 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 omit,
                 observe_cells,
                 observe_samples: !no_observe_samples,
+                introspect: introspect.unwrap_or_default(),
+                introspect_compression: introspect_compression.unwrap_or_default(),
             },
             output,
         ),

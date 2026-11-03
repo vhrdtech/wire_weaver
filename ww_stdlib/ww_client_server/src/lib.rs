@@ -330,6 +330,13 @@ pub enum EventKind<'i> {
     },
 }
 
+/// [StreamSideband::User] code a device sends first on the introspection stream (the root path) when its
+/// introspection data is compressed (INT-16, `ww_codegen!(.., introspect_compression = "lz4")`, the layout in
+/// `ww_self::compressed`). The data itself starts with its own magic, so a client tells it from a plain bundle without
+/// this sideband: it is there for clients that predate compression, which stop at any sideband but `Close` with an
+/// "unexpected event" error instead of misreading the compressed bytes as a bundle.
+pub const INTROSPECT_COMPRESSED: u32 = 1;
+
 /// Stream sideband event, sent in response to StreamSidebandCommand or asynchronously.
 /// Optional, user can choose to send stream updates without using the sideband channel.
 #[derive_shrink_wrap(

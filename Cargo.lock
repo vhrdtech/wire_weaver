@@ -2525,6 +2525,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "introspect_compressed"
+version = "0.1.0"
+dependencies = [
+ "introspect_compressed_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_hub",
+ "ww_local_socket",
+ "ww_self",
+]
+
+[[package]]
+name = "introspect_compressed_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "io-kit-sys"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6568,6 +6591,7 @@ dependencies = [
  "sha2 0.11.0",
  "shrink_wrap",
  "syn 3.0.3",
+ "ww_lz4",
  "ww_numeric",
  "ww_version",
 ]

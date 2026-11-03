@@ -513,11 +513,15 @@ Covers `shrink_wrap` 0.2.0 and `shrink_wrap_derive` 0.2.0.
   in debug builds; in release, `write_un8` silently wrote `0` instead of the value.
 - Smaller flash footprint: `write_un8`/`write_un16` and `read_un8`/`read_un16` forward to the `u32` variants instead
   of each carrying its own copy of the bit loop (~300 bytes less on Cortex-M with `opt-level = "s"`).
-- Smaller flash footprint: `MaxLen<_, N>`'s bound check (`new`, `ser_shrink_wrap`, `ser_shrink_wrap_owned` and,
-  through `des_shrink_wrap`'s `check_len`, decoding) was monomorphised once per bound `N`, though every copy
-  differs only in the constant it compares against (9 instances, 296 B measured on Donguru for `&str` at N = 16,
-  32, 64, 128 and `RefVec<u8>` at N = 16, 20, 32, 512, SW-72). They now call one `#[inline(never)]` `check_max_len(len,
-  max)`. Same error (`Error::MaxLenExceeded`) and the same bytes on the wire.
+- `MaxLen<_, N>`'s bound check (`new`, `ser_shrink_wrap`, `ser_shrink_wrap_owned` and, through `des_shrink_wrap`'s
+  `check_len`, decoding) was written once per site instead of calling a shared `check_max_len(len, max)` (9
+  monomorphised copies on Donguru's `&str` and `RefVec<u8>` fields, SW-72). Same error
+  (`Error::MaxLenExceeded`) and the same bytes on the wire, measured the same too: `check_max_len` is a plain
+  `fn`, not `#[inline(never)]`, because TEST-30's `flash-budget` harness measured that forcing it out of line
+  costs 10 to 53 B more per bounded resource on thumbv6m (`#[inline(never)]` can't be merged across different
+  `N`, so it only adds call overhead) instead of the 200-250 B estimated saved; left inlinable, the compiler
+  folds it back to the same code the duplicated form compiled to. One copy of the logic to read and maintain,
+  not a smaller binary.
 - `#[derive_shrink_wrap(ww_repr = ..)]` did not check that enum discriminants fit into the representation: a
   discriminant too large for it was truncated on the wire and read back as another variant (e.g. the 5th variant of a
   `ww_repr = u2` enum was sent as `0`). It is now a compile error, same as with the `#[ww_repr]` attribute.

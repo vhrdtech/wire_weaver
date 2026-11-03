@@ -67,9 +67,12 @@ impl<T: LenBounded, const N: usize> MaxLen<T, N> {
 }
 
 /// The bound check shared by every `MaxLen<_, N>` instance: `ser_shrink_wrap`, `ser_shrink_wrap_owned`, `new` and
-/// `des_shrink_wrap` (through [check_len]) all call this instead of each getting its own copy monomorphised per
-/// `N` (SW-72).
-#[inline(never)]
+/// `des_shrink_wrap` (through [check_len]) all call this instead of each writing the same `if len > max` on its
+/// own. Not `#[inline(never)]` (SW-72, measured on `tests/flash_budget_api::MaxLenBounds*`): the compiler folds
+/// this tiny comparison back in at every call site anyway, so forcing it out of line only adds call overhead
+/// without removing anything to merge (`N` is baked into the call site's argument either way, byte for byte) —
+/// +10 to +53 B per bounded resource at `fw-z`/`fw-3` on thumbv6m measured worse, not better. Left as one
+/// source-level copy of the logic, with the compiler free to inline it, same bytes as the duplicated form.
 fn check_max_len(len: usize, max: usize) -> Result<(), Error> {
     if len > max {
         return Err(Error::MaxLenExceeded);

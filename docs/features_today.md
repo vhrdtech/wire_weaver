@@ -83,7 +83,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[`Series` straight from the store](serdes/series.md#from-the-store-column-by-column)**: A batch written column by column from the arrays it was collected in, the same bytes in half the instructions.
 - **[Word-wide bit writer and reader](articles/series.md#the-bit-writer-and-reader-a-word-at-a-time)**: Bits written and read a word at a time, the same bytes: the observe poll of a 21-value FOC level in three quarters of the cycles on an STM32H725.
 - **No `core::fmt::Debug` of `shrink_wrap::Error` on a device**: `Debug` is hand-written: variant names with `std`, a numeric code without, so a firmware that logs it through `defmt::Format` instead never pays for the names in flash. <span class="ww-status">hardware check open</span>
-- **One flash copy of a length check**: `MaxLen<_, N>`'s bound check is one function shared by every `N` instead of a copy per bound, the same bytes on the wire. <span class="ww-status">in progress</span>
+- **[One source copy of a length check](articles/flash_budget.md)**: `MaxLen<_, N>`'s bound check is one function shared by every `N` instead of a copy per bound, the same bytes on the wire and (measured) the same bytes in the binary.
 - **[Sparse slots](serdes/special_types.md#optionanyvec-sparse-slots-of-any-types)**: `OptionAnyVec`, a list of optional values of any types where only the present ones take space.
 - **[Lists of either-or values](serdes/special_types.md#eitheranyvec)**: `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results.
 

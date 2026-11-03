@@ -649,12 +649,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
   (tag -> variant) and one shared lookup instead, in the derive, so every such enum gains, not only `Prefix`. Same
   bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.
-- 🚧 **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` was monomorphised
+- ✅ **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` was monomorphised
   per bound (9 instances, 296 B in Donguru: `&str` for N = 16, 32, 64, 128, `RefVec<u8>` for 16, 20, 32, 512) though
   the bodies differ only in N. `new`, `ser_shrink_wrap`, `ser_shrink_wrap_owned` and `des_shrink_wrap`'s `check_len`
-  now share one non-generic `#[inline(never)] check_max_len(len, max)`, each a thin generic wrapper around it; same
-  error and bytes (`shrink_wrap/shrink_wrap/src/max_len.rs`). Missing: bytes before/after on TEST-30's
-  `flash-budget` harness, which is still being built (waits on P2401#3nov-0711); est. was 200-250 B.
+  now share one `check_max_len(len, max)` (`shrink_wrap/shrink_wrap/src/max_len.rs`); same error and bytes on the
+  wire. Measured on TEST-30's `flash-budget` harness (added `MaxLenBounds8`/`16` to `tests/flash_budget_api`,
+  the API had no `MaxLen` before): `#[inline(never)]`, as the item asked for, does **not** save the estimated
+  200-250 B — it costs 10 to 53 B more per bounded resource on thumbv6m, `fw-z`/`fw-3`, because a different `N`
+  still has to reach the call as an argument, so nothing byte-identical is left to merge, and the call itself is
+  overhead a plain inlined `if len > max` didn't pay. Left as a plain `fn` (no `#[inline(never)]`): the compiler
+  folds it back in at every site, so the result is one copy of the logic in source and the same bytes as before
+  in the binary, not fewer. `docs/articles/flash_budget.md` has the numbers.
 - 💡 **SW-73 Panic-free indexing in BufReader / BufWriter** — flash diet, to evaluate: the slice indexing and
   `copy_from_slice` in shrink_wrap's reader and writer keep panic paths (670 B of file paths, `copy_from_slice` 636 B
   and `index`/`index_mut` about 2 KB in Donguru's isolated build) though the reader and writer already report

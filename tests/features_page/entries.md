@@ -80,7 +80,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-64 | `Series` straight from the store | A batch written column by column from the arrays it was collected in, the same bytes in half the instructions. | serdes/series.md#from-the-store-column-by-column
 - SW-68 | Word-wide bit writer and reader | Bits written and read a word at a time, the same bytes: the observe poll of a 21-value FOC level in three quarters of the cycles on an STM32H725. | articles/series.md#the-bit-writer-and-reader-a-word-at-a-time
 - SW-69 | No `core::fmt::Debug` of `shrink_wrap::Error` on a device | `Debug` is hand-written: variant names with `std`, a numeric code without, so a firmware that logs it through `defmt::Format` instead never pays for the names in flash. |
-- SW-72 | One flash copy of a length check | `MaxLen<_, N>`'s bound check is one function shared by every `N` instead of a copy per bound, the same bytes on the wire. |
+- SW-72 | One source copy of a length check | `MaxLen<_, N>`'s bound check is one function shared by every `N` instead of a copy per bound, the same bytes on the wire and (measured) the same bytes in the binary. | articles/flash_budget.md
 - SW-55 | Sparse slots | `OptionAnyVec`, a list of optional values of any types where only the present ones take space. | serdes/special_types.md#optionanyvec-sparse-slots-of-any-types
 - SW-10 | Lists of either-or values | `EitherAnyVec` holds one of two types per element, the flags packed by eight, e.g. a list of results. | serdes/special_types.md#eitheranyvec
 

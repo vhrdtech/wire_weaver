@@ -23,6 +23,7 @@ The servers are the roots of `tests/flash_budget_api`:
 - `BaseOnly`: a trait level with two resources of each kind (calls with and without arguments, a read-write property, a stream).
 - `Calls8` / `Calls16`, `CallsArgs8` / `CallsArgs16`, `Props8` / `Props16`, `Streams8` / `Streams16`: that level plus 8 or 16 resources of one kind at the root. They all use the same two types, so serdes is paid once and `(size(*16) - size(*8)) / 8` is the dispatcher's own cost of one more resource of that kind.
 - `Typed8` / `Typed16`: calls with an argument and an output of their own types, as in a real API, so each one's serdes is in its cost too.
+- `MaxLenBounds8` / `MaxLenBounds16` (SW-72): read-write properties of `MaxLen<&'i str, N>`, a different bound each (4, 8, .., 64), as a real API's bounded fields rarely share one `N`. Excluded from the mean below, like `Typed*`: its per-resource type differs by resource too.
 
 Two things keep the numbers honest. The request the server gets and every value a handler returns go through `core::hint::black_box`, so the compiler can't drop an arm it would know is never taken. Each handler is `#[inline(never)]` with a body of its own (a static it touches): identical handlers would be merged by LLVM, and the arms calling them with them.
 
@@ -85,3 +86,16 @@ Of the floor's 11.8 KB at `z` (sync), the events written in place are about 11.2
 ## SW-70: the bit helpers as hints
 
 Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise with `--cfg shrink_wrap_hot` ([Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
+
+## SW-72: `MaxLen<_, N>`'s bound check through one helper
+
+`tests/flash_budget_api` had no `MaxLen` field before this item, so it got `MaxLenBounds8` / `MaxLenBounds16` (above) to measure against. Before and after, measured in the same worktree (absolute path length affects panic-location strings, so a cross-worktree comparison is noise; the mean of the four shared-type kinds above is identical in both runs, confirming the rest of the build is deterministic):
+
+| thumbv6m, one more `MaxLen<&str, N>` property | z, sync | z, async | 3, sync | 3, async |
+|------------------------------------------------|--------:|---------:|--------:|---------:|
+| before: `if len > N` written at each of the four call sites | 236 B | 206 B | 324 B | 292 B |
+| after: shared `check_max_len(len, max)`, plain `fn` | 236 B | 206 B | 324 B | 292 B |
+| after, `#[inline(never)]` on `check_max_len` (what the item asked for) | 246 B | 205 B | 377 B | 337 B |
+| `#[inline(never)]` vs before | +10 B | −1 B | +53 B | +45 B |
+
+The estimate (9 monomorphised copies on Donguru, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own `N` to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or `MergeFunctions` to fold. Forcing the check out of line with `#[inline(never)]` only adds the call's own overhead (argument setup, branch-and-link, the `?` on its `Result`) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at `fw-3`, where the optimizer would otherwise have inlined a function this small for free. Left as a plain `fn`, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain `fn`.

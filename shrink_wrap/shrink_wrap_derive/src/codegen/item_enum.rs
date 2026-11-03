@@ -12,6 +12,7 @@ use crate::codegen::util::{
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, format_ident, quote};
 use std::collections::HashSet;
+use std::ops::RangeInclusive;
 use syn::{Lit, LitInt, LitStr, Path};
 
 #[derive(Clone, Debug)]
@@ -460,6 +461,34 @@ impl<'i> CGItemEnum<'i> {
         )
     }
 
+    /// SW-71: the longest run of consecutive tags of unit variants, when decoding it apart from the other arms saves
+    /// flash. One `match` over all the tags has arms that read fields, so LLVM can't turn it into a formula: it keeps
+    /// a jump table and an arm per tag. Unit arms alone, behind a range check, fold to a tag -> variant map without
+    /// either. Runs shorter than 4 or a lone data arm of an enum with a repr gain nothing or cost a few bytes, and
+    /// without data arms the plain `match` folds already (measured on M0+ at `fw-z` and `fw-3`).
+    fn unit_run(&self) -> Option<RangeInclusive<u32>> {
+        let data_arms = self
+            .variants
+            .iter()
+            .filter(|v| !matches!(v.fields, Fields::Unit))
+            .count();
+        if data_arms < if self.niche { 1 } else { 2 } {
+            return None;
+        }
+        // a variant behind #[cfg] keeps its arm with the others: it says EnumVariantDisabled where it's compiled out
+        let mut tags: Vec<u32> = self
+            .variants
+            .iter()
+            .filter(|v| matches!(v.fields, Fields::Unit) && v.cfg.is_empty())
+            .map(|v| v.discriminant)
+            .collect();
+        tags.sort_unstable();
+        tags.chunk_by(|a, b| *a + 1 == *b)
+            .max_by_key(|run| run.len())
+            .filter(|run| run.len() >= 4)
+            .map(|run| run[0]..=run[run.len() - 1])
+    }
+
     /// DER-12: `core::fmt::Display` (from each variant's `display` message) and `core::error::Error`.
     pub(crate) fn display_and_error_rust(&self, is_ref: bool) -> TokenStream {
         let cfg = self.cfg.map(|cond| quote! { #[cfg(#cond)] });
@@ -808,9 +837,11 @@ fn read_discriminant(repr: Repr) -> TokenStream {
 
 impl ToTokens for CGEnumDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let unit_run = self.item_enum.unit_run();
         let known_variants = CGEnumVariantsDes {
             item_enum: self.item_enum,
             is_ref: self.is_ref,
+            decoded_apart: unit_run.clone(),
         };
         // tokens.append_all(trace_extended_key_val(
         //     "Deserialize enum",
@@ -847,12 +878,43 @@ impl ToTokens for CGEnumDes<'_> {
                 return Err(#error::EnumFutureVersionOrMalformedData);
             },
         };
-        tokens.append_all(quote! {
-            let discriminant = rd.#read_discriminant;
-            let value = match discriminant {
+        let all_arms = quote! {
+            match discriminant {
                 #known_variants
                 _ => { #unknown }
-            };
+            }
+        };
+        let value = match unit_run {
+            Some(run) => {
+                let enum_name = &self.item_enum.ident;
+                let arms = self
+                    .item_enum
+                    .variants
+                    .iter()
+                    .filter(|v| run.contains(&v.discriminant))
+                    .map(|v| {
+                        let discriminant = v.discriminant_lit();
+                        let variant_name = &v.ident;
+                        quote! { #discriminant => #enum_name::#variant_name, }
+                    });
+                let first = LitInt::new(&run.start().to_string(), Span::call_site());
+                let last = LitInt::new(&run.end().to_string(), Span::call_site());
+                quote! {
+                    match discriminant {
+                        #first..=#last => match discriminant {
+                            #(#arms)*
+                            // the range above is exactly these arms: never taken, optimized out
+                            _ => return Err(#error::EnumFutureVersionOrMalformedData),
+                        },
+                        _ => #all_arms,
+                    }
+                }
+            }
+            None => all_arms,
+        };
+        tokens.append_all(quote! {
+            let discriminant = rd.#read_discriminant;
+            let value = #value;
             rd.latched()?;
             Ok(value)
         });
@@ -862,6 +924,8 @@ impl ToTokens for CGEnumDes<'_> {
 struct CGEnumVariantsDes<'i> {
     item_enum: &'i CGItemEnum<'i>,
     is_ref: bool,
+    /// Tags decoded by [CGEnumDes] itself, see `unit_run`.
+    decoded_apart: Option<RangeInclusive<u32>>,
 }
 
 impl Variant {
@@ -876,6 +940,13 @@ impl Variant {
 impl ToTokens for CGEnumVariantsDes<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         for variant in self.item_enum.variants {
+            if self
+                .decoded_apart
+                .as_ref()
+                .is_some_and(|run| run.contains(&variant.discriminant))
+            {
+                continue;
+            }
             let discriminant = variant.discriminant_lit();
             let enum_name = &self.item_enum.ident;
             let variant_name = &variant.ident;

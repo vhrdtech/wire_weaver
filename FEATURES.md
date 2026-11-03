@@ -644,11 +644,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   feature, so `examples_mcu/rp2`'s `usb_log.rs` logs its log-store error without `Debug2Format` either. Same wire
   format; only the printed text of a `no_std` build without `defmt` changes. Not yet measured: TEST-30 checks that
   the variant names are not linked; est. 0.5-1 KB.
-- 📋 **SW-71 Table decode for fieldless enums** · `v0.5` — flash diet: des `exact_units::Prefix` is 574 B (5 copies)
-  for a value that is one `UNib32` tag: the derive matches every tag of its 31 prefixes and the tag-only scale kinds
-  (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
-  (tag -> variant) and one shared lookup instead, in the derive, so every such enum gains, not only `Prefix`. Same
-  bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.
+- ✅ **SW-71 Unit variants of a mixed enum decode apart** · `v0.5` — flash diet: des `exact_units::Prefix` was 574 B
+  (5 copies in Donguru). The cost is the mix: a `match` with field-reading arms keeps LLVM's jump table and one arm
+  per tag. A fully fieldless enum already folds to about 48 B, so it needs nothing. The derive now puts the longest
+  run of consecutive unit tags behind a range check, and those arms fold to a tag -> variant map, without any table of
+  our own. It does so for a run of at least 4 with at least 2 data arms (1 with `niche`). `Prefix`, decoded alone on
+  M0+: 624 -> 324 B at `fw-z`, 576 -> 460 B at `fw-3`. The ~100 B first estimated left out its three data arms and the
+  catch-all, which stay. Same bytes on the wire. Test `shrink_wrap/tests/enum_unit_run.rs`.
 - ✅ **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` was monomorphised
   per bound (9 instances, 296 B in Donguru: `&str` for N = 16, 32, 64, 128, `RefVec<u8>` for 16, 20, 32, 512) though
   the bodies differ only in N. `new`, `ser_shrink_wrap`, `ser_shrink_wrap_owned` and `des_shrink_wrap`'s `check_len`

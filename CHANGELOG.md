@@ -281,6 +281,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Simulated WebSocket for tests (TR-22): `wire_weaver_client::in_process::ws_device`, the `ws` transport over an in-memory pipe, so tests on tokio's paused clock decide the order of both ends' frames. `tests/dfu_scenarios` runs 1L-UPD-BULK and 2R-APP-STEP on it. See `wire_weaver_client/CHANGELOG.md`, `ww_tap/CHANGELOG.md`.
 - A crash's call chain as `file:line` (CLT-59): `ww report` decodes the crash record's addresses with the ELF's DWARF, inlined frames included, and marks the panic site, so firmware built with `-Zlocation-detail=none` stays debuggable; `ww_report::crash` for other host tools. See `ww_report/CHANGELOG.md`.
 - Flash attribution by inlined frames (TEST-32): `fw_budget --attribute ELF [--gen GENERATED.rs]` (`just flash-attribute ELF`) splits a firmware's bytes by the crate of the innermost frame, by generated dispatcher function and by shrink_wrap serdes impl, for when a flash total moves and the reason isn't obvious. A development tool, no crate changes.
+- Smaller decoders for enums mixing unit variants and variants with fields (SW-71), the same bytes: `exact_units::Prefix` from 624 to 324 B on a Cortex-M0+ at `opt-level = "z"`. See `shrink_wrap/` CHANGELOG.
 
 ### Changed
 

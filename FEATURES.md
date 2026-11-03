@@ -868,6 +868,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
   `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ **SRV-50 server-call-gate Call gate: refuse calls outside allowed traits** · `v0.5` — `ww_codegen!(..,
+  call_gate = true)`: the generated dispatcher asks the server struct (`wire_weaver::gate::CallGate::admit`) before
+  every request's handler runs, with the item's `Target` (its trait as a `TraitId`, so a global trait matches
+  wherever it sits; the dotted path for a project's own items) and the request's `Op`. Calls, property and `const`
+  reads and writes, stream and sink opens and traffic, sink writes, array indices and each index of a multi request
+  ask per item, an observe request for its level; introspection never. A refusal is
+  `ww_client_server::ErrorKind::Refused(reason)` (appended, an older host reads `Unknown(17)`) at error site 10
+  (`GATE`, 60 `OBSERVE_GATE`), `wire_weaver_client::Error::Refused` on the host, `ww` points at `ww info`. Nothing
+  generated without it; with it 33-61 instructions per admitted request and 772 B of flash for 21 items on a
+  Cortex-M3 at `z` (`examples_mcu/mcu_qemu` bin `qemu-call-gate`). `ww api scaffold --call-gate`. For guarded
+  boards (STD-101, usb_io_fw PLAT-18). `docs/api/call_gate.md`, tests `tests/call_gate`, conformance
+  `client_server.error.refused`.
 - ✅ **SRV-34 per-resource-claims Per-resource claims through the hub** · `v0.5.x` — typed metadata attributes,
     carried in introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
     `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),

@@ -268,6 +268,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   and shows how well they follow.
 - `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
 - Flashing checks the board's reworks (TOOL-29): `ww dfu rp flash` and `ww dfu stm32 flash`, given the serial of a running device, compare its applied reworks with the ones the new image knows, ask before writing an image that lacks one (or take `--allow-unknown-reworks`), store or clear the allowance, and reboot the device into its boot ROM themselves. The check is a library, `ww_report::rework_check`. See `wire_weaver_cli/CHANGELOG.md`, `ww_report/CHANGELOG.md`.
+- Server call gate (SRV-50): `ww_codegen!(.., call_gate = true)` asks the server struct before every request's handler runs, a refusal goes back as `ErrorKind::Refused(reason)`, `Error::Refused` on the host, for boards guarded against unknown reworks. See `wire_weaver/`, `wire_weaver_core/`, `wire_weaver_derive/`, `ww_client_server/`, `wire_weaver_client/` and `wire_weaver_cli/` CHANGELOGs.
 
 ### Changed
 

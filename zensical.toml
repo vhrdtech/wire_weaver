@@ -55,6 +55,7 @@ nav = [
                     { "Sync and async handlers" = "api/handlers.md" },
                     { "Local trait" = "api/local_trait.md" },
                     "api/optional_items.md",
+                    { "Call gate" = "api/call_gate.md" },
                     { "Metadata: claims, pins, labels" = "api/metadata.md" },
                     "api/multi_requests.md",
                     "api/observing.md",

@@ -75,6 +75,9 @@ pub struct Commander {
     reconnect: Option<Arc<Reconnect>>,
     /// Shared by all clones, the one that drops last disconnects, see the `Drop` impl.
     last_clone: Arc<()>,
+    /// The thread of the current-thread tokio runtime this Commander was made on, which runs its event loop: a drop
+    /// there can't wait for the loop, see the `Drop` impl.
+    loop_thread: Option<std::thread::ThreadId>,
     /// The connection's own clock steering (CLT-46), see [Commander::clock_sync]
     #[cfg(feature = "clock_sync")]
     clock_sync: Option<Arc<crate::clock_sync::auto::Shared>>,
@@ -103,6 +106,7 @@ pub struct TransportCommander {
 pub(crate) struct WeakCommander {
     cmd_tx: mpsc::WeakSender<Command>,
     last_clone: Weak<()>,
+    loop_thread: Option<std::thread::ThreadId>,
     base_path: Option<Vec<UNib32>>,
     default_timeout: Duration,
     default_priority: Priority,
@@ -127,6 +131,7 @@ impl WeakCommander {
         Some(Commander {
             transport_cmd_tx: self.cmd_tx.upgrade()?,
             last_clone: self.last_clone.upgrade()?,
+            loop_thread: self.loop_thread,
             base_path: self.base_path.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
@@ -182,6 +187,7 @@ impl Commander {
             observes: ObserveRegistry::default(),
             reconnect: None,
             last_clone: Arc::new(()),
+            loop_thread: current_thread_runtime(),
             #[cfg(feature = "clock_sync")]
             clock_sync: None,
         }
@@ -820,6 +826,7 @@ impl Commander {
         WeakCommander {
             cmd_tx: self.transport_cmd_tx.downgrade(),
             last_clone: Arc::downgrade(&self.last_clone),
+            loop_thread: self.loop_thread,
             base_path: self.base_path.clone(),
             default_timeout: self.default_timeout,
             default_priority: self.default_priority,
@@ -1760,10 +1767,26 @@ impl Drop for Commander {
         if Arc::strong_count(&self.last_clone) > 1 {
             return;
         }
-        // until the event loop closed the transport (a few ms), 50 ms at most: was always 50 ms, which a short
-        // command (`ww hub status`) paid on every run
-        self.disconnect()
-            .reason(wire_weaver::DisconnectReason::CommanderDropped)
-            .on_drop(Duration::from_millis(50));
+        let disconnect = self
+            .disconnect()
+            .reason(wire_weaver::DisconnectReason::CommanderDropped);
+        if self.loop_thread.is_some() && self.loop_thread == current_thread_runtime() {
+            // The event loop runs on this very thread, which a wait would block: it only gets to the disconnect once
+            // this thread is back in the runtime, so it is handed over without waiting.
+            // `disconnect().asynch().await` is how such a program waits until the device is released.
+            disconnect.hand_over();
+            return;
+        }
+        // until the event loop closed the transport (a few ms), 50 ms at most, so that a program that exits right
+        // after has said goodbye to the device: was always 50 ms, which a short command (`ww hub status`) paid on
+        // every run
+        disconnect.on_drop(Duration::from_millis(50));
     }
+}
+
+/// This thread, when it drives a current-thread tokio runtime (`#[tokio::test]`, `new_current_thread`).
+fn current_thread_runtime() -> Option<std::thread::ThreadId> {
+    let rt = tokio::runtime::Handle::try_current().ok()?;
+    (rt.runtime_flavor() == tokio::runtime::RuntimeFlavor::CurrentThread)
+        .then(|| std::thread::current().id())
 }

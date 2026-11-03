@@ -557,6 +557,26 @@ async fn client_meta_reaches_the_device() {
     assert_eq!((seen.pid, seen.instance_id), (4242, sent.instance_id));
 }
 
+/// A Commander dropped on the thread of the current-thread runtime that runs its event loop can't wait for the loop,
+/// a wait would block it: the disconnect is handed over without waiting, and the device still hears it.
+#[tokio::test]
+async fn commander_dropped_on_the_loop_thread_disconnects() {
+    let (cmd_tx, mut events_rx, _dev, host) = start();
+    connect(&cmd_tx, (0, 3)).await.result.unwrap();
+    assert_eq!(events_rx.recv().await, Some(LinkEvent::Up));
+    drop(crate::Commander::new(cmd_tx));
+    assert_eq!(
+        events_rx.recv().await,
+        Some(LinkEvent::Down(DownReason::Disconnect(
+            ww_link::DisconnectReason::CommanderDropped
+        )))
+    );
+    tokio::time::timeout(Duration::from_secs(5), host)
+        .await
+        .expect("host did not exit")
+        .unwrap();
+}
+
 #[tokio::test]
 async fn host_and_device_talk() {
     talk(start()).await

@@ -53,6 +53,16 @@ impl PreparedDisconnect {
     }
 
     /// Send disconnect command to a device, stop the event loop and drop all remaining streams or requests, from a
+    /// `Drop` on the thread that runs the event loop: the loop gets to it once the caller is back in the runtime, so
+    /// nothing is waited for.
+    pub(crate) fn hand_over(self) {
+        _ = self.transport_cmd_tx.try_send(Command::DisconnectAndExit {
+            disconnected_tx: None,
+            reason: self.reason,
+        });
+    }
+
+    /// Send disconnect command to a device, stop the event loop and drop all remaining streams or requests, from a
     /// `Drop` (no `.await`, maybe on a runtime thread). Waits until the event loop says the transport is closed, so
     /// a program that exits right after has said goodbye to the device, but no longer than `max_wait`. Returns at
     /// once when the event loop is gone already.

@@ -309,6 +309,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   faster with `"optimize"` (+208 B). The planned 2.5-3.5 KB of "duplicate copies" were mostly call sequences:
   `#[inline(never)]` on every derived serdes made Donguru 1.9 KB larger. See
   `docs/serdes/code_size.md#hot-paths-at-opt-level-z`.
+- ✅ **SW-74 Reader and writer plumbing out of the serdes copies** · `v0.5` — flash diet. The 31.7 KB of
+  `BufReader`/`BufWriter` code inlined into Donguru's serdes had four big shapes, found with `fw_budget --attribute
+  --sites` (TEST-32): `latched()`'s `take()` (239 copies, 1.1 KB), the `Result<BufReader>` copied out after
+  `split()?` in `read::<T>` (45 copies, 1.1 KB), `BufReader::new` / `BufWriter::new` (65 + 41 copies, 2.2 KB) and the
+  `Result<UnsizedBuilder>` in `write::<T>` (67 copies, 0.7 KB). Fixed in the shape of the code: `latched()` stores
+  only an error it clears; one out-of-line `split_sized` writes the sub-reader in place; `begin_unsized` /
+  `end_unsized` keep the builder in registers; the constructors are `#[inline(never)]` unless `--cfg
+  shrink_wrap_hot="inline"` (SW-70's switch). An out-of-line `latched()` was larger on both cores and was left
+  inline. Measured: Donguru −3,984 B at `z`, −18,176 B at `3`, −2,708 B with `"inline"`; rePort −6,360 B; the
+  TEST-30 floor −76 to −336 B; instructions at `z` within ±0.6 %, at `3` the bit-io micro loops on a local reader or
+  writer up to 2.2x (restored with `"inline"`), dispatch ±1.3 % except a call with an argument (+4.8 %). No wire
+  change. `docs/articles/flash_budget.md#sw-74-reader-and-writer-plumbing`.
 - 🚧 **SW-22 Fuzz `shrink_wrap`** — `fuzz/` has one `shrink_wrap` target, `shrink-wrap-tail-size` (`TailSize` types
   round-tripped, random bytes into their readers); `shrink-wrap-ref-vec`
   (SW-37) came with its feature, `shrink-wrap-option-any-vec` with SW-55 and DER-13 (sparse structs), `shrink-wrap-series-columns` and `shrink-wrap-series-type` with SW-60, `shrink-wrap-nesting` with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.

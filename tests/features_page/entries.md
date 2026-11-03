@@ -69,6 +69,7 @@ copying. Every message between host and device is made of it, and it works on it
 - SW-34, SW-36, SW-37, SW-38, SW-41 | Small code on small CPUs | About 20 % less code on Cortex-M0 and RISC-V for the same bytes on the wire. | serdes/code_size.md
 - SW-53 | Number access tuned per CPU | Multi-byte numbers through one function on RISC-V, inline on Arm, whichever is smaller. | serdes/code_size.md
 - SW-70 | Size or speed of the bit paths | Smaller by default at `opt-level = "z"`, the old speed or more with one `--cfg`. | serdes/code_size.md#hot-paths-at-opt-level-z
+- SW-74 | Leaner reader and writer plumbing | The code each type repeats to make a reader or writer, take a latched error or read a size-prefixed value is shared, a few KB less in a firmware. | articles/flash_budget.md#sw-74-reader-and-writer-plumbing
 - SW-39 | Byte-wise `memcpy` | Measured savings and downsides of a tiny `memcpy` for very small targets. | serdes/code_size.md#build-settings
 - SW-35 | Exact sizes of enums | `sized` enums report the discriminant plus one variant; variants of different sizes are a compile error. | serdes/size_assumptions.md#enums
 - SW-40 | Strict bit reads | Malformed data near the end of a buffer is an error, never a misread. | serdes/wire_format.md

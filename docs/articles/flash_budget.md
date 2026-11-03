@@ -107,6 +107,49 @@ Donguru (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `mete
 
 Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70 change on top of it): the private helpers of the bit writer and reader are `#[inline]` instead of `#[inline(always)]` unless the firmware asks otherwise with `--cfg shrink_wrap_hot` ([Hot paths at opt-level z](../serdes/code_size.md#hot-paths-at-opt-level-z)). The floor at `fw-z`: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the `Series` codec in it 3796 → 3224 B; `fw-3` unchanged; every per-resource cell unchanged. With `shrink_wrap_hot="inline"` the same bytes as before, with `"optimize"` (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at `z` and 229344 → 228452 B at `3`.
 
+## SW-74: reader and writer plumbing
+
+The serdes code of a firmware is mostly per type: a derived `des_shrink_wrap` or `ser_shrink_wrap`, a `read::<T>` or `write::<T>`, a `dispatch::des::<T>`, a `to_ww_bytes`. Whatever `BufReader` and `BufWriter` code they inline is paid once per type. `fw_budget --attribute ELF --sites PATTERN` (TEST-32) lists an inlined function's bytes by call site; on Donguru at wire_weaver 753d5f74 the largest pieces were:
+
+| inlined | copies | bytes | why |
+| --- | ---: | ---: | --- |
+| `Option<Error>::take` in `latched()` | 239 | 1146 | stores `None` back also when there is no error |
+| `?` on `Result<BufReader, _>` in `read::<T>` | 45 | 1084 | `split(size)?` copies the new reader out of its `Result` |
+| `BufReader::new` | 65 | 1282 | 50 of them in `dispatch::des::<T>`, about 20 B of stores each |
+| `BufWriter::new` | 41 | 900 | `to_ww_bytes`, stream and event writers |
+| `?` on `Result<UnsizedBuilder, _>` in `write::<T>` | 67 | 720 | the three-word `Result` goes through memory |
+
+What changed, as four steps on the same checkout paths (bytes of `text` + `data`; Donguru is `typec_dongle` release, `thumbv6m`, `opt-level = "z"`; rePort is `usb_io_fw` release, `thumbv8m.main`, `opt-level = "s"`):
+
+| step | Donguru | rePort |
+| --- | ---: | ---: |
+| before | 312260 | 408776 |
+| `latched()` stores `None` only on the error path | +236 | −1040 |
+| `read::<T>` of an `Unsized` value through one out-of-line `split_sized`, which writes the reader in place | −2340 | −3152 |
+| `write::<T>` of an `Unsized` value through `begin_unsized` / `end_unsized`: the builder comes back in registers, a size slot that doesn't fit is reported at the end | −912 | −1864 |
+| `BufReader::new` / `BufWriter::new` `#[inline(never)]` unless `shrink_wrap_hot="inline"` | −968 | −304 |
+| after | 308276 (−3984) | 402416 (−6360) |
+
+The `latched()` change costs on the Cortex-M0+, where the store on the error path is not shared between call sites, and saves on the Cortex-M33; out of line `latched()` was larger on both (Donguru +848 B, rePort +960 B), the call costs more than its body. Donguru at `opt-level = 3`: 472916 → 454740 B of text (−18176), most of it the size-prefixed read no longer inlined per type. With `--cfg shrink_wrap_hot="inline"`: 310472 → 307764 B; in that mode the new helpers are `#[inline]` hints, not forced.
+
+This harness, the same commits (floor, one method, bytes):
+
+| thumbv6m | z, sync | z, async | 3, sync | 3, async |
+| --- | ---: | ---: | ---: | ---: |
+| before | 14338 | 15398 | 20186 | 21214 |
+| after | 14262 | 15266 | 19850 | 20894 |
+
+The per-resource cells moved by a few bytes either way, the mean of the four shared-type kinds by −2 to +5 B.
+
+Instructions, Cortex-M3 under QEMU (`qemu_icount`):
+
+- `just dispatch-budget`: at `fw-z` every request within ±0.5 %; at `fw-3` within ±1.3 %, except a call with an argument and an output, 1625 → 1703 sync and 1799 → 1880 async (+4.8 %). The replies are the same bytes.
+- `just units-budget`: struct encode 214.8 → 212.9 and decode 203.1 → 202.5 per operation at `fw-z`, `Series` encode and decode within 0.2. At `fw-3` the `series_decode` frame grew from 248 to 280 B of stack.
+- The `Series`, store, batcher, shared clock and FOC observe benches: within ±0.6 % at `fw-z` and −0.8 to +2.2 % at `fw-3`.
+- `qemu-bit-io` at `fw-3`: the loops that make a reader or writer and use it in the same function lose it from registers, because its address now goes to `new`. 64 nibbles read 983 → 2189 instructions, written 1200 → 1918, 64 bools written 1259 → 1404. With `shrink_wrap_hot="inline"` they are 983, 1198 and 1258 again. At `fw-z` they are within ±0.6 %.
+
+`qemu-shared-clock-delta-packed` doesn't build at `fw-3`, before or after this change.
+
 ## SW-72: `MaxLen<_, N>`'s bound check through one helper
 
 `tests/flash_budget_api` had no `MaxLen` field before this item, so it got `MaxLenBounds8` / `MaxLenBounds16` (above) to measure against. Before and after, measured in the same worktree (absolute path length affects panic-location strings, so a cross-worktree comparison is noise; the mean of the four shared-type kinds above is identical in both runs, confirming the rest of the build is deterministic):

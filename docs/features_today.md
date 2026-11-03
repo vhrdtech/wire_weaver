@@ -72,6 +72,7 @@ copying. Every message between host and device is made of it, and it works on it
 - **[Small code on small CPUs](serdes/code_size.md)**: About 20 % less code on Cortex-M0 and RISC-V for the same bytes on the wire.
 - **[Number access tuned per CPU](serdes/code_size.md)**: Multi-byte numbers through one function on RISC-V, inline on Arm, whichever is smaller.
 - **[Size or speed of the bit paths](serdes/code_size.md#hot-paths-at-opt-level-z)**: Smaller by default at `opt-level = "z"`, the old speed or more with one `--cfg`.
+- **[Leaner reader and writer plumbing](articles/flash_budget.md#sw-74-reader-and-writer-plumbing)**: The code each type repeats to make a reader or writer, take a latched error or read a size-prefixed value is shared, a few KB less in a firmware.
 - **[Byte-wise `memcpy`](serdes/code_size.md#build-settings)**: Measured savings and downsides of a tiny `memcpy` for very small targets.
 - **[Exact sizes of enums](serdes/size_assumptions.md#enums)**: `sized` enums report the discriminant plus one variant; variants of different sizes are a compile error.
 - **[Strict bit reads](serdes/wire_format.md)**: Malformed data near the end of a buffer is an error, never a misread.

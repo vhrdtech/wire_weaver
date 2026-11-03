@@ -662,8 +662,8 @@ wants something else says so with one `--cfg`, set by the firmware alone (in its
 
 | `--cfg` | what it does | toolchain |
 | --- | --- | --- |
-| none | the helpers are hints | any |
-| `shrink_wrap_hot="inline"` | the helpers are `#[inline(always)]`, as before SW-70 | any |
+| none | the helpers are hints; `BufReader::new`, `BufWriter::new` and the paths of a size-prefixed value (`split_sized`, `begin_unsized`, `end_unsized`) are out of line (SW-74) | any |
+| `shrink_wrap_hot="inline"` | the helpers are `#[inline(always)]`, as before SW-70; the constructors and the size-prefixed paths are hints | any |
 | `shrink_wrap_hot="optimize"` | the bit primitives (`put_bits`, `put_block`, `put_low_bits`, `take_bits`, `read_un32`, ..) and the numeric `Series` loops are `#[optimize(speed)]`, the helpers stay hints | nightly |
 
 ```toml
@@ -671,6 +671,13 @@ wants something else says so with one `--cfg`, set by the firmware alone (in its
 [target.thumbv7em-none-eabihf]
 rustflags = ["--cfg", 'shrink_wrap_hot="inline"']
 ```
+
+The constructors are out of line by default because a firmware makes readers and writers in dozens of per-type
+copies (`dispatch::des::<T>`, `to_ww_bytes`, ..): inlined, each is about 20 bytes of stores, a call about 8 (SW-74,
+Donguru −968 B). The price is at `opt-level = 3`, in a function that makes a reader or writer and uses it in a tight
+loop: its address goes to `new`, so LLVM no longer keeps its fields in registers (64 nibbles read in 983 instructions
+before, 2189 after; `shrink_wrap_hot="inline"` gives 983 back). Readers and writers passed to a decoder or encoder
+by `&mut` are in memory either way. Numbers in [the flash budget](../articles/flash_budget.md#sw-74-reader-and-writer-plumbing).
 
 What stays forced in every mode: the one-line wrappers (`read_u16` and the other integer reads and writes, the
 `_latch` methods, the trait defaults the derive calls), which cost nothing in size inlined and a call each when not,

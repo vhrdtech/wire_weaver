@@ -620,12 +620,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `compressed_stream_decodes_and_heals`, `tests/io_uart` `rx_compressed`). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
-- 📋 **SW-69 No core::fmt Debug of `shrink_wrap::Error` on a device** · `v0.5` — flash diet: the variant names of
+- 📋 **SW-69 No core::fmt Debug of shrink_wrap types on a device** · `v0.5` — flash diet: the variant names of
   `shrink_wrap::Error` (`OutOfBoundsReadU8`, ..., about 450 B) and the `core::fmt` machinery behind them are in
-  Donguru's flash because something formats the error with `core::fmt::Debug` on the target (an `unwrap()` /
-  `expect()` on a `Result<_, shrink_wrap::Error>`, or a `{:?}` through a `log`/`Debug2Format` path). Find each caller
-  in the ELF, switch it to `defmt::Format` (or a panic without the value), and keep every message: no capability
-  lost. Est. 0.5-1 KB; measured with TEST-30, which checks that `<shrink_wrap::Error as Debug>::fmt` is not linked.
+  Donguru's flash because something formats the error with `core::fmt::Debug` on the target. `shrink_wrap::Error`
+  keeps implementing `Debug` (`std::error::Error` needs it, `unwrap()` / `expect()` on `no_std` must still compile),
+  but by hand: the variant names only with `std` (or a feature `std` turns on), a numeric code without
+  (`shrink_wrap::Error(17)`); `defmt::Format` keeps the names. The on-target caller that Debug-formats it switches to
+  `defmt::Format`; other shrink_wrap types whose `Debug` lands in firmware flash get the same treatment. Est.
+  0.5-1 KB; measured with TEST-30, which checks that the variant names are not linked.
 - 📋 **SW-70 Serdes out of line: one copy per type** · `v0.5` — flash diet: at `opt-level = "z"` the same impl is
   inlined at every call site: 4,892 B of Donguru's 19,740 B of serdes are extra copies (ser `&str` 15 copies, des
   `UNib32` 13, ser `UVlq64` 9, `RefVec<u8>` 3 + 5, `Quantity<Second>` 6). The derive emits `#[inline(never)]` on the
@@ -633,6 +635,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`&str`, `UNib32`, `UVlq*`, the `RefVec` length) stay out of line, while the small hot per-item functions keep
   `#[inline(always)]` (AGENTS.md "Firmware"). Measured in flash (TEST-30) and in instructions (`qemu_icount`, the
   Series and struct benches of TEST-27) at `fw-z` and `fw-3`; a cycle cost on the hot path is reported, not hidden.
+  The root cause is shrink_wrap's ~100 `#[inline(always)]` (`buf_reader.rs`, `buf_writer.rs`, `un.rs`, `traits.rs`,
+  `head_tail.rs`, `series/*`, the derive's `codegen/util.rs`), added for cycles on per-item paths: each is sorted,
+  `inline(always)` stays only where an inner per-item loop needs it (Series columns, store set/put), entry points
+  that encode or decode a whole value and primitive writers used from many call sites become plain functions or
+  `#[inline(never)]`. Where flash and cycles pull apart, a build-time choice (a type or `cfg`, never a runtime flag).
   Est. 2.5-3.5 KB.
 - 📋 **SW-71 Table decode for fieldless enums** · `v0.5` — flash diet: des `exact_units::Prefix` is 574 B (5 copies)
   for a value that is one `UNib32` tag: the derive matches every tag of its 31 prefixes and the tag-only scale kinds
@@ -1089,7 +1096,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   call the handler, hand the value to a serializer) and the rest goes through shared `#[inline(never)]` paths in
   `wire_weaver`: one reply path for a value, one for an acknowledged write, one for `Deferred` / `Unimplemented` /
   user errors, one cold error constructor `(err_seq, ErrorKind)` (the report's idea 4, measured on its own as the
-  first step). The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: 250 B per resource
+  first step). Arms the method and property models make impossible are not generated; a variant the handler's type
+  still allows goes through the shared path with today's behaviour. The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: 250 B per resource
   or less (TEST-30), est. 12-16 KB on Donguru.
 - 📋 **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returns
   `Result<WrAction, ww_client_server::Error<'a>>` and propagates it with `?` (3.6-4.0 KB of `Try::branch`,
@@ -1100,9 +1108,10 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **SRV-53 Global trait paths from a table** · `v0.5` — flash diet: `ww_global_trait_path` matches the crate and
   trait names of every trait in the API as strings, with a version guard per arm (862 B of code and 240 B of names
   in Donguru). It becomes a const table (crate, trait, version rule, path) walked by one shared function in
-  `wire_weaver`. Keeping only the compact-id lookup (306 B) was evaluated and dropped: the client asks again with
-  `GlobalFull` on `TraitNotFound` (API-20) and a project's own traits have no `ww_global` id, so that would lose a
-  capability. Est. 500-700 B.
+  `wire_weaver`, est. 500-700 B. Compact ids only (306 B, saves ~800 B with the names) is an opt-in
+  `ww_codegen!(.., global_paths = "compact")`, documented with what it costs: the client asks again with
+  `GlobalFull` on `TraitNotFound` (API-20), and a project's own traits have no `ww_global` id, so they are reachable
+  by absolute path only.
 - 📋 **SRV-54 Observe behind a feature** · `v0.5` — flash diet: every server links the observe code even when it
   observes nothing, mostly the `Series<Second>` codec of `EventKind::PropertyUpdate::sample_times` (ser 1,942 B in
   Donguru, with `PackedWriter`, `FieldItems` and `Prefix`; 678 B of exact_units in the 2-method nucleo blinky)
@@ -2328,6 +2337,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - 📋 **EX-16 Host service** — an API whose plain implementation is called in-process and served on a local socket
   with a uid policy, over TCP and over stdio, with a second API on the same listener, a result set as a stream and a
   trace id across the call; one generic call site runs against all of them.
+- 📋 **EX-17 MCU examples without panic paths in flash** · `v0.5` — flash diet: `examples_mcu` firmware (and the
+  TEST-30 server) builds with the toolchain setup the firmware templates get (nightly, `-Zlocation-detail=none`,
+  trimmed paths: 5.5 KB of file paths and 0.6 KB of panic messages in Donguru), once that toolchain piece lands
+  (session `fw-nightly-paths`, the templates). Measured with `just flash-budget` and listed per board in
+  `examples_mcu/README.md`.
 
 ## Documentation (`DOC`)
 

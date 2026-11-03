@@ -649,10 +649,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
   (tag -> variant) and one shared lookup instead, in the derive, so every such enum gains, not only `Prefix`. Same
   bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.
-- 📋 **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` is monomorphised
+- 🚧 **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` was monomorphised
   per bound (9 instances, 296 B in Donguru: `&str` for N = 16, 32, 64, 128, `RefVec<u8>` for 16, 20, 32, 512) though
-  the bodies differ only in N. A non-generic `check_max(len, max)` with a thin generic wrapper keeps one copy. Est.
-  200-250 B.
+  the bodies differ only in N. `new`, `ser_shrink_wrap`, `ser_shrink_wrap_owned` and `des_shrink_wrap`'s `check_len`
+  now share one non-generic `#[inline(never)] check_max_len(len, max)`, each a thin generic wrapper around it; same
+  error and bytes (`shrink_wrap/shrink_wrap/src/max_len.rs`). Missing: bytes before/after on TEST-30's
+  `flash-budget` harness, which is still being built (waits on P2401#3nov-0711); est. was 200-250 B.
 - 💡 **SW-73 Panic-free indexing in BufReader / BufWriter** — flash diet, to evaluate: the slice indexing and
   `copy_from_slice` in shrink_wrap's reader and writer keep panic paths (670 B of file paths, `copy_from_slice` 636 B
   and `index`/`index_mut` about 2 KB in Donguru's isolated build) though the reader and writer already report

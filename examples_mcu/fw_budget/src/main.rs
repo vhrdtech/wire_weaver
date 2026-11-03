@@ -8,8 +8,9 @@
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N] [--sites PATTERN]   # bytes by inlined frame, see attribute.rs
 //! cargo run --release -- --flash --guard-strict      # the no-f64 guard (TEST-33) fails on a forbidden symbol
 //! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
-//!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds
-//! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
+//!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds;
+//!     `--profiles fw-s` builds at opt-level "s" instead, which neither runs by default
+//! cargo run --release -- [--profile fw-z|fw-3|fw-s] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
 //! The bench is `examples_mcu/mcu_qemu/src/unit_budget.rs`: every case is `<group>: plain` and `<group>: Fixed`
@@ -135,8 +136,12 @@ impl Filter {
         let mut pairs = Vec::new();
         for &profile in profiles {
             for (async_, mode) in [(false, "sync"), (true, "use_async")] {
-                let profile_ok =
-                    self.profiles.is_empty() || self.profiles.iter().any(|p| p == profile);
+                // `fw-s` only when asked for: it is the opt-level of some firmware (rePort), not of the budget
+                let profile_ok = if self.profiles.is_empty() {
+                    profile != "fw-s"
+                } else {
+                    self.profiles.iter().any(|p| p == profile)
+                };
                 let mode_ok = self.modes.is_empty() || self.modes.iter().any(|m| m == mode);
                 if profile_ok && mode_ok {
                     pairs.push((profile, async_));

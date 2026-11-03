@@ -10,7 +10,7 @@ use std::path::Path;
 const BIN: &str = "qemu-dispatch-requests";
 const TARGET: &str = "thumbv7m-none-eabi";
 /// The profiles firmware ships with (`mcu_qemu/Cargo.toml`).
-const PROFILES: [&str; 2] = ["fw-z", "fw-3"];
+const PROFILES: [&str; 3] = ["fw-z", "fw-3", "fw-s"];
 
 pub fn run(root: &Path, filter: &Filter, qemu_dir: &Path, qemu_host: Option<&str>) -> Res<()> {
     for (profile, async_) in filter.pairs(&PROFILES) {

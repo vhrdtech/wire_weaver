@@ -12,7 +12,7 @@ const EXTRA: u64 = 8;
 /// Resources of `flash_budget_api::Base`: two of each kind.
 const BASE: u64 = 8;
 /// The profiles firmware ships with (`mcu_qemu/Cargo.toml`).
-const PROFILES: [&str; 2] = ["fw-z", "fw-3"];
+const PROFILES: [&str; 3] = ["fw-z", "fw-3", "fw-s"];
 
 /// The pairs of bins, 8 and 16 resources of one kind at the root (`qemu-flash-<kind>8` / `16`), and the kind.
 const KINDS: [(&str, &str); 7] = [

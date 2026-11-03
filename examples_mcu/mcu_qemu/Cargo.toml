@@ -194,6 +194,11 @@ opt-level = "z"
 inherits = "fw-z"
 opt-level = 3
 
+# the same at opt-level "s", as some firmware ships (usb_io_fw): fw_budget builds it only with `--profiles fw-s`
+[profile.fw-s]
+inherits = "fw-z"
+opt-level = "s"
+
 # exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
 [patch."https://github.com/vhrdtech/wire_weaver"]
 shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }

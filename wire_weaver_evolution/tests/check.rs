@@ -34,10 +34,14 @@ impl TestCrate {
     }
 
     fn write(&self, version: &str, lib_rs: &str) -> &Self {
+        self.write_with_deps(version, lib_rs, "")
+    }
+
+    fn write_with_deps(&self, version: &str, lib_rs: &str, dependencies: &str) -> &Self {
         std::fs::write(
             self.dir.join("Cargo.toml"),
             format!(
-                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n"
+                "[package]\nname = \"test_api\"\nversion = \"{version}\"\nedition = \"2024\"\n\n[dependencies]\n{dependencies}"
             ),
         )
         .unwrap();
@@ -557,6 +561,69 @@ pub trait Api {
     c.write("0.1.0", &silenced);
     let (outcome, _) = check(c.path(), false);
     assert!(outcome.hints().is_empty(), "{:?}", outcome.hints());
+}
+
+/// A tiny path-dependency crate with one struct, whose own version and `id` field type `write_dep` sets: a stand-in
+/// for a `ww_stdlib` crate making a breaking change of its own (EVO-21, as `ww_board_info`'s `Rework` did, STD-98).
+fn write_dep(name: &str, version: &str, id_ty: &str) -> PathBuf {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../target/ww_evolution_check_tests_dep")
+        .join(format!("{name}-{version}-{}", std::process::id()));
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("Cargo.toml"),
+        format!("[package]\nname = \"dep_api\"\nversion = \"{version}\"\nedition = \"2024\"\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/lib.rs"),
+        format!(
+            "use wire_weaver::prelude::*;\n\n#[derive_shrink_wrap]\npub struct Shared {{\n    pub id: {id_ty},\n}}\n"
+        ),
+    )
+    .unwrap();
+    dir
+}
+
+/// EVO-21: `dep_api` (a stand-in for a `ww_stdlib` crate) bumps its own breaking position underneath an unchanged
+/// API crate that uses its type in two different methods: the report groups both breaks under the one dependency
+/// type that actually changed, instead of listing two unrelated-looking breaks.
+#[test]
+fn shared_dependency_type_is_named_once_for_every_item_it_reaches() {
+    let api = r#"
+use dep_api::Shared;
+
+#[ww_api_root]
+pub trait Api {
+    fn one(s: Shared);
+    fn two(s: Shared);
+}
+"#;
+    let c = TestCrate::new("root-cause");
+    let old_dep = write_dep("shared", "0.1.0", "u8");
+    let deps = format!(
+        "dep_api = {{ path = {:?} }}\n",
+        old_dep.canonicalize().unwrap()
+    );
+    c.write_with_deps("0.1.0", api, &deps).save();
+
+    let new_dep = write_dep("shared", "0.2.0", "u16");
+    let deps = format!(
+        "dep_api = {{ path = {:?} }}\n",
+        new_dep.canonicalize().unwrap()
+    );
+    c.write_with_deps("0.1.0", api, &deps);
+
+    let (outcome, verdict) = check(c.path(), true);
+    assert!(verdict.is_err(), "{outcome}");
+    let text = outcome.to_string();
+    for expected in [
+        "2 broken because type dep_api::Shared changed:",
+        "breaking: Api::one:",
+        "breaking: Api::two:",
+    ] {
+        assert!(text.contains(expected), "'{expected}' not in:\n{text}");
+    }
 }
 
 /// `text` without `, field: <value>` anywhere, the value up to the next `,` or closing bracket at its depth.

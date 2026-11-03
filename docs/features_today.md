@@ -284,6 +284,7 @@ round, and tell you before a release when a change would break that.
 
 - **[Evolution rules](evolution/rules.md)**: What you can change in types and APIs, and which version to bump.
 - **[Evolution checker](evolution/checker_tool.md)**: `ww api check` and `ww api diff` say whether a change is compatible.
+- **[One cause, not many breaks](evolution/checker_tool.md#several-broken-items-one-cause-evo-21)**: Several broken traits or types caused by the one dependency that changed are reported together, naming it once.
 - **[Checker knows the catch-all](evolution/rules.md#unsized-types)**: Appending a variant to an enum with the `Unknown` catch-all passes the evolution check as compatible.
 - **[Evolution check at every commit](evolution/checker_tool.md#checking-at-every-commit)**: A test of your API crate fails when the API changed without the version bump it needs.
 - **[Current version's snapshot required](evolution/checker_tool.md#checking-at-every-commit)**: The API crate's test fails until the version it is at has a saved snapshot, and saves it for you.

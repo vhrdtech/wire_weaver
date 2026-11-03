@@ -1645,6 +1645,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   gaining a kind under its name is `kind of its own added`); levels and sentinels get their checks with STD-67 and
   STD-66 (rules written down); until then a marker kind the checker doesn't know is the same only when its definition
   is (`docs/evolution/units_by_meaning.md`; `wire_weaver_evolution` tests `tests::by_meaning`).
+- ✅ **EVO-21 One cause, not many breaks** · `v0.5` — several broken traits or types caused by the one dependency
+  that actually changed (e.g. `BoardInfo`, `Indication`, `Clock`, `Can`, `LastReset` and `Counters` all breaking
+  because `ww_board_info`'s `Rework` changed, STD-98) are grouped under it in the report, instead of reading as that
+  many unrelated breaks. New `compat::RootCause` (`what`, `crate_id`, `name`), set once, nearest the source, when a
+  check fails because a trait, type or marker from another crate has an incompatible version or a different
+  definition under the same one (an unpublished crate rebuilt without its own bump); `Finding::root`,
+  `Report::breaking_groups()` (roots reached by 2+ findings; everything else, including findings without one, comes
+  back in its original order). `ww api check` prints each group as `N broken because <kind> <crate>::<name>
+  changed:` before the items it reaches. Doesn't group a plain field or argument changed in the checked crate's own
+  code (each item is already named by itself), nor a same-crate redefinition the checker has no name for yet (a
+  unit or scale of the crate's own redefined under the same name, EVO-17): open for later
+  (`docs/evolution/checker_tool.md#several-broken-items-one-cause-evo-21`; `wire_weaver_evolution` tests
+  `tests::root_cause`, `tests/check.rs` `shared_dependency_type_is_named_once_for_every_item_it_reaches`).
 - ✅ **TOOL-1 `ww` CLI**: `list` with filters, `introspect` as a resource tree (`--raw-as-sent`, `--types`), dynamic shell
   completions (`docs/cli.md`).
 - ✅ **TOOL-2 `ww api save` / `check` / `diff`** for API bundles and snapshots.

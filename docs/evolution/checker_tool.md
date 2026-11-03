@@ -51,6 +51,38 @@ blinky_api 0.1.0 has a snapshot (examples/blinky_api/api_snapshots/blinky_api_0_
 Bump `version` in examples/blinky_api/Cargo.toml to 0.2.0 or later (docs/evolution/rules.md#your-apis-version); once that version is released, record it with `ww api save examples/blinky_api` and commit api_snapshots/.
 ```
 
+## Several broken items, one cause (EVO-21)
+
+A dependency (a `ww_stdlib` crate, or any other crate used through it) can break more than one trait, resource or
+type of the checked crate at once: every item that reaches the one type, trait or marker the dependency changed
+breaks with it. The checker groups such items under the change that actually broke them, instead of listing them as
+unrelated breaks, whenever it can name that cause (a crate and a name, from the same checks that already explain a
+single break: [a wire-incompatible dependency version](#what-is-checked), or the same crate version with a different
+definition):
+
+```
+$ ww api check my_board_api
+my_board_api 0.4.0 (my_board_api/api_snapshots/my_board_api_0_4_0.ron) -> 0.4.0 (source): breaking changes
+  6 broken because type ww_board_info::Rework changed:
+    breaking: BoardInfo::info: ...
+        rule: a type written by either version is read by the other one (docs/evolution/rules.md#data-types)
+    breaking: Indication::state: ...
+        rule: ...
+    breaking: Clock::now: ...
+        rule: ...
+    breaking: Can::rate: ...
+        rule: ...
+    breaking: LastReset::reason: ...
+        rule: ...
+    breaking: Counters::read: ...
+        rule: ...
+Error: my_board_api 0.4.0 -> 0.4.0 has breaking changes, which requires a bump of the breaking position (minor before 1.0, major after): 0.5.0 or later.
+```
+
+A group forms only once a cause reaches two or more items; a single broken item still reads as an ordinary breaking
+line, with its own rule and bump. Grouping is naming, not a verdict of its own: every grouped item still carries its
+own [`Rule`](#what-is-checked) and counts toward the same required bump as it would alone.
+
 ## Checking at every commit
 
 The checker is a library, `wire_weaver_evolution`, which parses the crate from source like `ww api check` does and
@@ -349,3 +381,8 @@ handlers are written against `Fixed` from the start where the note applies.
 * Semantic changes that keep the same bytes, like changing units or the meaning of a value, can't be detected.
 * Padding bits are only reused when that works for every bit offset a type can start at, even if in all of its actual
   uses it's always at the same offset.
+* [Grouping several breaks under one cause](#several-broken-items-one-cause-evo-21) only works when the cause is a
+  dependency's own trait, type or marker, caught by a crate version or a definition mismatch: a plain field or
+  argument type changed in the checked crate's own code is not grouped (each item it reaches is already named by
+  itself), and a redefinition the checker doesn't yet name a cause for (e.g. a unit or scale of the crate's own
+  redefined under the same name, EVO-17) still lists every item it reaches apart.

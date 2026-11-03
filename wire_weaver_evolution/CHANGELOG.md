@@ -4,6 +4,7 @@
 
 - `compat::Unwrapped` has a new public field `same` (`"same bytes"` for a transparent wrapper, `"same value"` for a unit, scale or origin spelled differently), so an `Unwrapped { .. }` literal needs it. `Rule::Meaning`'s `doc()` points at the new page `docs/evolution/units_by_meaning.md`.
 - `snapshot_files::latest_snapshot` returns `Option<Snapshot>` (new, from the new `snapshot_files::read`: `path`, `bundle` and `recorded`, what the file recorded) instead of a path and bundle. `Report` has a new public field `unrecorded`, so a `Report { .. }` literal needs it.
+- `Finding` has a new public field `root: Option<compat::RootCause>` (EVO-21): a `Finding { .. }` literal needs it, `Finding::new` still builds one without it. `compat::Bounds` and `compat::TypeCheck` gained `root` as well, so their own literals (already needing `rule` and `unwrapped`) need it too.
 
 ### 🐛 Fixes
 
@@ -12,6 +13,8 @@
 - Upgrading wire_weaver alone no longer fails `Check::require_current` or reports a change (EVO-13): a field of the API model that a snapshot file has in no instance (written by an older wire_weaver, like `ItemEnum::future_version` from EVO-10 in a snapshot saved before it) is not recorded, and both sides are compared without it, instead of the source counting as changed. The rule needs no list of fields or `ww_self` versions, so the next field added to the model gets it as well (with shrink_wrap DER-17, also one that is not an `Option`). New `recorded` module (`Recorded`, `Unrecorded`), `compare_recorded(old, old_recorded, new, new_recorded)`, and `Report::unrecorded`, printed as "not compared: ..". `Check::save` reports a file that only lacks such fields as `SaveStatus::Reformatted`, never as refreshed. Test with the snapshots of `nucleo_g0b1re_api` 0.3.0 / 0.4.0 as saved by an older wire_weaver (`tests/check.rs`).
 
 ### 🚀 Features
+
+- Several broken items caused by the same dependency change are grouped under it instead of reading as unrelated breaks (EVO-21): new `compat::RootCause` (`what`, `crate_id`, `name`), set once, closest to the source, when a resource or type check fails because a trait, type or marker from another crate has an incompatible version or a different definition under the same one; `Finding::root`, `Report::breaking_groups()` (roots reached by 2+ findings, the rest in their original order), and `ww api check`'s report prints each such group as `N broken because <kind> <crate>::<name> changed:` before the items it reaches (`docs/evolution/checker_tool.md#several-broken-items-one-cause-evo-21`).
 
 - Kinds of quantity compared (STD-68, with EVO-17): one step of a number has the kind of its unit as well as the dimension and factor, so the same bytes in another kind of one dimension are breaking under `Rule::Meaning` (`Per<Volt, Volt>` -> `Ratio` or `Per<Ampere, Ampere>`: `ratio of .. vs plain, another kind of quantity`; `Per<Volt, Ampere>` -> `Ohm`: `plain vs resistance`). A unit that gains a kind of its own under its name (`Ohm` with this `exact_units`) keeps its values: compatible, listed as `kind of its own added`.
 - `Check::snapshots_dir(dir)`: the crate's snapshots are in `dir` instead of its `api_snapshots/` (a crate from another repository, its snapshots kept here).

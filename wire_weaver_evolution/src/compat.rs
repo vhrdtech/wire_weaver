@@ -47,6 +47,8 @@ pub struct Bounds<'a> {
     pub rule: Option<Rule>,
     /// Transparent wrappers on one side only, see [TypeCheck::unwrapped].
     pub unwrapped: Vec<Unwrapped>,
+    /// The deepest named cause found, see [TypeCheck::root].
+    pub root: Option<RootCause>,
 }
 
 /// A transparent wrapper (DER-18, `ww_si::Fixed`) on one side and the type it wraps on the other: the same bytes,
@@ -62,6 +64,24 @@ pub struct Unwrapped {
     /// What makes them compatible: `same bytes` for a wrapper and its field, `same value` for two markers that mean
     /// the same (`prefix::Milli` -> `prefix::Pow10<-3>`, EVO-17).
     pub same: &'static str,
+}
+
+/// The deepest trait, type or marker whose own identity (crate and name) the checker found to differ, nearest the
+/// source of a breaking change: several broken resources often share the one dependency that changed underneath
+/// them (EVO-21), e.g. `BoardInfo`, `Indication`, `Clock`, `Can`, `LastReset` and `Counters` all breaking because
+/// `ww_board_info`'s `Rework` changed. Set once, on the way out of the deepest check that actually failed; an outer
+/// wrap (the trait or struct containing it) must not override it.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct RootCause {
+    pub what: &'static str,
+    pub crate_id: String,
+    pub name: String,
+}
+
+impl fmt::Display for RootCause {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}::{}", self.what, self.crate_id, self.name)
+    }
 }
 
 impl Unwrapped {
@@ -123,6 +143,11 @@ pub fn compare_items<'a>(
     bounds.rule = bounds.rule.or(to_device.rule).or(to_client.rule);
     bounds.unwrapped.append(&mut to_device.unwrapped);
     bounds.unwrapped.append(&mut to_client.unwrapped);
+    bounds.root = bounds
+        .root
+        .take()
+        .or(to_device.root.take())
+        .or(to_client.root.take());
     result
 }
 
@@ -268,7 +293,8 @@ fn compare_kinds<'a>(
                 // not enough information (e.g., compact version only), items are still compared one by one
                 return Ok(());
             };
-            check_same_origin("trait", &identity, &device_identity)?;
+            check_same_origin("trait", &identity, &device_identity)
+                .inspect_err(|_| to_device.note_root("trait", &identity))?;
             // when both are in-line, their items are compared one by one instead
             let skipped = |bundle: &ApiBundleOwned, idx: u32| {
                 !matches!(
@@ -283,7 +309,8 @@ fn compare_kinds<'a>(
                     (&device_identity, device_name),
                     trait_signature(client, trait_idx.0),
                     trait_signature(device, device_trait_idx.0),
-                )?;
+                )
+                .inspect_err(|_| to_device.note_root("trait", &identity))?;
             }
         }
         (kind, device_kind) => {
@@ -493,6 +520,9 @@ pub struct TypeCheck<'a> {
     pub rule: Option<Rule>,
     /// Transparent wrappers on one side only, with their plain field on the other: compatible.
     pub unwrapped: Vec<Unwrapped>,
+    /// The deepest trait, type or marker whose own identity a failed check found to differ (EVO-21), set once, on
+    /// the way out of the check that found it; an outer wrap (a struct or trait containing it) leaves it alone.
+    pub root: Option<RootCause>,
     /// Arguments, fields and variants leading to the type being checked, for [Self::unwrapped].
     path: Vec<String>,
     /// The writer's and the reader's bundle with skipped definitions put back from the embedded snapshots, made the
@@ -526,6 +556,7 @@ impl<'a> TypeCheck<'a> {
             lowered: false,
             rule: None,
             unwrapped: vec![],
+            root: None,
             path: vec![],
             defs: Default::default(),
         }
@@ -627,7 +658,7 @@ impl<'a> TypeCheck<'a> {
                 else {
                     return Err("type definition is not available on one side".into());
                 };
-                check_same_origin("type", &w, &r)?;
+                check_same_origin("type", &w, &r).inspect_err(|_| self.note_root("type", &w))?;
                 let signature = |bundle, ty: &TypeOwned| match ty {
                     TypeOwned::OutOfLine { type_idx } => type_signature(bundle, type_idx.0),
                     _ => None,
@@ -638,7 +669,8 @@ impl<'a> TypeCheck<'a> {
                     (&r, self.reader_name),
                     signature(self.writer, w_ty),
                     signature(self.reader, r_ty),
-                );
+                )
+                .inspect_err(|_| self.note_root("type", &w));
             }
         };
         if matches!(w, TypeOwned::Struct(_) | TypeOwned::Enum(_))
@@ -647,6 +679,8 @@ impl<'a> TypeCheck<'a> {
         {
             return Ok(());
         }
+        // kept whole (not yet destructured), for `note_root` on the Struct/Enum arms below
+        let resolved_r = r;
         use TypeOwned::*;
         match (w, r) {
             // parameters of generic definitions, compared by position (the names don't matter)
@@ -713,12 +747,14 @@ impl<'a> TypeCheck<'a> {
                 }
                 Ok(())
             }
-            (Struct(w), Struct(r)) => self
-                .check_struct(w, r)
-                .map_err(|e| format!("struct {}: {e}", r.ident)),
-            (Enum(w), Enum(r)) => self
-                .check_enum(w, r)
-                .map_err(|e| format!("enum {}: {e}", r.ident)),
+            (Struct(w), Struct(r)) => self.check_struct(w, r).map_err(|e| {
+                self.note_root_ty("type", resolved_r);
+                format!("struct {}: {e}", r.ident)
+            }),
+            (Enum(w), Enum(r)) => self.check_enum(w, r).map_err(|e| {
+                self.note_root_ty("type", resolved_r);
+                format!("enum {}: {e}", r.ident)
+            }),
             (Bool, Bool) | (Flag, Flag) | (String, String) => Ok(()),
             (NumericAny(_), NumericAny(_))
             | (Range(_), Range(_))
@@ -758,14 +794,15 @@ impl<'a> TypeCheck<'a> {
         let (Some(w), Some(r)) = (identity(self.writer, wi), identity(self.reader, ri)) else {
             return Err("bad API bundle: no generic type definition".into());
         };
-        check_same_origin("type", &w, &r)?;
+        check_same_origin("type", &w, &r).inspect_err(|_| self.note_root("type", &w))?;
         check_same_definition(
             "type",
             (&w, self.writer_name),
             (&r, self.reader_name),
             type_signature(self.writer, wi),
             type_signature(self.reader, ri),
-        )?;
+        )
+        .inspect_err(|_| self.note_root("type", &w))?;
         if wa.len() != ra.len() {
             return Err(format!(
                 "{} with {} arguments vs {}",
@@ -1175,6 +1212,32 @@ impl<'a> TypeCheck<'a> {
             read: format!("kind {r}"),
             same: "kind of its own added",
         });
+    }
+
+    /// Remembers `identity` as the root cause (EVO-21), unless a deeper one was already found: called on the way
+    /// out of [check_same_origin] / [check_same_definition], which already name the trait or type that differs.
+    fn note_root(&mut self, what: &'static str, identity: &Identity<'_>) {
+        if self.root.is_none() {
+            self.root = Some(RootCause {
+                what,
+                crate_id: identity.0.crate_id.clone(),
+                name: identity.1.to_string(),
+            });
+        }
+    }
+
+    /// [Self::note_root] from a resolved struct or enum definition, for the plain structural mismatch inside it
+    /// (no incompatible crate version involved, just a field or variant that changed).
+    fn note_root_ty(&mut self, what: &'static str, ty: &TypeOwned) {
+        if self.root.is_none()
+            && let Some((version, name)) = user_type_identity(self.reader, ty)
+        {
+            self.root = Some(RootCause {
+                what,
+                crate_id: version.crate_id.clone(),
+                name: name.into_owned(),
+            });
+        }
     }
 
     fn note_compatible(&mut self, unwrapped: Unwrapped) {

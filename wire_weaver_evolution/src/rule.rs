@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::compat::RootCause;
+
 /// An evolution rule, as written down in `docs/evolution/rules.md` (and a few other pages).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rule {
@@ -95,6 +97,9 @@ pub struct Finding {
     pub rule: Rule,
     /// What changed, e.g. `Api::led_on removed`.
     pub message: String,
+    /// The dependency trait, type or marker whose own definition actually changed, when the checker could tell
+    /// (EVO-21): several findings with the same root are listed together, naming it once.
+    pub root: Option<RootCause>,
 }
 
 impl Finding {
@@ -102,6 +107,15 @@ impl Finding {
         Finding {
             rule,
             message: message.into(),
+            root: None,
+        }
+    }
+
+    pub fn with_root(rule: Rule, message: impl Into<String>, root: Option<RootCause>) -> Self {
+        Finding {
+            rule,
+            message: message.into(),
+            root,
         }
     }
 

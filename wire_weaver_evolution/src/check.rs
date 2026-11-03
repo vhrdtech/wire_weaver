@@ -568,7 +568,14 @@ impl fmt::Display for Comparison {
             self.new_label,
             report.change
         )?;
-        for finding in &report.breaking {
+        let (groups, rest) = report.breaking_groups();
+        for (root, findings) in &groups {
+            write!(f, "\n  {} broken because {root} changed:", findings.len())?;
+            for finding in findings {
+                write!(f, "\n    breaking: {finding}")?;
+            }
+        }
+        for finding in rest {
             write!(f, "\n  breaking: {finding}")?;
         }
         for change in &report.compatible {

@@ -53,6 +53,7 @@ pub mod snapshot_files;
 
 #[cfg(feature = "source")]
 pub use check::{Check, Comparison, NoSnapshot, Outcome, SAVE_ENV, SaveStatus, Saved, UnitHint};
+pub use compat::RootCause;
 pub use diff::{Difference, diff};
 pub use rule::{Finding, Rule};
 
@@ -161,6 +162,32 @@ impl Report {
             display(&self.minimal_version())
         ))
     }
+
+    /// [Self::breaking] grouped by [Finding::root], in the order each root was first found: several items broken by
+    /// the same dependency change are listed together instead of looking like unrelated breaks (EVO-21). Only roots
+    /// reached by more than one finding are grouped; the rest (including every finding without one) come back as
+    /// `rest`, in their original order.
+    pub fn breaking_groups(&self) -> (Vec<(&RootCause, Vec<&Finding>)>, Vec<&Finding>) {
+        let mut groups: Vec<(&RootCause, Vec<&Finding>)> = vec![];
+        for finding in &self.breaking {
+            let Some(root) = &finding.root else { continue };
+            match groups.iter_mut().find(|(r, _)| *r == root) {
+                Some((_, items)) => items.push(finding),
+                None => groups.push((root, vec![finding])),
+            }
+        }
+        groups.retain(|(_, items)| items.len() > 1);
+        let grouped: Vec<*const Finding> = groups
+            .iter()
+            .flat_map(|(_, items)| items.iter().map(|f| *f as *const Finding))
+            .collect();
+        let rest = self
+            .breaking
+            .iter()
+            .filter(|f| !grouped.contains(&(*f as *const Finding)))
+            .collect();
+        (groups, rest)
+    }
 }
 
 /// [compare] of what both sides recorded: a field of the API model that either side's snapshot file doesn't have
@@ -255,6 +282,12 @@ impl<'a> Checker<'a> {
         self.breaking.push(Finding::new(rule, message));
     }
 
+    /// [Self::breaks] naming the dependency trait, type or marker whose own definition the checker found to
+    /// differ, when it could tell (EVO-21).
+    fn breaks_with_root(&mut self, rule: Rule, message: String, root: Option<RootCause>) {
+        self.breaking.push(Finding::with_root(rule, message, root));
+    }
+
     fn compare_traits(&mut self) {
         let old_traits = own_traits(self.old);
         let new_traits = own_traits(self.new);
@@ -341,7 +374,7 @@ impl<'a> Checker<'a> {
                     None if bounds.lowered => Rule::MaxLen,
                     None => Rule::Resource,
                 };
-                self.breaks(rule, format!("{path}: {e}"));
+                self.breaks_with_root(rule, format!("{path}: {e}"), bounds.root.clone());
             }
             self.bounds_raised(&path, bounds.narrower);
             self.unwrapped(&path, &bounds.unwrapped);
@@ -482,7 +515,8 @@ impl<'a> Checker<'a> {
                     None if old_to_new.lowered => Rule::MaxLen,
                     None => Rule::Type,
                 };
-                self.breaks(rule, e);
+                let root = old_to_new.root.clone().or_else(|| new_to_old.root.clone());
+                self.breaks_with_root(rule, e, root);
             }
             self.bounds_raised(&format!("type {name}"), new_to_old.narrower);
             old_to_new.unwrapped.append(&mut new_to_old.unwrapped);
@@ -739,6 +773,7 @@ mod tests {
     use std::path::PathBuf;
 
     mod by_meaning;
+    mod root_cause;
     mod transparent;
     mod ww_si_fixed;
 

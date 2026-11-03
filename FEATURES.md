@@ -922,11 +922,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
   root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
 
-- 📋 **SRV-50 Server call gate** · `v0.5` — a `ww_codegen!` option that lets the server refuse a request before
-  its handler runs, decided by the firmware by global trait identity (resource path as fallback), with a refusal
-  error carrying the reason (`board guarded: unknown rework 9`) that clients and `ww` show. For the rework guard
-  (STD-101): identity, info, DFU and reading the record pass, everything else is refused. No code when off.
-
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.

@@ -6938,14 +6938,20 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   24054 → 23694 B and 25198 → 24598 B at <code>fw-3</code>; instructions per request at <code>z</code> 6-8 % below the baseline before
   SRV-51 (error paths +0.5 %), within 3 % at <code>fw-3</code>; the <code>use_async</code> request future 512 → 528 B. See
   <code>docs/articles/flash_budget.md#errors-written-in-place-srv-52</code>.</li>
-<li>📋 <strong>SRV-55 Type-erased reply paths</strong> · <code>v0.5</code> — after SRV-51/52, the shared reply paths
-  (<code>ww_client_server::dispatch::reply_value</code>, <code>reply_get*</code>, <code>reply_call</code>) and <code>des</code> are generic over the value
-  type, so each distinct type gets its own copy: a <code>MaxLen&lt;&amp;str, N&gt;</code> property with a different <code>N</code> each costs
-  309 B at <code>fw-z</code> sync instead of 236 B before SRV-51, 526 B instead of 324 B at <code>fw-3</code> (TEST-30's SW-72 kind;
-  <code>des</code> alone is 180 B per type at <code>fw-3</code>, where it inlines the <code>&amp;str</code> decoder). Make the value paths take
-  <code>&amp;dyn</code> serializers (one vtable and thunk per type, the path compiled once per server mode), with a mode type on
-  <code>Dispatch</code> so a server without <code>multi_req</code> links no element writer. Done when that kind is at or below its
-  pre-SRV-51 cost and the shared-type and typed-call cells stay where SRV-52 left them.</li>
+<li>✅ <strong>SRV-55 Type-erased reply paths</strong> · <code>v0.5</code> — after SRV-51/52, the shared reply paths in
+  <code>ww_client_server::dispatch</code> were generic over the value type, one copy per type with its serializer inlined
+  (177 functions, 25.8 KB in Donguru, which was 14.2 KB larger than before SRV-51). The generic entry points are
+  <code>#[inline(always)]</code> and hand the value on as an <code>ErasedValue</code> (a pointer and a <code>fn</code> pointer to a thunk around
+  its <code>ser_shrink_wrap</code>), so each path is compiled once per server mode; whether the type is unsized is a separate
+  argument that LLVM drops without <code>multi_req</code>. <code>MaxLen&lt;T, N&gt;</code> decodes through <code>des_bounded::&lt;T&gt;</code>, one copy per
+  <code>T</code> instead of per bound. <code>ww_device::Server::handle</code> polls in a function of its own (<code>PollOutOfLine</code>): inlined
+  into Donguru's server task it pulled in more and cost 6.2 KB. Donguru (typec_dongle, release at <code>z</code>)
+  332,184 → 314,972 B, below c440491's 317,996 B; its dev build at <code>opt-level = 3</code> overflows FLASH by 960 B
+  instead of 16,532 B; donguru_template 135,676 → 132,164 B. TEST-30: the <code>MaxLen&lt;&amp;str, N&gt;</code> kind 309 → 194 B at
+  <code>z</code> sync, 526 → 256 B at <code>fw-3</code>, below its pre-SRV-51 cost except <code>z</code> async (230 B against 206 B); the
+  shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at <code>fw-3</code> sync. Instructions per
+  request within 1.5 %, same reply bytes (TEST-31), same handlers. See
+  <code>docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55</code>.</li>
 <li>📋 <strong>SRV-53 Global trait paths without names in flash</strong> · <code>v0.5</code> — flash diet: <code>ww_global_trait_path</code> matches
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026):<ol>

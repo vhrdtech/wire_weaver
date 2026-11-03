@@ -1798,11 +1798,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   a chip in RAM), `wire_weaver_cli` `cmd::rework_check::tests`. `ww dfu flash` (the `ww-chunky` plugin, a running
   app, no ROM at hand) compares with the app's `REWORKS` and refuses a lacking image: tpm P2401#3nov-0105d. Hardware
   check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).
-- 📋 **TOOL-30 `ww info` and `ww board rework allow` in the ROM bootloader** · `v0.5` — on a board in BOOTSEL / ROM
-  DFU, `ww info` reads the image in flash (build id, table) and the bench record through the ROM (`ww_report::
-  rework_check`, TOOL-29): board, revision, reworks applied, the ones the installed image knows, the allowance and the
-  verdict (`this image refuses to boot: unknown rework 9`). `ww board rework allow N...` stores the allowance for the
-  installed image there, `disallow` clears it (STD-101).
+- 🧪 **TOOL-30 `ww info` and `ww board rework allow` in the ROM bootloader** · `v0.5` — on a board in BOOTSEL / the
+  STM32 bootloader, `ww info` reads the installed image's table (build id, boards it lists) and the bench record
+  through the ROM (`ww_report::rework_check`, TOOL-29: `scan_installed_image`, `read_board`), and prints the verdict
+  a reboot would reach right now (`ww_board_info::guard::decide`, `board_guard`/`guard_line`/`rom_info_text`):
+  `Run`/`RunAllowed`/`Refuse` as `runs: every applied rework is known`, `runs: rework(s) 9 unknown to this image,
+  allowed for it`, or `refuses to boot: unknown rework(s) 9 (blink code 1); flash a firmware that knows it, or ww
+  board rework allow 9`. On a running board nothing changes: `REWORKS` is as before. `ww board rework allow N...`
+  stores the allowance for the installed image's `ImageId` there (refused without a build-id note or a bench
+  record); the numbers must cover every rework the verdict calls unknown, covering more is fine (`StoredAllowance`'s
+  own rule), fewer is refused naming what is left out. `disallow` clears it (STD-101); both take `--dry-run`. The
+  `RomFlash` adapters (`PicobootRom`, `DfuseRom`) moved out of `cmd::bootsel`/`cmd::stm32dfu` into one shared
+  `wire_weaver_cli::cmd::rom` (`find_rom` matches a boot ROM device against the device selection, `open_rp`/
+  `open_stm32`), used by `ww info`, `ww board rework allow|disallow` and the TOOL-29 flashers alike. `ww dfu rp
+  flash --follow` / `ww dfu stm32 flash --follow` tell an image that refused to boot (back in the ROM within about
+  12 s instead of as WireWeaver) from one that runs, and point at `ww info`. `docs/cli_reference.md#ww-info-in-the-
+  boot-rom`, `#ww-board-rework-allow-disallow`, `docs/std_library/ww_board_info.md#ww-info-and-ww-board-rework-
+  allow-disallow-in-the-boot-rom`. Tests: `ww_report` `rework_check::tests` (`rom_info_text_states`,
+  `scan_installed_image_without_a_table`), `wire_weaver_cli` `cmd::board::tests` (`covers_unknown_exactly_or_with_
+  extra`, arg parsing). Hardware check open: a board that boots guarded (an unknown applied rework), `allow` then a
+  reboot into `RunAllowed`, `disallow` then a reboot back to `Refuse` (usb_io_fw PLAT-18).
 - 📋 **TOOL-23 Doc-comment / sentinel / bounds hints for `ww api check`** — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest `Bounds`/niche forms too, not only the name suffix. Needs STD-64, STD-66

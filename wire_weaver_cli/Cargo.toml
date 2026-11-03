@@ -34,6 +34,7 @@ proc-macro2.workspace = true
 ratatui.workspace = true
 ron.workspace = true
 semver.workspace = true
+serde = { workspace = true, features = ["std"] }
 serde_json.workspace = true
 shrink_wrap = { workspace = true, features = ["std"] }
 syn.workspace = true

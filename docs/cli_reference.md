@@ -585,6 +585,11 @@ flash` and `ww dfu stm32 flash` check before they write (TOOL-29), with the chip
    through the ROM. Otherwise a stored allowance is cleared.
 5. Write the image.
 
+The guard is checked again at the device's own next boot: if the new image still lacks a rework the board has
+applied (an allowance that didn't cover it, say), `--follow` sees it blink the error code and land back in the ROM
+within about 12 s instead of coming up as WireWeaver, and says so; [`ww info`](#ww-info) and
+[`ww board rework allow`](#ww-board) fix it from there (TOOL-30).
+
 ```
 $ ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app -s E661 --follow
 image 182304 bytes in 1 segment(s) from 0x10000000
@@ -800,6 +805,22 @@ Last reset Panic, crash data 2 boots old, boot 3 since cleared, ran 2.5 s
 
 A part the device doesn't implement says so, the rest is still shown.
 
+### `ww info` in the boot ROM
+
+On a board already sitting in BOOTSEL or the STM32 bootloader (it refused to boot on a rework it doesn't know,
+STD-101), `ww info` reads the image in flash and the bench record through the ROM instead, the same way [the
+flashers' rework check](#checking-the-boards-reworks) does (TOOL-30):
+
+```
+$ ww info -s E661
+Image      build id 5e5e5e5e5e5e5e5e, boards B200 A, B200 B
+Board      B200 A rev A, reworks applied 1, 5, 9
+Allowance  none
+Verdict    refuses to boot: unknown rework(s) 9 (blink code 1); flash a firmware that knows it, or `ww board rework allow 9`
+```
+
+[`ww board rework allow`](#ww-board) fixes it from here, without a reboot.
+
 ## `ww report`
 
 `ww info` plus the counters, the device's stored `defmt` log and the last reset's fault and stack addresses named
@@ -843,6 +864,34 @@ $ ww board rework clear 5,8 --dry-run
 
 Numbers are comma separated (`7` or `1,3,5`); all of them or none, as `set_reworks` has it. `ww info` shows the
 record `set` and `clear` leave, as the board boots on it (read once per connection).
+
+### `ww board rework allow` / `disallow`
+
+On a board already in its boot ROM (BOOTSEL / the STM32 bootloader), stores or clears the allowance that lets the
+installed image run with reworks it doesn't know (STD-101), the post-flash fallback to the flashers'
+[`--allow-unknown-reworks`](#checking-the-boards-reworks) (TOOL-30):
+
+```
+$ ww info -s E661
+...
+Verdict    refuses to boot: unknown rework(s) 9 (blink code 1); flash a firmware that knows it, or `ww board rework allow 9`
+
+$ ww board rework allow 9 -s E661
+✔ rework(s) 9 allowed for image 5e5e5e5e5e5e5e5e
+
+$ ww board rework disallow -s E661
+✔ the stored allowance is cleared
+```
+
+| Option      | Default | Description                                              |
+|-------------|---------|------------------------------------------------------------|
+| `--dry-run` |         | Check without writing                                    |
+
+`allow`'s numbers must cover every rework `ww info` lists as unknown there (covering more is fine); giving fewer is
+refused, naming what is left out. The allowance is bound to the installed image's build id, read from its GNU build
+id note (refused without one): a different image flashed later ignores it, and the next `ww` flashing that needs
+none clears it. `ww info` only shows the new verdict after a reboot into the image (`ww dfu rp reboot -s SERIAL`
+on an RP2350, a power cycle or reset on an STM32): the guard is decided once, at boot.
 
 ## `ww pins`
 

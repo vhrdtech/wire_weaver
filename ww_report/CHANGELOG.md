@@ -4,6 +4,10 @@
 
 ### 🚀 Features
 
+- `rework_check` gains `scan_installed_image` (the image in flash whether it has a table or not, for `ww info` on
+  an old image), `board_guard` (`ww_board_info::guard::decide` run on what `read_board` answered: the verdict a
+  reboot would reach right now), `guard_line` and `rom_info_text` (TOOL-30): what `ww info` shows for a board
+  already in its boot ROM.
 - `rework_check` (TOOL-29, STD-101): the check every flasher makes before writing an image, with the chip in its ROM bootloader. `RomFlash` (read, and replay `FlashOp` erases and writes) is what a flasher gives it; `ImageReworks::from_flash` (the image's table, locator and `ImageId` from its flash contents), `scan_installed` (the table of the image in flash, read through the ROM), `board_name`, `read_board` (`BoardReworks`: name, revision, applied reworks and the stored allowance, from the bench record through the ROM), `verdict` (`Verdict`: `Ok`, `Lacking`, `OtherBoard`, `NoRecord`, `BadRecord`, with `Display` texts), `set_allowance` (store or clear it through the ROM, read back), `allowance_line`. Used by `ww dfu rp flash` and `ww dfu stm32 flash`.
 - `ww info` / `ww report` print the board's reworks (`ww_board_info::BoardInfo::REWORKS`, STD-24) when the device
   serves them: `info::Board::reworks: Part<Vec<Rework>>`. `Part::from_error` maps `NotImplementedByDevice` to

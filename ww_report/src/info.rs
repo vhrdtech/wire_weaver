@@ -89,8 +89,8 @@ pub struct Board {
 pub struct Rework {
     /// Its number in the board revision's rework list
     pub id: u16,
-    /// `None`: the unit's record has it applied and the firmware doesn't know it (the board runs on its safe
-    /// features)
+    /// `None`: the unit's record has it applied and the firmware doesn't know it; the board runs only because an
+    /// allowance for this image covers it (STD-101), else the firmware would have refused to boot
     pub title: Option<String>,
     pub applied: bool,
 }

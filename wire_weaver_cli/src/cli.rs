@@ -1,5 +1,5 @@
 use crate::cmd::api::ApiCommand;
-use crate::cmd::board::BoardCommand;
+use crate::cmd::board::{BoardCommand, ReworkCommand};
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::counters::CountersArgs;
 use crate::cmd::dfu::DfuCommand;
@@ -432,7 +432,13 @@ impl Cli {
             Commands::Config(_) => false,
             Commands::Dfu(dfu) => dfu.needs_device(),
             Commands::Counters(_) | Commands::Info(_) | Commands::Report(_) => true,
-            Commands::Board(_) => true,
+            Commands::Board(BoardCommand::Rework(
+                ReworkCommand::Set(_) | ReworkCommand::Clear(_),
+            )) => true,
+            // `allow`/`disallow` work on a board in its boot ROM, not over a WireWeaver connection (TOOL-30)
+            Commands::Board(BoardCommand::Rework(
+                ReworkCommand::Allow(_) | ReworkCommand::Disallow(_),
+            )) => false,
             Commands::Pins(_) => true,
             Commands::Elf(_) => false,
             Commands::Settings(_) => false,

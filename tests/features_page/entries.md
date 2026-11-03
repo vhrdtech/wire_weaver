@@ -298,6 +298,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - TOOL-19 | Safe to look at | A device or another program can't write terminal escape sequences into what `ww` prints: control characters and bidi tricks in a product string, name or label always show up as plain text. | cli_reference.md#untrusted-device-and-hub-strings
 - TOOL-28 | Recording a board rework | `ww board rework set 7` / `clear 7` record a rework done on the bench, on any device that keeps the list; an unknown number is refused with the numbers the firmware knows. | std_library/ww_board_info.md#recording-a-rework
 - TOOL-29 | Flashing checks the board's reworks | `ww dfu rp flash` and `ww dfu stm32 flash` read the reworks done on the board through its ROM bootloader, compare them with the ones the new image knows, and ask before writing an image that doesn't know one. | cli_reference.md#checking-the-boards-reworks
+- TOOL-30 | `ww info` and allowances in the boot ROM | On a board stuck in its boot ROM, `ww info` reads the image and the board's record straight through it and shows whether a reboot would run, run with the allowance, or refuse to boot; `ww board rework allow`/`disallow` fix it from there. | cli_reference.md#ww-info-in-the-boot-rom
 
 ## Advanced
 

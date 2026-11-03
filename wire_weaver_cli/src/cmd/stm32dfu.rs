@@ -10,12 +10,13 @@ use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use wire_weaver_client::follow::{Follow, Timeouts, UsbBus, open_retrying};
+use wire_weaver_client::follow::{Follow, Found, Timeouts, UsbBus, open_retrying};
 use wire_weaver_client::ww_stm32_dfu::layout::MemoryLayout;
 use wire_weaver_client::ww_stm32_dfu::proto::ROM_ID_ADDR;
 use wire_weaver_client::ww_stm32_dfu::usb::{self, NusbIo};
 use wire_weaver_client::ww_stm32_dfu::{Dfuse, FlashOptions, Image, Stage};
-use ww_report::rework_check::{FlashOp, RomFlash};
+
+use crate::cmd::rom::{DfuseRom, STM32_FLASH, STM32_SCAN};
 
 #[derive(Subcommand)]
 pub(crate) enum Stm32DfuCommand {
@@ -470,15 +471,30 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
         let (msg, secs) = if locks_supply {
             ("waiting (replug it if it does not come) for", 120)
         } else {
-            ("waiting for", 10)
+            // about 10 s to blink the error code and reboot into the bootloader (STD-101), if it refuses to boot
+            ("waiting for", 12)
         };
         let spinner = spinner(format!("{msg} {} to come back", follow.serial));
-        let back = follow
-            .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(secs))
+        // it may come back as WireWeaver, or, if it refuses to boot on an unknown rework (STD-101), blink the error
+        // code and land back in the bootloader instead (TOOL-30)
+        let found = follow
+            .back(&mut UsbBus, Duration::from_secs(secs), "no device", |f| {
+                matches!(f, Found::WireWeaver(_) | Found::Stm32Dfu(_))
+            })
             .await;
         spinner.finish_and_clear();
-        let back = back.map_err(|e| anyhow!(e))?;
-        eprintln!("{} {}", style("back").bold(), escape(&back.to_string()));
+        match found.map_err(|e| anyhow!(e))? {
+            Found::WireWeaver(info) => {
+                eprintln!("{} {}", style("back").bold(), escape(&info.to_string()))
+            }
+            Found::Stm32Dfu(_) => eprintln!(
+                "{} it refused to boot (blink code 1: an applied rework this image doesn't know) and is back in \
+                 the bootloader; `ww info -s {}` shows it, `ww board rework allow` fixes it",
+                style("note").yellow().bold(),
+                escape(&full_serial)
+            ),
+            _ => unreachable!("back() only returns what `want` accepted"),
+        }
     }
     Ok(())
 }
@@ -492,11 +508,6 @@ fn spinner(msg: String) -> ProgressBar {
     }
     s
 }
-
-/// Internal flash of an STM32, where the image and its table are.
-const STM32_FLASH: u32 = 0x0800_0000;
-/// Most of it the check reads looking for the table of the image in flash.
-const STM32_SCAN: u32 = 2 * 1024 * 1024;
 
 /// The rework check through the ROM (TOOL-29). A ROM that refuses to read (readout protection) can't be checked:
 /// said, and the image is written only with `--yes`.
@@ -528,46 +539,4 @@ async fn check_reworks(
         titles,
     )
     .await
-}
-
-/// [RomFlash] over the STM32 ROM's DfuSe.
-struct DfuseRom<'a>(&'a mut Dfuse<NusbIo>);
-
-impl RomFlash for DfuseRom<'_> {
-    async fn read(&mut self, addr: u32, len: u32) -> Result<Vec<u8>> {
-        // past the end of the flash the ROM answers an error: read what there is
-        let end = self
-            .0
-            .layout()
-            .region_at(addr)
-            .map_or(addr, |r| r.end().min(addr as u64 + len as u64) as u32);
-        if end <= addr {
-            return Ok(vec![]);
-        }
-        Ok(self
-            .0
-            .read(addr, (end - addr) as usize, &mut |_| {})
-            .await?)
-    }
-
-    async fn apply(&mut self, ops: &[FlashOp]) -> Result<()> {
-        for op in ops {
-            match op {
-                FlashOp::Erase { from, to } => {
-                    let mut at = *from;
-                    while at < *to {
-                        let (start, size, _) = self.0.layout().sector_at(at).ok_or_else(|| {
-                            anyhow!("{at:#010x} is outside the bootloader's flash")
-                        })?;
-                        self.0.erase_sector(start).await?;
-                        at = start + size;
-                    }
-                }
-                FlashOp::Write { offset, bytes } => {
-                    self.0.write(*offset, bytes, &mut |_| {}).await?;
-                }
-            }
-        }
-        Ok(())
-    }
 }

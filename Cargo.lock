@@ -5886,6 +5886,7 @@ dependencies = [
  "ron",
  "rustix",
  "semver",
+ "serde",
  "serde_json",
  "shrink_wrap",
  "syn 3.0.3",

@@ -1,4 +1,5 @@
 use crate::cli::{Cli, Commands};
+use crate::cmd::board::{BoardCommand, ReworkCommand};
 use crate::cmd::config::ConfigCommand;
 use crate::cmd::dfu::{DeviceDfu, DfuCommand};
 use crate::cmd::hub::HubCommand;
@@ -78,11 +79,21 @@ async fn run() -> Result<()> {
         | Commands::External(_)
         | Commands::Dfu(
             DfuCommand::Rp(_) | DfuCommand::Stm32(_) | DfuCommand::Device(DeviceDfu::Flash { .. }),
-        ) => Some(Selection::resolve(
+        )
+        // `allow`/`disallow` work on a board in its boot ROM, found the same way as `dfu rp`/`dfu stm32` (TOOL-30)
+        | Commands::Board(BoardCommand::Rework(
+            ReworkCommand::Allow(_) | ReworkCommand::Disallow(_),
+        )) => Some(Selection::resolve(
             &matches,
             matches!(cli.command, Commands::Config(ConfigCommand::Save)),
         )?),
         _ if cli.need_device() => Some(Selection::resolve(&matches, false)?),
+        _ => None,
+    };
+    // `ww info` on a device already sitting in BOOTSEL / the STM32 bootloader (TOOL-30): skip the WireWeaver
+    // connect below, the ROM is read directly in `run_command`
+    let info_rom = match &cli.command {
+        Commands::Info(_) => cmd::rom::find_rom(selection.as_ref().unwrap()).await?,
         _ => None,
     };
     // the tap commands record the connection from its start: the recorder is subscribed to before connecting
@@ -109,7 +120,7 @@ async fn run() -> Result<()> {
     // in the hub (`ww dfu`, SRV-32) lets its own calls through
     let meta = ClientMeta::new();
     let device = match &selection {
-        Some(selection) if cli.need_device() => {
+        Some(selection) if cli.need_device() && info_rom.is_none() => {
             let config = if cli.traits_only() {
                 selection.client_config().traits_only()
             } else {
@@ -177,6 +188,7 @@ async fn run() -> Result<()> {
             &meta,
             tap,
             stop,
+            info_rom,
         ),
     )
     .await
@@ -218,6 +230,7 @@ struct Ran {
 }
 
 /// Runs the command.
+#[allow(clippy::too_many_arguments)]
 async fn run_command(
     command: Commands,
     selection: &Option<Selection>,
@@ -226,6 +239,7 @@ async fn run_command(
     meta: &ClientMeta,
     tap: Option<LiveTap>,
     stop: Option<util::StopSignal>,
+    info_rom: Option<cmd::rom::RomTarget>,
 ) -> Result<Ran> {
     let mut passed = true;
     match command {
@@ -306,7 +320,10 @@ async fn run_command(
             args.elf = selection.as_ref().and_then(Selection::elf_flag);
             cmd::counters::counters(args, device.as_ref().unwrap()).await?
         }
-        Commands::Info(args) => cmd::info::info(args, device.as_ref().unwrap()).await?,
+        Commands::Info(args) => match info_rom {
+            Some(target) => cmd::info::info_rom(args, &target).await?,
+            None => cmd::info::info(args, device.as_ref().unwrap()).await?,
+        },
         Commands::Report(mut args) => {
             args.elf = selection.as_ref().and_then(Selection::elf_flag);
             cmd::info::report(args, device.as_ref().unwrap()).await?
@@ -315,7 +332,7 @@ async fn run_command(
             passed = cmd::pins::pins(pins_cmd, device.as_ref().unwrap()).await?
         }
         Commands::Board(board_cmd) => {
-            cmd::board::board(board_cmd, device.as_ref().unwrap()).await?
+            cmd::board::board(board_cmd, device.as_ref(), selection.as_ref().unwrap()).await?
         }
         Commands::Elf(elf_cmd) => cmd::elf::elf(elf_cmd)?,
         Commands::Config(config_cmd) => {

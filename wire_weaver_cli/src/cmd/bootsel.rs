@@ -10,12 +10,13 @@ use console::style;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use wire_weaver_client::follow::{Follow, UsbBus};
+use wire_weaver_client::follow::{Follow, Found, UsbBus};
 use wire_weaver_client::ww_picoboot::image::family;
 use wire_weaver_client::ww_picoboot::proto::{FLASH_BASE, REBOOT_DELAY, Reboot2};
 use wire_weaver_client::ww_picoboot::usb::{self, NusbIo};
 use wire_weaver_client::ww_picoboot::{Image, Picoboot, Stage};
-use ww_report::rework_check::{FlashOp, RomFlash};
+
+use crate::cmd::rom::{PicobootRom, RP_SCAN};
 
 #[derive(Subcommand)]
 pub(crate) enum BootselCommand {
@@ -304,12 +305,26 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
     drop(pb);
     if let Some(follow) = follow.filter(|_| args.follow) {
         let spinner = spinner(format!("waiting for {} to come back", follow.serial));
-        let back = follow
-            .back_in_wire_weaver(&mut UsbBus, Duration::from_secs(10))
+        // it may come back as WireWeaver, or, if it refuses to boot on an unknown rework (STD-101), blink the error
+        // code for about 10 s and land back in BOOTSEL instead (TOOL-30)
+        let found = follow
+            .back(&mut UsbBus, Duration::from_secs(12), "no device", |f| {
+                matches!(f, Found::WireWeaver(_) | Found::RpBootsel(_))
+            })
             .await;
         spinner.finish_and_clear();
-        let back = back?;
-        eprintln!("{} {}", style("back").bold(), escape(&back.to_string()));
+        match found? {
+            Found::WireWeaver(info) => {
+                eprintln!("{} {}", style("back").bold(), escape(&info.to_string()))
+            }
+            Found::RpBootsel(_) => eprintln!(
+                "{} it refused to boot (blink code 1: an applied rework this image doesn't know) and is back in \
+                 BOOTSEL; `ww info -s {}` shows it, `ww board rework allow` fixes it",
+                style("note").yellow().bold(),
+                escape(&full_serial)
+            ),
+            _ => unreachable!("back() only returns what `want` accepted"),
+        }
     }
     Ok(())
 }
@@ -323,10 +338,6 @@ fn spinner(msg: String) -> ProgressBar {
     }
     s
 }
-
-/// Most of the flash the check reads looking for the table of the image in flash (QSPI reads past the chip's size
-/// wrap around; an erased 64 KiB ends the search sooner).
-const RP_SCAN: u32 = 4 * 1024 * 1024;
 
 /// The rework check through PICOBOOT (TOOL-29).
 async fn check_reworks(
@@ -348,35 +359,4 @@ async fn check_reworks(
     .await;
     pb.exclusive_access(false, false).await?;
     r
-}
-
-/// Flash program unit of the RP2040 / RP2350 boot ROM.
-const PAGE: u32 = 256;
-
-/// [RomFlash] over PICOBOOT.
-struct PicobootRom<'a>(&'a mut Picoboot<NusbIo>);
-
-impl RomFlash for PicobootRom<'_> {
-    async fn read(&mut self, addr: u32, len: u32) -> Result<Vec<u8>> {
-        Ok(self.0.read(addr, len).await?)
-    }
-
-    async fn apply(&mut self, ops: &[FlashOp]) -> Result<()> {
-        for op in ops {
-            match op {
-                FlashOp::Erase { from, to } => self.0.flash_erase(*from, to - from).await?,
-                // whole 256-byte pages, the bytes around the write sent as 0xFF: NOR programming leaves them as
-                // they are
-                FlashOp::Write { offset, bytes } => {
-                    let start = offset / PAGE * PAGE;
-                    let end = (offset + bytes.len() as u32).div_ceil(PAGE) * PAGE;
-                    let mut pages = vec![0xff; (end - start) as usize];
-                    let at = (offset - start) as usize;
-                    pages[at..at + bytes.len()].copy_from_slice(bytes);
-                    self.0.write(start, &pages).await?;
-                }
-            }
-        }
-        Ok(())
-    }
 }

@@ -248,4 +248,27 @@ left it.
 Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.
 
+### `ww info` and `ww board rework allow|disallow` in the boot ROM
+
+A board that refuses to boot has no running firmware to ask, so `ww info` and `ww board rework allow`/`disallow`
+read and write the bench record and the allowance the same way the flashers do: through the ROM bootloader
+(PICOBOOT read on the RP2350, DfuSe upload on an STM32), not through `BoardInfo` (TOOL-30).
+
+* `ww info` on a board in BOOTSEL / the STM32 bootloader finds the installed image's own table (build id, the
+  boards it lists), reads the bench record through the same `Locator`, and prints the verdict a reboot would reach
+  right now: `guard::decide` run on what it read (`Guard::Run`/`RunAllowed`/`Refuse`, the same decision `boot_check`
+  makes). On a running board nothing changes: `REWORKS` is as before, an entry with `title: None` meaning the
+  allowance already covers it.
+* `ww board rework allow N...` stores the allowance for the installed image's `ImageId` (refused without a build-id
+  note); the numbers must cover every rework the verdict calls unknown (covering more is fine, the allowance's own
+  rule). `disallow` clears it. Both refuse when the installed image names no bench record: nothing to check.
+* The guard runs once, at boot: `ww info` only shows the new verdict after the board reboots into the image.
+
+`ww_report::rework_check` has this as a library (`scan_installed_image`, `read_board`, `board_guard`,
+`rom_info_text`, `set_allowance`), the same one [TOOL-29's flasher
+check](../cli_reference.md#checking-the-boards-reworks) uses; `wire_weaver_cli::cmd::rom` holds the `RomFlash`
+adapters (`PicobootRom`, `DfuseRom`) every ROM command shares. `ww dfu rp flash --follow` / `ww dfu stm32 flash
+--follow` tell an image that refused to boot (back in the ROM within about 12 s instead of as WireWeaver) from one
+that runs, and point at `ww info`.
+
 `BoardSummary` has no `defmt::Format` (its `DateTime` has none).

@@ -14,6 +14,7 @@ pub(crate) mod observe;
 pub(crate) mod pins;
 pub(crate) mod pins_tui;
 pub(crate) mod rework_check;
+pub(crate) mod rom;
 pub(crate) mod settings;
 pub(crate) mod stm32dfu;
 pub(crate) mod stream;

@@ -17,6 +17,11 @@
 //! 5. [set_allowance] stores the allowance after the user agreed to [Verdict::Lacking], clears it otherwise; then
 //!    the flasher writes the image.
 //!
+//! `ww info` and `ww board rework allow|disallow` on a device already in its boot ROM (TOOL-30) reuse the same
+//! reads: [scan_installed_image] (unlike [scan_installed], answers even without a table, for the build id and the
+//! boards an old image names), [read_board] and [ww_board_info::guard::decide] for the verdict a reboot would reach
+//! right now ([rom_info_text] renders it; `wire_weaver_cli::cmd::rom` does the reads through PICOBOOT or DFU).
+//!
 //! ```ignore
 //! let image = ImageReworks::from_flash(&flash_bytes);
 //! let installed = scan_installed(&mut rom, FLASH_BASE, MAX_SCAN).await?;
@@ -31,9 +36,10 @@
 //! ```
 
 use std::fmt;
+use std::fmt::Write;
 
 use anyhow::{Result, anyhow, bail};
-use ww_board_info::guard::{BenchRecord, ImageId, StoredAllowance};
+use ww_board_info::guard::{BenchRecord, Guard, ImageId, StoredAllowance};
 use ww_board_info::image::{self, Check, ImageTable, ImageTableError, Locator};
 use ww_board_info::record;
 use ww_board_info::table::{IdRanges, ReworkSet};
@@ -110,17 +116,12 @@ impl ImageReworks {
     }
 }
 
-/// Bytes [scan_installed] reads at a time.
+/// Bytes [scan_installed] and [scan_installed_image] read at a time.
 pub const SCAN_CHUNK: u32 = 64 * 1024;
 
-/// Find the table of the image in flash from `flash_base`: read chunk by chunk until the table is found, a chunk
-/// reads all erased (the image ended) or `max_len` is read. `None`: no table (an erased chip, an image from before
-/// the guard).
-pub async fn scan_installed(
-    rom: &mut impl RomFlash,
-    flash_base: u32,
-    max_len: u32,
-) -> Result<Option<ImageReworks>> {
+/// The image's bytes from `flash_base`: read chunk by chunk until its table is found, a chunk reads all erased (the
+/// image ended) or `max_len` is read.
+async fn scan_bytes(rom: &mut impl RomFlash, flash_base: u32, max_len: u32) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut at = 0;
     while at < max_len {
@@ -131,18 +132,41 @@ pub async fn scan_installed(
         at += len;
         // a table cut by the chunk's end doesn't parse yet: read on
         if let Ok(Some(_)) = ImageTable::find(&bytes) {
-            return Ok(Some(ImageReworks::from_flash(&bytes)));
+            break;
         }
         if erased {
             break;
         }
     }
-    let found = ImageReworks::from_flash(&bytes);
+    Ok(bytes)
+}
+
+/// Find the table of the image in flash from `flash_base`: read chunk by chunk until the table is found, a chunk
+/// reads all erased (the image ended) or `max_len` is read. `None`: no table (an erased chip, an image from before
+/// the guard).
+pub async fn scan_installed(
+    rom: &mut impl RomFlash,
+    flash_base: u32,
+    max_len: u32,
+) -> Result<Option<ImageReworks>> {
+    let found = ImageReworks::from_flash(&scan_bytes(rom, flash_base, max_len).await?);
     Ok(found
         .record
         .as_ref()
         .is_ok_and(|r| r.is_some())
         .then_some(found))
+}
+
+/// The image in flash from `flash_base`, whether it has a table or not: `ww info` (TOOL-30) wants the build id and
+/// the boards an old image names too, where [scan_installed] answers `None`.
+pub async fn scan_installed_image(
+    rom: &mut impl RomFlash,
+    flash_base: u32,
+    max_len: u32,
+) -> Result<ImageReworks> {
+    Ok(ImageReworks::from_flash(
+        &scan_bytes(rom, flash_base, max_len).await?,
+    ))
 }
 
 /// The board as its record in flash says, see [read_board].
@@ -346,6 +370,94 @@ pub fn allowance_line(allowance: &StoredAllowance) -> String {
         None => "none".to_string(),
         Some(id) => format!("rework(s) {} for image {id}", IdRanges(allowance.reworks)),
     }
+}
+
+/// Whether the installed image would run the board right now ([ww_board_info::guard::decide]), one line, see
+/// [rom_info_text].
+pub fn guard_line(guard: &Guard) -> String {
+    match guard {
+        Guard::Run => "runs: every applied rework is known".to_string(),
+        Guard::RunAllowed { unknown } => format!(
+            "runs: rework(s) {} unknown to this image, allowed for it",
+            IdRanges(*unknown)
+        ),
+        Guard::Refuse { unknown } => {
+            let numbers = unknown
+                .iter()
+                .map(|id| id.0.to_string())
+                .collect::<Vec<_>>();
+            format!(
+                "refuses to boot: unknown rework(s) {} (blink code 1); flash a firmware that knows {}, or `ww board rework allow {}`",
+                IdRanges(*unknown),
+                if numbers.len() == 1 { "it" } else { "them" },
+                numbers.join(",")
+            )
+        }
+    }
+}
+
+/// What `ww info` shows for a device sitting in its boot ROM (TOOL-30): the image in flash, the board's bench
+/// record and the allowance, and the verdict a reboot would reach right now. Pure text from what [scan_installed_image]
+/// and [read_board] answered, so it is tested without a device (`RamRom` below, test-only).
+pub fn rom_info_text(image: &ImageReworks, board: Option<&BoardReworks>) -> String {
+    let mut out = String::new();
+    if image.guards() {
+        let _ = write!(
+            out,
+            "Image      {}",
+            match image.id {
+                Some(id) => format!("build id {id}"),
+                None => "no build id (the image keeps none)".to_string(),
+            }
+        );
+        let boards = image.boards();
+        if !boards.is_empty() {
+            let _ = write!(out, ", boards {boards}");
+        }
+        out.push('\n');
+    } else {
+        out.push_str(
+            "Image      no rework table (built before the rework guard, or flash has no image)\n",
+        );
+    }
+    let Some(board) = board else {
+        out.push_str("Board      no bench record: nothing to check\n");
+        return out;
+    };
+    let _ = writeln!(
+        out,
+        "Board      {} rev {}, reworks applied {}",
+        if board.name.is_empty() {
+            "?"
+        } else {
+            &board.name
+        },
+        if board.revision.is_empty() {
+            "?"
+        } else {
+            &board.revision
+        },
+        if board.applied.is_empty() {
+            "none".to_string()
+        } else {
+            IdRanges(board.applied).to_string()
+        },
+    );
+    let _ = writeln!(out, "Allowance  {}", allowance_line(&board.allowance));
+    let _ = writeln!(out, "Verdict    {}", guard_line(&board_guard(image, board)));
+    out
+}
+
+/// What a reboot would decide right now for `board` under `image` ([ww_board_info::guard::decide]), what
+/// [rom_info_text] and `wire_weaver_cli`'s `--format json` for `ww info` in the ROM show.
+pub fn board_guard(image: &ImageReworks, board: &BoardReworks) -> Guard {
+    let known = image
+        .table()
+        .ok()
+        .flatten()
+        .and_then(|t| t.known(&board.name, &board.revision))
+        .unwrap_or(ReworkSet::EMPTY);
+    ww_board_info::guard::decide(known, board.applied, board.allowance, image.id)
 }
 
 /// A [RomFlash] in RAM for tests: `flash` at `base`, with page erases of `page` bytes.
@@ -610,6 +722,74 @@ mod tests {
         });
         // the first chunk has the old image, the second reads erased
         assert_eq!(rom.reads, 2);
+    }
+
+    #[test]
+    fn scan_installed_image_without_a_table() {
+        // an image from before the guard: no table, but scan_installed_image still gives the build id
+        let mut rom = chip(&flash(false, 0x10), b'B', 0);
+        embassy_futures::block_on(async {
+            let image = scan_installed_image(&mut rom, BASE, 0x80000).await.unwrap();
+            assert!(!image.guards());
+            assert_eq!(image.id.unwrap().0[0], 0x10);
+            assert_eq!(scan_installed(&mut rom, BASE, 0x80000).await.unwrap(), None);
+        });
+    }
+
+    #[test]
+    fn rom_info_text_states() {
+        embassy_futures::block_on(async {
+            // runs: every applied rework known
+            let mut rom = chip(&flash(true, 0x10), b'B', 1 << 1);
+            let image = scan_installed_image(&mut rom, BASE, 0x80000).await.unwrap();
+            let board = read_board(&mut rom, &image, None, None).await.unwrap();
+            let text = rom_info_text(&image, board.as_ref());
+            assert!(
+                text.contains("Verdict    runs: every applied rework is known"),
+                "{text}"
+            );
+            assert!(
+                text.contains(&format!("Image      build id {}", image.id.unwrap())),
+                "{text}"
+            );
+            assert!(
+                text.contains("Board      B200 rev B, reworks applied 1"),
+                "{text}"
+            );
+
+            // refuses to boot: rework 9 applied, unknown, no allowance
+            let mut rom = chip(&flash(true, 0x10), b'B', 1 << 3 | 1 << 9);
+            let image = scan_installed_image(&mut rom, BASE, 0x80000).await.unwrap();
+            let board = read_board(&mut rom, &image, None, None)
+                .await
+                .unwrap()
+                .unwrap();
+            let text = rom_info_text(&image, Some(&board));
+            assert!(
+                text.contains("refuses to boot: unknown rework(s) 9 (blink code 1)"),
+                "{text}"
+            );
+            assert!(text.contains("ww board rework allow 9"), "{text}");
+
+            // runs with the allowance, once stored
+            let allowance = StoredAllowance::new(image.id.unwrap(), set(&[9]));
+            set_allowance(&mut rom, &board, allowance).await.unwrap();
+            let board = read_board(&mut rom, &image, None, None)
+                .await
+                .unwrap()
+                .unwrap();
+            let text = rom_info_text(&image, Some(&board));
+            assert!(
+                text.contains("runs: rework(s) 9 unknown to this image, allowed for it"),
+                "{text}"
+            );
+
+            // an image from before the guard: no table, nothing to check
+            let old = ImageReworks::from_flash(&flash(false, 0x10));
+            let text = rom_info_text(&old, None);
+            assert!(text.starts_with("Image      no rework table"), "{text}");
+            assert!(text.contains("Board      no bench record"), "{text}");
+        });
     }
 
     #[test]

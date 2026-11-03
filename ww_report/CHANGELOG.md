@@ -15,14 +15,14 @@
   an old image), `board_guard` (`ww_board_info::guard::decide` run on what `read_board` answered: the verdict a
   reboot would reach right now), `guard_line` and `rom_info_text` (TOOL-30): what `ww info` shows for a board
   already in its boot ROM.
-- `crash` (CLT-59): the crash record's call chain as `file:line` frames from the ELF's DWARF, for firmware built
-  with `-Zlocation-detail=none`. `Symbolizer` (`load`, `from_elf`, `symbolize`, `frames`, `call_site`),
-  `CrashAddresses` (`from_record` for a `ResetRecordOwned`, `from_last_reset`), `CrashFrames` (`sites`,
-  `panic_site`, `panic_frame`, `summary`, `render`, `render_lines`, `dropped`, `no_debug_info`), `Site`, `Frame`,
-  `FrameKind`, `Source`, `short_path`. A fault's `pc` is looked up exactly, `lr` and stack words at the call before
-  them; stack words that are no return address are dropped (the `bedrock_crash::is_return_address` rule, read from
-  the ELF's code); inlined frames come innermost first; the panic machinery is marked so the panic site stands out.
-  `ww report` shows the frames and the panic site under "Last reset".
+- `crash` (CLT-59): the crash record's call chain as `file:line` frames from the ELF's DWARF, for firmware built with
+  `-Zlocation-detail=none`. `Symbolizer` (`load`, `from_elf`, `symbolize`, `frames`, `call_site`), `CrashAddresses`
+  (`from_record` for a `ResetRecordOwned`, `from_last_reset`), `CrashFrames` (`sites`, `panic_site`, `panic_frame`,
+  `summary`, `render`, `render_lines`, `dropped`, `no_debug_info`), `Site`, `Frame`, `FrameKind`, `Source`,
+  `short_path`, `short_function` (the text leaves generic arguments out, the JSON keeps them). A fault's `pc` is looked
+  up exactly, `lr` and stack words at the call before them; stack words that are no return address are dropped (the
+  `bedrock_crash::is_return_address` rule, read from the ELF's code); inlined frames come innermost first; the panic
+  machinery is marked so the panic site stands out. `ww report` shows the frames and the panic site under "Last reset".
 - `rework_check` (TOOL-29, STD-101): the check every flasher makes before writing an image, with the chip in its ROM bootloader. `RomFlash` (read, and replay `FlashOp` erases and writes) is what a flasher gives it; `ImageReworks::from_flash` (the image's table, locator and `ImageId` from its flash contents), `scan_installed` (the table of the image in flash, read through the ROM), `board_name`, `read_board` (`BoardReworks`: name, revision, applied reworks and the stored allowance, from the bench record through the ROM), `verdict` (`Verdict`: `Ok`, `Lacking`, `OtherBoard`, `NoRecord`, `BadRecord`, with `Display` texts), `set_allowance` (store or clear it through the ROM, read back), `allowance_line`. Used by `ww dfu rp flash` and `ww dfu stm32 flash`.
 - `ww info` / `ww report` print the board's reworks (`ww_board_info::BoardInfo::REWORKS`, STD-24) when the device
   serves them: `info::Board::reworks: Part<Vec<Rework>>`. `Part::from_error` maps `NotImplementedByDevice` to

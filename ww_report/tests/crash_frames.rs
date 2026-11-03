@@ -137,6 +137,12 @@ fn inlined_panic() {
         text.contains("crash_fw::check_gain at src/main.rs:25:9 (inlined)  <- panic site"),
         "{text}"
     );
+    assert!(
+        panic(&[0x0800_007b])
+            .render()
+            .contains("core::option::Option::unwrap at core/src/option.rs:1016:21 (inlined)"),
+        "generic arguments are left out of the text"
+    );
 }
 
 /// `table[i]` out of bounds in `pick`.

@@ -360,7 +360,8 @@ impl CrashFrames {
             Source::Pc => "Fault in",
             _ => "Panic site",
         };
-        let mut line = format!("{what}: {}", f.function.as_deref().unwrap_or("??"));
+        let function = f.function.as_deref().map(short_function);
+        let mut line = format!("{what}: {}", function.as_deref().unwrap_or("??"));
         if let Some(file) = &f.short_file {
             let _ = write!(line, " at {file}");
             if let Some(l) = f.line {
@@ -393,7 +394,10 @@ impl CrashFrames {
                     // an inlined frame's caller, on the same address
                     format!("{:16}    ", "")
                 };
-                line.push_str(f.function.as_deref().unwrap_or("??"));
+                match &f.function {
+                    Some(function) => line.push_str(&short_function(function)),
+                    None => line.push_str("??"),
+                }
                 if let Some(file) = &f.short_file {
                     let _ = write!(line, " at {file}");
                     if let Some(l) = f.line {
@@ -440,6 +444,57 @@ fn clean_path(path: &str) -> String {
     path.strip_prefix("./").unwrap_or(path).replace("/./", "/")
 }
 
+/// A demangled function name without generic arguments, for display: `<donguru::ww::ServerState>::led_on::<Sink<..>>`
+/// as `donguru::ww::ServerState::led_on`. A trait's `<T as Trait>` stays.
+pub fn short_function(name: &str) -> String {
+    let mut out = String::new();
+    let mut chars = name.chars().peekable();
+    while let Some(c) = chars.next() {
+        let generic_args = c == '<'
+            && out
+                .chars()
+                .last()
+                .is_some_and(|p| p.is_alphanumeric() || p == '_' || p == ':');
+        if !generic_args {
+            out.push(c);
+            continue;
+        }
+        // skip to the matching `>`, and the `::` of a turbofish before it
+        let mut depth = 1;
+        for c in chars.by_ref() {
+            match c {
+                '<' => depth += 1,
+                '>' => depth -= 1,
+                _ => {}
+            }
+            if depth == 0 {
+                break;
+            }
+        }
+        if out.ends_with("::") {
+            out.truncate(out.len() - 2);
+        }
+    }
+    unwrap_plain_paths(&out)
+}
+
+/// `<a::B>::c` as `a::B::c`: angle brackets around a path without `as` are only there for generic types.
+fn unwrap_plain_paths(name: &str) -> String {
+    let mut out = name.to_string();
+    while let Some(start) = out.find('<') {
+        let Some(len) = out[start + 1..].find(['<', '>']) else {
+            break;
+        };
+        let end = start + 1 + len;
+        let inner = &out[start + 1..end];
+        if out.as_bytes()[end] != b'>' || inner.contains(" as ") || inner.contains(' ') {
+            break;
+        }
+        out = format!("{}{}{}", &out[..start], inner, &out[end + 1..]);
+    }
+    out
+}
+
 /// Panic machinery: what runs between the panic site and the panic handler.
 fn kind_of(function: Option<&str>) -> FrameKind {
     let Some(f) = function else {
@@ -460,6 +515,10 @@ fn kind_of(function: Option<&str>) -> FrameKind {
         "rust_begin_unwind",
         "__rustc::rust_begin_unwind",
         "bedrock_crash::",
+        // defmt's `panic!` / `unwrap!` and its default panic handler
+        "_defmt_panic",
+        "__defmt_default_panic",
+        "defmt::",
     ];
     const PANICKING_METHODS: &[&str] = &[
         "::unwrap",
@@ -583,6 +642,39 @@ mod tests {
     }
 
     #[test]
+    fn short_functions() {
+        for (name, short) in [
+            ("crash_fw::ratio", "crash_fw::ratio"),
+            (
+                "<core::option::Option<u32>>::unwrap",
+                "core::option::Option::unwrap",
+            ),
+            (
+                "<donguru::ww::ServerState>::led_on::<wire_weaver::context::EventWriter<ww_device::server::Sink<ww_device::server::EmbassyClock>>>",
+                "donguru::ww::ServerState::led_on",
+            ),
+            (
+                "<donguru::ww::ServerState>::process_root::<ww_device::Sink<u8>>::{closure#0}",
+                "donguru::ww::ServerState::process_root::{closure#0}",
+            ),
+            (
+                "<embassy_executor::raw::TaskPool<donguru::Main, 1>>::spawn",
+                "embassy_executor::raw::TaskPool::spawn",
+            ),
+            (
+                "<u32 as core::fmt::Debug>::fmt",
+                "<u32 as core::fmt::Debug>::fmt",
+            ),
+            (
+                "<heapless::Vec<u8, 4> as core::ops::Deref>::deref",
+                "<heapless::Vec as core::ops::Deref>::deref",
+            ),
+        ] {
+            assert_eq!(short_function(name), short, "{name}");
+        }
+    }
+
+    #[test]
     fn panic_machinery() {
         for f in [
             "core::panicking::panic_fmt",
@@ -594,6 +686,8 @@ mod tests {
             "<core::result::Result<T, E>>::unwrap",
             "bedrock_crash::cortex_m::capture_panic",
             "donguru::panic_handler",
+            "_defmt_panic",
+            "__defmt_default_panic",
         ] {
             assert_eq!(kind_of(Some(f)), FrameKind::Panic, "{f}");
         }

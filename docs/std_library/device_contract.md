@@ -173,8 +173,8 @@ so the record's addresses are the way back to the panic site. `ww report` turns 
   such words; a fault's raw stack words are filtered on the host;
 * each address shows the functions inlined there too, innermost first, with shortened paths
   (`core/src/option.rs`, `embassy-usb-0.6.0/src/lib.rs`, `ww_device/src/server.rs`);
-* the panic machinery (`core::panicking`, `unwrap_failed`, `Option::unwrap`, the panic handler, `bedrock_crash`) is
-  passed over, and the first frame past it is the **panic site**.
+* the panic machinery (`core::panicking`, `unwrap_failed`, `Option::unwrap`, the panic handler, `bedrock_crash`, defmt's
+  `panic!`) is passed over, and the first frame past it is the **panic site**.
 
 ```text
 Panic site: crash_fw::ratio at src/main.rs:12:22

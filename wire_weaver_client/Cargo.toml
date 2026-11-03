@@ -55,6 +55,7 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_
 [dependencies]
 anyhow.workspace = true
 either = "1"
+exact_units = { workspace = true, features = ["information"] }
 futures-lite = "2.6"
 futures-util = { version = "0.3", default-features = false, features = ["sink"], optional = true }
 hex = { workspace = true, features = ["std"] }

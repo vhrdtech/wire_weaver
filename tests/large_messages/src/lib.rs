@@ -3,6 +3,7 @@
 #![cfg(test)]
 
 use client::Client;
+use exact_units::Bytes;
 use futures_lite::StreamExt;
 use large_messages_api::{ARCHIVE_FULL_GID, Cursor, PageOwned, ReadingId, ReadingOwned, RowCount};
 use local::Results;
@@ -10,7 +11,7 @@ use tests_common::{
     MAX_MESSAGE_LEN, TestDevice, TestProcessEventsAsync, start_device_async_with_limit,
 };
 use wire_weaver::CallContext;
-use wire_weaver::call::{self, ItemStream, item_stream};
+use wire_weaver::call::{self, ItemStream, MessageKind, item_stream};
 use wire_weaver::prelude::*;
 use wire_weaver_client::Error;
 use ww_client_server::StreamSideband;
@@ -227,7 +228,13 @@ async fn reply_over_the_device_limit() {
         client.table(rows(1000)).call().await.unwrap_err(),
         client.table_later(rows(1000)).call().await.unwrap_err(),
     ] {
-        assert_over_limit(error, "reply", "device", 2 * MAX_MESSAGE_LEN, LIMIT);
+        assert_over_limit(
+            error,
+            MessageKind::Reply,
+            "device",
+            2 * MAX_MESSAGE_LEN,
+            LIMIT,
+        );
     }
     // the link is fine after it
     assert_eq!(client.table(rows(2)).call().await.unwrap(), table(rows(2)));
@@ -239,12 +246,24 @@ async fn reply_over_the_host_limit() {
     let device = start("over_host", LIMIT);
     let client = connect(&device, 2 * MAX_MESSAGE_LEN).await;
     let error = client.table(rows(1000)).call().await.unwrap_err();
-    assert_over_limit(error, "reply", "host", LIMIT, 2 * MAX_MESSAGE_LEN);
+    assert_over_limit(
+        error,
+        MessageKind::Reply,
+        "host",
+        LIMIT,
+        2 * MAX_MESSAGE_LEN,
+    );
 }
 
 #[track_caller]
-fn assert_over_limit(error: Error, side: &str, set_by: &str, device: usize, host: usize) {
+fn assert_over_limit(error: Error, side: MessageKind, set_by: &str, device: usize, host: usize) {
     let text = error.to_string();
+    // a local trait's caller sees the same: which message and the link's limit
+    let wire_weaver::call::ErrorKind::MessageTooBig(too_big) = error.call_kind() else {
+        panic!("not MessageTooBig: {:?}", error.call_kind());
+    };
+    assert_eq!(too_big.message, side);
+    assert_eq!(too_big.limit, Bytes::new(device.min(host) as u32));
     let Error::MessageTooBig { what, limit, .. } = error else {
         panic!("not over the limit: {error:?}");
     };

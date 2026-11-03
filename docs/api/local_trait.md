@@ -120,7 +120,9 @@ any stream into an `ItemStream`.
 client:
 
 - `Error` is what went wrong on the way: an `ErrorKind` and an optional cause. The kinds are `Unimplemented`,
-  `Denied`, `Unavailable`, `DeadlineExceeded`, `Cancelled`, `Overloaded` and `Internal`. `error.kind()` reads it;
+  `Denied`, `Unavailable`, `DeadlineExceeded`, `Cancelled`, `Overloaded`, `MessageTooBig` (a request or reply over
+  the link's [message limit](large_messages.md#over-the-limit), with which one, its length and the limit) and
+  `Internal`. `error.kind()` reads it;
   `Error::denied("why")`, `Error::from_kind(ErrorKind::Overloaded)` and `ErrorKind::Overloaded.into()` make one.
 - `CallError<E>` is a method's error with the API's own error type: `Api(E)` is the API's `Err(e)`, the other
   variants carry the kinds above with their cause. `?` turns an `Error` into a `CallError<E>`;

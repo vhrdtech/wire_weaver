@@ -4,6 +4,7 @@ use ww_client_server::ErrorKindOwned;
 use ww_version::FullVersionOwned;
 
 use crate::DeviceInfo;
+use exact_units::Bytes;
 use wire_weaver::call::ErrorKind as CallErrorKind;
 
 #[derive(thiserror::Error, Debug)]
@@ -65,8 +66,8 @@ pub enum Error {
     /// refused before it is sent, a reply by the device, which then answers with this error instead.
     #[error("{what}{} is over the link's message limit of {limit}", describe_len(*.len))]
     MessageTooBig {
-        /// `"request"` or `"reply"`
-        what: &'static str,
+        /// The request or its reply
+        what: wire_weaver::call::MessageKind,
         /// Its length, when known (the device doesn't say how long a refused reply was)
         len: Option<usize>,
         limit: crate::MessageLimit,
@@ -246,8 +247,15 @@ impl Error {
             | Error::Other(_)
             | Error::AmbiguousDeviceChoice(_)
             | Error::MultiReq(_)
-            | Error::AbsolutePathInTraitsOnly(_)
-            | Error::MessageTooBig { .. } => CallErrorKind::Internal,
+            | Error::AbsolutePathInTraitsOnly(_) => CallErrorKind::Internal,
+            Error::MessageTooBig { what, len, limit } => {
+                let bytes = |n: usize| Bytes::new(u32::try_from(n).unwrap_or(u32::MAX));
+                CallErrorKind::MessageTooBig(wire_weaver::call::MessageTooBig::new(
+                    *what,
+                    len.map(bytes),
+                    bytes(limit.agreed()),
+                ))
+            }
         }
     }
 }

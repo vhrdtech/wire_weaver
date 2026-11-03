@@ -697,7 +697,7 @@ impl TxCore {
                 let limit = self.message_limit();
                 if bytes.len() > limit.agreed() {
                     let error = Error::MessageTooBig {
-                        what: "request",
+                        what: wire_weaver::call::MessageKind::Request,
                         len: Some(bytes.len()),
                         limit,
                     };

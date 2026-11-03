@@ -5957,6 +5957,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "either",
+ "exact_units",
  "futures-lite",
  "futures-util",
  "hex",

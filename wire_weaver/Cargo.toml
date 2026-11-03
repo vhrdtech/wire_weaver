@@ -10,7 +10,13 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 
 [features]
 default = ["std"]
-std = ["dep:futures-core", "shrink_wrap/std", "ww_error/std", "ww_version/std"]
+std = [
+    "dep:futures-core",
+    "exact_units/information",
+    "shrink_wrap/std",
+    "ww_error/std",
+    "ww_version/std",
+]
 defmt = [
     "dep:defmt",
     "exact_units/defmt",
@@ -22,7 +28,7 @@ serde = ["shrink_wrap/serde"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
-# `Millis` of `CallContext::deadline`: a type alias, no code
+# `Millis` of `CallContext::deadline`, with `std` `Bytes` of `call::MessageTooBig`: type aliases, no code
 exact_units = { workspace = true, features = ["time"] }
 futures-core = { workspace = true, optional = true }
 shrink_wrap = { workspace = true, default-features = false }

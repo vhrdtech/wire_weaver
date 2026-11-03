@@ -6,6 +6,7 @@
 //! `local` feature needs `wire_weaver` with `std` only. `wire_weaver_client`'s errors convert into them and stay
 //! reachable as their [source](std::error::Error::source).
 
+use exact_units::Bytes;
 use std::convert::Infallible;
 use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
@@ -46,8 +47,65 @@ pub enum ErrorKind {
     Cancelled,
     /// The callee is busy: too many calls in flight. Trying again later may work.
     Overloaded,
+    /// A request or reply is longer than the link's message limit (CLT-55): which one, how long, and the limit.
+    /// Trying again won't help; a smaller request, or a result in pieces (a stream, pages), does.
+    MessageTooBig(MessageTooBig),
     /// Anything else: a broken reply, an incompatible API, a bug.
     Internal,
+}
+
+/// Which message of a call was over the link's limit ([ErrorKind::MessageTooBig]).
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum MessageKind {
+    /// The caller's request: refused before it is sent.
+    Request,
+    /// The callee's reply: the callee answers with this error instead.
+    Reply,
+}
+
+/// A request or reply over the link's message limit ([ErrorKind::MessageTooBig]).
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[non_exhaustive]
+pub struct MessageTooBig {
+    pub message: MessageKind,
+    /// The message's length, None where the side that refused it doesn't say (a device refusing its reply).
+    pub len: Option<Bytes<u32>>,
+    /// The link's limit: the smaller of the two sides'.
+    pub limit: Bytes<u32>,
+}
+
+impl MessageTooBig {
+    pub const fn new(message: MessageKind, len: Option<Bytes<u32>>, limit: Bytes<u32>) -> Self {
+        MessageTooBig {
+            message,
+            len,
+            limit,
+        }
+    }
+}
+
+/// `request` or `reply`
+impl Display for MessageKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            MessageKind::Request => "request",
+            MessageKind::Reply => "reply",
+        })
+    }
+}
+
+impl Display for MessageTooBig {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let what = self.message;
+        match self.len {
+            Some(len) => write!(
+                f,
+                "{what} of {len} over the link's message limit of {}",
+                self.limit
+            ),
+            None => write!(f, "{what} over the link's message limit of {}", self.limit),
+        }
+    }
 }
 
 impl ErrorKind {
@@ -59,6 +117,7 @@ impl ErrorKind {
             ErrorKind::DeadlineExceeded => "deadline exceeded",
             ErrorKind::Cancelled => "cancelled",
             ErrorKind::Overloaded => "overloaded",
+            ErrorKind::MessageTooBig(_) => "message too big",
             ErrorKind::Internal => "internal error",
         }
     }
@@ -66,7 +125,10 @@ impl ErrorKind {
 
 impl Display for ErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.describe())
+        match self {
+            ErrorKind::MessageTooBig(m) => Display::fmt(m, f),
+            _ => f.write_str(self.describe()),
+        }
     }
 }
 
@@ -120,6 +182,19 @@ impl Error {
 
     pub fn internal(why: impl Into<Source>) -> Self {
         Self::new(ErrorKind::Internal, why)
+    }
+
+    /// A request or reply over the link's limit, without a cause: its text says which, how long and the limit.
+    pub const fn message_too_big(too_big: MessageTooBig) -> Self {
+        Self::from_kind(ErrorKind::MessageTooBig(too_big))
+    }
+
+    /// Which message was over the link's limit, how long and the limit, for [ErrorKind::MessageTooBig].
+    pub fn too_big(&self) -> Option<MessageTooBig> {
+        match self.kind {
+            ErrorKind::MessageTooBig(m) => Some(m),
+            _ => None,
+        }
     }
 }
 
@@ -196,6 +271,8 @@ pub enum CallError<E> {
     Cancelled(Option<Source>),
     /// [ErrorKind::Overloaded]
     Overloaded(Option<Source>),
+    /// [ErrorKind::MessageTooBig]: which message, how long and the link's limit.
+    MessageTooBig(MessageTooBig, Option<Source>),
     /// [ErrorKind::Internal]
     Internal(Option<Source>),
 }
@@ -219,6 +296,7 @@ impl<E> CallError<E> {
             CallError::DeadlineExceeded(_) => ErrorKind::DeadlineExceeded,
             CallError::Cancelled(_) => ErrorKind::Cancelled,
             CallError::Overloaded(_) => ErrorKind::Overloaded,
+            CallError::MessageTooBig(m, _) => ErrorKind::MessageTooBig(*m),
             CallError::Internal(_) => ErrorKind::Internal,
         })
     }
@@ -244,6 +322,7 @@ impl<E> CallError<E> {
             | CallError::DeadlineExceeded(s)
             | CallError::Cancelled(s)
             | CallError::Overloaded(s)
+            | CallError::MessageTooBig(_, s)
             | CallError::Internal(s) => s,
         };
         Err(Error { kind, source })
@@ -258,6 +337,7 @@ impl<E> CallError<E> {
             | CallError::DeadlineExceeded(s)
             | CallError::Cancelled(s)
             | CallError::Overloaded(s)
+            | CallError::MessageTooBig(_, s)
             | CallError::Internal(s) => s.as_ref(),
         }
     }
@@ -281,6 +361,7 @@ impl<E> From<Error> for CallError<E> {
             ErrorKind::DeadlineExceeded => CallError::DeadlineExceeded(s),
             ErrorKind::Cancelled => CallError::Cancelled(s),
             ErrorKind::Overloaded => CallError::Overloaded(s),
+            ErrorKind::MessageTooBig(m) => CallError::MessageTooBig(m, s),
             ErrorKind::Internal => CallError::Internal(s),
         }
     }
@@ -354,6 +435,30 @@ mod tests {
         let e = Error::unavailable(Inner);
         assert!(e.cause().unwrap().downcast_ref::<Inner>().is_some());
         assert!(e.into_cause().unwrap().downcast::<Inner>().is_ok());
+    }
+
+    #[test]
+    fn message_too_big_carries_its_numbers() {
+        let m = MessageTooBig::new(
+            MessageKind::Reply,
+            Some(Bytes::new(70_000)),
+            Bytes::new(65_536),
+        );
+        let e = Error::message_too_big(m);
+        assert_eq!(e.kind(), ErrorKind::MessageTooBig(m));
+        assert_eq!(e.too_big(), Some(m));
+        assert_eq!(
+            e.to_string(),
+            "reply of 70000 B over the link's message limit of 65536 B"
+        );
+        let c: CallError<u8> = e.into();
+        assert!(matches!(c, CallError::MessageTooBig(got, None) if got == m));
+        assert_eq!(c.into_api().unwrap_err().too_big(), Some(m));
+        let request = MessageTooBig::new(MessageKind::Request, None, Bytes::new(512));
+        assert_eq!(
+            request.to_string(),
+            "request over the link's message limit of 512 B"
+        );
     }
 
     #[test]

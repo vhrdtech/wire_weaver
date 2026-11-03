@@ -42,6 +42,10 @@ Both reach the caller as `Error::MessageTooBig`, and its text names both numbers
 reply is over the link's message limit of 16384 bytes, set by the host (device 65536 from its DeviceInfo, host 16384 from ClientConfig::max_message_len)
 ```
 
+Through a [local trait](local_trait.md#errors) the same error is `ErrorKind::MessageTooBig` (and
+`CallError::MessageTooBig`), which carries the numbers: `error.too_big()` gives which message (`MessageKind::Request`
+or `Reply`), its length when known and the link's limit, as `Bytes<u32>`.
+
 Raise the smaller limit, or better, stop sending the result as one message, see [Result sets](#result-sets).
 
 ## Replies longer than the scratch buffer

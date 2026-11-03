@@ -552,7 +552,7 @@ impl RxDispatcher {
                     && matches!(e.kind, ww_client_server::ErrorKindOwned::ResponseSerFailed) =>
             {
                 Error::MessageTooBig {
-                    what: "reply",
+                    what: wire_weaver::call::MessageKind::Reply,
                     len: None,
                     limit,
                 }

@@ -294,7 +294,11 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
 - CLIs print version, git SHA and build time in `--version` (`tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026 18:20)`)
   from a small `build.rs` without extra crates; firmware reports the same through `fw_info`.
 - CLI look and behaviour (help, completion, output, colour, errors and exit codes, progress, prompts, --version):
-  follow the CLI UX guide, `~/git/tpm/area/ops/cli-ux.md`; repo-specific rules here win where they are stricter.
+  follow the CLI UX guide, `~/git/vhrd_cli/docs/ux-guide.md`
+  (https://github.com/vhrdtech/vhrd_cli/blob/main/docs/ux-guide.md); the rules every UI shares are vhrd_egui's
+  guide section 2, "rules for every UI"
+  (https://github.com/vhrdtech/vhrd_egui/blob/main/docs/ux-guide.md#2-rules-for-every-ui). Repo-specific rules
+  here win where they are stricter.
 
 ## Naming
 

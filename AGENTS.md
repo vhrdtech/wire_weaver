@@ -293,6 +293,8 @@ is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.
   Inline exceptions: `semver` in `ww_version`, `either` in `shrink_wrap`.
 - CLIs print version, git SHA and build time in `--version` (`tool 0.4.2 (a1b2c3d-dirty, built 3 Oct 2026 18:20)`)
   from a small `build.rs` without extra crates; firmware reports the same through `fw_info`.
+- CLI look and behaviour (help, completion, output, colour, errors and exit codes, progress, prompts, --version):
+  follow the CLI UX guide, `~/git/tpm/area/ops/cli-ux.md`; repo-specific rules here win where they are stricter.
 
 ## Naming
 

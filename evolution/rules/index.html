@@ -2674,6 +2674,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#choices-of-one-firmware-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choices of one firmware image
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5965,6 +5976,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#choices-of-one-firmware-image" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choices of one firmware image
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#api-model" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6307,6 +6329,18 @@ so <code>ww api check</code> treats the marker by what it does to their Rust cod
 server doesn't use them: adding, changing or removing one is compatible, <code>ww api check</code> lists it. Only the
 introspection data (and so the API hash) changes. Removing a <code>#[claim]</code> does change what the hub lets a program do: a
 program that claims that resource is refused from then on, so say so in the changelog.</p>
+<h3 id="choices-of-one-firmware-image">Choices of one firmware image<a class="headerlink" href="#choices-of-one-firmware-image" title="Permanent link">&para;</a></h3>
+<p>Some choices belong to a firmware image and not to its API: <code>ww_codegen!(.., observe_samples = false)</code> is one. Two
+images of one API have the same API hash, snapshot and introspection data, and a host that has the data cached by its
+hash doesn't download it again, so these choices can't travel there. They are in <code>ww_version::ImageFacts</code>, a field of
+the link's <code>DeviceInfo</code> outside its hash. A device sends it on every connection, also with introspection off, and a
+generated server has it as <code>image_facts()</code>, the third argument of <code>LinkConfig::new</code>.</p>
+<ul>
+<li>A new choice is a field appended to <code>ImageFacts</code> with <code>#[default]</code>, its zero value the ordinary case. It is
+  wire-compatible both ways: an old device reads as the ordinary case, an old host steps over the field.</li>
+<li>A fact only saves a host from asking. What a device answers still decides, for a host that doesn't read the fact.</li>
+<li>A choice that changes what a client may rely on is not a fact of the image: it belongs in the API.</li>
+</ul>
 <h3 id="api-model">API model<a class="headerlink" href="#api-model" title="Permanent link">&para;</a></h3>
 <p>API model (like <code>ww_client_server</code>) is part of the compatibility equation, it is not allowed to update the model
 version without breaking compatibility.</p>

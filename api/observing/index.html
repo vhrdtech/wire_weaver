@@ -2072,6 +2072,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-firmware-that-takes-no-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A firmware that takes no samples
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#host-side" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5849,6 +5860,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#a-firmware-that-takes-no-samples" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A firmware that takes no samples
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#host-side" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -6377,7 +6399,8 @@ than a small MCU has). The server then keeps a <code>&amp;'static mut</code> to 
   times, sample <code>i</code> taken at time <code>i</code>. An update that carries only batches has no head <code>t</code>, one with <code>One</code> values or
   plain properties has it as before. Rows carry every value of the level, so a property switched into <code>Samples</code>
   also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.</li>
-<li><strong>Limits</strong>: <code>Samples</code> is refused for a property without <code>+batched</code> (<code>ModeNotSupported</code>); <code>max_age_us</code> is
+<li><strong>Limits</strong>: <code>Samples</code> is refused for a property without <code>+batched</code>, and on a firmware
+  <a href="#a-firmware-that-takes-no-samples">that takes no samples</a> (<code>ModeNotSupported</code>); <code>max_age_us</code> is
   clamped to <code>ObserveLimits::samples_max_age_us</code> (1 ms to 10 s by default); <code>every_us</code> decimates on the device's
   grid (the first sample in each <code>every_us</code>), 0 is every sample, and is raised to
   <code>ObserveLimits::samples_min_every_us</code> (0, every sample, by default). The <code>Samples</code> entries of a level share one
@@ -6449,6 +6472,49 @@ can't tell which one a device uses.</p>
 </ul>
 <p><code>ww api scaffold --observe-cells root_foc</code> writes the <code>static</code>, the <code>ObserveState</code> type and the <code>ww_codegen!</code>
 argument.</p>
+<h3 id="a-firmware-that-takes-no-samples">A firmware that takes no samples<a class="headerlink" href="#a-firmware-that-takes-no-samples" title="Permanent link">&para;</a></h3>
+<p><code>+batched</code> says two things: the API's shape, a <code>Batched&lt;T&gt;</code> slot, and that a device can keep every sample. The second
+is the device's choice. A firmware that never produces a row (samples are an optional feature of the image, say)
+turns it off with <code>ww_codegen!(.., observe_samples = false)</code>:</p>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">// ww_codegen!(power_api::Power for Device, server = true, .., observe_samples = false)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="n">observe</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">api_impl</span><span class="p">::</span><span class="n">ObserveState</span><span class="p">::</span><span class="n">init</span><span class="p">(</span><span class="n">STATE</span><span class="p">.</span><span class="n">uninit</span><span class="p">(),</span><span class="w"> </span><span class="n">ObserveLimits</span><span class="p">::</span><span class="n">DEFAULT</span><span class="p">);</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">server</span><span class="p">.</span><span class="n">poll_properties</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">ww_server</span><span class="p">.</span><span class="n">sink</span><span class="p">(),</span><span class="w"> </span><span class="n">medium</span><span class="p">,</span><span class="w"> </span><span class="n">now_us</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">buf</span><span class="p">).</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span></code></pre></div>
+<ul>
+<li><strong>What is left out</strong>: <code>ObserveBatches</code>, the samplers, the outboxes and the scratch. <code>ObserveState</code> and
+  <code>poll_properties</code> are those of an API without <code>+batched</code> properties, so no batcher, outbox or <code>Series</code> encoder is
+  linked. Nothing has to be stripped by the linker: the code isn't generated, and asking for samples of a build
+  without them doesn't compile.</li>
+<li><strong>What stays</strong>: everything a host can see of the API. The property is still <code>batched: Some(SharedClock)</code> in
+  introspection, the API hash and snapshot are the same, and the other modes send <code>Batched::One</code>, byte for byte what a
+  server that takes samples sends. Clients and hosts built for the API work unchanged.</li>
+<li><strong>The <code>Samples</code> mode is refused</strong>, as for a property without <code>+batched</code>: the entry is listed in
+  <code>ObserveGranted::refused</code> with <code>ModeNotSupported</code>, and the rest of the request applies. The request as a whole
+  doesn't fail, since nothing is wrong with it. <code>OperationNotSupported</code> is for a level that can't be observed at all,
+  and this level can.</li>
+<li><strong>What a host does</strong>: the image says so when the host connects, in <code>ImageFacts::no_observe_samples</code> of the link's
+  <code>DeviceInfo</code> (<code>Commander::device_api_info().image_facts</code>). This is not part of the API hash or the introspection
+  data, which two images of one API share. A client asked for <code>Samples</code> on such an image stops before sending, in a
+  <code>subscribe</code> or a <code>configure</code>, with <code>Error::Unsupported</code> naming the switch. That covers generated clients, the dynamic
+  client, <code>ww observe --samples</code> and the Python <code>Observer</code>. Other observers of the level keep what they asked for.</li>
+<li><strong>A host built before the facts</strong> doesn't read them, and a device built before them says nothing. Then the refusal
+  above is the answer: <code>.subscribe()</code> succeeds and <code>Granted::refused</code> names the property, so check it after asking for
+  samples, otherwise the observer just never gets a sample. <code>ww observe --samples</code> fails with the refusal and Python
+  has <code>Observer.refused</code>. In this case observers of one level also merge into <code>Samples</code> if any of them asks for it,
+  so one observer's refused <code>Samples</code> takes the property away from another observer of the level that asked for a
+  period.</li>
+<li><strong>Which arguments go with it</strong>: <code>observe_batch</code>, <code>observe_outbox</code> and <code>observe_cells</code> size or place batches that
+  no longer exist, and with <code>observe_samples = false</code> each is a compile error. On an API without <code>+batched</code> properties
+  the switch changes nothing.</li>
+<li><strong>Why here, and not in the API or in a type</strong>: the API crate is shared with every client, so an attribute there
+  would change the API for a choice one image makes. A type parameter would leave the batches in the signatures of
+  <code>ObserveState</code> and <code>poll_properties</code> for a firmware that has none. The firmware's own <code>ww_codegen!</code> call is where
+  the device's other choices about batches are made (<code>observe_cells</code>, <code>observe_batch</code>), and it is fixed at build time.</li>
+<li><strong>Cost</strong>: on a Cortex-M0+ at <code>opt-level = "z"</code> the switch saves about 20 KB of flash on a level of four properties,
+  and the <code>Batched</code> slots cost 72-80 B over plain ones
+  (<a href="../../articles/flash_budget/#no-samples-no-encoder-srv-56">flash budget</a>).</li>
+</ul>
+<p><code>ww api scaffold --no-observe-samples</code> writes the argument and the state without batches.</p>
 <h3 id="host-side">Host side<a class="headerlink" href="#host-side" title="Permanent link">&para;</a></h3>
 <p><code>&lt;Trait&gt;Observe::samples(max_age)</code> puts every <code>+batched</code> property of the level into <code>Samples</code> mode
 (<code>observe::samples(max_age)</code> / <code>samples_every(every, max_age)</code> for one property). A property observer gets one
@@ -6457,11 +6523,11 @@ observer gets <code>BatchedOwned&lt;T&gt;</code> slots and <code>Observed::sampl
 pairs them, a count that doesn't match is an error), and <code>&lt;Trait&gt;Latest</code> keeps the newest sample. An update whose
 <code>Samples</code> slots don't match its <code>sample_times</code> is malformed: a warning, its samples left out. Observers of one level
 merge into <code>Samples</code> if any of them asks for it.</p>
-<div class="language-rust highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">observe</span><span class="p">::</span><span class="n">samples</span><span class="p">;</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">i_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">foc</span><span class="p">().</span><span class="n">observe_i_a</span><span class="p">(</span><span class="n">samples</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="n">subscribe</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i_a</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{:?} {:?}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">value</span><span class="p">);</span><span class="w"> </span><span class="c1">// every sample, oldest first</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">}</span>
+<div class="language-rust highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">use</span><span class="w"> </span><span class="n">wire_weaver_client</span><span class="p">::</span><span class="n">observe</span><span class="p">::</span><span class="n">samples</span><span class="p">;</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">i_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">device</span><span class="p">.</span><span class="n">foc</span><span class="p">().</span><span class="n">observe_i_a</span><span class="p">(</span><span class="n">samples</span><span class="p">(</span><span class="n">Duration</span><span class="p">::</span><span class="n">from_millis</span><span class="p">(</span><span class="mi">5</span><span class="p">))).</span><span class="n">subscribe</span><span class="p">().</span><span class="k">await</span><span class="o">?</span><span class="p">;</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">while</span><span class="w"> </span><span class="kd">let</span><span class="w"> </span><span class="nb">Ok</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i_a</span><span class="p">.</span><span class="n">recv</span><span class="p">().</span><span class="k">await</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">&quot;{:?} {:?}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">.</span><span class="n">value</span><span class="p">);</span><span class="w"> </span><span class="c1">// every sample, oldest first</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The dynamic client decodes the same slots from introspection (<code>DynObserved::samples</code>), <code>ww observe --samples MS</code>
 prints one line per sample, and Python gets them per update or as numpy columns
@@ -6520,18 +6586,18 @@ unchanged: one device subscription per level, <code>t</code> unwrapped, reconnec
 <code>values</code> (present properties by name, in resource-index order), <code>t</code>, <code>missed</code>, <code>received</code>, and <code>data_len</code> (the
 update's raw byte length, e.g. for measuring link bytes/s).</p>
 <p><a href="../../cli_reference/#ww-observe"><code>ww observe &lt;path&gt; [--rate MS]</code></a> uses it directly:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$ ww observe motor --rate 10
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>observing motor (3 properties): speed, current, position
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>budget: 20.0 kB/s
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>Ctrl+C to stop
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$ ww observe motor --rate 10
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>observing motor (3 properties): speed, current, position
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>budget: 20.0 kB/s
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>Ctrl+C to stop
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>{speed: 1500, current: 3, position: 1024}  rate 98.2/s  link 982/s
 </span></code></pre></div>
 <p>and <a href="../../python_advanced/#observing"><code>wire_weaver_py</code></a>'s <code>Node.observe(cfg)</code> iterates the same updates as dicts:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">motor</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">m</span><span class="o">.</span><span class="n">observable_properties</span><span class="p">()</span>                              <span class="c1"># {&quot;speed&quot;: &quot;u32&quot;, &quot;current&quot;: &quot;u32&quot;, &quot;position&quot;: &quot;u32&quot;}</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">with</span> <span class="n">m</span><span class="o">.</span><span class="n">observe</span><span class="p">({</span><span class="s2">&quot;speed&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span> <span class="k">as</span> <span class="n">obs</span><span class="p">:</span>  <span class="c1"># speed periodically every 10ms, current on change</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;missed&quot;</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">m</span> <span class="o">=</span> <span class="n">dev</span><span class="o">.</span><span class="n">motor</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">m</span><span class="o">.</span><span class="n">observable_properties</span><span class="p">()</span>                              <span class="c1"># {&quot;speed&quot;: &quot;u32&quot;, &quot;current&quot;: &quot;u32&quot;, &quot;position&quot;: &quot;u32&quot;}</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">with</span> <span class="n">m</span><span class="o">.</span><span class="n">observe</span><span class="p">({</span><span class="s2">&quot;speed&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="kc">None</span><span class="p">})</span> <span class="k">as</span> <span class="n">obs</span><span class="p">:</span>  <span class="c1"># speed periodically every 10ms, current on change</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">obs</span><span class="p">:</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;t&quot;</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;missed&quot;</span><span class="p">])</span>
 </span></code></pre></div>
 <p>Both ask for every observable property on-change without an explicit rate/<code>cfg</code>, and share one device subscription
 per level with any generated-client observers of the same level.

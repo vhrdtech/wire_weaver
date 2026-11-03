@@ -6954,6 +6954,47 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at <code>fw-3</code> sync. Instructions per
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   <code>docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55</code>.</li>
+<li>🚧 <strong>SRV-56 No observe encoder without a row producer</strong> — a firmware with a <code>+batched</code> property links the whole
+  batch encoder even when it never produces a row. Measured on Donguru (typec_dongle 61bca76, wire_weaver 753d5f7,
+  release at <code>z</code>, text+data): 289,580 B with <code>meter-samples</code> off, 293,780 B with it on.</li>
+<li><strong>Done: <code>observe_samples = false</code>.</strong> A <code>ww_codegen!</code> argument, so the choice stays in the firmware that makes it
+    and the shared API crate doesn't change. No batcher, outbox, scratch or <code>Series</code> encoder; <code>ObserveState</code> and
+    <code>poll_properties</code> are those of an API without <code>+batched</code>. API hash, snapshot, introspection and <code>Batched::One</code>
+    bytes are the same (test <code>no_samples_keeps_the_api_and_the_bytes</code>). <code>Samples</code> is refused per entry with
+    <code>ModeNotSupported</code>, the rest of the request applies. Donguru with <code>meter-samples</code> off: 266,404 B, -23,176 B
+    text+data, -3,392 B RAM, no <code>series::</code> or <code>ww_stream::batch::</code> symbol left, 136 B over the experiment below.
+    TEST-30 has the kind: <code>docs/articles/flash_budget.md#no-samples-no-encoder-srv-56</code>. Not run on a board.</li>
+<li><strong>Open: <code>observe_rows = "uniform"</code></strong>, the second switch below.</li>
+<li><strong>Cost with no producer.</strong> With <code>meter-samples</code> off the firmware calls no sampler and has no cells, so from the
+    code no row can reach the encoder. Dropping <code>+batched</code> from <code>meter.reading</code> as an experiment gave 266,268 B:
+    -23,312 B text+data, -3,392 B RAM, no <code>series::</code> symbol left. That experiment changes the slot's wire type, so
+    the real switch has to keep <code>Batched::One</code> and will save somewhat less.</li>
+<li><strong>One caller, not two encoders.</strong> The flash map of Donguru lists <code>Scratch::encode_column::&lt;MeterReading&gt;</code> (5.5 KiB)
+    and <code>PowerMeterRow::encode_column</code> (2.9 KiB) as two encoders. The second is the generated <code>LevelRow</code> match: it has
+    the time column inlined and is the only caller of the first (one <code>bl</code> in the disassembly). <code>MeterReading</code> has no
+    batched stream in Donguru, so there is one consumer and no second pass to share.</li>
+<li><strong>Where the flash goes.</strong> Each column type carries the column writer and the item-by-item fallback for rows whose
+    tags change, each as a write copy and a count copy. Stubbing the fallback out as an experiment saved 12,332 B with
+    <code>meter-samples</code> off and 11,732 B with it on. Without a fallback, rows with changing tags can't be encoded.</li>
+<li><strong>Idea: the second switch.</strong> <code>observe_rows = "uniform"</code> would write columns only: a batch with a tag change would
+    go and count as missed, as a value that doesn't serialize does today. Not built, and the Series encoders stay as
+    they are for now.</li>
+<li><strong>Not measured.</strong> Instructions per row of <code>observe_rows</code>.</li>
+<li><strong>Done: the image says so.</strong> <code>ww_version::ImageFacts</code> is a field of <code>ww_link::DeviceInfo</code> outside the API hash, sent
+    on every connection, also with introspection off and through the hub. <code>no_observe_samples</code> is its first field; a
+    generated server has <code>image_facts()</code> for <code>LinkConfig::new</code>. Later choices of an image append fields (a host
+    knowing the codec of INT-16 before downloading, global lookup off of SRV-53). <code>wire_weaver_client</code> refuses
+    <code>Samples</code> before sending (<code>Error::Unsupported</code>), so the generated and dynamic clients, <code>ww observe</code> and Python
+    get it. No wire break. It costs every image 256 B of flash (Donguru with <code>meter-samples</code>, release at <code>z</code>, typec_dongle
+    7c97d27, wire_weaver 0543991: 291,508 -&gt; 291,764 B text+data), in the server's link code that writes
+    <code>DeviceInfo</code>; 112 B of it is the size slot that lets the record grow. Off image on the same base: 287,316 -&gt;
+    264,404 B, 65,396 -&gt; 62,004 B RAM. Tests <code>no_samples_is_refused_before_sending</code>, <code>image_facts_across_versions</code>,
+    <code>image_facts_reach_a_client_through_the_hub</code>, corpus cases <code>device_info.*</code>.
+    <a href="../docs/evolution/rules/#choices-of-one-firmware-image">Choices of one firmware image</a>.</li>
+<li><strong>Known limit.</strong> Without the facts (an older host or device) the refusal is the answer, and observers of one level
+    merge into <code>Samples</code> if any asks for it, so a refused <code>Samples</code> also takes the property from another observer of
+    the level that asked for a period. A device with no producer behaved the same before the switch, granting
+    <code>Samples</code> and sending nothing; now the refusal says why. With the facts the request never joins the merge.</li>
 <li>✅ <strong>SRV-53 Global trait paths without names in flash</strong> · <code>v0.5</code> — flash diet: <code>ww_global_trait_path</code> matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026), as built:<ol>
@@ -8422,6 +8463,27 @@ observing), SRV-46 (peer identity).
   <code>debug_to_file</code> dump), the resource arms naming the type. On the nucleo_g0b1re <code>usb_blinky</code> at <code>opt-level = "z"</code> it
   gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
   debug info. For when TEST-30's totals move and the reason isn't obvious.</li>
+<li>✅ <strong>TEST-33 No-float firmware guard</strong> · <code>v0.5</code> — <code>just flash-budget</code> (<code>examples_mcu/fw_budget --flash</code>,
+  <code>examples_mcu/fw_budget/src/no_f64_guard.rs</code>) builds a fixture (<code>examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs</code>,
+  <code>qemu-no-f64-guard</code>) that calls every device-relevant <code>ww_si::Quantity</code> operation of today's API (<code>to_u32_in</code>,
+  <code>to_u32_wrapping_in</code>, <code>PartialOrd</code>, a bounded decode, <code>to_fixed</code>, <code>Timed</code>, <code>steps</code>; STD-102 moves it onto <code>to_in</code>),
+  on <code>thumbv6m-none-eabi</code> and <code>thumbv7em-none-eabihf</code>, at <code>fw-z</code> and <code>fw-3</code>, in two groups (D2: no floats on a device
+  unless a type is a float or a feature turns them on). No floats (<code>u32</code>, <code>u32+u64</code>, <code>--no-default-features</code>): any f32
+  or f64 helper fails, and on <code>thumbv7em-none-eabihf</code>, which has an FPU and so no helpers, any VFP <code>.f32</code>/<code>.f64</code>
+  instruction in the <code>llvm-objdump</code> disassembly. Opted in (<code>u32+f32</code>, <code>u32+u64+f32</code>, <code>--features guard-u64</code> for the
+  64-bit <code>Integer</code> of usb_io_fw): f32 is allowed, f64 fails. Both fail on 128-bit helpers and on the slow paths
+  found by their own names (<code>to_ratio</code>, <code>compare_slow</code>, <code>cmp_limit_slow</code>, <code>rescale_slow</code>, <code>apply_truncating</code>,
+  <code>apply_f64</code>, <code>round_f64</code>, <code>pow_half</code>, <code>sqrt_f64</code>, <code>int_sqrt</code>), which catch math that left no helper symbol; a path
+  inlined into its caller, with no symbol, stays unseen. It prints symbols and bytes per build and bytes per crate.
+  Baseline of 3 Nov 2026 (red everywhere, <code>~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md</code> section 3):</li>
+<li>No floats, <code>thumbv6m-none-eabi</code>, <code>u32</code>: 14-15 f64 symbols (3.5-3.6 KB), 0 f32, 2 128-bit symbols (584 B), 5-7
+    slow-path symbols (9.7-10.0 KB); <code>u32+u64</code> one f64 symbol more.</li>
+<li>No floats, <code>thumbv7em-none-eabihf</code>, <code>u32</code>: 14-15 f64 symbols (3.4-3.5 KB), 2 128-bit (520 B), 5-7 slow paths
+    (8.1 KB), 20-22 VFP instructions.</li>
+<li>Opted in: 16-17 f64 symbols (3.6-3.8 KB), 13 f32 helpers (2.0 KB) on thumbv6m, 2 128-bit symbols, 5-6 slow paths.</li>
+<li>By crate (<code>fw-z</code>, <code>u32</code>, thumbv6m): compiler_builtins 4.2 KB, exact_units 5.0 KB, ww_si 5.0 KB.
+  Only reports for now; <code>--guard-strict</code> makes a forbidden symbol fail the run, and STD-102 turns that on in the gate
+  once <code>ww_si</code> sits on exact_units' integer kernel.</li>
 <li><strong>SRV-50 Server call gate</strong> — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   <code>ww_codegen!(.., call_gate = true)</code>, a <code>CallGate::admit</code> question per trait level (and per item where named) before

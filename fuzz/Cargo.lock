@@ -214,6 +214,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef25905e51abafe4dcea6c15fec58c57b601cdbd0ee53d22ea1d3016c587d39b"
 
 [[package]]
+name = "futures-core"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92d699e522242e69e3003b94ecc1f960f3a5e015aa7c5d7486e65ad01dd94f5e"
+
+[[package]]
 name = "fuzz"
 version = "0.0.0"
 dependencies = [
@@ -773,6 +779,8 @@ dependencies = [
 name = "wire_weaver"
 version = "0.5.0"
 dependencies = [
+ "exact_units",
+ "futures-core",
  "shrink_wrap 0.2.0",
  "wire_weaver_derive",
  "ww_error",

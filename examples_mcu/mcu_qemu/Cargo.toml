@@ -289,3 +289,17 @@ path = "src/bin/flash_maxlen16.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-flash-globals8"
+path = "src/bin/flash_globals8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-globals16"
+path = "src/bin/flash_globals16.rs"
+test = false
+doctest = false
+bench = false

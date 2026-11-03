@@ -15,7 +15,7 @@ const BASE: u64 = 8;
 const PROFILES: [&str; 2] = ["fw-z", "fw-3"];
 
 /// The pairs of bins, 8 and 16 resources of one kind at the root (`qemu-flash-<kind>8` / `16`), and the kind.
-const KINDS: [(&str, &str); 6] = [
+const KINDS: [(&str, &str); 7] = [
     ("qemu-flash-calls", "call, no arguments or output"),
     ("qemu-flash-calls-args", "call, an argument and an output"),
     ("qemu-flash-props", "property, read and write"),
@@ -28,12 +28,17 @@ const KINDS: [(&str, &str); 6] = [
         "qemu-flash-maxlen",
         "property of MaxLen<&str, N>, a different N each (SW-72)",
     ),
+    (
+        "qemu-flash-globals",
+        "trait reached by a global path, introspection off (SRV-53)",
+    ),
 ];
 
-/// Something checked in the largest server: symbols whose demangled name contains one of `symbols`, and strings
-/// found anywhere in the ELF's flash.
+/// Something checked in a server bin: symbols whose demangled name contains one of `symbols`, and strings found
+/// anywhere in the ELF's flash.
 struct Check {
     what: &'static str,
+    bin: &'static str,
     symbols: &'static [&'static str],
     strings: &'static [&'static str],
 }
@@ -41,18 +46,21 @@ struct Check {
 const CHECKS: [Check; 3] = [
     Check {
         what: "observe: the Series codec (SRV-54)",
+        bin: "qemu-flash-streams16",
         symbols: &["shrink_wrap::series::"],
         strings: &[],
     },
     Check {
         what: "core::fmt Debug of shrink_wrap::Error (SW-69)",
+        bin: "qemu-flash-streams16",
         symbols: &["<shrink_wrap::Error as core::fmt::Debug>::fmt"],
         strings: &["OutOfBoundsReadU8", "OutOfBoundsWriteU8"],
     },
     Check {
-        what: "global trait paths by name (SRV-53)",
+        what: "global trait paths by name (SRV-53), introspection off",
+        bin: "qemu-flash-globals16",
         symbols: &["ww_global_trait_path"],
-        strings: &[],
+        strings: &["GlobalTrait15", "flash_budget_api"],
     },
 ];
 
@@ -102,7 +110,10 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
     for (bin, kind) in KINDS {
         let (fewer, more) = (size(&format!("{bin}8"))?, size(&format!("{bin}16"))?);
         let per = (more as i64 - fewer as i64) as f64 / EXTRA as f64;
-        if bin != "qemu-flash-typed" && bin != "qemu-flash-maxlen" {
+        if !matches!(
+            bin,
+            "qemu-flash-typed" | "qemu-flash-maxlen" | "qemu-flash-globals"
+        ) {
             sum += per;
         }
         println!("  {:<46} {per:>7.0} B", format!("one more {kind}"));
@@ -112,13 +123,13 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
         "mean of the four kinds of shared types",
         sum / 4.0
     );
-    let largest = dir.join("qemu-flash-streams16");
     for check in &CHECKS {
-        let (syms, bytes) = symbols(&largest, check.symbols)?;
+        let elf = dir.join(check.bin);
+        let (syms, bytes) = symbols(&elf, check.symbols)?;
         let found: Vec<_> = check
             .strings
             .iter()
-            .filter(|s| contains(&largest, s).unwrap_or(false))
+            .filter(|s| contains(&elf, s).unwrap_or(false))
             .collect();
         if syms == 0 && found.is_empty() {
             println!("  {}: not linked", check.what);

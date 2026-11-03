@@ -13,6 +13,9 @@
 //!   API, so their serdes is paid per resource too.
 //! - `MaxLenBounds8` / `MaxLenBounds16` (SW-72): read-write properties of `MaxLen<&'i str, N>`, each resource a
 //!   different bound, as a real API's bounded strings and lists rarely share one `N`.
+//! - `Globals8` / `Globals16` (SRV-53): [Base] and 8 or 16 traits of one method each (`GlobalTraitN`), served with
+//!   introspection off, so the device answers `GlobalFull` paths to them itself: the cost of one more trait in its
+//!   global path lookup, on top of its level.
 //!
 //! Every resource of the first four kinds uses the same types, so their serdes is paid once, in [BaseOnly]: the
 //! differences are the dispatcher's own bytes per resource. `Typed*` adds each resource's serdes, `MaxLenBounds*`
@@ -496,4 +499,137 @@ pub struct In15 {
 pub struct Out15 {
     pub reading: Reading,
     pub code: Option<Code>,
+}
+
+/// [Base] and 8 traits of one method each, reachable by a global trait path (SRV-53): served with introspection
+/// off, so the device looks a `GlobalFull` path up itself.
+#[ww_api_root]
+pub trait Globals8 {
+    ww_impl!(base: Base);
+    ww_impl!(g0: GlobalTrait0);
+    ww_impl!(g1: GlobalTrait1);
+    ww_impl!(g2: GlobalTrait2);
+    ww_impl!(g3: GlobalTrait3);
+    ww_impl!(g4: GlobalTrait4);
+    ww_impl!(g5: GlobalTrait5);
+    ww_impl!(g6: GlobalTrait6);
+    ww_impl!(g7: GlobalTrait7);
+}
+
+/// [Base] and 16 traits of one method each, reachable by a global trait path (SRV-53).
+#[ww_api_root]
+pub trait Globals16 {
+    ww_impl!(base: Base);
+    ww_impl!(g0: GlobalTrait0);
+    ww_impl!(g1: GlobalTrait1);
+    ww_impl!(g2: GlobalTrait2);
+    ww_impl!(g3: GlobalTrait3);
+    ww_impl!(g4: GlobalTrait4);
+    ww_impl!(g5: GlobalTrait5);
+    ww_impl!(g6: GlobalTrait6);
+    ww_impl!(g7: GlobalTrait7);
+    ww_impl!(g8: GlobalTrait8);
+    ww_impl!(g9: GlobalTrait9);
+    ww_impl!(g10: GlobalTrait10);
+    ww_impl!(g11: GlobalTrait11);
+    ww_impl!(g12: GlobalTrait12);
+    ww_impl!(g13: GlobalTrait13);
+    ww_impl!(g14: GlobalTrait14);
+    ww_impl!(g15: GlobalTrait15);
+}
+
+/// Trait 0 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait0 {
+    fn m();
+}
+
+/// Trait 1 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait1 {
+    fn m();
+}
+
+/// Trait 2 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait2 {
+    fn m();
+}
+
+/// Trait 3 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait3 {
+    fn m();
+}
+
+/// Trait 4 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait4 {
+    fn m();
+}
+
+/// Trait 5 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait5 {
+    fn m();
+}
+
+/// Trait 6 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait6 {
+    fn m();
+}
+
+/// Trait 7 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait7 {
+    fn m();
+}
+
+/// Trait 8 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait8 {
+    fn m();
+}
+
+/// Trait 9 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait9 {
+    fn m();
+}
+
+/// Trait 10 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait10 {
+    fn m();
+}
+
+/// Trait 11 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait11 {
+    fn m();
+}
+
+/// Trait 12 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait12 {
+    fn m();
+}
+
+/// Trait 13 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait13 {
+    fn m();
+}
+
+/// Trait 14 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait14 {
+    fn m();
+}
+
+/// Trait 15 of the `Globals*` roots.
+#[ww_trait]
+pub trait GlobalTrait15 {
+    fn m();
 }

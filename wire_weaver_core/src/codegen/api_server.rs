@@ -209,12 +209,9 @@ pub fn gen_server(
         IntrospectMode::NoDocs => (true, false),
         IntrospectMode::WithDocs => (true, true),
     };
-    // the root level awaits when anything below it does, or to send the introspection events
-    let root_await = maybe_quote(
-        level_awaits(api_bundle, &api_bundle.root, &mut vec![], &cx)
-            || (introspect_enabled && cx.use_async),
-        quote! { .await },
-    );
+    // an async server's root level is always `async fn`: it sends the introspection events, and with introspection
+    // off its `Introspect` arm still answers with a `Close` event (see `process_request_inner_recursive`)
+    let root_await = maybe_quote(cx.use_async, quote! { .await });
     let (handle_introspect, api_signature) = super::server::introspect::introspect(
         api_bundle,
         &omissions,

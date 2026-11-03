@@ -160,8 +160,13 @@ macro_rules! base_handlers {
 }
 
 /// The server struct, `ww_codegen!` for `flash_budget_api::$root` and `serve`, which handles one request.
+/// Introspection is `no_docs` unless given (`introspect = "disabled"` for a server that resolves global trait paths
+/// itself, SRV-53).
 macro_rules! flash_budget_server_impl {
     ($root:ident) => {
+        flash_budget_server_impl!($root, introspect = "no_docs");
+    };
+    ($root:ident, introspect = $introspect:literal) => {
         pub struct ServerState {}
 
         #[cfg(not(feature = "flash-async"))]
@@ -171,7 +176,7 @@ macro_rules! flash_budget_server_impl {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                introspect = "no_docs",
+                introspect = $introspect,
             );
         }
 
@@ -183,7 +188,7 @@ macro_rules! flash_budget_server_impl {
                 handler_model = "_=sync",
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                introspect = "no_docs",
+                introspect = $introspect,
             );
         }
 
@@ -232,11 +237,11 @@ macro_rules! flash_budget_server_impl {
 
 /// The bin's `main` and server struct, with `ww_codegen!` for `flash_budget_api::$root`.
 macro_rules! flash_budget_server {
-    ($root:ident) => {
+    ($root:ident $(, introspect = $introspect:literal)?) => {
         use cortex_m_rt::entry;
         use cortex_m_semihosting::debug;
 
-        flash_budget_server_impl!($root);
+        flash_budget_server_impl!($root $(, introspect = $introspect)?);
 
         #[entry]
         fn main() -> ! {

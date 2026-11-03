@@ -161,6 +161,7 @@ check-examples-mcu-qemu-m4f:
 check-examples-mcu-qemu:
     # Checking mcu_qemu
     @cargo check
+    @cargo check --features flash-async
 
 [working-directory('examples_mcu/nucleo_h743zi2')]
 check-examples-mcu-nucleo-h743zi2:

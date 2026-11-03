@@ -26,12 +26,13 @@ The servers are the roots of `tests/flash_budget_api`:
 - `Calls8` / `Calls16`, `CallsArgs8` / `CallsArgs16`, `Props8` / `Props16`, `Streams8` / `Streams16`: that level plus 8 or 16 resources of one kind at the root. They all use the same two types, so serdes is paid once and `(size(*16) - size(*8)) / 8` is the dispatcher's own cost of one more resource of that kind.
 - `Typed8` / `Typed16`: calls with an argument and an output of their own types, as in a real API, so each one's serdes is in its cost too.
 - `MaxLenBounds8` / `MaxLenBounds16` (SW-72): read-write properties of `MaxLen<&'i str, N>`, a different bound each (4, 8, .., 64), as a real API's bounded fields rarely share one `N`. Excluded from the mean below, like `Typed*`: its per-resource type differs by resource too.
+- `Globals8` / `Globals16` (SRV-53): 8 or 16 traits of one method each (`GlobalTraitN`), built with introspection off, so the server answers `GlobalFull` paths to them itself: the cost of one more trait in its global path lookup, its level included. Excluded from the mean too.
 
 Two things keep the numbers honest. The request the server gets and every value a handler returns go through `core::hint::black_box`, so the compiler can't drop an arm it would know is never taken. Each handler is `#[inline(never)]` with a body of its own (a static it touches): identical handlers would be merged by LLVM, and the arms calling them with them.
 
 Comparing two sizes that both have resources at the root matters. Against `BaseOnly`, whose root holds only a nested level, adding resources changes the root level's code shape too, and the inliner's choices with it: the server function shrank by 560 B when 16 calls were added in one early try.
 
-The run also checks the largest server for code a firmware should not carry unless it asks for it: the `Series` codec of observe (SRV-54), `core::fmt` `Debug` of `shrink_wrap::Error` with its variant names (SW-69), and the global trait path lookup by name (SRV-53).
+The run also checks servers for code a firmware should not carry unless it asks for it: the largest one for the `Series` codec of observe (SRV-54) and `core::fmt` `Debug` of `shrink_wrap::Error` with its variant names (SW-69), `Globals16` for the global trait path lookup by name and the crate and trait names in flash (SRV-53).
 
 ## Baseline
 
@@ -220,3 +221,18 @@ TEST-30 (`just flash-budget`, thumbv6m), SRV-52 → SRV-55, bytes:
 The `MaxLen` kind is below its cost before SRV-51 (236, 206, 324 and 292 B) except at `z` with `use_async`, 24 B above. A call with types of its own is 23 B dearer at `fw-3` sync. The harness's resources share their types, so the per-type copies SRV-55 removes are few there; a real API has a type per resource or two.
 
 Instructions per request (`just dispatch-budget`, Cortex-M3 under QEMU) are within 1.5 % of SRV-52 in every cell. A call without arguments or output costs 17-23 more (2284 → 2307 at `z` sync, 1375 → 1395 at `fw-3` sync, 1.0-1.5 %); every other request is within 0.3 %. The thunk is one indirect call per reply. The reply bytes are the same (TEST-31 and the replies' hashes).
+
+## Global trait paths by hash (SRV-53)
+
+Every server had a function that matched the crate and trait names of a `GlobalFull` request against every trait of its API as strings, with a version check per arm, and the names in flash (862 B of code and 240 B of names in Donguru). Now a server with introspection has no global lookup at all: the client resolves a global path from the introspection data and sends the absolute one. A server without introspection keeps a `const` table of the reachable traits, each a 32-bit FNV-1a hash of crate and trait name, the crate's major and minor and the trait's path, looked up by one shared function, `ww_client_server::dispatch::global_full_path`, that hashes the request's names. See [Addressing](../api/addressing.md#who-resolves-a-global-path).
+
+Measured 3 Nov 2026 against SRV-52 (master `f5f88ea4` plus the `Globals*` kind), in the same worktree, bytes:
+
+| thumbv6m                                          | z, sync before | after | z, async before | after | 3, sync before | after | 3, async before | after |
+|---------------------------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| floor, one method (introspection on)              | 14566 | 14410 | 15694 | 15554 | 20474 | 20354 | 21598 | 21454 |
+| 8 resources, two of each kind (introspection on)  | 17434 | 17166 | 18326 | 18082 | 23718 | 23330 | 24622 | 24366 |
+| one more trait reached by a global path, introspection off |   120 |    80 |   128 |    87 |   131 |   114 |   280 |   268 |
+| mean of the four shared-type kinds                |    86 |    89 |    88 |    88 |   104 |   104 |    96 |   100 |
+
+The servers with introspection are 120-156 B smaller at the floor, 244-388 B with the eight resources, whose lookup had two traits (the root and `Base`) instead of one. Without introspection one more trait costs 80 B instead of 120 B at `z` sync, and no crate or trait name is in flash (`GlobalTrait15` and `flash_budget_api` were before). The means moved by 0-4 B, within the per-kind noise the baseline describes. Instructions per `GlobalFull` request were not measured again (no QEMU on the PC that ran this); the hash is one multiply per byte of the names, where the string match compared them with every trait's.

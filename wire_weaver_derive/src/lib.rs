@@ -53,6 +53,11 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 ///   Rust const (the default), or `fn name(&self) -> T` with `fn` for a value fixed at boot or link time (OTP, chip
 ///   id, build id). Names carry the trait item chain prefix: `BOARD` of `board: BoardInfo` is `BOARD_BOARD` /
 ///   `board_board`.
+/// * global_paths = "full" | "compact" | "none" - which global trait paths (`PathKind::GlobalFull`, `GlobalCompact`) the
+///   server resolves itself (SRV-53, `docs/api/addressing.md`). Absent: "full" without introspection (a `const` table
+///   of 32-bit hashes of crate and trait name, no names in flash, plus the traits' `ww_global` ids), "none" with it
+///   (the client resolves them from the introspection data). "compact": only `ww_global` ids. A path the server
+///   doesn't resolve is answered with `TraitNotFound`.
 /// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
 ///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`
 ///   if `use_async = false`) as the first argument, with request seq, medium and a way to send stream updates.

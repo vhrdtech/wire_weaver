@@ -547,9 +547,10 @@ impl<const N: usize> DefmtLogger<N> {
         let item = DefmtFrames {
             bytes: MaxLen::new_unchecked(RefVec::new_bytes(&consumer.pack[..packed])),
         };
-        let bytes = item
-            .to_ww_bytes(&mut consumer.ser)
-            .expect("SER_LEN holds MAX_FRAMES_LEN bytes of frames");
+        // a match, not `expect`: that would link the error's `Debug` (core::fmt) into the firmware
+        let Ok(bytes) = item.to_ww_bytes(&mut consumer.ser) else {
+            panic!("SER_LEN holds MAX_FRAMES_LEN bytes of frames")
+        };
         let result = stream.push(bytes, frames, None).await;
         self.read.store(read, Ordering::Release);
         result.map(|_| ())

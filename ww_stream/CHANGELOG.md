@@ -89,6 +89,8 @@
 
 ### 🐛 Fixes
 
+- `store::persistent_ram` slot decode and `ww_defmt_logger` frame push no longer link `core::fmt` `Debug` of a `TryFromSliceError` / serialization error into firmware (`array::from_fn` and a `match`): 100 bytes of `.text` less in `examples_mcu/rp2` `usb_log` (thumbv8m, release).
+
 - The observe sample gate reads the time with `Second::to_u32_wrapping_in(Prefix::Micro)` instead of `to_i128_in(..) as u32` (STD-43): no 128-bit arithmetic on the device, and `to_i128_in` is no longer there with number types up to 32 bits. Same results for integer times; a float time from 2^32 µs on is taken as having no grid point (the sample is taken).
 - One property whose value can't be had when an update is written no longer loses the whole update (SRV-24): `observe::write` drops that slot (`Selection::drop_slot`, counted as missed) and writes the update again without it. A sized property is offered by its size bound without being read, so a getter answering `Unimplemented` (Donguru's `plug.cc`) made every update of its level go out empty with `missed` set: none of `plug.vbus`, `vbus_mode`, `data`, `orientation` ever reached a host. `write` takes `&mut Round` now. A batch column that can't be written still drops the update.
 - `ObserveTable::is_active` reads a flag that `apply` and `reset` keep instead of walking the slots (SRV-25): the server task asks `ObserveState::next_wake` after every wake, which asked every level; on Donguru's Cortex-M0 that cost small USB requests 7 % (FW-40).

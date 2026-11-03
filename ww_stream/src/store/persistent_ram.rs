@@ -152,8 +152,8 @@ impl Slot {
     }
 
     fn decode<const N: usize>(b: &[u8; SLOT_LEN]) -> Option<Slot> {
-        let u32_at = |i: usize| u32::from_le_bytes(b[i..i + 4].try_into().unwrap());
-        let u64_at = |i: usize| u64::from_le_bytes(b[i..i + 8].try_into().unwrap());
+        let u32_at = |i: usize| u32::from_le_bytes(core::array::from_fn(|k| b[i + k]));
+        let u64_at = |i: usize| u64::from_le_bytes(core::array::from_fn(|k| b[i + k]));
         if u32_at(0) != MAGIC
             || b[4] != VERSION
             || u32_at(8) as usize != N

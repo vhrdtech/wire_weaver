@@ -351,6 +351,13 @@ fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
             max_age_us: UNib32(1_000_000),
         },
     });
+    let observe_cfg = ObserveRequest {
+        entries: RefVec::Slice {
+            slice: &entries[..n],
+        },
+        patch: false,
+        budget: None,
+    };
     let req = Request {
         seq: UVlq32Backfill(1),
         priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -358,13 +365,7 @@ fn observe_request(buf: &mut [u8], n: usize) -> &[u8] {
             path: RefVec::Slice { slice: &[] },
         },
         kind: RequestKind::Observe {
-            cfg: ObserveRequest {
-                entries: RefVec::Slice {
-                    slice: &entries[..n],
-                },
-                patch: false,
-                budget: None,
-            },
+            cfg: RefBox::new(&observe_cfg),
         },
     };
     req.to_ww_bytes(buf).unwrap()

@@ -111,7 +111,8 @@ pub const DEFERRED_OUTPUT_SER: u32 = 32;
 pub const DEFERRED_OUTPUT_FINISH: u32 = 33;
 /// `<method>_ser_return_event`: the event didn't fit into the event buffer.
 pub const DEFERRED_EVENT_SER: u32 = 34;
-/// `<method>_ser_return_event`: finishing the event failed.
+/// `<method>_ser_return_event`: finishing the event failed. Not raised since the event is written in place
+/// (SRV-54): that is [DEFERRED_EVENT_SER] now. Kept, so a number never changes its meaning.
 pub const DEFERRED_EVENT_FINISH: u32 = 35;
 
 /// The level has no item with the next id of the path.
@@ -141,7 +142,7 @@ pub const MULTI_ARGS: u32 = 51;
 pub const MULTI_DEFERRED: u32 = 52;
 /// Multi request: the answers didn't fit into the scratch buffer.
 pub const MULTI_OVERFLOW: u32 = 53;
-/// Observe request: an entry doesn't decode.
+/// Observe request: the request's body or an entry doesn't decode.
 pub const OBSERVE_MALFORMED: u32 = 54;
 /// Observe request: an entry names a property that can't be observed.
 pub const OBSERVE_REFUSED: u32 = 55;
@@ -149,7 +150,7 @@ pub const OBSERVE_REFUSED: u32 = 55;
 pub const OBSERVE_SER: u32 = 56;
 /// Observe request: a level under a resource array can't be observed yet (API-29).
 pub const OBSERVE_ARRAY: u32 = 57;
-/// Observe request: the path is no level with observable properties.
+/// Observe request: the path is no level with observable properties, or the server has none at all (any path).
 pub const OBSERVE_PATH: u32 = 58;
 /// Introspection: an event of the introspection data couldn't be sent.
 pub const INTROSPECT: u32 = 59;

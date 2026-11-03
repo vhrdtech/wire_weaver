@@ -107,6 +107,7 @@ impl WireWeaverAsyncApiBackend for Dev {
         let RequestKind::Observe { cfg } = request.kind else {
             return Err(ShrinkWrapError::OutOfBoundsRev);
         };
+        let cfg = cfg.read()?;
         let entries = cfg.entries.iter().collect::<Result<Vec<_>, _>>()?;
         _ = self.requests.send(entries.clone());
         let granted = ObserveGranted {

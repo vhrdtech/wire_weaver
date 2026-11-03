@@ -876,8 +876,13 @@ impl State {
                     self.observed.remove(&path);
                 }
                 let priority = Request::peek_priority(&bytes).unwrap_or_default();
-                match envelope::request(&path, priority, RequestKindOwned::Observe { cfg: merged })
-                {
+                match envelope::request(
+                    &path,
+                    priority,
+                    RequestKindOwned::Observe {
+                        cfg: Box::new(merged),
+                    },
+                ) {
                     // the device answers what it grants for all of them
                     Some(req) => {
                         let rest = envelope::split_seq(&req).map(|(_, r)| r.to_vec());
@@ -1036,7 +1041,9 @@ impl State {
             if let Some(req) = envelope::request(
                 &path,
                 Priority::NORMAL,
-                RequestKindOwned::Observe { cfg: merged },
+                RequestKindOwned::Observe {
+                    cfg: Box::new(merged),
+                },
             ) {
                 self.send(Command::Forward {
                     bytes: req,

@@ -186,6 +186,7 @@ pub fn explain_request<'r>(bytes: &[u8], root: impl Into<Option<&'r DynResource>
         }
         if let (RequestKind::Observe { cfg }, Some(level)) = (&kind, &resource) {
             let names = level_names(level);
+            let cfg = cfg.read()?;
             let entries = cfg.entries.iter().collect::<Result<Vec<_>, _>>()?;
             let mut text = observe_text(&entries, &names);
             if !cfg.patch {

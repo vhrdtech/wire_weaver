@@ -520,6 +520,11 @@ mod tests {
             entries: &[ObserveEntry],
             budget: Option<u32>,
         ) -> (Vec<ObserveEntry>, Vec<ObserveRefused>) {
+            let observe_cfg = ObserveRequest {
+                entries: RefVec::Slice { slice: entries },
+                patch: false,
+                budget: budget.map(UNib32),
+            };
             let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
@@ -528,11 +533,7 @@ mod tests {
                     path: RefVec::Slice { slice: &path },
                 },
                 kind: RequestKind::Observe {
-                    cfg: ObserveRequest {
-                        entries: RefVec::Slice { slice: entries },
-                        patch: false,
-                        budget: budget.map(UNib32),
-                    },
+                    cfg: RefBox::new(&observe_cfg),
                 },
             };
             let data = self.request(req).await;
@@ -675,6 +676,11 @@ mod tests {
     }
 
     fn observe_request(entries: &[ObserveEntry]) -> Vec<u8> {
+        let observe_cfg = ObserveRequest {
+            entries: RefVec::Slice { slice: entries },
+            patch: false,
+            budget: None,
+        };
         let req = Request {
             seq: UVlq32Backfill(1),
             priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -682,11 +688,7 @@ mod tests {
                 path: RefVec::Slice { slice: &[] },
             },
             kind: RequestKind::Observe {
-                cfg: ObserveRequest {
-                    entries: RefVec::Slice { slice: entries },
-                    patch: false,
-                    budget: None,
-                },
+                cfg: RefBox::new(&observe_cfg),
             },
         };
         let mut buf = [0u8; 128];

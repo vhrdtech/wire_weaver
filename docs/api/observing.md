@@ -63,6 +63,19 @@ turn). What the device grants and clamps:
   (`ObserveGranted::refused`), the rest of the request still applies. A request that doesn't decode, or lists more
   than 16 refused entries, fails outright (`ArgsDesFailed`/`BadIndex`) and changes nothing; an answer that doesn't
   fit the reply buffer fails with `ResponseSerFailed`, also undone.
+- a server without any `+observe` property answers every `Observe` request, whatever its path, with `BadPath` at
+  error site 58 (`OBSERVE_PATH`, "no observable level there"), the same answer an observing server gives for a path
+  that isn't an observable level. The request is never walked as a call.
+
+### What observe costs a firmware that doesn't
+
+Close to nothing. Server code writes each kind of event it sends in place (`ww_client_server::util`, `ser_*_event`), never
+through `Event`'s serializer, which covers every `EventKind` and so would link the `Series<Second>` codec of
+`sample_times` and the `StreamHead` writer into every firmware. The body of a `RequestKind::Observe` is a
+`RefBox<ObserveRequest>`, decoded only by the generated observe code, so a server without `+observe` properties has
+no `ObserveRequest` decoder either. No feature to turn on or off, and the bytes on the wire are the same: on a
+Cortex-M0+ this took the floor of a one-method server from 26.3 KB to 14.5 KB at `opt-level = "z"`
+([flash budget](../articles/flash_budget.md#observe-left-out-srv-54), SRV-54).
 
 ## The device side
 

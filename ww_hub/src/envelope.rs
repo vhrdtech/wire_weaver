@@ -79,7 +79,7 @@ pub(crate) fn classify(request: &[u8]) -> Op {
             sideband: StreamSideband::Close,
         } => Op::StreamClose(path),
         RequestKind::StreamSideband { .. } => Op::StreamSideband(path),
-        RequestKind::Observe { cfg } => match cfg.make_owned() {
+        RequestKind::Observe { cfg } => match cfg.read().and_then(|cfg| cfg.make_owned()) {
             Ok(cfg) => Op::Observe(path, cfg),
             Err(_) => Op::Other,
         },

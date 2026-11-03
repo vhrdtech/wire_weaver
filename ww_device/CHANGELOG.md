@@ -11,6 +11,7 @@
 
 ### 🚀 Features
 
+- `generic_error_reply` writes its error event in place (`ww_client_server::util::ser_err_event`), without linking `Event`'s serializer (SRV-54).
 - `Sink::flush` (async and blocking) is public: firmware sends what waits in the frame now, e.g. after a deferred reply (SRV-42). `DeviceLink::on_flushed` for sinks that flush on their own.
 - `DeviceLink::peer_meta()` and `PeerMeta` (CLT-41): who the host said it is in link setup (program, user, host cut to 24 bytes, kind, pid, instance id), set before `LinkEvent::Up`, for firmware that wants to log it. About 90 bytes of RAM in `DeviceLink`.
 

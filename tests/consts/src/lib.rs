@@ -369,4 +369,68 @@ mod tests {
         }
         assert!(!code.contains("get_LIMITS"), "{code}");
     }
+
+    /// A server without observable properties (no `+observe` anywhere) answers every `Observe` request with one
+    /// defined error, `BadPath` at `OBSERVE_PATH`, whatever the path: the request is never walked as a call (SRV-54).
+    #[test]
+    fn observe_without_observable_properties() {
+        use wire_weaver::EventWriter;
+        use ww_client_server::observe::ObserveRequest;
+        use ww_client_server::{ErrorKind, Event, PathKind, err_seq};
+
+        struct NoSink;
+        impl wire_weaver::BlockingMessageSink for NoSink {
+            fn send(&mut self, _message: &[u8]) -> Result<(), ()> {
+                Ok(())
+            }
+        }
+
+        let mut server = server::Server {
+            serial: "s".into(),
+            gains: [0; 2],
+            uptime: 0,
+        };
+        // the root, a property, a trait level, one in an array, and a path that doesn't exist
+        let paths: [&[UNib32]; 5] = [
+            &[],
+            &[UNib32(3)],
+            &[UNib32(4)],
+            &[UNib32(5), UNib32(1)],
+            &[UNib32(99)],
+        ];
+        for path in paths {
+            let cfg = ObserveRequest {
+                entries: RefVec::Slice { slice: &[] },
+                patch: false,
+                budget: None,
+            };
+            let request = Request {
+                seq: UVlq32Backfill(7),
+                priority: ww_client_server::Priority::NORMAL.nibble(),
+                path_kind: PathKind::Absolute {
+                    path: RefVec::Slice { slice: path },
+                },
+                kind: RequestKind::Observe {
+                    cfg: RefBox::new(&cfg),
+                },
+            };
+            let mut buf = [0u8; 64];
+            let bytes = request.to_ww_bytes(&mut buf).unwrap();
+            let (mut scratch, mut event_scratch) = ([0u8; 128], [0u8; 128]);
+            let mut out = EventWriter::new(NoSink, &mut event_scratch);
+            let reply = server
+                .process_request_bytes(bytes, &mut scratch, &mut out, ())
+                .unwrap();
+            let event = Event::from_ww_bytes(reply).unwrap();
+            assert_eq!(event.seq.0, 7);
+            let Err(error) = event.result else {
+                panic!("{path:?}: {:?}", event.result);
+            };
+            assert_eq!(error.err_seq(), err_seq::OBSERVE_PATH, "{path:?}");
+            assert!(
+                matches!(error.kind(), ErrorKind::BadPath),
+                "{path:?}: {error:?}"
+            );
+        }
+    }
 }

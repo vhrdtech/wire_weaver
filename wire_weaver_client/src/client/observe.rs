@@ -666,11 +666,11 @@ fn request_bytes(path: &[UNib32], cfg: &ObserveConfig) -> Result<Vec<u8>, Error>
             path: path.to_vec(),
         },
         kind: RequestKindOwned::Observe {
-            cfg: ObserveRequestOwned {
+            cfg: Box::new(ObserveRequestOwned {
                 entries,
                 patch: false,
                 budget: cfg.budget.map(UNib32),
-            },
+            }),
         },
     };
     Ok(req.to_ww_bytes_owned()?)

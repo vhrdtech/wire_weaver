@@ -270,10 +270,17 @@ pub fn gen_server(
         config.observe_outbox,
     );
     let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, config.no_alloc);
-    let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
+    let observe_arm = if observe.is_enabled() {
+        let es = fixed_err_seq("OBSERVE_MALFORMED");
         quote! {
             RequestKind::Observe { cfg } => {
-                match self.observe_request(path, cfg, &mut wr) {
+                // decoded here, not with the request: only a server that observes links the decoder (SRV-54)
+                let Ok(cfg) = cfg.read() else {
+                    wr.write(&Error::new(#es, ErrorKind::ArgsDesFailed))?;
+                    event_builder.finish(false, &mut wr);
+                    return wr.finish_and_take();
+                };
+                match self.observe_request(path, &cfg, &mut wr) {
                     Ok(()) => {
                         if request.seq.0 == 0 {
                             return Ok(&[])
@@ -290,7 +297,18 @@ pub fn gen_server(
                 }
             }
         }
-    });
+    } else {
+        // no observable property anywhere: the same answer as a path without an observable level, whatever the
+        // path, so a host gets one defined error and the request is never walked as a call (SRV-54)
+        let es = fixed_err_seq("OBSERVE_PATH");
+        quote! {
+            RequestKind::Observe { .. } => {
+                wr.write(&Error::bad_path(#es))?;
+                event_builder.finish(false, &mut wr);
+                wr.finish_and_take()
+            }
+        }
+    };
     let consts_trait = consts_trait(api_bundle, &omissions, &cx);
     let global_trait_path = global_trait_path(api_bundle);
     let (es1, es2) = (
@@ -320,7 +338,7 @@ pub fn gen_server(
                 const HEAD_MAX_LEN: usize = 8;
                 let mut event = Vec::new();
                 event.resize(value.len() + HEAD_MAX_LEN, 0u8);
-                let len = ser_ok_event(&mut event, seq, EventKind::Value { data: TailBytes(value) })?.len();
+                let len = ser_value_event(&mut event, seq, value)?.len();
                 event.truncate(len);
                 Ok(event)
             }
@@ -356,7 +374,7 @@ pub fn gen_server(
         use ww_client_server::{
             Request, RequestKind, Event, EventKind, EventKindDiscriminants,
             PathKind, Error, ErrorKind, StreamSideband, ErrorKindDiscriminants,
-            util::{ser_ok_event, ser_err_event, ser_unit_return_event},
+            util::{ser_err_event, ser_unit_return_event, ser_value_event, ser_stream_sideband_event},
             builder::{EventBuilder, EventKindBuilder, ErrorBuilder},
         };
         use core::slice::Iter;
@@ -766,7 +784,7 @@ fn poll_streams_fn(
                 if let Some(sideband) = #states.poll_query(now_ms) {
                     let path = #paths;
                     wire_weaver::EventOut::send_with(out, |scratch| {
-                        ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: &path }, sideband })
+                        ser_stream_sideband_event(scratch, 0, &path, sideband)
                             .map(|bytes| bytes.len())
                     }).await?;
                 }
@@ -2453,7 +2471,7 @@ fn handle_stream(
                     quote! {
                         // a lost Ack is recovered by the host's next Query
                         let _ = wire_weaver::EventOut::send_with(&mut *cx, |scratch| {
-                            ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
+                            ser_stream_sideband_event(scratch, 0, path, sideband)
                                 .map(|bytes| bytes.len())
                         }).await;
                     }
@@ -2461,7 +2479,7 @@ fn handle_stream(
                     quote! {
                         // a lost Ack is recovered by the host's next Query
                         let _ = wire_weaver::BlockingEventOut::send_with_blocking(&mut *cx, |scratch| {
-                            ser_ok_event(scratch, 0, EventKind::StreamSideband { path: RefVec::Slice { slice: path }, sideband })
+                            ser_stream_sideband_event(scratch, 0, path, sideband)
                                 .map(|bytes| bytes.len())
                         });
                     }
@@ -2698,21 +2716,13 @@ fn ser_method_output(
 
         let es0 = fixed_err_seq("DEFERRED_OUTPUT_FINISH");
         let es1 = fixed_err_seq("DEFERRED_EVENT_SER");
-        let es2 = fixed_err_seq("DEFERRED_EVENT_FINISH");
         quote! {
             let mut wr = BufWriter::new(scratch_args);
             #ser_output
             let output_bytes = wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es0))?;
 
-            let mut event_wr = BufWriter::new(scratch_event);
-            let event = Event {
-                seq: wire_weaver::shrink_wrap::UVlq32(#seq_path),
-                result: Ok(EventKind::Value {
-                    data: wire_weaver::shrink_wrap::tail_bytes::TailBytes(output_bytes)
-                })
-            };
-            event.ser_shrink_wrap(&mut event_wr).map_err(|_| Error::response_ser_failed(#es1))?;
-            event_wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es2))
+            ww_client_server::util::ser_value_event(scratch_event, #seq_path, output_bytes)
+                .map_err(|_| Error::response_ser_failed(#es1))
         }
     } else {
         let es = fixed_err_seq("DEFERRED_EVENT_SER");

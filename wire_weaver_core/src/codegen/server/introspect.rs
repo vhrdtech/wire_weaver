@@ -58,31 +58,29 @@ pub(crate) fn introspect(
         }
     };
     let es0 = fixed_err_seq("INTROSPECT");
-    let send_event = if use_async {
-        quote! { wire_weaver::EventOut::send_event(cx, &event).await }
-    } else {
-        quote! { wire_weaver::BlockingEventOut::send_event_blocking(cx, &event) }
+    // written in place: `Event`'s serializer would link every `EventKind`'s (SRV-54)
+    let send_with = |ser: TokenStream| {
+        if use_async {
+            quote! { wire_weaver::EventOut::send_with(cx, |scratch| #ser.map(|bytes| bytes.len())).await }
+        } else {
+            quote! { wire_weaver::BlockingEventOut::send_with_blocking(cx, |scratch| #ser.map(|bytes| bytes.len())) }
+        }
     };
-    let send_event = quote! {
-        #send_event.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
-    };
+    let send_chunk = send_with(quote! {
+        ww_client_server::util::ser_stream_data_bytes_event(scratch, request.seq.0, &[], chunk)
+    });
+    let send_close = send_with(quote! {
+        ww_client_server::util::ser_stream_sideband_event(scratch, request.seq.0, &[], ww_client_server::StreamSideband::Close)
+    });
     let send_close = quote! {
-        let event = Event {
-            seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
-            result: Ok(EventKind::StreamSideband { path: RefVec::Slice { slice: &[] }, sideband: ww_client_server::StreamSideband::Close }),
-        };
-        #send_event
+        #send_close.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
     };
     let handle_introspect = if enabled {
         quote! {
             RequestKind::Introspect => {
                 #bytes_consts
                 for chunk in WW_SELF_BYTES.chunks(128) { // TODO: auto-determine better chunk size
-                    let event = Event {
-                        seq: wire_weaver::shrink_wrap::UVlq32(request.seq.0),
-                        result: Ok(EventKind::StreamData { path: RefVec::Slice { slice: &[] }, data: TailBytes(chunk) }),
-                    };
-                    #send_event
+                    #send_chunk.map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
                 }
                 #send_close
                 Ok(WrAction::Deferred)

@@ -63,3 +63,22 @@ Measured 3 Nov 2026, before (commit `f8f78726`, the harness alone) against after
 The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats `shrink_wrap::Error` with `Debug` or `Display`, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived `Debug` impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through `core::fmt::Debug`: fixed in this repo at `ww_settings::Error` / `LoadReport` (`examples_mcu/nucleo_{g0b1re,h743zi2}` `settings.rs`, both already `defmt::Format`) and `ww_stream::store::RamRingError` (`examples_mcu/rp2` `usb_log.rs`, now behind `ww_stream`'s new `defmt` feature); Donguru's own `settings.rs` has the same shape of fix to make, on its own branch.
 
 These absolute floor numbers run a little higher than the "Baseline" table above (e.g. 26378 B against 26286 B at `fw-z, sync`), measured the same day: most likely the checkout path (see the note above this page's Baseline table), since this worktree's path (`/home/roman/git/.wt/flash-sw-debug/wire_weaver`) is longer than whatever path the baseline table was built from, and panic locations carry it per source file. The before/after pair here was measured back to back from the same checkout, so the diff between them is the number that matters regardless.
+
+## Observe left out (SRV-54)
+
+Server code stopped serializing whole `Event`s: the reply of a deferred method, introspection, stream sidebands and `ww_device`'s generic error are written in place, one writer per event kind (`ww_client_server::util`). `Event`'s serializer covers every `EventKind`, so any use of it linked the `Series<Second>` codec of observe's `sample_times`, the `StreamHead` writer and their `exact_units` code into every firmware. The body of `RequestKind::Observe` became a `RefBox<ObserveRequest>` (the same bytes), so only a server that observes links its decoder. Measured on f62c99f5 (before) and with the change (after), both built in the same worktree, bytes:
+
+| thumbv6m                          | z, sync before | after | z, async before | after | 3, sync before | after | 3, async before | after |
+|-----------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| floor, one method                 | 26274 | 14510 | 27098 | 15502 | 40910 | 20086 | 41694 | 21118 |
+| 8 resources, two of each kind     | 29482 | 18722 | 30454 | 19354 | 44458 | 23698 | 45194 | 24622 |
+| call, no arguments or output      |    52 |    55 |    55 |    50 |   129 |   130 |    56 |    52 |
+| call, an argument and an output   |   240 |   242 |    32 |    22 |   128 |   124 |    22 |    21 |
+| property, read and write          |   193 |   173 |   172 |   179 |   263 |   226 |   158 |   212 |
+| stream                            |   496 |   484 |   201 |   204 |   353 |   362 |   209 |   201 |
+| call with types of its own        |   438 |   300 |    76 |    80 |   184 |   136 |    96 |    96 |
+| mean of the four shared-type kinds|   245 |   238 |   115 |   114 |   218 |   210 |   111 |   122 |
+| `Series` codec                    |  3796 |     0 |  3796 |     0 | 16286 |     0 | 16286 |     0 |
+
+Of the floor's 11.8 KB at `z` (sync), the events written in place are about 11.2 KB and the lazy `Observe` body about 0.46 KB (0.87 KB at `3`), measured as two steps on ff395f1a. The 8-resource servers lose 1 KB less than the floor: their stream links the `StreamHead` writer again, which the floor carried before only through `Event`'s serializer. The per-resource cells stay within the inliner's noise. Firmware that observes is unchanged: `qemu-foc-observe` prints the same as before.
+

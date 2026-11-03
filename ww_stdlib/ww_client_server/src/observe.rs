@@ -418,16 +418,17 @@ mod tests {
             },
         ];
         let path = [UNib32(1)];
+        let cfg = ObserveRequest {
+            entries: RefVec::Slice { slice: &entries },
+            patch: false,
+            budget: Some(UNib32(20_000)),
+        };
         let req = Request {
             seq: UVlq32Backfill(5),
             priority: crate::Priority::NORMAL.nibble(),
             path_kind: PathKind::absolute(&path),
             kind: RequestKind::Observe {
-                cfg: ObserveRequest {
-                    entries: RefVec::Slice { slice: &entries },
-                    patch: false,
-                    budget: Some(UNib32(20_000)),
-                },
+                cfg: RefBox::new(&cfg),
             },
         };
         let mut buf = [0u8; 64];
@@ -436,12 +437,22 @@ mod tests {
         let RequestKind::Observe { cfg } = back.kind else {
             panic!("{back:?}");
         };
+        let cfg = cfg.read().unwrap();
         let back_entries: Vec<_> = cfg.entries.iter().map(|e| e.unwrap()).collect();
         assert_eq!(back_entries, entries);
         assert!(!cfg.patch);
         assert_eq!(cfg.budget, Some(UNib32(20_000)));
         // 5 of them are the seq placeholder, sent as 1 (Request::set_seq)
         assert_eq!(b.len(), 26, "{b:02x?}");
+        // the bytes of the body as a plain `ObserveRequest`, from before it became a `RefBox` (SRV-54)
+        assert_eq!(
+            b,
+            [
+                128, 128, 128, 128, 5, 64, 25, 0, 40, 80, 2, 48, 56, 223, 24, 137, 156, 227, 6, 72,
+                200, 244, 9, 66, 1, 161
+            ],
+            "{b:02x?}"
+        );
     }
 
     #[test]

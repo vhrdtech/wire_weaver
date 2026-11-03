@@ -172,7 +172,10 @@ pub enum RequestKind<'i> {
     /// Observe properties of the trait level at the path (API-38): how each one is sent from now on, see
     /// [observe]. Answered with [EventKind::Value] holding [observe::ObserveGranted]; updates arrive as
     /// [EventKind::PropertyUpdate].
-    Observe { cfg: ObserveRequest<'i> },
+    ///
+    /// `cfg` is decoded when it is read ([RefBox::read]), the same bytes as a plain [ObserveRequest]: a server that
+    /// observes nothing never links its decoder (SRV-54).
+    Observe { cfg: RefBox<'i, ObserveRequest<'i>> },
 
     /// Write an item of one unit to a credit sink (API-34): its position in units from the start of the session,
     /// modulo 2^28 (`ww_stream::sink::wire_pos`), and the item itself, the serialized value. Not answered; the
@@ -734,7 +737,7 @@ impl RequestKind<'_> {
                 data: data.make_owned(),
             },
             RequestKind::Observe { cfg } => RequestKindOwned::Observe {
-                cfg: cfg.make_owned()?,
+                cfg: Box::new(cfg.read()?.make_owned()?),
             },
         };
         Ok(req)

@@ -907,6 +907,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
   `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ **SRV-54 observe-left-out Observe and the Series codec only where a firmware observes** · `v0.5` — flash diet,
+  without a feature: device code needed `Event`'s serializer only for convenience, and that one covers every
+  `EventKind`, so every server linked the `Series<Second>` codec of `PropertyUpdate::sample_times` and the
+  `StreamHead` writer. Server code (deferred replies, introspection, stream sidebands, `ww_device`'s generic error)
+  now writes each event kind in place (`ww_client_server::util::ser_value_event`, `ser_stream_data_bytes_event`,
+  `ser_stream_sideband_event`; `ser_err_event` and `ser_unit_return_event` too), byte for byte the whole `Event`
+  (tests in `util.rs`). `RequestKind::Observe { cfg }` is a `RefBox<ObserveRequest>`, the same bytes, decoded only
+  by generated observe code: a malformed body is now `ArgsDesFailed` at `OBSERVE_MALFORMED` instead of a request
+  that doesn't decode. A server without `+observe` properties answers every `Observe` with `BadPath` at
+  `OBSERVE_PATH` (`tests/consts`). TEST-30 on a Cortex-M0+: the floor of a one-method server 26,274 → 14,510 B at
+  `fw-z`, 40,910 → 20,086 B at `fw-3` (sync; async alike), the lazy body 0.46 KB of it at `z`.
+  `docs/articles/flash_budget.md#observe-left-out-srv-54`, `docs/api/observing.md`.
 - ✅ **SRV-34 per-resource-claims Per-resource claims through the hub** · `v0.5.x` — typed metadata attributes,
     carried in introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
     `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),
@@ -1151,16 +1163,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
   `final_structure`) and needs its own EVO item when mesh comes.
   Measured with TEST-30 and on Donguru (introspection on).
-- 📋 **SRV-54 Observe behind a feature** · `v0.5` — flash diet: every server links the observe code even when it
-  observes nothing, mostly the `Series<Second>` codec of `EventKind::PropertyUpdate::sample_times` (ser 1,942 B in
-  Donguru, with `PackedWriter`, `FieldItems` and `Prefix`; 678 B of exact_units in the 2-method nucleo blinky)
-  because `Event`'s serializer has that branch, plus the `RequestKind::Observe` decoder. An `observe` feature (off by
-  default for `no_std`, on with `std`, turned on by a firmware that observes) leaves them out; shared crates
-  (`ww_client_server`, `ww_device`, `ww_stream`, `wire_weaver`) never turn it on for everyone (AGENTS.md "Flash").
-  No wire change: a device without it still decodes an `Observe` request and answers it with a defined error, never
-  a decode failure (which one is part of the piece, in `docs/`), and the host is unchanged. First check whether device code needs `Event`'s
-  serializer at all (the reply path writes events through `EventBuilder`); dropping that use may get most of the
-  bytes without a feature. Est. 2.5-3.5 KB.
 
 ## Client / host side (`CLT`)
 

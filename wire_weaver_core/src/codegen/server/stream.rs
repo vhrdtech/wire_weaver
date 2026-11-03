@@ -651,14 +651,7 @@ fn sideband_ser_methods(
             scratch: &'a mut [u8],
         ) -> Result<&'a [u8], ShrinkWrapError> {
             #let_index_chain
-            ser_ok_event(
-                scratch,
-                0,
-                EventKind::StreamSideband {
-                    path: RefVec::Slice { slice: &index_chain },
-                    sideband,
-                },
-            )
+            ww_client_server::util::ser_stream_sideband_event(scratch, 0, &index_chain, sideband)
         }
 
         #[doc = #send_doc]

@@ -479,6 +479,11 @@ mod tests {
             patch: bool,
             budget: Option<u32>,
         ) -> Result<(Vec<ObserveEntry>, Vec<ObserveRefused>, u32), String> {
+            let observe_cfg = ObserveRequest {
+                entries: RefVec::Slice { slice: entries },
+                patch,
+                budget: budget.map(UNib32),
+            };
             let path: Vec<UNib32> = path.iter().map(|p| UNib32(*p)).collect();
             let req = Request {
                 seq: UVlq32Backfill(0),
@@ -487,11 +492,7 @@ mod tests {
                     path: RefVec::Slice { slice: &path },
                 },
                 kind: RequestKind::Observe {
-                    cfg: ObserveRequest {
-                        entries: RefVec::Slice { slice: entries },
-                        patch,
-                        budget: budget.map(UNib32),
-                    },
+                    cfg: RefBox::new(&observe_cfg),
                 },
             };
             let mut buf = [0u8; 512];
@@ -907,6 +908,13 @@ mod tests {
         assert_eq!(refused[0].reason, ObserveRefusal::NotObservable);
 
         // malformed: an Observe request cut short
+        let observe_cfg = ObserveRequest {
+            entries: RefVec::Slice {
+                slice: &[on_change(TEMP, 1_000), on_change(MODE, 1_000)],
+            },
+            patch: false,
+            budget: None,
+        };
         let req = Request {
             seq: UVlq32Backfill(0),
             priority: ww_client_server::Priority::NORMAL.nibble(),
@@ -914,13 +922,7 @@ mod tests {
                 path: RefVec::Slice { slice: &[] },
             },
             kind: RequestKind::Observe {
-                cfg: ObserveRequest {
-                    entries: RefVec::Slice {
-                        slice: &[on_change(TEMP, 1_000), on_change(MODE, 1_000)],
-                    },
-                    patch: false,
-                    budget: None,
-                },
+                cfg: RefBox::new(&observe_cfg),
             },
         };
         let mut buf = [0u8; 64];
@@ -948,6 +950,13 @@ mod tests {
             mode: 3,
             observe: blocking_server::api_impl::ObserveState::new(ObserveLimits::DEFAULT),
         };
+        let observe_cfg = ObserveRequest {
+            entries: RefVec::Slice {
+                slice: &[periodic(SPEED, 1_000), periodic(POSITION, 1_000)],
+            },
+            patch: false,
+            budget: None,
+        };
         let path = [UNib32(MOTOR)];
         let req = Request {
             seq: UVlq32Backfill(1),
@@ -956,13 +965,7 @@ mod tests {
                 path: RefVec::Slice { slice: &path },
             },
             kind: RequestKind::Observe {
-                cfg: ObserveRequest {
-                    entries: RefVec::Slice {
-                        slice: &[periodic(SPEED, 1_000), periodic(POSITION, 1_000)],
-                    },
-                    patch: false,
-                    budget: None,
-                },
+                cfg: RefBox::new(&observe_cfg),
             },
         };
         let mut buf = [0u8; 128];
@@ -1002,6 +1005,17 @@ mod tests {
             mode: 0,
             observe: blocking_server::api_impl::ObserveState::new(ObserveLimits::DEFAULT),
         };
+        let observe_cfg = ObserveRequest {
+            entries: RefVec::Slice {
+                slice: &[
+                    periodic(SPEED, 1_000_000),
+                    periodic(CURRENT, 2_000_000),
+                    periodic(POSITION, 3_000_000),
+                ],
+            },
+            patch: false,
+            budget: Some(UNib32(1_000_000_000)),
+        };
         let path = [UNib32(MOTOR)];
         let req = Request {
             seq: UVlq32Backfill(1),
@@ -1010,17 +1024,7 @@ mod tests {
                 path: RefVec::Slice { slice: &path },
             },
             kind: RequestKind::Observe {
-                cfg: ObserveRequest {
-                    entries: RefVec::Slice {
-                        slice: &[
-                            periodic(SPEED, 1_000_000),
-                            periodic(CURRENT, 2_000_000),
-                            periodic(POSITION, 3_000_000),
-                        ],
-                    },
-                    patch: false,
-                    budget: Some(UNib32(1_000_000_000)),
-                },
+                cfg: RefBox::new(&observe_cfg),
             },
         };
         let mut buf = [0u8; 128];

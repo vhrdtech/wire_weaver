@@ -312,6 +312,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   wire
 - Docs site: the mobile nav drawer's logo is the graphite-wire W on dark too, like the header (only the red wire
   showed)
+- nextest timeouts are hang detectors (`.config/nextest.toml`): SLOW after 15 s, killed after 30 s instead of 3 s, so a loaded PC (load well above the core count) can't fail the gate with a test that passes on a quiet one; the per-test 15 s overrides are gone, the default covers them. `AGENTS.md` "Test time limits" says how speed is looked at instead.
 
 ### Removed
 

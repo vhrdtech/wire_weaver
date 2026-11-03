@@ -117,11 +117,12 @@ targets, egui): build them from their directory or through `just`.
 
 ### Test time limits
 
-`.config/nextest.toml` kills a test after 3 s on purpose, so a slow test fails and gets looked at. A test near 3 s
-(alone or under parallel load) is a bug to find first. Only tests heavy by design (fuzz-like loops, power-cut runs,
-re-parsing every snapshot crate) get a per-test override with a comment saying why and how long they take; never
-raise the default. Tests don't assert wall-clock rates (`tests/observe` drives the device with a fake clock). Check
-timing changes with `cargo nextest run --stress-count N` under CPU load.
+`.config/nextest.toml`'s timeouts are hang detectors, not speed checks: SLOW after 15 s, killed after 30 s, so a
+loaded PC can't fail the gate. Don't lower them per test or raise them; a test that only passes with more time hangs
+or waits on the wall clock, which is the bug to find. Speed is looked at by itself: a test that takes over a second
+alone is worth a look. Tests don't assert wall-clock rates (`tests/observe` drives the device with a fake clock), and
+an outcome never depends on real time (tokio's paused clock, the simulated USB and UDP of `in_process`). Check timing
+changes with `cargo nextest run --stress-count N` under CPU load.
 
 ### Conformance matrix
 

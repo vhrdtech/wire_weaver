@@ -47,6 +47,15 @@ pub struct Attribution {
     pub by_dispatcher: BTreeMap<String, u64>,
     pub by_function: BTreeMap<String, u64>,
     pub serdes: BTreeMap<(Dir, String), SerdesImpl>,
+    /// With `--sites PATTERN`: bytes of the innermost functions whose name contains it, by the call site they were
+    /// inlined at (the next frame out), with the number of copies (distinct chains of frames) at that site.
+    pub sites: BTreeMap<String, Site>,
+}
+
+#[derive(Default, Debug)]
+pub struct Site {
+    pub bytes: u64,
+    pub copies: BTreeSet<Vec<(String, u32, u32)>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -375,7 +384,11 @@ fn frames_of(loader: &addr2line::Loader, addr: u64) -> Vec<Frame> {
     out
 }
 
-pub fn attribute(elf: &Path, generated: Option<&Path>) -> Res<(Attribution, usize)> {
+pub fn attribute(
+    elf: &Path,
+    generated: Option<&Path>,
+    sites: Option<&str>,
+) -> Res<(Attribution, usize)> {
     let data = std::fs::read(elf)?;
     let file = object::File::parse(&*data)?;
     let funcs = functions(&file);
@@ -405,6 +418,31 @@ pub fn attribute(elf: &Path, generated: Option<&Path>) -> Res<(Attribution, usiz
             .entry(format!("{short}  [{inner_crate}]"))
             .or_default() += n;
         *a.by_crate.entry(inner_crate).or_default() += n;
+        if let Some(p) = sites
+            && inner.name.contains(p)
+        {
+            let key = frames.get(1).map_or_else(
+                || "(out of line)".to_string(),
+                |f| {
+                    let file = f.file.rsplit('/').take(2).collect::<Vec<_>>();
+                    let name: String = f.name.chars().take(100).collect();
+                    format!(
+                        "{}/{}:{} in {name}",
+                        file.get(1).unwrap_or(&""),
+                        file[0],
+                        f.line
+                    )
+                },
+            );
+            let site = a.sites.entry(key).or_default();
+            site.bytes += n;
+            site.copies.insert(
+                frames[1..]
+                    .iter()
+                    .map(|f| (f.name.clone(), f.line, f.column))
+                    .collect(),
+            );
+        }
         let disp = frames.iter().find_map(|f| dispatcher_name(&f.name, &gen_));
         *a.by_dispatcher
             .entry(disp.unwrap_or(NOT_UNDER).to_string())
@@ -470,8 +508,8 @@ fn print_table(title: &str, rows: &BTreeMap<String, u64>, total: u64, top: usize
 }
 
 /// Prints the markdown report for `elf`; `generated` is the dump of the generated server code, to count resources.
-pub fn print(elf: &Path, generated: Option<&Path>, top: usize) -> Res<()> {
-    let (a, arms) = attribute(elf, generated)?;
+pub fn print(elf: &Path, generated: Option<&Path>, top: usize, sites: Option<&str>) -> Res<()> {
+    let (a, arms) = attribute(elf, generated, sites)?;
     let under_dispatcher = a.total - a.by_dispatcher.get(NOT_UNDER).copied().unwrap_or(0);
     let serdes_own: u64 = a.serdes.values().map(|s| s.own).sum();
     let copies: usize = a.serdes.values().map(|s| s.copies.len()).sum();
@@ -498,7 +536,24 @@ pub fn print(elf: &Path, generated: Option<&Path>, top: usize) -> Res<()> {
     );
     print_table("innermost function", &a.by_function, a.total, top * 4);
     print_serdes(&a, generated.is_some(), arms, top * 4);
+    if let Some(p) = sites {
+        print_sites(&a, p, top * 4);
+    }
     Ok(())
+}
+
+fn print_sites(a: &Attribution, pattern: &str, top: usize) {
+    let bytes: u64 = a.sites.values().map(|s| s.bytes).sum();
+    let copies: usize = a.sites.values().map(|s| s.copies.len()).sum();
+    println!(
+        "\n### `{pattern}` by call site\n\n{bytes} B in {copies} copies at {} sites\n\n| bytes | copies | call site |\n|---:|---:|---|",
+        a.sites.len()
+    );
+    let mut rows: Vec<_> = a.sites.iter().collect();
+    rows.sort_by_key(|(k, s)| (std::cmp::Reverse(s.bytes), (*k).clone()));
+    for (k, s) in rows.into_iter().take(top) {
+        println!("| {} | {} | {k} |", s.bytes, s.copies.len());
+    }
 }
 
 fn print_serdes(a: &Attribution, with_arms: bool, arms: usize, top: usize) {

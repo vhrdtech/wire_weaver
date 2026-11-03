@@ -5,7 +5,7 @@
 //! ```text
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
-//! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N]   # bytes by inlined frame, see attribute.rs
+//! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N] [--sites PATTERN]   # bytes by inlined frame, see attribute.rs
 //! cargo run --release -- --flash --guard-strict      # the no-f64 guard (TEST-33) fails on a forbidden symbol
 //! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
 //!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds
@@ -62,6 +62,8 @@ struct Args {
     /// Attribute the bytes of this ELF to inlined frames (TEST-32) instead of running anything.
     attribute: Option<PathBuf>,
     generated: Option<PathBuf>,
+    /// `--attribute`: also the call sites of the innermost functions whose name contains this.
+    sites: Option<String>,
     top: usize,
     /// `--flash` / `--requests`: only these profiles and modes (`sync`, `use_async`); empty is all.
     profiles: Vec<String>,
@@ -81,6 +83,7 @@ fn parse_args() -> Res<Args> {
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
         attribute: None,
         generated: None,
+        sites: None,
         top: 25,
         profiles: Vec::new(),
         modes: Vec::new(),
@@ -100,6 +103,7 @@ fn parse_args() -> Res<Args> {
             }
             "--attribute" => args.attribute = Some(value("--attribute")?.into()),
             "--gen" => args.generated = Some(value("--gen")?.into()),
+            "--sites" => args.sites = Some(value("--sites")?),
             "--top" => args.top = value("--top")?.parse()?,
             "--requests" => args.requests = true,
             "--guard-strict" => args.guard_strict = true,
@@ -237,7 +241,12 @@ fn run_elf(args: &Args, qemu_dir: &Path) -> Res<()> {
 
 fn run(args: &Args) -> Res<()> {
     if let Some(elf) = &args.attribute {
-        return attribute::print(elf, args.generated.as_deref(), args.top);
+        return attribute::print(
+            elf,
+            args.generated.as_deref(),
+            args.top,
+            args.sites.as_deref(),
+        );
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let qemu_dir = root.join("mcu_qemu");

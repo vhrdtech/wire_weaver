@@ -2674,13 +2674,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   reply for a `Read` too, same as any other request kind); a path element past a leaf method's own path is simply
   unused, not `BadPath`. See `docs/serdes/conformance.md` for the pattern this follows.
 - ✅ **TEST-32 Flash attribution by inlined frames** · `v0.5` — `fw_budget --attribute ELF [--gen GENERATED.rs]
-  [--top N]` (`just flash-attribute ELF`, `examples_mcu/fw_budget/src/attribute.rs`, the experiment's `attribute.py`
+  [--top N] [--sites PATTERN]` (`just flash-attribute ELF`, `examples_mcu/fw_budget/src/attribute.rs`, the experiment's `attribute.py`
   and `serdes_types.py` in Rust): every instruction of the ELF (`llvm-objdump` boundaries) looked up with its
   inlined frames (addr2line), bytes by crate of the innermost frame, by generated dispatcher function, by innermost
   function and by serdes impl with copies, bytes beyond the first copy and, with `--gen` (a `ww_codegen!`
   `debug_to_file` dump), the resource arms naming the type. On the nucleo_g0b1re `usb_blinky` at `opt-level = "z"` it
   gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
-  debug info. For when TEST-30's totals move and the reason isn't obvious.
+  debug info. For when TEST-30's totals move and the reason isn't obvious. `--sites PATTERN` adds the call sites
+  of the innermost functions whose name contains `PATTERN`, with their bytes and copies (SW-74: which serdes paths
+  inline `BufReader::new` or `latched()`).
 - ✅ **TEST-33 No-float firmware guard** · `v0.5` — `just flash-budget` (`examples_mcu/fw_budget --flash`,
   `examples_mcu/fw_budget/src/no_f64_guard.rs`) builds a fixture (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`,
   `qemu-no-f64-guard`) that calls every device-relevant `ww_si::Quantity` operation of today's API (`to_u32_in`,

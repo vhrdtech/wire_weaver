@@ -46,6 +46,6 @@ Measured 3 Nov 2026 on wire_weaver master of that day (5e695078) plus the harnes
 
 The `Series` codec is linked in every server (36 symbols, 3796 B at `z`), though none of them observes anything. Neither the `Debug` names of `shrink_wrap::Error` nor the trait path lookup by name are in these servers: the first comes from a caller in a real firmware's stack, the second only with global traits in the API.
 
-The per-kind numbers move with the inliner's choices, most in the `use_async` builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend.
+The per-kind numbers move with the inliner's choices, most in the `use_async` builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend. Compare only builds from the same checkout path: panic locations carry each source file's path, so a worktree at a shorter path is smaller by tens of bytes per file (one change looked 250 B better than it was, built in `/tmp`).
 
 For scale: Donguru (typec_dongle, `use_async`, `fw-z` with `opt-level = "z"`, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.

@@ -6426,14 +6426,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>wire_weaver_client</code> <code>compressed_stream_decodes_and_heals</code>, <code>tests/io_uart</code> <code>rx_compressed</code>). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -&gt; device).</li>
-<li>📋 <strong>SW-69 No core::fmt Debug of shrink_wrap types on a device</strong> · <code>v0.5</code> — flash diet: the variant names of
-  <code>shrink_wrap::Error</code> (<code>OutOfBoundsReadU8</code>, ..., about 450 B) and the <code>core::fmt</code> machinery behind them are in
-  Donguru's flash because something formats the error with <code>core::fmt::Debug</code> on the target. <code>shrink_wrap::Error</code>
-  keeps implementing <code>Debug</code> (<code>std::error::Error</code> needs it, <code>unwrap()</code> / <code>expect()</code> on <code>no_std</code> must still compile),
-  but by hand: the variant names only with <code>std</code> (or a feature <code>std</code> turns on), a numeric code without
-  (<code>shrink_wrap::Error(17)</code>); <code>defmt::Format</code> keeps the names. The on-target caller that Debug-formats it switches to
-  <code>defmt::Format</code>; other shrink_wrap types whose <code>Debug</code> lands in firmware flash get the same treatment. Est.
-  0.5-1 KB; measured with TEST-30, which checks that the variant names are not linked.</li>
+<li>🧪 <strong>SW-69 No core::fmt Debug of shrink_wrap types on a device</strong> · <code>v0.5</code> — flash diet: the variant names of
+  <code>shrink_wrap::Error</code> (<code>OutOfBoundsReadU8</code>, ..., about 450 B) and the <code>core::fmt</code> machinery behind them used to
+  land in flash because the type's <code>#[derive(Debug)]</code> always carried them. <code>shrink_wrap::Error</code> keeps implementing
+  <code>Debug</code> (<code>std::error::Error</code> needs it, <code>unwrap()</code> / <code>expect()</code> on <code>no_std</code> must still compile), but by hand now:
+  the variant names only with <code>std</code>, a numeric code without (<code>shrink_wrap::Error(17)</code>); <code>defmt::Format</code> (feature
+  <code>defmt</code>) still has the names, as <code>.defmt</code> symbols never loaded into flash. <code>Display</code> (which formats through
+  <code>Debug</code>) follows. Found two on-target callers that reached for <code>core::fmt::Debug</code> because there was no
+  <code>defmt::Format</code> alternative, fixed instead of worked around: the <code>examples_mcu/nucleo_{g0b1re,h743zi2}</code>
+  <code>settings.rs</code> bins no longer wrap <code>ww_settings::Error</code> / <code>LoadReport</code> in <code>defmt::Debug2Format</code> (both already
+  derive <code>defmt::Format</code>), and <code>ww_stream::store::RamRingError</code> now derives <code>defmt::Format</code> behind a new <code>defmt</code>
+  feature, so <code>examples_mcu/rp2</code>'s <code>usb_log.rs</code> logs its log-store error without <code>Debug2Format</code> either. Same wire
+  format; only the printed text of a <code>no_std</code> build without <code>defmt</code> changes. Not yet measured: TEST-30 checks that
+  the variant names are not linked; est. 0.5-1 KB.</li>
 <li>📋 <strong>SW-70 Serdes out of line: one copy per type</strong> · <code>v0.5</code> — flash diet: at <code>opt-level = "z"</code> the same impl is
   inlined at every call site: 4,892 B of Donguru's 19,740 B of serdes are extra copies (ser <code>&amp;str</code> 15 copies, des
   <code>UNib32</code> 13, ser <code>UVlq64</code> 9, <code>RefVec&lt;u8&gt;</code> 3 + 5, <code>Quantity&lt;Second&gt;</code> 6). The derive emits <code>#[inline(never)]</code> on the

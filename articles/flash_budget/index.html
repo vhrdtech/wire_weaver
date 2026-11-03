@@ -5471,6 +5471,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sw-69-hand-written-error-debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SW-69: hand-written <code>Error</code> Debug
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5583,6 +5594,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Baseline
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sw-69-hand-written-error-debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SW-69: hand-written <code>Error</code> Debug
       </span>
     </span>
   </a>
@@ -5717,6 +5739,44 @@
 <p>The <code>Series</code> codec is linked in every server (36 symbols, 3796 B at <code>z</code>), though none of them observes anything. Neither the <code>Debug</code> names of <code>shrink_wrap::Error</code> nor the trait path lookup by name are in these servers: the first comes from a caller in a real firmware's stack, the second only with global traits in the API.</p>
 <p>The per-kind numbers move with the inliner's choices, most in the <code>use_async</code> builds, where the arms of a level live inside one state machine. Compare the same cell before and after a change, and the mean for the overall trend. Compare only builds from the same checkout path: panic locations carry each source file's path, so a worktree at a shorter path is smaller by tens of bytes per file (one change looked 250 B better than it was, built in <code>/tmp</code>).</p>
 <p>For scale: Donguru (typec_dongle, <code>use_async</code>, <code>fw-z</code> with <code>opt-level = "z"</code>, 43 resources of many types) spent about 616 B per resource under the generated dispatcher at wire_weaver 8b7b80ed, and 41.4 KB in all, measured from its ELF by inlined frames.</p>
+<h2 id="sw-69-hand-written-error-debug">SW-69: hand-written <code>Error</code> Debug<a class="headerlink" href="#sw-69-hand-written-error-debug" title="Permanent link">&para;</a></h2>
+<p>Measured 3 Nov 2026, before (commit <code>f8f78726</code>, the harness alone) against after (with SW-69's hand-written <code>Debug</code>), bytes:</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m, floor, one method</th>
+<th style="text-align: right;">z, sync</th>
+<th style="text-align: right;">z, async</th>
+<th style="text-align: right;">3, sync</th>
+<th style="text-align: right;">3, async</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>before</td>
+<td style="text-align: right;">26378</td>
+<td style="text-align: right;">27202</td>
+<td style="text-align: right;">41210</td>
+<td style="text-align: right;">41914</td>
+</tr>
+<tr>
+<td>after</td>
+<td style="text-align: right;">26346</td>
+<td style="text-align: right;">27166</td>
+<td style="text-align: right;">41174</td>
+<td style="text-align: right;">41878</td>
+</tr>
+<tr>
+<td>change</td>
+<td style="text-align: right;">−32</td>
+<td style="text-align: right;">−36</td>
+<td style="text-align: right;">−36</td>
+<td style="text-align: right;">−36</td>
+</tr>
+</tbody>
+</table>
+<p>The per-resource numbers (the "8 resources" row and every "one more X" row) don't move beyond ±1 B rounding, and the SW-69 check still reports "not linked" both before and after: none of this harness's servers formats <code>shrink_wrap::Error</code> with <code>Debug</code> or <code>Display</code>, so the ~450 B of variant names the feature item describes never reaches these builds either way. What moved is a small, constant-size remnant of the derived <code>Debug</code> impl that LTO didn't fully strip even though nothing called it. The bytes SW-69 actually saves show up only where a real on-target caller formats the error (or a type nesting it) through <code>core::fmt::Debug</code>: fixed in this repo at <code>ww_settings::Error</code> / <code>LoadReport</code> (<code>examples_mcu/nucleo_{g0b1re,h743zi2}</code> <code>settings.rs</code>, both already <code>defmt::Format</code>) and <code>ww_stream::store::RamRingError</code> (<code>examples_mcu/rp2</code> <code>usb_log.rs</code>, now behind <code>ww_stream</code>'s new <code>defmt</code> feature); Donguru's own <code>settings.rs</code> has the same shape of fix to make, on its own branch.</p>
+<p>These absolute floor numbers run a little higher than the "Baseline" table above (e.g. 26378 B against 26286 B at <code>fw-z, sync</code>), measured the same day: most likely the checkout path (see the note above this page's Baseline table), since this worktree's path (<code>/home/roman/git/.wt/flash-sw-debug/wire_weaver</code>) is longer than whatever path the baseline table was built from, and panic locations carry it per source file. The before/after pair here was measured back to back from the same checkout, so the diff between them is the number that matters regardless.</p>
 
 
 

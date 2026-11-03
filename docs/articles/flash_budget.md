@@ -32,7 +32,7 @@ The run also checks the largest server for code a firmware should not carry unle
 
 ## Baseline
 
-Measured 3 Nov 2026 at commit 15ba3c20 (wire_weaver master of that day plus the harness), bytes:
+Measured 3 Nov 2026 on wire_weaver master of that day (5e695078) plus the harness, bytes:
 
 | thumbv6m, per resource            | z, sync | z, async | 3, sync | 3, async |
 |-----------------------------------|--------:|---------:|--------:|---------:|

@@ -1097,8 +1097,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver`: one reply path for a value, one for an acknowledged write, one for `Deferred` / `Unimplemented` /
   user errors, one cold error constructor `(err_seq, ErrorKind)` (the report's idea 4, measured on its own as the
   first step). Arms the method and property models make impossible are not generated; a variant the handler's type
-  still allows goes through the shared path with today's behaviour. The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: 250 B per resource
-  or less (TEST-30), est. 12-16 KB on Donguru.
+  still allows goes through the shared path with today's behaviour. The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: the per-resource
+  bytes of TEST-30 (baseline 52-496 B by kind at `fw-z`, mean 245 B) at least halved, and Donguru's 616 B per
+  resource measured again; est. 12-16 KB on Donguru.
 - 📋 **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returns
   `Result<WrAction, ww_client_server::Error<'a>>` and propagates it with `?` (3.6-4.0 KB of `Try::branch`,
   `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A dispatch context (writer, seq, the

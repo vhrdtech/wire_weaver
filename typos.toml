@@ -28,5 +28,7 @@ thm = "thm"
 
 [default]
 # golden bytes of the conformance corpus (tests/conformance/corpus.json) are hex
-extend-ignore-re = ["\"bytes\": \"[0-9a-f ]*\""]
+# a short git commit hash in prose (docs/articles/flash_budget.md): "commit 15ba3c20" tokenizes as "ba", a false
+# positive for "by"/"be"
+extend-ignore-re = ["\"bytes\": \"[0-9a-f ]*\"", "commit [0-9a-f]{6,40}\\b"]
 extend-ignore-identifiers-re = []

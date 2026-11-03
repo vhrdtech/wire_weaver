@@ -9,6 +9,8 @@ only-plain = []
 only-fixed = []
 # the flash budget servers (TEST-30) with `use_async = true` and sync handlers, as Donguru's
 flash-async = []
+# the no-f64 guard (TEST-33) with a 64-bit number type enabled too, as usb_io_fw's firmware has
+guard-u64 = ["ww_si/u64"]
 
 [dependencies]
 cortex-m = "0.7"
@@ -165,6 +167,13 @@ bench = false
 [[bin]]
 name = "qemu-unit-budget"
 path = "src/bin/unit_budget.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-no-f64-guard"
+path = "src/bin/no_f64_guard.rs"
 test = false
 doctest = false
 bench = false

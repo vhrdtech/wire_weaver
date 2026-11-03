@@ -4,7 +4,7 @@
 //! carry without asking for it.
 
 use crate::{Filter, Res, cargo, flash_size};
-use object::{Object, ObjectSection, ObjectSymbol};
+use object::{Object, ObjectSection};
 use std::path::{Path, PathBuf};
 
 /// Resources of one kind the larger bin of a pair has more (`flash_budget_api::EXTRA`).
@@ -125,7 +125,7 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
     );
     for check in &CHECKS {
         let elf = dir.join(check.bin);
-        let (syms, bytes) = symbols(&elf, check.symbols)?;
+        let (syms, bytes) = crate::symbols(&elf, check.symbols)?;
         let found: Vec<_> = check
             .strings
             .iter()
@@ -143,23 +143,6 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
         }
     }
     Ok(())
-}
-
-/// Count and bytes of the symbols of `elf` whose demangled name contains one of `names`.
-fn symbols(elf: &Path, names: &[&str]) -> Res<(usize, u64)> {
-    let data = std::fs::read(elf)?;
-    let file = object::File::parse(&*data)?;
-    let mut count = 0;
-    let mut bytes = 0;
-    for s in file.symbols() {
-        let Ok(name) = s.name() else { continue };
-        let name = format!("{:#}", rustc_demangle::demangle(name));
-        if names.iter().any(|n| name.contains(n)) {
-            count += 1;
-            bytes += s.size();
-        }
-    }
-    Ok((count, bytes))
 }
 
 /// Whether `text` is in a section of `elf` that goes to flash.

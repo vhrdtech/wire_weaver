@@ -21,6 +21,7 @@
 mod attribute;
 mod elf_diff;
 mod flash;
+mod no_f64_guard;
 mod requests;
 
 use object::{Object, ObjectSection, ObjectSymbol};
@@ -184,6 +185,24 @@ pub fn flash_of_symbol(elf: &Path, name: &str) -> Option<u64> {
         .map(|s| s.size())
 }
 
+/// Count and bytes of the symbols of `elf` whose demangled name contains one of `names` (used by `flash.rs`'s
+/// checks and the no-f64 guard, TEST-33).
+pub(crate) fn symbols(elf: &Path, names: &[&str]) -> Res<(usize, u64)> {
+    let data = std::fs::read(elf)?;
+    let file = object::File::parse(&*data)?;
+    let mut count = 0;
+    let mut bytes = 0;
+    for s in file.symbols() {
+        let Ok(name) = s.name() else { continue };
+        let name = format!("{:#}", rustc_demangle::demangle(name));
+        if names.iter().any(|n| name.contains(n)) {
+            count += 1;
+            bytes += s.size();
+        }
+    }
+    Ok((count, bytes))
+}
+
 /// Builds the bench for every core and profile and compares the plain and Fixed code of each pair (a differing pair is the
 /// one worth measuring on a board).
 fn run_elf(args: &Args, qemu_dir: &Path) -> Res<()> {
@@ -217,7 +236,8 @@ fn run(args: &Args) -> Res<()> {
         return run_elf(args, &qemu_dir);
     }
     if args.flash {
-        return flash::run(&args.targets, &args.filter(), &qemu_dir);
+        flash::run(&args.targets, &args.filter(), &qemu_dir)?;
+        return no_f64_guard::run(&qemu_dir);
     }
     if args.requests {
         return requests::run(&root, &args.filter(), &qemu_dir, args.qemu_host.as_deref());

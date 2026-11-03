@@ -2650,6 +2650,18 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `debug_to_file` dump), the resource arms naming the type. On the nucleo_g0b1re `usb_blinky` at `opt-level = "z"` it
   gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
   debug info. For when TEST-30's totals move and the reason isn't obvious.
+- ✅ **TEST-33 No-f64 firmware guard** · `v0.5` — `just flash-budget` (`examples_mcu/fw_budget --flash`,
+  `examples_mcu/fw_budget/src/no_f64_guard.rs`) builds a fixture (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`,
+  `qemu-no-f64-guard`) that calls every device-relevant `ww_si::Quantity` operation of today's API (`to_u32_in`,
+  `to_u32_wrapping_in`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`; STD-102 moves it onto `to_in`),
+  on `thumbv6m-none-eabi` and `thumbv7em-none-eabihf`, at `fw-z` and `fw-3`, with `u32 + f32` and `u32 + u64 + f32`
+  (`--features guard-u64`, as usb_io_fw's 64-bit `Integer` has), and lists the f64 soft-float and 128-bit helper
+  symbols linked into each ELF with their bytes.
+  Baseline of 3 Nov 2026 (expected red, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3):
+  on `thumbv6m-none-eabi`, 16 f64 symbols (3730 B) and 2 128-bit symbols (584 B) at `u32 + f32`, 17 symbols
+  (3834 B) and 2 (584 B) at `u32 + u64 + f32`, the same at `fw-z` and `fw-3`; on `thumbv7em-none-eabihf`, 3616 B
+  and 520 B at `u32 + f32`, 3752 B and 520 B at `u32 + u64 + f32`. Only reports for now: the gate (the build
+  failing when a new symbol links) turns on once STD-102 moves `ww_si` onto exact_units' integer kernel.
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before

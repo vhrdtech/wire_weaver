@@ -18,6 +18,20 @@ pub struct Corpus {
     /// Conversions of a stored number to another scale and storage (STD-63), checked by [crate::requantize].
     #[serde(default)]
     pub requantize: Vec<RequantizeCase>,
+    /// Cases removed together with the wire feature they covered, before it reached a release: the frozen golden
+    /// bytes guard (TEST-24) lets a sealed case disappear only when it is named here. Its name stays taken.
+    #[serde(default)]
+    pub withdrawn: Vec<Withdrawn>,
+}
+
+/// A case taken out of the corpus, see [Corpus::withdrawn].
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Withdrawn {
+    /// The case's name as it was.
+    pub name: String,
+    /// `"ID / reason"`: the `FEATURES.md` item that went and why its bytes never need decoding.
+    pub reason: String,
 }
 
 /// A number in one scale and storage converted to another with a named rounding and overflow policy: every consumer

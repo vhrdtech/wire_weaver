@@ -417,10 +417,6 @@ pub enum ErrorKind<'i> {
     StreamNoSession,
     /// The store of a reliable stream failed (open or resume)
     StreamStoreFailed,
-    /// The server's call gate (SRV-50) refused the request before its handler ran, with a short reason from the
-    /// firmware (`board guarded: unknown rework 9`). The device is in a state where it serves only some traits
-    /// (identity, info, update): the rest is refused until that state ends.
-    Refused(&'i str),
 }
 
 // Optional shaper configuration request.
@@ -560,7 +556,6 @@ impl Error<'_> {
             ErrorKind::StreamStoreFailed => ErrorKindOwned::StreamStoreFailed,
             ErrorKind::UserBytes(bytes) => ErrorKindOwned::UserBytes(bytes.to_vec()),
             ErrorKind::UserStr(s) => ErrorKindOwned::UserStr(s.to_string()),
-            ErrorKind::Refused(reason) => ErrorKindOwned::Refused(reason.to_string()),
             ErrorKind::Unknown(d) => ErrorKindOwned::Unknown(*d),
         };
         ErrorOwned {
@@ -941,53 +936,6 @@ mod tests {
         assert_eq!(
             StreamOpened::from_ww_bytes(&b).unwrap().capacity,
             Some(UVlq32(4096))
-        );
-    }
-
-    /// A host built before `ErrorKind::Refused` (SRV-50) reads it as `Unknown(17)`, and the error around it whole.
-    #[test]
-    fn older_host_reads_a_refusal_as_unknown() {
-        /// `Error` and `ErrorKind` as they were before SRV-50
-        mod old {
-            use wire_weaver::prelude::*;
-
-            #[derive_shrink_wrap(borrowed, derive(Debug), final_structure)]
-            pub struct Error<'i> {
-                pub err_seq: UNib32,
-                pub kind: ErrorKind<'i>,
-            }
-
-            #[derive_shrink_wrap(borrowed, derive(Debug), ww_repr = u8)]
-            pub enum ErrorKind<'i> {
-                OperationNotSupported,
-                BadPath,
-                BadIndex,
-                ExpectedArrayIndexGotNone,
-                ArrayIndexDesFailed,
-                ArgsDesFailed,
-                PathDesFailed,
-                PropertyDesFailed,
-                ResponseSerFailed,
-                Unimplemented,
-                ReadPropertyWithSeqZero,
-                PathKindNotSupported,
-                UserBytes(RefVec<'i, u8>),
-                UserStr(&'i str),
-                TraitNotFound,
-                StreamNoSession,
-                StreamStoreFailed,
-            }
-        }
-        let new = Error::new(err_seq::GATE, ErrorKind::Refused("board guarded"));
-        let mut buf = [0u8; 64];
-        let bytes = new.to_ww_bytes(&mut buf).unwrap();
-        let old = old::Error::from_ww_bytes(bytes).unwrap();
-        assert_eq!(old.err_seq, UNib32(err_seq::GATE));
-        assert!(matches!(old.kind, old::ErrorKind::Unknown(17)), "{old:?}");
-        let back = Error::from_ww_bytes(bytes).unwrap();
-        assert!(
-            matches!(back.kind, ErrorKind::Refused("board guarded")),
-            "{back:?}"
         );
     }
 }

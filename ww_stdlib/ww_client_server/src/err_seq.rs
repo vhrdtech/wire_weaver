@@ -45,9 +45,6 @@ pub const TOO_LONG: u32 = 7;
 // 8 was `CREDIT_POS`, a credit sink's write position that didn't decode (API-28, gone with API-34): not reused
 /// A deferred method in a multi request (CLT-15), refused before the handler runs.
 pub const DEFERRED_IN_MULTI: u32 = 9;
-/// The server's call gate (SRV-50) refused the request before the item's handler ran (`ErrorKind::Refused`), or
-/// the refusal didn't fit into the answer (`ErrorKind::ResponseSerFailed`).
-pub const GATE: u32 = 10;
 
 /// Sites of a method, by step.
 pub mod method {
@@ -156,8 +153,6 @@ pub const OBSERVE_ARRAY: u32 = 57;
 pub const OBSERVE_PATH: u32 = 58;
 /// Introspection: an event of the introspection data couldn't be sent.
 pub const INTROSPECT: u32 = 59;
-/// Observe request: the server's call gate (SRV-50) refused observing the level.
-pub const OBSERVE_GATE: u32 = 60;
 
 /// `ww_device`'s answer when the server failed without an error to send.
 pub const GENERIC: u32 = u32::MAX;
@@ -185,7 +180,7 @@ impl Site {
             0..ITEM_END => Site::Item(err_seq),
             DEFERRED_OUTPUT_SER..=DEFERRED_EVENT_FINISH => Site::DeferredReturn(err_seq),
             LEVEL_BAD_PATH..=REPLY_START => Site::Level(err_seq),
-            REQUEST_TRAIT_NOT_FOUND..=OBSERVE_GATE => Site::Request(err_seq),
+            REQUEST_TRAIT_NOT_FOUND..=INTROSPECT => Site::Request(err_seq),
             GENERIC => Site::Generic,
             _ => Site::Unknown(err_seq),
         }
@@ -207,7 +202,6 @@ impl Site {
                     // `CREDIT_POS` until API-34: still named for errors of older firmware
                     8 => "credit sink position (firmware before API-34)",
                     DEFERRED_IN_MULTI => "deferred method in a multi request",
-                    GATE => "refused by the call gate",
                     _ => return None,
                 });
             }
@@ -239,7 +233,6 @@ impl Site {
             OBSERVE_ARRAY => "observe request: level in a resource array",
             OBSERVE_PATH => "observe request: no observable level there",
             INTROSPECT => "introspection: event not sent",
-            OBSERVE_GATE => "observe request: refused by the call gate",
             _ => return None,
         })
     }
@@ -282,7 +275,7 @@ mod tests {
             "level site 40 (no such item)"
         );
         // every site in a range has a name
-        for seq in (0..=GATE).chain(ITEM_END..=OBSERVE_GATE) {
+        for seq in (0..=DEFERRED_IN_MULTI).chain(ITEM_END..=INTROSPECT) {
             let site = Site::of(seq);
             if !matches!(site, Site::Unknown(_)) {
                 assert!(site.name().is_some(), "{seq}");

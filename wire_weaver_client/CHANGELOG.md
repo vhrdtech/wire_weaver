@@ -2,7 +2,6 @@
 
 ### ⚠️ Breaking
 
-- `Error::Refused { reason, err_seq }` (SRV-50): the device's call gate refused the request (`ErrorKind::Refused`), instead of `Error::RemoteError`. `Error::from_remote(ErrorOwned)` makes it, `Error::is_refused()` tells it. Exhaustive matches on `Error` need the arm; code matching `RemoteError` with `ErrorKindOwned::Refused` matches `Refused` instead.
 - `quantity::DynQuantity::prefix` is a `DynPrefix` (`Si(Prefix)` or `Exact { symbol, magnitude }`, a `Fixed`'s binary or own scale, CLT-54) and `DynQuantity` has a new field `storage: Option<Storage>` (`Some` for a `Fixed`): build one with `DynQuantity::new(prefix, value, unit)`, compare a prefix with `Prefix::Milli.into()` or `q.prefix.si()`.
 - `ww_si::Prefix` has binary prefixes, the scale families `Pow10`, `Pow2`, `FullScale` and `Unknown(u16)` (STD-59, DER-25): `clock_sync::DeviceTime` works for a device clock in any of them but `Unknown` (an RTC counting `2⁻¹⁵` s), `client::seconds` scales by `Prefix::scale_f64`; `quantity::DynPrefix::Si` holds any of them (a `Fixed`'s `Ki` or `Pow10<-4>` scale too, `DynPrefix::Exact` only for one no `Prefix` is), `DynPrefix::magnitude()` answers `Option<Magnitude>`, `None` for `Unknown`.
 - `quantity::DynUnit::Named::dim` is a `ww_si::DimOwned` (angle, information and counted bases, STD-60), `DynUnit::dim()` answers `Option<Dim<'_>>`: compare with `same` or through `exps()` / `counted_bases()`.

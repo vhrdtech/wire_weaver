@@ -158,6 +158,12 @@ that the matrix report also shows (a "Wire changes" section, `just conformance-u
 carrying the change lands on main, the mark has done its job and the next guard run treats the new bytes as sealed
 again; remove it once that is true (it is harmless to leave, but do not reuse it for a later, unrelated change).
 
+A case can't simply be deleted either. When the wire feature it covers is removed before it reached a release (no
+device or host out there speaks it), the case goes into the corpus's top-level `withdrawn` list as `{"name": ...,
+"reason": "ID / reason"}`, naming the `FEATURES.md` item that went (it moves to *Dropped and superseded*). The guard
+then lets the sealed case disappear; the name stays taken, so a case of that name fails while it is withdrawn. A
+feature that did reach a release is not withdrawn: its bytes stay, and a removal is a breaking `EVO-n` change.
+
 ## Coverage guard
 
 A corpus can go stale the other way too: a wire feature lands without ever being exercised by a case, or a case

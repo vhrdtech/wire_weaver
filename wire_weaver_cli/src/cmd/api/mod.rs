@@ -92,22 +92,6 @@ pub enum ApiCommand {
         #[arg(long, value_delimiter = ',', value_name = "LEVEL")]
         observe_cells: Vec<String>,
 
-        /// `call_gate = true` in ww_codegen! (SRV-50): the server struct is asked before a request goes into a
-        /// trait level and before the root level's items, with an `impl wire_weaver::gate::CallGate` stub that
-        /// admits all
-        #[arg(long)]
-        call_gate: bool,
-
-        /// Levels whose items ask the call gate one by one too, by trait (`ww_board_info::BoardInfo`) or path
-        /// (`motor`): `call_gate_items = ".."` in ww_codegen!. Repeat or separate with commas
-        #[arg(
-            long,
-            value_delimiter = ',',
-            value_name = "CRATE::TRAIT|PATH",
-            requires = "call_gate"
-        )]
-        call_gate_items: Vec<String>,
-
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -222,8 +206,6 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             medium,
             omit,
             observe_cells,
-            call_gate,
-            call_gate_items,
             output,
         } => scaffold::scaffold(
             path,
@@ -239,8 +221,6 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 medium,
                 omit,
                 observe_cells,
-                call_gate,
-                call_gate_items,
             },
             output,
         ),

@@ -6,6 +6,7 @@
     "gaps: consumer -> why it can't run the case yet, with the FEATURES.md id that fixes it. A missing or stale mark fails the tests.",
     "wire_change: \"EVO-n / reason\", the escape the frozen golden bytes guard (TEST-24) accepts for a deliberate change to bytes, direction or bytes_from, with a matching EVO item and CHANGELOG entry.",
     "New case: add it here with \"bytes\": \"?\" and to tests/conformance/src/derive.rs, then just conformance-update and review the bytes.",
+    "withdrawn: cases removed with the wire feature they covered before it reached a release, by name with \"ID / reason\"; the frozen golden bytes guard (TEST-24) lets a sealed case go only this way, and the name stays taken.",
     "requantize: a stored number converted to another scale and storage (STD-63): factor is the quotient of the scales (a magnitude value), rounding truncate|floor|ceil|nearest_even|nearest_away, overflow checked|saturate|wrap, result the stored number after it (null: no value). conversion names the typed conversion in tests/conformance/src/requantize.rs."
   ],
   "cases": [
@@ -932,14 +933,6 @@
       "value": {"ch": 7, "maybe": 772, "list": [2571, 2], "name": "ab", "on": true},
       "bytes": "0780020002008004030b0a02006162",
       "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
-    },
-    {
-      "name": "client_server.error.refused",
-      "type": "ErrorOwned",
-      "value": {"err_seq": 10, "kind": {"Refused": "board guarded: unknown rework 9"}},
-      "bytes": "a111626f61726420677561726465643a20756e6b6e6f776e207265776f726b20397b1c",
-      "gaps": {"dynamic": "ww_client_server's Error is a protocol message, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's Error is a protocol message, not a type of an API in the model", "python": "ww_client_server's Error is a protocol message, not a type of an API in the model", "c": "ww_client_server's Error is a protocol message, not a type of an API in the model"},
-      "note": "ww_client_server ErrorKind::Refused (SRV-50), the call gate's refusal at item site GATE; an older host reads the variant as Unknown(17)"
     },
     {
       "name": "link_setup.without_meta",
@@ -2217,5 +2210,8 @@
       "overflow": "saturate",
       "result": -9223372036854775808
     }
+  ],
+  "withdrawn": [
+    {"name": "client_server.error.refused", "reason": "SRV-50 / the call gate was removed before any release (the rework guard refuses to boot instead); ErrorKind::Refused went with it"}
   ]
 }

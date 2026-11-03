@@ -176,9 +176,12 @@ pub fn check(old: &LenientCorpus, now: &Corpus, sha: &str) -> Vec<String> {
     let mut failures = vec![];
     for was in &old.cases {
         let Some(is) = now.cases.iter().find(|c| c.name == was.name) else {
+            if now.withdrawn.iter().any(|w| w.name == was.name) {
+                continue;
+            }
             failures.push(format!(
                 "case '{}' existed at {sha} (baseline) and is gone now: golden bytes and cases don't change or \
-                 disappear once in without the escape (docs/serdes/conformance.md)",
+                 disappear once in without the escape, `wire_change` or `withdrawn` (docs/serdes/conformance.md)",
                 was.name
             ));
             continue;
@@ -212,6 +215,17 @@ pub fn check(old: &LenientCorpus, now: &Corpus, sha: &str) -> Vec<String> {
                  \"wire_change\": \"EVO-n / reason\" (new or changed) if this is deliberate",
                 was.name, was.bytes_from, is.bytes_from
             ));
+        }
+    }
+    for w in &now.withdrawn {
+        if now.cases.iter().any(|c| c.name == w.name) {
+            failures.push(format!(
+                "case '{}' is both a case and withdrawn: a withdrawn case's name stays taken",
+                w.name
+            ));
+        }
+        if w.reason.trim().is_empty() {
+            failures.push(format!("withdrawn case '{}' has no reason", w.name));
         }
     }
     for was in &old.requantize {
@@ -277,6 +291,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "ff", None)],
             requantize: vec![],
+            withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
@@ -293,6 +308,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "00", None)],
             requantize: vec![],
+            withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -307,10 +323,37 @@ mod tests {
             about: vec![],
             cases: vec![],
             requantize: vec![],
+            withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
         assert!(failures[0].contains("gone") && failures[0].contains("is gone now"));
+    }
+
+    #[test]
+    fn withdrawn_case_passes_and_keeps_its_name() {
+        let old = LenientCorpus {
+            requantize: vec![],
+            cases: vec![lenient("gone", "00", None)],
+        };
+        let withdrawn = |reason: &str| crate::corpus::Withdrawn {
+            name: "gone".into(),
+            reason: reason.into(),
+        };
+        let mut now = Corpus {
+            about: vec![],
+            cases: vec![],
+            requantize: vec![],
+            withdrawn: vec![withdrawn("SRV-1 / removed before any release")],
+        };
+        assert!(check(&old, &now, "deadbeef").is_empty());
+        now.withdrawn = vec![withdrawn(" ")];
+        assert_eq!(check(&old, &now, "deadbeef").len(), 1);
+        now.withdrawn = vec![withdrawn("SRV-1 / removed")];
+        now.cases = vec![case("gone", "00", None)];
+        let failures = check(&old, &now, "deadbeef");
+        assert_eq!(failures.len(), 1, "{failures:?}");
+        assert!(failures[0].contains("stays taken"));
     }
 
     #[test]
@@ -325,6 +368,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-1 / first change"))],
             requantize: vec![],
+            withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");
@@ -341,6 +385,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "ff", Some("EVO-2 / deliberate"))],
             requantize: vec![],
+            withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -356,6 +401,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "00", Some("EVO-3 / second change"))],
             requantize: vec![],
+            withdrawn: vec![],
         };
         assert!(check(&old, &now, "deadbeef").is_empty());
     }
@@ -376,6 +422,7 @@ mod tests {
             about: vec![],
             cases: vec![case("x", "ff", None)],
             requantize: vec![],
+            withdrawn: vec![],
         };
         let failures = check(&old, &now, "deadbeef");
         assert_eq!(failures.len(), 1, "{failures:?}");

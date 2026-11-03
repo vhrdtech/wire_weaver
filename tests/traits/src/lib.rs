@@ -496,8 +496,6 @@ mod tests {
             medium: None,
             omit: vec!["reset".into(), "i2c.pullups".into()],
             observe_cells: vec![],
-            call_gate: false,
-            call_gate_items: vec![],
         };
         let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
         for expected in [

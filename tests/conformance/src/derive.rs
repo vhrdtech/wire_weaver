@@ -692,14 +692,6 @@ pub fn table() -> Vec<Typed> {
                 on: true,
             },
         ),
-        // ww_client_server's error answer, not in the API model: a refusal of the call gate (SRV-50)
-        case_debug("client_server.error.refused", || {
-            ww_client_server::Error::new(
-                ww_client_server::err_seq::GATE,
-                ww_client_server::ErrorKind::Refused("board guarded: unknown rework 9"),
-            )
-            .make_owned()
-        }),
         // ww_link's own message, not in the API model
         case_debug("link_setup.without_meta", || link_setup(None)),
         case_debug("link_setup.with_meta", || {

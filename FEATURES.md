@@ -868,19 +868,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Host side `Decoder` (feature `std`, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests `ww_lz4/tests` (round trips against lz4_flex, random chunking, untrusted blocks) and
   `just test-lz4-c` (C liblz4 decodes the blocks). Device and host user: API-55.
-- ✅ **SRV-50 server-call-gate Call gate: refuse calls outside allowed traits** · `v0.5` — `ww_codegen!(..,
-  call_gate = true)`: the generated dispatcher asks the server struct (`wire_weaver::gate::CallGate::admit`) for a
-  trait level before a request goes into it, with a `Target` naming its trait as a `TraitId` (a global trait matches
-  wherever it sits; the dotted path for a project's own traits) and the request's `Op`. The items of the root level
-  and of the levels named in `call_gate_items = "crate::Trait, path"` are asked one by one too (calls, property and
-  `const` reads and writes, stream and sink opens and traffic, sink writes, array indices, each index of a multi
-  request); an observe request asks its levels and, where items are asked, each observed property; introspection
-  never. A refusal is `ww_client_server::ErrorKind::Refused(reason)` (appended, an older host reads `Unknown(17)`)
-  at error site 10 (`GATE`, 60 `OBSERVE_GATE`), `wire_weaver_client::Error::Refused` on the host, `ww` points at
-  `ww info`. Nothing generated without it; with it 32-60 instructions per admitted request and 636 B of flash for
-  five traits (+276 B with their 21 items asked) on a Cortex-M3 at `z` (`examples_mcu/mcu_qemu` bin
-  `qemu-call-gate`). `ww api scaffold --call-gate [--call-gate-items]`. For guarded boards (STD-101, usb_io_fw
-  PLAT-18). `docs/api/call_gate.md`, tests `tests/call_gate`, conformance `client_server.error.refused`.
 - ✅ **SRV-34 per-resource-claims Per-resource claims through the hub** · `v0.5.x` — typed metadata attributes,
     carried in introspection as data (`ww_self::Meta` on `ApiItem` and `ApiLevel`), checked when the API is loaded:
     `#[claim(exclusive | shared | observe)]` on a `ww_impl!` or trait definition (the root is always claimable),
@@ -2334,7 +2321,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   origin/master`, falling back to local `master`) — a hand edit or a reset to `"?"` re-sealed silently before this,
   `CONFORMANCE=update` on its own only refuses to overwrite a filled-in case. `"wire_change": "EVO-n / reason"` on
   a case is the escape for a deliberate wire break (needs the matching `EVO-n` item and a `**Breaking:**`
-  CHANGELOG entry), shown in the matrix report. Depends only on the repo's own git: without git, or without the
+  CHANGELOG entry), shown in the matrix report; a case of a wire feature removed before any release goes into the
+  corpus's `withdrawn` list (name and `"ID / reason"`, the name stays taken). Depends only on the repo's own git: without git, or without the
   corpus at the merge base (a shallow clone, or the corpus being new), the guard says so and passes rather than
   failing a check it can't run; CI's `test` and `coverage` jobs fetch full history so it actually runs there.
   `tests/conformance/src/frozen.rs`, `tests/matrix.rs::frozen_bytes`. See `docs/serdes/conformance.md`.
@@ -2418,6 +2406,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 
 ## Dropped and superseded
 
+- **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
+  doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
+  `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before
+  dispatch, the refusal `ErrorKind::Refused(reason)` at error site 10; 32-60 instructions per request and 636 B of
+  flash on a Cortex-M3, 6.2 KB on usb_io_fw. Its conformance case `client_server.error.refused` is withdrawn.
 - **CLT-37 No millisecond per request from the accumulation window** — superseded by request priority (CLT-50)
   and the fine window timer (CLT-53) (user, 27 Oct 2026). CLT-37 flushed whatever accumulated as soon as the tx
   task had nothing else waiting, for windows under 1 ms (`TxInput::Idle`, `TxCore::wants_idle_flush`, removed), so

@@ -7,10 +7,6 @@ edition = "2024"
 # the units budget (TEST-27) with only the plain cases / only the Fixed cases, to compare the flash of the two
 only-plain = []
 only-fixed = []
-# the call gate bench (SRV-50) with `call_gate = true`
-call-gate = []
-# the same with every trait's items asked one by one (`call_gate_items`)
-call-gate-items = ["call-gate"]
 
 [dependencies]
 cortex-m = "0.7"
@@ -61,13 +57,6 @@ bench = false
 [[bin]]
 name = "qemu-global-paths"
 path = "src/bin/global_paths.rs"
-test = false
-doctest = false
-bench = false
-
-[[bin]]
-name = "qemu-call-gate"
-path = "src/bin/call_gate.rs"
 test = false
 doctest = false
 bench = false

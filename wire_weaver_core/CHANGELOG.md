@@ -2,7 +2,6 @@
 
 ### ⚠️ Breaking
 
-- `GenServerConfig`, `GenServerConfigRaw` and `ServerScaffoldConfig` have `call_gate: bool` and `call_gate_items: Vec<String>` fields (SRV-50): code built with a struct literal adds `call_gate: false, call_gate_items: vec![]`.
 - `GenServerConfig`, `GenServerConfigRaw`, `GenClientConfig` and `GenClientConfigRaw` have a `crate_paths: CratePaths` field (API-60): code built with a struct literal adds `crate_paths: Default::default()` (every crate named by its own name, as before) or the paths from `load_dep_with_paths`.
 
 ### 🐛 Fixes
@@ -21,7 +20,6 @@
 
 ### 🚀 Features
 
-- Server call gate (SRV-50): with `call_gate`, the generated dispatcher asks `wire_weaver::gate::CallGate::admit` for a trait level (`Target { level: true, .. }`, the trait attached there and its path) before a request goes into it, also for each index of a resource array of traits, and for each item of the root level and of the levels named in `call_gate_items` (by `crate::Trait` or by dotted path; an unknown name, or the argument without `call_gate`, is a `compile_error!` listing the levels), with the request's `Op`. An observe request asks the levels on the way and, in item-asked levels, each observed property (`ww_gate_observe`). A refusal is answered with `ErrorKind::Refused(reason)` at `err_seq::GATE` (`OBSERVE_GATE`) by one shared `ww_gate_refused`, the handler doesn't run; each index of a multi request asks on its own. Introspection is never asked. Without `call_gate` nothing is generated. On a Cortex-M3 at `opt-level = "z"` it costs 32-60 instructions per admitted request and 636 B of flash for five traits, +276 B with their 21 items asked one by one (`examples_mcu/mcu_qemu/src/bin/call_gate.rs`). `gen_server_scaffold` with `call_gate` prints an `impl CallGate` that admits all, and the `call_gate_items` argument.
 - `codegen::local_trait::gen_local_trait` and `gen_local_trait_client_impl` (CLT-57): the API's root level as an async Rust trait (`impl Future + Send` functions with owned types, every result a `Result`), its `<Name>Dyn` companion with boxed futures and its implementation for `Box`/`Arc<dyn <Name>Dyn>`, and the trait implemented on a generated std client; items it can't express yet are listed in the trait's docs. `CratePaths::insert` names a crate by another path (`crate` for code generated in the API crate itself).
 - The walker parses each source file once per thread while its size and modification time stay the same: a process that walks several crates or versions (`ww api check`, the evolution tests) no longer parses the same ww_si and exact_units files on every walk (a fixture load 0.3 s → 0.1 s). Not inside a proc macro, whose syntax trees hold spans valid for one invocation only.
 - `dependency_dir(crate_path, dep_name)`: the directory of a dependency as Cargo builds it (path, git or registry source), for saving the snapshot of a crate kept in another repository (`exact_units`, STD-61).

@@ -4,7 +4,6 @@ pub mod api_doc;
 pub mod api_id;
 mod context;
 mod disconnect_reason;
-pub mod gate;
 #[doc(hidden)]
 pub mod handler;
 mod priority;

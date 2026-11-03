@@ -196,7 +196,7 @@ async fn run() -> Result<()> {
             _ => {}
         }
     }
-    let ran = command_result.map_err(refusal_hint)?;
+    let ran = command_result?;
     if ran.disconnect
         && let Some(device) = device
     {
@@ -207,20 +207,6 @@ async fn run() -> Result<()> {
         std::process::exit(1);
     }
     Ok(())
-}
-
-/// A refusal of the device's call gate (SRV-50) points at `ww info`, which shows the device's state and why.
-fn refusal_hint(e: anyhow::Error) -> anyhow::Error {
-    let refused = e.chain().any(|cause| {
-        cause
-            .downcast_ref::<wire_weaver_client::Error>()
-            .is_some_and(wire_weaver_client::Error::is_refused)
-    });
-    if refused {
-        anyhow!("{e:#}\nrun 'ww info' to see the device's state")
-    } else {
-        e
-    }
 }
 
 /// How a command ended.

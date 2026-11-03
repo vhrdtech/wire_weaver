@@ -82,6 +82,9 @@ pub struct Site {
     /// Innermost first: the inlined functions at `lookup`, then the function they are inlined into. One frame with
     /// no function when nothing in the ELF covers the address.
     pub frames: Vec<Frame>,
+    /// Past the end of the call chain (after `main`, `Reset` or the task entry): a return address that is still in
+    /// the stack buffer from earlier code, probably not part of this crash
+    pub stale: bool,
 }
 
 /// A function at an address, with its source location.
@@ -334,11 +337,26 @@ impl Symbolizer {
             })
             .unwrap_or(0);
         let panic_site = sites.iter().enumerate().skip(start).find_map(|(si, s)| {
+            let code = |f: &Frame| f.kind == FrameKind::Code && f.function.is_some();
+            // an inlined `core::ptr::read_volatile` is where the fault is, but its caller is the site
             s.frames
                 .iter()
-                .position(|f| f.kind == FrameKind::Code && f.function.is_some())
+                .position(|f| code(f) && !is_std_function(f.function.as_deref()))
+                .or_else(|| s.frames.iter().position(code))
                 .map(|fi| (si, fi))
         });
+        // The chain ends at the entry point; stack words past it are leftovers of earlier calls.
+        let first = panic_site.map_or(0, |(si, _)| si);
+        if let Some(end) = sites.iter().enumerate().skip(first).find_map(|(si, s)| {
+            let outer = s.frames.last()?.function.as_deref();
+            (matches!(s.source, Source::Stack(_)) && is_entry_point(outer)).then_some(si)
+        }) {
+            for s in &mut sites[end + 1..] {
+                if matches!(s.source, Source::Stack(_)) {
+                    s.stale = true;
+                }
+            }
+        }
         CrashFrames {
             sites,
             panic_site,
@@ -353,6 +371,7 @@ impl Symbolizer {
             address,
             lookup,
             frames: self.frames(lookup),
+            stale: false,
         }
     }
 }
@@ -393,12 +412,17 @@ impl CrashFrames {
     /// ```
     pub fn render_lines(&self) -> Vec<String> {
         let mut lines = vec![];
+        let mut sites_stale = false;
         for (si, site) in self.sites.iter().enumerate() {
             let what = match site.source {
                 Source::Pc => "pc   ",
                 Source::Lr => "lr   ",
                 Source::Stack(_) => "stack",
             };
+            if site.stale && !sites_stale {
+                sites_stale = true;
+                lines.push("(possibly stale, past the entry point:)".to_string());
+            }
             for (fi, f) in site.frames.iter().enumerate() {
                 let mut line = if fi == 0 {
                     format!("{what} {:#010x}  ", site.address)
@@ -505,6 +529,25 @@ fn unwrap_plain_paths(name: &str) -> String {
         out = format!("{}{}{}", &out[..start], inner, &out[end + 1..]);
     }
     out
+}
+
+/// Functions of the standard library, not the code that called them.
+fn is_std_function(function: Option<&str>) -> bool {
+    let Some(f) = function else { return false };
+    let f = f.trim_start_matches('<');
+    ["core::", "alloc::", "std::"]
+        .iter()
+        .any(|p| f.starts_with(p))
+}
+
+/// The outermost function of a call chain: nothing real is called from further out.
+fn is_entry_point(function: Option<&str>) -> bool {
+    let Some(f) = function else { return false };
+    let f = f.trim_start_matches('<');
+    matches!(f, "main" | "Reset" | "_start" | "__cortex_m_rt_main" | "__pre_init")
+        || f.ends_with("::main")
+        // an embassy task is entered from the executor's poll
+        || (f.starts_with("embassy_executor::raw::") && f.ends_with("::poll"))
 }
 
 /// Where user code enters the panic machinery, as opposed to the handler's own frames (`bedrock_crash`, `core::fmt`).
@@ -700,6 +743,34 @@ mod tests {
             ),
         ] {
             assert_eq!(short_function(name), short, "{name}");
+        }
+    }
+
+    #[test]
+    fn std_functions_are_not_the_site() {
+        for f in [
+            "core::ptr::read_volatile",
+            "<core::option::Option<u32>>::map",
+            "alloc::vec::Vec::push",
+        ] {
+            assert!(is_std_function(Some(f)), "{f}");
+        }
+        for f in [
+            "crash_fw::ratio",
+            "donguru::main",
+            "<heapless::Vec<u8, 4>>::push",
+        ] {
+            assert!(!is_std_function(Some(f)), "{f}");
+        }
+    }
+
+    #[test]
+    fn entry_points() {
+        for f in ["main", "Reset", "donguru::main", "__cortex_m_rt_main"] {
+            assert!(is_entry_point(Some(f)), "{f}");
+        }
+        for f in ["crash_fw::ratio", "main_loop", "Reset_handler_x"] {
+            assert!(!is_entry_point(Some(f)), "{f}");
         }
     }
 

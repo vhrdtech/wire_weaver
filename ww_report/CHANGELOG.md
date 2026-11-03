@@ -11,6 +11,8 @@
 
 ### 🚀 Features
 
+- `crash::Site::stale`: stack words past the entry point (`main`, `Reset`, a task's executor `poll`) are marked, and
+  `CrashFrames::render` lists them after a "possibly stale" line (CLT-59).
 - `rework_check` gains `scan_installed_image` (the image in flash whether it has a table or not, for `ww info` on
   an old image), `board_guard` (`ww_board_info::guard::decide` run on what `read_board` answered: the verdict a
   reboot would reach right now), `guard_line` and `rom_info_text` (TOOL-30): what `ww info` shows for a board
@@ -37,5 +39,6 @@
 
 ### 🐛 Fixes
 
+- `crash`: the panic site or fault place is the first frame that is not `core` / `alloc` / `std`: a HardFault in an inlined `core::ptr::read_volatile` names its caller, the full chain stays (CLT-59).
 - `crash` (CLT-59): the "<- panic site" marker no longer lands on a stale return address left among the machinery's words by the panic handler's own frames; the site is the first code past the last `core::panicking` / `unwrap_failed` entry, the caller of the panic machinery (`CrashFrames::panic_site`).
 - Drop the unused `serde_json` dependency (P2401, cargo-machete).

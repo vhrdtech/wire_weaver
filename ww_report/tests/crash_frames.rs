@@ -256,3 +256,25 @@ fn json() {
     assert_eq!(v["sites"][0]["frames"][0]["line"], 25);
     assert_eq!(v["sites"][0]["frames"][0]["kind"], "code");
 }
+
+/// Words past the entry point (`Reset` here) are what earlier calls left in the stack buffer: kept, but marked.
+#[test]
+fn words_past_the_entry_point_are_stale() {
+    let frames = panic(&[
+        0x0800_00a9, // unwrap_failed -> panic
+        0x0800_007b, // ratio -> unwrap_failed
+        0x0800_0027, // Reset -> ratio
+        0x0800_003f, // Reset -> pick, from an earlier call
+        0x0800_0051, // Reset -> scaled, from an earlier call
+    ]);
+    assert_eq!(
+        site(&frames),
+        ("crash_fw::ratio".into(), "src/main.rs".into(), 12)
+    );
+    let stale: Vec<bool> = frames.sites.iter().map(|s| s.stale).collect();
+    assert_eq!(stale, [false, false, false, true, true]);
+    let text = frames.render();
+    let marker = text.find("possibly stale").expect(&text);
+    assert!(text[..marker].contains("Reset at src/main.rs:38"), "{text}");
+    assert_eq!(text[marker..].matches("Reset at").count(), 2, "{text}");
+}

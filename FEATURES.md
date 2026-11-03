@@ -620,6 +620,33 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `wire_weaver_client` `compressed_stream_decodes_and_heals`, `tests/io_uart` `rx_compressed`). To check on
   hardware: Donguru's UART rx at 6 Mbaud (typec_dongle FW-42). Not yet: a restart the host asks for, batched and
   reliable streams, sinks (host -> device).
+- 📋 **SW-69 No core::fmt Debug of `shrink_wrap::Error` on a device** · `v0.5` — flash diet: the variant names of
+  `shrink_wrap::Error` (`OutOfBoundsReadU8`, ..., about 450 B) and the `core::fmt` machinery behind them are in
+  Donguru's flash because something formats the error with `core::fmt::Debug` on the target (an `unwrap()` /
+  `expect()` on a `Result<_, shrink_wrap::Error>`, or a `{:?}` through a `log`/`Debug2Format` path). Find each caller
+  in the ELF, switch it to `defmt::Format` (or a panic without the value), and keep every message: no capability
+  lost. Est. 0.5-1 KB; measured with TEST-30, which checks that `<shrink_wrap::Error as Debug>::fmt` is not linked.
+- 📋 **SW-70 Serdes out of line: one copy per type** · `v0.5` — flash diet: at `opt-level = "z"` the same impl is
+  inlined at every call site: 4,892 B of Donguru's 19,740 B of serdes are extra copies (ser `&str` 15 copies, des
+  `UNib32` 13, ser `UVlq64` 9, `RefVec<u8>` 3 + 5, `Quantity<Second>` 6). The derive emits `#[inline(never)]` on the
+  serdes of structs and enums with more than a few fields or variants, and the primitive writers and readers
+  (`&str`, `UNib32`, `UVlq*`, the `RefVec` length) stay out of line, while the small hot per-item functions keep
+  `#[inline(always)]` (AGENTS.md "Firmware"). Measured in flash (TEST-30) and in instructions (`qemu_icount`, the
+  Series and struct benches of TEST-27) at `fw-z` and `fw-3`; a cycle cost on the hot path is reported, not hidden.
+  Est. 2.5-3.5 KB.
+- 📋 **SW-71 Table decode for fieldless enums** · `v0.5` — flash diet: des `exact_units::Prefix` is 574 B (5 copies)
+  for a value that is one `UNib32` tag: the derive matches every tag of its 31 prefixes and the tag-only scale kinds
+  (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
+  (tag -> variant) and one shared lookup instead, in the derive, so every such enum gains, not only `Prefix`. Same
+  bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.
+- 📋 **SW-72 `MaxLen<_, N>` checks through one helper** · `v0.5` — flash diet: ser `MaxLen<_, N>` is monomorphised
+  per bound (9 instances, 296 B in Donguru: `&str` for N = 16, 32, 64, 128, `RefVec<u8>` for 16, 20, 32, 512) though
+  the bodies differ only in N. A non-generic `check_max(len, max)` with a thin generic wrapper keeps one copy. Est.
+  200-250 B.
+- 💡 **SW-73 Panic-free indexing in BufReader / BufWriter** — flash diet, to evaluate: the slice indexing and
+  `copy_from_slice` in shrink_wrap's reader and writer keep panic paths (670 B of file paths, `copy_from_slice` 636 B
+  and `index`/`index_mut` about 2 KB in Donguru's isolated build) though the reader and writer already report
+  `OutOfBounds` errors. `get()` / checked copies where the bound isn't proved; measure instructions too. Est. 1-2 KB.
 
 ## Server / device side (`SRV`)
 
@@ -1055,6 +1082,37 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   they came and flushes urgent ones at once (CLT-50); with several busy clients on one device, an urgent request of
   one could still wait behind another's batch in the device link's queue. Sort what waits there by priority
   (with CLT-52).
+- 📋 **SRV-51 Dispatcher arms: only what differs** · `v0.5` — flash diet: the generated dispatcher costs about
+  616 B per resource on a Cortex-M0+ at `opt-level = "z"` (Donguru, 43 resources, ~42 KB), because every call,
+  read and write arm inlines `EventKindBuilder::new`, the `map_err`s, the `seq != 0` check, the serializer call and
+  the whole `RpcResult` / `GetResult` / `SetResult` match. Each arm keeps only what differs (decode the arguments,
+  call the handler, hand the value to a serializer) and the rest goes through shared `#[inline(never)]` paths in
+  `wire_weaver`: one reply path for a value, one for an acknowledged write, one for `Deferred` / `Unimplemented` /
+  user errors, one cold error constructor `(err_seq, ErrorKind)` (the report's idea 4, measured on its own as the
+  first step). The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: 250 B per resource
+  or less (TEST-30), est. 12-16 KB on Donguru.
+- 📋 **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returns
+  `Result<WrAction, ww_client_server::Error<'a>>` and propagates it with `?` (3.6-4.0 KB of `Try::branch`,
+  `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A dispatch context (writer, seq, the
+  writer's state before the reply, the event builder) is passed down instead, and an error is written where it
+  happens by one cold function that rewinds the writer: levels return a small `WrAction`. Same reply bytes
+  (TEST-31). Est. 2-3 KB.
+- 📋 **SRV-53 Global trait paths from a table** · `v0.5` — flash diet: `ww_global_trait_path` matches the crate and
+  trait names of every trait in the API as strings, with a version guard per arm (862 B of code and 240 B of names
+  in Donguru). It becomes a const table (crate, trait, version rule, path) walked by one shared function in
+  `wire_weaver`. Keeping only the compact-id lookup (306 B) was evaluated and dropped: the client asks again with
+  `GlobalFull` on `TraitNotFound` (API-20) and a project's own traits have no `ww_global` id, so that would lose a
+  capability. Est. 500-700 B.
+- 📋 **SRV-54 Observe behind a feature** · `v0.5` — flash diet: every server links the observe code even when it
+  observes nothing, mostly the `Series<Second>` codec of `EventKind::PropertyUpdate::sample_times` (ser 1,942 B in
+  Donguru, with `PackedWriter`, `FieldItems` and `Prefix`; 678 B of exact_units in the 2-method nucleo blinky)
+  because `Event`'s serializer has that branch, plus the `RequestKind::Observe` decoder. An `observe` feature (off by
+  default for `no_std`, on with `std`, turned on by a firmware that observes) leaves them out; shared crates
+  (`ww_client_server`, `ww_device`, `ww_stream`, `wire_weaver`) never turn it on for everyone (AGENTS.md "Flash").
+  No wire change: a device without it still decodes an `Observe` request and answers it with a defined error, never
+  a decode failure (which one is part of the piece, in `docs/`), and the host is unchanged. First check whether device code needs `Event`'s
+  serializer at all (the reply path writes events through `EventBuilder`); dropping that use may get most of the
+  bytes without a feature. Est. 2.5-3.5 KB.
 
 ## Client / host side (`CLT`)
 
@@ -2428,6 +2486,27 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
+- 📋 **TEST-30 Flash budget of a server** · `v0.5` — the harness every flash-diet piece (SRV-51..54, SW-69..73)
+  reports its before/after with, on the same firmware: a server on `thumbv6m-none-eabi` (Cortex-M0+, as on the
+  STM32G0) in `examples_mcu/mcu_qemu`, built at `fw-z` and `fw-3`, from an API crate with a floor variant (one
+  method) and variants with N resources of each kind (calls with and without arguments, property reads and writes,
+  `const` reads, a stream open), the handlers behind `black_box` so nothing folds away and few value types so
+  serdes is paid once. `examples_mcu/fw_budget --flash` (`just flash-budget`) prints the floor, bytes per resource
+  of each kind ((N2 - N1) / (N2 - N1 resources), text + data from the ELF), the dispatcher's share and checks named
+  symbols (`Series` codec, `<shrink_wrap::Error as Debug>::fmt`, `ww_global_trait_path`). Baseline recorded on master
+  in the harness's doc comment. Donguru (typec_dongle) at wire_weaver 8b7b80ed for comparison: ~616 B per resource
+  of dispatcher, 41.4 KB under the dispatcher in the isolated build.
+- 📋 **TEST-31 Golden reply bytes of the dispatcher** · `v0.5` — guards SRV-51 and SRV-52: a test API with every
+  resource kind (calls with and without arguments and outputs, deferred, unimplemented, property get/set with user
+  errors, `const`, streams, sinks, arrays, a global trait reached by `GlobalFull` and `GlobalCompact`, bad paths,
+  wrong request kinds, seq 0) and a corpus of requests whose replies are recorded as golden bytes, compared by a
+  test like the conformance corpus (`frozen` once in). The reply bytes are wire-defining, the code that builds them
+  is not: a rework of the dispatcher must leave the corpus green.
+- 📋 **TEST-32 Flash attribution by inlined frames** · `v0.5` — the experiment's `attribute.py` and
+  `serdes_types.py` (typec_dongle, branch `s/03nov2026-flash-blank-handlers`) as a Rust subcommand,
+  `fw_budget --attribute ELF [--gen GENERATED.rs]`: every instruction symbolized with its inlined frames (gimli /
+  addr2line), bytes by crate of the innermost frame, by generated dispatcher function and by serdes impl with copies
+  and bytes beyond the first copy. For when TEST-30's totals move and the reason isn't obvious.
 
 ## Dropped and superseded
 

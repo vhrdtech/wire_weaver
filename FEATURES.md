@@ -1123,6 +1123,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
        with docs" affordable on tight MCUs.
     3. The hash path stays because it is for more than `ww_client_server` (point to point): a future mesh broadcast
        or multicast can't resolve per device and will address traits by these hashes.
+  The hash is 32-bit FNV-1a computed on the device over the incoming crate id and trait name (one `MULS` per byte
+  on an M0; a 64-bit FNV would pull in `__aeabi_lmul`), table entries are `u32`, and the version check stays after
+  the hash match. Not SHA-256 on the device (`ww_self::signature::api_hash` stays build-time only). Idea for later,
+  not this piece: for mesh broadcast or multicast the client could send the hash itself (a new `PathKind`
+  variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
+  `final_structure`) and needs its own EVO item when mesh comes.
   Measured with TEST-30 and on Donguru (introspection on).
 - 📋 **SRV-54 Observe behind a feature** · `v0.5` — flash diet: every server links the observe code even when it
   observes nothing, mostly the `Series<Second>` codec of `EventKind::PropertyUpdate::sample_times` (ser 1,942 B in

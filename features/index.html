@@ -6994,6 +6994,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>docs/std_library/device_contract.md</code>, <code>tests/device_report</code>. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so <code>ww report</code> reads the device's introspection data for the log's path; <code>ww info</code>
   needs none. Not yet: fetching the release archive by itself.</li>
+<li>✅ <strong>CLT-59 Crash call chain as <code>file:line</code></strong> · <code>v0.5</code> — firmware built with <code>-Zlocation-detail=none</code> has no
+  <code>file:line</code> in its panic messages, so <code>ww report</code> decodes the crash record's addresses with the ELF's DWARF
+  (<code>addr2line</code>, <code>gimli</code>, pure Rust): a fault's <code>pc</code> exactly, its <code>lr</code> and the stack's return addresses at the call
+  before them, inlined frames innermost first, demangled names, shortened <code>trim-paths</code> paths; stack words that are
+  no return address (Thumb bit, <code>.text</code>, after a <code>BL</code>/<code>BLX</code>, read from the ELF's code, the rule of
+  <code>bedrock_crash::is_return_address</code>) are dropped; the panic machinery is passed over to mark the panic site.
+  <code>ww_report::crash</code> (<code>Symbolizer</code>, <code>CrashAddresses</code>, <code>CrashFrames</code>, serializable) for other host tools,
+  <code>docs/std_library/device_contract.md#crash-call-chain</code>, tests against a real thumbv6m ELF
+  (<code>ww_report/tests/crash_frames.rs</code>, <code>just crash-fw-elf</code>).</li>
 <li>🐛 <strong>CLT-30 Link setup gives up too early on slow RTT probes</strong> — the client sends <code>GetDeviceInfo</code> 5 times 50 ms
   apart (<code>LINK_SETUP_RETRIES</code> / <code>LINK_SETUP_RETRY_INTERVAL</code> in <code>event_loop/core/tx.rs</code>), 250 ms for every transport.
   Through a J-Link on omarchy-m1 (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was

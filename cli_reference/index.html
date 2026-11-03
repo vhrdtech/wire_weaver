@@ -7442,8 +7442,9 @@ flashers' rework check</a> does (TOOL-30):</p>
 </span></code></pre></div>
 <p><a href="#ww-board"><code>ww board rework allow</code></a> fixes it from here, without a reboot.</p>
 <h2 id="ww-report"><code>ww report</code><a class="headerlink" href="#ww-report" title="Permanent link">&para;</a></h2>
-<p><code>ww info</code> plus the counters, the device's stored <code>defmt</code> log and the last reset's fault and stack addresses named
-with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
+<p><code>ww info</code> plus the counters, the device's stored <code>defmt</code> log and the last reset's call chain as <code>file:line</code> frames
+(<a href="../std_library/device_contract/#crash-call-chain">crash call chain</a>), decoded with the ELF, as one text a tester
+sends with a bug report. The ELF is found by the build id the device reports
 (<a href="../std_library/device_contract/#where-ww-looks-for-the-elf">where</a>); a part whose ELF isn't found says so and
 names the places searched.</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>ww<span class="w"> </span>report<span class="w"> </span>--serial<span class="w"> </span>4B333720<span class="w"> </span>-o<span class="w"> </span>report.md

@@ -290,6 +290,11 @@ units-elf *args:
 flash-budget *args:
     cargo run -q --release -- --flash {{ args }}
 
+# Flash by inlined frame of a firmware ELF with debug info (TEST-32): crates, dispatcher functions, serdes impls; `--gen FILE` counts resources
+[working-directory('examples_mcu/fw_budget')]
+flash-attribute elf *args:
+    cargo run -q --release -- --attribute {{ absolute_path(elf) }} {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

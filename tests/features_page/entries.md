@@ -447,4 +447,5 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 
 - DOC-1, DOC-7, DOC-8, DOC-9, DOC-11 | This docs site itself.
 - TR-13 | A fixed bug (RTT server panic on the first request), not a feature.
+- TEST-32 | A firmware size tool for the project's own development, not a feature of WireWeaver.
 - STD-100 | The walker's generic markers catching up with a dependency bump, test maintenance, not a feature.

@@ -2583,14 +2583,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `ErrorKind::ReadPropertyWithSeqZero` is never actually raised by today's codegen (seq 0 silently suppresses the
   reply for a `Read` too, same as any other request kind); a path element past a leaf method's own path is simply
   unused, not `BadPath`. See `docs/serdes/conformance.md` for the pattern this follows.
-- 📋 **TEST-32 Flash attribution by inlined frames** · `v0.5` — the experiment's `attribute.py` and
-  `serdes_types.py` (typec_dongle, branch `s/03nov2026-flash-blank-handlers`) as a Rust subcommand,
-  `fw_budget --attribute ELF [--gen GENERATED.rs]`: every instruction symbolized with its inlined frames (gimli /
-  addr2line), bytes by crate of the innermost frame, by generated dispatcher function and by serdes impl with copies
-  and bytes beyond the first copy. For when TEST-30's totals move and the reason isn't obvious.
-
-## Dropped and superseded
-
+- ✅ **TEST-32 Flash attribution by inlined frames** · `v0.5` — `fw_budget --attribute ELF [--gen GENERATED.rs]
+  [--top N]` (`just flash-attribute ELF`, `examples_mcu/fw_budget/src/attribute.rs`, the experiment's `attribute.py`
+  and `serdes_types.py` in Rust): every instruction of the ELF (`llvm-objdump` boundaries) looked up with its
+  inlined frames (addr2line), bytes by crate of the innermost frame, by generated dispatcher function, by innermost
+  function and by serdes impl with copies, bytes beyond the first copy and, with `--gen` (a `ww_codegen!`
+  `debug_to_file` dump), the resource arms naming the type. On the nucleo_g0b1re `usb_blinky` at `opt-level = "z"` it
+  gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
+  debug info. For when TEST-30's totals move and the reason isn't obvious.
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before

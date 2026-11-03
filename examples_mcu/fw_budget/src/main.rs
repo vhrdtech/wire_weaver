@@ -5,6 +5,8 @@
 //! ```text
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
+
+//! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N]   # bytes by inlined frame, see attribute.rs
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -15,6 +17,7 @@
 //! `qemu-system-arm`): the ELF and `qemu_icount` are copied to `/tmp/ww-units-budget` on HOST, which needs cargo.
 //! `--cycles` flashes the board behind the probe (`PROBE_RS_PROBE=VID:PID` picks one), replacing its firmware.
 
+mod attribute;
 mod elf_diff;
 mod flash;
 
@@ -48,6 +51,10 @@ struct Args {
     /// The flash budget of a server (TEST-30, `flash.rs`) instead of the units budget.
     flash: bool,
     targets: Vec<String>,
+    /// Attribute the bytes of this ELF to inlined frames (TEST-32) instead of running anything.
+    attribute: Option<PathBuf>,
+    generated: Option<PathBuf>,
+    top: usize,
 }
 
 fn parse_args() -> Res<Args> {
@@ -59,6 +66,9 @@ fn parse_args() -> Res<Args> {
         elf: false,
         flash: false,
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
+        attribute: None,
+        generated: None,
+        top: 25,
     };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
@@ -73,6 +83,10 @@ fn parse_args() -> Res<Args> {
                 args.flash = true;
                 args.targets = vec!["thumbv6m-none-eabi".into()];
             }
+
+            "--attribute" => args.attribute = Some(value("--attribute")?.into()),
+            "--gen" => args.generated = Some(value("--gen")?.into()),
+            "--top" => args.top = value("--top")?.parse()?,
             "--targets" => {
                 args.targets = value("--targets")?.split(',').map(str::to_string).collect()
             }
@@ -144,6 +158,9 @@ fn run_elf(args: &Args, qemu_dir: &Path) -> Res<()> {
 }
 
 fn run(args: &Args) -> Res<()> {
+    if let Some(elf) = &args.attribute {
+        return attribute::print(elf, args.generated.as_deref(), args.top);
+    }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     let qemu_dir = root.join("mcu_qemu");
     if args.elf {

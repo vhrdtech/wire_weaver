@@ -7537,13 +7537,21 @@ observing), SRV-46 (peer identity).
   anyway); completions of the subcommands, <code>keep</code> durations and device keys with help texts; colour off without a
   TTY or with <code>NO_COLOR</code>; <code>lend DEVICE -- CMD</code> (SRV-32). Open: <code>ww list</code> asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).</li>
-<li>📋 <strong>TOOL-29 Flashers check the board's reworks</strong> · <code>v0.5</code> — <code>ww dfu rp flash</code>, <code>ww dfu stm32 flash</code> and <code>ww dfu
-  flash</code> read the board's applied reworks from the running device and the reworks the new image knows from the image
-  (<code>ww_board_info::image</code>, STD-101), and warn with the list when the image lacks one; only if the user agrees (or
-  <code>--allow-unknown-reworks</code> names exactly those numbers) the allowance is stored for the image's build id, then it is
-  written; otherwise a stored allowance is cleared. Also warns about an image for another board or from before the
-  guard. Given the serial of a running device, <code>ww dfu rp flash</code> / <code>stm32 flash</code> reboot it into the boot ROM
-  themselves, so the check runs first.</li>
+<li>🧪 <strong>TOOL-29 Flashers check the board's reworks</strong> · <code>v0.5</code> — <code>ww dfu rp flash</code> and <code>ww dfu stm32 flash</code>, given
+  the serial of a running device, read the board's name, revision, applied reworks and guard there (<code>BOARD</code>,
+  <code>REWORKS</code>, <code>GUARD</code>) and the reworks the new image knows and its build id from the image (<code>ww_board_info::image</code>,
+  STD-101), and warn with the list when the image lacks one; only if the user agrees (or <code>--allow-unknown-reworks</code>
+  names exactly those numbers) the allowance is stored for the image's <code>ImageId</code>, otherwise a stored allowance is
+  cleared. Then they reboot the device into the boot ROM themselves (<code>BootControl::reboot(Updater)</code>, an A/B device
+  only), wait for it (<code>--wait</code>, 10 s by default) and write. An image for another board, without a record (from
+  before the guard) or with an unreadable one, and one that boots guarded because nothing can be stored, are asked
+  about too (<code>--yes</code>); without a terminal every question is refused. A device already in the boot ROM, or firmware
+  without <code>REWORKS</code>, can't be checked: a note, then the post-flash path (TOOL-30). The check as a library:
+  <code>ww_report::rework_check</code> (<code>ImageReworks::from_flash</code>, <code>read_board</code>, <code>verdict</code>, <code>store_allowance</code>,
+  <code>clear_allowance</code>). <code>docs/cli_reference.md#checking-the-boards-reworks</code>. Tests: <code>ww_report</code> <code>rework_check::tests</code>,
+  <code>wire_weaver_cli</code> <code>cmd::rework_check::tests</code>, end to end on the guard server in <code>tests/board_info</code>
+  (<code>flasher_check_*</code>). <code>ww dfu flash</code> (the <code>ww-chunky</code> plugin) calling the same library is tpm P2401#3nov-0105d.
+  Hardware check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).</li>
 <li>📋 <strong>TOOL-30 <code>ww info</code> shows the rework guard; <code>ww board rework allow</code></strong> · <code>v0.5</code> — <code>GUARD</code> in <code>ww info</code> /
   <code>ww report</code> (guarded and why, allowed for this image, an allowance stored for another image), <code>ww board rework
   allow N...</code> / <code>disallow</code> for the post-flash path (STD-101), the guarded refusal printed plainly.</li>

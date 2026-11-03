@@ -6003,8 +6003,9 @@ flash (<code>ww_board_info::image</code>).</li>
 <li>If the image lacks an applied rework, the user sees the list and must agree. Only then is the allowance stored for
 the new image's <code>ImageId</code>, and the image written.</li>
 </ol>
-<p><code>ww dfu rp flash</code>, <code>ww dfu stm32 flash</code> and <code>ww dfu flash</code> do this (TOOL-29). When the device can't be read before
-writing (already in the boot ROM, or running firmware from before the guard that can't store an allowance), the new
+<p><code>ww dfu rp flash</code> and <code>ww dfu stm32 flash</code> do this (<a href="../../cli_reference/#checking-the-boards-reworks">checking the board's
+reworks</a>, TOOL-29); <code>ww dfu flash</code> is next. <code>ww_report::rework_check</code>
+is the same check as a library, for other flashers. When the device can't be read before writing (already in the boot ROM, or running firmware from before the guard that can't store an allowance), the new
 image guards itself. <code>ww board rework allow N</code> then stores the allowance for the running image, and the board runs
 normally from its next boot (TOOL-30).</p>
 <p>The record is built from the same <code>ReworkTable</code> consts the firmware uses:</p>

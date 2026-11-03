@@ -5784,6 +5784,9 @@ CLT-10):</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ww<span class="w"> </span>dfu<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w">                 </span><span class="c1"># app -&gt; BOOTSEL</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
 </span></code></pre></div>
+<p>Or in one step: given the serial of the running app, <code>ww dfu rp flash app.elf -s E661 --follow</code> checks the board's
+reworks against the image, reboots the app into BOOTSEL itself, waits for it (<code>--wait</code>, 10 s by default) and writes
+(<a href="../../cli_reference/#checking-the-boards-reworks">checking the board's reworks</a>). <code>ww dfu stm32 flash</code> does the same.</p>
 <h2 id="stm32-system-bootloader-rom-dfu">STM32 system bootloader (ROM DFU)<a class="headerlink" href="#stm32-system-bootloader-rom-dfu" title="Permanent link">&para;</a></h2>
 <p>The same sequence for an STM32 whose updater is the ROM bootloader (CLT-34): the app replies to <code>reboot(Updater)</code>,
 sets whatever the chip needs to enter the system memory bootloader (on the H72x a backup-register magic checked first

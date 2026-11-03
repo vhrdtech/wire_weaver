@@ -236,6 +236,7 @@ layer checks on connect that both ends speak the same protocol.
 - TR-1 | Framer | Packs messages into packets with 1 byte of overhead, CRC and recovery from lost frames. | transport/ww_framer.md
 - TR-2 | Link layer | Link setup, device info and protocol version exchange. | transport/ww_link.md
 - TR-15 | Frame counter and setup token | Nothing of a previous session is taken for the new one after a reconnect; UDP datagrams carry a frame counter and a CRC-32 on every message, USB packets nothing they don't need. | transport/ww_link.md#setup-token
+- TR-21 | Simulated UDP | UDP datagrams without the kernel for tests: the paused clock decides which messages share a datagram, so a transcript has the same bytes on every run. | transport/udp.md#simulated-udp-in-tests
 - SRV-28 | The ww hub | One small process per user that knows the devices, who holds them and which programs are connected, with its own API. | transport/hub.md#the-hub-process-srv-28
 - TOOL-17 | `ww hub` | See and steer the hub from the shell: its status and who started it, who holds each of your devices (the hub, another ww program, or any program on Linux), keep it up for a bench, stop it; `ww list` shows what it holds. | cli_reference.md#ww-hub
 - TOOL-18 | The hub from Python | `python -m wire_weaver.hub` starts it from the wheel, `connect()` reaches a device through it, and `wire_weaver.hub()` talks to the hub itself; a notebook kernel restart reconnects in no time with the device still open. | transport/hub.md#python-and-notebooks-tool-18

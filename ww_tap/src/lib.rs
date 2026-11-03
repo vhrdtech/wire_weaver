@@ -217,6 +217,8 @@ pub enum Medium {
     Other,
     /// Local socket (Unix domain socket, named pipe), e.g. to the ww hub (TR-16); messages as they are.
     LocalSocket,
+    /// In-process with simulated UDP datagrams.
+    InProcessUdp,
 }
 
 /// How frames are packed (`ww_framer`), see `ww_link` for each medium's configuration.

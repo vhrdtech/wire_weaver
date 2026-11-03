@@ -1539,7 +1539,7 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   1 byte overhead, CRC, recovery from missed frames, fuzzed.
 - ✅ **TR-2 `ww_link`**: link setup, device info, API version exchange.
 - ✅ **TR-3 USB**, **RTT**, **WebSocket**, **UDP** and **in-process** (messages, or simulated USB: real USB framing
-  and packet sizes, `in_process::usb_device`).
+  and packet sizes, `in_process::usb_device`; simulated UDP, TR-21).
 - ✅ **TR-4 USB CDC-NCM**: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
   itself, ping and a hello page over HTTP (`examples_mcu/rp2`, `ww_ws_ncm`); UDP the same way (`ww_udp_ncm`).
 - ✅ **TR-14 Link tap** · `v0.5` — what crosses a link, recorded at the transport edge (`docs/transport/tap.md`):
@@ -1564,6 +1564,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   (`SeqPrefix` as a diagnostic, `wire_weaver_usb_embassy` feature `seq-prefix`, told by the interface protocol),
   UDP with `SeqPrefix` and a CRC-32 (`ww_block`'s) on every message. `ww stats` / `ww monitor` show the prefix.
   Wire change of the link (`docs/evolution/crate_layers.md`).
+- ✅ **TR-21 Simulated UDP** · `v0.5` — `in_process::udp_device` (`docs/transport/udp.md#simulated-udp-in-tests`):
+  UDP datagrams without the kernel, with the host's UDP framing and `ww_device::udp` on the device (`UdpPort`, a new
+  host address per connection), so tests on tokio's paused clock drive the accumulation windows and link setup
+  retries exactly. `tests/dfu_scenarios` runs its UDP scenarios on it: their transcripts no longer depend on how
+  loaded the machine is (a burst split across datagrams, a link setup retry shifting every frame counter after a
+  reboot). `in_process::tests::host_and_device_talk_over_simulated_udp`, `ww_tap::Medium::InProcessUdp`.
 - 💡 **TR-5 USB CDC-NCM extras** — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.
 - 📋 **TR-6 CAN** · `v0.5.x` — server and client, using CANopen (`docs/transport/overview.md`).

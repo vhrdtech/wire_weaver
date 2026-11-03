@@ -66,6 +66,21 @@ use a medium with access control.
 - The medium is not `Send` (the peer is kept in a `Cell`), as with the other `embassy` based media; on `tokio`, run
   it on a `LocalSet`. `wire_weaver_client/src/udp.rs` has a device on `tokio::net::UdpSocket` in its tests.
 
+## Simulated UDP in tests
+
+`wire_weaver_client::in_process::udp_device(path)` registers a device that speaks UDP datagrams without the kernel
+(TR-21). The host connects with `ClientConfig::in_process_path(path)` and packs messages exactly as the `udp`
+transport does: frame counter, CRC-32 on every message, datagrams of at most `UDP_MAX_DATAGRAM_LEN`. The device serves
+the returned `UdpPort` with `UdpConnection`, `UdpSink` and `UdpSource`, as it would a real socket. Every connection is
+a new host address, so a reconnect is a peer takeover, as over UDP.
+
+A test on tokio's paused clock (`start_paused`) can't use a real socket: the runtime cannot see a datagram that is
+still in the kernel, so the clock can jump past it. On the simulated socket a datagram is in the device's queue as soon
+as it is sent. The paused clock then drives both ends' accumulation windows and the host's link setup retries
+exactly, so which messages share a datagram, and every frame counter after that, is the same on every run, however
+loaded the machine is. `tests/dfu_scenarios` pins its UDP transcripts this way (`1S-APP-BULK`, `2C-APP-BULK`) and
+keeps one run of the same scenario over real sockets, which checks that the update gets through.
+
 `examples_mcu/rp2` has a complete example, `ww_udp_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server, so the host is configured automatically,
 and serves the blinky API at `192.168.7.1:9000`. Run it with `just run rp2 ww_udp_ncm` from `examples_mcu/rp2`,

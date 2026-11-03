@@ -6,7 +6,8 @@
 //! - USB: `ww_device`'s `FramedTx` / `FramedRx` with the USB framer configuration over the simulated USB of
 //!   `wire_weaver_client::in_process` (real packet sizes; no enumeration, toggles or NAKs);
 //! - WebSocket: `ww_device::ws` over a TCP socket on localhost, `wire_weaver_client`'s `ws` transport;
-//! - UDP: `ww_device::udp` over a UDP socket on localhost, `wire_weaver_client`'s `udp` transport.
+//! - UDP: `ww_device::udp` over the simulated UDP of `wire_weaver_client::in_process` (real datagrams and framing;
+//!   no kernel), or over a UDP socket on localhost with `wire_weaver_client`'s `udp` transport.
 
 use std::sync::{Arc, Mutex};
 
@@ -35,8 +36,11 @@ pub enum Link {
     UsbHighSpeed,
     /// WebSocket on localhost.
     WebSocket,
-    /// UDP on localhost, one `ww_framer` frame per datagram.
+    /// Simulated UDP, one `ww_framer` frame per datagram: as UDP on localhost, without the kernel in between, so the
+    /// paused clock drives it (see `scenarios::start`).
     Udp,
+    /// UDP on localhost, through real sockets.
+    UdpSocket,
 }
 
 impl Link {
@@ -46,7 +50,7 @@ impl Link {
             Link::UsbFullSpeed => "USB packets (full speed, 64 B max)",
             Link::UsbHighSpeed => "USB packets (high speed, 512 B max)",
             Link::WebSocket => "WebSocket frames (host frames unmasked, mask key zeroed)",
-            Link::Udp => "UDP datagrams",
+            Link::Udp | Link::UdpSocket => "UDP datagrams",
         }
     }
 }
@@ -113,7 +117,8 @@ enum End {
 enum Media {
     Usb { path: String, packet: usize },
     WebSocket(TcpListener),
-    Udp(UdpSocket),
+    Udp(in_process::UdpPort),
+    UdpSocket(RealUdp),
 }
 
 impl Media {
@@ -137,9 +142,16 @@ impl Media {
                 (Media::WebSocket(listener), Addr::WebSocket(url))
             }
             Link::Udp => {
+                let path = format!("dfu/{name}");
+                (
+                    Media::Udp(in_process::udp_device(&path)),
+                    Addr::InProcess(path),
+                )
+            }
+            Link::UdpSocket => {
                 let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
                 let addr = socket.local_addr().unwrap().to_string();
-                (Media::Udp(socket), Addr::Udp(addr))
+                (Media::UdpSocket(RealUdp(socket)), Addr::Udp(addr))
             }
         }
     }
@@ -257,21 +269,34 @@ async fn run<F: Firmware>(
             let rx = ww_device::ws::WsRx::new(&conn, &mut rx_buf);
             serve(fw, tx, rx, rec, stop).await
         }
-        Media::Udp(socket) => {
-            use ww_device::udp::{UdpConnection, UdpSink, UdpSource};
-            const DATAGRAM: usize = ww_link::UDP_MAX_DATAGRAM_LEN;
-            let conn = UdpConnection::new(UdpTap {
-                socket,
-                rec: rec.clone(),
-            });
-            let tx = ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_buf[..DATAGRAM]);
-            let rx = ww_device::FramedRx::new(
-                UdpSource::new(&conn),
-                &mut rx_buf[..MAX_MESSAGE + DATAGRAM],
-            );
-            serve(fw, tx, rx, rec, stop).await
+        Media::Udp(socket) => serve_udp(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await,
+        Media::UdpSocket(socket) => {
+            serve_udp(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await
         }
     }
+}
+
+async fn serve_udp<F: Firmware, S: ww_device::udp::DatagramSocket>(
+    fw: F,
+    socket: &S,
+    tx_buf: &mut [u8],
+    rx_buf: &mut [u8],
+    rec: &Recorder,
+    stop: &mut mpsc::UnboundedReceiver<()>,
+) -> End
+where
+    S::RecvError: core::fmt::Debug,
+    S::SendError: core::fmt::Debug,
+{
+    use ww_device::udp::{UdpConnection, UdpSink, UdpSource};
+    const DATAGRAM: usize = ww_link::UDP_MAX_DATAGRAM_LEN;
+    let conn = UdpConnection::new(UdpTap {
+        socket,
+        rec: rec.clone(),
+    });
+    let tx = ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_buf[..DATAGRAM]);
+    let rx = ww_device::FramedRx::new(UdpSource::new(&conn), &mut rx_buf[..MAX_MESSAGE + DATAGRAM]);
+    serve(fw, tx, rx, rec, stop).await
 }
 
 async fn serve<F: Firmware>(
@@ -410,25 +435,42 @@ impl ww_device::ws::Socket for WsSocket<'_> {
     }
 }
 
-/// `ww_device::udp::DatagramSocket` on the device's socket, recording datagrams.
-struct UdpTap<'s> {
-    socket: &'s UdpSocket,
+/// `ww_device::udp::DatagramSocket` on the device's socket (simulated or real), recording datagrams.
+struct UdpTap<'s, S> {
+    socket: &'s S,
     rec: Recorder,
 }
 
-impl ww_device::udp::DatagramSocket for UdpTap<'_> {
-    type Addr = std::net::SocketAddr;
-    type RecvError = std::io::Error;
-    type SendError = std::io::Error;
+impl<S: ww_device::udp::DatagramSocket> ww_device::udp::DatagramSocket for UdpTap<'_, S> {
+    type Addr = S::Addr;
+    type RecvError = S::RecvError;
+    type SendError = S::SendError;
 
-    async fn recv_from(&self, buf: &mut [u8]) -> std::io::Result<(usize, Self::Addr)> {
+    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, Self::Addr), S::RecvError> {
         let (n, from) = self.socket.recv_from(buf).await?;
         self.rec.packet(Dir::ToDevice, &buf[..n]);
         Ok((n, from))
     }
 
-    async fn send_to(&self, datagram: &[u8], addr: Self::Addr) -> std::io::Result<()> {
+    async fn send_to(&self, datagram: &[u8], addr: Self::Addr) -> Result<(), S::SendError> {
         self.rec.packet(Dir::ToHost, datagram);
-        self.socket.send_to(datagram, addr).await.map(|_| ())
+        self.socket.send_to(datagram, addr).await
+    }
+}
+
+/// A real socket for [UdpTap].
+struct RealUdp(UdpSocket);
+
+impl ww_device::udp::DatagramSocket for RealUdp {
+    type Addr = std::net::SocketAddr;
+    type RecvError = std::io::Error;
+    type SendError = std::io::Error;
+
+    async fn recv_from(&self, buf: &mut [u8]) -> std::io::Result<(usize, Self::Addr)> {
+        self.0.recv_from(buf).await
+    }
+
+    async fn send_to(&self, datagram: &[u8], addr: Self::Addr) -> std::io::Result<()> {
+        self.0.send_to(datagram, addr).await.map(|_| ())
     }
 }

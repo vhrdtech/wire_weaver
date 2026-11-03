@@ -29,7 +29,7 @@ can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux
 rtt = ["dep:probe-rs"] # RTT over JTAG/SWD
 i2c = [] # I2C using USB or Ethernet to I2C bridges or kernel I2C interface on Linux
 uart = [] # UART using USB or Ethernet to UART bridges or system provided serial ports
-in_process = ["dep:ww_device"] # device running in the same process (simulators, tests)
+in_process = ["dep:ww_device", "ww_device/udp"] # device running in the same process (simulators, tests)
 local_socket = [
     "ww_local_socket/socket",
     "dep:interprocess",

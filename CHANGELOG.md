@@ -277,6 +277,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   every resource kind, checked against both a sync and an async server and frozen like the wire-format conformance
   corpus. See `tests/dispatch_golden/corpus.json` and `docs/serdes/conformance.md`.
 - shrink_wrap's bit writer and reader are no longer forced inline (SW-70): about 0.75 KB less flash in a firmware built with `opt-level = "z"`, task-side series encoding 5-22 % slower there; `--cfg shrink_wrap_hot="inline"` restores the old code, `"optimize"` (nightly) is faster than before. Lists of plain numbers share one encode and skip path. See `shrink_wrap/CHANGELOG.md`.
+- Simulated UDP for tests (TR-21): `wire_weaver_client::in_process::udp_device`, the UDP framing without the kernel, so tests on tokio's paused clock drive the frame packing exactly. `tests/dfu_scenarios` runs 1S-APP-BULK and 2C-APP-BULK on it, and their transcripts no longer change with the machine's load. See `wire_weaver_client/CHANGELOG.md`, `ww_tap/CHANGELOG.md`.
 
 ### Changed
 

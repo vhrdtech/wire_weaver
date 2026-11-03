@@ -28,13 +28,15 @@ fn run(scenario: impl Future<Output = ()>) {
 
 /// Start the device and wait until it runs `fw`.
 ///
-/// Over the simulated USB everything is inside the runtime, so time is paused: the clock jumps ahead whenever all
-/// tasks wait, timeouts don't depend on how loaded the machine is, and a timeout (the host's or the device's) only
-/// fires when nothing else can happen. UDP and WebSocket go through real sockets the runtime can't see into, a
-/// paused clock could jump past a datagram still in the kernel, so they keep the real clock.
+/// Over the simulated USB and UDP everything is inside the runtime, so time is paused: the clock jumps ahead whenever
+/// all tasks wait, timeouts don't depend on how loaded the machine is, and a timeout (the host's or the device's) only
+/// fires when nothing else can happen. The accumulation windows of both ends and the host's link setup retries run on
+/// it too, so which messages share a packet or datagram, and the frame counters after it, are the same every run.
+/// WebSocket and [Link::UdpSocket] go through real sockets the runtime can't see into, a paused clock could jump past
+/// bytes still in the kernel, so they keep the real clock.
 async fn start(code: &str, link: Link, flash: Flash, fw: Firmware) -> Device {
     let _ = tracing_subscriber::fmt::try_init();
-    if matches!(link, Link::UsbFullSpeed | Link::UsbHighSpeed) {
+    if matches!(link, Link::UsbFullSpeed | Link::UsbHighSpeed | Link::Udp) {
         tokio::time::pause();
     }
     let mut dev = Device::start(code, link, flash).await;
@@ -371,56 +373,71 @@ fn parcel_freight_1s_app_bulk() {
     run(async {
         const CODE: &str = "1S-APP-BULK";
         const LINK: Link = Link::Udp;
-        let mut dev = start(
-            CODE,
-            LINK,
-            Flash::new(Profile::InPlace, &v1(), 1024),
-            Firmware::App,
-        )
-        .await;
-        let host = connect!(AppClient, &dev.addr);
-        host.node().node().call().await.unwrap();
-        let max_piece = host.stage().limits().call().await.unwrap().max_piece;
-
-        let plan = Plan::in_place(&v1(), &v2());
-        let total = plan.body.len() as u32;
-        let bulk = host.bulk();
-        bulk.begin_bulk(Target::Stored, header(&plan), total, 0)
-            .call()
-            .await
-            .unwrap();
-        let mut acks = bulk.plan_ack().call().await.unwrap();
-        let half = 4 * max_piece;
-        let sink = send_bulk!(bulk, plan, 0, half, max_piece);
-        drop(sink);
-        dev.rec
-            .note("half way: the app keeps doing its job and answers anything else");
-        let node = host.node().node().call().await.unwrap();
-        assert_eq!(
-            (node.app_version, node.boot_state),
-            (Some(1), BootState::Confirmed)
-        );
-        let _sink = send_bulk!(bulk, plan, half, total, max_piece);
-        let ack = acks.recv().await.unwrap();
-        assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
-        assert_eq!(
-            host.stage().finish().call().await.unwrap(),
-            BootState::PlanStored
-        );
-        host.boot().reboot(BootTarget::App).call().await.unwrap();
-        drop(acks);
-        drop(_sink);
-        drop(host);
-
-        assert_eq!(dev.booted().await, Firmware::App);
-        let host = connect!(AppClient, &dev.addr);
-        let node = host.node().node().call().await.unwrap();
-        assert_eq!(
-            (node.app_version, node.boot_state),
-            (Some(2), BootState::Confirmed)
-        );
+        let dev = parcel_freight(CODE, LINK).await;
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
     })
+}
+
+/// 1S-APP-BULK over real UDP sockets on localhost: the scenario's transcript is pinned over the simulated UDP (whose
+/// timing the paused clock drives), this checks that the `udp` transports of both ends get the update through too.
+#[test]
+fn parcel_freight_1s_app_bulk_over_udp_sockets() {
+    run(async {
+        parcel_freight("1S-APP-BULK-socket", Link::UdpSocket).await;
+    })
+}
+
+/// The 1S-APP-BULK scenario on `link`, until the new image runs confirmed.
+async fn parcel_freight(code: &str, link: Link) -> Device {
+    let mut dev = start(
+        code,
+        link,
+        Flash::new(Profile::InPlace, &v1(), 1024),
+        Firmware::App,
+    )
+    .await;
+    let host = connect!(AppClient, &dev.addr);
+    host.node().node().call().await.unwrap();
+    let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+
+    let plan = Plan::in_place(&v1(), &v2());
+    let total = plan.body.len() as u32;
+    let bulk = host.bulk();
+    bulk.begin_bulk(Target::Stored, header(&plan), total, 0)
+        .call()
+        .await
+        .unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
+    let half = 4 * max_piece;
+    let sink = send_bulk!(bulk, plan, 0, half, max_piece);
+    drop(sink);
+    dev.rec
+        .note("half way: the app keeps doing its job and answers anything else");
+    let node = host.node().node().call().await.unwrap();
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(1), BootState::Confirmed)
+    );
+    let _sink = send_bulk!(bulk, plan, half, total, max_piece);
+    let ack = acks.recv().await.unwrap();
+    assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
+    assert_eq!(
+        host.stage().finish().call().await.unwrap(),
+        BootState::PlanStored
+    );
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
+    drop(acks);
+    drop(_sink);
+    drop(host);
+
+    assert_eq!(dev.booted().await, Firmware::App);
+    let host = connect!(AppClient, &dev.addr);
+    let node = host.node().node().call().await.unwrap();
+    assert_eq!(
+        (node.app_version, node.boot_state),
+        (Some(2), BootState::Confirmed)
+    );
+    dev
 }
 
 /// 1L-UPD-STEP: one slot, the app reboots into the updater, which receives and applies step by step; the power fails

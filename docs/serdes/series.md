@@ -196,7 +196,9 @@ Before the word-wide bit writer (SW-68, see the
 At opt-level `z` the cycles move by up to 15 % between builds with the code layout. A firmware that writes series
 in a hot path gains more from `opt-level = 3` than from any codec: the series code is
 generic and compiled into the firmware's own crate, so a `[profile.release.package.shrink_wrap]` override doesn't
-reach it.
+reach it. A firmware that stays at `z` gets the bit writer's speed back with `--cfg shrink_wrap_hot="inline"` (or
+`"optimize"` on nightly): since SW-70 it is out of line at `z` by default, 0.75 KB smaller and up to 22 % slower, see
+[Hot paths at opt-level z](code_size.md#hot-paths-at-opt-level-z).
 
 ## Collecting items on a device: `SeriesStore`
 

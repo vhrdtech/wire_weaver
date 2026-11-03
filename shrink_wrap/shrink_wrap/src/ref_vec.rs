@@ -137,21 +137,24 @@ where
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
         match self {
             RefVec::Slice { slice, .. } => {
-                let elements_count = slice.len();
-                wr.write_rev_len(elements_count)?;
                 if let Some(bytes) = plain_bytes(slice) {
-                    // `u8` / `i8`: one copy instead of a write per element, the same bytes (an empty list
-                    // writes nothing, not even the alignment `write_raw_slice` would)
-                    if !bytes.is_empty() {
-                        wr.write_raw_slice(bytes)?;
-                    }
-                    return Ok(());
+                    return write_plain_list(wr, bytes);
                 }
+                wr.write_rev_len(slice.len())?;
                 for item in slice.iter() {
                     wr.write(item)?;
                 }
             }
-            RefVec::Buf { elements_count, .. } => {
+            RefVec::Buf {
+                buf,
+                elements_count,
+            } => {
+                if T::PLAIN_BYTES == Some(1) && core::mem::size_of::<T>() == 1 {
+                    // checked when the list was read, see DeserializeShrinkWrap below
+                    let mut buf = *buf;
+                    let bytes = buf.read_raw_slice(*elements_count)?;
+                    return write_plain_list(wr, bytes);
+                }
                 wr.write_rev_len(*elements_count)?;
                 for item in self.iter() {
                     let item = item?;
@@ -161,6 +164,17 @@ where
         }
         Ok(())
     }
+}
+
+/// A list of one-byte plain elements (`u8`, `i8`): its length and its bytes in one copy, the same bytes as a write
+/// per element (an empty list writes nothing, not even the alignment [write_raw_slice](BufWriter::write_raw_slice)
+/// would). Not generic, so every such list shares it.
+fn write_plain_list(wr: &mut BufWriter, bytes: &[u8]) -> Result<(), Error> {
+    wr.write_rev_len(bytes.len())?;
+    if !bytes.is_empty() {
+        wr.write_raw_slice(bytes)?;
+    }
+    Ok(())
 }
 
 /// `slice` as its bytes when its elements are written as one plain byte each: `PLAIN_BYTES` is `Some(1)` (`u8`,
@@ -227,8 +241,7 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
         // - the pass is also where an element is validated (an enum's discriminant, a string's UTF-8, a nested
         //   length): skipping it would move those errors from here to the iteration.
         if let Some(size) = T::PLAIN_BYTES
-            && let Some(len) = elements_count.checked_mul(size)
-            && (len == 0 || rd.read_raw_slice(len).is_ok())
+            && skip_plain_list(rd, elements_count, size)
         {
             return Ok(RefVec::Buf {
                 buf,
@@ -243,6 +256,15 @@ impl<'i, T: DeserializeShrinkWrap<'i>> DeserializeShrinkWrap<'i> for RefVec<'i, 
             buf,
             elements_count,
         })
+    }
+}
+
+/// Whether `count` plain elements of `size` bytes are there, skipping them if so, see
+/// [DeserializeShrinkWrap::PLAIN_BYTES]. Not generic, so every list of plain numbers shares it.
+fn skip_plain_list(rd: &mut BufReader, count: usize, size: usize) -> bool {
+    match count.checked_mul(size) {
+        Some(len) => len == 0 || rd.read_raw_slice(len).is_ok(),
+        None => false,
     }
 }
 

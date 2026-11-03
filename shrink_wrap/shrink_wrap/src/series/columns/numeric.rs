@@ -214,6 +214,7 @@ impl<W: Word> PackedWriter<W> {
     }
 
     #[inline(never)]
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     fn push<S: BitSink>(&mut self, sink: &mut S, value: W, restart: bool) -> Result<(), Error> {
         match self.predict.step(value, restart) {
             Step::Start(bits) => {
@@ -233,6 +234,7 @@ impl<W: Word> PackedWriter<W> {
     }
 
     /// Writes the open block, if any.
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     fn finish<S: BitSink>(&mut self, sink: &mut S) -> Result<(), Error> {
         if self.len == 0 {
             return Ok(());
@@ -276,6 +278,7 @@ impl<W: Word> ResidualWriter<W> {
     }
 
     #[inline(never)]
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     fn push<S: BitSink>(&mut self, sink: &mut S, value: W, restart: bool) -> Result<(), Error> {
         let z = match self.predict.step(value, restart) {
             Step::Start(bits) => return sink.put_bits(self.w, bits.to_u64()),
@@ -621,6 +624,7 @@ impl<'i> NumericReader<'i> {
 
     /// The next item's value bits (zero-extended from the width; sign-extend signed ones), `restart` as the writer
     /// had it. Reads at most `W` + 9 bits.
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     pub(crate) fn next(&mut self, restart: bool) -> Result<u64, Error> {
         let w = self.kind.width;
         let predictor = self.codec.predictor;

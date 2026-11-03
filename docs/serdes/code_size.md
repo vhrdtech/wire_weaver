@@ -650,6 +650,49 @@ Not `shrink_wrap`'s to fix, but worth more than each code change:
   The other `_ser` cases lose the same 412 / 324 / 318 / 304 bytes. With both settings the derived `busgen` codec
   is 7848 bytes on RV32IC (evolvable) and 7030 (final), the hand-written one 4834.
 
+## Hot paths at opt-level z
+
+A firmware built for size (`opt-level = "z"`) and one built for speed (`3`) want different things from the bit
+writer and reader that `Series` columns, `UN` fields and the length nibbles go through: inlined into the few
+functions that write and read bits, they are faster; out of line, smaller. `shrink_wrap` doesn't force either by
+default (SW-70). The small private helpers (`push_bits`, `put_in_word`, `take_in_word`, the big-endian word loads and
+stores, masks) are plain `#[inline]` hints, which `opt-level = 3` follows and `z` mostly doesn't. A firmware that
+wants something else says so with one `--cfg`, set by the firmware alone (in its `.cargo/config.toml` `rustflags`, or
+`CARGO_TARGET_<TRIPLE>_RUSTFLAGS`), never by a crate in between, so it is not a cargo feature:
+
+| `--cfg` | what it does | toolchain |
+| --- | --- | --- |
+| none | the helpers are hints | any |
+| `shrink_wrap_hot="inline"` | the helpers are `#[inline(always)]`, as before SW-70 | any |
+| `shrink_wrap_hot="optimize"` | the bit primitives (`put_bits`, `put_block`, `put_low_bits`, `take_bits`, `read_un32`, ..) and the numeric `Series` loops are `#[optimize(speed)]`, the helpers stay hints | nightly |
+
+```toml
+# .cargo/config.toml of a firmware built with opt-level = "z" that encodes series in a hot path
+[target.thumbv7em-none-eabihf]
+rustflags = ["--cfg", 'shrink_wrap_hot="inline"']
+```
+
+What stays forced in every mode: the one-line wrappers (`read_u16` and the other integer reads and writes, the
+`_latch` methods, the trait defaults the derive calls), which cost nothing in size inlined and a call each when not,
+and the per-item paths of `Series` stores and observe cells, which run in interrupts: as hints at `z` a row capture
+of the FOC bench went from 266 to 1456 instructions and its stack from 144 to 416 bytes.
+
+Measured on 3 Nov 2026, thumbv6m (Cortex-M0+) for flash, instructions on a Cortex-M3 under QEMU (`qemu_icount`),
+against the same commit before SW-70; flash from builds of the same checkout path (panic locations carry it):
+
+| | none | `"inline"` | `"optimize"` |
+| --- | ---: | ---: | ---: |
+| server floor, `fw-z` ([flash budget](../articles/flash_budget.md), sync and async) | −740 B | ±0 | +208 B |
+| server floor, `fw-3` | ±0 | ±0 | ±0 |
+| Donguru firmware, `z` / `3`, with the shared path for lists of plain numbers | −824 / −892 B | | |
+| `Series` encode / decode per item, `fw-z` (units budget, 100.7 / 424.0 before) | 125.2 / 458.0 | 100.7 / 424.0 | 90.5 / 391.4 |
+| hot benches, `fw-z`: FOC batch encode, encode from a store, `Series` encode, bit I/O, shared clock | +12, +22, +6, +12, +5.5 % | ±0 | −1.3 .. −2.8 % |
+| struct encode / decode, interrupt-side row capture | ±0 | ±0 | ±0 |
+
+At `fw-3` all three give the same instructions. So: the default saves about 0.75 KB in a firmware built for size and
+makes its task-side encoding of series and bit fields 5-22 % slower; `"inline"` is the code from before; on nightly,
+`"optimize"` is faster than before for 0.2 KB.
+
 ## Feature flags
 
 The options that were on the table, and why none became a cargo feature:
@@ -661,7 +704,8 @@ The options that were on the table, and why none became a cargo feature:
 | no evolution support | exists per type as `sized` / `final_structure` (0.9 to 1.0 KB here). As a cargo feature it would change the wire format of every type at once, and cargo unifies features across a build: one crate in the tree turning it on would silently change the bytes of all the others |
 | fixed-size-only mode, no length FIFO | done without a flag (step 4): decided per type at compile time |
 | cheaper errors | done (step 2), for everybody |
-| `#[inline(never)]` shared helpers, non-generic paths | done for the integer reads and writes (steps 2 and 3) |
+| `#[inline(never)]` shared helpers, non-generic paths | done for the integer reads and writes (steps 2 and 3), and, not generic, for lists of plain numbers (SW-70: one `write_plain_list` / `skip_plain_list` for every `RefVec<u8>`, `RefVec<u32>`, ..) |
+| speed of the bit paths in a size build | a `--cfg`, not a feature, see [Hot paths at opt-level z](#hot-paths-at-opt-level-z) |
 
 ## What is left
 

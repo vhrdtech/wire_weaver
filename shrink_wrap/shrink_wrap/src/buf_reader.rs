@@ -79,7 +79,7 @@ impl<'i> BufReader<'i> {
 
     /// Read `T` in place, one level deeper, see [with_max_depth](Self::with_max_depth): the depth is given back
     /// afterwards, also when the read fails.
-    #[inline(always)]
+    #[inline]
     fn read_nested<T>(
         &mut self,
         read: impl FnOnce(&mut Self) -> Result<T, Error>,
@@ -104,6 +104,7 @@ impl<'i> BufReader<'i> {
     // Result<u32, Error> comes back in two registers on 32-bit CPUs, where Result<bool, Error> or Result<u8, Error>
     // would go through memory at every call (docs/serdes/code_size.md).
     #[inline(never)]
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     fn read_bit(&mut self) -> Result<u32, Error> {
         self.kept()?;
         if !self.in_front(1) {
@@ -192,6 +193,7 @@ impl<'i> BufReader<'i> {
     /// nibble (whose `Result<Nibble, _>` goes through memory on 32-bit CPUs); a nibble that isn't there, or an 11th
     /// with the flag, fails with the nibbles before it read, as those reads would.
     #[inline(never)]
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     pub(crate) fn take_unib32(&mut self) -> Result<u32, Error> {
         self.kept()?;
         self.align_nibble();
@@ -238,6 +240,7 @@ impl<'i> BufReader<'i> {
     }
 
     /// Read up to 32 bits (without alignment) into u32 number.
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     pub fn read_un32(&mut self, bit_count: u8) -> Result<u32, Error> {
         self.kept()?;
         if bit_count > 32 {
@@ -247,6 +250,7 @@ impl<'i> BufReader<'i> {
     }
 
     /// Read up to 64 bits (without alignment) into u64 number.
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     pub fn read_un64(&mut self, bit_count: u8) -> Result<u64, Error> {
         self.kept()?;
         if bit_count > 64 {
@@ -267,6 +271,7 @@ impl<'i> BufReader<'i> {
     /// `bit_count` (0 to 32) bits, most significant first, if they are all before the lengths read from the back
     /// (SW-40); a read that fails moves nothing.
     #[inline]
+    #[cfg_attr(shrink_wrap_hot = "optimize", optimize(speed))]
     fn take_bits(&mut self, bit_count: u8) -> Result<u32, Error> {
         if bit_count as usize > self.bits_left() {
             return Err(Error::OutOfBoundsReadUN);
@@ -284,7 +289,8 @@ impl<'i> BufReader<'i> {
 
     /// [take_bits](Self::take_bits) of 1 to 32 bits that are there and end in the word starting at the current
     /// byte.
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     fn take_in_word(&mut self, bit_count: u8) -> u32 {
         let at = self.byte_idx;
         // the bytes after the forward side's end (the lengths, or past the buffer as zeros) only fill the word,
@@ -339,7 +345,8 @@ impl<'i> BufReader<'i> {
     /// `_latch` read gives 0 (SW-41). So a value whose plain fields are latched reports the first error even when
     /// a later field, read with `?`, fails too, and nothing read after the error decides anything (a discriminant
     /// is 0, a flag `false`). Not cleared: [latched](Self::latched) still returns it.
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     fn kept(&self) -> Result<(), Error> {
         match self.latch {
             Some(e) => Err(e),
@@ -717,7 +724,8 @@ impl<'i> BufReader<'i> {
         }
     }
 
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     fn align_nibble(&mut self) {
         if self.bit_idx == 7 || self.bit_idx == 3 {
             return;
@@ -770,7 +778,8 @@ impl<'i> BufReader<'i> {
     }
 
     /// Whether the next `bits` (1 to 8, not past the current byte) are before the lengths read from the back.
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     fn in_front(&self, bits: usize) -> bool {
         // before the last byte they are; in it, it depends on the lengths' nibble
         self.byte_idx + 1 < self.len_bytes || self.bit_pos() + bits <= self.front_end()
@@ -778,7 +787,8 @@ impl<'i> BufReader<'i> {
 
     /// The bit where the forward side ends: the lengths read from the back begin there (the last byte's low
     /// nibble when one of its nibbles is read already).
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     fn front_end(&self) -> usize {
         self.len_bytes * 8 - if self.is_at_bit7_rev { 4 } else { 0 }
     }
@@ -844,7 +854,8 @@ impl<'i> BufReader<'i> {
     }
 
     /// Bits read from the front so far.
-    #[inline(always)]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline)]
     pub(crate) fn bit_pos(&self) -> usize {
         self.byte_idx * 8 + 7 - self.bit_idx as usize
     }

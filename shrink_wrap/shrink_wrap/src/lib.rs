@@ -1,4 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// `--cfg shrink_wrap_hot="optimize"` (nightly): the per-item bit primitives and Series loops are optimized for speed
+// in a firmware built for size, see docs/serdes/code_size.md ("Hot paths at opt-level z")
+#![cfg_attr(shrink_wrap_hot = "optimize", feature(optimize_attribute))]
 //#![cfg_attr(all(not(feature = "std"), not(test)), no_std)] ?
 
 // So that the code `#[derive_shrink_wrap(..)]` generates can name this crate as `::shrink_wrap` from inside it too.

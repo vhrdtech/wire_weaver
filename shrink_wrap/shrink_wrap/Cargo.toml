@@ -30,4 +30,5 @@ serde_json.workspace = true
 
 [lints.rust]
 # `cargo fuzz` builds with `--cfg fuzzing`: entry points for fuzz/ to the crate-internal series column codecs
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+# `--cfg shrink_wrap_hot="inline"` / `"optimize"`: the hot bit paths at opt-level z (docs/serdes/code_size.md)
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)', 'cfg(shrink_wrap_hot, values("inline", "optimize"))'] }

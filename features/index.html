@@ -7461,6 +7461,13 @@ observing), SRV-46 (peer identity).
   Silenced per item with <code>#[no_unit_hint]</code>: bare on a struct/enum field, bare (every argument) or naming arguments
   (<code>#[no_unit_hint(a, b)]</code>) on a trait method, bare on a <code>property!</code>/<code>stream!</code>/<code>sink!</code>/<code>ww_impl!</code> item.
   <code>docs/evolution/checker_tool.md#unit-suffix-hints-tool-22</code>.</li>
+<li>✅ <strong>TOOL-28 <code>ww board rework set</code> / <code>clear</code></strong> — records a rework done on the bench through
+  <code>BoardInfo::set_reworks</code> (STD-98), on any device serving it anywhere in its API (a global trait attachment,
+  API-20). <code>ww board rework set 1,3,5</code> / <code>clear 1,3,5</code> mark reworks applied or undone, all or none; <code>--dry-run</code>
+  passes <code>program = false</code> (nothing written, the would-be outcome printed). <code>UnknownRework</code> is shown with the
+  numbers the firmware knows, read from <code>REWORKS</code>: <code>unknown rework 7: this firmware knows 1-5, 8; update firmware
+  first</code>; <code>Conflict</code> and <code>ProductionRecord</code> print the device's own message. <code>wire_weaver_cli</code> <code>cmd::board</code>. The
+  first device is usb_io_fw PLAT-17.</li>
 <li>🧪 <strong>TOOL-16 <code>ww sync</code></strong> — several devices kept on the host's UTC at once (STD-49, crate <code>ww_clock_sync</code>): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with <code>shared_now</code>, samples), <code>--mode</code> writes the

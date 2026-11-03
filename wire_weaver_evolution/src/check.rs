@@ -490,6 +490,25 @@ fn save_command(crate_path: Option<&Path>) -> String {
     )
 }
 
+/// Whether `crate_path` (an API crate directory, not a snapshot file) has an evolution test of its own: a
+/// `tests/evolution.rs` that calls [Check]. `ww api check` and `ww api save` warn with this when it doesn't, so a
+/// wire break is caught by `cargo test` and a pre-commit hook (docs/evolution/checker_tool.md), not only when
+/// someone remembers to run `ww api check` by hand.
+pub fn missing_test_warning(crate_path: &Path) -> Option<String> {
+    let test_path = crate_path.join("tests").join("evolution.rs");
+    let has_test = fs::read_to_string(&test_path)
+        .is_ok_and(|contents| contents.contains("wire_weaver_evolution::Check"));
+    if has_test {
+        return None;
+    }
+    Some(format!(
+        "no {} calling wire_weaver_evolution::Check: add the wire_weaver_evolution dev-dependency and this test \
+         (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not only by `ww api check` \
+         run by hand",
+        test_path.display()
+    ))
+}
+
 /// The snapshot of exactly the version of `bundle` in `dir`.
 fn current_snapshot(dir: &Path, bundle: &ApiBundleOwned) -> Result<Option<Snapshot>, String> {
     let version = &bundle.crate_version(0).map_err(|e| e.to_string())?.version;

@@ -1884,6 +1884,12 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   Silenced per item with `#[no_unit_hint]`: bare on a struct/enum field, bare (every argument) or naming arguments
   (`#[no_unit_hint(a, b)]`) on a trait method, bare on a `property!`/`stream!`/`sink!`/`ww_impl!` item.
   `docs/evolution/checker_tool.md#unit-suffix-hints-tool-22`.
+- ✅ **TOOL-31 Warning for an API crate without an evolution test** — `ww api check` and `ww api save` print a
+  `warning:` when the crate directory has no `tests/evolution.rs` calling `wire_weaver_evolution::Check` (checked
+  by reading the file and looking for that call, `wire_weaver_evolution::missing_test_warning`), so a wire break
+  is caught by `cargo test` and a pre-commit hook, not only when someone remembers to run `ww api check` by hand
+  (P2401#3nov-0059b: `donguru_api` and `b135_api` had no such test and STD-98's wire break was found only by
+  hand). Never affects the verdict, like the TOOL-22 hints. `docs/evolution/checker_tool.md#a-missing-test-warning`.
 - ✅ **TOOL-28 `ww board rework set` / `clear`** — records a rework done on the bench through
   `BoardInfo::set_reworks` (STD-98), on any device serving it anywhere in its API (a global trait attachment,
   API-20). `ww board rework set 1,3,5` / `clear 1,3,5` mark reworks applied or undone, all or none; `--dry-run`

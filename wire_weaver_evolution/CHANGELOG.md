@@ -16,7 +16,9 @@
 ### 🚀 Features
 
 - Several broken items caused by the same dependency change are grouped under it instead of reading as unrelated breaks (EVO-21): new `compat::RootCause` (`what`, `crate_id`, `name`), set once, closest to the source, when a resource or type check fails because a trait, type or marker from another crate has an incompatible version or a different definition under the same one; `Finding::root`, `Report::breaking_groups()` (roots reached by 2+ findings, the rest in their original order), and `ww api check`'s report prints each such group as `N broken because <kind> <crate>::<name> changed:` before the items it reaches (`docs/evolution/checker_tool.md#several-broken-items-one-cause-evo-21`).
-
+- `missing_test_warning(crate_path)` (TOOL-31, P2401#3nov-0059b): `None` when `<crate_path>/tests/evolution.rs`
+  calls `wire_weaver_evolution::Check`, else a message naming the file and what to add, for `ww api check` / `ww
+  api save` to print as a warning. Only reads the file's text, so it works even when the crate can't be parsed.
 - Kinds of quantity compared (STD-68, with EVO-17): one step of a number has the kind of its unit as well as the dimension and factor, so the same bytes in another kind of one dimension are breaking under `Rule::Meaning` (`Per<Volt, Volt>` -> `Ratio` or `Per<Ampere, Ampere>`: `ratio of .. vs plain, another kind of quantity`; `Per<Volt, Ampere>` -> `Ohm`: `plain vs resistance`). A unit that gains a kind of its own under its name (`Ohm` with this `exact_units`) keeps its values: compatible, listed as `kind of its own added`.
 - `Check::snapshots_dir(dir)`: the crate's snapshots are in `dir` instead of its `api_snapshots/` (a crate from another repository, its snapshots kept here).
 - A variant appended with a discriminant beyond a narrow catch-all (`#[future_version] Unknown(u8)` / `Unknown(u16)`, DER-25) is breaking: an older reader fails on it. Reports name the catch-all with its width (`Unknown(u16)`), so a changed width is `Rule::CatchAll`.

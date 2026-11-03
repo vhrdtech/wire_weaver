@@ -52,7 +52,10 @@ mod rule;
 pub mod snapshot_files;
 
 #[cfg(feature = "source")]
-pub use check::{Check, Comparison, NoSnapshot, Outcome, SAVE_ENV, SaveStatus, Saved, UnitHint};
+pub use check::{
+    Check, Comparison, NoSnapshot, Outcome, SAVE_ENV, SaveStatus, Saved, UnitHint,
+    missing_test_warning,
+};
 pub use compat::RootCause;
 pub use diff::{Difference, diff};
 pub use rule::{Finding, Rule};

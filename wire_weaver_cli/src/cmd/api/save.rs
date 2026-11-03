@@ -1,4 +1,4 @@
-use super::check::print_report;
+use super::check::{print_missing_test_warning, print_report};
 use anyhow::{Result, anyhow};
 use console::style;
 use std::path::PathBuf;
@@ -14,6 +14,7 @@ pub(crate) fn save(
         Some(dep) => wire_weaver_core::dependency_dir(&crate_path, &dep)?,
         None => crate_path,
     };
+    print_missing_test_warning(&crate_path);
     let mut check = Check::new(&crate_path);
     if let Some(dir) = snapshots_dir {
         check = check.snapshots_dir(dir);

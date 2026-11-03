@@ -10,6 +10,7 @@ pub(crate) fn check(
     strict: bool,
     require_current: bool,
 ) -> Result<()> {
+    print_missing_test_warning(&path);
     let outcome = load(path, against)?
         .strict(strict)
         .require_current(require_current)
@@ -31,6 +32,16 @@ pub(crate) fn check(
     }
     print_hints(outcome.hints());
     Ok(())
+}
+
+/// A crate directory (not a snapshot file) without its own `tests/evolution.rs` gets a warning: `ww api check` is
+/// run by hand, a missing test means `cargo test` never catches a wire break.
+pub(crate) fn print_missing_test_warning(path: &Path) {
+    if path.is_dir()
+        && let Some(warning) = wire_weaver_evolution::missing_test_warning(path)
+    {
+        println!("{} {warning}", style("warning:").yellow());
+    }
 }
 
 /// TOOL-22: unit-suffix hints, never affecting the verdict.

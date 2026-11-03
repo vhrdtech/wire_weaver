@@ -372,6 +372,26 @@ property!(ro, rate_hz: u32); // a raw register value here, not a frequency
 `ww api scaffold` shows the same notes on stderr, next to the generated handler stubs, so a new API crate's
 handlers are written against `Fixed` from the start where the note applies.
 
+## A missing-test warning (TOOL-31)
+
+`ww api check` and `ww api save` also warn, before anything else, when the crate directory has no
+`tests/evolution.rs` calling `wire_weaver_evolution::Check` (the [test above](#checking-at-every-commit)):
+
+```
+$ ww api check my_device_api
+warning: no my_device_api/tests/evolution.rs calling wire_weaver_evolution::Check: add the wire_weaver_evolution
+  dev-dependency and this test (docs/evolution/checker_tool.md), so a wire break is caught by `cargo test`, not
+  only by `ww api check` run by hand
+my_device_api 0.1.0 (my_device_api/api_snapshots/my_device_api_0_1_0.ron) -> 0.1.0 (source): no changes
+no changes
+```
+
+A crate without the API crate's own test only gets checked when someone remembers to run `ww api check` by hand:
+`cargo test`, CI and a pre-commit hook never see it. The warning never affects the verdict, like the TOOL-22 hints,
+and it only looks at the file's text (it doesn't need the crate to build), so it also fires on a crate the checker
+can't otherwise parse. `wire_weaver_evolution::missing_test_warning(path)` is the library call behind it, for other
+tools that want the same check.
+
 ## Limitations
 
 * Snapshots of all published versions have to be kept in `api_snapshots/`, the checker can only see what is saved

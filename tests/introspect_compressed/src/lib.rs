@@ -1,5 +1,5 @@
 //! Compressed introspection data (INT-16): `ww_codegen!(.., introspect_compression = "lz4")` keeps `WW_SELF_BYTES`
-//! as LZ4 blocks and sends a `StreamSideband::User(INTROSPECT_COMPRESSED)` before them. Checked against a plain
+//! as LZ4 blocks (`ww_self::compressed`) and sends them like a plain bundle. Checked against a plain
 //! server of the same API: the same bundle comes out of the client (download, promise, through the hub), the API
 //! hashes are the same, and the bytes take several introspection chunks.
 
@@ -262,10 +262,10 @@ mod tests {
         );
     }
 
-    /// What goes over the wire: the marker sideband first, then the compressed bytes in chunks, then `Close`. An
-    /// older client stops at the marker (`recv_all_bytes` takes no sideband but `Close`).
+    /// What goes over the wire: the compressed bytes in chunks, then `Close`, as for a plain bundle: the data says
+    /// it is compressed by its magic.
     #[test]
-    fn marker_then_chunks_then_close() {
+    fn chunks_then_close() {
         use tests_common::TestProcessEvents;
         let mut server = lz4::Server::default();
         let request = ww_client_server::RequestOwned {
@@ -290,18 +290,9 @@ mod tests {
             .iter()
             .map(|e| Event::from_ww_bytes(e).unwrap().result.unwrap())
             .collect();
-        assert!(events.len() > 4, "{events:?}");
-        assert!(
-            matches!(
-                &events[0],
-                EventKind::StreamSideband { path, sideband: StreamSideband::User(code) }
-                    if path.is_empty() && code.0 == ww_client_server::INTROSPECT_COMPRESSED
-            ),
-            "{:?}",
-            events[0]
-        );
+        assert!(events.len() > 3, "{events:?}");
         let mut data = vec![];
-        for e in &events[1..events.len() - 1] {
+        for e in &events[..events.len() - 1] {
             let EventKind::StreamData { data: d, .. } = e else {
                 panic!("{e:?}")
             };
@@ -445,7 +436,7 @@ mod tests {
         dir
     }
 
-    /// Through the hub: it fetches the device's introspection once (the marker doesn't end the answer), later
+    /// Through the hub: it fetches the device's introspection once (the answer is the same as a plain device's), later
     /// clients get it from its cache, and the hub decodes it for itself.
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn through_the_hub() {

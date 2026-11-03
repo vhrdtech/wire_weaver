@@ -1724,13 +1724,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **INT-16 Compressed introspection data** — `ww_codegen!(.., introspect_compression = "lz4")` (also
   `GenServerConfig::introspect_compression` for `build.rs` and `ww api scaffold --introspect-compression lz4`) keeps
   `WW_SELF_BYTES` as LZ4 blocks made at build time with `ww_lz4` (`ww_self::compressed`: `WWz4` magic, length,
-  blocks); the device carries no decoder. It sends a `StreamSideband::User(INTROSPECT_COMPRESSED)` before the data,
-  where older clients stop with an error instead of misreading the bytes; the client (download, promise, dynamic
-  client, `ww`, Python, the hub, `ww tap`) decompresses. API hashes and the cache stay those of the uncompressed
-  bundle. rePort 14,016 -> 9,697 B of bundle, -3,880 B of flash; Donguru 3,974 -> 3,056 B, -1,228 B. Default off.
-  Tests `tests/introspect_compressed` (sync, async, promise, hub, the marker), `ww_self` (`compressed::tests`,
-  frozen layout). [Introspection data](docs/api/introspection.md). LZ4 does 1.3-1.45x on this data; deflate or
-  zstd would do 1.7-2x with a pure-Rust host decoder, a value of the same option when wanted.
+  blocks); the device carries no decoder and sends them as a plain bundle, at no code cost. The client (download,
+  promise, dynamic client, `ww`, Python, the hub, `ww tap`) tells the formats apart by the first bytes, decompresses,
+  and refuses an unknown magic. API hashes and the cache stay those of the uncompressed bundle. rePort 14,016 ->
+  9,697 B of bundle, -4,312 B of flash; Donguru 3,974 -> 3,056 B, -920 B. Default off. Tests
+  `tests/introspect_compressed` (sync, async, promise, dynamic client, hub, the answer's events), `ww_self`
+  (`compressed::tests`, frozen layout). [Introspection data](docs/api/introspection.md). LZ4 does 1.3-1.45x on this
+  data; deflate or zstd would do 1.7-2x with a pure-Rust host decoder, a value of the same option when wanted.
 - 📋 **INT-5 Documentation pass on `ww_self`** · `v0.5` — doc comments are missing (`TODO` in `ww_self/src/lib.rs`).
 - 📋 **INT-6 `sized` / `final_structure` on `ww_self` types** · `v0.5` — where a type is unlikely to evolve, to make
   introspection data smaller. Can't be undone later, so decide per type.

@@ -356,7 +356,7 @@ impl Stream<TailBytesOwned> {
     pub async fn recv_all_bytes(&mut self) -> Result<Vec<u8>, StreamError> {
         let mut bytes = vec![];
         while let Some(ev) = self.rx.recv().await {
-            let f = recv_all_inner(ev, &mut bytes, false)?;
+            let f = recv_all_inner(ev, &mut bytes)?;
             if matches!(f, ControlFlow::Break(_)) {
                 break;
             }
@@ -369,7 +369,7 @@ impl Stream<TailBytesOwned> {
     pub fn recv_all_bytes_blocking(&mut self) -> Result<Vec<u8>, StreamError> {
         let mut bytes = vec![];
         while let Some(ev) = self.rx.blocking_recv() {
-            let f = recv_all_inner(ev, &mut bytes, false)?;
+            let f = recv_all_inner(ev, &mut bytes)?;
             if matches!(f, ControlFlow::Break(_)) {
                 break;
             }
@@ -383,30 +383,13 @@ impl Stream<TailBytesOwned> {
         &mut self,
         idle_timeout: Duration,
     ) -> Result<Vec<u8>, StreamError> {
-        self.recv_all_timeout(idle_timeout, false).await
-    }
-
-    /// [Self::recv_all_bytes_timeout] of the introspection stream: also takes the
-    /// [INTROSPECT_COMPRESSED](ww_client_server::INTROSPECT_COMPRESSED) sideband a compressing device sends first.
-    pub(crate) async fn recv_introspection_timeout(
-        &mut self,
-        idle_timeout: Duration,
-    ) -> Result<Vec<u8>, StreamError> {
-        self.recv_all_timeout(idle_timeout, true).await
-    }
-
-    async fn recv_all_timeout(
-        &mut self,
-        idle_timeout: Duration,
-        introspection: bool,
-    ) -> Result<Vec<u8>, StreamError> {
         let mut bytes = vec![];
         loop {
             let ev = tokio::time::timeout(idle_timeout, self.rx.recv())
                 .await
                 .map_err(|_| Error::Timeout)?
                 .ok_or(StreamError::Closed)?;
-            if recv_all_inner(ev, &mut bytes, introspection)?.is_break() {
+            if recv_all_inner(ev, &mut bytes)?.is_break() {
                 return Ok(bytes);
             }
         }
@@ -418,29 +401,12 @@ impl Stream<TailBytesOwned> {
         &mut self,
         idle_timeout: Duration,
     ) -> Result<Vec<u8>, StreamError> {
-        self.recv_all_timeout_blocking(idle_timeout, false)
-    }
-
-    /// [Self::recv_all_bytes_timeout_blocking] of the introspection stream, see
-    /// [Self::recv_introspection_timeout].
-    pub(crate) fn recv_introspection_timeout_blocking(
-        &mut self,
-        idle_timeout: Duration,
-    ) -> Result<Vec<u8>, StreamError> {
-        self.recv_all_timeout_blocking(idle_timeout, true)
-    }
-
-    fn recv_all_timeout_blocking(
-        &mut self,
-        idle_timeout: Duration,
-        introspection: bool,
-    ) -> Result<Vec<u8>, StreamError> {
         let mut bytes = vec![];
         let mut deadline = Instant::now() + idle_timeout;
         loop {
             match self.rx.try_recv() {
                 Ok(ev) => {
-                    if recv_all_inner(ev, &mut bytes, introspection)?.is_break() {
+                    if recv_all_inner(ev, &mut bytes)?.is_break() {
                         return Ok(bytes);
                     }
                     deadline = Instant::now() + idle_timeout;
@@ -464,19 +430,8 @@ impl From<SWError> for StreamError {
     }
 }
 
-/// `introspection`: the stream is the introspection stream, which may start with the
-/// [INTROSPECT_COMPRESSED](ww_client_server::INTROSPECT_COMPRESSED) sideband (INT-16).
-fn recv_all_inner(
-    ev: RawStreamEvent,
-    buf: &mut Vec<u8>,
-    introspection: bool,
-) -> Result<ControlFlow<()>, StreamError> {
+fn recv_all_inner(ev: RawStreamEvent, buf: &mut Vec<u8>) -> Result<ControlFlow<()>, StreamError> {
     match ev {
-        RawStreamEvent::Sideband(StreamSideband::User(code))
-            if introspection && code.0 == ww_client_server::INTROSPECT_COMPRESSED =>
-        {
-            Ok(ControlFlow::Continue(()))
-        }
         RawStreamEvent::Data(b) => {
             buf.extend_from_slice(&b);
             Ok(ControlFlow::Continue(()))
@@ -484,35 +439,5 @@ fn recv_all_inner(
         RawStreamEvent::Connected => Ok(ControlFlow::Continue(())),
         RawStreamEvent::Sideband(StreamSideband::Close) => Ok(ControlFlow::Break(())),
         e => Err(StreamError::UnexpectedEvent(e)),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use wire_weaver::shrink_wrap::UNib32;
-
-    /// A compressing device's marker (INT-16): taken on the introspection stream, and an error where clients
-    /// that predate it (and every other stream) read it, instead of compressed bytes read as a bundle.
-    #[test]
-    fn compressed_marker_only_on_the_introspection_stream() {
-        let marker = || {
-            RawStreamEvent::Sideband(StreamSideband::User(UNib32(
-                ww_client_server::INTROSPECT_COMPRESSED,
-            )))
-        };
-        let mut buf = vec![];
-        assert!(matches!(
-            recv_all_inner(marker(), &mut buf, true),
-            Ok(ControlFlow::Continue(()))
-        ));
-        assert!(matches!(
-            recv_all_inner(marker(), &mut buf, false),
-            Err(StreamError::UnexpectedEvent(RawStreamEvent::Sideband(
-                StreamSideband::User(_)
-            )))
-        ));
-        let other = RawStreamEvent::Sideband(StreamSideband::User(UNib32(7)));
-        assert!(recv_all_inner(other, &mut buf, true).is_err());
     }
 }

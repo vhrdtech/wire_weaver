@@ -141,7 +141,7 @@ impl Introspect {
             pending: Default::default(),
             _phantom: Default::default(),
         };
-        let ww_self_bytes = stream.recv_introspection_timeout(self.timeout).await?;
+        let ww_self_bytes = stream.recv_all_bytes_timeout(self.timeout).await?;
         decode_and_cache(&ww_self_bytes, &self.hash)
     }
 
@@ -155,7 +155,7 @@ impl Introspect {
             pending: Default::default(),
             _phantom: Default::default(),
         };
-        let ww_self_bytes = stream.recv_introspection_timeout_blocking(self.timeout)?;
+        let ww_self_bytes = stream.recv_all_bytes_timeout_blocking(self.timeout)?;
         decode_and_cache(&ww_self_bytes, &self.hash)
     }
 

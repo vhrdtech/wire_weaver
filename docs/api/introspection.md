@@ -23,10 +23,8 @@ wire_weaver::ww_codegen!(
 
 The answer is a stream at the root path (`[]`), under the request's seq:
 
-1. With compression only: a `StreamSideband::User(INTROSPECT_COMPRESSED)` marker
-   (`ww_client_server::INTROSPECT_COMPRESSED`).
-2. The bytes of `WW_SELF_BYTES` as stream data, 128 bytes per event.
-3. `StreamSideband::Close`.
+1. The bytes of `WW_SELF_BYTES` as stream data, 128 bytes per event.
+2. `StreamSideband::Close`.
 
 A device with introspection off answers with `Close` alone, and the client reports no introspection data. The
 client joins the data events in order, so the chunk size is not part of the format.
@@ -53,12 +51,12 @@ What it saves, release builds measured with and without the option from the same
 
 | Device | Firmware | Bundle | Flash (text + data) |
 |---|---|---|---|
-| rePort (RP2350, async server, `opt-level = "s"`) | 408,632 B | 14,016 -> 9,697 B | -3,880 B |
-| Donguru (STM32G0, async server, `opt-level = "z"`) | 148,188 B | 3,974 -> 3,056 B | -1,228 B |
+| rePort (RP2350, async server, `opt-level = "s"`) | 408,632 B | 14,016 -> 9,697 B | -4,312 B |
+| Donguru (STM32G0, async server, `opt-level = "z"`) | 148,188 B | 3,974 -> 3,056 B | -920 B |
 
-The difference between the bundle and the flash is code: the marker is one more event, sent from the same place as
-the data and `Close` (+434 B of code on rePort, -284 B on Donguru). LZ4 does about 1.3-1.45x on this data, mostly
-doc text; it pays off for a device with a large API or many doc comments.
+The answer is sent as for a plain bundle, so the option costs no code: the flash saved is what the bundle shrinks
+(Donguru's 2 B more are alignment). LZ4 does about 1.3-1.45x on this data, mostly doc text; it pays off for a
+device with a large API or many doc comments.
 
 The API's identity doesn't change: the hashes stay those of the uncompressed bundle, so a compressed and a plain
 build of the same API have the same `API_ID`, share their cache entries, and are compared by the evolution rules
@@ -79,12 +77,11 @@ one block. Any LZ4 block decoder with a dictionary reads it (`ww_lz4::Decoder`, 
 `decompress_into_with_dict`). A host refuses a declared length over 16 MiB and blocks that decompress to another
 length than the header says.
 
-### Older clients
+### How a client tells them apart
 
-The data starts with its own magic, so a client tells compressed from plain bytes without the marker. The marker is
-there for clients built before compression existed: they take no sideband but `Close` on the introspection stream
-and stop with an "unexpected event" error at it, instead of reading the compressed bytes as a bundle. A client
-without introspection data can still call the device through its API crate (`client = "std_client"`).
-
-Old devices never send the marker, so new clients read them as before. Compression is not a wire change for
-anything else: requests, events and the bundle format are the same.
+By the first four bytes, the only signal there is: a plain bundle starts with `ww_self::MAGIC` (`F0 14 1B A9`), a
+compressed one with `WWz4`. The answer, the API hashes and `DeviceInfo` are the same either way, so a host needs
+nothing else and learns the format only when it has the data. A host refuses data that starts with neither
+(`compressed::Error::UnknownFormat`, "likely a newer format than this host reads"), so a format added later fails
+cleanly in today's clients instead of being read as a bundle. Clients built before INT-16 don't check the magic:
+they fail to decode compressed data with a deserialization error.

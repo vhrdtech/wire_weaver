@@ -61,7 +61,7 @@ pub fn ww_api(args: TokenStream) -> TokenStream {
 /// * introspect = "no_docs" | "with_docs" | "disabled" - whether the server answers introspection requests with the
 ///   API's `ww_self` bundle (`WW_SELF_BYTES` in flash), with doc comments or without. Absent: disabled.
 /// * introspect_compression = "lz4" | "none" - keep `WW_SELF_BYTES` compressed (INT-16, `docs/api/introspection.md`):
-///   LZ4 blocks made at build time, sent after a `StreamSideband::User(INTROSPECT_COMPRESSED)` marker, decompressed by
+///   LZ4 blocks made at build time (`ww_self::compressed`, `WWz4` magic), sent like a plain bundle, decompressed by
 ///   the client. The device carries no decoder; API hashes are those of the uncompressed bundle. Absent: none.
 /// * medium = "crate::Medium" - type (usually an enum) telling handlers which medium (USB, CAN, ...) a request came from,
 ///   `()` if absent. Every handler gets `cx: &mut wire_weaver::Context<'_, impl EventOut, Medium>` (`BlockingEventOut`

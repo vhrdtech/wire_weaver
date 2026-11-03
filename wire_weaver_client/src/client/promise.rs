@@ -322,9 +322,6 @@ impl<T: DeserializeShrinkWrapOwned, E: OutcomeError> Promise<T, E> {
                         *deadline = Instant::now() + *idle_timeout;
                     }
                     Ok(RawStreamEvent::Connected) => {}
-                    // a compressing device's first event (INT-16), the data says it again
-                    Ok(RawStreamEvent::Sideband(StreamSideband::User(code)))
-                        if code.0 == ww_client_server::INTROSPECT_COMPRESSED => {}
                     Ok(RawStreamEvent::Sideband(StreamSideband::Close)) => {
                         self.state = if bytes.is_empty() {
                             StateInner::Err(E::from_client(

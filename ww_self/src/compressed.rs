@@ -38,6 +38,8 @@ pub enum Error {
     Corrupt,
     /// The blocks decompressed to another length than the header declares.
     LengthMismatch { declared: usize, actual: usize },
+    /// Neither a bundle ([crate::MAGIC]) nor compressed ([MAGIC]): another format, likely a newer one.
+    UnknownFormat([u8; 4]),
 }
 
 impl core::fmt::Display for Error {
@@ -52,6 +54,11 @@ impl core::fmt::Display for Error {
             Error::LengthMismatch { declared, actual } => write!(
                 f,
                 "compressed introspection data decompressed to {actual} bytes, its header says {declared}"
+            ),
+            Error::UnknownFormat(m) => write!(
+                f,
+                "introspection data starts with {m:02x?}: neither a ww_self bundle nor a compressed one, likely a \
+                 newer format than this host reads"
             ),
         }
     }
@@ -116,12 +123,17 @@ pub fn decompress(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(out)
 }
 
-/// The bundle bytes of introspection data as a device sends it: decompressed when compressed, as is otherwise.
+/// The bundle bytes of introspection data as a device sends it: decompressed when compressed, as is when they start
+/// with [crate::MAGIC]. Anything else is [Error::UnknownFormat]: the first bytes are what tells the formats apart, so
+/// a format added later fails here with a clear error instead of being read as a bundle.
 pub fn bundle_bytes(bytes: &[u8]) -> Result<Cow<'_, [u8]>, Error> {
     if is_compressed(bytes) {
-        decompress(bytes).map(Cow::Owned)
-    } else {
-        Ok(Cow::Borrowed(bytes))
+        return decompress(bytes).map(Cow::Owned);
+    }
+    match bytes.first_chunk::<4>() {
+        Some(m) if *m == crate::MAGIC.to_le_bytes() => Ok(Cow::Borrowed(bytes)),
+        Some(m) => Err(Error::UnknownFormat(*m)),
+        None => Err(Error::Truncated),
     }
 }
 
@@ -180,6 +192,11 @@ mod tests {
         let plain = crate::MAGIC.to_le_bytes();
         assert!(!is_compressed(&plain));
         assert_eq!(bundle_bytes(&plain).unwrap().as_ref(), &plain);
+        assert_eq!(
+            bundle_bytes(b"WWzd...."),
+            Err(Error::UnknownFormat(*b"WWzd"))
+        );
+        assert_eq!(bundle_bytes(&[0xF0, 0x14]), Err(Error::Truncated));
     }
 
     #[test]

@@ -14,7 +14,7 @@ use tokio::sync::oneshot;
 use tracing::{debug, trace, warn};
 use wire_weaver::prelude::UVlq32Backfill;
 use wire_weaver::shrink_wrap::{DeserializeShrinkWrap, SerializeShrinkWrapOwned, UNib32};
-use ww_client_server::{ErrorKind, EventKind, PathKindOwned, RequestKindOwned, StreamSideband};
+use ww_client_server::{ErrorKind, EventKind, PathKindOwned, RequestKindOwned};
 
 pub(crate) type ResponseSender = oneshot::Sender<Result<Vec<u8>, Error>>;
 pub(crate) type ResponseReceiver = oneshot::Receiver<Result<Vec<u8>, Error>>;
@@ -232,16 +232,12 @@ impl RxDispatcher {
         let Some((tag, _, _)) = self.forwards.get(&seq) else {
             return false;
         };
-        // stream data under the request's seq (introspection) comes before the answer, and so does a sideband at
-        // the root path other than `Close`: the introspection stream's, e.g. `INTROSPECT_COMPRESSED` (INT-16)
+        // stream data under the request's seq (introspection) comes before the answer
         let last = !matches!(
-            &event.result,
+            event.result,
             Ok(EventKind::StreamData { .. }
                 | EventKind::StreamItem { .. }
                 | EventKind::PropertyUpdate { .. })
-        ) && !matches!(
-            &event.result,
-            Ok(EventKind::StreamSideband { path, sideband }) if path.is_empty() && *sideband != StreamSideband::Close
         );
         sink.forward(Forwarded::Reply {
             tag: *tag,

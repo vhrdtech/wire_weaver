@@ -82,49 +82,12 @@ pub(crate) fn introspect(
     let send_close = quote! {
         __ww_try!(wr, d, #send_close, #es0, ResponseSerFailed);
     };
-    let send_all = match compression {
-        IntrospectCompression::None => quote! {
-            for chunk in WW_SELF_BYTES.chunks(CHUNK) {
-                __ww_try!(wr, d, #send_chunk, #es0, ResponseSerFailed);
-            }
-            #send_close
-        },
-        // the marker first, so that a client that predates compression stops with an error instead of misreading
-        // the bytes; marker, chunks and `Close` through one send, each `send_with` costs code (1.8 KB on an async
-        // RP2350 server)
-        IntrospectCompression::Lz4 => {
-            let send_event = send_with(quote! {
-                // each sideband a constant: one chosen at run time would link the serializer of all of them
-                if i == 0 {
-                    ww_client_server::util::ser_stream_sideband_event(
-                        scratch,
-                        request.seq.0,
-                        &[],
-                        ww_client_server::StreamSideband::User(
-                            wire_weaver::shrink_wrap::UNib32(ww_client_server::INTROSPECT_COMPRESSED),
-                        ),
-                    )
-                } else if i == last {
-                    ww_client_server::util::ser_stream_sideband_event(
-                        scratch,
-                        request.seq.0,
-                        &[],
-                        ww_client_server::StreamSideband::Close,
-                    )
-                } else {
-                    let rest = WW_SELF_BYTES.get((i - 1) * CHUNK..).unwrap_or(&[]);
-                    let chunk = &rest[..rest.len().min(CHUNK)];
-                    ww_client_server::util::ser_stream_data_bytes_event(scratch, request.seq.0, &[], chunk)
-                }
-            });
-            quote! {
-                const LAST: usize = WW_SELF_BYTES.len().div_ceil(CHUNK) + 1;
-                let last = LAST;
-                for i in 0..=LAST {
-                    __ww_try!(wr, d, #send_event, #es0, ResponseSerFailed);
-                }
-            }
+    // compressed or not, the same answer: the data says what it is (`ww_self::compressed::MAGIC`)
+    let send_all = quote! {
+        for chunk in WW_SELF_BYTES.chunks(CHUNK) {
+            __ww_try!(wr, d, #send_chunk, #es0, ResponseSerFailed);
         }
+        #send_close
     };
     let send_all = quote! {
         const CHUNK: usize = 128; // TODO: auto-determine better chunk size

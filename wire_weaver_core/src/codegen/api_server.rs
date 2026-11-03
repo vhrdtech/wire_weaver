@@ -85,9 +85,9 @@ pub enum IntrospectCompression {
     /// The serialized bundle as is.
     #[default]
     None,
-    /// LZ4 blocks compressed at build time (`ww_self::compressed`), announced by a
-    /// `StreamSideband::User(INTROSPECT_COMPRESSED)` before the data. The device carries no decoder, the client
-    /// decompresses; API hashes stay those of the uncompressed bundle.
+    /// LZ4 blocks compressed at build time (`ww_self::compressed`, their own magic in front), sent like a plain
+    /// bundle. The device carries no decoder, the client decompresses; API hashes stay those of the uncompressed
+    /// bundle.
     Lz4,
 }
 

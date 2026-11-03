@@ -40,6 +40,8 @@ pub struct ServerScaffoldConfig {
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`): passed on to
     /// `ww_codegen!(.., observe_cells = "..")`, with a `static` `<Level>Cells` each.
     pub observe_cells: Vec<String>,
+    /// `ww_codegen!(.., call_gate = true)` (SRV-50), with an `impl wire_weaver::gate::CallGate` that admits all.
+    pub call_gate: bool,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -229,6 +231,11 @@ pub fn gen_server_scaffold(
             name = level.to_uppercase()
         )?;
     }
+    let call_gate = if config.call_gate {
+        "call_gate = true,\n"
+    } else {
+        ""
+    };
     let trait_name = &root.trait_name;
     let mut out = String::new();
     writeln!(
@@ -240,6 +247,17 @@ pub fn gen_server_scaffold(
     out.push_str(&statics);
     writeln!(out, "pub struct {server} {{\n{}}}\n", s.fields)?;
     writeln!(out, "impl {server} {{\n{}}}\n", s.handlers)?;
+    if config.call_gate {
+        writeln!(
+            out,
+            "/// Asked before every request's handler runs (SRV-50): `Err(reason)` refuses the request.\n\
+             impl wire_weaver::gate::CallGate for {server} {{\n\
+             fn admit(&self, _target: &wire_weaver::gate::Target, _op: wire_weaver::gate::Op) -> Result<(), &str> {{\n\
+             Ok(())\n\
+             }}\n\
+             }}\n"
+        )?;
+    }
     if !s.consts.is_empty() {
         writeln!(
             out,
@@ -261,7 +279,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          {handler_model}method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {const_model}{omit}{medium}{observe_batch}{observe_cells});\n\
+         {const_model}{omit}{medium}{observe_batch}{observe_cells}{call_gate});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -876,6 +894,7 @@ mod tests {
             medium: None,
             omit: vec![],
             observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
+            call_gate: false,
         }
     }
 
@@ -957,5 +976,26 @@ mod tests {
         assert!(!plain.contains("observe_cells") && !plain.contains("Cells<"));
         let e = gen_server_scaffold(&bundle, &config(&["root_nope"])).unwrap_err();
         assert!(e.to_string().contains("levels: root_slow, root"), "{e}");
+    }
+
+    /// `call_gate` (SRV-50): an `impl CallGate` that admits all, and the argument in `ww_codegen!`.
+    #[test]
+    fn call_gate() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/call_gate_api");
+        let bundle = crate::load(&crate_path, Some("CallGateTest".into()), false).unwrap();
+        let gated = ServerScaffoldConfig {
+            call_gate: true,
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &gated).unwrap();
+        for expected in [
+            "impl wire_weaver::gate::CallGate for Server {",
+            "-> Result<(), &str> {\nOk(())",
+            "call_gate = true,",
+        ] {
+            assert!(code.contains(expected), "{expected}\n{code}");
+        }
+        let plain = gen_server_scaffold(&bundle, &config(&[])).unwrap();
+        assert!(!plain.contains("gate::CallGate") && !plain.contains("call_gate = true"));
     }
 }

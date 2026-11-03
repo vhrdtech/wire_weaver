@@ -58,6 +58,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) multi_req: bool,
 
+    /// The dispatcher asks the server struct through `wire_weaver::gate::CallGate` before every request's handler
+    /// runs (SRV-50).
+    #[darling(default)]
+    pub(crate) call_gate: bool,
+
     #[darling(default)]
     pub(crate) medium: String,
 

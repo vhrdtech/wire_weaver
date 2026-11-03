@@ -176,6 +176,7 @@ blinky_api_evolved = { version = "0.1.1", path = "./examples/blinky_api_evolved"
 block_sd_api = { version = "0.1.0", path = "./tests/block_sd_api" }
 board_info_api = { version = "0.1.0", path = "./tests/board_info_api" }
 bounded_api = { version = "0.1.0", path = "./tests/bounded_api" }
+call_gate_api = { version = "0.1.0", path = "./tests/call_gate_api" }
 cfg_variants_api = { version = "0.1.0", path = "./tests/cfg_variants_api" }
 cfg_variants_narrow_api = { version = "0.1.0", path = "./tests/cfg_variants_narrow_api", default-features = false, features = ["std"] }
 common_error_api = { version = "0.1.0", path = "./tests/common_error_api" }

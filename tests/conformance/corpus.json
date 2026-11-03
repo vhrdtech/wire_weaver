@@ -934,6 +934,14 @@
       "gaps": {"dynamic": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "explain": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "python": "head_tail is a wire format of its own without ShrinkWrap serdes, not an API type (SW-46)", "c": "reader only: the generated C has no writer yet (API-26)"}
     },
     {
+      "name": "client_server.error.refused",
+      "type": "ErrorOwned",
+      "value": {"err_seq": 10, "kind": {"Refused": "board guarded: unknown rework 9"}},
+      "bytes": "a111626f61726420677561726465643a20756e6b6e6f776e207265776f726b20397b1c",
+      "gaps": {"dynamic": "ww_client_server's Error is a protocol message, not a type of an API in the model; a dynamic consumer reads API types", "explain": "ww_client_server's Error is a protocol message, not a type of an API in the model", "python": "ww_client_server's Error is a protocol message, not a type of an API in the model", "c": "ww_client_server's Error is a protocol message, not a type of an API in the model"},
+      "note": "ww_client_server ErrorKind::Refused (SRV-50), the call gate's refusal at item site GATE; an older host reads the variant as Unknown(17)"
+    },
+    {
       "name": "link_setup.without_meta",
       "type": "LinkSetup",
       "value": {"host_user_version": "test 0.1.0", "host_max_message_len": 4096, "token": 7, "client_meta": null},

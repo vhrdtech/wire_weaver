@@ -531,7 +531,7 @@ impl RxDispatcher {
                     let hook = self.stream_opens.remove(&seq);
                     self.retries.push((retry, done_tx, timeout, hook));
                 } else if let Some(mut done_tx) = self.take_response(seq) {
-                    _ = done_tx.send(Err(Error::RemoteError(e.make_owned())));
+                    _ = done_tx.send(Err(Error::from_remote(e.make_owned())));
                 } else {
                     self.unexpected_reply(event.seq.0);
                     debug!("remote err: {e:?}");

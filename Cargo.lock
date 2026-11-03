@@ -550,6 +550,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "call_gate"
+version = "0.1.0"
+dependencies = [
+ "call_gate_api",
+ "tests_common",
+ "tokio",
+ "tracing-subscriber",
+ "wire_weaver",
+ "wire_weaver_client",
+ "ww_client_server",
+ "ww_stream",
+ "ww_user_info",
+]
+
+[[package]]
+name = "call_gate_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+ "ww_user_info",
+]
+
+[[package]]
 name = "cargo_toml"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -852,6 +875,7 @@ dependencies = [
  "shrink_wrap_c",
  "wire_weaver",
  "wire_weaver_core",
+ "ww_client_server",
  "ww_link",
  "ww_numeric",
  "ww_self",

@@ -92,6 +92,11 @@ pub enum ApiCommand {
         #[arg(long, value_delimiter = ',', value_name = "LEVEL")]
         observe_cells: Vec<String>,
 
+        /// `call_gate = true` in ww_codegen! (SRV-50): the server struct is asked before every request's handler
+        /// runs, with an `impl wire_weaver::gate::CallGate` stub that admits all
+        #[arg(long)]
+        call_gate: bool,
+
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -206,6 +211,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             medium,
             omit,
             observe_cells,
+            call_gate,
             output,
         } => scaffold::scaffold(
             path,
@@ -221,6 +227,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 medium,
                 omit,
                 observe_cells,
+                call_gate,
             },
             output,
         ),

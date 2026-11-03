@@ -64,6 +64,9 @@ pub struct GenServerConfig {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// Ask the server struct through `wire_weaver::gate::CallGate` before every request's handler runs (SRV-50),
+    /// `call_gate = true`. Off: no code for it.
+    pub call_gate: bool,
 }
 
 pub enum IntrospectMode {
@@ -112,6 +115,9 @@ pub struct GenServerConfigRaw {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// Ask the server struct through `wire_weaver::gate::CallGate` before every request's handler runs (SRV-50),
+    /// `call_gate = true`. Off: no code for it.
+    pub call_gate: bool,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -132,6 +138,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_outbox: config.observe_outbox,
             observe_cells: config.observe_cells,
             crate_paths: config.crate_paths,
+            call_gate: config.call_gate,
         }
     }
 }
@@ -203,6 +210,7 @@ pub fn gen_server(
         consts_trait: consts_trait_ident(api_level),
         multi_req: config.multi_req,
         medium_ty: medium_ty.clone(),
+        call_gate: config.call_gate,
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -270,9 +278,23 @@ pub fn gen_server(
         config.observe_outbox,
     );
     let observe_methods = observe.methods(api_bundle, cx.handlers, &medium_ty, config.no_alloc);
+    let observe_gate = maybe_quote_cl(config.call_gate, || {
+        let es = fixed_err_seq("OBSERVE_GATE");
+        quote! {
+            if let Err(reason) = self.ww_gate_observe(path) {
+                wr.write(&Error::new(#es, ErrorKind::Refused(reason)))?;
+                event_builder.finish(false, &mut wr);
+                return wr.finish_and_take();
+            }
+        }
+    });
+    let gate_fns = maybe_quote_cl(config.call_gate, || {
+        gate_fns(api_bundle, &omissions, observe.is_enabled())
+    });
     let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
         quote! {
             RequestKind::Observe { cfg } => {
+                #observe_gate
                 match self.observe_request(path, cfg, &mut wr) {
                     Ok(()) => {
                         if request.seq.0 == 0 {
@@ -458,6 +480,8 @@ pub fn gen_server(
             #poll_streams
 
             #observe_methods
+
+            #gate_fns
         }
 
         #observe_items
@@ -1117,6 +1141,8 @@ struct ApiServerCGContext<'i> {
     multi_req: bool,
     /// User medium type or `()`
     medium_ty: TokenStream,
+    /// Every item asks `wire_weaver::gate::CallGate::admit` first (SRV-50)
+    call_gate: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -1328,6 +1354,7 @@ fn level_matchers(
         ))
     });
     let es = fixed_err_seq("LEVEL_BAD_PATH");
+    let gate_trait = gate_trait_id(api_bundle, api_level);
     // An omitted optional item keeps its id: answered as unimplemented with one comparison, no arm per item.
     let omitted_arm = if omitted.is_empty() {
         quote! {}
@@ -1353,6 +1380,7 @@ fn level_matchers(
             index_chain,
             mod_ident(api_level, crate_name),
             cx,
+            &gate_trait,
         ),
         Multiplicity::Array { .. } => {
             let mut index_chain_with_this_index = index_chain;
@@ -1365,7 +1393,10 @@ fn level_matchers(
                 index_chain_with_this_index,
                 mod_ident(api_level, crate_name),
                 cx,
+                &gate_trait,
             );
+            // the valid indices are a read of the array item, in the trait it is defined in
+            let gate_indices = cx.gate(&gate_trait, &item.ident);
 
             let valid_indices = Ident::new(
                 format!(
@@ -1399,6 +1430,7 @@ fn level_matchers(
                     }
                     None => {
                         if let RequestKind::Read /* ValidIndices */ = request.kind {
+                            #gate_indices
                             let indices = self.#valid_indices(#maybe_index_chain_arg);
                             #ev_kind_builder
                             #ser_indices
@@ -1427,9 +1459,15 @@ fn level_matcher(
     index_chain: IndexChain,
     mod_ident: Ident,
     cx: &ApiServerCGContext<'_>,
+    gate_trait: &TokenStream,
 ) -> TokenStream {
     let ident = Ident::new(&api_item.ident, Span::call_site());
-    match &api_item.kind {
+    // a trait item is no target of its own: the items of its level ask the gate
+    let gate = maybe_quote_cl(
+        !matches!(api_item.kind, ApiItemKindOwned::Trait { .. }),
+        || cx.gate(gate_trait, &api_item.ident),
+    );
+    let handler = match &api_item.kind {
         ApiItemKindOwned::Method {
             args, return_ty, ..
         } => handle_method(
@@ -1489,10 +1527,132 @@ fn level_matcher(
                 Ok(self.#process_fn_name(#maybe_index_chain_arg path, path_iter, request, wr, #maybe_in_multi cx)#maybe_await?)
             }
         }
+    };
+    quote! { #gate #handler }
+}
+
+/// `wire_weaver::gate::TraitId` of a level, for the targets of its items (SRV-50).
+fn gate_trait_id(api_bundle: &CodegenBundle, level: &ApiLevelOwned) -> TokenStream {
+    let crate_id = api_bundle
+        .crate_version(level.crate_idx.0)
+        .unwrap()
+        .crate_id
+        .as_str();
+    let name = level.trait_name.as_str();
+    quote! { wire_weaver::gate::TraitId { crate_id: #crate_id, name: #name } }
+}
+
+/// The server's own helpers of the call gate (SRV-50): the [wire_weaver::gate::Op] of a request kind, and with
+/// observing, the gate of an observe request by the observed level's path.
+fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) -> TokenStream {
+    let observe_gate = maybe_quote_cl(observe, || {
+        let mut levels = vec![];
+        gate_levels_recursive(
+            api_bundle,
+            &api_bundle.root,
+            omissions,
+            &mut vec![],
+            &mut vec![],
+            &mut levels,
+        );
+        let arms = levels.iter().map(|(ids, names, level)| {
+            let trait_id = gate_trait_id(api_bundle, level);
+            let path = names.join(".");
+            quote! {
+                [#(UNib32(#ids)),*] => wire_weaver::gate::CallGate::admit(
+                    self,
+                    &wire_weaver::gate::Target { trait_id: #trait_id, item: None, path: #path },
+                    wire_weaver::gate::Op::Observe,
+                ),
+            }
+        });
+        quote! {
+            /// The call gate of an observe request on the level at `path`; a path that is no level is answered by
+            /// `observe_request`.
+            fn ww_gate_observe(&self, path: &[UNib32]) -> Result<(), &str> {
+                match path {
+                    #(#arms)*
+                    _ => Ok(()),
+                }
+            }
+        }
+    });
+    quote! {
+        /// What a request does to its item, for the call gate.
+        #[allow(dead_code)]
+        fn ww_gate_op(kind: &RequestKind<'_>) -> wire_weaver::gate::Op {
+            use wire_weaver::gate::Op;
+            match kind {
+                RequestKind::Call { .. } | RequestKind::MultiCall { .. } => Op::Call,
+                RequestKind::Read | RequestKind::MultiRead { .. } => Op::Read,
+                RequestKind::Write { .. } | RequestKind::MultiWrite { .. } => Op::Write,
+                RequestKind::StreamOpen { .. } => Op::StreamOpen,
+                RequestKind::StreamSideband { .. } => Op::Stream,
+                RequestKind::SinkWrite { .. } => Op::SinkWrite,
+                RequestKind::Observe { .. } => Op::Observe,
+                _ => Op::Other,
+            }
+        }
+
+        #observe_gate
+    }
+}
+
+/// Every trait level outside resource arrays and not left out, with its id path and item names from the root.
+fn gate_levels_recursive<'b>(
+    api_bundle: &'b CodegenBundle,
+    level: &'b ApiLevelOwned,
+    omissions: &Omissions,
+    ids: &mut Vec<u32>,
+    names: &mut Vec<String>,
+    out: &mut Vec<(Vec<u32>, Vec<String>, &'b ApiLevelOwned)>,
+) {
+    out.push((ids.clone(), names.clone(), level));
+    let omitted = omissions.level(names);
+    for item in &level.items {
+        if !matches!(item.kind, ApiItemKindOwned::Trait { .. })
+            || !matches!(item.multiplicity, Multiplicity::Flat)
+            || matches!(omitted.get(&item.id.0), Some(Omission::Always))
+        {
+            continue;
+        }
+        ids.push(item.id.0);
+        names.push(item.ident.clone());
+        gate_levels_recursive(
+            api_bundle,
+            item.get_as_level(api_bundle).unwrap(),
+            omissions,
+            ids,
+            names,
+            out,
+        );
+        ids.pop();
+        names.pop();
     }
 }
 
 impl ApiServerCGContext<'_> {
+    /// The call gate's check before item `item` of a level of `trait_id` (SRV-50), nothing without `call_gate`: a
+    /// refusal is answered with `ErrorKind::Refused`, the handler doesn't run.
+    fn gate(&self, trait_id: &TokenStream, item: &str) -> TokenStream {
+        if !self.call_gate {
+            return quote! {};
+        }
+        let path = dotted(&self.level_path, item);
+        let es = fixed_err_seq("GATE");
+        quote! {
+            if let Err(reason) = wire_weaver::gate::CallGate::admit(
+                self,
+                &wire_weaver::gate::Target { trait_id: #trait_id, item: Some(#item), path: #path },
+                Self::ww_gate_op(&request.kind),
+            ) {
+                wr.write(&Error::new(#es, ErrorKind::Refused(reason)))
+                    .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                return Ok(WrAction::WrittenErr);
+            }
+        }
+    }
+
     /// Type of the `cx` argument passed down to every process_* fn and user handler.
     fn context_ty(&self) -> TokenStream {
         let medium_ty = &self.medium_ty;

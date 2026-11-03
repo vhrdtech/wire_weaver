@@ -59,6 +59,14 @@ pub enum Error {
     Disconnected,
     #[error("Remote device returned {}", .0)]
     RemoteError(ww_client_server::ErrorOwned),
+    /// The device's call gate (SRV-50) refused the request: the device serves only some traits in its current state
+    /// (a guarded board answers identity, info and update, nothing else). `reason` is the device's own words.
+    #[error("The device refused the request: {reason}")]
+    Refused {
+        reason: String,
+        /// The site of the device's server that refused, see `ww_client_server::err_seq`
+        err_seq: u32,
+    },
     #[error("All command senders were dropped")]
     CmdTxDropped,
     #[error("Exit command received")]
@@ -100,6 +108,23 @@ pub enum Error {
 }
 
 impl Error {
+    /// The error a device answered with: [Error::Refused] for a refusal of its call gate, [Error::RemoteError] for
+    /// the others.
+    pub fn from_remote(e: ww_client_server::ErrorOwned) -> Self {
+        match &e.kind {
+            ErrorKindOwned::Refused(reason) => Error::Refused {
+                reason: reason.clone(),
+                err_seq: e.err_seq(),
+            },
+            _ => Error::RemoteError(e),
+        }
+    }
+
+    /// The device's call gate refused the request, see [Error::Refused].
+    pub fn is_refused(&self) -> bool {
+        matches!(self, Error::Refused { .. })
+    }
+
     /// A ww hub that lent the device to another program (SRV-32): it comes back, wait and try again.
     pub fn is_lent(&self) -> bool {
         matches!(self, Error::HubRefused { status, .. } if *status == crate::connection_event::STATUS_LENT)
@@ -351,6 +376,26 @@ mod tests {
             <CallError<u8> as DecodeReply<u8>>::decode_reply(&err),
             Err(CallError::Device(4))
         ));
+    }
+
+    #[test]
+    fn refusal_is_its_own_error() {
+        let kind = ww_client_server::ErrorKind::Refused("board guarded: unknown rework 9");
+        let e = Error::from_remote(ww_client_server::Error::new(10, kind).make_owned());
+        assert!(e.is_refused());
+        assert_eq!(
+            e.to_string(),
+            "The device refused the request: board guarded: unknown rework 9"
+        );
+        let e = CallError::<u8>::from_client(e, "T::m");
+        assert!(
+            matches!(e, CallError::Client(Error::Refused { .. })),
+            "{e:?}"
+        );
+        let other = Error::from_remote(
+            ww_client_server::Error::new(2, ww_client_server::ErrorKind::BadPath).make_owned(),
+        );
+        assert!(matches!(other, Error::RemoteError(_)));
     }
 
     #[test]

@@ -544,7 +544,7 @@ ww dfu rp info -s E661                           # chip id (RP2350)
 ww dfu rp flash app.uf2 -s E661                  # erase, write, verify, reboot into the new image
 ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app -s E661  # an ELF works too, no objcopy needed
 ww dfu rp flash app.uf2 -s E661640843522C2F --wait 10 --follow
-ww dfu rp flash app.elf -s E661 --follow          # a running device: reworks checked, rebooted into BOOTSEL, written
+ww dfu rp flash app.elf -s E661 --follow          # a running device: rebooted into BOOTSEL, reworks checked, written
 ww dfu rp reboot -s E661 [--bootsel]             # reboot (RP2350), into BOOTSEL again with --bootsel
 ```
 
@@ -556,7 +556,8 @@ ww dfu rp reboot -s E661 [--bootsel]             # reboot (RP2350), into BOOTSEL
 | `--follow`            |              | After the reboot, wait for a WireWeaver device with the same serial and show it |
 | `--no-reboot`         |              | Don't reboot after writing                                                  |
 | `--allow-unknown-reworks <N,..>` |   | Let the image run the board with exactly these reworks it doesn't know, without asking ([rework check](#checking-the-boards-reworks)) |
-| `--yes`               |              | Write an image for another board, from before the rework guard, or that boots guarded, without asking |
+| `--yes`               |              | Write an image for another board, from before the rework guard, or that refuses to boot, without asking |
+| `--board <NAME>`      |              | The board's name, when neither the image in flash nor the new one names exactly one |
 
 The file is a UF2 (by extension), an ELF (by its magic bytes, whatever the extension — `target/.../release/app`
 works straight from `cargo build`, no `objcopy`/`elf2uf2`), or otherwise a raw binary written at `--addr`. An ELF
@@ -568,37 +569,43 @@ an error.
 
 #### Checking the board's reworks
 
-A firmware never runs a board with a rework it doesn't know: it boots guarded
-([the rework guard](std_library/ww_board_info.md#the-rework-guard), STD-101). So `ww dfu rp flash` and `ww dfu stm32
-flash` check before they write (TOOL-29). Given the serial of a running WireWeaver device (part of it is enough),
-they:
+A firmware never runs a board with a rework it doesn't know: it refuses to boot, blinks an error code and goes back
+to its ROM bootloader ([the rework guard](std_library/ww_board_info.md#the-rework-guard), STD-101). So `ww dfu rp
+flash` and `ww dfu stm32 flash` check before they write (TOOL-29), with the chip in its ROM bootloader:
 
-1. Read the board's name, revision, applied reworks and guard from the device (`ww_board_info::BoardInfo`).
-2. Read the reworks the new image knows from the image itself (its rework record) and its build id.
-3. Compare. When the image lacks an applied rework, show the list and ask. Only if you agree (or
-   `--allow-unknown-reworks` names exactly those numbers) is the allowance stored on the device for the new image's
-   build id. Otherwise a stored allowance is cleared.
-4. Reboot the device into its boot ROM (`ww_dfu::BootControl::reboot(Updater)`), wait for it (`--wait`, 10 s by
-   default) and write the image.
+1. Given the serial of a running WireWeaver device (part of it is enough), reboot it into the boot ROM
+   (`ww_dfu::BootControl::reboot(Updater)`) and wait for it (`--wait`, 10 s by default). A device already there is
+   checked as it is.
+2. Read the reworks the new image knows from the image itself (its rework table), where its board record is, and its
+   build id.
+3. Read the board through the ROM: the table of the image in flash (the board's name), then the bench record and the
+   allowance from the settings store (PICOBOOT read on the RP2350, DFU upload on an STM32).
+4. Compare. When the image lacks an applied rework, show the list and ask. Only if you agree (or
+   `--allow-unknown-reworks` names exactly those numbers) is the allowance stored for the new image's build id,
+   through the ROM. Otherwise a stored allowance is cleared.
+5. Write the image.
 
 ```
 $ ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app -s E661 --follow
 image 182304 bytes in 1 segment(s) from 0x10000000
-board B200 B, reworks 1, 7, normal
-warning the image doesn't know rework(s) 7 applied on the board: it boots guarded unless they are allowed for image 5e5e5e5e5e5e5e5e
-allow rework(s) 7 for this image and write it? [y/N] y
-✔ rework(s) 7 allowed for image 5e5e5e5e5e5e5e5e
 ✔ rebooting into BOOTSEL
+found E661640843522C2F BOOTSEL
+board B200 A, reworks 1, 5, 9, allowance none
+warning the image doesn't know rework(s) 9 applied on the board: it refuses to boot unless they are allowed for image 5e5e5e5e5e5e5e5e
+  rework 9: SD level shifter bypass
+allow rework(s) 9 for this image and write it? [y/N] y
+✔ rework(s) 9 allowed for image 5e5e5e5e5e5e5e5e
 ```
 
-The check also warns about an image for another board, an image without a rework record (built before the guard: it
-would run the board as built, ignoring its reworks) and a record it can't read; `--yes` writes those without
-asking. Without a terminal, every question is refused: a script passes `--allow-unknown-reworks` or `--yes`.
+The titles come from the running firmware when the flash starts from one; a board already in the ROM shows the
+numbers. The check also warns about an image for another board, an image without a rework table (built before the
+guard: it would run the board as built, ignoring its reworks) and a table it can't read; `--yes` writes those
+without asking. Without a terminal, every question is refused: a script passes `--allow-unknown-reworks` or
+`--yes`. When neither image names exactly one board, `--board` names it.
 
-The board can't be checked when the device is in its boot ROM already, or when its firmware doesn't serve the
-reworks (from before STD-98). The flasher then says so and writes. A guarding image then boots guarded if it lacks a
-rework, and `ww board rework allow` stores the allowance for it (TOOL-30). A device whose updater is its own (not
-A/B) is refused: it updates with [`ww dfu flash`](#ww-dfu-flash).
+An STM32 with readout protection doesn't let the bootloader read its flash: the board can't be checked, and the
+image is written only with `--yes`. It still refuses to boot on a rework it doesn't know. A device whose updater is
+its own (not A/B) is refused: it updates with [`ww dfu flash`](#ww-dfu-flash).
 
 ### `ww dfu stm32`
 
@@ -611,14 +618,14 @@ ww dfu stm32 list                                 # bootloaders in DFU mode with
 ww dfu stm32 info -s 3A0B                         # the alt settings and their memory layout
 ww dfu stm32 flash bootloader.elf -s 3A0B         # erase, write, verify, jump to the start of flash
 ww dfu stm32 flash bootloader.elf -s 3A0B1C2D4E5F --wait 10 --follow
-ww dfu stm32 flash app.elf -s 3A0B --follow       # a running device: reworks checked, rebooted into the bootloader
+ww dfu stm32 flash app.elf -s 3A0B --follow       # a running device: rebooted into the bootloader, reworks checked
 ww dfu stm32 read 0x08060000 0x80 -s 3A0B         # hexdump; -o FILE writes the raw bytes
 ww dfu stm32 erase --sectors 3..=5 -s 3A0B        # sectors by index (A..B excludes B, A..=B includes it)
 ```
 
 All options, and what the firmware does before the reboot:
 [STM32 system bootloader](transport/follow_reboot.md#stm32-system-bootloader-rom-dfu). `flash` checks the board's
-reworks against the image first, with the same `--allow-unknown-reworks` and `--yes` as
+reworks against the image in the bootloader first, with the same `--allow-unknown-reworks`, `--yes` and `--board` as
 [`ww dfu rp flash`](#checking-the-boards-reworks).
 
 ## `ww counters`

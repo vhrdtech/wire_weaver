@@ -1,7 +1,7 @@
 //! `ww dfu rp`: RP2040 / RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT (`ww_picoboot`), and following a device
 //! into BOOTSEL and back (CLT-21).
 
-use crate::cmd::rework_check::{ReworkCheckArgs, Rom, before_rom_flash};
+use crate::cmd::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
 use crate::device::Selection;
 use crate::untrusted::escape;
 use anyhow::{Context, Result, anyhow, bail};
@@ -15,6 +15,7 @@ use wire_weaver_client::ww_picoboot::image::family;
 use wire_weaver_client::ww_picoboot::proto::{FLASH_BASE, REBOOT_DELAY, Reboot2};
 use wire_weaver_client::ww_picoboot::usb::{self, NusbIo};
 use wire_weaver_client::ww_picoboot::{Image, Picoboot, Stage};
+use ww_report::rework_check::{FlashOp, RomFlash};
 
 #[derive(Subcommand)]
 pub(crate) enum BootselCommand {
@@ -224,26 +225,23 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
         image.segments.len(),
         base
     );
-    // a running device of the serial: its reworks checked against the image, then rebooted into the boot ROM
+    // a running device of the serial is rebooted into BOOTSEL; the board's reworks are checked there
     let contents: Vec<u8> = image
         .segments
         .iter()
         .flat_map(|s| s.data.iter().copied())
         .collect();
-    let rebooted = before_rom_flash(
-        Rom::Rp,
-        &contents,
-        &args.reworks,
-        selection,
-        serial.as_deref(),
-    )
-    .await?;
+    let rebooted = before_rom_flash(Rom::Rp, selection, serial.as_deref()).await?;
     let wait = match &rebooted {
         Some(_) => Some(args.wait.unwrap_or(10)),
         None => args.wait,
     };
+    let titles = rebooted
+        .as_ref()
+        .map(|(_, t)| t.clone())
+        .unwrap_or_default();
     let follow = match (&rebooted, &serial) {
-        (Some(full), _) => Some(Follow::new(full.clone())),
+        (Some((full, _)), _) => Some(Follow::new(full.clone())),
         (None, Some(s)) if wait.is_some() || args.follow => Some(Follow::new(s.clone())),
         _ => None,
     };
@@ -262,6 +260,8 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
     };
     let full_serial = info.serial_number().unwrap_or_default().to_string();
     let mut pb = Picoboot::new(NusbIo::open(&info).await?).await?;
+    // the board's reworks against the image, the allowance stored or cleared: before anything of the image
+    check_reworks(&mut pb, &contents, &args.reworks, &titles).await?;
 
     let started = Instant::now();
     let bar = ProgressBar::new(0);
@@ -322,4 +322,61 @@ fn spinner(msg: String) -> ProgressBar {
         s.set_draw_target(indicatif::ProgressDrawTarget::hidden());
     }
     s
+}
+
+/// Most of the flash the check reads looking for the table of the image in flash (QSPI reads past the chip's size
+/// wrap around; an erased 64 KiB ends the search sooner).
+const RP_SCAN: u32 = 4 * 1024 * 1024;
+
+/// The rework check through PICOBOOT (TOOL-29).
+async fn check_reworks(
+    pb: &mut Picoboot<NusbIo>,
+    contents: &[u8],
+    args: &ReworkCheckArgs,
+    titles: &Titles,
+) -> Result<()> {
+    pb.exclusive_access(true, false).await?;
+    pb.exit_xip().await?;
+    let r = in_rom(
+        &mut PicobootRom(pb),
+        FLASH_BASE,
+        RP_SCAN,
+        contents,
+        args,
+        titles,
+    )
+    .await;
+    pb.exclusive_access(false, false).await?;
+    r
+}
+
+/// Flash program unit of the RP2040 / RP2350 boot ROM.
+const PAGE: u32 = 256;
+
+/// [RomFlash] over PICOBOOT.
+struct PicobootRom<'a>(&'a mut Picoboot<NusbIo>);
+
+impl RomFlash for PicobootRom<'_> {
+    async fn read(&mut self, addr: u32, len: u32) -> Result<Vec<u8>> {
+        Ok(self.0.read(addr, len).await?)
+    }
+
+    async fn apply(&mut self, ops: &[FlashOp]) -> Result<()> {
+        for op in ops {
+            match op {
+                FlashOp::Erase { from, to } => self.0.flash_erase(*from, to - from).await?,
+                // whole 256-byte pages, the bytes around the write sent as 0xFF: NOR programming leaves them as
+                // they are
+                FlashOp::Write { offset, bytes } => {
+                    let start = offset / PAGE * PAGE;
+                    let end = (offset + bytes.len() as u32).div_ceil(PAGE) * PAGE;
+                    let mut pages = vec![0xff; (end - start) as usize];
+                    let at = (offset - start) as usize;
+                    pages[at..at + bytes.len()].copy_from_slice(bytes);
+                    self.0.write(start, &pages).await?;
+                }
+            }
+        }
+        Ok(())
+    }
 }

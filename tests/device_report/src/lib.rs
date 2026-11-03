@@ -373,12 +373,7 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BUILD_ID=fn,IDS=fn,BOARD=fn,DEFMT=fn,INFO=fn",
-                omit = [
-                    "board.set_reworks",
-                    "board.GUARD",
-                    "board.allow_unknown_reworks",
-                    "board.clear_unknown_reworks_allowance",
-                ],
+                omit = ["board.set_reworks"],
             );
         }
 
@@ -490,7 +485,7 @@ mod tests {
         );
         assert!(
             text.contains(
-                "           rework 9 (unknown to this firmware): applied, the board runs on its safe features"
+                "           rework 9 (unknown to this firmware): applied, allowed for this image"
             ),
             "{text}"
         );

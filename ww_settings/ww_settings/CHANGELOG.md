@@ -26,6 +26,14 @@
   and item slot (`Valid` / `Cut` / `Garbage` / `Erased`) for forensics, including pages `Store` itself never looks
   at (an invalid header). `dump::decode_group` decodes a current record's bytes into a concrete `SettingsGroup` for
   a caller that knows the type. `ww settings dump` in `wire_weaver_cli` is the CLI front end.
+- `mapped::MappedFlash<WORD, PAGE>` (STD-101): a read-only `NorFlash` over memory-mapped flash (RP2350 XIP, STM32
+  internal flash), volatile reads, writes and erases refused (`MappedError::ReadOnly`): a store read first thing in
+  `main`, before any flash driver or HAL is up.
+- `dump::run_on_image(word, page, base, image, job)` with `dump::StoreJob` (STD-101): any work on a real `Store` over a
+  dump, the word and page size given at run time; `Edited` answers the job's output, the bytes after it and every
+  erase and write the job asked for, in order, to replay on the device (through a boot ROM). `analyze` runs on it.
+- `fake_flash::FakeFlash::record_ops` / `take_ops` and `FlashOp` (`Erase`, `Write`): the operations a `FakeFlash`
+  was asked to do, in order.
 
 ### 📚 Documentation
 

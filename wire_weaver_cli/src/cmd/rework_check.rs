@@ -1,8 +1,10 @@
 //! The rework check of `ww dfu rp flash` and `ww dfu stm32 flash` (TOOL-29): before writing, the board's applied
-//! reworks are compared with the reworks the new image knows (`ww_report::rework_check`). Given the serial of a
-//! running device, the flasher reads the board there, stores or clears the allowance and reboots the device into its
-//! boot ROM itself, so the check always runs before anything is written.
+//! reworks are compared with the reworks the new image knows (`ww_report::rework_check`). It runs with the chip in
+//! its boot ROM, the board's record read straight from flash: a running device of the `--serial` is rebooted there
+//! first ([before_rom_flash]), one already there is checked as it is ([in_rom]). The allowance is written or
+//! cleared there too, before the image.
 
+use std::collections::BTreeMap;
 use std::io::{BufRead, IsTerminal, Write};
 
 use anyhow::{Result, bail};
@@ -10,13 +12,14 @@ use clap::Args;
 use console::style;
 use wire_weaver_client::follow::Found;
 use wire_weaver_client::{ClientMeta, DynClient};
-use ww_board_info::ImageId;
+use ww_board_info::ReworkId;
+use ww_board_info::guard::{ImageId, StoredAllowance};
 use ww_board_info::table::{IdRanges, ReworkSet};
 use ww_dfu::{BootTarget, Profile};
 use ww_report::clients::BoardInfoClient;
 use ww_report::rework_check::{
-    BoardRead, BoardReworks, ImageReworks, Verdict, clear_allowance, guard_line, read_board,
-    store_allowance, verdict,
+    ImageReworks, RomFlash, Verdict, allowance_line, read_board, scan_installed, set_allowance,
+    verdict,
 };
 
 use crate::device::Selection;
@@ -27,23 +30,25 @@ use crate::untrusted::escape;
 pub(crate) struct ReworkCheckArgs {
     /// Let the image run the board with exactly these reworks it doesn't know (`7` or `7,9`), without asking
     ///
-    /// The allowance is stored on the running device for this image's build id before it is written. The numbers
-    /// must be the ones the check finds lacking, no more, no fewer.
+    /// The allowance is stored on the board for this image's build id, through the boot ROM, before the image is
+    /// written. The numbers must be the ones the check finds lacking, no more, no fewer.
     #[arg(long, value_delimiter = ',', value_name = "N,..")]
     pub allow_unknown_reworks: Vec<u16>,
 
-    /// Write an image for another board, from before the rework guard, or that boots guarded, without asking
+    /// Write an image for another board, from before the rework guard, or that refuses to boot, without asking
     #[arg(long)]
     pub yes: bool,
+
+    /// The board's name (`B200`), when neither the image in flash nor the new one names exactly one
+    #[arg(long, value_name = "NAME")]
+    pub board: Option<String>,
 }
 
 impl ReworkCheckArgs {
     fn allowed(&self) -> ReworkSet {
         self.allow_unknown_reworks
             .iter()
-            .fold(ReworkSet::EMPTY, |s, &id| {
-                s.with(ww_board_info::ReworkId(id), true)
-            })
+            .fold(ReworkSet::EMPTY, |s, &id| s.with(ReworkId(id), true))
     }
 }
 
@@ -70,27 +75,18 @@ impl Rom {
     }
 }
 
-/// Run the check before a boot-ROM flash of `flash` (the image's flash contents). With a boot ROM of the `serial`
-/// present already, the board can't be read: a note, nothing else. With a running WireWeaver device of the selection
-/// instead: check, store or clear the allowance, reboot it into its boot ROM, and return its full serial to wait for.
+/// Titles of the board's reworks, from a running firmware's `REWORKS`, for the question.
+pub(crate) type Titles = BTreeMap<ReworkId, String>;
+
+/// A running WireWeaver device of the `serial`: read the titles of its reworks and reboot it into its boot ROM;
+/// `Some((full serial to wait for, titles))`. `None` without a serial, or when the device is in the boot ROM
+/// already or not found: the check then runs on whatever is in the ROM.
 pub(crate) async fn before_rom_flash(
     rom: Rom,
-    flash: &[u8],
-    args: &ReworkCheckArgs,
     selection: &Selection,
     serial: Option<&str>,
-) -> Result<Option<String>> {
-    let image = ImageReworks::from_flash(flash);
-    let not_checked = |why: &str| {
-        if image.guards() || !args.allow_unknown_reworks.is_empty() {
-            eprintln!(
-                "{} {why}: the board's reworks are not checked; the image boots guarded if it lacks one applied (`ww info` shows it)",
-                style("note").yellow().bold()
-            );
-        }
-    };
+) -> Result<Option<(String, Titles)>> {
     let Some(serial) = serial else {
-        not_checked("no --serial of a running device");
         return Ok(None);
     };
     let devices: Vec<Found> = wire_weaver_client::list_all_usb_devices()
@@ -106,7 +102,6 @@ pub(crate) async fn before_rom_flash(
             .any(|s| s.to_lowercase().contains(&serial.to_lowercase()))
     };
     if devices.iter().any(|f| rom.is(f) && has_serial(f)) {
-        not_checked(&format!("{serial} is in {} already", rom.name()));
         return Ok(None);
     }
     let config = selection.client_config();
@@ -143,36 +138,26 @@ pub(crate) async fn before_rom_flash(
         .await
     {
         Ok(client) => client,
-        // on its way into the boot ROM already (`ww dfu reboot` just before), say
         Err(e) => {
-            not_checked(&format!(
-                "connecting to {} failed ({e:#})",
-                escape(&full_serial)
-            ));
             if let Some(exclusive) = exclusive {
                 _ = exclusive.release().await;
             }
-            return Ok(None);
+            bail!("connecting to {} failed: {e:#}", escape(&full_serial));
         }
     };
-    let r = check_and_reboot(rom, &image, args, &client).await;
+    let r = titles_and_reboot(rom, &client).await;
     _ = client.disconnect().asynch().await;
     if let Some(exclusive) = exclusive
         && let Err(e) = exclusive.release().await
     {
         eprintln!("{} {e:#}", style("note").yellow());
     }
-    r?;
-    Ok(Some(full_serial))
+    let titles = r?;
+    Ok(Some((full_serial, titles)))
 }
 
-async fn check_and_reboot(
-    rom: Rom,
-    image: &ImageReworks,
-    args: &ReworkCheckArgs,
-    device: &DynClient,
-) -> Result<()> {
-    // the reboot has to reach the boot ROM: checked before the allowance is stored
+async fn titles_and_reboot(rom: Rom, device: &DynClient) -> Result<Titles> {
+    // the reboot has to reach the boot ROM: checked first
     let dfu = Dfu::new(device);
     if let Ok(node) = dfu.node.node().call().await
         && !matches!(node.profile, Profile::AB(_))
@@ -182,21 +167,14 @@ async fn check_and_reboot(
             rom.name()
         );
     }
-    let board = BoardInfoClient::new(device);
-    match read_board(&board).await? {
-        BoardRead::Board(b) => check(image, &b, args, &board).await?,
-        BoardRead::NoBoardInfo => {
-            eprintln!(
-                "{} the device doesn't serve ww_board_info: no reworks to check",
-                style("note").dim()
-            )
+    let mut titles = Titles::new();
+    // best effort: an older firmware without REWORKS gives numbers only
+    if let Ok(list) = BoardInfoClient::new(device).read_REWORKS().read().await {
+        for r in list.iter() {
+            if let Some(title) = &r.title {
+                titles.insert(r.id, title.to_string());
+            }
         }
-        BoardRead::NoReworks { name, revision } => eprintln!(
-            "{} {} {}: the running firmware doesn't report reworks (from before STD-98); the image boots guarded if it lacks one applied",
-            style("note").yellow().bold(),
-            escape(&name),
-            escape(&revision)
-        ),
     }
     dfu.boot
         .reboot(BootTarget::Updater)
@@ -204,39 +182,69 @@ async fn check_and_reboot(
         .await
         .map_err(|e| anyhow::anyhow!("rebooting the device into {}: {e:?}", rom.name()))?;
     eprintln!("{} rebooting into {}", style("✔").green(), rom.name());
-    Ok(())
+    Ok(titles)
 }
 
-/// Compare, ask, then store or clear the allowance: nothing is written to flash before this returns `Ok`.
-async fn check(
-    image: &ImageReworks,
-    board: &BoardReworks,
+/// The check with the chip in its boot ROM: read the board's record through `io`, compare with the image (`flash`,
+/// its flash contents), ask, then store or clear the allowance. Nothing of the image is written before this returns
+/// `Ok`. `flash_base`, `flash_len`: where the image in flash is, to find its table (at most `flash_len` is read).
+pub(crate) async fn in_rom(
+    io: &mut impl RomFlash,
+    flash_base: u32,
+    flash_len: u32,
+    flash: &[u8],
     args: &ReworkCheckArgs,
-    client: &BoardInfoClient,
+    titles: &Titles,
 ) -> Result<()> {
-    let v = verdict(image, board);
+    let image = ImageReworks::from_flash(flash);
+    // the image area ends where the store starts
+    let scan_len = image
+        .locator()
+        .map_or(flash_len, |l| l.store_start.min(flash_len));
+    let installed = scan_installed(io, flash_base, scan_len).await?;
+    let Some(board) = read_board(io, &image, installed.as_ref(), args.board.as_deref()).await?
+    else {
+        if !args.allow_unknown_reworks.is_empty() {
+            bail!(
+                "--allow-unknown-reworks: neither image names a board record to store it in; nothing written"
+            );
+        }
+        eprintln!(
+            "{} neither image names a board record: no reworks to check",
+            style("note").dim()
+        );
+        return Ok(());
+    };
+    let v = verdict(&image, &board);
     eprintln!(
-        "{} {} {}, reworks {}{}",
+        "{} {} {}, reworks {}, allowance {}",
         style("board").bold(),
         escape(&board.name),
-        escape(&board.revision),
+        if board.revision.is_empty() {
+            "?"
+        } else {
+            &board.revision
+        },
         if board.applied.is_empty() {
             "none".to_string()
         } else {
             IdRanges(board.applied).to_string()
         },
-        board
-            .guard
-            .as_ref()
-            .map(|g| format!(", {}", guard_line(g)))
-            .unwrap_or_default()
+        allowance_line(&board.allowance)
     );
-    let step = plan(&v, board.guard.is_some(), args);
-    let allow = match step {
+    let allow = match plan(&v, args) {
         Step::Write { allow } => allow,
         Step::Refuse(why) => bail!("{why}; nothing written"),
         Step::Ask { question, allow } => {
             eprintln!("{} {v}", style("warning").yellow().bold());
+            if let Verdict::Lacking { lacking, .. } = &v {
+                for id in lacking.iter() {
+                    match titles.get(&id) {
+                        Some(t) => eprintln!("  rework {id}: {}", escape(t)),
+                        None => eprintln!("  rework {id}"),
+                    }
+                }
+            }
             if !ask(&question)? {
                 bail!("nothing written");
             }
@@ -245,7 +253,7 @@ async fn check(
     };
     match allow {
         Some((id, reworks)) => {
-            store_allowance(client, id, reworks).await?;
+            set_allowance(io, &board, StoredAllowance::new(id, reworks)).await?;
             eprintln!(
                 "{} rework(s) {} allowed for image {id}",
                 style("✔").green(),
@@ -253,7 +261,7 @@ async fn check(
             );
         }
         None => {
-            if let Some(ww_board_info::ReworkChange::Written) = clear_allowance(client).await? {
+            if set_allowance(io, &board, StoredAllowance::NONE).await? {
                 eprintln!("{} the stored allowance is cleared", style("✔").green());
             }
         }
@@ -276,15 +284,13 @@ enum Step {
     Refuse(String),
 }
 
-/// `can_store`: the running firmware serves the guard (and so `allow_unknown_reworks`).
-fn plan(v: &Verdict, can_store: bool, args: &ReworkCheckArgs) -> Step {
+fn plan(v: &Verdict, args: &ReworkCheckArgs) -> Step {
     let allowed = args.allowed();
     let flag = |set: ReworkSet| format!("--allow-unknown-reworks {}", Ids(set));
     if let Verdict::Lacking {
         lacking,
         image: Some(id),
     } = v
-        && can_store
     {
         let allow = Some((*id, *lacking));
         return if allowed == *lacking {
@@ -307,9 +313,6 @@ fn plan(v: &Verdict, can_store: bool, args: &ReworkCheckArgs) -> Step {
     }
     if !allowed.is_empty() {
         let why = match v {
-            Verdict::Lacking { image: Some(_), .. } => {
-                "the running firmware can't store an allowance (from before the rework guard)"
-            }
             Verdict::Lacking { image: None, .. } => "the image has no build id to allow them for",
             _ => "the image lacks no rework",
         };
@@ -319,7 +322,7 @@ fn plan(v: &Verdict, can_store: bool, args: &ReworkCheckArgs) -> Step {
         Verdict::Ok => Step::Write { allow: None },
         _ if args.yes => Step::Write { allow: None },
         Verdict::Lacking { .. } => Step::Ask {
-            question: "write it anyway? it boots guarded (allow the reworks for it with `ww board rework allow` once it runs)".into(),
+            question: "write it anyway? it refuses to boot on this board".into(),
             allow: None,
         },
         _ => Step::Ask {
@@ -356,7 +359,6 @@ fn ask(question: &str) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ww_board_info::ReworkId;
     use ww_board_info::image::ImageTableError;
 
     const ID: ImageId = ImageId([0x3f, 0xa2, 1, 2, 3, 4, 5, 6]);
@@ -370,6 +372,7 @@ mod tests {
         ReworkCheckArgs {
             allow_unknown_reworks: allow.to_vec(),
             yes,
+            board: None,
         }
     }
 
@@ -383,11 +386,11 @@ mod tests {
     #[test]
     fn ok_writes_and_clears() {
         assert_eq!(
-            plan(&Verdict::Ok, true, &args(&[], false)),
+            plan(&Verdict::Ok, &args(&[], false)),
             Step::Write { allow: None }
         );
         assert!(matches!(
-            plan(&Verdict::Ok, true, &args(&[7], false)),
+            plan(&Verdict::Ok, &args(&[7], false)),
             Step::Refuse(_)
         ));
     }
@@ -396,50 +399,40 @@ mod tests {
     fn lacking_is_asked_or_allowed_by_exact_numbers() {
         let v = lacking(&[7, 9], Some(ID));
         assert_eq!(
-            plan(&v, true, &args(&[], false)),
+            plan(&v, &args(&[], false)),
             Step::Ask {
                 question: "allow rework(s) 7, 9 for this image and write it?".into(),
                 allow: Some((ID, set(&[7, 9])))
             }
         );
         // --yes doesn't allow reworks: only their numbers do
-        assert!(matches!(plan(&v, true, &args(&[], true)), Step::Ask { .. }));
+        assert!(matches!(plan(&v, &args(&[], true)), Step::Ask { .. }));
         assert_eq!(
-            plan(&v, true, &args(&[9, 7], false)),
+            plan(&v, &args(&[9, 7], false)),
             Step::Write {
                 allow: Some((ID, set(&[7, 9])))
             }
         );
-        let Step::Refuse(why) = plan(&v, true, &args(&[7], false)) else {
+        let Step::Refuse(why) = plan(&v, &args(&[7], false)) else {
             panic!("fewer numbers")
         };
         assert!(why.ends_with("--allow-unknown-reworks 7,9"), "{why}");
         assert!(matches!(
-            plan(&v, true, &args(&[7, 9, 10], false)),
+            plan(&v, &args(&[7, 9, 10], false)),
             Step::Refuse(_)
         ));
     }
 
     #[test]
-    fn lacking_without_an_allowance_boots_guarded() {
-        // firmware from before the guard, or an image without a build id: nothing to store
-        for (v, can_store) in [
-            (lacking(&[7], Some(ID)), false),
-            (lacking(&[7], None), true),
-        ] {
-            assert!(matches!(
-                plan(&v, can_store, &args(&[], false)),
-                Step::Ask { allow: None, .. }
-            ));
-            assert_eq!(
-                plan(&v, can_store, &args(&[], true)),
-                Step::Write { allow: None }
-            );
-            assert!(matches!(
-                plan(&v, can_store, &args(&[7], false)),
-                Step::Refuse(_)
-            ));
-        }
+    fn lacking_without_a_build_id_refuses_to_boot() {
+        // an image without a build id: no allowance can be its own
+        let v = lacking(&[7], None);
+        assert!(matches!(
+            plan(&v, &args(&[], false)),
+            Step::Ask { allow: None, .. }
+        ));
+        assert_eq!(plan(&v, &args(&[], true)), Step::Write { allow: None });
+        assert!(matches!(plan(&v, &args(&[7], false)), Step::Refuse(_)));
     }
 
     #[test]
@@ -452,16 +445,13 @@ mod tests {
             Verdict::BadRecord(ImageTableError::Corrupt),
         ] {
             assert_eq!(
-                plan(&v, true, &args(&[], false)),
+                plan(&v, &args(&[], false)),
                 Step::Ask {
                     question: "write it anyway?".into(),
                     allow: None
                 }
             );
-            assert_eq!(
-                plan(&v, true, &args(&[], true)),
-                Step::Write { allow: None }
-            );
+            assert_eq!(plan(&v, &args(&[], true)), Step::Write { allow: None });
         }
     }
 
@@ -473,8 +463,17 @@ mod tests {
             #[command(flatten)]
             a: ReworkCheckArgs,
         }
-        let t = T::try_parse_from(["x", "--allow-unknown-reworks", "7,9", "--yes"]).unwrap();
+        let t = T::try_parse_from([
+            "x",
+            "--allow-unknown-reworks",
+            "7,9",
+            "--yes",
+            "--board",
+            "B200",
+        ])
+        .unwrap();
         assert_eq!(t.a.allow_unknown_reworks, [7, 9]);
         assert!(t.a.yes);
+        assert_eq!(t.a.board.as_deref(), Some("B200"));
     }
 }

@@ -256,8 +256,7 @@ pub fn render_info(info: &DeviceInfo) -> String {
                         Some(title) => writeln!(o, "{label}rework {}: {title} ({state})", r.id),
                         None => writeln!(
                             o,
-                            "{label}rework {} (unknown to this firmware): {state}, the board runs on its safe \
-                             features until a firmware that knows it",
+                            "{label}rework {} (unknown to this firmware): {state}, allowed for this image",
                             r.id
                         ),
                     };

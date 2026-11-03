@@ -6,10 +6,10 @@
 //! [BoardInfo::REWORKS] is optional: which reworks of a bring-up board are applied, and [BoardInfo::set_reworks]
 //! records a rework done on the bench (STD-98). [table] has what a firmware needs to answer both from its own table.
 //!
-//! A firmware never runs a board with a rework it doesn't know (STD-101): it boots guarded, reported by
-//! [BoardInfo::GUARD], unless an allowance bound to its own image says otherwise
-//! ([BoardInfo::allow_unknown_reworks]). [guard] decides it, [image] carries the reworks an image knows inside the
-//! image itself, so a flasher can compare before it writes.
+//! A firmware never runs a board with a rework it doesn't know (STD-101): it refuses to boot, before any board
+//! init, unless an allowance bound to its own image says otherwise. [guard] decides it, [image] carries the reworks
+//! an image knows and where the board's record is inside the image itself, so a flasher can compare before it
+//! writes, and [record] (feature `host`) reads and writes the record and the allowance through a boot ROM.
 
 use core::fmt;
 use wire_weaver::prelude::*;
@@ -18,7 +18,11 @@ use ww_error::CommonError;
 
 pub mod guard;
 pub mod image;
+#[cfg(feature = "host")]
+pub mod record;
 pub mod table;
+
+pub use guard::ImageId;
 
 /// The PCB and its assembly.
 ///
@@ -31,7 +35,8 @@ pub trait BoardInfo {
     /// Reworks and patches of this PCB revision (cuts, jumpers, swapped parts) and whether each is applied on this
     /// unit; for bring-up boards, where units of one revision differ. Every rework the firmware knows, in the order
     /// of the board's rework list, then the ones the unit's record has applied and the firmware doesn't know
-    /// (`title: None`). Left out by devices that don't keep the list.
+    /// (`title: None`: the board runs because an allowance for this image covers them, STD-101). Left out by
+    /// devices that don't keep the list.
     #[optional]
     #[since = "0.3.0"]
     const REWORKS: MaxLen<RefVec<'i, Rework<'i>>, MAX_REWORKS>;
@@ -46,35 +51,6 @@ pub trait BoardInfo {
         changes: MaxLen<RefVec<'i, ReworkState>, MAX_REWORKS>,
         program: bool,
     ) -> Result<ReworkChange, ReworkError<'i>>;
-
-    /// Whether the board runs normally or guarded, and why (STD-101): a firmware boots guarded when the record has a
-    /// rework applied it doesn't know, unless an allowance for this very image covers it. Guarded, it serves identity,
-    /// info, updates and reading the record only, with every output in its safe state. Decided once at boot. A host
-    /// reads it once per connection (a const item): after [BoardInfo::allow_unknown_reworks] or
-    /// [BoardInfo::clear_unknown_reworks_allowance] it trusts the [ReworkChange] they return, never a second read
-    /// of `GUARD` on the same connection; a new connection shows the stored allowance.
-    #[optional]
-    #[since = "0.3.0"]
-    const GUARD: GuardSummary<'i>;
-
-    /// Store an allowance: the image with this [ImageId] may run the board normally with these reworks it doesn't
-    /// know. A flasher stores it for the image it is about to write, after the user agreed; on a guarded board it is
-    /// stored for the running image, used from the next boot. It replaces any stored allowance, is void for every
-    /// other image, and an image with the guard erases one that isn't its own at boot. `program` false is a dry run.
-    /// Served in the guarded state.
-    #[optional]
-    #[since = "0.3.0"]
-    fn allow_unknown_reworks(
-        image: ImageId,
-        reworks: MaxLen<RefVec<'i, ReworkId>, MAX_REWORKS>,
-        program: bool,
-    ) -> Result<ReworkChange, ReworkError<'i>>;
-
-    /// Erase the stored allowance, if any. Flashers call it before writing an image that needs none. `program` false
-    /// is a dry run. Served in the guarded state.
-    #[optional]
-    #[since = "0.3.0"]
-    fn clear_unknown_reworks_allowance(program: bool) -> Result<ReworkChange, ReworkError<'i>>;
 }
 
 /// Most reworks a board lists, and most changes one [BoardInfo::set_reworks] carries.
@@ -102,8 +78,8 @@ pub struct Rework<'i> {
     /// keeps a bit per number, which any firmware and any support case can read.
     pub id: ReworkId,
     /// What it is, `cut trace to U3 pin 4`, from the firmware's table. `None`: the unit's record has this rework
-    /// applied and this firmware doesn't know it (written by a newer one); the board then boots guarded
-    /// ([BoardInfo::GUARD]) until a firmware that knows it is flashed or the rework is allowed for this image.
+    /// applied and this firmware doesn't know it (written by a newer one); the board runs only because an allowance
+    /// for this image covers it, else the firmware would have refused to boot (STD-101).
     pub title: Option<MaxLen<&'i str, 48>>,
     /// Whether this unit has it applied.
     pub applied: bool,
@@ -162,79 +138,6 @@ pub enum ReworkError<'i> {
     Conflict { id: ReworkId, with: ReworkId },
     /// A production record fixes this unit's reworks: a bench record would never be used
     ProductionRecord,
-    /// The board is guarded, rework {id} is unknown to this firmware: only reading the record works
-    ///
-    /// See [BoardInfo::GUARD]: flash a firmware that knows the rework, or allow it for this image.
-    #[since = "0.3.0"]
-    Guarded { id: ReworkId },
-}
-
-/// Which image an allowance is for: the first 8 bytes of its GNU build id (`ww_firmware_info::build_id`), the same
-/// in the image file (`ww_board_info::image`) and in the running firmware. Not a security boundary: whoever can
-/// store an allowance can also change the record.
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Copy, Debug, PartialEq, Eq, Hash)
-)]
-pub struct ImageId(pub [u8; 8]);
-
-impl ImageId {
-    /// The id of the image with this build id; `None` when it is shorter than 8 bytes (no build-id note), or all
-    /// zeros, which a stored allowance uses for "none".
-    pub fn from_build_id(build_id: &[u8]) -> Option<ImageId> {
-        let id: [u8; 8] = build_id.get(..8)?.try_into().ok()?;
-        (id != [0; 8]).then_some(ImageId(id))
-    }
-}
-
-impl fmt::Display for ImageId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for b in self.0 {
-            write!(f, "{b:02x}")?;
-        }
-        Ok(())
-    }
-}
-
-/// How the board booted, see [BoardInfo::GUARD].
-#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
-pub struct GuardSummary<'i> {
-    pub state: GuardState,
-    /// Reworks the record has applied and this firmware doesn't know; empty in [GuardState::Normal].
-    pub unknown: MaxLen<RefVec<'i, ReworkId>, MAX_REWORKS>,
-    /// The stored allowance, if any, as of the connection's first read of `GUARD`.
-    pub allowance: Option<Allowance<'i>>,
-}
-
-/// See [GuardSummary].
-#[derive_shrink_wrap(
-    borrowed,
-    owned(feature = "std"),
-    cfg_attr_borrowed(feature = "defmt", derive(defmt::Format)),
-    derive(Clone, Copy, Debug, PartialEq, Eq),
-    ww_repr = unib32
-)]
-pub enum GuardState {
-    /// The firmware knows every rework applied: the board runs normally.
-    Normal,
-    /// A rework applied is unknown and no allowance for this image covers it: identity, info, updates and reading the
-    /// record only, outputs in their safe state.
-    Guarded,
-    /// Unknown reworks applied, run normally anyway: the allowance for this image covers them.
-    Allowed,
-}
-
-/// An allowance as stored, see [BoardInfo::allow_unknown_reworks].
-#[derive_shrink_wrap(owned(feature = "std"), derive(Clone, Debug, PartialEq, Eq))]
-pub struct Allowance<'i> {
-    /// The image it is for.
-    pub image: ImageId,
-    /// The unknown reworks it lets that image run with.
-    pub reworks: MaxLen<RefVec<'i, ReworkId>, MAX_REWORKS>,
-    /// It is for the running image (else: stored for an image about to be flashed).
-    pub for_running_image: bool,
 }
 
 /// The PCB and its assembly, see [BoardInfo::BOARD].

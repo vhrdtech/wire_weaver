@@ -68,11 +68,11 @@ items](../api/optional_items.md)): the client answers `NotImplementedByDevice` w
 ```text
 Reworks    rework 1: analog buffer supply (applied)
            rework 3: 1.8 V LDO (TLV70218) (not applied)
-           rework 9 (unknown to this firmware): applied
-Guard      GUARDED: unknown rework 9; flash a firmware that knows it, or ww board rework allow 9
+           rework 9 (unknown to this firmware): applied, allowed for this image
 ```
 
-The guard line comes from `GUARD` ([below](#the-rework-guard)).
+A running firmware lists a rework it doesn't know only when an allowance for its image covers it: without one it
+would have refused to boot ([below](#the-rework-guard)).
 
 ### Recording a rework
 
@@ -108,85 +108,85 @@ first`.
 
 A record written by a newer firmware can hold a rework number the running one doesn't know (flashed back to an older
 build, or a rework recorded by a newer `ww board rework`). The firmware can't know what that rework changed: it can
-remove or reroute a path the firmware would drive. So the rule for every board is: **a firmware never runs a board
-with a rework it doesn't know** (STD-101). It boots guarded instead:
+remove, reroute or short a path, so even the plain init sequence (the default pin setup, a peripheral clock, a chain's
+reset state) can damage the board. So the rule for every board is: **a firmware never runs a board with a rework it
+doesn't know** (STD-101). It refuses to boot:
 
-* It serves identity, `ww info`, updates and reading the record only. Everything else is refused with the reason
-  (SRV-50's gate).
-* Every output stays in its safe state: no slot, bus or peripheral of the board is started.
-* It reports it in `GUARD`, and on a status LED where the board has one.
+1. First thing in `main`, before any board init (no HAL, no pin, no peripheral clock), it reads the record and the
+   allowance straight from flash.
+2. If a rework applied is unknown and no allowance for this very image covers it, it blinks the shared [blink
+   code](https://github.com/vhrdtech/embedded_bedrock) 1 on the status LED for about 10 s (`bedrock_led::code`: one
+   long flash, one short, a pause).
+3. Then it reboots into the chip's ROM bootloader (RP2350 BOOTSEL, STM32 system DFU). A reset repeats it.
 
-A guarded board is left by flashing a firmware that knows the rework, or by an **allowance**: the user agrees that one
-image may run the board with named reworks it doesn't know.
-
-```rust
-#[optional]
-const GUARD: GuardSummary<'i>; // state, unknown numbers, the stored allowance
-
-#[optional]
-fn allow_unknown_reworks(
-    image: ImageId,                                    // first 8 bytes of the image's GNU build id
-    reworks: MaxLen<RefVec<'i, ReworkId>, MAX_REWORKS>, // the unknown ones it may run with
-    program: bool,
-) -> Result<ReworkChange, ReworkError<'i>>;
-
-#[optional]
-fn clear_unknown_reworks_allowance(program: bool) -> Result<ReworkChange, ReworkError<'i>>;
-```
-
-| `GuardState` | When |
-|---|---|
-| `Normal` | The firmware knows every rework applied |
-| `Guarded` | A rework applied is unknown, and no allowance for this image covers it |
-| `Allowed` | Unknown reworks, but the allowance for this image covers every one: the board runs normally |
-
-`GUARD` is a const item, so a host reads it once per connection. After `allow_unknown_reworks` or
-`clear_unknown_reworks_allowance` a host trusts the `ReworkChange` they return (`Written`), never a second read of
-`GUARD` on the same connection. A new connection shows the stored allowance.
+There the flasher can act: flash a firmware that knows the rework, or store an **allowance**, the user's agreement that
+one image may run the board with named reworks it doesn't know. The allowance is written only through the ROM
+bootloader, by `ww`; the firmware only reads it.
 
 The allowance is built so it can't get stuck:
 
 * It is bound to one image by its `ImageId`, the first 8 bytes of the GNU build id. Any other image ignores it,
   whichever tool flashed that image (probe-rs, picotool, a UF2 copy).
 * It names the numbers it covers. A further unknown rework recorded later isn't covered.
-* An image with the guard erases an allowance that isn't its own at boot. So it can't come back when the old image is
-  flashed again later.
-* `ww` flashers clear it before writing an image that needs none.
+* `ww` clears it with the next flashing that needs none.
 
-One gap is left, on purpose: the very same image flashed again by another tool, with only firmware from before the
-guard in between, finds its allowance still valid. That is the image the user agreed to.
+One gap is left, on purpose: the very same image flashed again by another tool finds its allowance still valid. That
+is the image the user agreed to, and the next `ww` flashing clears it.
 
 The allowance is not a security boundary. Whoever can store it can also change the record.
 
-`set_reworks` is refused while guarded (`ReworkError::Guarded { id }`): record reading only. `allow_unknown_reworks`
-and `clear_unknown_reworks_allowance` are served in every state.
+A board that runs with an allowance lists the unknown numbers in `REWORKS` with `title: None`; nothing else of the API
+changes. The boot refusal is the safety; the flasher's check below is the comfort: a board flashed by any tool still
+never runs an unknown rework.
 
-### Flashing: the image knows its reworks
+### Where the record is: the image table
 
-A flasher compares before it writes:
+A board that refuses to boot sits in its ROM bootloader, where no firmware answers. So every guarding image carries
+a small table in flash (`ww_board_info::image`) that says, without a round trip to any firmware:
 
-1. It reads the board's name, revision and applied reworks from the running device (`BOARD`, `REWORKS`, `GUARD`).
-2. It reads the reworks the new image knows from the image itself: a small record every guarding image carries in
-flash (`ww_board_info::image`).
-3. If the image lacks an applied rework, the user sees the list and must agree. Only then is the allowance stored for
-the new image's `ImageId`, and the image written.
+* where the board's bench record and the allowance are: a `Locator` naming the `ww_settings` store's flash range,
+  word and page size, the record's key and the slots of its revision and reworks, and the allowance's key;
+* per board and revision, the reworks the image knows.
 
-`ww dfu rp flash` and `ww dfu stm32 flash` do this ([checking the board's
-reworks](../cli_reference.md#checking-the-boards-reworks), TOOL-29); `ww dfu flash` is next. `ww_report::rework_check`
-is the same check as a library, for other flashers. When the device can't be read before writing (already in the boot ROM, or running firmware from before the guard that can't store an allowance), the new
-image guards itself. `ww board rework allow N` then stores the allowance for the running image, and the board runs
-normally from its next boot (TOOL-30).
-
-The record is built from the same `ReworkTable` consts the firmware uses:
+It is built from the same consts the firmware uses:
 
 ```rust
-ww_board_info::image_reworks!(pub static IMAGE_REWORKS = [
+const RECORD: Locator = Locator {
+    flash_base: 0x1000_0000,                            // flash offset 0 in memory (RP2350 XIP)
+    store_start: 0x7c000, store_len: 0x4000,            // the settings store, as the flash driver counts
+    page_size: 4096, word_size: 1,
+    record_key: 1, revision_slot: 0, reworks_slot: 1, reworks_width: 4, // the board's own `board` group
+    allowance_key: 2,                                   // guard::AllowanceGroup
+};
+ww_board_info::image_reworks!(pub static IMAGE_REWORKS = RECORD, [
     ("B200", "A", REWORKS_B200A),
     ("B200", "B", NO_REWORKS),
 ]);
 ```
 
-`ImageTable::find(bytes)` finds it in an image's flash contents (ELF, UF2 or raw binary, once loaded).
+The firmware's boot check reads its own table through the same bytes (`IMAGE_REWORKS.table()`), so the record a
+flasher reads and the one the firmware decides on are the same, and the linker can't drop it. The layout (magic
+`WWREWORK`, CRC-32, a 48-byte header with the locator, 48-byte entries) is in the `image` module's docs.
+
+### Flashing: checked in the ROM bootloader
+
+A flasher compares before it writes, with the chip in its ROM bootloader (a running board is rebooted there first):
+
+1. It reads the reworks the new image knows, its locator and its build id from the image file.
+2. It finds the table of the image in flash (read through the ROM from the start of flash until the table or erased
+   flash): the board's name when that image names one board.
+3. It reads the store's range through the ROM (PICOBOOT read on the RP2350, DfuSe upload on an STM32) and decodes the
+   bench record and the allowance with the real `ww_settings` store (`ww_board_info::record`, feature `host`).
+4. If the image lacks an applied rework, the user sees the list and must agree. Only then is the allowance stored for
+   the new image's `ImageId`, else a stored one is cleared; then the image is written.
+
+Writing the allowance runs the real store over the bytes read, and replays its own flash operations (page erase, word
+program) through the ROM in the same order: a cut USB cable leaves what a power cut on the device would.
+
+`ww dfu rp flash` and `ww dfu stm32 flash` do this ([checking the board's
+reworks](../cli_reference.md#checking-the-boards-reworks), TOOL-29). `ww_report::rework_check` is the same check as a
+library for other flashers: they give it a `RomFlash` (read, and replay erases and writes).
+
 `image::check(table, name, revision, applied)` is the one comparison every flasher makes:
 
 | `Check` | Meaning |
@@ -194,16 +194,15 @@ ww_board_info::image_reworks!(pub static IMAGE_REWORKS = [
 | `Ok` | The image knows every applied rework: flash, and clear a stored allowance |
 | `Lacking(set)` | The image doesn't know these: ask the user, store the allowance for it, then flash |
 | `OtherBoard` | The image lists other boards only: probably the wrong image |
-| `NoRecord` | The image predates the guard: it doesn't guard and would run the board as built, ignoring the applied reworks |
+| `NoRecord` | The image predates the guard: it doesn't check and would run the board as built, ignoring the applied reworks |
 
-The record's layout (magic `WWREWORK`, CRC-32, 48-byte entries) is in the `image` module's docs.
 `ww_firmware_info::find_build_id` finds the image's build id in the same bytes.
 
 ### Firmware from before the guard
 
 Deployed firmware can't learn this. The rule holds from the first firmware of a board that has the guard. Firmware
-with STD-98 but without the guard serves `REWORKS` with the unknown numbers and can't store an allowance. Firmware
-from before STD-98 can't even report its reworks. A flash from either takes the post-flash path above.
+with STD-98 but without the guard runs on whatever it does with an unknown rework; firmware from before STD-98 can't
+even report its reworks. The flasher's check doesn't need them: it reads the record through the ROM.
 
 ### In firmware: `ww_board_info::table`
 
@@ -221,32 +220,30 @@ const REWORKS: ReworkTable = ReworkTable::new(
 * `ReworkSet` is what the record stores, a bit per number (0-63).
 * `REWORKS.apply(stored, changes)` checks a request and returns the new set or the `ReworkError`.
 * `REWORKS.list(stored)` gives the `REWORKS` entries, unknown numbers last.
-* `REWORKS.unknown(stored)` is non-empty while the board must boot guarded.
+* `REWORKS.unknown(stored)` is non-empty when the board must refuse to boot (without an allowance).
 * `REWORKS.known_ids()` prints `1, 5, 8` for messages.
 
-At boot, the guard decides once (`ww_board_info::guard`):
+At boot, the guard decides once (`ww_board_info::guard`), first thing in `main`:
 
 ```rust
-let own = ImageId::from_build_id(ww_firmware_info::build_id()); // None without the build-id note
-let known = IMAGE_REWORKS.known(board_name, revision);           // read through the image's own record
-let decision = guard::decide(known, applied, stored_allowance, own);
-if decision.erase_allowance {
-    // erase the stored allowance: it is for another image
+let flash = unsafe { MappedFlash::<1, 4096>::new(0x1000_0000, FLASH_SIZE) }; // ww_settings::mapped: no driver yet
+let own = ImageId::from_build_id(ww_firmware_info::build_id());               // None without the build-id note
+let table = IMAGE_REWORKS.table().unwrap();
+match embassy_futures::block_on(guard::boot_check(&table, flash, "B200", own)) {
+    Ok((Guard::Run | Guard::RunAllowed { .. }, _)) => {}                      // init the board, run
+    Ok((Guard::Refuse { .. }, _)) => refuse(Code::UnknownRework),             // blink, ROM bootloader
+    Err(_) => refuse(Code::RecordUnreadable),
 }
-if decision.guard.runs_board() {
-    // start the board's functions
-} else {
-    // guarded: USB / the link, identity, info, DFU, reading the record; outputs safe
-}
-let report = GuardReport::new(decision.guard, allowance_left, own); // serves GUARD: report.summary()
 ```
 
-The allowance is two `u64` next to the record (`StoredAllowance`): `ImageId` as a little-endian `u64` (0: none) and a
-`ReworkSet`. `guard::allowance_from_request` turns an `allow_unknown_reworks` call into one. A board that guards links
-the GNU build-id note (`ww_firmware_info` docs); without it no allowance can be its own, so the board stays guarded
-until a firmware that knows the rework is flashed.
+`boot_check` reads the record where the table's locator says (`guard::read_bench`), with the board's revision picks
+the reworks the image knows, and calls `guard::decide(known, applied, allowance, own)`. The allowance is
+`guard::AllowanceGroup`, two `u64` in the board's settings store: `ImageId` as a little-endian `u64` (0: none) and a
+`ReworkSet`. A board that guards links the GNU build-id note (`ww_firmware_info` docs); without it no allowance can be
+its own, so the board refuses until a firmware that knows the rework is flashed.
 
-`tests/board_info` has a complete server, guard included.
+`tests/board_info` has a complete server; `ww_board_info`'s `record` tests run the boot check on a store as a device
+left it.
 
 Device-specific capability flags (a load switch present, a rail powered) stay in the device's own API: they mean
 nothing on other boards.

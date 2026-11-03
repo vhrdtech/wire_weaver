@@ -3,26 +3,28 @@
 ### ⚠️ Breaking
 
 - The rework guard (STD-101) replaces "runs on its safe features": a firmware with an applied rework it doesn't know
-  boots guarded. Devices implementing `BoardInfo` without the guard add `"board.GUARD"`,
-  `"board.allow_unknown_reworks"` and `"board.clear_unknown_reworks_allowance"` (their paths) to `omit`.
-  `ReworkError::Guarded { id }` appended. Still 0.3.0 (never published).
+  refuses to boot, before any init, unless an allowance for its very image covers it. No API items for it: the
+  first plan's `GUARD`, `allow_unknown_reworks`, `clear_unknown_reworks_allowance`, `ReworkError::Guarded`,
+  `GuardSummary`, `GuardState` and `Allowance` went before any release. Still 0.3.0 (never published).
 
 ### 🚀 Features
 
-- `image::ImageTable::as_bytes`: the record's bytes, to keep a found record beyond the image buffer (TOOL-29).
-- `BoardInfo::GUARD` (STD-101), `#[optional]` const item `GuardSummary { state: GuardState, unknown, allowance:
-  Option<Allowance> }`: `GuardState` `Normal`, `Guarded` (identity, info, updates and reading the record only, outputs
-  safe), `Allowed` (unknown reworks covered by an allowance for this image).
-- `BoardInfo::allow_unknown_reworks(image: ImageId, reworks, program)` and `clear_unknown_reworks_allowance(program)`
-  (STD-101), `#[optional]`: store or erase the allowance that lets one image run with named unknown reworks.
-  `ImageId([u8; 8])` is the first 8 bytes of the image's GNU build id (`ImageId::from_build_id`, `Display` as hex).
-- Module `guard` (STD-101, `no_std`): `decide(known, applied, allowance, own) -> Decision { guard: Guard,
-  erase_allowance }`, `StoredAllowance` (two `u64`, what a board stores), `allowance_from_request`, `GuardReport`
-  (serves `GUARD`).
-- Module `image` (STD-101): the record of the reworks an image knows, in the image (magic `WWREWORK`, CRC-32, a
-  48-byte entry per board revision). `image_reworks!` builds it as a `static` from `ReworkTable` consts,
-  `ImageReworks::known` reads it back in firmware, `ImageTable::find` / `parse` / `entries` / `known` read it from
-  image bytes, `check` (`Check::Ok`, `Lacking`, `OtherBoard`, `NoRecord`) is the comparison every flasher makes.
+- Module `guard` (STD-101, `no_std`): `boot_check(table, flash, name, own) -> (Guard, BenchRecord)`, the check every
+  guarding firmware runs first thing in `main` (through the image table's locator, on a
+  `ww_settings::mapped::MappedFlash` before any driver); `read_bench` (`BenchRecord`: revision, reworks, allowance;
+  `ReadError`); `decide(known, applied, allowance, own) -> Guard` (`Run`, `RunAllowed`, `Refuse`);
+  `ImageId([u8; 8])`, the first 8 bytes of the image's GNU build id (`from_build_id`, `Display` as hex, re-exported at
+  the crate root); `StoredAllowance` (two `u64`, `for_reworks`, `covers`); `AllowanceGroup`, the allowance as a
+  `ww_settings` group.
+- Module `image` (STD-101), format 2: the table in the image (magic `WWREWORK`, CRC-32, a 48-byte header with the
+  `Locator` of the board's bench record and the allowance, a 48-byte entry per board revision with the reworks the
+  image knows). `image_reworks!(static X = LOCATOR, [..])` builds it from `ReworkTable` consts, `ImageReworks::table`
+  / `known` read it back in firmware, `ImageTable::find` / `parse` / `entries` / `known` / `locator` /
+  `board_names` / `as_bytes` read it from image bytes, `check` (`Check::Ok`, `Lacking`, `OtherBoard`, `NoRecord`)
+  is the comparison every flasher makes. Format 1 (no locator) is not read.
+- Module `record` (STD-101, feature `host`): the bench record and the allowance through a boot ROM. `read(locator,
+  store_bytes)`, `set_allowance(locator, store_bytes, allowance) -> Change { ops, image }`: the store's own erases and
+  writes at memory addresses, to replay through the ROM (TOOL-29).
 
 - `BoardInfo::REWORKS` (STD-24, STD-98), `#[optional]` const item `MaxLen<RefVec<Rework>, MAX_REWORKS>` (16), with
   `Rework { id: ReworkId, title: Option<MaxLen<&str, 48>>, applied: bool }`: which reworks of a bring-up board unit

@@ -10,10 +10,18 @@ repository = "https://github.com/vhrdtech/ww_stdlib"
 [features]
 default = ["std"]
 std = ["wire_weaver/std", "ww_date_time/std", "ww_error/std"]
-defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt"]
+defmt = ["dep:defmt", "wire_weaver/defmt", "ww_error/defmt", "ww_settings/defmt"]
+# record: the bench record and the allowance read and written through a boot ROM (flashers, `ww info`)
+host = ["std", "ww_settings/dump"]
 
 [dependencies]
 defmt = { workspace = true, optional = true }
+embedded-storage-async.workspace = true
 wire_weaver.workspace = true
 ww_date_time.workspace = true
 ww_error = { workspace = true, default-features = false }
+ww_settings.workspace = true
+
+[dev-dependencies]
+embassy-futures.workspace = true
+ww_board_info = { path = ".", features = ["host"] }

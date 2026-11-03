@@ -1,7 +1,7 @@
 //! `ww dfu stm32`: the STM32 system bootloader in DFU mode (ROM DFU, DfuSe), over `ww_stm32_dfu`, and following a device
 //! into it and back (CLT-34).
 
-use crate::cmd::rework_check::{ReworkCheckArgs, Rom, before_rom_flash};
+use crate::cmd::rework_check::{ReworkCheckArgs, Rom, Titles, before_rom_flash, in_rom};
 use crate::device::Selection;
 use crate::untrusted::escape;
 use anyhow::{Context, Result, anyhow, bail};
@@ -15,6 +15,7 @@ use wire_weaver_client::ww_stm32_dfu::layout::MemoryLayout;
 use wire_weaver_client::ww_stm32_dfu::proto::ROM_ID_ADDR;
 use wire_weaver_client::ww_stm32_dfu::usb::{self, NusbIo};
 use wire_weaver_client::ww_stm32_dfu::{Dfuse, FlashOptions, Image, Stage};
+use ww_report::rework_check::{FlashOp, RomFlash};
 
 #[derive(Subcommand)]
 pub(crate) enum Stm32DfuCommand {
@@ -359,26 +360,23 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
         image.segments.len(),
         base
     );
-    // a running device of the serial: its reworks checked against the image, then rebooted into the boot ROM
+    // a running device of the serial is rebooted into the boot ROM; the board's reworks are checked there
     let contents: Vec<u8> = image
         .segments
         .iter()
         .flat_map(|s| s.data.iter().copied())
         .collect();
-    let rebooted = before_rom_flash(
-        Rom::Stm32,
-        &contents,
-        &args.reworks,
-        selection,
-        serial.as_deref(),
-    )
-    .await?;
+    let rebooted = before_rom_flash(Rom::Stm32, selection, serial.as_deref()).await?;
     let wait = match &rebooted {
         Some(_) => Some(args.wait.unwrap_or(10)),
         None => args.wait,
     };
+    let titles = rebooted
+        .as_ref()
+        .map(|(_, t)| t.clone())
+        .unwrap_or_default();
     let follow = match (&rebooted, &serial) {
-        (Some(full), _) => Some(Follow::new(full.clone())),
+        (Some((full, _)), _) => Some(Follow::new(full.clone())),
         (None, Some(s)) if wait.is_some() || args.follow => Some(Follow::new(s.clone())),
         _ => None,
     };
@@ -409,6 +407,8 @@ async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -
         .leave_addr
         .unwrap_or_else(|| dfu.layout().regions[0].start);
 
+    // the board's reworks against the image, the allowance stored or cleared: before anything of the image
+    check_reworks(&mut dfu, &contents, &args.reworks, &titles).await?;
     // best effort, before anything is erased: the ROM's version byte (AN2606 Table 3, 0x93 is V9.3)
     let rom_id = dfu.rom_id().await;
     let started = Instant::now();
@@ -491,4 +491,83 @@ fn spinner(msg: String) -> ProgressBar {
         s.set_draw_target(indicatif::ProgressDrawTarget::hidden());
     }
     s
+}
+
+/// Internal flash of an STM32, where the image and its table are.
+const STM32_FLASH: u32 = 0x0800_0000;
+/// Most of it the check reads looking for the table of the image in flash.
+const STM32_SCAN: u32 = 2 * 1024 * 1024;
+
+/// The rework check through the ROM (TOOL-29). A ROM that refuses to read (readout protection) can't be checked:
+/// said, and the image is written only with `--yes`.
+async fn check_reworks(
+    dfu: &mut Dfuse<NusbIo>,
+    contents: &[u8],
+    args: &ReworkCheckArgs,
+    titles: &Titles,
+) -> Result<()> {
+    let readable = dfu.layout().readable(STM32_FLASH, 1);
+    if !readable {
+        if !args.yes {
+            bail!(
+                "the STM32 bootloader doesn't read its flash (readout protection?): the board's reworks can't be checked, pass --yes to write anyway; nothing written"
+            );
+        }
+        eprintln!(
+            "{} the board's reworks are not checked: the bootloader doesn't read its flash",
+            style("note").yellow().bold()
+        );
+        return Ok(());
+    }
+    in_rom(
+        &mut DfuseRom(dfu),
+        STM32_FLASH,
+        STM32_SCAN,
+        contents,
+        args,
+        titles,
+    )
+    .await
+}
+
+/// [RomFlash] over the STM32 ROM's DfuSe.
+struct DfuseRom<'a>(&'a mut Dfuse<NusbIo>);
+
+impl RomFlash for DfuseRom<'_> {
+    async fn read(&mut self, addr: u32, len: u32) -> Result<Vec<u8>> {
+        // past the end of the flash the ROM answers an error: read what there is
+        let end = self
+            .0
+            .layout()
+            .region_at(addr)
+            .map_or(addr, |r| r.end().min(addr as u64 + len as u64) as u32);
+        if end <= addr {
+            return Ok(vec![]);
+        }
+        Ok(self
+            .0
+            .read(addr, (end - addr) as usize, &mut |_| {})
+            .await?)
+    }
+
+    async fn apply(&mut self, ops: &[FlashOp]) -> Result<()> {
+        for op in ops {
+            match op {
+                FlashOp::Erase { from, to } => {
+                    let mut at = *from;
+                    while at < *to {
+                        let (start, size, _) = self.0.layout().sector_at(at).ok_or_else(|| {
+                            anyhow!("{at:#010x} is outside the bootloader's flash")
+                        })?;
+                        self.0.erase_sector(start).await?;
+                        at = start + size;
+                    }
+                }
+                FlashOp::Write { offset, bytes } => {
+                    self.0.write(*offset, bytes, &mut |_| {}).await?;
+                }
+            }
+        }
+        Ok(())
+    }
 }

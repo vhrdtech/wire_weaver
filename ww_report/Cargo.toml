@@ -17,10 +17,14 @@ serde = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["time", "rt", "sync"] }
 wire_weaver = { workspace = true, features = ["std"] }
 wire_weaver_client.workspace = true
-ww_board_info = { workspace = true, features = ["std"] }
+ww_board_info = { workspace = true, features = ["std", "host"] }
 ww_counters = { workspace = true, features = ["std", "host"] }
 ww_firmware_info = { workspace = true, features = ["std"] }
 ww_log = { workspace = true, features = ["std"] }
+ww_settings = { workspace = true, features = ["fake-flash"] }
 ww_si = { workspace = true, features = ["std", "time"] } # used by codegen in generated code (ww_codegen! macro), not by name in source
 ww_uid = { workspace = true, features = ["std"] }
 ww_user_info = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+embassy-futures.workspace = true

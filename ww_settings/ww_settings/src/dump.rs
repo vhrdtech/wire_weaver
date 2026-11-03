@@ -18,10 +18,11 @@
 //! }
 //! ```
 
-use crate::fake_flash::FakeFlash;
+use crate::fake_flash::{FakeFlash, FlashOp};
 use crate::group::SettingsGroup;
 use crate::record::{self, DecodeStats, Record, RecordError};
 use crate::store::{CRC, ITEM_HEADER_LEN, ITEM_TAG, Key, PAGE_HEADER_LEN, PAGE_MAGIC, Store};
+use embedded_storage_async::nor_flash::NorFlash;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Word sizes [Store] can be configured for (the flash's `WRITE_SIZE`/`READ_SIZE`, whichever is larger).
@@ -318,32 +319,58 @@ fn raw_item(
     }
 }
 
-/// Fetch the current record of every key in `keys` from a real [Store] over `image`, for the cross-check. `word`
-/// and `page` are checked against [WORD_SIZES]/[PAGE_SIZES] by the caller.
-fn store_fetch_all(
-    word: usize,
-    page: usize,
+/// Work done on a real [Store] over a dump, see [run_on_image]. `run` is generic over the flash, so one job runs
+/// on whatever word and page size the dump has.
+pub trait StoreJob {
+    type Output;
+    fn run<S: NorFlash>(
+        self,
+        store: &mut Store<S, JOB_BUF, JOB_KEYS>,
+    ) -> impl Future<Output = Self::Output>;
+}
+
+/// The [Store] buffer of a [StoreJob]: big enough for any record a device stores.
+pub const JOB_BUF: usize = 512;
+/// The keys a [StoreJob]'s [Store] tracks: every possible one.
+pub const JOB_KEYS: usize = 256;
+
+/// What [run_on_image] did: the job's output, the store's flash contents after it, and every write and erase the
+/// job asked for, in order: what a host replays on the device's flash to make the same change there (a cut part
+/// way leaves what a power cut on the device would).
+pub struct Edited<R> {
+    pub output: R,
+    pub image: Vec<u8>,
+    pub ops: Vec<FlashOp>,
+}
+
+/// Run `job` on a real [Store] over a dump: the raw bytes of the store's flash range, `base` the address of
+/// `image[0]` as the device's flash driver counts, `word_size`/`page_size` the flash's (checked as [analyze]
+/// does). The flash is in RAM: the job may write, and [Edited] says what it changed and how.
+pub fn run_on_image<J: StoreJob>(
+    word_size: usize,
+    page_size: usize,
     base: u32,
     image: &[u8],
-    keys: &BTreeSet<u8>,
-) -> Result<BTreeMap<u8, Option<Vec<u8>>>, DumpError> {
+    job: J,
+) -> Result<Edited<J::Output>, DumpError> {
+    check_sizes(word_size, page_size, image.len())?;
     macro_rules! run {
         ($w:literal, $p:literal) => {{
-            let flash = FakeFlash::<$w, $p>::from_image(base, image);
-            let mut store: Store<FakeFlash<$w, $p>, 512, 256> =
+            let mut flash = FakeFlash::<$w, $p>::from_image(base, image);
+            flash.record_ops();
+            let mut store: Store<FakeFlash<$w, $p>, JOB_BUF, JOB_KEYS> =
                 Store::new(flash, base..base + image.len() as u32)
                     .map_err(|e| DumpError::Store(format!("{e:?}")))?;
-            let mut out = BTreeMap::new();
-            for &key in keys {
-                let mut buf = std::vec![0u8; $p];
-                let found = embassy_futures::block_on(store.fetch(Key(key), &mut buf))
-                    .map_err(|e| DumpError::Store(format!("{e:?}")))?;
-                out.insert(key, found.map(|len| buf[..len].to_vec()));
+            let output = embassy_futures::block_on(job.run(&mut store));
+            let mut flash = store.into_flash();
+            Edited {
+                output,
+                ops: flash.take_ops(),
+                image: flash.image().to_vec(),
             }
-            out
         }};
     }
-    Ok(match (word, page) {
+    Ok(match (word_size, page_size) {
         (1, 2048) => run!(1, 2048),
         (1, 4096) => run!(1, 4096),
         (1, 8192) => run!(1, 8192),
@@ -369,8 +396,49 @@ fn store_fetch_all(
         (32, 8192) => run!(32, 8192),
         (32, 16384) => run!(32, 16384),
         (32, 131072) => run!(32, 131072),
-        _ => unreachable!("word/page already validated by analyze()"),
+        _ => unreachable!("word/page checked by check_sizes"),
     })
+}
+
+/// The word and page sizes are ones [Store] supports and the image is a whole number of pages, at least 2.
+fn check_sizes(word_size: usize, page_size: usize, len: usize) -> Result<(), DumpError> {
+    if !WORD_SIZES.contains(&word_size) {
+        return Err(DumpError::UnsupportedWordSize(word_size));
+    }
+    if !PAGE_SIZES.contains(&page_size) {
+        return Err(DumpError::UnsupportedPageSize(page_size));
+    }
+    if !len.is_multiple_of(page_size) || len / page_size < 2 {
+        return Err(DumpError::BadImageLen { len, page_size });
+    }
+    Ok(())
+}
+
+/// Fetch the current record of every key in `keys` from a real [Store] over `image`, for the cross-check.
+fn store_fetch_all(
+    word: usize,
+    page: usize,
+    base: u32,
+    image: &[u8],
+    keys: &BTreeSet<u8>,
+) -> Result<BTreeMap<u8, Option<Vec<u8>>>, DumpError> {
+    struct FetchAll<'k>(&'k BTreeSet<u8>);
+    impl StoreJob for FetchAll<'_> {
+        type Output = Result<BTreeMap<u8, Option<Vec<u8>>>, DumpError>;
+        async fn run<S: NorFlash>(self, store: &mut Store<S, JOB_BUF, JOB_KEYS>) -> Self::Output {
+            let mut out = BTreeMap::new();
+            for &key in self.0 {
+                let mut buf = std::vec![0u8; S::ERASE_SIZE];
+                let found = store
+                    .fetch(Key(key), &mut buf)
+                    .await
+                    .map_err(|e| DumpError::Store(format!("{e:?}")))?;
+                out.insert(key, found.map(|len| buf[..len].to_vec()));
+            }
+            Ok(out)
+        }
+    }
+    run_on_image(word, page, base, image, FetchAll(keys))?.output
 }
 
 /// Decode a [Store] flash dump: the raw bytes of its flash range, `base` the absolute address of `image[0]`
@@ -385,18 +453,7 @@ pub fn analyze(
     word_size: usize,
     page_size: usize,
 ) -> Result<Dump<'_>, DumpError> {
-    if !WORD_SIZES.contains(&word_size) {
-        return Err(DumpError::UnsupportedWordSize(word_size));
-    }
-    if !PAGE_SIZES.contains(&page_size) {
-        return Err(DumpError::UnsupportedPageSize(page_size));
-    }
-    if image.is_empty() || !image.len().is_multiple_of(page_size) || image.len() / page_size < 2 {
-        return Err(DumpError::BadImageLen {
-            len: image.len(),
-            page_size,
-        });
-    }
+    check_sizes(word_size, page_size, image.len())?;
 
     let (pages, items) = raw_walk(image, base, word_size, page_size);
 

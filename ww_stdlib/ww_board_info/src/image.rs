@@ -1,8 +1,8 @@
 //! The reworks an image knows, inside the image (STD-101).
 //!
 //! A flasher must know which reworks a new image knows before it writes it, without a round trip to that image. So
-//! every image that guards ([crate::guard]) carries a small record in flash: per board and revision, the reworks it
-//! knows. [image_reworks!](crate::image_reworks) builds it at compile time from the same [ReworkTable] consts the
+//! every image that guards ([crate::guard]) carries a small record in flash: where the board's bench record is
+//! ([Locator]) and, per board and revision, the reworks it knows. [image_reworks!](crate::image_reworks) builds it at compile time from the same [ReworkTable] consts the
 //! firmware uses; a flasher finds it in the bytes it is about to write with [ImageTable::find] and compares with
 //! [check].
 //!
@@ -11,11 +11,16 @@
 //! the guard used.
 //!
 //! ```
-//! use ww_board_info::{ReworkId, image::{ImageTable, check, Check}, table::{ReworkDef, ReworkSet, ReworkTable}};
+//! use ww_board_info::{ReworkId, image::{ImageTable, Locator, check, Check}, table::{ReworkDef, ReworkSet, ReworkTable}};
 //!
 //! const B200A: ReworkTable = ReworkTable::new(&[ReworkDef::new(1, "analog buffer supply"), ReworkDef::new(5, "SD full swap")], &[]);
 //! const NONE: ReworkTable = ReworkTable::new(&[], &[]);
-//! ww_board_info::image_reworks!(static IMAGE_REWORKS = [("B200", "A", B200A), ("B200", "B", NONE)]);
+//! // the board's settings store: 4 KiB sectors at the end of 4 MiB of QSPI flash, the `board` group under key 1
+//! const RECORD: Locator = Locator {
+//!     flash_base: 0x1000_0000, store_start: 0x3f_0000, store_len: 0x1_0000, page_size: 4096, word_size: 1,
+//!     record_key: 1, revision_slot: 0, reworks_slot: 1, reworks_width: 4, allowance_key: 2,
+//! };
+//! ww_board_info::image_reworks!(static IMAGE_REWORKS = RECORD, [("B200", "A", B200A), ("B200", "B", NONE)]);
 //!
 //! // firmware, at boot
 //! assert_eq!(IMAGE_REWORKS.known("B200", "A"), B200A.known());
@@ -24,27 +29,40 @@
 //! let mut flash = vec![0xff; 1000];
 //! flash.extend_from_slice(IMAGE_REWORKS.as_bytes());
 //! let table = ImageTable::find(&flash).unwrap().unwrap();
+//! assert_eq!(table.locator(), RECORD);
 //! let applied = ReworkSet::EMPTY.with(ReworkId(5), true).with(ReworkId(9), true);
 //! assert_eq!(check(Some(&table), "B200", "A", applied), Check::Lacking(ReworkSet::EMPTY.with(ReworkId(9), true)));
 //! ```
 //!
 //! # Layout
 //!
-//! Little-endian, no padding, `16 + 48 × count` bytes, anywhere in flash (alignment 1):
+//! Little-endian, no padding, `48 + 48 × count` bytes, anywhere in flash (alignment 1):
 //!
 //! | Offset | Size | Field                                                                     |
 //! |--------|------|---------------------------------------------------------------------------|
 //! | 0      | 8    | magic `WWREWORK`                                                          |
-//! | 8      | 1    | format version, 1                                                         |
+//! | 8      | 1    | format version, 2                                                         |
 //! | 9      | 1    | `count`, entries that follow                                              |
 //! | 10     | 2    | entry size, 48                                                            |
-//! | 12     | 4    | CRC-32 (IEEE, as zlib) of bytes 8..12 and every entry                     |
-//! | 16     | 48×n | entries: board name (32, zero-padded UTF-8), revision (8, zero-padded), known reworks (`u64`, bit n = rework n) |
+//! | 12     | 4    | CRC-32 (IEEE, as zlib) of bytes 8..12 and 16..end                         |
+//! | 16     | 2    | header size, 48                                                           |
+//! | 18     | 1    | the [Locator]: flash word size of the store (0: no bench record)          |
+//! | 19     | 1    | record key (`ww_settings::Key`)                                           |
+//! | 20     | 4    | flash base: memory address of flash offset 0                             |
+//! | 24     | 4    | store start, flash offset                                                 |
+//! | 28     | 4    | store length                                                              |
+//! | 32     | 4    | flash page (erase unit) size                                              |
+//! | 36     | 1    | revision slot of the record (`u8`, ASCII)                                 |
+//! | 37     | 1    | reworks slot of the record                                                |
+//! | 38     | 1    | reworks width: 4 (`u32`) or 8 (`u64`), bit n = rework n                   |
+//! | 39     | 1    | allowance key ([crate::guard::AllowanceGroup])                            |
+//! | 40     | 8    | zero                                                                      |
+//! | 48     | 48×n | entries: board name (32, zero-padded UTF-8), revision (8, zero-padded), known reworks (`u64`, bit n = rework n) |
 //!
 //! A flasher scans the image's flash contents for the magic, so ELF, UF2 and raw binaries are read the same way
 //! once loaded; scan the assembled contents, not a UF2 file (its 256-byte payloads can split the record). A version
-//! above 1 may append fields to the header or the entries (entry size says how long they are): readers skip what
-//! they don't know.
+//! above 2 may append fields to the header or the entries (header and entry size say how long they are): readers
+//! skip what they don't know. Format 1 (no locator) is not read: it never left the bench.
 
 use core::fmt;
 
@@ -53,9 +71,9 @@ use crate::table::{ReworkSet, ReworkTable};
 /// The record's first bytes.
 pub const MAGIC: [u8; 8] = *b"WWREWORK";
 /// Format this crate writes.
-pub const VERSION: u8 = 1;
-/// Header bytes before the entries.
-pub const HEADER_LEN: usize = 16;
+pub const VERSION: u8 = 2;
+/// Header bytes before the entries, the [Locator] included.
+pub const HEADER_LEN: usize = 48;
 /// Bytes per entry this crate writes.
 pub const ENTRY_LEN: usize = 48;
 /// Longest board name in an entry ([crate::BoardSummary::name] holds 32).
@@ -66,6 +84,118 @@ pub const REVISION_LEN: usize = 8;
 /// Bytes of a record with `count` entries.
 pub const fn record_len(count: usize) -> usize {
     HEADER_LEN + count * ENTRY_LEN
+}
+
+/// Where the board's bench record and the allowance live in flash, so a flasher reads them through the ROM
+/// bootloader without asking the firmware (STD-101). A `ww_settings` store: `store_start..store_start +
+/// store_len` in flash offsets (as the board's flash driver counts, the range its `Store` takes), at memory address
+/// `flash_base + offset` (what PICOBOOT and DfuSe read: `0x1000_0000` on the RP2350, `0x0800_0000` on an STM32).
+/// The record is the group under `record_key`, its revision in slot `revision_slot` (`u8`, ASCII, 0: not set)
+/// and its reworks in slot `reworks_slot` (`u32` or `u64`, `reworks_width` bytes, bit n = rework n; absent: 0).
+/// The allowance is [crate::guard::AllowanceGroup] under `allowance_key`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Locator {
+    pub flash_base: u32,
+    pub store_start: u32,
+    pub store_len: u32,
+    pub page_size: u32,
+    /// Flash word: the larger of its write and read size, as the store lays out items.
+    pub word_size: u8,
+    pub record_key: u8,
+    pub revision_slot: u8,
+    pub reworks_slot: u8,
+    pub reworks_width: u8,
+    pub allowance_key: u8,
+}
+
+impl Locator {
+    /// No bench record: the board never has reworks applied (a production board), nothing to check.
+    pub const NONE: Locator = Locator {
+        flash_base: 0,
+        store_start: 0,
+        store_len: 0,
+        page_size: 0,
+        word_size: 0,
+        record_key: 0,
+        revision_slot: 0,
+        reworks_slot: 0,
+        reworks_width: 0,
+        allowance_key: 0,
+    };
+
+    /// There is a bench record to read.
+    pub const fn has_record(&self) -> bool {
+        self.word_size != 0
+    }
+
+    /// The store's range in flash offsets.
+    pub const fn store(&self) -> core::ops::Range<u32> {
+        self.store_start..self.store_start + self.store_len
+    }
+
+    /// The store's range in memory addresses: what a boot ROM reads.
+    pub const fn store_addr(&self) -> core::ops::Range<u32> {
+        self.flash_base + self.store_start..self.flash_base + self.store_start + self.store_len
+    }
+
+    /// Panics (at compile time in a `static`) on an inconsistent locator.
+    const fn check(&self) {
+        if !self.has_record() {
+            assert!(
+                self.store_len == 0,
+                "a locator without a word size has no store"
+            );
+            return;
+        }
+        assert!(
+            self.reworks_width == 4 || self.reworks_width == 8,
+            "reworks are a u32 or a u64"
+        );
+        assert!(
+            self.revision_slot != self.reworks_slot,
+            "revision and reworks in one slot"
+        );
+        assert!(
+            self.record_key != self.allowance_key,
+            "record and allowance under one key"
+        );
+        assert!(
+            self.page_size != 0
+                && self.store_start.is_multiple_of(self.page_size)
+                && self.store_len.is_multiple_of(self.page_size)
+                && self.store_len / self.page_size >= 2,
+            "the store is whole pages, at least 2"
+        );
+    }
+
+    fn read(h: &[u8]) -> Locator {
+        let u32_at = |at: usize| u32::from_le_bytes([h[at], h[at + 1], h[at + 2], h[at + 3]]);
+        Locator {
+            word_size: h[18],
+            record_key: h[19],
+            flash_base: u32_at(20),
+            store_start: u32_at(24),
+            store_len: u32_at(28),
+            page_size: u32_at(32),
+            revision_slot: h[36],
+            reworks_slot: h[37],
+            reworks_width: h[38],
+            allowance_key: h[39],
+        }
+    }
+
+    const fn write(&self, bytes: &mut [u8]) {
+        bytes[18] = self.word_size;
+        bytes[19] = self.record_key;
+        copy(bytes, 20, &self.flash_base.to_le_bytes());
+        copy(bytes, 24, &self.store_start.to_le_bytes());
+        copy(bytes, 28, &self.store_len.to_le_bytes());
+        copy(bytes, 32, &self.page_size.to_le_bytes());
+        bytes[36] = self.revision_slot;
+        bytes[37] = self.reworks_slot;
+        bytes[38] = self.reworks_width;
+        bytes[39] = self.allowance_key;
+    }
 }
 
 /// One board revision an image knows, for [image_reworks!](crate::image_reworks).
@@ -85,15 +215,18 @@ pub struct ImageReworks<const N: usize> {
 
 impl<const N: usize> ImageReworks<N> {
     /// Panics (at compile time in a `static`) when `N` doesn't fit the boards, there are more than 255, a name or
-    /// revision is too long, or a board revision is listed twice.
-    pub const fn new(boards: &[ImageBoard]) -> Self {
+    /// revision is too long, a board revision is listed twice, or the locator is inconsistent.
+    pub const fn new(locator: Locator, boards: &[ImageBoard]) -> Self {
         assert!(boards.len() <= u8::MAX as usize, "more than 255 boards");
         assert!(N == record_len(boards.len()), "record length doesn't match");
+        locator.check();
         let mut bytes = [0u8; N];
         copy(&mut bytes, 0, &MAGIC);
         bytes[8] = VERSION;
         bytes[9] = boards.len() as u8;
         copy(&mut bytes, 10, &(ENTRY_LEN as u16).to_le_bytes());
+        copy(&mut bytes, 16, &(HEADER_LEN as u16).to_le_bytes());
+        locator.write(&mut bytes);
         let mut i = 0;
         while i < boards.len() {
             let b = &boards[i];
@@ -141,26 +274,32 @@ impl<const N: usize> ImageReworks<N> {
         core::hint::black_box(&self.bytes)
     }
 
+    /// The record read back as a flasher reads it: what the boot check uses
+    /// ([crate::guard::boot_check]), so it can't disagree with what a flasher saw. `None` only if the record in
+    /// flash is damaged.
+    pub fn table(&'static self) -> Option<ImageTable<'static>> {
+        ImageTable::parse(self.as_bytes()).ok()
+    }
+
     /// The reworks this image knows for a board revision, read from the record; empty for one it doesn't list (then
     /// every applied rework is unknown). What a firmware passes to [crate::guard::decide].
     pub fn known(&'static self, name: &str, revision: &str) -> ReworkSet {
-        ImageTable::parse(self.as_bytes())
-            .ok()
+        self.table()
             .and_then(|t| t.known(name, revision))
             .unwrap_or(ReworkSet::EMPTY)
     }
 }
 
 /// Build the image's rework record as a `static`, see the [module](self) docs:
-/// `image_reworks!(pub static IMAGE_REWORKS = [("B200", "A", REWORKS_B200A), ("B200", "B", NO_REWORKS)]);`
-/// (board name and revision as `BOARD` reports them, a [ReworkTable]).
+/// `image_reworks!(pub static IMAGE_REWORKS = LOCATOR, [("B200", "A", REWORKS_B200A), ("B200", "B", NO_REWORKS)]);`
+/// (a [Locator], then board name and revision as `BOARD` reports them with a [ReworkTable]).
 #[macro_export]
 macro_rules! image_reworks {
-    ($vis:vis static $name:ident = [$(($board:expr, $revision:expr, $table:expr)),* $(,)?]) => {
+    ($vis:vis static $name:ident = $locator:expr, [$(($board:expr, $revision:expr, $table:expr)),* $(,)?]) => {
         #[used]
         $vis static $name: $crate::image::ImageReworks<
             { $crate::image::record_len(<[()]>::len(&[$($crate::image_reworks!(@one $board)),*])) },
-        > = $crate::image::ImageReworks::new(&[$($crate::image::ImageBoard {
+        > = $crate::image::ImageReworks::new($locator, &[$($crate::image::ImageBoard {
             name: $board,
             revision: $revision,
             table: $table,
@@ -174,6 +313,7 @@ macro_rules! image_reworks {
 pub struct ImageTable<'a> {
     bytes: &'a [u8],
     count: usize,
+    header_len: usize,
     entry_len: usize,
 }
 
@@ -182,7 +322,8 @@ pub struct ImageTable<'a> {
 pub enum ImageTableError {
     /// The magic is there, the rest doesn't fit or its CRC is wrong.
     Corrupt,
-    /// A format this reader doesn't know (version 0, or entries shorter than version 1's).
+    /// A format this reader doesn't know: 0, 1 (from before the locator), or a header or entries shorter than
+    /// version 2's.
     Version(u8),
     /// Two valid records: can't tell which one the image runs on.
     Ambiguous,
@@ -206,22 +347,24 @@ impl<'a> ImageTable<'a> {
         if bytes.get(..8) != Some(&MAGIC) {
             return Err(ImageTableError::Corrupt);
         }
-        let header = bytes.get(..HEADER_LEN).ok_or(ImageTableError::Corrupt)?;
-        let version = header[8];
-        let count = header[9] as usize;
-        let entry_len = u16::from_le_bytes([header[10], header[11]]) as usize;
-        if version == 0 || entry_len < ENTRY_LEN {
+        let start = bytes.get(..18).ok_or(ImageTableError::Corrupt)?;
+        let version = start[8];
+        let count = start[9] as usize;
+        let entry_len = u16::from_le_bytes([start[10], start[11]]) as usize;
+        let header_len = u16::from_le_bytes([start[16], start[17]]) as usize;
+        if version < 2 || entry_len < ENTRY_LEN || header_len < HEADER_LEN {
             return Err(ImageTableError::Version(version));
         }
-        let len = HEADER_LEN + count * entry_len;
+        let len = header_len + count * entry_len;
         let bytes = bytes.get(..len).ok_or(ImageTableError::Corrupt)?;
-        let crc = u32::from_le_bytes([header[12], header[13], header[14], header[15]]);
+        let crc = u32::from_le_bytes([start[12], start[13], start[14], start[15]]);
         if crc32(bytes, 8, len) != crc {
             return Err(ImageTableError::Corrupt);
         }
         Ok(ImageTable {
             bytes,
             count,
+            header_len,
             entry_len,
         })
     }
@@ -253,11 +396,25 @@ impl<'a> ImageTable<'a> {
         self.bytes
     }
 
+    /// Where the board's bench record and the allowance are.
+    pub fn locator(&self) -> Locator {
+        Locator::read(self.bytes)
+    }
+
+    /// The board names the image lists, each once, in record order.
+    pub fn board_names(&self) -> impl Iterator<Item = &'a str> + use<'a> {
+        let t = *self;
+        t.entries()
+            .enumerate()
+            .filter(move |(i, e)| !t.entries().take(*i).any(|f| f.name == e.name))
+            .map(|(_, e)| e.name)
+    }
+
     /// The board revisions the image knows, in record order.
     pub fn entries(&self) -> impl Iterator<Item = ImageEntry<'a>> + use<'a> {
-        let (bytes, entry_len) = (self.bytes, self.entry_len);
+        let (bytes, header_len, entry_len) = (self.bytes, self.header_len, self.entry_len);
         (0..self.count).map(move |i| {
-            let e = &bytes[HEADER_LEN + i * entry_len..];
+            let e = &bytes[header_len + i * entry_len..];
             ImageEntry {
                 name: text(&e[..NAME_LEN]),
                 revision: text(&e[NAME_LEN..NAME_LEN + REVISION_LEN]),
@@ -296,12 +453,12 @@ pub struct ImageEntry<'a> {
 pub enum Check {
     /// The image knows every rework applied: flash, and clear a stored allowance.
     Ok,
-    /// The image doesn't know these applied reworks: it will boot guarded unless the user agrees and an allowance is
+    /// The image doesn't know these applied reworks: it refuses to boot unless the user agrees and an allowance is
     /// stored for it.
     Lacking(ReworkSet),
     /// The image lists other boards only: probably the wrong image. `applied` are the board's reworks.
     OtherBoard { applied: ReworkSet },
-    /// The image has no record: built before the guard (or for a board without reworks). It doesn't guard, so it
+    /// The image has no record: built before the guard (or for a board without reworks). It doesn't check, so it
     /// would run the board as built, ignoring `applied`; nothing to warn about when that is empty.
     NoRecord { applied: ReworkSet },
 }
@@ -396,8 +553,20 @@ mod tests {
         &[],
     );
     const NONE: ReworkTable = ReworkTable::new(&[], &[]);
-    crate::image_reworks!(static RECORD = [("B200", "A", B200A), ("B200", "B", NONE)]);
-    crate::image_reworks!(static EMPTY = []);
+    const LOC: Locator = Locator {
+        flash_base: 0x1000_0000,
+        store_start: 0x3f_0000,
+        store_len: 0x2000,
+        page_size: 4096,
+        word_size: 1,
+        record_key: 1,
+        revision_slot: 0,
+        reworks_slot: 1,
+        reworks_width: 4,
+        allowance_key: 2,
+    };
+    crate::image_reworks!(static RECORD = LOC, [("B200", "A", B200A), ("B200", "B", NONE)]);
+    crate::image_reworks!(static EMPTY = Locator::NONE, []);
 
     fn set(ids: &[u16]) -> ReworkSet {
         ids.iter()
@@ -414,12 +583,18 @@ mod tests {
     #[test]
     fn layout() {
         let b = RECORD.as_bytes();
-        assert_eq!(b.len(), 16 + 2 * 48);
+        assert_eq!(b.len(), 48 + 2 * 48);
         assert_eq!(&b[..8], b"WWREWORK");
-        assert_eq!(&b[8..12], &[1, 2, 48, 0]);
-        assert_eq!(&b[16..20], b"B200");
-        assert_eq!(b[48], b'A');
-        assert_eq!(&b[56..64], &set(&[1, 5, 8]).0.to_le_bytes());
+        assert_eq!(&b[8..12], &[2, 2, 48, 0]);
+        assert_eq!(&b[16..20], &[48, 0, 1, 1]);
+        assert_eq!(&b[20..24], &0x1000_0000u32.to_le_bytes());
+        assert_eq!(&b[24..28], &0x3f_0000u32.to_le_bytes());
+        assert_eq!(&b[28..32], &0x2000u32.to_le_bytes());
+        assert_eq!(&b[32..36], &4096u32.to_le_bytes());
+        assert_eq!(&b[36..48], &[0, 1, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&b[48..52], b"B200");
+        assert_eq!(b[80], b'A');
+        assert_eq!(&b[88..96], &set(&[1, 5, 8]).0.to_le_bytes());
         // the CRC is zlib's CRC-32 of the header fields and the entries
         let mut covered = b[8..12].to_vec();
         covered.extend_from_slice(&b[16..]);
@@ -428,7 +603,11 @@ mod tests {
         assert_eq!(crc, h);
         h ^= 1;
         assert_ne!(crc, h);
-        assert_eq!(EMPTY.as_bytes().len(), 16);
+        assert_eq!(EMPTY.as_bytes().len(), 48);
+        assert_eq!(
+            ImageTable::parse(EMPTY.as_bytes()).unwrap().locator(),
+            Locator::NONE
+        );
     }
 
     /// Plain table-free CRC-32 to check the const one against.
@@ -455,6 +634,9 @@ mod tests {
     fn found_in_image_bytes() {
         let img = image(RECORD.as_bytes());
         let t = ImageTable::find(&img).unwrap().unwrap();
+        assert_eq!(t.locator(), LOC);
+        assert_eq!(t.locator().store_addr(), 0x103f_0000..0x103f_2000);
+        assert_eq!(t.board_names().collect::<Vec<_>>(), ["B200"]);
         let entries: Vec<_> = t.entries().collect();
         assert_eq!(entries.len(), 2);
         assert_eq!(
@@ -471,11 +653,11 @@ mod tests {
     #[test]
     fn corrupt_and_ambiguous() {
         let mut img = image(RECORD.as_bytes());
-        img[300 + 20] ^= 1;
+        img[300 + 52] ^= 1;
         assert_eq!(ImageTable::find(&img), Err(ImageTableError::Corrupt));
         // truncated
-        let img = image(&RECORD.as_bytes()[..40]);
-        assert_eq!(ImageTable::find(&img[..340]), Err(ImageTableError::Corrupt));
+        let img = image(&RECORD.as_bytes()[..60]);
+        assert_eq!(ImageTable::find(&img[..360]), Err(ImageTableError::Corrupt));
         // a stray magic next to a good record doesn't hide it
         let mut img = image(RECORD.as_bytes());
         img[10..18].copy_from_slice(b"WWREWORK");
@@ -487,22 +669,39 @@ mod tests {
     }
 
     #[test]
-    fn newer_format_with_longer_entries_is_read() {
-        // version 2, entries of 56 bytes: the first 48 are version 1's
-        let mut rec = std::vec![0u8; 16 + 56];
-        rec[..8].copy_from_slice(b"WWREWORK");
-        rec[8] = 2;
+    fn newer_format_with_longer_header_and_entries_is_read() {
+        // version 3, a header of 52 bytes and entries of 56: the first 48 of each are version 2's
+        let mut rec = std::vec![0u8; 52 + 56];
+        rec[..48].copy_from_slice(&EMPTY.as_bytes()[..48]);
+        rec[8] = 3;
         rec[9] = 1;
         rec[10] = 56;
-        rec[16..20].copy_from_slice(b"B200");
-        rec[48] = b'A';
-        rec[56..64].copy_from_slice(&set(&[3]).0.to_le_bytes());
+        rec[16] = 52;
+        rec[52..56].copy_from_slice(b"B200");
+        rec[84] = b'A';
+        rec[92..100].copy_from_slice(&set(&[3]).0.to_le_bytes());
         let crc = crc32(&rec, 8, rec.len());
         rec[12..16].copy_from_slice(&crc.to_le_bytes());
         let t = ImageTable::parse(&rec).unwrap();
         assert_eq!(t.known("B200", "A"), Some(set(&[3])));
         rec[10] = 40;
-        assert_eq!(ImageTable::parse(&rec), Err(ImageTableError::Version(2)));
+        assert_eq!(ImageTable::parse(&rec), Err(ImageTableError::Version(3)));
+        // format 1 (no locator) is not read
+        rec[10] = 56;
+        rec[8] = 1;
+        assert_eq!(ImageTable::parse(&rec), Err(ImageTableError::Version(1)));
+    }
+
+    #[test]
+    #[should_panic(expected = "reworks are a u32 or a u64")]
+    fn inconsistent_locator_is_refused() {
+        ImageReworks::<48>::new(
+            Locator {
+                reworks_width: 2,
+                ..LOC
+            },
+            &[],
+        );
     }
 
     #[test]

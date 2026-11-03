@@ -297,7 +297,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - CLT-25 | Device info and reports | `ww info` for any device; `ww report` adds counters, logs and crash data in one file. | cli_reference.md#ww-info
 - TOOL-19 | Safe to look at | A device or another program can't write terminal escape sequences into what `ww` prints: control characters and bidi tricks in a product string, name or label always show up as plain text. | cli_reference.md#untrusted-device-and-hub-strings
 - TOOL-28 | Recording a board rework | `ww board rework set 7` / `clear 7` record a rework done on the bench, on any device that keeps the list; an unknown number is refused with the numbers the firmware knows. | std_library/ww_board_info.md#recording-a-rework
-- TOOL-29 | Flashing checks the board's reworks | `ww dfu rp flash` and `ww dfu stm32 flash` compare the reworks done on the board with the ones the new image knows, and ask before writing an image that doesn't know one. | cli_reference.md#checking-the-boards-reworks
+- TOOL-29 | Flashing checks the board's reworks | `ww dfu rp flash` and `ww dfu stm32 flash` read the reworks done on the board through its ROM bootloader, compare them with the ones the new image knows, and ask before writing an image that doesn't know one. | cli_reference.md#checking-the-boards-reworks
 
 ## Advanced
 
@@ -324,7 +324,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - STD-24 | Device contract | What every device answers: firmware, board, ids, user label and last reset. | std_library/device_contract.md
 - STD-98 | Recording a board rework | After a rework on the bench, any host records it by number on any device serving `ww_board_info`; a firmware refuses numbers it doesn't know and reports ones it finds in its record. | std_library/ww_board_info.md#recording-a-rework
-- STD-101 | The rework guard | A firmware never runs a board with a rework it doesn't know: it boots guarded unless the user allowed that rework for this very image, and an image tells flashers which reworks it knows. | std_library/ww_board_info.md#the-rework-guard
+- STD-101 | The rework guard | A firmware never runs a board with a rework it doesn't know: before any init it blinks an error code and goes back to the ROM bootloader, unless the user allowed that rework for this very image; an image tells flashers which reworks it knows and where the board's record is. | std_library/ww_board_info.md#the-rework-guard
 - STD-16 | Common errors | `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs. | std_library/ww_error.md
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
 - STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra

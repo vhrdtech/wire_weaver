@@ -1781,24 +1781,28 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
-- 🧪 **TOOL-29 Flashers check the board's reworks** · `v0.5` — `ww dfu rp flash` and `ww dfu stm32 flash`, given
-  the serial of a running device, read the board's name, revision, applied reworks and guard there (`BOARD`,
-  `REWORKS`, `GUARD`) and the reworks the new image knows and its build id from the image (`ww_board_info::image`,
-  STD-101), and warn with the list when the image lacks one; only if the user agrees (or `--allow-unknown-reworks`
-  names exactly those numbers) the allowance is stored for the image's `ImageId`, otherwise a stored allowance is
-  cleared. Then they reboot the device into the boot ROM themselves (`BootControl::reboot(Updater)`, an A/B device
-  only), wait for it (`--wait`, 10 s by default) and write. An image for another board, without a record (from
-  before the guard) or with an unreadable one, and one that boots guarded because nothing can be stored, are asked
-  about too (`--yes`); without a terminal every question is refused. A device already in the boot ROM, or firmware
-  without `REWORKS`, can't be checked: a note, then the post-flash path (TOOL-30). The check as a library:
-  `ww_report::rework_check` (`ImageReworks::from_flash`, `read_board`, `verdict`, `store_allowance`,
-  `clear_allowance`). `docs/cli_reference.md#checking-the-boards-reworks`. Tests: `ww_report` `rework_check::tests`,
-  `wire_weaver_cli` `cmd::rework_check::tests`, end to end on the guard server in `tests/board_info`
-  (`flasher_check_*`). `ww dfu flash` (the `ww-chunky` plugin) calling the same library is tpm P2401#3nov-0105d.
-  Hardware check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).
-- 📋 **TOOL-30 `ww info` shows the rework guard; `ww board rework allow`** · `v0.5` — `GUARD` in `ww info` /
-  `ww report` (guarded and why, allowed for this image, an allowance stored for another image), `ww board rework
-  allow N...` / `disallow` for the post-flash path (STD-101), the guarded refusal printed plainly.
+- 🧪 **TOOL-29 Flashers check the board's reworks** · `v0.5` — `ww dfu rp flash` and `ww dfu stm32 flash` check
+  with the chip in its ROM bootloader (user, 3 Nov 2026: a board with an unknown rework refuses to boot and sits
+  there). Given the serial of a running device they reboot it there first (`BootControl::reboot(Updater)`, an A/B
+  device only, the titles of its `REWORKS` kept for the question). In the ROM they read the new image's table,
+  locator and build id from the file (`ww_board_info::image`, STD-101), the table of the image in flash (the board's
+  name, `--board` when no image names exactly one) and the bench record and allowance from the settings store
+  (PICOBOOT read, DfuSe upload), and warn with the list when the image lacks a rework; only if the user agrees (or
+  `--allow-unknown-reworks` names exactly those numbers) the allowance is stored for the image's `ImageId` through
+  the ROM (the store's own erases and writes replayed, read back), otherwise a stored one is cleared. An image for
+  another board, without a table or with an unreadable one, or without a build id, is asked about too (`--yes`);
+  without a terminal every question is refused. An STM32 whose bootloader can't read its flash (readout
+  protection) is written only with `--yes`. The check as a library: `ww_report::rework_check` (`RomFlash`,
+  `ImageReworks`, `scan_installed`, `read_board`, `verdict`, `set_allowance`).
+  `docs/cli_reference.md#checking-the-boards-reworks`. Tests: `ww_report` `rework_check::tests` (the whole check on
+  a chip in RAM), `wire_weaver_cli` `cmd::rework_check::tests`. `ww dfu flash` (the `ww-chunky` plugin, a running
+  app, no ROM at hand) compares with the app's `REWORKS` and refuses a lacking image: tpm P2401#3nov-0105d. Hardware
+  check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).
+- 📋 **TOOL-30 `ww info` and `ww board rework allow` in the ROM bootloader** · `v0.5` — on a board in BOOTSEL / ROM
+  DFU, `ww info` reads the image in flash (build id, table) and the bench record through the ROM (`ww_report::
+  rework_check`, TOOL-29): board, revision, reworks applied, the ones the installed image knows, the allowance and the
+  verdict (`this image refuses to boot: unknown rework 9`). `ww board rework allow N...` stores the allowance for the
+  installed image there, `disallow` clears it (STD-101).
 - 📋 **TOOL-23 Doc-comment / sentinel / bounds hints for `ww api check`** — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest `Bounds`/niche forms too, not only the name suffix. Needs STD-64, STD-66
@@ -1926,27 +1930,32 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     items come from the introspection data; properties cannot carry `#[errors]` yet.
 - ✅ **STD-98 Recording a board rework** · `v0.5` — `ww_board_info` reworks are numbers, `ReworkId(u16)` per board
     revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
-    `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: the
-    board boots guarded since STD-101). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
+    `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: since
+    STD-101 the board refuses to boot unless an allowance for its image covers it). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
     run, `ReworkChange` (`Unchanged`, `WouldWrite`, `Written` from the next boot), `ReworkError` (`UnknownRework`, never
     stored; `Conflict`; `ProductionRecord`; `Common`). `ww_board_info::table` (`no_std`) answers both from the
     firmware's table (`ReworkTable`, `ReworkSet`, `apply`, `list`, `unknown`, `known_ids`). `ww info` prints unknown
     ones. Docs `docs/std_library/ww_board_info.md#recording-a-rework`, tests `tests/board_info`, `tests/device_report`.
     The `ww board rework` command is TOOL-28; the first device is usb_io_fw PLAT-17.
 - ✅ **STD-101 The rework guard** · `v0.5` — a firmware never runs a board with a rework it doesn't know (Roman,
-    3 Nov 2026; replaces "runs on its safe features"). Optional `BoardInfo::GUARD` (`GuardSummary`: `GuardState`
-    `Normal` / `Guarded` / `Allowed`, the unknown numbers, the stored `Allowance`), optional
-    `allow_unknown_reworks(image: ImageId, reworks, program)` and `clear_unknown_reworks_allowance(program)`,
-    `ReworkError::Guarded`. `ImageId` is the first 8 bytes of the image's GNU build id, so an allowance is void for
-    every other image whichever tool flashed it, and an image erases another image's allowance at boot.
-    `ww_board_info::guard` (`no_std`): `decide`, `StoredAllowance` (two `u64`), `GuardReport`.
-    `ww_board_info::image`: the reworks an image knows as a record in the image (magic `WWREWORK`, CRC-32),
-    `image_reworks!` from `ReworkTable` consts, read back by the firmware at boot, `ImageTable::find` for flashers and
-    `check` (`Ok`, `Lacking`, `OtherBoard`, `NoRecord`); `ww_firmware_info::find_build_id`. Docs
-    `docs/std_library/ww_board_info.md#the-rework-guard`, tests `tests/board_info` and the crates' unit tests. The
-    gate that refuses calls while guarded is SRV-50, flashers TOOL-29, `ww info` and `ww board rework allow`
-    TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the guard: deployed firmware
-    can't learn it.
+    3 Nov 2026; replaces "runs on its safe features"). It refuses to boot: first thing in `main`, before any board
+    init, it reads the bench record and the allowance from flash; with an applied rework it doesn't know and no
+    allowance for this very image, it blinks the shared code (embedded_bedrock `bedrock_led::code` 1) and reboots
+    into the ROM bootloader. No guarded running state, no API items for it (the first plan's `GUARD`, allowance calls
+    and SRV-50's gate went before any release). `ImageId` is the first 8 bytes of the image's GNU build id, so an
+    allowance is void for every other image whichever tool flashed it; only `ww` writes it, through the ROM, and
+    clears it with the next flashing that needs none. `ww_board_info::guard` (`no_std`): `boot_check` (reads through
+    the image's locator: the firmware and the flasher read the same place), `read_bench`, `decide` (`Run`,
+    `RunAllowed`, `Refuse`), `StoredAllowance`, `AllowanceGroup` (a `ww_settings` group). `ww_board_info::image`
+    (format 2): the table in the image (magic `WWREWORK`, CRC-32) with the `Locator` of the bench record (the settings
+    store's range, word and page size, the record's key and slots, the allowance's key) and per board revision the
+    reworks the image knows; `image_reworks!`, `ImageTable::find` / `locator` / `board_names`, `check`.
+    `ww_board_info::record` (feature `host`): read the record from a store's bytes, `set_allowance` answers the flash
+    operations to replay through the ROM. `ww_settings`: `mapped::MappedFlash` (a store read before any driver),
+    `dump::run_on_image` with `StoreJob`, `FakeFlash::record_ops`. `ww_firmware_info::find_build_id`. Docs
+    `docs/std_library/ww_board_info.md#the-rework-guard`, tests the crates' unit tests. Flashers TOOL-29, `ww info`
+    and `ww board rework allow` TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the
+    guard: deployed firmware can't learn it.
 - 🧪 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
     `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
     whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the

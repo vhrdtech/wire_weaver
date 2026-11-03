@@ -36,6 +36,7 @@
 extern crate self as ww_settings;
 
 pub mod group;
+pub mod mapped;
 pub mod record;
 mod settings;
 pub mod store;

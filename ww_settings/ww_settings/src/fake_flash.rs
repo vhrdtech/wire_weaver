@@ -84,6 +84,16 @@ pub struct FakeFlash<const WORD: usize, const PAGE: usize> {
     off: bool,
     stats: Stats,
     rng: u64,
+    ops: Option<Vec<FlashOp>>,
+}
+
+/// One operation a [FakeFlash] was asked to do, see [FakeFlash::record_ops].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FlashOp {
+    /// Erase the pages in `from..to`.
+    Erase { from: u32, to: u32 },
+    /// Program `bytes` at `offset`.
+    Write { offset: u32, bytes: Vec<u8> },
 }
 
 impl<const WORD: usize, const PAGE: usize> FakeFlash<WORD, PAGE> {
@@ -102,7 +112,20 @@ impl<const WORD: usize, const PAGE: usize> FakeFlash<WORD, PAGE> {
             off: false,
             stats: Stats::default(),
             rng: 0x2545_f491_4f6c_dd1d,
+            ops: None,
         }
+    }
+
+    /// Keep every write and erase asked for from now on, in order, for [take_ops](Self::take_ops): what a host that
+    /// changed a store in a dump replays on the real flash, so a cut there leaves what a power cut on the device
+    /// would.
+    pub fn record_ops(&mut self) {
+        self.ops = Some(Vec::new());
+    }
+
+    /// The operations kept since [record_ops](Self::record_ops) (or the last call), and go on keeping.
+    pub fn take_ops(&mut self) -> Vec<FlashOp> {
+        self.ops.as_mut().map(core::mem::take).unwrap_or_default()
     }
 
     /// Cut the power once `steps` more steps (words written, bytes erased) are taken: the last one is left half
@@ -228,6 +251,12 @@ impl<const WORD: usize, const PAGE: usize> NorFlash for FakeFlash<WORD, PAGE> {
             return Err(FakeError::NotAligned);
         }
         let r = self.range(offset, bytes.len())?;
+        if let Some(ops) = self.ops.as_mut() {
+            ops.push(FlashOp::Write {
+                offset,
+                bytes: bytes.to_vec(),
+            });
+        }
         for (k, chunk) in bytes.chunks(WORD).enumerate() {
             let start = r.start + k * WORD;
             let w = start / WORD;
@@ -265,6 +294,9 @@ impl<const WORD: usize, const PAGE: usize> NorFlash for FakeFlash<WORD, PAGE> {
             return Err(FakeError::NotAligned);
         }
         let r = self.range(from, (to - from) as usize)?;
+        if let Some(ops) = self.ops.as_mut() {
+            ops.push(FlashOp::Erase { from, to });
+        }
         for page in r.step_by(PAGE) {
             self.stats.page_erases += 1;
             for k in 0..PAGE {

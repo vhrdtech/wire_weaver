@@ -453,7 +453,6 @@ dependencies = [
  "wire_weaver_client",
  "ww_board_info",
  "ww_client_server",
- "ww_report",
 ]
 
 [[package]]
@@ -6078,9 +6077,13 @@ name = "ww_board_info"
 version = "0.3.0"
 dependencies = [
  "defmt 1.1.1",
+ "embassy-futures",
+ "embedded-storage-async",
  "wire_weaver",
+ "ww_board_info",
  "ww_date_time",
  "ww_error",
+ "ww_settings",
 ]
 
 [[package]]
@@ -6448,6 +6451,7 @@ dependencies = [
  "anyhow",
  "cnt_core",
  "defmt-decoder",
+ "embassy-futures",
  "object 0.40.0",
  "rustc-demangle",
  "serde",
@@ -6458,6 +6462,7 @@ dependencies = [
  "ww_counters",
  "ww_firmware_info",
  "ww_log",
+ "ww_settings",
  "ww_si",
  "ww_uid",
  "ww_user_info",

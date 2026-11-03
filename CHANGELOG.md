@@ -13,7 +13,6 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
-- The rework guard (STD-101): a firmware never runs a board with a rework it doesn't know. It boots guarded (`BoardInfo::GUARD`) unless an allowance bound to its own image's build id covers the reworks (`allow_unknown_reworks`, `clear_unknown_reworks_allowance`); `ww_board_info::guard` decides, `ww_board_info::image` carries the reworks an image knows inside the image so flashers compare before writing. Replaces "runs on its safe features". Breaking for `ww_board_info` 0.3.0 (never published): devices without the guard omit the new items. See `ww_stdlib/ww_board_info/CHANGELOG.md`, `ww_stdlib/ww_firmware_info/CHANGELOG.md`.
 - `exact_units` taken at b114829 (STD-99, LVL-3): levels and their rates as quantities (`Neper`, `Decibel`, a loss
   base so a cable's dB/100 m never flips sign, damping, Beer-Lambert, dB/(cm·MHz) for ultrasound), reachable as
   `ww_si::..` through the existing `units` re-export; the crate walker learns the new `unit!` syntax
@@ -267,7 +266,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
   animations to period boundaries of UTC, so they breathe in phase. `ww sync DEV...` keeps several devices steered
   and shows how well they follow.
 - `just test --changed` runs only the workspace crates changed against main and their dependents (`tpm test changed`, nextest's `rdeps()`); plain `just test` runs everything, as `just test-all` does (tpm ops#22oct-2049).
-- Flashing checks the board's reworks (TOOL-29): `ww dfu rp flash` and `ww dfu stm32 flash`, given the serial of a running device, compare its applied reworks with the ones the new image knows, ask before writing an image that lacks one (or take `--allow-unknown-reworks`), store or clear the allowance, and reboot the device into its boot ROM themselves. The check is a library, `ww_report::rework_check`. See `wire_weaver_cli/CHANGELOG.md`, `ww_report/CHANGELOG.md`.
+- The rework guard (STD-101, TOOL-29): a firmware never runs a board with a rework it doesn't know. First thing in `main`, before any init, it reads the bench record and refuses to boot unless an allowance bound to its own image's build id covers the reworks: it blinks a shared code and reboots into the ROM bootloader. `ww_board_info::guard` decides (`boot_check`), `ww_board_info::image` carries the reworks an image knows and where the board's record is (the locator), `ww_board_info::record` reads and writes the record through a boot ROM. `ww dfu rp flash` / `ww dfu stm32 flash` check there before writing and store or clear the allowance there. Replaces "runs on its safe features". See `ww_stdlib/ww_board_info/CHANGELOG.md`, `ww_settings/ww_settings/CHANGELOG.md`, `ww_report/CHANGELOG.md`, `wire_weaver_cli/CHANGELOG.md`, `ww_stdlib/ww_firmware_info/CHANGELOG.md`.
+- Flashing checks the board's reworks (TOOL-29): `ww dfu rp flash` and `ww dfu stm32 flash` reboot a running device into its boot ROM themselves, read its applied reworks there through the ROM, compare them with the ones the new image knows, ask before writing an image that lacks one (or take `--allow-unknown-reworks`), and store or clear the allowance there. The check is a library, `ww_report::rework_check`. See `wire_weaver_cli/CHANGELOG.md`, `ww_report/CHANGELOG.md`.
 
 ### Changed
 

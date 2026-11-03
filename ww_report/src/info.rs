@@ -32,20 +32,23 @@ impl<T> Part<T> {
     }
 
     pub(crate) fn from_error(e: Error) -> Self {
-        match &e {
-            Error::RemoteError(r)
-                if matches!(
-                    r.kind,
-                    ErrorKindOwned::TraitNotFound
-                        | ErrorKindOwned::BadPath
-                        | ErrorKindOwned::Unimplemented
-                ) =>
-            {
-                Part::NotImplemented
-            }
-            Error::NotImplementedByDevice { .. } => Part::NotImplemented,
-            _ => Part::Error(e.to_string()),
+        if not_implemented(&e) {
+            Part::NotImplemented
+        } else {
+            Part::Error(e.to_string())
         }
+    }
+}
+
+/// The device doesn't implement the trait (not in this version of it, or not at all) or doesn't serve the item.
+pub(crate) fn not_implemented(e: &Error) -> bool {
+    match e {
+        Error::RemoteError(r) => matches!(
+            r.kind,
+            ErrorKindOwned::TraitNotFound | ErrorKindOwned::BadPath | ErrorKindOwned::Unimplemented
+        ),
+        Error::NotImplementedByDevice { .. } => true,
+        _ => false,
     }
 }
 

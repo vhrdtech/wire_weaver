@@ -1,6 +1,7 @@
 //! `ww dfu rp`: RP2040 / RP2350 boot ROMs in BOOTSEL mode, over PICOBOOT (`ww_picoboot`), and following a device
 //! into BOOTSEL and back (CLT-21).
 
+use crate::cmd::rework_check::{ReworkCheckArgs, Rom, before_rom_flash};
 use crate::device::Selection;
 use crate::untrusted::escape;
 use anyhow::{Context, Result, anyhow, bail};
@@ -26,8 +27,12 @@ pub(crate) enum BootselCommand {
     /// Write a UF2 file, an ELF file or a binary into flash, verify it and reboot
     ///
     /// The device is chosen with --serial (part of it is enough when only one matches), or the only one connected.
-    /// To update a WireWeaver device that rebooted itself into BOOTSEL (ww_dfu BootControl::reboot(Updater)), give
-    /// its full serial number with --wait to wait for the boot ROM and --follow to wait for the firmware to come back.
+    /// Given the serial of a running WireWeaver device (part of it is enough), the board's reworks are checked
+    /// against the image first, then the device is rebooted into BOOTSEL (ww_dfu BootControl::reboot(Updater)) and
+    /// waited for (--wait, 10 s by default); --follow waits for the firmware to come back. When the image lacks a
+    /// rework applied on the board, it is written only if you agree (or --allow-unknown-reworks names those numbers):
+    /// the allowance is stored for the image first. A device already in BOOTSEL can't be checked: give its full
+    /// serial number with --wait to wait for it.
     ///
     /// Example: ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app --wait 10 --follow -s E661640843522C2F
     Flash(FlashArgs),
@@ -55,7 +60,7 @@ pub(crate) struct FlashArgs {
     #[arg(long, value_enum, default_value_t = Family::Rp2350)]
     family: Family,
 
-    /// Wait this many seconds for the BOOTSEL device with the --serial to appear
+    /// Wait this many seconds for the BOOTSEL device with the --serial to appear (10 after rebooting a running device)
     #[arg(long, value_name = "SECONDS")]
     wait: Option<u64>,
 
@@ -66,6 +71,9 @@ pub(crate) struct FlashArgs {
     /// Do not reboot after writing
     #[arg(long, conflicts_with = "follow")]
     no_reboot: bool,
+
+    #[command(flatten)]
+    reworks: ReworkCheckArgs,
 }
 
 #[derive(Copy, Clone, ValueEnum)]
@@ -99,7 +107,7 @@ pub(crate) async fn bootsel(cmd: BootselCommand, selection: &Selection) -> Resul
             println!("chip id: {id:016X}");
             Ok(())
         }
-        BootselCommand::Flash(args) => flash(args, serial).await,
+        BootselCommand::Flash(args) => flash(args, selection, serial).await,
         BootselCommand::Reboot { bootsel } => {
             let mut pb = open(serial.as_deref()).await?;
             let to = if bootsel {
@@ -203,13 +211,11 @@ fn load(args: &FlashArgs) -> Result<Image> {
     Ok(image)
 }
 
-async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
+async fn flash(args: FlashArgs, selection: &Selection, serial: Option<String>) -> Result<()> {
     let image = load(&args)?;
-    let follow = match (&serial, args.wait.is_some() || args.follow) {
-        (Some(s), true) => Some(Follow::new(s.clone())),
-        (None, true) => bail!("--wait and --follow need the device's full --serial"),
-        _ => None,
-    };
+    if serial.is_none() && (args.wait.is_some() || args.follow) {
+        bail!("--wait and --follow need the device's full --serial");
+    }
     let base = image.segments.first().map(|s| s.addr).unwrap_or(FLASH_BASE);
     eprintln!(
         "{} {} bytes in {} segment(s) from {:#010x}",
@@ -218,7 +224,30 @@ async fn flash(args: FlashArgs, serial: Option<String>) -> Result<()> {
         image.segments.len(),
         base
     );
-    let info = match (&follow, args.wait) {
+    // a running device of the serial: its reworks checked against the image, then rebooted into the boot ROM
+    let contents: Vec<u8> = image
+        .segments
+        .iter()
+        .flat_map(|s| s.data.iter().copied())
+        .collect();
+    let rebooted = before_rom_flash(
+        Rom::Rp,
+        &contents,
+        &args.reworks,
+        selection,
+        serial.as_deref(),
+    )
+    .await?;
+    let wait = match &rebooted {
+        Some(_) => Some(args.wait.unwrap_or(10)),
+        None => args.wait,
+    };
+    let follow = match (&rebooted, &serial) {
+        (Some(full), _) => Some(Follow::new(full.clone())),
+        (None, Some(s)) if wait.is_some() || args.follow => Some(Follow::new(s.clone())),
+        _ => None,
+    };
+    let info = match (&follow, wait) {
         (Some(follow), Some(secs)) => {
             let spinner = spinner(format!("waiting for {} in BOOTSEL", follow.serial));
             let found = follow

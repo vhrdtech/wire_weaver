@@ -248,6 +248,11 @@ impl<'a> ImageTable<'a> {
         }
     }
 
+    /// The record's bytes, header and entries.
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.bytes
+    }
+
     /// The board revisions the image knows, in record order.
     pub fn entries(&self) -> impl Iterator<Item = ImageEntry<'a>> + use<'a> {
         let (bytes, entry_len) = (self.bytes, self.entry_len);

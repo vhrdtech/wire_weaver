@@ -9,6 +9,7 @@
 
 ### 🚀 Features
 
+- `image::ImageTable::as_bytes`: the record's bytes, to keep a found record beyond the image buffer (TOOL-29).
 - `BoardInfo::GUARD` (STD-101), `#[optional]` const item `GuardSummary { state: GuardState, unknown, allowance:
   Option<Allowance> }`: `GuardState` `Normal`, `Guarded` (identity, info, updates and reading the record only, outputs
   safe), `Allowed` (unknown reworks covered by an allowance for this image).

@@ -97,6 +97,10 @@ ww dfu reboot -s E661640843522C2F                 # app -> BOOTSEL
 ww dfu rp flash app.uf2 -s E661640843522C2F --wait 10 --follow
 ```
 
+Or in one step: given the serial of the running app, `ww dfu rp flash app.elf -s E661 --follow` checks the board's
+reworks against the image, reboots the app into BOOTSEL itself, waits for it (`--wait`, 10 s by default) and writes
+([checking the board's reworks](../cli_reference.md#checking-the-boards-reworks)). `ww dfu stm32 flash` does the same.
+
 ## STM32 system bootloader (ROM DFU)
 
 The same sequence for an STM32 whose updater is the ROM bootloader (CLT-34): the app replies to `reboot(Updater)`,

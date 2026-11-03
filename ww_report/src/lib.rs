@@ -6,6 +6,8 @@
 //! * [report::collect_report] adds the counters, the stored `defmt` log and the crash's addresses, decoded with the
 //!   firmware's ELF found by build id (`cnt_core::elf`, filled by `ww elf add`), and [report::render_report] puts
 //!   it all in one text.
+//! * [rework_check] is the check every flasher makes before writing an image: the board's applied reworks against
+//!   the reworks the image knows (TOOL-29).
 //!
 //! Everything goes through one [clients::Contract], which has to live as long as the device is used: dropping a
 //! client disconnects the device.
@@ -23,4 +25,5 @@ pub mod info;
 pub mod log;
 pub mod path;
 pub mod report;
+pub mod rework_check;
 pub mod symbols;

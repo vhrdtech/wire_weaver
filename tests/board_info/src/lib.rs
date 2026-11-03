@@ -656,6 +656,106 @@ mod tests {
         assert!(allowance.lock().unwrap().is_none());
     }
 
+    ww_board_info::image_reworks!(static IMAGE_REWORKS = [("B200", "B", TABLE)]);
+
+    /// A new image's flash contents: code, its build-id note (id `5e5e..`), the rework record it knows (1-4).
+    fn new_image() -> Vec<u8> {
+        let mut v = vec![0xff; 64];
+        v.extend([4, 0, 0, 0, 20, 0, 0, 0, 3, 0, 0, 0]);
+        v.extend(b"GNU\0");
+        v.extend([0x5e; 20]);
+        v.extend(IMAGE_REWORKS.as_bytes());
+        v
+    }
+
+    async fn connect_traits_only(device: &TestDevice) -> wire_weaver_client::DynClient {
+        wire_weaver_client::DynClient::traits_only(|c| c.in_process_path(device.path()))
+            .connect()
+            .await
+            .expect("connect")
+    }
+
+    /// A flasher's check (`ww_report::rework_check`, TOOL-29) on a board with rework 7, unknown to the new image:
+    /// read through global trait paths, the allowance stored for the new image's id, then cleared again.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn flasher_check_stores_and_clears_the_allowance() {
+        use ww_report::clients::BoardInfoClient;
+        use ww_report::rework_check::{
+            BoardRead, ImageReworks, Verdict, clear_allowance, read_board, store_allowance, verdict,
+        };
+        let server = server::Server::new(RevisionSource::Provisional, true, set(&[1, 7]));
+        let allowance = server.allowance.clone();
+        let device = start_server("board_info/flasher_check", server);
+        let client = connect_traits_only(&device).await;
+        let board_client = BoardInfoClient::new(&client);
+        let BoardRead::Board(board) = read_board(&board_client).await.unwrap() else {
+            panic!("the device serves BoardInfo")
+        };
+        assert_eq!(
+            (board.name.as_str(), board.revision.as_str()),
+            ("B200", "B")
+        );
+        assert_eq!(board.applied, set(&[1, 7]));
+        assert_eq!(board.guard.as_ref().unwrap().state, GuardState::Guarded);
+        assert!(!board.has_allowance());
+
+        let image = ImageReworks::from_flash(&new_image());
+        let new_id = ImageId([0x5e; 8]);
+        assert_eq!(image.id, Some(new_id));
+        let v = verdict(&image, &board);
+        assert_eq!(
+            v,
+            Verdict::Lacking {
+                lacking: set(&[7]),
+                image: Some(new_id)
+            }
+        );
+        assert_eq!(
+            store_allowance(&board_client, new_id, set(&[7]))
+                .await
+                .unwrap(),
+            ReworkChange::Written
+        );
+        let stored = *allowance.lock().unwrap();
+        assert_eq!(stored.image_id(), Some(new_id));
+        assert!(stored.covers(Some(new_id), set(&[7])));
+
+        // the user said no after all, or the next image knows rework 7: a flasher clears it
+        assert_eq!(
+            clear_allowance(&board_client).await.unwrap(),
+            Some(ReworkChange::Written)
+        );
+        assert!(allowance.lock().unwrap().is_none());
+        assert_eq!(
+            clear_allowance(&board_client).await.unwrap(),
+            Some(ReworkChange::Unchanged)
+        );
+    }
+
+    /// Firmware without reworks or the guard: the check says it can't read them, nothing to clear.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn flasher_check_on_firmware_without_the_guard() {
+        use ww_report::clients::BoardInfoClient;
+        use ww_report::rework_check::{BoardRead, clear_allowance, read_board};
+        let _ = tracing_subscriber::fmt::try_init();
+        let device = tests_common::start_device(
+            "board_info/flasher_plain",
+            plain_server::Server,
+            board_info_api::BOARD_INFO_TEST_FULL_GID,
+            plain_server::api_impl::api_hash(),
+        );
+        let client = connect_traits_only(&device).await;
+        let board_client = BoardInfoClient::new(&client);
+        assert_eq!(
+            read_board(&board_client).await.unwrap(),
+            BoardRead::NoReworks {
+                name: "B200".into(),
+                revision: "A".into()
+            }
+        );
+        assert_eq!(clear_allowance(&board_client).await.unwrap(), None);
+    }
+
     #[test]
     fn revision_source_wire() {
         // Strap carries a u16 after a one nibble discriminant

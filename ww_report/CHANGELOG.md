@@ -4,6 +4,7 @@
 
 ### 🚀 Features
 
+- `rework_check` (TOOL-29): the check every flasher makes before writing an image. `ImageReworks::from_flash` (the image's rework record and `ImageId` from its flash contents), `read_board` (`BoardRead`: `BoardReworks` with name, revision, applied reworks and `GuardSummaryOwned`, or `NoBoardInfo`, `NoReworks`), `verdict` (`Verdict`: `Ok`, `Lacking`, `OtherBoard`, `NoRecord`, `BadRecord`, with `Display` texts), `guard_line`, `store_allowance`, `clear_allowance`. Used by `ww dfu rp flash` and `ww dfu stm32 flash`.
 - `ww info` / `ww report` print the board's reworks (`ww_board_info::BoardInfo::REWORKS`, STD-24) when the device
   serves them: `info::Board::reworks: Part<Vec<Rework>>`. `Part::from_error` maps `NotImplementedByDevice` to
   `NotImplemented`. `info::Rework` follows `ww_board_info` 0.3.0 (STD-98): `id: u16`, `title: Option<String>`; a

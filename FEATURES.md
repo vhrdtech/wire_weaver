@@ -1128,17 +1128,21 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   they came and flushes urgent ones at once (CLT-50); with several busy clients on one device, an urgent request of
   one could still wait behind another's batch in the device link's queue. Sort what waits there by priority
   (with CLT-52).
-- 📋 **SRV-51 Dispatcher arms: only what differs** · `v0.5` — flash diet: the generated dispatcher costs about
-  616 B per resource on a Cortex-M0+ at `opt-level = "z"` (Donguru, 43 resources, ~42 KB), because every call,
-  read and write arm inlines `EventKindBuilder::new`, the `map_err`s, the `seq != 0` check, the serializer call and
-  the whole `RpcResult` / `GetResult` / `SetResult` match. Each arm keeps only what differs (decode the arguments,
-  call the handler, hand the value to a serializer) and the rest goes through shared `#[inline(never)]` paths in
-  `wire_weaver`: one reply path for a value, one for an acknowledged write, one for `Deferred` / `Unimplemented` /
-  user errors, one cold error constructor `(err_seq, ErrorKind)` (the report's idea 4, measured on its own as the
-  first step). Arms the method and property models make impossible are not generated; a variant the handler's type
-  still allows goes through the shared path with today's behaviour. The reply bytes don't change (TEST-31 proves it), nor does the handler API. Target: the per-resource
-  bytes of TEST-30 (baseline 52-496 B by kind at `fw-z`, mean 245 B) at least halved, and Donguru's 616 B per
-  resource measured again; est. 12-16 KB on Donguru.
+- ✅ **SRV-51 Dispatcher arms: only what differs** · `v0.5` — flash diet: every call, read and write arm of the
+  generated dispatcher inlined `EventKindBuilder::new`, the `map_err`s, the `seq != 0` check, the serializer call
+  and the whole `RpcResult` / `GetResult` / `SetResult` match (about 616 B per resource in Donguru). In a `no_alloc`
+  server each arm keeps only what differs (decode the arguments or value with `ww_client_server::dispatch::des`,
+  call the handler) and hands the whole result to a shared `#[inline(never)]` path generic over the value and user
+  error types (`reply_call`, `reply_get`, `reply_set`, `reply_value`, `reply_ok`, `reply_open_plain`,
+  `reply_opened`, `reply_sideband`); every error site goes through the cold `dispatch::err`. A
+  `value_on_changed` property has no result to match. A variant the handler's type still allows goes through the
+  shared path with today's behaviour. Same reply bytes (TEST-31), same handler API; `no_alloc = false` servers
+  keep the inline arms. TEST-30 on a Cortex-M0+, one more resource, mean of the four kinds with shared types: 238 →
+  86 B at `fw-z` sync, 106 → 87 B async, 210 → 94 B at `fw-3`; a call with types of its own 300 → 96 B at `fw-z`.
+  The floor grows 270-590 B (the shared paths). Instructions per request (`just dispatch-budget`) rose 2-15 % at
+  `z` from `memcpy` of the levels' `Result`, which SRV-52 removes. Donguru not measured again: its HEAD (b946730)
+  doesn't build against master (exact_units and STD-101 drift); from TEST-30's per-resource savings, roughly 6-9 KB
+  of its 43 resources at `z`, 5 KB at 3. See `docs/articles/flash_budget.md#dispatcher-arms-only-what-differs-srv-51`.
 - 📋 **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returns
   `Result<WrAction, ww_client_server::Error<'a>>` and propagates it with `?` (3.6-4.0 KB of `Try::branch`,
   `map_err` and `mem::replace::<Option<shrink_wrap::Error>>` in Donguru). A dispatch context (writer, seq, the

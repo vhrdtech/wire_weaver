@@ -174,6 +174,20 @@ pub struct StreamOpened<'i> {
 
 impl StreamOpened<'_> {
     /// With the `max_age_us` a batched stream granted (API-41).
+    /// The answer of a stream without a session (a plain stream): every field zero or `None`.
+    pub const fn closed() -> StreamOpened<'static> {
+        StreamOpened {
+            session: UVlq32(0),
+            oldest: UVlq64(0),
+            live_from: UVlq64(0),
+            resume_from: None,
+            capacity: None,
+            max_age_us: None,
+            codec: None,
+            result: TailBytes(&[]),
+        }
+    }
+
     pub fn with_max_age_us(mut self, max_age_us: Option<u32>) -> Self {
         self.max_age_us = max_age_us.map(UNib32);
         self

@@ -318,10 +318,10 @@ pub fn gen_server(
     let server_struct_path = config.server_struct_path;
     let maybe_in_multi_false = maybe_quote_cl(cx.multi_req, || quote! { false, });
     let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&root_await));
-    let written_ok_variant = if cx.multi_req {
-        quote! { WrittenOk(Option<EventKindBuilder>) }
+    let event_kind_builder_ty = if cx.multi_req {
+        quote! { Option<EventKindBuilder> }
     } else {
-        quote! { WrittenOk(EventKindBuilder) }
+        quote! { EventKindBuilder }
     };
     let growable_reply_helpers = maybe_quote(
         !config.no_alloc,
@@ -376,18 +376,13 @@ pub fn gen_server(
             PathKind, Error, ErrorKind, StreamSideband, ErrorKindDiscriminants,
             util::{ser_err_event, ser_unit_return_event, ser_value_event, ser_stream_sideband_event},
             builder::{EventBuilder, EventKindBuilder, ErrorBuilder},
+            dispatch::{err as ww_err, error as ww_error},
         };
         use core::slice::Iter;
         #additional_use
         #api_signature
 
-        enum WrAction {
-            #written_ok_variant,
-            WrittenErr,
-            /// Request handled, nothing to send back: answered with Written
-            Acknowledged,
-            Deferred
-        }
+        type WrAction = ww_client_server::dispatch::WrAction<#event_kind_builder_ty>;
 
         impl #server_struct_path {
             /// Returns an Error only if request deserialization or error serialization failed.
@@ -1098,7 +1093,7 @@ fn multi_req_handlers(maybe_await: &TokenStream) -> TokenStream {
                         };
                         self.process_root(path, &mut iter, &item_request, &mut wr, true, &mut cx)#maybe_await
                     }
-                    None => Err(Error::new(#es_args, ErrorKind::ArgsDesFailed)),
+                    None => ww_err(#es_args, ErrorKind::ArgsDesFailed),
                 };
                 let item_err = match result {
                     Ok(WrAction::WrittenOk(_) | WrAction::Acknowledged) => None,
@@ -1293,7 +1288,7 @@ fn process_request_inner_recursive(
                 None => {
                     match request.kind {
                         #introspect
-                        _ => { Err(Error::not_supported(#es)) },
+                        _ => { ww_err(#es, ErrorKind::OperationNotSupported) },
                     }
                 }
             }
@@ -1383,7 +1378,7 @@ fn level_matchers(
             Span::call_site(),
         ));
         let es = fixed_err_seq("LEVEL_OMITTED");
-        quote! { id if id < #item_count => { Err(Error::unimplemented(#es)) } }
+        quote! { id if id < #item_count => { ww_err(#es, ErrorKind::Unimplemented) } }
     };
     let handlers = present.map(|item| match &item.multiplicity {
         Multiplicity::Flat => level_matcher(
@@ -1419,7 +1414,7 @@ fn level_matchers(
             let es_index = fixed_err_seq("LEVEL_BAD_INDEX");
             let validate_index = quote! {
                 if !self.#valid_indices(#maybe_index_chain_arg).contains(index.0) {
-                    return Err(Error::new(#es_index, ErrorKind::BadIndex));
+                    return ww_err(#es_index, ErrorKind::BadIndex);
                 }
             };
             let es = fixed_err_seq("LEVEL_INDEX_EXPECTED");
@@ -1429,6 +1424,20 @@ fn level_matchers(
                 fixed_err_seq("LEVEL_INDICES_SER"),
             );
             let ev_kind_builder = cx.prepare_event_kind_builder();
+            let read_indices = if cx.no_alloc {
+                let (in_multi, es_ser) = (cx.in_multi(), fixed_err_seq("LEVEL_INDICES_SER"));
+                quote! {
+                    let indices = self.#valid_indices(#maybe_index_chain_arg);
+                    return ww_client_server::dispatch::reply_value(wr, #in_multi, &indices, #es_ser);
+                }
+            } else {
+                quote! {
+                    let indices = self.#valid_indices(#maybe_index_chain_arg);
+                    #ev_kind_builder
+                    #ser_indices
+                    return Ok(WrAction::WrittenOk(event_kind_builder));
+                }
+            };
             quote! {
                 match path_iter.next().copied() {
                     Some(index) => {
@@ -1439,12 +1448,9 @@ fn level_matchers(
                     }
                     None => {
                         if let RequestKind::Read /* ValidIndices */ = request.kind {
-                            let indices = self.#valid_indices(#maybe_index_chain_arg);
-                            #ev_kind_builder
-                            #ser_indices
-                            Ok(WrAction::WrittenOk(event_kind_builder))
+                            #read_indices
                         } else {
-                            Err(Error::new(#es, ErrorKind::ExpectedArrayIndexGotNone))
+                            ww_err(#es, ErrorKind::ExpectedArrayIndexGotNone)
                         }
                     }
                 }
@@ -1455,7 +1461,7 @@ fn level_matchers(
         Some(id) => match id.0 {
             #(#arm_attrs #ids => { #handlers } ),*
             #omitted_arm
-            _ => { Err(Error::bad_path(#es)) }
+            _ => { ww_err(#es, ErrorKind::BadPath) }
         }
     }
 }
@@ -1578,7 +1584,7 @@ impl ApiServerCGContext<'_> {
     fn ser_handler_value(&self, value: TokenStream, es: TokenStream) -> TokenStream {
         let root = if self.no_alloc {
             let root = self.ser_root_value(value.clone());
-            quote! { #root.map_err(|_| Error::response_ser_failed(#es))?; }
+            quote! { #root.map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?; }
         } else {
             self.ser_growable_reply(value.clone(), es.clone())
         };
@@ -1586,7 +1592,7 @@ impl ApiServerCGContext<'_> {
             let element = self.write_value(value);
             quote! {
                 if in_multi {
-                    #element.map_err(|_| Error::response_ser_failed(#es))?;
+                    #element.map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
                 } else {
                     #root
                 }
@@ -1606,10 +1612,10 @@ impl ApiServerCGContext<'_> {
             quote! { wire_weaver::BlockingEventOut::send_reply_bytes_blocking(&mut *cx, priority, &event) }
         };
         quote! {
-            let bytes = ww_owned_bytes(&#value).map_err(|_| Error::response_ser_failed(#es))?;
+            let bytes = ww_owned_bytes(&#value).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             if wr.write_raw_slice(&bytes).is_err() {
                 if request.seq.0 != 0 {
-                    let event = ww_value_event(request.seq.0, &bytes).map_err(|_| Error::response_ser_failed(#es))?;
+                    let event = ww_value_event(request.seq.0, &bytes).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
                     let priority = cx.priority();
                     #send.map_err(|e| match e {
                         wire_weaver::SendError::Sink => Error::response_ser_failed(#es_over_limit),
@@ -1618,6 +1624,15 @@ impl ApiServerCGContext<'_> {
                 }
                 return Ok(WrAction::Deferred);
             }
+        }
+    }
+
+    /// Whether the request is an element of a multi request: `in_multi` in a `multi_req` server, else `false`.
+    fn in_multi(&self) -> TokenStream {
+        if self.multi_req {
+            quote! { in_multi }
+        } else {
+            quote! { false }
         }
     }
 
@@ -1685,7 +1700,7 @@ fn handle_method(
         quote! {
             // TODO(CLT-15): deferred methods in a multi request
             if in_multi {
-                return Err(Error::not_supported(#es));
+                return ww_err(#es, ErrorKind::OperationNotSupported);
             }
         }
     } else {
@@ -1702,6 +1717,36 @@ fn handle_method(
         item_err_seq("", "KIND_NOT_TAKEN"),
         item_err_seq("method", "HANDLER"),
     );
+    if cx.no_alloc {
+        // SRV-51: the arm decodes, calls and hands the result to the shared reply path
+        let output_ty = match return_type {
+            Some(ty) => cx.value_ty(api_bundle, ty, TyPos::Annotation),
+            None => quote! { () },
+        };
+        let in_multi = cx.in_multi();
+        let args_des = if args.is_empty() {
+            quote! {}
+        } else {
+            let args_struct_ident = api_common::args_struct_ident(&ident.to_string(), true);
+            let es_args = item_err_seq("method", "ARGS");
+            quote! {
+                let Some(args) = ww_client_server::dispatch::des::<#mod_ident::#args_struct_ident>(args.as_slice()) else {
+                    return ww_err(#es_args, ErrorKind::ArgsDesFailed);
+                };
+            }
+        };
+        return quote! {
+            match &request.kind {
+                RequestKind::Call { #maybe_args } => {
+                    #maybe_refuse_in_multi
+                    #args_des
+                    let result = #call;
+                    ww_client_server::dispatch::reply_call::<_, #output_ty>(wr, request, #in_multi, result)
+                }
+                _ => ww_err(#es_kind, ErrorKind::OperationNotSupported),
+            }
+        };
+    }
     let ser_output = cx.ser_handler_value(quote! { output }, item_err_seq("method", "OUTPUT"));
     let ev_kind_builder = cx.prepare_event_kind_builder();
     quote! {
@@ -1722,12 +1767,12 @@ fn handle_method(
                         Ok(WrAction::Deferred)
                     }
                     RpcResult::Unimplemented => {
-                        Err(Error::unimplemented(#es))
+                        ww_err(#es, ErrorKind::Unimplemented)
                     }
                 }
             }
             _ => {
-                Err(Error::not_supported(#es_kind))
+                ww_err(#es_kind, ErrorKind::OperationNotSupported)
             }
         }
     }
@@ -1772,6 +1817,28 @@ fn handle_property(
         .pick(ident.to_string().as_str())
         .unwrap_or(PropertyModelKind::GetSet);
     let prefixed_ident = add_prefix(cx.ident_prefix.as_ref(), ident);
+    // SRV-51: the shared reply paths of a `no_alloc` server, by whether the property has a user error type
+    let in_multi = cx.in_multi();
+    let (reply_get, reply_set) = match user_error_ty {
+        Some(ty) => {
+            let user_err_ty = cx.value_ty(api_bundle, ty, TyPos::Annotation);
+            (
+                quote! { ww_client_server::dispatch::reply_get::<_, #enforce_ty, #user_err_ty> },
+                quote! { ww_client_server::dispatch::reply_set::<_, #user_err_ty> },
+            )
+        }
+        None => (
+            quote! { ww_client_server::dispatch::reply_get_unit_err::<_, #enforce_ty> },
+            quote! { ww_client_server::dispatch::reply_set_unit_err::<_> },
+        ),
+    };
+    let des_compact = |es: &TokenStream| {
+        quote! {
+            let Some(value) = ww_client_server::dispatch::des::<#enforce_ty>(data.as_slice()) else {
+                return ww_err(#es, ErrorKind::PropertyDesFailed);
+            };
+        }
+    };
 
     let maybe_set = maybe_quote_cl(
         matches!(
@@ -1792,22 +1859,31 @@ fn handle_property(
                     let es = item_err_seq("property", "WRITE_DECODE");
                     let es_handler = item_err_seq("property", "HANDLER");
                     let ev_kind_builder = cx.prepare_event_kind_builder();
-                    quote! {
-                        let mut rd = BufReader::new(data.as_slice());
-                        let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
-                        match #set_call {
-                            SetResult::Set => {
-                                #ev_kind_builder
-                                Ok(WrAction::WrittenOk(event_kind_builder))
-                            },
-                            SetResult::SetError(user_err) => {
-                                // if request.seq.0 != 0 {
-                                // always send errors back, even if they won't reach a user call site, they will show up in logs
-                                #ser_user_err
-                                Ok(WrAction::WrittenErr)
-                            }
-                            SetResult::Unimplemented => {
-                                Err(Error::unimplemented(#es_handler))
+                    if cx.no_alloc {
+                        let des = des_compact(&es);
+                        quote! {
+                            #des
+                            let result = #set_call;
+                            #reply_set(wr, #in_multi, result)
+                        }
+                    } else {
+                        quote! {
+                            let mut rd = BufReader::new(data.as_slice());
+                            let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
+                            match #set_call {
+                                SetResult::Set => {
+                                    #ev_kind_builder
+                                    Ok(WrAction::WrittenOk(event_kind_builder))
+                                },
+                                SetResult::SetError(user_err) => {
+                                    // if request.seq.0 != 0 {
+                                    // always send errors back, even if they won't reach a user call site, they will show up in logs
+                                    #ser_user_err
+                                    Ok(WrAction::WrittenErr)
+                                }
+                                SetResult::Unimplemented => {
+                                    ww_err(#es_handler, ErrorKind::Unimplemented)
+                                }
                             }
                         }
                     }
@@ -1828,16 +1904,29 @@ fn handle_property(
                     );
                     let es = item_err_seq("property", "WRITE_DECODE");
                     let ev_kind_builder = cx.prepare_event_kind_builder();
-                    quote! {
-                        #ev_kind_builder
-                        let mut rd = BufReader::new(data.as_slice());
-                        let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
-                        if self.#prefixed_ident #maybe_index_chain_indices != value {
-                            self.#prefixed_ident #maybe_index_chain_indices = value;
-                            #mark_changed
-                            #changed_call;
+                    if cx.no_alloc {
+                        let des = des_compact(&es);
+                        quote! {
+                            #des
+                            if self.#prefixed_ident #maybe_index_chain_indices != value {
+                                self.#prefixed_ident #maybe_index_chain_indices = value;
+                                #mark_changed
+                                #changed_call;
+                            }
+                            ww_client_server::dispatch::reply_ok(wr, #in_multi)
                         }
-                        Ok(WrAction::WrittenOk(event_kind_builder))
+                    } else {
+                        quote! {
+                            #ev_kind_builder
+                            let mut rd = BufReader::new(data.as_slice());
+                            let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::PropertyDesFailed))?;
+                            if self.#prefixed_ident #maybe_index_chain_indices != value {
+                                self.#prefixed_ident #maybe_index_chain_indices = value;
+                                #mark_changed
+                                #changed_call;
+                            }
+                            Ok(WrAction::WrittenOk(event_kind_builder))
+                        }
                     }
                 }
             };
@@ -1869,31 +1958,45 @@ fn handle_property(
                         ident,
                         quote! { self.#get_property(cx, #maybe_index_chain_arg) },
                     );
-                    quote! {
-                        match #get_call {
-                            GetResult::Value(value) => {
-                                #ev_kind_builder
-                                let value: #enforce_ty = value;
-                                #ser_value
-                                Ok(WrAction::WrittenOk(event_kind_builder))
-                            }
-                            GetResult::GetError(user_err) => {
-                                #ser_user_err
-                                Ok(WrAction::WrittenErr)
-                            }
-                            GetResult::Unimplemented => {
-                                wr.write(&Error::unimplemented(#es)).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-                                Ok(WrAction::WrittenErr)
+                    if cx.no_alloc {
+                        quote! {
+                            let result = #get_call;
+                            #reply_get(wr, #in_multi, result)
+                        }
+                    } else {
+                        quote! {
+                            match #get_call {
+                                GetResult::Value(value) => {
+                                    #ev_kind_builder
+                                    let value: #enforce_ty = value;
+                                    #ser_value
+                                    Ok(WrAction::WrittenOk(event_kind_builder))
+                                }
+                                GetResult::GetError(user_err) => {
+                                    #ser_user_err
+                                    Ok(WrAction::WrittenErr)
+                                }
+                                GetResult::Unimplemented => {
+                                    wr.write(&Error::unimplemented(#es)).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                                    Ok(WrAction::WrittenErr)
+                                }
                             }
                         }
                     }
                 }
                 PropertyModelKind::ValueOnChanged => {
-                    quote! {
-                        #ev_kind_builder
-                        let value: &#enforce_ty = &self.#prefixed_ident #maybe_index_chain_indices;
-                        #ser_value
-                        Ok(WrAction::WrittenOk(event_kind_builder))
+                    if cx.no_alloc {
+                        let es_value = item_err_seq("property", "VALUE");
+                        quote! {
+                            ww_client_server::dispatch::reply_value::<_, #enforce_ty>(wr, #in_multi, &self.#prefixed_ident #maybe_index_chain_indices, #es_value)
+                        }
+                    } else {
+                        quote! {
+                            #ev_kind_builder
+                            let value: &#enforce_ty = &self.#prefixed_ident #maybe_index_chain_indices;
+                            #ser_value
+                            Ok(WrAction::WrittenOk(event_kind_builder))
+                        }
                     }
                 }
             };
@@ -1910,7 +2013,7 @@ fn handle_property(
         match &request.kind {
             #maybe_set
             #maybe_get
-            _ => { Err(Error::not_supported(#es)) }
+            _ => { ww_err(#es, ErrorKind::OperationNotSupported) }
         }
     }
 }
@@ -1941,6 +2044,18 @@ fn handle_const(
         }
     };
     let es = item_err_seq("", "KIND_NOT_TAKEN");
+    if cx.no_alloc {
+        let (in_multi, es_value) = (cx.in_multi(), item_err_seq("constant", "VALUE"));
+        return quote! {
+            match &request.kind {
+                RequestKind::Read => {
+                    let value: #enforce_ty = #value;
+                    ww_client_server::dispatch::reply_value(wr, #in_multi, &value, #es_value)
+                }
+                _ => ww_err(#es, ErrorKind::OperationNotSupported),
+            }
+        };
+    }
     quote! {
         match &request.kind {
             RequestKind::Read => {
@@ -1949,7 +2064,7 @@ fn handle_const(
                 #ser_value
                 Ok(WrAction::WrittenOk(event_kind_builder))
             }
-            _ => { Err(Error::not_supported(#es)) }
+            _ => { ww_err(#es, ErrorKind::OperationNotSupported) }
         }
     }
 }
@@ -2126,13 +2241,18 @@ fn handle_stream_fn(
     let codecs_arg = maybe_quote(codec_counted, quote! { codecs, });
 
     let args: Vec<ArgumentOwned> = stream.args.to_vec();
-    let (args_des, args_list) = des_args(
-        mod_ident,
-        ident,
-        &args,
-        cx.no_alloc,
-        item_err_seq("stream", "ARGS"),
-    );
+    let (args_des, args_list) = if cx.no_alloc {
+        des_args_compact(mod_ident, ident, &args, item_err_seq("stream", "ARGS"))
+    } else {
+        des_args(
+            mod_ident,
+            ident,
+            &args,
+            cx.no_alloc,
+            item_err_seq("stream", "ARGS"),
+        )
+    };
+    let in_multi = cx.in_multi();
     let maybe_args = if args.is_empty() {
         quote! { .. }
     } else {
@@ -2179,7 +2299,7 @@ fn handle_stream_fn(
             let session = self.new_stream_session();
             match #state #inner .open(session).await {
                 Ok(opened) => opened.to_wire(&[]) #with_granted,
-                Err(_) => return Err(Error::new(#es_store, ErrorKind::StreamStoreFailed)),
+                Err(_) => return ww_err(#es_store, ErrorKind::StreamStoreFailed),
             }
         },
     };
@@ -2199,21 +2319,48 @@ fn handle_stream_fn(
     let ev_kind_builder = cx.prepare_event_kind_builder();
     let es_open = item_err_seq("stream", "OPEN");
     let open_call = cx.call(ident, quote! { self.#prefixed_ident(cx, #idx #args_list) });
-    let open = quote! {
-        RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
-            #args_des
-            match #open_call {
-                RpcResult::Ready(output) => {
-                    let output: #enforce_ty = output;
-                    #open_state
-                    #ev_kind_builder
-                    opened.ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
-                    #ser_output.map_err(|_| Error::response_ser_failed(#es_ser))?;
-                    Ok(WrAction::WrittenOk(event_kind_builder))
+    let open = if cx.no_alloc && delivery == Delivery::Plain && !batched {
+        // SRV-51: no session, so the whole answer is the shared path's
+        quote! {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+                #args_des
+                let result = #open_call;
+                ww_client_server::dispatch::reply_open_plain::<_, #enforce_ty>(wr, #in_multi, result)
+            }
+        }
+    } else if cx.no_alloc {
+        quote! {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+                #args_des
+                match #open_call {
+                    RpcResult::Ready(output) => {
+                        let output: #enforce_ty = output;
+                        #open_state
+                        ww_client_server::dispatch::reply_opened(wr, #in_multi, &opened, &output)
+                    }
+                    // a stream function answers right away: the session starts with its result
+                    RpcResult::Deferred => ww_err(#es_open, ErrorKind::OperationNotSupported),
+                    RpcResult::Unimplemented => ww_err(#es_open, ErrorKind::Unimplemented),
                 }
-                // a stream function answers right away: the session starts with its result
-                RpcResult::Deferred => Err(Error::not_supported(#es_open)),
-                RpcResult::Unimplemented => Err(Error::unimplemented(#es_open)),
+            }
+        }
+    } else {
+        quote! {
+            RequestKind::StreamOpen { resume: None, #max_age_arg #codecs_arg #maybe_args } => {
+                #args_des
+                match #open_call {
+                    RpcResult::Ready(output) => {
+                        let output: #enforce_ty = output;
+                        #open_state
+                        #ev_kind_builder
+                        opened.ser_head(wr).map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
+                        #ser_output.map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
+                        Ok(WrAction::WrittenOk(event_kind_builder))
+                    }
+                    // a stream function answers right away: the session starts with its result
+                    RpcResult::Deferred => ww_err(#es_open, ErrorKind::OperationNotSupported),
+                    RpcResult::Unimplemented => ww_err(#es_open, ErrorKind::Unimplemented),
+                }
             }
         }
     };
@@ -2222,6 +2369,20 @@ fn handle_stream_fn(
         quote! {}
     } else {
         let ev_kind_builder = cx.prepare_event_kind_builder();
+        // the answer of a resumed session: its head, without an output
+        let reply_resumed = |opened: TokenStream| {
+            if cx.no_alloc {
+                quote! { ww_client_server::dispatch::reply_opened(wr, #in_multi, &#opened, &()) }
+            } else {
+                quote! {{
+                    #ev_kind_builder
+                    #opened.ser_head(wr).map_err(|_| Error::new(#es_ser, ErrorKind::ResponseSerFailed))?;
+                    Ok(WrAction::WrittenOk(event_kind_builder))
+                }}
+            }
+        };
+        let resumed_codec = reply_resumed(quote! { opened.to_wire(&[]).with_codec(codec) });
+        let resumed = reply_resumed(quote! { opened.to_wire(&[]) #with_granted });
         let resume_result = if delivery == Delivery::Counted {
             quote! { r.map_err(|_| ErrorKind::StreamNoSession) }
         } else {
@@ -2237,9 +2398,7 @@ fn handle_stream_fn(
                 RequestKind::StreamOpen { resume: Some(cursor), codecs, .. } => {
                     let r = ww_stream::codec::CountedState::resume_offered(#state, *cursor, codecs.as_ref());
                     let (opened, codec) = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
-                    #ev_kind_builder
-                    opened.to_wire(&[]).with_codec(codec).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
-                    Ok(WrAction::WrittenOk(event_kind_builder))
+                    #resumed_codec
                 }
             }
         } else {
@@ -2248,9 +2407,7 @@ fn handle_stream_fn(
                     #grant
                     let r = #state #inner .resume(*cursor)#store_await;
                     let opened = #resume_result.map_err(|kind| Error::new(#es_resume, kind))?;
-                    #ev_kind_builder
-                    opened.to_wire(&[]) #with_granted .ser_head(wr).map_err(|_| Error::response_ser_failed(#es_ser))?;
-                    Ok(WrAction::WrittenOk(event_kind_builder))
+                    #resumed
                 }
             }
         }
@@ -2277,18 +2434,27 @@ fn handle_stream_fn(
             let sideband_fn = Ident::new(&format!("sideband_{prefixed_ident}"), ident.span());
             let sideband_call = cx.call(ident, quote! { self.#sideband_fn(cx, #idx *sideband) });
             let ev_kind_builder = cx.prepare_event_kind_builder();
-            quote! {
-                RequestKind::StreamSideband { sideband } => {
-                    // user fn returns Option<StreamSideband>
-                    match #sideband_call {
-                        Some(sideband) => {
-                            #ev_kind_builder
-                            wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
-                            wr.write(&sideband).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
-                            Ok(WrAction::WrittenOk(event_kind_builder))
+            if cx.no_alloc {
+                quote! {
+                    RequestKind::StreamSideband { sideband } => {
+                        let answer: Option<StreamSideband> = #sideband_call;
+                        ww_client_server::dispatch::reply_sideband(wr, #in_multi, path, answer)
+                    }
+                }
+            } else {
+                quote! {
+                    RequestKind::StreamSideband { sideband } => {
+                        // user fn returns Option<StreamSideband>
+                        match #sideband_call {
+                            Some(sideband) => {
+                                #ev_kind_builder
+                                wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
+                                wr.write(&sideband).map_err(|_| Error::new(#es_sb, ErrorKind::ResponseSerFailed))?;
+                                Ok(WrAction::WrittenOk(event_kind_builder))
+                            }
+                            // nothing to send back, but the host may wait with the request's seq
+                            None => Ok(WrAction::Acknowledged),
                         }
-                        // nothing to send back, but the host may wait with the request's seq
-                        None => Ok(WrAction::Acknowledged),
                     }
                 }
             }
@@ -2323,12 +2489,22 @@ fn handle_stream_fn(
             quote! { status },
             item_err_seq("stream", "STATUS"),
         );
-        quote! {
-            RequestKind::Read => {
-                let status: ww_client_server::stream::StreamStatus = #status_call;
-                #ev_kind_builder
-                #ser_status
-                Ok(WrAction::WrittenOk(event_kind_builder))
+        if cx.no_alloc {
+            let es_status = item_err_seq("stream", "STATUS");
+            quote! {
+                RequestKind::Read => {
+                    let status: ww_client_server::stream::StreamStatus = #status_call;
+                    ww_client_server::dispatch::reply_value(wr, #in_multi, &status, #es_status)
+                }
+            }
+        } else {
+            quote! {
+                RequestKind::Read => {
+                    let status: ww_client_server::stream::StreamStatus = #status_call;
+                    #ev_kind_builder
+                    #ser_status
+                    Ok(WrAction::WrittenOk(event_kind_builder))
+                }
             }
         }
     };
@@ -2340,7 +2516,7 @@ fn handle_stream_fn(
             #close
             #sideband
             #status
-            _ => { Err(Error::not_supported(#es)) }
+            _ => { ww_err(#es, ErrorKind::OperationNotSupported) }
         }
     }
 }
@@ -2364,11 +2540,25 @@ fn handle_stream(
     );
     let es = item_err_seq("sink", "SIDEBAND");
     let ev_kind_builder = cx.prepare_event_kind_builder();
-    let reply_sideband = quote! {
-        #ev_kind_builder
-        wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-        wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
-        Ok(WrAction::WrittenOk(event_kind_builder))
+    let in_multi = cx.in_multi();
+    // SRV-51: a `no_alloc` server answers through the shared paths
+    let reply_sideband = if cx.no_alloc {
+        quote! { ww_client_server::dispatch::reply_sideband(wr, #in_multi, path, Some(sideband)) }
+    } else {
+        quote! {
+            #ev_kind_builder
+            wr.write(&RefVec::Slice { slice: &path }).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+            wr.write(&sideband).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+            Ok(WrAction::WrittenOk(event_kind_builder))
+        }
+    };
+    let reply_ack = if cx.no_alloc {
+        quote! { ww_client_server::dispatch::reply_ok(wr, #in_multi) }
+    } else {
+        quote! {
+            #ev_kind_builder
+            Ok(WrAction::WrittenOk(event_kind_builder))
+        }
     };
     let sideband_call = cx.call(
         ident,
@@ -2378,14 +2568,18 @@ fn handle_stream(
         // user fn returns Option<StreamSideband>
         let r = #sideband_call;
     };
-    let match_user_sideband = quote! {
-        match r {
-            Some(sideband) => {
-                #reply_sideband
-            }
-            None => {
-                // nothing to send back, but the host is waiting with the request's seq
-                Ok(WrAction::Acknowledged)
+    let match_user_sideband = if cx.no_alloc {
+        quote! { ww_client_server::dispatch::reply_sideband(wr, #in_multi, path, r) }
+    } else {
+        quote! {
+            match r {
+                Some(sideband) => {
+                    #reply_sideband
+                }
+                None => {
+                    // nothing to send back, but the host is waiting with the request's seq
+                    Ok(WrAction::Acknowledged)
+                }
             }
         }
     };
@@ -2406,7 +2600,7 @@ fn handle_stream(
                 let max_len = max_len as usize;
                 quote! {
                     if data.0.len() > #max_len {
-                        return Err(Error::new(#es, ErrorKind::ArgsDesFailed));
+                        return ww_err(#es, ErrorKind::ArgsDesFailed);
                     }
                 }
             }
@@ -2416,9 +2610,17 @@ fn handle_stream(
             let es = item_err_seq("sink", "DATA");
             let enforce_ty = cx.value_ty(api_bundle, ty, TyPos::Expr);
             let des_value = cx.des_value(&enforce_ty);
-            let ts = quote! {
-                let mut rd = BufReader::new(data);
-                let value = #des_value(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+            let ts = if cx.no_alloc {
+                quote! {
+                    let Some(value) = ww_client_server::dispatch::des::<#enforce_ty>(data) else {
+                        return ww_err(#es, ErrorKind::ArgsDesFailed);
+                    };
+                }
+            } else {
+                quote! {
+                    let mut rd = BufReader::new(data);
+                    let value = #des_value(&mut rd).map_err(|_| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+                }
             };
             (ts, quote! { value })
         };
@@ -2450,14 +2652,13 @@ fn handle_stream(
             ident,
             quote! { self.#write(cx, #maybe_index_chain_call #arg) },
         );
-        let ev_kind_builder = cx.prepare_event_kind_builder();
         match flow {
             None => quote! {
                 RequestKind::Write { data } => {
                     #des_data
                     #write_call;
-                    #ev_kind_builder
-                    Ok(WrAction::WrittenOk(event_kind_builder)) // TODO: ?? do not send acknowledgements on stream writes
+                    // TODO: ?? do not send acknowledgements on stream writes
+                    #reply_ack
                 }
                 RequestKind::StreamSideband { sideband } => {
                     #handle_sideband
@@ -2500,6 +2701,29 @@ fn handle_stream(
                 );
                 let ev_kind_builder_open = cx.prepare_event_kind_builder();
                 let ev_kind_builder_status = cx.prepare_event_kind_builder();
+                let (reply_opened, reply_status) = if cx.no_alloc {
+                    let es_status = item_err_seq("sink", "STATUS");
+                    (
+                        quote! {
+                            let opened = opened.to_wire(&[]).with_capacity(Some(capacity));
+                            ww_client_server::dispatch::reply_opened(wr, #in_multi, &opened, &())
+                        },
+                        quote! { ww_client_server::dispatch::reply_value(wr, #in_multi, &status, #es_status) },
+                    )
+                } else {
+                    (
+                        quote! {
+                            #ev_kind_builder_open
+                            opened.to_wire(&[]).with_capacity(Some(capacity)).ser_head(wr).map_err(|_| Error::new(#es_opened, ErrorKind::ResponseSerFailed))?;
+                            Ok(WrAction::WrittenOk(event_kind_builder))
+                        },
+                        quote! {
+                            #ev_kind_builder_status
+                            #ser_status
+                            Ok(WrAction::WrittenOk(event_kind_builder))
+                        },
+                    )
+                };
                 quote! {
                     // the host names the session (API-34): a new one at 0, or its own again after a reconnect
                     RequestKind::StreamOpen { resume: Some(cursor), .. } => {
@@ -2518,18 +2742,16 @@ fn handle_stream(
                         if let Some(sideband) = #credit.take_ack() {
                             #send_sideband
                         }
-                        #ev_kind_builder_open
                         // the sink's buffer: a resumed host gets no grant of all of it while something is buffered
                         let capacity = #credit.capacity();
-                        opened.to_wire(&[]).with_capacity(Some(capacity)).ser_head(wr).map_err(|_| Error::response_ser_failed(#es_opened))?;
-                        Ok(WrAction::WrittenOk(event_kind_builder))
+                        #reply_opened
                     }
                     RequestKind::StreamOpen { resume: None, .. } => {
-                        Err(Error::not_supported(#es_open))
+                        ww_err(#es_open, ErrorKind::OperationNotSupported)
                     }
                     kind @ (RequestKind::SinkWrite { .. } | RequestKind::SinkWriteUnits { .. }) => {
                         let Some((units, pos, data)) = kind.as_sink_write() else {
-                            return Err(Error::not_supported(#es_open));
+                            return ww_err(#es_open, ErrorKind::OperationNotSupported);
                         };
                         let data = &TailBytes(data);
                         #credit_max_len_check
@@ -2551,8 +2773,7 @@ fn handle_stream(
                             | ww_stream::sink::SinkVerdict::NoSession(None)
                             | ww_stream::sink::SinkVerdict::Invalid => {}
                         }
-                        #ev_kind_builder
-                        Ok(WrAction::WrittenOk(event_kind_builder))
+                        #reply_ack
                     }
                     RequestKind::StreamSideband { sideband: StreamSideband::Query { sent, .. } } => {
                         // answered here, the user's sideband handler doesn't see it
@@ -2576,9 +2797,7 @@ fn handle_stream(
                     }
                     RequestKind::Read => {
                         let status: ww_client_server::stream::StreamStatus = #credit.status();
-                        #ev_kind_builder_status
-                        #ser_status
-                        Ok(WrAction::WrittenOk(event_kind_builder))
+                        #reply_status
                     }
                 }
             }
@@ -2588,7 +2807,7 @@ fn handle_stream(
     quote! {
         match &request.kind {
             #specific_ops
-            _ => { Err(Error::new(#es, ErrorKind::Unimplemented)) }
+            _ => { ww_err(#es, ErrorKind::Unimplemented) }
         }
     }
 }
@@ -2710,7 +2929,7 @@ fn ser_method_output(
         let ser_output = quote! {
             {
                 let wr = &mut wr;
-                #ser.map_err(|_| Error::response_ser_failed(#es))?;
+                #ser.map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         };
 
@@ -2719,18 +2938,41 @@ fn ser_method_output(
         quote! {
             let mut wr = BufWriter::new(scratch_args);
             #ser_output
-            let output_bytes = wr.finish_and_take().map_err(|_| Error::response_ser_failed(#es0))?;
+            let output_bytes = wr.finish_and_take().map_err(|_| Error::new(#es0, ErrorKind::ResponseSerFailed))?;
 
             ww_client_server::util::ser_value_event(scratch_event, #seq_path, output_bytes)
-                .map_err(|_| Error::response_ser_failed(#es1))
+                .map_err(|_| Error::new(#es1, ErrorKind::ResponseSerFailed))
         }
     } else {
         let es = fixed_err_seq("DEFERRED_EVENT_SER");
         quote! {
             let _ = scratch_args;
-            ww_client_server::util::ser_unit_return_event(scratch_event, #seq_path).map_err(|_| Error::response_ser_failed(#es))
+            ww_client_server::util::ser_unit_return_event(scratch_event, #seq_path).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))
         }
     }
+}
+
+/// [des_args] of a `no_alloc` server (SRV-51): the arguments struct decoded by the shared
+/// `ww_client_server::dispatch::des`, one copy per type.
+fn des_args_compact(
+    mod_ident: &Ident,
+    method_ident: &Ident,
+    args: &[ArgumentOwned],
+    es: TokenStream,
+) -> (TokenStream, TokenStream) {
+    if args.is_empty() {
+        return (quote! {}, quote! {});
+    }
+    let args_struct_ident = api_common::args_struct_ident(&method_ident.to_string(), true);
+    let args_des = quote! {
+        let Some(args) = ww_client_server::dispatch::des::<#mod_ident::#args_struct_ident>(args.as_slice()) else {
+            return ww_err(#es, ErrorKind::ArgsDesFailed);
+        };
+    };
+    let idents = args
+        .iter()
+        .map(|arg| Ident::new(&arg.ident, Span::call_site()));
+    (args_des, quote! { #(args.#idents),* })
 }
 
 fn des_args(
@@ -2753,7 +2995,7 @@ fn des_args(
             let args = args.as_slice();
             let mut rd = BufReader::new(args);
             // TODO: Log _e ?
-            let args = #mod_ident::#args_struct_ident::#des(&mut rd).map_err(|_e| Error::new(#es, ErrorKind::ArgsDesFailed))?;
+            let args = #mod_ident::#args_struct_ident::#des(&mut rd).map_err(|_| Error::new(#es, ErrorKind::ArgsDesFailed))?;
         };
         let idents = args
             .iter()
@@ -2906,14 +3148,14 @@ fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStrea
     if multi_req {
         quote! {
             if in_multi {
-                wr.write(& #ident).map_err(|_| Error::response_ser_failed(#es))?;
+                wr.write(& #ident).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             } else {
-                #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;
+                #ident.ser_shrink_wrap(wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
             }
         }
     } else {
         quote! {
-            #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;
+            #ident.ser_shrink_wrap(wr).map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
         }
     }
 }

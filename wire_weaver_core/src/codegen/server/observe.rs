@@ -1516,10 +1516,10 @@ impl Observe {
                     let refused_len = match table.apply(cfg, &DESC, &limits, others, &mut refused) {
                         Ok(len) => len,
                         Err(ww_stream::observe::ObserveError::Malformed(_)) => {
-                            return Err(Error::new(#es_malformed, ErrorKind::ArgsDesFailed));
+                            return Err(ww_error(#es_malformed, ErrorKind::ArgsDesFailed));
                         }
                         Err(ww_stream::observe::ObserveError::TooManyRefused) => {
-                            return Err(Error::new(#es_refused, ErrorKind::BadIndex));
+                            return Err(ww_error(#es_refused, ErrorKind::BadIndex));
                         }
                     };
                     let mut entries = [ObserveEntry { index: UNib32(0), mode: ObserveMode::Off }; #n];
@@ -1531,14 +1531,14 @@ impl Observe {
                     };
                     if granted.ser_shrink_wrap(wr).is_err() {
                         *table = before;
-                        return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));
+                        return Err(ww_error(#es_ser, ErrorKind::ResponseSerFailed));
                     }
                     #sync_gates
                 }
             }
         });
         let arrays = self.arrays.iter().map(|path| {
-            quote! { [#(UNib32(#path),)* ..] => { return Err(Error::new(#es_array, ErrorKind::OperationNotSupported)); } }
+            quote! { [#(UNib32(#path),)* ..] => { return Err(ww_error(#es_array, ErrorKind::OperationNotSupported)); } }
         });
         quote! {
             /// `RequestKind::Observe` on the trait level at `path` (SRV-18): validated and clamped by
@@ -1563,10 +1563,10 @@ impl Observe {
                     let refused_len = match ww_stream::observe::refuse_all(cfg, item_count, &mut refused) {
                         Ok(len) => len,
                         Err(ww_stream::observe::ObserveError::Malformed(_)) => {
-                            return Err(Error::new(#es_malformed, ErrorKind::ArgsDesFailed));
+                            return Err(ww_error(#es_malformed, ErrorKind::ArgsDesFailed));
                         }
                         Err(ww_stream::observe::ObserveError::TooManyRefused) => {
-                            return Err(Error::new(#es_refused, ErrorKind::BadIndex));
+                            return Err(ww_error(#es_refused, ErrorKind::BadIndex));
                         }
                     };
                     let granted = ObserveGranted {
@@ -1575,7 +1575,7 @@ impl Observe {
                         budget: UNib32(0),
                     };
                     if granted.ser_shrink_wrap(wr).is_err() {
-                        return Err(Error::new(#es_ser, ErrorKind::ResponseSerFailed));
+                        return Err(ww_error(#es_ser, ErrorKind::ResponseSerFailed));
                     }
                     event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, wr);
                     return Ok(());
@@ -1583,7 +1583,7 @@ impl Observe {
                 match path {
                     #(#arms)*
                     #(#arrays)*
-                    _ => return Err(Error::bad_path(#es_path)),
+                    _ => return Err(ww_error(#es_path, ErrorKind::BadPath)),
                 }
                 event_kind_builder.finish_with_kind(EventKindDiscriminants::Value, wr);
                 Ok(())

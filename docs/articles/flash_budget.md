@@ -101,3 +101,57 @@ Measured 3 Nov 2026 against the harness alone (commit `67c1dd91`, with the SW-70
 | `#[inline(never)]` vs before | +10 B | −1 B | +53 B | +45 B |
 
 The estimate (9 monomorphised copies on Donguru, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own `N` to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or `MergeFunctions` to fold. Forcing the check out of line with `#[inline(never)]` only adds the call's own overhead (argument setup, branch-and-link, the `?` on its `Result`) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at `fw-3`, where the optimizer would otherwise have inlined a function this small for free. Left as a plain `fn`, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain `fn`.
+
+## Dispatcher arms: only what differs (SRV-51)
+
+Every call, read and write arm of the generated dispatcher used to carry the whole reply inline: the event kind builder, a `map_err` per fallible step, the `seq != 0` check, the serializer call and the full `RpcResult` / `GetResult` / `SetResult` match. In a `no_alloc` server an arm now keeps only what differs per resource: it decodes the arguments or the value (`ww_client_server::dispatch::des`), calls the handler and hands its whole result to a shared reply path in `ww_client_server::dispatch`. The paths are `#[inline(never)]` and generic over the value and user error types, so a firmware has one copy per type, not one per resource, and every error site of a level goes through one cold constructor (`dispatch::err`). The reply bytes are the same (TEST-31), and so are the handler signatures.
+
+What each kind of resource generates:
+
+| resource, model                     | the arm                                                              | shared path                                  |
+|-------------------------------------|----------------------------------------------------------------------|----------------------------------------------|
+| method, `immediate` or `deferred`   | decode the arguments, call                                           | `reply_call`: the output, nothing for `Deferred` (answered later), or `Unimplemented` |
+| property, `get_set`, write          | decode the value, call the setter                                    | `reply_set` (`reply_set_unit_err` without a user error type) |
+| property, `get_set`, read           | call the getter                                                      | `reply_get` (`reply_get_unit_err`)           |
+| property, `value_on_changed`, write | decode, compare, store, mark observed, call `changed_..`             | `reply_ok`                                   |
+| property, `value_on_changed`, read  | nothing: the field is the answer                                     | `reply_value`                                |
+| `const`                             | the constant or its `fn`                                             | `reply_value`                                |
+| array of resources, no index        | `valid_indices_..`                                                   | `reply_value`                                |
+| plain stream, open                  | decode the arguments, call                                           | `reply_open_plain`                           |
+| counted or reliable stream, open    | decode, call, start the session                                      | `reply_opened`                               |
+| stream or sink sideband             | call the sideband handler                                            | `reply_sideband`                             |
+| sink write                          | decode, call                                                         | `reply_ok`                                   |
+
+A variant the handler's type allows but its model doesn't expect still has its old answer, in the shared path: an `immediate` method that returns `Deferred` sends nothing now, a stream function that defers is refused. A `no_alloc = false` server (a host) keeps the inline arms: its replies grow into a buffer of their own (CLT-55).
+
+Measured 3 Nov 2026, before (master c440491e plus the harness) and after, both built in the same worktree, bytes:
+
+| thumbv6m                           | z, sync before | after | z, async before | after | 3, sync before | after | 3, async before | after |
+|------------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| floor, one method                  | 14230 | 14502 | 15322 | 15730 | 20054 | 20434 | 21166 | 21758 |
+| 8 resources, two of each kind      | 18438 | 17686 | 19098 | 18758 | 23670 | 24054 | 24674 | 25198 |
+| call, no arguments or output       |    55 |    56 |    52 |    45 |   130 |    59 |    52 |    56 |
+| call, an argument and an output    |   242 |    22 |    21 |    26 |   124 |    16 |    23 |    23 |
+| property, read and write           |   173 |   110 |   157 |   110 |   226 |   136 |   172 |   116 |
+| stream                             |   484 |   154 |   196 |   168 |   362 |   166 |   202 |   192 |
+| call with types of its own         |   300 |    96 |    64 |    96 |   136 |    60 |    96 |    96 |
+| mean of the four shared-type kinds |   238 |    86 |   106 |    87 |   210 |    94 |   112 |    97 |
+
+The per-resource cells include the handlers' own bodies (a property's getter and setter are 48 B of the 110). The floor grows by the shared paths a one-method server now links (270-590 B), so a server with more than a few resources is smaller; at `fw-3` the 8-resource server is still 380-520 B larger, as each shared path inlines its serializers there. Every cell is steadier than before: the arms no longer decide whether LLVM inlines a level into its caller.
+
+The first step alone, the cold error constructor without the shared reply paths, was measured too and isn't worth it on its own: the 8-resource server lost 16-492 B, but the floor grew 220-460 B and the per-resource cells got worse (a stream 484 → 786 B at `z`, sync), as the arms still built their replies inline around the calls.
+
+Instructions per request, `just dispatch-budget` (Cortex-M3 under QEMU), warm run:
+
+| request                         | z, sync before | after | z, async before | after | 3, sync before | after | 3, async before | after |
+|---------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| call, no arguments or output    |  2488 |  2579 |  2641 |  2739 |  1375 |  1388 |  1552 |  1542 |
+| call, an argument and an output |  2723 |  3096 |  2869 |  3276 |  1647 |  1693 |  1806 |  2089 |
+| property read                   |  2466 |  2567 |  2619 |  2725 |  1373 |  1395 |  1534 |  1534 |
+| property write                  |  2596 |  2694 |  2748 |  2854 |  1458 |  1483 |  1636 |  1637 |
+| stream open                     |  3541 |  3627 |  3695 |  3788 |  1979 |  1990 |  2143 |  2130 |
+| stream close                    |  2260 |  2528 |  2405 |  2684 |  1375 |  1374 |  1538 |  1523 |
+| error: bad path                 |  2712 |  3077 |  2858 |  3259 |  1679 |  1765 |  1835 |  2162 |
+| error: kind not taken           |  2490 |  2858 |  2636 |  3037 |  1512 |  1598 |  1653 |  1978 |
+
+The replies are the same bytes. Nearly all of the increase is `compiler_builtins`' `memcpy`, a byte loop at `opt-level = "z"`: 262 → 597 instructions for the call with an argument. It copies each level's 16-20 B `Result<WrAction, Error>`, now built by an out-of-line path and moved up through the levels. SRV-52 writes errors in place and returns a small `WrAction`, which removes those copies.

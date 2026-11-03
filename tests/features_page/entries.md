@@ -164,6 +164,7 @@ allocator and does no IO itself, so it runs on any MCU and RTOS over the transpo
 - SRV-26 | I2C and SPI slave engine | Register map, answer queue, clock stretching and events of a slave, wired to your peripheral's interrupts. | api/bus_slave.md
 - SRV-27 | Streaming LZ4 | `ww_lz4` compresses a byte stream chunk by chunk on the device, with history across chunks: shell text 3-5x smaller in 512 B chunks, standard LZ4 blocks any LZ4 library decodes. |
 - SRV-54 | Observe costs nothing unused | A firmware that observes nothing links no observe code: on a Cortex-M0+ a one-method server went from 26 KB to 14.5 KB of flash. | articles/flash_budget.md#observe-left-out-srv-54
+- SRV-51 | Dispatcher arms share their replies | Each resource of a firmware's server costs only its decode and handler call, the replies are shared: on a Cortex-M0+ one more resource went from 238 B to 86 B of flash. | articles/flash_budget.md#dispatcher-arms-only-what-differs-srv-51
 - SRV-34 | Claims, pins and labels | Mark a bus or port `#[claim(..)]`, the pins it `#[shares]` and a `#[label]` a person recognises: in introspection for the hub, `ww` and GUIs, so one program can have a resource to itself through the hub while others keep reading. | api/metadata.md
 
 ## Nomicon

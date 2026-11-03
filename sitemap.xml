@@ -16,6 +16,9 @@
         <loc>https://ww.vhrd.tech/api/bus_slave/</loc>
       </url>
       <url>
+        <loc>https://ww.vhrd.tech/api/call_gate/</loc>
+      </url>
+      <url>
         <loc>https://ww.vhrd.tech/api/counted_streams/</loc>
       </url>
       <url>

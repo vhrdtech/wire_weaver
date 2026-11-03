@@ -1634,6 +1634,8 @@
       
         
       
+        
+      
     
     
     
@@ -1774,6 +1776,33 @@
     
   
   Optional items
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+                
+              
+                
+                  
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/call_gate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Call gate
 
     
   </span>
@@ -6614,6 +6643,19 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
   <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.
+- ✅ <strong>SRV-50 server-call-gate Call gate: refuse calls outside allowed traits</strong> · <code>v0.5</code> — <code>ww_codegen!(..,
+  call_gate = true)</code>: the generated dispatcher asks the server struct (<code>wire_weaver::gate::CallGate::admit</code>) for a
+  trait level before a request goes into it, with a <code>Target</code> naming its trait as a <code>TraitId</code> (a global trait matches
+  wherever it sits; the dotted path for a project's own traits) and the request's <code>Op</code>. The items of the root level
+  and of the levels named in <code>call_gate_items = "crate::Trait, path"</code> are asked one by one too (calls, property and
+  <code>const</code> reads and writes, stream and sink opens and traffic, sink writes, array indices, each index of a multi
+  request); an observe request asks its levels and, where items are asked, each observed property; introspection
+  never. A refusal is <code>ww_client_server::ErrorKind::Refused(reason)</code> (appended, an older host reads <code>Unknown(17)</code>)
+  at error site 10 (<code>GATE</code>, 60 <code>OBSERVE_GATE</code>), <code>wire_weaver_client::Error::Refused</code> on the host, <code>ww</code> points at
+  <code>ww info</code>. Nothing generated without it; with it 32-60 instructions per admitted request and 636 B of flash for
+  five traits (+276 B with their 21 items asked) on a Cortex-M3 at <code>z</code> (<code>examples_mcu/mcu_qemu</code> bin
+  <code>qemu-call-gate</code>). <code>ww api scaffold --call-gate [--call-gate-items]</code>. For guarded boards (STD-101, usb_io_fw
+  PLAT-18). <code>docs/api/call_gate.md</code>, tests <code>tests/call_gate</code>, conformance <code>client_server.error.refused</code>.
 - ✅ <strong>SRV-34 per-resource-claims Per-resource claims through the hub</strong> · <code>v0.5.x</code> — typed metadata attributes,
     carried in introspection as data (<code>ww_self::Meta</code> on <code>ApiItem</code> and <code>ApiLevel</code>), checked when the API is loaded:
     <code>#[claim(exclusive | shared | observe)]</code> on a <code>ww_impl!</code> or trait definition (the root is always claimable),
@@ -6654,17 +6696,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>WIRE_WEAVER_REEXPORTS</code> in the crate walker is partly there), and <code>wire_weaver_usb_embassy</code> building in the
   root workspace or merging into <code>ww_device</code>. Separately consider making <code>wire_weaver</code>'s <code>std</code> default off.</p>
 <ul>
-<li>
-<p>📋 <strong>SRV-50 Server call gate</strong> · <code>v0.5</code> — a <code>ww_codegen!</code> option that lets the server refuse a request before
-  its handler runs, decided by the firmware by global trait identity (resource path as fallback), with a refusal
-  error carrying the reason (<code>board guarded: unknown rework 9</code>) that clients and <code>ww</code> show. For the rework guard
-  (STD-101): identity, info, DFU and reading the record pass, everything else is refused. No code when off.</p>
-</li>
-<li>
-<p>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
+<li>📋 <strong>SRV-9 Handle USB suspend/resume</strong> · <code>v0.5</code> — run until suspend, wait for resume, loop
   (<code>mcu/wire_weaver_usb_embassy</code>). Later (<code>v0.5.x</code>): detect the host going to sleep and keep the connection,
-  informing the device.</p>
-</li>
+  informing the device.</li>
 <li>📋 <strong>SRV-10 Collect error codes into an ELF section</strong> for easier error decoding · <code>v0.5.x</code>.</li>
 <li>📋 <strong>SRV-11 Link statistics</strong> in <code>ww_device</code> (<code>TODO</code> in <code>link.rs</code>).</li>
 <li>📋 <strong>SRV-12 Host server runtime</strong> — <code>wire_weaver_server</code> (std, tokio), the counterpart of <code>wire_weaver_client</code>:

@@ -64,9 +64,12 @@ pub struct GenServerConfig {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
-    /// Ask the server struct through `wire_weaver::gate::CallGate` before every request's handler runs (SRV-50),
-    /// `call_gate = true`. Off: no code for it.
+    /// Ask the server struct through `wire_weaver::gate::CallGate` before a request goes into a trait level and
+    /// before the items of the root level (SRV-50), `call_gate = true`. Off: no code for it.
     pub call_gate: bool,
+    /// Levels whose items are asked one by one too, by trait (`ww_board_info::BoardInfo`) or by resource path
+    /// (`motor`): `call_gate_items = "ww_board_info::BoardInfo, motor"`.
+    pub call_gate_items: Vec<String>,
 }
 
 pub enum IntrospectMode {
@@ -115,9 +118,12 @@ pub struct GenServerConfigRaw {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
-    /// Ask the server struct through `wire_weaver::gate::CallGate` before every request's handler runs (SRV-50),
-    /// `call_gate = true`. Off: no code for it.
+    /// Ask the server struct through `wire_weaver::gate::CallGate` before a request goes into a trait level and
+    /// before the items of the root level (SRV-50), `call_gate = true`. Off: no code for it.
     pub call_gate: bool,
+    /// Levels whose items are asked one by one too, by trait (`ww_board_info::BoardInfo`) or by resource path
+    /// (`motor`): `call_gate_items = "ww_board_info::BoardInfo, motor"`.
+    pub call_gate_items: Vec<String>,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -139,6 +145,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_cells: config.observe_cells,
             crate_paths: config.crate_paths,
             call_gate: config.call_gate,
+            call_gate_items: config.call_gate_items,
         }
     }
 }
@@ -158,6 +165,9 @@ pub fn gen_server(
         Ok(omissions) => omissions,
         Err(e) => return quote! { compile_error!(#e); },
     };
+    if let Err(e) = check_gate_items(api_bundle, config.call_gate, &config.call_gate_items) {
+        return quote! { compile_error!(#e); };
+    }
     // owned argument structs of a `no_alloc = false` server are read with `des_shrink_wrap_owned` (API-21)
     let additional_use = if config.no_alloc {
         quote! { #[allow(unused_imports)] use wire_weaver::shrink_wrap::RefVecIter; }
@@ -211,6 +221,8 @@ pub fn gen_server(
         multi_req: config.multi_req,
         medium_ty: medium_ty.clone(),
         call_gate: config.call_gate,
+        call_gate_items: &config.call_gate_items,
+        gate_items: true,
     };
     let (introspect_enabled, include_docs) = match config.introspect_mode {
         IntrospectMode::Disabled => (false, false),
@@ -1141,8 +1153,12 @@ struct ApiServerCGContext<'i> {
     multi_req: bool,
     /// User medium type or `()`
     medium_ty: TokenStream,
-    /// Every item asks `wire_weaver::gate::CallGate::admit` first (SRV-50)
+    /// Trait levels ask `wire_weaver::gate::CallGate::admit` before a request goes into them (SRV-50)
     call_gate: bool,
+    /// `call_gate_items`: levels whose items ask one by one
+    call_gate_items: &'i [String],
+    /// The items of this level ask one by one: the root level, and the levels `call_gate_items` names
+    gate_items: bool,
 }
 
 impl<'i> ApiServerCGContext<'i> {
@@ -1299,6 +1315,7 @@ fn process_request_inner_recursive(
         let level = item.get_as_level(api_bundle).unwrap();
         let mut cx = cx.clone();
         cx.push_suffix(&item.ident);
+        cx.gate_items = gate_items_of(api_bundle, level, &cx.level_path, cx.call_gate_items);
         let mut index_chain = index_chain;
         if matches!(item.multiplicity, Multiplicity::Array { .. }) {
             index_chain.increment_length();
@@ -1462,11 +1479,15 @@ fn level_matcher(
     gate_trait: &TokenStream,
 ) -> TokenStream {
     let ident = Ident::new(&api_item.ident, Span::call_site());
-    // a trait item is no target of its own: the items of its level ask the gate
-    let gate = maybe_quote_cl(
-        !matches!(api_item.kind, ApiItemKindOwned::Trait { .. }),
-        || cx.gate(gate_trait, &api_item.ident),
-    );
+    // a trait item asks for its level before the request goes into it, the others for themselves where their level
+    // asks per item
+    let gate = match api_item.kind {
+        ApiItemKindOwned::Trait { .. } => {
+            let child = api_item.get_as_level(api_bundle).unwrap();
+            cx.gate_level(&gate_trait_id(api_bundle, child), &api_item.ident)
+        }
+        _ => cx.gate(gate_trait, &api_item.ident),
+    };
     let handler = match &api_item.kind {
         ApiItemKindOwned::Method {
             args, return_ty, ..
@@ -1542,6 +1563,70 @@ fn gate_trait_id(api_bundle: &CodegenBundle, level: &ApiLevelOwned) -> TokenStre
     quote! { wire_weaver::gate::TraitId { crate_id: #crate_id, name: #name } }
 }
 
+/// `crate::Trait` of a level, as `call_gate_items` names it.
+fn gate_trait_name(api_bundle: &CodegenBundle, level: &ApiLevelOwned) -> String {
+    let crate_id = &api_bundle
+        .crate_version(level.crate_idx.0)
+        .unwrap()
+        .crate_id;
+    format!("{crate_id}::{}", level.trait_name)
+}
+
+/// The items of `level` at `level_path` ask the call gate one by one: `call_gate_items` names its trait or its path.
+fn gate_items_of(
+    api_bundle: &CodegenBundle,
+    level: &ApiLevelOwned,
+    level_path: &[String],
+    items: &[String],
+) -> bool {
+    let name = gate_trait_name(api_bundle, level);
+    let path = level_path.join(".");
+    items.iter().any(|i| *i == name || *i == path)
+}
+
+/// `call_gate_items` without `call_gate`, or naming no level of the API, is an error.
+fn check_gate_items(
+    api_bundle: &CodegenBundle,
+    call_gate: bool,
+    items: &[String],
+) -> Result<(), String> {
+    if items.is_empty() {
+        return Ok(());
+    }
+    if !call_gate {
+        return Err("call_gate_items needs call_gate = true".into());
+    }
+    let mut known = vec![];
+    fn walk(
+        api_bundle: &CodegenBundle,
+        level: &ApiLevelOwned,
+        path: &mut Vec<String>,
+        known: &mut Vec<String>,
+    ) {
+        for item in &level.items {
+            if let ApiItemKindOwned::Trait { .. } = item.kind {
+                let child = item.get_as_level(api_bundle).unwrap();
+                path.push(item.ident.clone());
+                known.push(gate_trait_name(api_bundle, child));
+                known.push(path.join("."));
+                walk(api_bundle, child, path, known);
+                path.pop();
+            }
+        }
+    }
+    walk(api_bundle, &api_bundle.root, &mut vec![], &mut known);
+    let unknown: Vec<&String> = items.iter().filter(|i| !known.contains(i)).collect();
+    if unknown.is_empty() {
+        return Ok(());
+    }
+    known.sort();
+    known.dedup();
+    Err(format!(
+        "call_gate_items: {unknown:?} names no trait level of this API; levels: {}",
+        known.join(", ")
+    ))
+}
+
 /// The server's own helpers of the call gate (SRV-50): the [wire_weaver::gate::Op] of a request kind, and with
 /// observing, the gate of an observe request by the observed level's path.
 fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) -> TokenStream {
@@ -1555,19 +1640,34 @@ fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) ->
             &mut vec![],
             &mut levels,
         );
-        let arms = levels.iter().map(|(ids, names, level)| {
-            let trait_id = gate_trait_id(api_bundle, level);
-            let path = names.join(".");
+        let arms = levels.iter().map(|(ids, names, chain)| {
+            // the levels a request goes into on the way, as a call to one of its items asks; the root for itself
+            let targets: Vec<(usize, &ApiLevelOwned)> = if names.is_empty() {
+                vec![(0, chain[0])]
+            } else {
+                (1..chain.len()).map(|depth| (depth, chain[depth])).collect()
+            };
+            let asks = targets.into_iter().map(|(depth, level)| {
+                let trait_id = gate_trait_id(api_bundle, level);
+                let path = names[..depth].join(".");
+                quote! {
+                    wire_weaver::gate::CallGate::admit(
+                        self,
+                        &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: true },
+                        wire_weaver::gate::Op::Observe,
+                    )?;
+                }
+            });
             quote! {
-                [#(UNib32(#ids)),*] => wire_weaver::gate::CallGate::admit(
-                    self,
-                    &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: true },
-                    wire_weaver::gate::Op::Observe,
-                ),
+                [#(UNib32(#ids)),*] => {
+                    #(#asks)*
+                    Ok(())
+                }
             }
         });
         quote! {
-            /// The call gate of an observe request on the level at `path`; a path that is no level is answered by
+            /// The call gate of an observe request on the level at `path`: the trait levels on the way to it, as a
+            /// request to one of its items asks, or the root level itself; a path that is no level is answered by
             /// `observe_request`.
             fn ww_gate_observe(&self, path: &[UNib32]) -> Result<(), &str> {
                 match path {
@@ -1617,6 +1717,9 @@ fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) ->
     }
 }
 
+/// A level's id path and item names from the root, with the levels on the way (the root first, the level last).
+type GateLevel<'b> = (Vec<u32>, Vec<String>, Vec<&'b ApiLevelOwned>);
+
 /// Every trait level outside resource arrays and not left out, with its id path and item names from the root.
 fn gate_levels_recursive<'b>(
     api_bundle: &'b CodegenBundle,
@@ -1624,9 +1727,18 @@ fn gate_levels_recursive<'b>(
     omissions: &Omissions,
     ids: &mut Vec<u32>,
     names: &mut Vec<String>,
-    out: &mut Vec<(Vec<u32>, Vec<String>, &'b ApiLevelOwned)>,
+    out: &mut Vec<GateLevel<'b>>,
 ) {
-    out.push((ids.clone(), names.clone(), level));
+    let mut chain = match ids.split_last() {
+        Some((_, parent_ids)) => out
+            .iter()
+            .find(|(i, _, _)| i.as_slice() == parent_ids)
+            .map(|(_, _, parent)| parent.clone())
+            .unwrap_or_default(),
+        None => vec![],
+    };
+    chain.push(level);
+    out.push((ids.clone(), names.clone(), chain));
     let omitted = omissions.level(names);
     for item in &level.items {
         if !matches!(item.kind, ApiItemKindOwned::Trait { .. })
@@ -1651,16 +1763,28 @@ fn gate_levels_recursive<'b>(
 }
 
 impl ApiServerCGContext<'_> {
-    /// The call gate's check before item `item` of a level of `trait_id` (SRV-50), nothing without `call_gate`: a
-    /// refusal is answered with `ErrorKind::Refused`, the handler doesn't run.
+    /// The call gate's check before item `item` of a level of `trait_id` (SRV-50), on the root level and the levels
+    /// `call_gate_items` names, nothing elsewhere or without `call_gate`: a refusal is answered with
+    /// `ErrorKind::Refused`, the handler doesn't run.
     fn gate(&self, trait_id: &TokenStream, item: &str) -> TokenStream {
+        if !self.call_gate || !self.gate_items {
+            return quote! {};
+        }
+        self.gate_check(trait_id, &dotted(&self.level_path, item), false)
+    }
+
+    /// The call gate's check before a request goes into the trait level `item` of trait `trait_id` (SRV-50).
+    fn gate_level(&self, trait_id: &TokenStream, item: &str) -> TokenStream {
         if !self.call_gate {
             return quote! {};
         }
-        let path = dotted(&self.level_path, item);
+        self.gate_check(trait_id, &dotted(&self.level_path, item), true)
+    }
+
+    fn gate_check(&self, trait_id: &TokenStream, path: &str, level: bool) -> TokenStream {
         quote! {
             if self.ww_gate_refused(
-                &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: false },
+                &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: #level },
                 &request.kind,
                 wr,
             )? {

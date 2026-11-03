@@ -149,6 +149,13 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                     .collect(),
                 crate_paths: crate_paths.clone(),
                 call_gate: args.ext.call_gate,
+                call_gate_items: args
+                    .ext
+                    .call_gate_items
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
             },
         );
         codegen_ts.append_all(ts);

@@ -42,6 +42,8 @@ pub struct ServerScaffoldConfig {
     pub observe_cells: Vec<String>,
     /// `ww_codegen!(.., call_gate = true)` (SRV-50), with an `impl wire_weaver::gate::CallGate` that admits all.
     pub call_gate: bool,
+    /// `ww_codegen!(.., call_gate_items = "..")`: levels whose items ask the gate one by one.
+    pub call_gate_items: Vec<String>,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -231,10 +233,13 @@ pub fn gen_server_scaffold(
             name = level.to_uppercase()
         )?;
     }
-    let call_gate = if config.call_gate {
-        "call_gate = true,\n"
-    } else {
-        ""
+    let call_gate = match (config.call_gate, config.call_gate_items.is_empty()) {
+        (false, _) => String::new(),
+        (true, true) => "call_gate = true,\n".to_string(),
+        (true, false) => format!(
+            "call_gate = true,\ncall_gate_items = {:?},\n",
+            config.call_gate_items.join(", ")
+        ),
     };
     let trait_name = &root.trait_name;
     let mut out = String::new();
@@ -895,6 +900,7 @@ mod tests {
             omit: vec![],
             observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
             call_gate: false,
+            call_gate_items: vec![],
         }
     }
 
@@ -985,6 +991,7 @@ mod tests {
         let bundle = crate::load(&crate_path, Some("CallGateTest".into()), false).unwrap();
         let gated = ServerScaffoldConfig {
             call_gate: true,
+            call_gate_items: vec!["call_gate_api::Motor".into()],
             ..config(&[])
         };
         let code = gen_server_scaffold(&bundle, &gated).unwrap();
@@ -992,6 +999,7 @@ mod tests {
             "impl wire_weaver::gate::CallGate for Server {",
             "-> Result<(), &str> {\nOk(())",
             "call_gate = true,",
+            "call_gate_items = \"call_gate_api::Motor\",",
         ] {
             assert!(code.contains(expected), "{expected}\n{code}");
         }

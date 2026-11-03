@@ -58,10 +58,14 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) multi_req: bool,
 
-    /// The dispatcher asks the server struct through `wire_weaver::gate::CallGate` before every request's handler
-    /// runs (SRV-50).
+    /// The dispatcher asks the server struct through `wire_weaver::gate::CallGate` before a request goes into a trait
+    /// level, and before the items of the root level (SRV-50).
     #[darling(default)]
     pub(crate) call_gate: bool,
+
+    /// Levels whose items ask the call gate one by one too, by trait or path: `"ww_board_info::BoardInfo, motor"`.
+    #[darling(default)]
+    pub(crate) call_gate_items: String,
 
     #[darling(default)]
     pub(crate) medium: String,

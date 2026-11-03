@@ -1105,13 +1105,25 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   writer's state before the reply, the event builder) is passed down instead, and an error is written where it
   happens by one cold function that rewinds the writer: levels return a small `WrAction`. Same reply bytes
   (TEST-31). Est. 2-3 KB.
-- 📋 **SRV-53 Global trait paths from a table** · `v0.5` — flash diet: `ww_global_trait_path` matches the crate and
-  trait names of every trait in the API as strings, with a version guard per arm (862 B of code and 240 B of names
-  in Donguru). It becomes a const table (crate, trait, version rule, path) walked by one shared function in
-  `wire_weaver`, est. 500-700 B. Compact ids only (306 B, saves ~800 B with the names) is an opt-in
-  `ww_codegen!(.., global_paths = "compact")`, documented with what it costs: the client asks again with
-  `GlobalFull` on `TraitNotFound` (API-20), and a project's own traits have no `ww_global` id, so they are reachable
-  by absolute path only.
+- 📋 **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matches
+  the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
+  240 B of names in Donguru). The person's decision (3 Nov 2026):
+    1. Without introspection, a device finds a `GlobalFull` trait by a 32-bit hash (FNV-1a) of crate id and trait
+       name, computed from the request, in a const table of (hash, version rule, absolute path): no names in flash.
+       A hash collision within one API is a build-time error in codegen. `GlobalCompact` stays as it is; compact
+       ids only is an opt-in `ww_codegen!(.., global_paths = "compact")` on top.
+    2. With introspection (`introspect` on, with or without docs) the device has no global lookup at all: the table
+       and both lookup functions are left out and only absolute paths are served, a global path gets
+       `TraitNotFound`. The client resolves a global path to an absolute one from the introspection data (crate,
+       `FullVersion::is_protocol_compatible`, first match depth first, so traits under resource arrays become
+       reachable too), caches it per API, and on `TraitNotFound` for a global path fetches introspection and asks
+       again with the absolute path. Generic tools (`ww dfu flash`, device info, the hub's envelope) keep working
+       through the client library unchanged, tested end to end. Why: the bytes go to introspection itself, docs
+       included, which is far more useful to users than a second way to address traits, and they make "introspect
+       with docs" affordable on tight MCUs.
+    3. The hash path stays because it is for more than `ww_client_server` (point to point): a future mesh broadcast
+       or multicast can't resolve per device and will address traits by these hashes.
+  Measured with TEST-30 and on Donguru (introspection on).
 - 📋 **SRV-54 Observe behind a feature** · `v0.5` — flash diet: every server links the observe code even when it
   observes nothing, mostly the `Series<Second>` codec of `EventKind::PropertyUpdate::sample_times` (ser 1,942 B in
   Donguru, with `PackedWriter`, `FieldItems` and `Prefix`; 678 B of exact_units in the 2-method nucleo blinky)

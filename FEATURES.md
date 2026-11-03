@@ -1140,7 +1140,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   keep the inline arms. TEST-30 on a Cortex-M0+, one more resource, mean of the four kinds with shared types: 238 →
   86 B at `fw-z` sync, 106 → 87 B async, 210 → 94 B at `fw-3`; a call with types of its own 300 → 96 B at `fw-z`.
   The floor grows 270-590 B (the shared paths). Instructions per request (`just dispatch-budget`) rose 2-15 % at
-  `z` from `memcpy` of the levels' `Result`, which SRV-52 removes. Donguru not measured again: its HEAD (b946730)
+  `z` from `memcpy` of the levels' `Result`, which SRV-52 removes. A property whose types differ per resource only
+  in a const parameter (`MaxLen<&str, N>`) got dearer, one helper copy per type: SRV-55. Donguru not measured again: its HEAD (b946730)
   doesn't build against master (exact_units and STD-101 drift); from TEST-30's per-resource savings, roughly 6-9 KB
   of its 43 resources at `z`, 5 KB at 3. See `docs/articles/flash_budget.md#dispatcher-arms-only-what-differs-srv-51`.
 - ✅ **SRV-52 Dispatcher errors written in place** · `v0.5` — flash diet, after SRV-51: every level returned
@@ -1154,6 +1155,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   24054 → 23694 B and 25198 → 24598 B at `fw-3`; instructions per request at `z` 6-8 % below the baseline before
   SRV-51 (error paths +0.5 %), within 3 % at `fw-3`; the `use_async` request future 512 → 528 B. See
   `docs/articles/flash_budget.md#errors-written-in-place-srv-52`.
+- 📋 **SRV-55 Type-erased reply paths** · `v0.5` — after SRV-51/52, the shared reply paths
+  (`ww_client_server::dispatch::reply_value`, `reply_get*`, `reply_call`) and `des` are generic over the value
+  type, so each distinct type gets its own copy: a `MaxLen<&str, N>` property with a different `N` each costs
+  309 B at `fw-z` sync instead of 236 B before SRV-51, 526 B instead of 324 B at `fw-3` (TEST-30's SW-72 kind;
+  `des` alone is 180 B per type at `fw-3`, where it inlines the `&str` decoder). Make the value paths take
+  `&dyn` serializers (one vtable and thunk per type, the path compiled once per server mode), with a mode type on
+  `Dispatch` so a server without `multi_req` links no element writer. Done when that kind is at or below its
+  pre-SRV-51 cost and the shared-type and typed-call cells stay where SRV-52 left them.
 - 📋 **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matches
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026):

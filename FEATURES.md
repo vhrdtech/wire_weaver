@@ -1171,6 +1171,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at `fw-3` sync. Instructions per
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   `docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55`.
+- 📋 **SRV-56 No observe encoder without a row producer** — a firmware with a `+batched` property links the whole
+  batch encoder even when it never produces a row. Measured on Donguru (typec_dongle 61bca76, wire_weaver 753d5f7,
+  release at `z`, text+data): 289,580 B with `meter-samples` off, 293,780 B with it on.
+  - **Cost with no producer.** With `meter-samples` off the firmware calls no sampler and has no cells, so from the
+    code no row can reach the encoder. Dropping `+batched` from `meter.reading` as an experiment gave 266,268 B:
+    -23,312 B text+data, -3,392 B RAM, no `series::` symbol left. That experiment changes the slot's wire type, so
+    the real switch has to keep `Batched::One` and will save somewhat less.
+  - **One caller, not two encoders.** The flash map of Donguru lists `Scratch::encode_column::<MeterReading>` (5.5 KiB)
+    and `PowerMeterRow::encode_column` (2.9 KiB) as two encoders. The second is the generated `LevelRow` match: it has
+    the time column inlined and is the only caller of the first (one `bl` in the disassembly). `MeterReading` has no
+    batched stream in Donguru, so there is one consumer and no second pass to share.
+  - **Where the flash goes.** Each column type carries the column writer and the item-by-item fallback for rows whose
+    tags change, each as a write copy and a count copy. Stubbing the fallback out as an experiment saved 12,332 B with
+    `meter-samples` off and 11,732 B with it on. Without a fallback, rows with changing tags can't be encoded.
+  - **Idea: codegen switches.** `observe_samples = false` would keep the slot's `Batched` wire shape, take no
+    `Samples` mode and generate no batcher, outbox or encoder. `observe_rows = "uniform"` would write columns only: a
+    batch with a tag change would go and count as missed, as a value that doesn't serialize does today. Not built, and
+    the Series encoders stay as they are for now.
+  - **Not measured.** Instructions per row, and any run on a board. Today's answer to a `Samples` request on a build
+    with no producer was read from the code only: it looks accepted, with no rows ever sent.
 - ✅ **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026), as built:

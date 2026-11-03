@@ -1191,9 +1191,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
        or multicast can't resolve per device and will address traits by these hashes.
   TEST-30 (`Globals*` kind) on a Cortex-M0+: servers with introspection 120-156 B smaller at the floor; without,
   one more global-path trait 120 → 80 B at `fw-z` sync, 131 → 114 B at `fw-3`, no names in flash. Same reply bytes
-  (TEST-31, golden servers on `global_paths = "full"`, a case for an incompatible version). Not measured: the
-  instructions of a `GlobalFull` request (no QEMU on the PC), Donguru (its HEAD doesn't build against master, see
-  SRV-51). Found on the way: an async server without introspection and only sync handlers didn't compile. Idea for
+  (TEST-31, golden servers on `global_paths = "full"`, a case for an incompatible version). Real firmware against
+  master 512f59e (release `z`, text + data): Donguru 314,892 → 312,476 B (−2,416), donguru_template 132,148 →
+  130,280 B (−1,868). Not measured: the instructions of a `GlobalFull` request (no QEMU on the PC). Found on the way: an async server without introspection and only sync handlers didn't compile. Idea for
   later, not this piece: for mesh broadcast or multicast the client could send the hash itself (a new `PathKind`
   variant), so the device hashes nothing and requests shrink; that is a wire change (`PathKind` is
   `final_structure`) and needs its own EVO item when mesh comes. See

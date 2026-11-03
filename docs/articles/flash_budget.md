@@ -236,3 +236,12 @@ Measured 3 Nov 2026 against SRV-52 (master `f5f88ea4` plus the `Globals*` kind),
 | mean of the four shared-type kinds                |    86 |    89 |    88 |    88 |   104 |   104 |    96 |   100 |
 
 The servers with introspection are 120-156 B smaller at the floor, 244-388 B with the eight resources, whose lookup had two traits (the root and `Base`) instead of one. Without introspection one more trait costs 80 B instead of 120 B at `z` sync, and no crate or trait name is in flash (`GlobalTrait15` and `flash_budget_api` were before). The means moved by 0-4 B, within the per-kind noise the baseline describes. Instructions per `GlobalFull` request were not measured again (no QEMU on the PC that ran this); the hash is one multiply per byte of the names, where the string match compared them with every trait's.
+
+Real firmware, release (`z`), introspection as each ships (on, so no global lookup), text + data in bytes, both builds in the same paths, master `512f59e` (SRV-55) against this change:
+
+| firmware                                     | 512f59e (SRV-55) | SRV-53 |   change |
+|----------------------------------------------|-----------------:|-------:|---------:|
+| Donguru, typec_dongle 9427643                 |          314,892 | 312,476 |  -2,416 |
+| donguru_template 856c389                      |          132,148 | 130,280 |  -1,868 |
+
+Both lose more than the 1,102 B the lookup had in Donguru on SRV-52; where the rest comes from was not broken down by symbol.

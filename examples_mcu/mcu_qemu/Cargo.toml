@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
+# `f32` is on by default (bins use float quantities); the no-float group of the no-f64 guard (TEST-33) builds with
+# `--no-default-features`, as a firmware that doesn't opt into floats does
+default = ["f32"]
+f32 = ["ww_si/f32"]
 # the units budget (TEST-27) with only the plain cases / only the Fixed cases, to compare the flash of the two
 only-plain = []
 only-fixed = []
@@ -30,7 +34,7 @@ ww_bus_slave = { path = "../../ww_bus_slave" }
 ww_i2c = { path = "../../ww_stdlib/ww_i2c", default-features = false }
 ww_spi = { path = "../../ww_stdlib/ww_spi", default-features = false }
 ww_gpio = { path = "../../ww_stdlib/ww_gpio", default-features = false }
-ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "f32", "time", "i32", "u32"] }
+ww_si = { path = "../../ww_stdlib/ww_si", default-features = false, features = ["electrical", "angle", "dimensionless", "time", "i32", "u32"] }
 all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false }
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }

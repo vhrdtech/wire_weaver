@@ -1,8 +1,8 @@
-//! Fixture firmware for the no-f64 guard (TEST-33): every device-relevant `ww_si::Quantity` operation of today's
+//! Fixture firmware for the no-float guard (TEST-33): every device-relevant `ww_si::Quantity` operation of today's
 //! API (`to_u32_in`, `to_u32_wrapping_in`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`; STD-102
 //! moves this onto `to_in`), so the host tool (`examples_mcu/fw_budget --flash`, `src/no_f64_guard.rs`) can list
 //! what f64 soft-float and 128-bit helper symbols these ops link into the ELF, at a run-time prefix and with the
-//! number features firmware actually enables (`guard-u64` adds `ww_si/u64`, as usb_io_fw's 64-bit `Integer` does).
+//! number features firmware actually enables (`guard-u64` adds `ww_si/u64`, as usb_io_fw's 64-bit `Integer` does; `--no-default-features` drops `f32`).
 //! Never run under QEMU: only its ELF is read.
 #![no_main]
 #![no_std]

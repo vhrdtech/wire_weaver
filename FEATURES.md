@@ -2650,18 +2650,27 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `debug_to_file` dump), the resource arms naming the type. On the nucleo_g0b1re `usb_blinky` at `opt-level = "z"` it
   gives the experiment's numbers (core 17,782 B, shrink_wrap 11,656, 16,100 under the dispatcher). The ELF needs
   debug info. For when TEST-30's totals move and the reason isn't obvious.
-- ✅ **TEST-33 No-f64 firmware guard** · `v0.5` — `just flash-budget` (`examples_mcu/fw_budget --flash`,
+- ✅ **TEST-33 No-float firmware guard** · `v0.5` — `just flash-budget` (`examples_mcu/fw_budget --flash`,
   `examples_mcu/fw_budget/src/no_f64_guard.rs`) builds a fixture (`examples_mcu/mcu_qemu/src/bin/no_f64_guard.rs`,
   `qemu-no-f64-guard`) that calls every device-relevant `ww_si::Quantity` operation of today's API (`to_u32_in`,
   `to_u32_wrapping_in`, `PartialOrd`, a bounded decode, `to_fixed`, `Timed`, `steps`; STD-102 moves it onto `to_in`),
-  on `thumbv6m-none-eabi` and `thumbv7em-none-eabihf`, at `fw-z` and `fw-3`, with `u32 + f32` and `u32 + u64 + f32`
-  (`--features guard-u64`, as usb_io_fw's 64-bit `Integer` has), and lists the f64 soft-float and 128-bit helper
-  symbols linked into each ELF with their bytes.
-  Baseline of 3 Nov 2026 (expected red, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3):
-  on `thumbv6m-none-eabi`, 16 f64 symbols (3730 B) and 2 128-bit symbols (584 B) at `u32 + f32`, 17 symbols
-  (3834 B) and 2 (584 B) at `u32 + u64 + f32`, the same at `fw-z` and `fw-3`; on `thumbv7em-none-eabihf`, 3616 B
-  and 520 B at `u32 + f32`, 3752 B and 520 B at `u32 + u64 + f32`. Only reports for now: the gate (the build
-  failing when a new symbol links) turns on once STD-102 moves `ww_si` onto exact_units' integer kernel.
+  on `thumbv6m-none-eabi` and `thumbv7em-none-eabihf`, at `fw-z` and `fw-3`, in two groups (D2: no floats on a device
+  unless a type is a float or a feature turns them on). No floats (`u32`, `u32+u64`, `--no-default-features`): any f32
+  or f64 helper fails, and on `thumbv7em-none-eabihf`, which has an FPU and so no helpers, any VFP `.f32`/`.f64`
+  instruction in the `llvm-objdump` disassembly. Opted in (`u32+f32`, `u32+u64+f32`, `--features guard-u64` for the
+  64-bit `Integer` of usb_io_fw): f32 is allowed, f64 fails. Both fail on 128-bit helpers and on the slow paths
+  found by their own names (`to_ratio`, `compare_slow`, `cmp_limit_slow`, `rescale_slow`, `apply_truncating`,
+  `apply_f64`, `round_f64`, `pow_half`, `sqrt_f64`, `int_sqrt`), which catch math that left no helper symbol; a path
+  inlined into its caller, with no symbol, stays unseen. It prints symbols and bytes per build and bytes per crate.
+  Baseline of 3 Nov 2026 (red everywhere, `~/git/tpm/prj/P2401-wireweaver/design/ww-si-exact-units.md` section 3):
+  - No floats, `thumbv6m-none-eabi`, `u32`: 14-15 f64 symbols (3.5-3.6 KB), 0 f32, 2 128-bit symbols (584 B), 5-7
+    slow-path symbols (9.7-10.0 KB); `u32+u64` one f64 symbol more.
+  - No floats, `thumbv7em-none-eabihf`, `u32`: 14-15 f64 symbols (3.4-3.5 KB), 2 128-bit (520 B), 5-7 slow paths
+    (8.1 KB), 20-22 VFP instructions.
+  - Opted in: 16-17 f64 symbols (3.6-3.8 KB), 13 f32 helpers (2.0 KB) on thumbv6m, 2 128-bit symbols, 5-6 slow paths.
+  - By crate (`fw-z`, `u32`, thumbv6m): compiler_builtins 4.2 KB, exact_units 5.0 KB, ww_si 5.0 KB.
+  Only reports for now; `--guard-strict` makes a forbidden symbol fail the run, and STD-102 turns that on in the gate
+  once `ww_si` sits on exact_units' integer kernel.
 - **SRV-50 Server call gate** — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
   doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
   `ww_codegen!(.., call_gate = true)`, a `CallGate::admit` question per trait level (and per item where named) before

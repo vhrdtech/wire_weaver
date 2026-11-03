@@ -6,6 +6,7 @@
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N]   # bytes by inlined frame, see attribute.rs
+//! cargo run --release -- --flash --guard-strict      # the no-f64 guard (TEST-33) fails on a forbidden symbol
 //! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
 //!     --profiles fw-z,fw-3 and --modes sync,use_async limit --flash and --requests to some of their builds
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
@@ -55,6 +56,8 @@ struct Args {
     flash: bool,
     /// Instructions per request of a server (TEST-30, `requests.rs`) instead of the units budget.
     requests: bool,
+    /// `--flash`: the no-f64 guard (TEST-33) fails the run when a build links what its group forbids.
+    guard_strict: bool,
     targets: Vec<String>,
     /// Attribute the bytes of this ELF to inlined frames (TEST-32) instead of running anything.
     attribute: Option<PathBuf>,
@@ -74,6 +77,7 @@ fn parse_args() -> Res<Args> {
         elf: false,
         flash: false,
         requests: false,
+        guard_strict: false,
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
         attribute: None,
         generated: None,
@@ -98,6 +102,7 @@ fn parse_args() -> Res<Args> {
             "--gen" => args.generated = Some(value("--gen")?.into()),
             "--top" => args.top = value("--top")?.parse()?,
             "--requests" => args.requests = true,
+            "--guard-strict" => args.guard_strict = true,
             "--profiles" => {
                 args.profiles = value("--profiles")?
                     .split(',')
@@ -185,22 +190,26 @@ pub fn flash_of_symbol(elf: &Path, name: &str) -> Option<u64> {
         .map(|s| s.size())
 }
 
-/// Count and bytes of the symbols of `elf` whose demangled name contains one of `names` (used by `flash.rs`'s
-/// checks and the no-f64 guard, TEST-33).
-pub(crate) fn symbols(elf: &Path, names: &[&str]) -> Res<(usize, u64)> {
+/// The symbols of `elf` whose demangled name contains one of `names`, as `(name, bytes)`.
+pub(crate) fn matching_symbols(elf: &Path, names: &[&str]) -> Res<Vec<(String, u64)>> {
     let data = std::fs::read(elf)?;
     let file = object::File::parse(&*data)?;
-    let mut count = 0;
-    let mut bytes = 0;
+    let mut found = Vec::new();
     for s in file.symbols() {
         let Ok(name) = s.name() else { continue };
         let name = format!("{:#}", rustc_demangle::demangle(name));
         if names.iter().any(|n| name.contains(n)) {
-            count += 1;
-            bytes += s.size();
+            found.push((name, s.size()));
         }
     }
-    Ok((count, bytes))
+    Ok(found)
+}
+
+/// Count and bytes of the symbols of `elf` whose demangled name contains one of `names` (used by `flash.rs`'s
+/// checks).
+pub(crate) fn symbols(elf: &Path, names: &[&str]) -> Res<(usize, u64)> {
+    let found = matching_symbols(elf, names)?;
+    Ok((found.len(), found.iter().map(|(_, b)| b).sum()))
 }
 
 /// Builds the bench for every core and profile and compares the plain and Fixed code of each pair (a differing pair is the
@@ -237,7 +246,7 @@ fn run(args: &Args) -> Res<()> {
     }
     if args.flash {
         flash::run(&args.targets, &args.filter(), &qemu_dir)?;
-        return no_f64_guard::run(&qemu_dir);
+        return no_f64_guard::run(&qemu_dir, args.guard_strict);
     }
     if args.requests {
         return requests::run(&root, &args.filter(), &qemu_dir, args.qemu_host.as_deref());

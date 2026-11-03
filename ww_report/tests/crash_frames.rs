@@ -118,6 +118,24 @@ fn unwrap_panic_names_its_line() {
     );
 }
 
+/// A stale return address between the machinery's words (left in the panic handler's uninitialised frames) is
+/// code too, but not the panic site: the site is the caller of the outermost machinery entry.
+#[test]
+fn stale_word_in_the_machinery_is_not_the_site() {
+    let frames = panic(&[
+        0x0800_0099, // panic -> panic_fmt
+        0x0800_0051, // stale: Reset -> scaled, code from long ago
+        0x0800_00a9, // unwrap_failed -> panic
+        0x0800_007b, // ratio -> unwrap_failed
+        0x0800_0027, // Reset -> ratio
+    ]);
+    assert_eq!(
+        site(&frames),
+        ("crash_fw::ratio".into(), "src/main.rs".into(), 12)
+    );
+    assert_eq!(frames.panic_site, Some((3, 1)));
+}
+
 /// `panic!` in `check_gain`, inlined into `scaled`: two frames at one address, the inlined one is the site.
 #[test]
 fn inlined_panic() {

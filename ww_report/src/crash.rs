@@ -321,7 +321,19 @@ impl Symbolizer {
                 None => dropped.push(word),
             }
         }
-        let panic_site = sites.iter().enumerate().find_map(|(si, s)| {
+        // The firmware scans from the panic handler's own frames, so stale return addresses can sit between
+        // the machinery's words: the site is the first code past the last site that only holds an entry into
+        // the machinery (`core::panicking::panic`, `unwrap_failed`), not past the first one.
+        let start = sites
+            .iter()
+            .rposition(|s| {
+                s.frames
+                    .iter()
+                    .all(|f| f.kind == FrameKind::Panic && is_panic_entry(f.function.as_deref()))
+                    && !s.frames.is_empty()
+            })
+            .unwrap_or(0);
+        let panic_site = sites.iter().enumerate().skip(start).find_map(|(si, s)| {
             s.frames
                 .iter()
                 .position(|f| f.kind == FrameKind::Code && f.function.is_some())
@@ -493,6 +505,23 @@ fn unwrap_plain_paths(name: &str) -> String {
         out = format!("{}{}{}", &out[..start], inner, &out[end + 1..]);
     }
     out
+}
+
+/// Where user code enters the panic machinery, as opposed to the handler's own frames (`bedrock_crash`, `core::fmt`).
+fn is_panic_entry(function: Option<&str>) -> bool {
+    let Some(f) = function else { return false };
+    let f = f.trim_start_matches('<');
+    const ENTRY: &[&str] = &[
+        "core::panicking::",
+        "core::option::unwrap_failed",
+        "core::option::expect_failed",
+        "core::result::unwrap_failed",
+        "core::cell::panic_already",
+        "core::str::slice_error_fail",
+        "_defmt_panic",
+        "defmt::export::panic",
+    ];
+    ENTRY.iter().any(|p| f.starts_with(p))
 }
 
 /// Panic machinery: what runs between the panic site and the panic handler.

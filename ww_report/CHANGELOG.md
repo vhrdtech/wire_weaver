@@ -37,4 +37,5 @@
 
 ### 🐛 Fixes
 
+- `crash` (CLT-59): the "<- panic site" marker no longer lands on a stale return address left among the machinery's words by the panic handler's own frames; the site is the first code past the last `core::panicking` / `unwrap_failed` entry, the caller of the panic machinery (`CrashFrames::panic_site`).
 - Drop the unused `serde_json` dependency (P2401, cargo-machete).

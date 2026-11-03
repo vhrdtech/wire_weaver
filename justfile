@@ -273,6 +273,12 @@ units-budget *args:
 units-elf *args:
     cargo run -q --release -- --elf {{ args }}
 
+# Flash budget of a server (TEST-30): the floor and bytes per resource of each kind on Cortex-M0+ at `fw-z` and `fw-3`,
+# sync and `use_async`, plus checks for code a firmware shouldn't carry; `--targets T1,T2` for other cores
+[working-directory('examples_mcu/fw_budget')]
+flash-budget *args:
+    cargo run -q --release -- --flash {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

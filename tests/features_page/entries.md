@@ -431,6 +431,7 @@ How WireWeaver is kept working: every change runs through CI, against the real c
 - TEST-17 | Code size bench | Firmware images per case for RISC-V and Cortex-M, measured on every change. | serdes/code_size.md
 - TEST-10 | Binary size tracking | Flash and RAM per feature in CI. |
 - TEST-27 | Units on a microcontroller | What typed units (`Fixed`) cost in instructions, flash and stack against plain integer fields, from a harness anyone can re-run. | articles/units_budget.md
+- TEST-30 | Flash of a server | What a server costs in flash on a Cortex-M0+: the floor and the bytes of each more resource by kind, from a harness anyone can re-run. | articles/flash_budget.md
 - TEST-21 | Power cuts on STM32 | A flash store reset thousands of times mid-write on real hardware. | api/ecc_flash.md
 
 # Omitted

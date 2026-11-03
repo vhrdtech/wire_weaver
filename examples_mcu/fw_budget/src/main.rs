@@ -4,6 +4,7 @@
 //!
 //! ```text
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
+//! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -15,13 +16,14 @@
 //! `--cycles` flashes the board behind the probe (`PROBE_RS_PROBE=VID:PID` picks one), replacing its firmware.
 
 mod elf_diff;
+mod flash;
 
 use object::{Object, ObjectSection, ObjectSymbol};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
-type Res<T> = Result<T, Box<dyn std::error::Error>>;
+pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
 const QEMU_BIN: &str = "qemu-unit-budget";
 const CYCLES_BIN: &str = "stm32h725ig-unit-budget-cycles";
@@ -43,6 +45,8 @@ struct Args {
     chip: String,
     /// Compare the plain and Fixed code in the ELFs of these targets and both profiles instead of running anything.
     elf: bool,
+    /// The flash budget of a server (TEST-30, `flash.rs`) instead of the units budget.
+    flash: bool,
     targets: Vec<String>,
 }
 
@@ -53,6 +57,7 @@ fn parse_args() -> Res<Args> {
         cycles: false,
         chip: "STM32H725IGKx".into(),
         elf: false,
+        flash: false,
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
     };
     let mut it = std::env::args().skip(1);
@@ -64,6 +69,10 @@ fn parse_args() -> Res<Args> {
             "--chip" => args.chip = value("--chip")?,
             "--cycles" => args.cycles = true,
             "--elf" => args.elf = true,
+            "--flash" => {
+                args.flash = true;
+                args.targets = vec!["thumbv6m-none-eabi".into()];
+            }
             "--targets" => {
                 args.targets = value("--targets")?.split(',').map(str::to_string).collect()
             }
@@ -84,7 +93,7 @@ fn main() -> ExitCode {
 }
 
 /// `cargo` in `dir` with that project's own `rust-toolchain.toml` (the one this tool runs with is not passed down).
-fn cargo(dir: &Path) -> Command {
+pub fn cargo(dir: &Path) -> Command {
     let mut cmd = Command::new("cargo");
     cmd.current_dir(dir).env_remove("RUSTUP_TOOLCHAIN");
     cmd
@@ -139,6 +148,9 @@ fn run(args: &Args) -> Res<()> {
     let qemu_dir = root.join("mcu_qemu");
     if args.elf {
         return run_elf(args, &qemu_dir);
+    }
+    if args.flash {
+        return flash::run(&args.targets, &qemu_dir);
     }
     eprintln!("building {QEMU_BIN} at profile {}", args.profile);
     let elf = qemu_dir
@@ -201,7 +213,7 @@ fn build_qemu_bin(dir: &Path, profile: &str, features: &str, target: &str) -> Re
 }
 
 /// Bytes of the ELF that sit in flash: every allocated section that has contents (not `.bss`).
-fn flash_size(elf: &Path) -> Res<u64> {
+pub fn flash_size(elf: &Path) -> Res<u64> {
     let data = std::fs::read(elf)?;
     let file = object::File::parse(&*data)?;
     Ok(file

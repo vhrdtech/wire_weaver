@@ -2500,16 +2500,14 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
     and committed sequence numbers and the ECC count over SWD (Donguru CMSIS-DAP, session ended before each cut so
     SBU/CC don't back-feed the board) and checks every boot loads at least what was committed before the cut.
 - 💡 **TEST-16 Host queue on a slow VM** — does it lead to fewer or no missed packets?
-- 📋 **TEST-30 Flash budget of a server** · `v0.5` — the harness every flash-diet piece (SRV-51..54, SW-69..73)
-  reports its before/after with, on the same firmware: a server on `thumbv6m-none-eabi` (Cortex-M0+, as on the
-  STM32G0) in `examples_mcu/mcu_qemu`, built at `fw-z` and `fw-3`, from an API crate with a floor variant (one
-  method) and variants with N resources of each kind (calls with and without arguments, property reads and writes,
-  `const` reads, a stream open), the handlers behind `black_box` so nothing folds away and few value types so
-  serdes is paid once. `examples_mcu/fw_budget --flash` (`just flash-budget`) prints the floor, bytes per resource
-  of each kind ((N2 - N1) / (N2 - N1 resources), text + data from the ELF), the dispatcher's share and checks named
-  symbols (`Series` codec, `<shrink_wrap::Error as Debug>::fmt`, `ww_global_trait_path`). Baseline recorded on master
-  in the harness's doc comment. Donguru (typec_dongle) at wire_weaver 8b7b80ed for comparison: ~616 B per resource
-  of dispatcher, 41.4 KB under the dispatcher in the isolated build.
+- ✅ **TEST-30 Flash budget of a server** · `v0.5` — the harness every flash-diet piece (SRV-51..54, SW-69..73)
+  reports its before/after with, on the same firmware: `just flash-budget` (`examples_mcu/fw_budget --flash`) builds
+  servers of the roots of `tests/flash_budget_api` (`qemu-flash-*` in `examples_mcu/mcu_qemu`, `thumbv6m-none-eabi`,
+  `fw-z` and `fw-3`, sync and `use_async`) and prints the floor, the bytes of one more resource of each kind (calls
+  with and without arguments, properties, streams, calls with types of their own; 16 against 8 at the root) and
+  checks for the observe `Series` codec, `shrink_wrap::Error`'s `Debug` names and the trait path lookup by name.
+  Baseline of 3 Nov 2026 at `fw-z`, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
+  call with its own types; the `Series` codec is in every server (3,796 B). See `docs/articles/flash_budget.md`.
 - 📋 **TEST-31 Golden reply bytes of the dispatcher** · `v0.5` — guards SRV-51 and SRV-52: a test API with every
   resource kind (calls with and without arguments and outputs, deferred, unimplemented, property get/set with user
   errors, `const`, streams, sinks, arrays, a global trait reached by `GlobalFull` and `GlobalCompact`, bad paths,

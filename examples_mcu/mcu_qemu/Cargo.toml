@@ -7,6 +7,8 @@ edition = "2024"
 # the units budget (TEST-27) with only the plain cases / only the Fixed cases, to compare the flash of the two
 only-plain = []
 only-fixed = []
+# the flash budget servers (TEST-30) with `use_async = true` and sync handlers, as Donguru's
+flash-async = []
 
 [dependencies]
 cortex-m = "0.7"
@@ -31,6 +33,7 @@ all_gpio_api = { path = "../../examples/all_gpio_api", default-features = false 
 bounded_api = { path = "../../tests/bounded_api", default-features = false }
 foc_observe_api = { path = "../../examples/foc_observe_api", default-features = false }
 dfu_api = { path = "../../tests/dfu_api", default-features = false }
+flash_budget_api = { path = "../../tests/flash_budget_api", default-features = false }
 ww_dfu = { path = "../../ww_stdlib/ww_dfu", default-features = false }
 
 # Cortex-M0 has no compare-and-swap: ww_stream's atomics go through critical sections there (the units budget is also
@@ -181,3 +184,87 @@ opt-level = 3
 # exact_units (its own repository) takes shrink_wrap from wire_weaver by git: use the one here, so there is one
 [patch."https://github.com/vhrdtech/wire_weaver"]
 shrink_wrap = { path = "../../shrink_wrap/shrink_wrap" }
+
+[[bin]]
+name = "qemu-flash-floor"
+path = "src/bin/flash_floor.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-base-only"
+path = "src/bin/flash_base_only.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-calls8"
+path = "src/bin/flash_calls8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-calls16"
+path = "src/bin/flash_calls16.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-calls-args8"
+path = "src/bin/flash_calls_args8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-calls-args16"
+path = "src/bin/flash_calls_args16.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-props8"
+path = "src/bin/flash_props8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-props16"
+path = "src/bin/flash_props16.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-streams8"
+path = "src/bin/flash_streams8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-streams16"
+path = "src/bin/flash_streams16.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-typed8"
+path = "src/bin/flash_typed8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-typed16"
+path = "src/bin/flash_typed16.rs"
+test = false
+doctest = false
+bench = false

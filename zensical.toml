@@ -194,7 +194,8 @@ nav = [
     },
     { "Articles" = [
             { "Everything Series" = "articles/series.md" },
-            { "What Fixed costs on a microcontroller" = "articles/units_budget.md" }
+            { "What Fixed costs on a microcontroller" = "articles/units_budget.md" },
+            { "What a server costs in flash" = "articles/flash_budget.md" }
         ]
     },
     { "Feature tracker" = "features.md" }

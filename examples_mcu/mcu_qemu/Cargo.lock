@@ -328,6 +328,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "flash_budget_api"
+version = "0.1.0"
+dependencies = [
+ "wire_weaver",
+]
+
+[[package]]
 name = "foc_observe_api"
 version = "0.1.0"
 dependencies = [
@@ -394,6 +401,7 @@ dependencies = [
  "cortex-m-rt",
  "cortex-m-semihosting",
  "dfu_api",
+ "flash_budget_api",
  "foc_observe_api",
  "panic-semihosting",
  "portable-atomic",

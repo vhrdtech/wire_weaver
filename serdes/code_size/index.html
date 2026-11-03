@@ -1484,6 +1484,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hot-paths-at-opt-level-z" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hot paths at opt-level z
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#feature-flags" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5885,6 +5896,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hot-paths-at-opt-level-z" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Hot paths at opt-level z
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#feature-flags" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -7762,6 +7784,101 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
 </table>
 <p>The other <code>_ser</code> cases lose the same 412 / 324 / 318 / 304 bytes. With both settings the derived <code>busgen</code> codec
   is 7848 bytes on RV32IC (evolvable) and 7030 (final), the hand-written one 4834.</p>
+<h2 id="hot-paths-at-opt-level-z">Hot paths at opt-level z<a class="headerlink" href="#hot-paths-at-opt-level-z" title="Permanent link">&para;</a></h2>
+<p>A firmware built for size (<code>opt-level = "z"</code>) and one built for speed (<code>3</code>) want different things from the bit
+writer and reader that <code>Series</code> columns, <code>UN</code> fields and the length nibbles go through: inlined into the few
+functions that write and read bits, they are faster; out of line, smaller. <code>shrink_wrap</code> doesn't force either by
+default (SW-70). The small private helpers (<code>push_bits</code>, <code>put_in_word</code>, <code>take_in_word</code>, the big-endian word loads and
+stores, masks) are plain <code>#[inline]</code> hints, which <code>opt-level = 3</code> follows and <code>z</code> mostly doesn't. A firmware that
+wants something else says so with one <code>--cfg</code>, set by the firmware alone (in its <code>.cargo/config.toml</code> <code>rustflags</code>, or
+<code>CARGO_TARGET_&lt;TRIPLE&gt;_RUSTFLAGS</code>), never by a crate in between, so it is not a cargo feature:</p>
+<table>
+<thead>
+<tr>
+<th><code>--cfg</code></th>
+<th>what it does</th>
+<th>toolchain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>none</td>
+<td>the helpers are hints</td>
+<td>any</td>
+</tr>
+<tr>
+<td><code>shrink_wrap_hot="inline"</code></td>
+<td>the helpers are <code>#[inline(always)]</code>, as before SW-70</td>
+<td>any</td>
+</tr>
+<tr>
+<td><code>shrink_wrap_hot="optimize"</code></td>
+<td>the bit primitives (<code>put_bits</code>, <code>put_block</code>, <code>put_low_bits</code>, <code>take_bits</code>, <code>read_un32</code>, ..) and the numeric <code>Series</code> loops are <code>#[optimize(speed)]</code>, the helpers stay hints</td>
+<td>nightly</td>
+</tr>
+</tbody>
+</table>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># .cargo/config.toml of a firmware built with opt-level = &quot;z&quot; that encodes series in a hot path</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">[target.thumbv7em-none-eabihf]</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">rustflags</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;--cfg&quot;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;shrink_wrap_hot=&quot;inline&quot;&#39;</span><span class="p">]</span>
+</span></code></pre></div>
+<p>What stays forced in every mode: the one-line wrappers (<code>read_u16</code> and the other integer reads and writes, the
+<code>_latch</code> methods, the trait defaults the derive calls), which cost nothing in size inlined and a call each when not,
+and the per-item paths of <code>Series</code> stores and observe cells, which run in interrupts: as hints at <code>z</code> a row capture
+of the FOC bench went from 266 to 1456 instructions and its stack from 144 to 416 bytes.</p>
+<p>Measured on 3 Nov 2026, thumbv6m (Cortex-M0+) for flash, instructions on a Cortex-M3 under QEMU (<code>qemu_icount</code>),
+against the same commit before SW-70; flash from builds of the same checkout path (panic locations carry it):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">none</th>
+<th style="text-align: right;"><code>"inline"</code></th>
+<th style="text-align: right;"><code>"optimize"</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>server floor, <code>fw-z</code> (<a href="../../articles/flash_budget/">flash budget</a>, sync and async)</td>
+<td style="text-align: right;">−740 B</td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">+208 B</td>
+</tr>
+<tr>
+<td>server floor, <code>fw-3</code></td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">±0</td>
+</tr>
+<tr>
+<td>Donguru firmware, <code>z</code> / <code>3</code>, with the shared path for lists of plain numbers</td>
+<td style="text-align: right;">−824 / −892 B</td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td><code>Series</code> encode / decode per item, <code>fw-z</code> (units budget, 100.7 / 424.0 before)</td>
+<td style="text-align: right;">125.2 / 458.0</td>
+<td style="text-align: right;">100.7 / 424.0</td>
+<td style="text-align: right;">90.5 / 391.4</td>
+</tr>
+<tr>
+<td>hot benches, <code>fw-z</code>: FOC batch encode, encode from a store, <code>Series</code> encode, bit I/O, shared clock</td>
+<td style="text-align: right;">+12, +22, +6, +12, +5.5 %</td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">−1.3 .. −2.8 %</td>
+</tr>
+<tr>
+<td>struct encode / decode, interrupt-side row capture</td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">±0</td>
+<td style="text-align: right;">±0</td>
+</tr>
+</tbody>
+</table>
+<p>At <code>fw-3</code> all three give the same instructions. So: the default saves about 0.75 KB in a firmware built for size and
+makes its task-side encoding of series and bit fields 5-22 % slower; <code>"inline"</code> is the code from before; on nightly,
+<code>"optimize"</code> is faster than before for 0.2 KB.</p>
 <h2 id="feature-flags">Feature flags<a class="headerlink" href="#feature-flags" title="Permanent link">&para;</a></h2>
 <p>The options that were on the table, and why none became a cargo feature:</p>
 <table>
@@ -7794,7 +7911,11 @@ difference small: <code>examples_mcu/usb_stm32h725ig</code>'s <code>all_gpio</co
 </tr>
 <tr>
 <td><code>#[inline(never)]</code> shared helpers, non-generic paths</td>
-<td>done for the integer reads and writes (steps 2 and 3)</td>
+<td>done for the integer reads and writes (steps 2 and 3), and, not generic, for lists of plain numbers (SW-70: one <code>write_plain_list</code> / <code>skip_plain_list</code> for every <code>RefVec&lt;u8&gt;</code>, <code>RefVec&lt;u32&gt;</code>, ..)</td>
+</tr>
+<tr>
+<td>speed of the bit paths in a size build</td>
+<td>a <code>--cfg</code>, not a feature, see <a href="#hot-paths-at-opt-level-z">Hot paths at opt-level z</a></td>
 </tr>
 </tbody>
 </table>

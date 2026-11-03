@@ -6101,6 +6101,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>0..=8, 12, 16</code>; checked on serialization and deserialization, possibly using fewer bits on the wire
   (<code>docs/types.md</code>, "Subtypes").</li>
 <li>📋 <strong>SW-21 Multi-dimensional arrays</strong> (2D, 3D).</li>
+<li>✅ <strong>SW-70 Hot bit paths: no forced inlining at <code>opt-level = "z"</code></strong> · <code>v0.5</code> — flash diet. shrink_wrap's
+  <code>#[inline(always)]</code> sorted by measurement: the one-line wrappers (integer reads and writes, <code>_latch</code> methods, trait
+  defaults) stay forced, inlining them is free in size; so do the <code>Series</code> store and observe-cell paths (as hints a
+  FOC row capture went 266 -&gt; 1456 instructions). The private bit helpers of the writer and reader are <code>#[inline]</code>
+  hints; a firmware picks with <code>--cfg shrink_wrap_hot="inline"</code> (forced, as before) or <code>"optimize"</code> (nightly,
+  <code>#[optimize(speed)]</code> on the bit primitives and <code>Series</code> loops). Lists of plain numbers share one non-generic
+  length-and-bytes path. Measured (thumbv6m): TEST-30 floor −740 B at <code>fw-z</code>, ±0 at <code>fw-3</code>; Donguru −824 B at <code>z</code>,
+  −892 B at <code>3</code>; task-side series and bit-field encoding 5-22 % slower at <code>z</code> by default, ±0 with <code>"inline"</code>, 1-3 %
+  faster with <code>"optimize"</code> (+208 B). The planned 2.5-3.5 KB of "duplicate copies" were mostly call sequences:
+  <code>#[inline(never)]</code> on every derived serdes made Donguru 1.9 KB larger. See
+  <code>docs/serdes/code_size.md#hot-paths-at-opt-level-z</code>.</li>
 <li>🚧 <strong>SW-22 Fuzz <code>shrink_wrap</code></strong> — <code>fuzz/</code> has one <code>shrink_wrap</code> target, <code>shrink-wrap-tail-size</code> (<code>TailSize</code> types
   round-tripped, random bytes into their readers); <code>shrink-wrap-ref-vec</code>
   (SW-37) came with its feature, <code>shrink-wrap-option-any-vec</code> with SW-55 and DER-13 (sparse structs), <code>shrink-wrap-series-columns</code> and <code>shrink-wrap-series-type</code> with SW-60, <code>shrink-wrap-nesting</code> with the nesting depth limit (recursive types at random limits). Round-trip every built-in type and the derive's features.</li>
@@ -6439,19 +6450,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   feature, so <code>examples_mcu/rp2</code>'s <code>usb_log.rs</code> logs its log-store error without <code>Debug2Format</code> either. Same wire
   format; only the printed text of a <code>no_std</code> build without <code>defmt</code> changes. Not yet measured: TEST-30 checks that
   the variant names are not linked; est. 0.5-1 KB.</li>
-<li>📋 <strong>SW-70 Serdes out of line: one copy per type</strong> · <code>v0.5</code> — flash diet: at <code>opt-level = "z"</code> the same impl is
-  inlined at every call site: 4,892 B of Donguru's 19,740 B of serdes are extra copies (ser <code>&amp;str</code> 15 copies, des
-  <code>UNib32</code> 13, ser <code>UVlq64</code> 9, <code>RefVec&lt;u8&gt;</code> 3 + 5, <code>Quantity&lt;Second&gt;</code> 6). The derive emits <code>#[inline(never)]</code> on the
-  serdes of structs and enums with more than a few fields or variants, and the primitive writers and readers
-  (<code>&amp;str</code>, <code>UNib32</code>, <code>UVlq*</code>, the <code>RefVec</code> length) stay out of line, while the small hot per-item functions keep
-  <code>#[inline(always)]</code> (AGENTS.md "Firmware"). Measured in flash (TEST-30) and in instructions (<code>qemu_icount</code>, the
-  Series and struct benches of TEST-27) at <code>fw-z</code> and <code>fw-3</code>; a cycle cost on the hot path is reported, not hidden.
-  The root cause is shrink_wrap's ~100 <code>#[inline(always)]</code> (<code>buf_reader.rs</code>, <code>buf_writer.rs</code>, <code>un.rs</code>, <code>traits.rs</code>,
-  <code>head_tail.rs</code>, <code>series/*</code>, the derive's <code>codegen/util.rs</code>), added for cycles on per-item paths: each is sorted,
-  <code>inline(always)</code> stays only where an inner per-item loop needs it (Series columns, store set/put), entry points
-  that encode or decode a whole value and primitive writers used from many call sites become plain functions or
-  <code>#[inline(never)]</code>. Where flash and cycles pull apart, a build-time choice (a type or <code>cfg</code>, never a runtime flag).
-  Est. 2.5-3.5 KB.</li>
 <li>📋 <strong>SW-71 Table decode for fieldless enums</strong> · <code>v0.5</code> — flash diet: des <code>exact_units::Prefix</code> is 574 B (5 copies)
   for a value that is one <code>UNib32</code> tag: the derive matches every tag of its 31 prefixes and the tag-only scale kinds
   (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table

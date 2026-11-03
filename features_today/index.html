@@ -5871,6 +5871,7 @@ copying. Every message between host and device is made of it, and it works on it
 <li><strong><a href="../serdes/wire_format/">Format documented bit by bit</a></strong>: How every type is laid out, and why.</li>
 <li><strong><a href="../serdes/code_size/">Small code on small CPUs</a></strong>: About 20 % less code on Cortex-M0 and RISC-V for the same bytes on the wire.</li>
 <li><strong><a href="../serdes/code_size/">Number access tuned per CPU</a></strong>: Multi-byte numbers through one function on RISC-V, inline on Arm, whichever is smaller.</li>
+<li><strong><a href="../serdes/code_size/#hot-paths-at-opt-level-z">Size or speed of the bit paths</a></strong>: Smaller by default at <code>opt-level = "z"</code>, the old speed or more with one <code>--cfg</code>.</li>
 <li><strong><a href="../serdes/code_size/#build-settings">Byte-wise <code>memcpy</code></a></strong>: Measured savings and downsides of a tiny <code>memcpy</code> for very small targets.</li>
 <li><strong><a href="../serdes/size_assumptions/#enums">Exact sizes of enums</a></strong>: <code>sized</code> enums report the discriminant plus one variant; variants of different sizes are a compile error.</li>
 <li><strong><a href="../serdes/wire_format/">Strict bit reads</a></strong>: Malformed data near the end of a buffer is an error, never a misread.</li>

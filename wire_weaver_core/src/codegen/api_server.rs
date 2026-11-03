@@ -1561,7 +1561,7 @@ fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) ->
             quote! {
                 [#(UNib32(#ids)),*] => wire_weaver::gate::CallGate::admit(
                     self,
-                    &wire_weaver::gate::Target { trait_id: #trait_id, item: None, path: #path },
+                    &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: true },
                     wire_weaver::gate::Op::Observe,
                 ),
             }
@@ -1577,9 +1577,28 @@ fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) ->
             }
         }
     });
+    let es = fixed_err_seq("GATE");
     quote! {
+        /// Asks the call gate about `target`; on a refusal writes `ErrorKind::Refused` and answers true. One function
+        /// for every item: an item's dispatch only calls it.
+        #[inline(never)]
+        fn ww_gate_refused<'a>(
+            &self,
+            target: &wire_weaver::gate::Target,
+            kind: &RequestKind<'_>,
+            wr: &mut BufWriter<'_>,
+        ) -> Result<bool, Error<'a>> {
+            match wire_weaver::gate::CallGate::admit(self, target, Self::ww_gate_op(kind)) {
+                Ok(()) => Ok(false),
+                Err(reason) => {
+                    wr.write(&Error::new(#es, ErrorKind::Refused(reason)))
+                        .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+                    Ok(true)
+                }
+            }
+        }
+
         /// What a request does to its item, for the call gate.
-        #[allow(dead_code)]
         fn ww_gate_op(kind: &RequestKind<'_>) -> wire_weaver::gate::Op {
             use wire_weaver::gate::Op;
             match kind {
@@ -1639,15 +1658,12 @@ impl ApiServerCGContext<'_> {
             return quote! {};
         }
         let path = dotted(&self.level_path, item);
-        let es = fixed_err_seq("GATE");
         quote! {
-            if let Err(reason) = wire_weaver::gate::CallGate::admit(
-                self,
-                &wire_weaver::gate::Target { trait_id: #trait_id, item: Some(#item), path: #path },
-                Self::ww_gate_op(&request.kind),
-            ) {
-                wr.write(&Error::new(#es, ErrorKind::Refused(reason)))
-                    .map_err(|_| Error::new(#es, ErrorKind::ResponseSerFailed))?;
+            if self.ww_gate_refused(
+                &wire_weaver::gate::Target { trait_id: &#trait_id, path: #path, level: false },
+                &request.kind,
+                wr,
+            )? {
                 return Ok(WrAction::WrittenErr);
             }
         }

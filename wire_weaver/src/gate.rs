@@ -25,7 +25,7 @@
 //!         if !self.guarded || target.is_in(&FIRMWARE_INFO) {
 //!             return Ok(());
 //!         }
-//!         if target.is_in(&BOARD_INFO) && target.item != Some("set_reworks") {
+//!         if target.is_in(&BOARD_INFO) && target.item() != Some("set_reworks") {
 //!             return Ok(());
 //!         }
 //!         Err("board guarded: unknown rework 9")
@@ -33,13 +33,17 @@
 //! }
 //!
 //! let server = Server { guarded: true };
-//! let set = Target { trait_id: BOARD_INFO, item: Some("set_reworks"), path: "board.set_reworks" };
+//! let set = Target { trait_id: &BOARD_INFO, path: "board.set_reworks", level: false };
+//! assert_eq!(set.item(), Some("set_reworks"));
 //! assert!(server.admit(&set, Op::Call).is_err());
 //! ```
 
 /// A trait of an API by its crate and name: the identity of a global trait (`ww_board_info`, `BoardInfo`) wherever
 /// it sits in an API, or of a project's own trait.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+///
+/// Equal when both names are: the same string literal (a firmware's `const` and the generated code's, merged by the
+/// linker) is equal without comparing its bytes.
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct TraitId {
     /// The crate the trait is defined in, as in its `FullVersion` (`ww_board_info`)
     pub crate_id: &'static str,
@@ -53,27 +57,52 @@ impl TraitId {
     }
 }
 
-/// The item a request reaches, as the generated dispatcher knows it.
+impl PartialEq for TraitId {
+    fn eq(&self, other: &Self) -> bool {
+        same_str(self.name, other.name) && same_str(self.crate_id, other.crate_id)
+    }
+}
+
+/// `a == b`, without the byte compare when both are the same string.
+#[inline(always)]
+fn same_str(a: &str, b: &str) -> bool {
+    a.len() == b.len() && (core::ptr::eq(a.as_ptr(), b.as_ptr()) || a == b)
+}
+
+/// The item a request reaches, as the generated dispatcher knows it. One `static` per item, made by the generated
+/// code.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Target {
     /// The trait the item is defined in (for an observe request: the observed trait level)
-    pub trait_id: TraitId,
-    /// The item's name in its trait (`set_reworks`), None for an observe request, which reaches a trait level
-    pub item: Option<&'static str>,
+    pub trait_id: &'static TraitId,
     /// The resource path from the API root, trait items and the item joined by dots (`board.set_reworks`, `gpio.set`
-    /// for an item under a resource array): the fallback for items of a project's own traits used more than once
+    /// for an item under a resource array, `board` for an observe request on that level, empty for the root
+    /// level): the fallback for items of a project's own traits used more than once
     pub path: &'static str,
+    /// The path ends at a trait level (an observe request), not at an item
+    pub level: bool,
 }
 
 impl Target {
+    /// The item's name in its trait (`set_reworks`, the last part of [Target::path]), None for a trait level.
+    pub fn item(&self) -> Option<&'static str> {
+        if self.level {
+            return None;
+        }
+        Some(match self.path.rfind('.') {
+            Some(dot) => &self.path[dot + 1..],
+            None => self.path,
+        })
+    }
+
     /// The item is in trait `id`.
     pub fn is_in(&self, id: &TraitId) -> bool {
-        self.trait_id == *id
+        *self.trait_id == *id
     }
 
     /// The item is `item` of trait `id`.
     pub fn is(&self, id: &TraitId, item: &str) -> bool {
-        self.is_in(id) && self.item == Some(item)
+        self.is_in(id) && self.item() == Some(item)
     }
 }
 

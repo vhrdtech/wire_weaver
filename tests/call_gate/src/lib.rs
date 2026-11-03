@@ -357,16 +357,16 @@ mod tests {
             .find(|(t, _)| t.path == "motor.start")
             .unwrap()
             .0;
-        assert_eq!(start.trait_id, MOTOR);
-        assert_eq!(start.item, Some("start"));
+        assert_eq!(*start.trait_id, MOTOR);
+        assert_eq!(start.item(), Some("start"));
         let indices = asked.iter().find(|(t, _)| t.path == "channel").unwrap().0;
         assert_eq!(
-            indices.trait_id,
+            *indices.trait_id,
             TraitId::new("call_gate_api", "CallGateTest"),
             "an array is an item of the trait it is defined in"
         );
         let name = asked.iter().find(|(t, _)| t.path == "user.name").unwrap().0;
-        assert_eq!(name.trait_id, USER_INFO);
+        assert_eq!(*name.trait_id, USER_INFO);
     }
 
     /// The gate is asked on every request, so the device's state decides at once: refused while guarded, served
@@ -471,9 +471,9 @@ mod tests {
             assert_eq!(
                 target,
                 Target {
-                    trait_id: MOTOR,
-                    item: None,
-                    path: "motor"
+                    trait_id: &MOTOR,
+                    path: "motor",
+                    level: true,
                 }
             );
             assert_eq!(op, Op::Observe);

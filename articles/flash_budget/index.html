@@ -5515,6 +5515,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dispatcher-arms-only-what-differs-srv-51" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dispatcher arms: only what differs (SRV-51)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors-written-in-place-srv-52" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors written in place (SRV-52)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5677,6 +5699,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#dispatcher-arms-only-what-differs-srv-51" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Dispatcher arms: only what differs (SRV-51)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#errors-written-in-place-srv-52" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Errors written in place (SRV-52)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5727,6 +5771,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>just<span class="w"> </span>flash-budget<span class="w"> </span>--targets<span class="w"> </span>thumbv7em-none-eabihf<span class="w">   </span><span class="c1"># other cores</span>
 </span></code></pre></div>
 <p>It builds the <code>qemu-flash-*</code> bins of <code>examples_mcu/mcu_qemu</code> and reads the flash of each ELF: every allocated section with contents (code, read-only data, vector table). Nothing runs, so no QEMU and no board are needed. Each build is done at both profiles firmware ships with, <code>fw-z</code> (fat LTO, one codegen unit, <code>opt-level = "z"</code>) and <code>fw-3</code> (the same at <code>opt-level = 3</code>), and with both server flavours: <code>use_async = false</code>, and <code>use_async = true</code> with sync handlers (<code>handler_model = "_=sync"</code>), as Donguru's firmware is built.</p>
+<p><code>just dispatch-budget</code> is the same server in instructions: <code>qemu-dispatch-requests</code> runs the <code>BaseOnly</code> server under QEMU (Cortex-M3, <code>lm3s6965evb</code>, counted by <code>qemu_icount</code>) on one request of each kind (a call with and without arguments, a property read and write, a stream open and close, a bad path, a request kind the resource doesn't take) and prints the instructions from <code>process_request_bytes</code> to its reply, with the reply's length and hash, at <code>fw-z</code> and <code>fw-3</code>, sync and <code>use_async</code>. <code>--qemu-host HOST</code> runs QEMU on another PC.</p>
 <h2 id="how-it-measures">How it measures<a class="headerlink" href="#how-it-measures" title="Permanent link">&para;</a></h2>
 <p>The servers are the roots of <code>tests/flash_budget_api</code>:</p>
 <ul>
@@ -6009,6 +6054,453 @@
 </tbody>
 </table>
 <p>The estimate (9 monomorphised copies on Donguru, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own <code>N</code> to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or <code>MergeFunctions</code> to fold. Forcing the check out of line with <code>#[inline(never)]</code> only adds the call's own overhead (argument setup, branch-and-link, the <code>?</code> on its <code>Result</code>) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at <code>fw-3</code>, where the optimizer would otherwise have inlined a function this small for free. Left as a plain <code>fn</code>, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain <code>fn</code>.</p>
+<h2 id="dispatcher-arms-only-what-differs-srv-51">Dispatcher arms: only what differs (SRV-51)<a class="headerlink" href="#dispatcher-arms-only-what-differs-srv-51" title="Permanent link">&para;</a></h2>
+<p>Every call, read and write arm of the generated dispatcher used to carry the whole reply inline: the event kind builder, a <code>map_err</code> per fallible step, the <code>seq != 0</code> check, the serializer call and the full <code>RpcResult</code> / <code>GetResult</code> / <code>SetResult</code> match. In a <code>no_alloc</code> server an arm now keeps only what differs per resource: it decodes the arguments or the value (<code>ww_client_server::dispatch::des</code>), calls the handler and hands its whole result to a shared reply path in <code>ww_client_server::dispatch</code>. The paths are <code>#[inline(never)]</code> and generic over the value and user error types, so a firmware has one copy per type, not one per resource, and every error site of a level goes through one cold constructor (<code>dispatch::err</code>). The reply bytes are the same (TEST-31), and so are the handler signatures.</p>
+<p>What each kind of resource generates:</p>
+<table>
+<thead>
+<tr>
+<th>resource, model</th>
+<th>the arm</th>
+<th>shared path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>method, <code>immediate</code> or <code>deferred</code></td>
+<td>decode the arguments, call</td>
+<td><code>reply_call</code>: the output, nothing for <code>Deferred</code> (answered later), or <code>Unimplemented</code></td>
+</tr>
+<tr>
+<td>property, <code>get_set</code>, write</td>
+<td>decode the value, call the setter</td>
+<td><code>reply_set</code> (<code>reply_set_unit_err</code> without a user error type)</td>
+</tr>
+<tr>
+<td>property, <code>get_set</code>, read</td>
+<td>call the getter</td>
+<td><code>reply_get</code> (<code>reply_get_unit_err</code>)</td>
+</tr>
+<tr>
+<td>property, <code>value_on_changed</code>, write</td>
+<td>decode, compare, store, mark observed, call <code>changed_..</code></td>
+<td><code>reply_ok</code></td>
+</tr>
+<tr>
+<td>property, <code>value_on_changed</code>, read</td>
+<td>nothing: the field is the answer</td>
+<td><code>reply_value</code></td>
+</tr>
+<tr>
+<td><code>const</code></td>
+<td>the constant or its <code>fn</code></td>
+<td><code>reply_value</code></td>
+</tr>
+<tr>
+<td>array of resources, no index</td>
+<td><code>valid_indices_..</code></td>
+<td><code>reply_value</code></td>
+</tr>
+<tr>
+<td>plain stream, open</td>
+<td>decode the arguments, call</td>
+<td><code>reply_open_plain</code></td>
+</tr>
+<tr>
+<td>counted or reliable stream, open</td>
+<td>decode, call, start the session</td>
+<td><code>reply_opened</code></td>
+</tr>
+<tr>
+<td>stream or sink sideband</td>
+<td>call the sideband handler</td>
+<td><code>reply_sideband</code></td>
+</tr>
+<tr>
+<td>sink write</td>
+<td>decode, call</td>
+<td><code>reply_ok</code></td>
+</tr>
+</tbody>
+</table>
+<p>A variant the handler's type allows but its model doesn't expect still has its old answer, in the shared path: an <code>immediate</code> method that returns <code>Deferred</code> sends nothing now, a stream function that defers is refused. A <code>no_alloc = false</code> server (a host) keeps the inline arms: its replies grow into a buffer of their own (CLT-55).</p>
+<p>Measured 3 Nov 2026, before (master c440491e plus the harness) and after, both built in the same worktree, bytes:</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m</th>
+<th style="text-align: right;">z, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">z, async before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, async before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>floor, one method</td>
+<td style="text-align: right;">14230</td>
+<td style="text-align: right;">14502</td>
+<td style="text-align: right;">15322</td>
+<td style="text-align: right;">15730</td>
+<td style="text-align: right;">20054</td>
+<td style="text-align: right;">20434</td>
+<td style="text-align: right;">21166</td>
+<td style="text-align: right;">21758</td>
+</tr>
+<tr>
+<td>8 resources, two of each kind</td>
+<td style="text-align: right;">18438</td>
+<td style="text-align: right;">17686</td>
+<td style="text-align: right;">19098</td>
+<td style="text-align: right;">18758</td>
+<td style="text-align: right;">23670</td>
+<td style="text-align: right;">24054</td>
+<td style="text-align: right;">24674</td>
+<td style="text-align: right;">25198</td>
+</tr>
+<tr>
+<td>call, no arguments or output</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">45</td>
+<td style="text-align: right;">130</td>
+<td style="text-align: right;">59</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">56</td>
+</tr>
+<tr>
+<td>call, an argument and an output</td>
+<td style="text-align: right;">242</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">26</td>
+<td style="text-align: right;">124</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">23</td>
+</tr>
+<tr>
+<td>property, read and write</td>
+<td style="text-align: right;">173</td>
+<td style="text-align: right;">110</td>
+<td style="text-align: right;">157</td>
+<td style="text-align: right;">110</td>
+<td style="text-align: right;">226</td>
+<td style="text-align: right;">136</td>
+<td style="text-align: right;">172</td>
+<td style="text-align: right;">116</td>
+</tr>
+<tr>
+<td>stream</td>
+<td style="text-align: right;">484</td>
+<td style="text-align: right;">154</td>
+<td style="text-align: right;">196</td>
+<td style="text-align: right;">168</td>
+<td style="text-align: right;">362</td>
+<td style="text-align: right;">166</td>
+<td style="text-align: right;">202</td>
+<td style="text-align: right;">192</td>
+</tr>
+<tr>
+<td>call with types of its own</td>
+<td style="text-align: right;">300</td>
+<td style="text-align: right;">96</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">96</td>
+<td style="text-align: right;">136</td>
+<td style="text-align: right;">60</td>
+<td style="text-align: right;">96</td>
+<td style="text-align: right;">96</td>
+</tr>
+<tr>
+<td>mean of the four shared-type kinds</td>
+<td style="text-align: right;">238</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">106</td>
+<td style="text-align: right;">87</td>
+<td style="text-align: right;">210</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">112</td>
+<td style="text-align: right;">97</td>
+</tr>
+</tbody>
+</table>
+<p>The per-resource cells include the handlers' own bodies (a property's getter and setter are 48 B of the 110). The floor grows by the shared paths a one-method server now links (270-590 B), so a server with more than a few resources is smaller; at <code>fw-3</code> the 8-resource server is still 380-520 B larger, as each shared path inlines its serializers there. Every cell is steadier than before: the arms no longer decide whether LLVM inlines a level into its caller.</p>
+<p>The first step alone, the cold error constructor without the shared reply paths, was measured too and isn't worth it on its own: the 8-resource server lost 16-492 B, but the floor grew 220-460 B and the per-resource cells got worse (a stream 484 → 786 B at <code>z</code>, sync), as the arms still built their replies inline around the calls.</p>
+<p>Instructions per request, <code>just dispatch-budget</code> (Cortex-M3 under QEMU), warm run:</p>
+<table>
+<thead>
+<tr>
+<th>request</th>
+<th style="text-align: right;">z, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">z, async before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, async before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>call, no arguments or output</td>
+<td style="text-align: right;">2488</td>
+<td style="text-align: right;">2579</td>
+<td style="text-align: right;">2641</td>
+<td style="text-align: right;">2739</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1388</td>
+<td style="text-align: right;">1552</td>
+<td style="text-align: right;">1542</td>
+</tr>
+<tr>
+<td>call, an argument and an output</td>
+<td style="text-align: right;">2723</td>
+<td style="text-align: right;">3096</td>
+<td style="text-align: right;">2869</td>
+<td style="text-align: right;">3276</td>
+<td style="text-align: right;">1647</td>
+<td style="text-align: right;">1693</td>
+<td style="text-align: right;">1806</td>
+<td style="text-align: right;">2089</td>
+</tr>
+<tr>
+<td>property read</td>
+<td style="text-align: right;">2466</td>
+<td style="text-align: right;">2567</td>
+<td style="text-align: right;">2619</td>
+<td style="text-align: right;">2725</td>
+<td style="text-align: right;">1373</td>
+<td style="text-align: right;">1395</td>
+<td style="text-align: right;">1534</td>
+<td style="text-align: right;">1534</td>
+</tr>
+<tr>
+<td>property write</td>
+<td style="text-align: right;">2596</td>
+<td style="text-align: right;">2694</td>
+<td style="text-align: right;">2748</td>
+<td style="text-align: right;">2854</td>
+<td style="text-align: right;">1458</td>
+<td style="text-align: right;">1483</td>
+<td style="text-align: right;">1636</td>
+<td style="text-align: right;">1637</td>
+</tr>
+<tr>
+<td>stream open</td>
+<td style="text-align: right;">3541</td>
+<td style="text-align: right;">3627</td>
+<td style="text-align: right;">3695</td>
+<td style="text-align: right;">3788</td>
+<td style="text-align: right;">1979</td>
+<td style="text-align: right;">1990</td>
+<td style="text-align: right;">2143</td>
+<td style="text-align: right;">2130</td>
+</tr>
+<tr>
+<td>stream close</td>
+<td style="text-align: right;">2260</td>
+<td style="text-align: right;">2528</td>
+<td style="text-align: right;">2405</td>
+<td style="text-align: right;">2684</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1374</td>
+<td style="text-align: right;">1538</td>
+<td style="text-align: right;">1523</td>
+</tr>
+<tr>
+<td>error: bad path</td>
+<td style="text-align: right;">2712</td>
+<td style="text-align: right;">3077</td>
+<td style="text-align: right;">2858</td>
+<td style="text-align: right;">3259</td>
+<td style="text-align: right;">1679</td>
+<td style="text-align: right;">1765</td>
+<td style="text-align: right;">1835</td>
+<td style="text-align: right;">2162</td>
+</tr>
+<tr>
+<td>error: kind not taken</td>
+<td style="text-align: right;">2490</td>
+<td style="text-align: right;">2858</td>
+<td style="text-align: right;">2636</td>
+<td style="text-align: right;">3037</td>
+<td style="text-align: right;">1512</td>
+<td style="text-align: right;">1598</td>
+<td style="text-align: right;">1653</td>
+<td style="text-align: right;">1978</td>
+</tr>
+</tbody>
+</table>
+<p>The replies are the same bytes. Nearly all of the increase is <code>compiler_builtins</code>' <code>memcpy</code>, a byte loop at <code>opt-level = "z"</code>: 262 → 597 instructions for the call with an argument. It copies each level's 16-20 B <code>Result&lt;WrAction, Error&gt;</code>, now built by an out-of-line path and moved up through the levels. <a href="#errors-written-in-place-srv-52">SRV-52</a> writes errors in place and returns a small <code>WrAction</code>, which removes those copies.</p>
+<h2 id="errors-written-in-place-srv-52">Errors written in place (SRV-52)<a class="headerlink" href="#errors-written-in-place-srv-52" title="Permanent link">&para;</a></h2>
+<p>Every level of the dispatcher returned <code>Result&lt;WrAction, Error&gt;</code> and passed it up with <code>?</code>, and the root wrote the error. That <code>Result</code> is 16-20 B, so each level copied it into its caller's, and LLVM spent <code>Try::branch</code>, <code>map_err</code> and the copies on every error site and every return. Now a level gets a small context, <code>ww_client_server::dispatch::Dispatch</code> (the request, the path, the writer's state where the reply starts, whether it is an element of a multi request), and returns a one or two byte <code>WrAction</code>. An error is written where it happens by one cold function, <code>dispatch::err</code>, that rewinds the writer to where the reply starts and writes the <code>Error</code> there; the level returns <code>WrAction::WrittenErr</code>. A level no longer carries the event kind builder up either: the root knows where the reply starts and fills in the kind's nibble there. In a multi request each element's errors are written where the element starts. Only when not even the error fits does the root return <code>WrAction::Failed</code>'s <code>shrink_wrap::Error</code>, as it did before. The reply bytes are the same (TEST-31).</p>
+<p>Measured 3 Nov 2026 against SRV-51 (commit <code>6059e1a8</code>) and the SRV-51 baseline above, in the same worktree, bytes:</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m</th>
+<th style="text-align: right;">z, sync SRV-51</th>
+<th style="text-align: right;">SRV-52</th>
+<th style="text-align: right;">z, async SRV-51</th>
+<th style="text-align: right;">SRV-52</th>
+<th style="text-align: right;">3, sync SRV-51</th>
+<th style="text-align: right;">SRV-52</th>
+<th style="text-align: right;">3, async SRV-51</th>
+<th style="text-align: right;">SRV-52</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>floor, one method</td>
+<td style="text-align: right;">14502</td>
+<td style="text-align: right;">14506</td>
+<td style="text-align: right;">15730</td>
+<td style="text-align: right;">15638</td>
+<td style="text-align: right;">20434</td>
+<td style="text-align: right;">20450</td>
+<td style="text-align: right;">21758</td>
+<td style="text-align: right;">21574</td>
+</tr>
+<tr>
+<td>8 resources, two of each kind</td>
+<td style="text-align: right;">17686</td>
+<td style="text-align: right;">17370</td>
+<td style="text-align: right;">18758</td>
+<td style="text-align: right;">18258</td>
+<td style="text-align: right;">24054</td>
+<td style="text-align: right;">23694</td>
+<td style="text-align: right;">25198</td>
+<td style="text-align: right;">24598</td>
+</tr>
+<tr>
+<td>mean of the four shared-type kinds</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">87</td>
+<td style="text-align: right;">88</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">104</td>
+<td style="text-align: right;">97</td>
+<td style="text-align: right;">96</td>
+</tr>
+</tbody>
+</table>
+<p>Against the baseline before SRV-51, the 8-resource server is now 1068 B smaller at <code>z</code> sync and 840 B async, and the same size at <code>fw-3</code> (+24 B sync, −76 B async). The saving grows with the number of levels a request passes: these servers have two.</p>
+<p>Instructions per request, <code>just dispatch-budget</code> (Cortex-M3 under QEMU), warm run, before SRV-51 → after SRV-52:</p>
+<table>
+<thead>
+<tr>
+<th>request</th>
+<th style="text-align: right;">z, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">z, async before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, async before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>call, no arguments or output</td>
+<td style="text-align: right;">2488</td>
+<td style="text-align: right;">2284</td>
+<td style="text-align: right;">2641</td>
+<td style="text-align: right;">2428</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1552</td>
+<td style="text-align: right;">1559</td>
+</tr>
+<tr>
+<td>call, an argument and an output</td>
+<td style="text-align: right;">2723</td>
+<td style="text-align: right;">2742</td>
+<td style="text-align: right;">2869</td>
+<td style="text-align: right;">2891</td>
+<td style="text-align: right;">1647</td>
+<td style="text-align: right;">1624</td>
+<td style="text-align: right;">1806</td>
+<td style="text-align: right;">1807</td>
+</tr>
+<tr>
+<td>property read</td>
+<td style="text-align: right;">2466</td>
+<td style="text-align: right;">2268</td>
+<td style="text-align: right;">2619</td>
+<td style="text-align: right;">2412</td>
+<td style="text-align: right;">1373</td>
+<td style="text-align: right;">1388</td>
+<td style="text-align: right;">1534</td>
+<td style="text-align: right;">1554</td>
+</tr>
+<tr>
+<td>property write</td>
+<td style="text-align: right;">2596</td>
+<td style="text-align: right;">2399</td>
+<td style="text-align: right;">2748</td>
+<td style="text-align: right;">2543</td>
+<td style="text-align: right;">1458</td>
+<td style="text-align: right;">1475</td>
+<td style="text-align: right;">1636</td>
+<td style="text-align: right;">1659</td>
+</tr>
+<tr>
+<td>stream open</td>
+<td style="text-align: right;">3541</td>
+<td style="text-align: right;">3326</td>
+<td style="text-align: right;">3695</td>
+<td style="text-align: right;">3472</td>
+<td style="text-align: right;">1979</td>
+<td style="text-align: right;">1974</td>
+<td style="text-align: right;">2143</td>
+<td style="text-align: right;">2144</td>
+</tr>
+<tr>
+<td>stream close</td>
+<td style="text-align: right;">2260</td>
+<td style="text-align: right;">2252</td>
+<td style="text-align: right;">2405</td>
+<td style="text-align: right;">2398</td>
+<td style="text-align: right;">1375</td>
+<td style="text-align: right;">1374</td>
+<td style="text-align: right;">1538</td>
+<td style="text-align: right;">1544</td>
+</tr>
+<tr>
+<td>error: bad path</td>
+<td style="text-align: right;">2712</td>
+<td style="text-align: right;">2724</td>
+<td style="text-align: right;">2858</td>
+<td style="text-align: right;">2874</td>
+<td style="text-align: right;">1679</td>
+<td style="text-align: right;">1697</td>
+<td style="text-align: right;">1835</td>
+<td style="text-align: right;">1881</td>
+</tr>
+<tr>
+<td>error: kind not taken</td>
+<td style="text-align: right;">2490</td>
+<td style="text-align: right;">2501</td>
+<td style="text-align: right;">2636</td>
+<td style="text-align: right;">2653</td>
+<td style="text-align: right;">1512</td>
+<td style="text-align: right;">1532</td>
+<td style="text-align: right;">1653</td>
+<td style="text-align: right;">1699</td>
+</tr>
+</tbody>
+</table>
+<p>At <code>z</code> the answers take 6-8 % fewer instructions than before SRV-51, the error paths 0.4-0.6 % more; at <code>fw-3</code> everything is within 3 %. The future of <code>process_request_bytes</code> in the <code>use_async</code> server is 528 B, 16 B more than before (512 B): the context the root keeps across its await.</p>
+<p>One kind got dearer through SRV-51 and SRV-52, measured on master with SW-72's <code>MaxLenBounds</code> kind: a <code>MaxLen&lt;&amp;str, N&gt;</code> property with a different <code>N</code> each costs 309 B at <code>z</code> sync (236 B before), 316 B async (206 B), 526 B at <code>fw-3</code> sync (324 B) and 516 B async (292 B). The shared paths are generic over the value type, so every distinct type gets its own <code>des</code>, <code>reply_value</code> and <code>reply_get_unit_err</code>: 164 B per type at <code>z</code>, 360 B at <code>fw-3</code>, where <code>des</code> inlines the whole <code>&amp;str</code> decoder. Calls with types of their own got cheaper all the same (300 → 96 B at <code>z</code>), as their serdes is per type anyway. Making the value paths take <code>&amp;dyn</code> serializers is SRV-55; making <code>des</code> a plain <code>#[inline]</code> was tried and is no fix (<code>MaxLen</code> 526 → 478 B at <code>fw-3</code>, but a call with its own types 107 → 196 B).</p>
 
 
 

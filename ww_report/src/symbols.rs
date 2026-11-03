@@ -15,7 +15,7 @@ pub struct Symbols {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Located {
     pub address: u32,
-    /// Demangled, `None` when no function of the ELF contains the address
+    /// Demangled without the hash, `None` when no function of the ELF contains the address
     pub function: Option<String>,
     /// Offset into the function
     pub offset: u32,
@@ -37,7 +37,11 @@ impl Symbols {
                 let name = s.name().ok()?;
                 // thumb functions carry the mode in bit 0 of the symbol value
                 let start = s.address() & !1;
-                Some((start, s.size(), rustc_demangle::demangle(name).to_string()))
+                Some((
+                    start,
+                    s.size(),
+                    format!("{:#}", rustc_demangle::demangle(name)),
+                ))
             })
             .collect();
         functions.sort_by_key(|f| f.0);

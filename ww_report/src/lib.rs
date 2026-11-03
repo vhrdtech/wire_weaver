@@ -6,6 +6,8 @@
 //! * [report::collect_report] adds the counters, the stored `defmt` log and the crash's addresses, decoded with the
 //!   firmware's ELF found by build id (`cnt_core::elf`, filled by `ww elf add`), and [report::render_report] puts
 //!   it all in one text.
+//! * [crash] turns a crash record's addresses into `file:line` frames with the ELF's DWARF (CLT-59), for
+//!   firmware whose panics carry no location.
 //! * [rework_check] is the check every flasher makes before writing an image: the board's applied reworks against
 //!   the reworks the image knows (TOOL-29).
 //!
@@ -21,6 +23,7 @@
 
 pub mod clients;
 pub mod counters;
+pub mod crash;
 pub mod info;
 pub mod log;
 pub mod path;

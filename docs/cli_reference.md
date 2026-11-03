@@ -823,8 +823,9 @@ Verdict    refuses to boot: unknown rework(s) 9 (blink code 1); flash a firmware
 
 ## `ww report`
 
-`ww info` plus the counters, the device's stored `defmt` log and the last reset's fault and stack addresses named
-with the ELF, as one text a tester sends with a bug report. The ELF is found by the build id the device reports
+`ww info` plus the counters, the device's stored `defmt` log and the last reset's call chain as `file:line` frames
+([crash call chain](std_library/device_contract.md#crash-call-chain)), decoded with the ELF, as one text a tester
+sends with a bug report. The ELF is found by the build id the device reports
 ([where](std_library/device_contract.md#where-ww-looks-for-the-elf)); a part whose ELF isn't found says so and
 names the places searched.
 

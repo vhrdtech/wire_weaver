@@ -154,11 +154,43 @@ ww report --serial 4B333720 -o report.md
 
 It has the sections of the output above, then:
 
-* **Last reset**: the fault's `pc` and `lr` and the stack words named by function (`fn+0x1c`) from the ELF of the
-  firmware that *crashed* (the record carries its build id: it may be older than an update since).
+* **Last reset**: the crash's call chain as `file:line` frames, decoded with the ELF of the firmware that *crashed*
+  (the record carries its build id: it may be older than an update since), see [below](#crash-call-chain).
 * **Counters**: every `cnt` counter of RAM and backup with its value and unit, decoded with the ELF.
 * **Log**: what the device's log store holds, from the first message since boot, decoded with `defmt`; gaps are
   shown where the device dropped messages. Reading it does not empty the store.
+
+### Crash call chain
+
+Release firmware built with `-Zlocation-detail=none` (a few KB less flash) has no `file:line` in its panic messages,
+so the record's addresses are the way back to the panic site. `ww report` turns them into frames with the ELF's DWARF
+(`ww_report::crash`, CLT-59):
+
+* a fault's `pc` is looked up as it is, its `lr` and the stack words as return addresses, at the `BL` / `BLX` before
+  them;
+* stack words that are not return addresses are dropped: a return address has the Thumb bit set, points into
+  `.text` and follows a `BL` or `BLX` (read from the ELF's code). For a panic, `bedrock_crash` already keeps only
+  such words; a fault's raw stack words are filtered on the host;
+* each address shows the functions inlined there too, innermost first, with shortened paths
+  (`core/src/option.rs`, `embassy-usb-0.6.0/src/lib.rs`, `ww_device/src/server.rs`);
+* the panic machinery (`core::panicking`, `unwrap_failed`, `Option::unwrap`, the panic handler, `bedrock_crash`) is
+  passed over, and the first frame past it is the **panic site**.
+
+```text
+Panic site: crash_fw::ratio at src/main.rs:12:22
+
+stack 0x08000099  core::panicking::panic at core/src/panicking.rs:150:5
+stack 0x080000a9  core::option::unwrap_failed at core/src/option.rs:2253:5
+stack 0x0800007b  <core::option::Option<u32>>::unwrap at core/src/option.rs:1016:21 (inlined)
+                    crash_fw::ratio at src/main.rs:12:22  <- panic site
+stack 0x08000027  Reset at src/main.rs:38:13
+(3 stack words are not return addresses)
+```
+
+A stack scan without frame pointers is a heuristic: a stale return address left in unused stack space passes too,
+so the chain is a likely one. An ELF without debug info still gives function names from its symbol table. Other
+host tools call the same code: `Symbolizer::load(elf)?.symbolize(&CrashAddresses::from_record(&record))` gives
+`CrashFrames` (serializable, the `crash` part of `ww report --format json`).
 
 Each part that needs an ELF it couldn't get says why and the rest of the report is still complete, so a tester
 without the archive still sends something useful. `--elf`, `--force` and `--format json` behave as for

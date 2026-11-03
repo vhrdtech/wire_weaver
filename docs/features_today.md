@@ -319,6 +319,7 @@ A command line tool, a Python module and a GUI to work with devices and APIs wit
 - **[Python](python.md)**: Any device from Python, its API taken from the device itself.
 - **[Server scaffold](cli_reference.md#ww-api)**: `ww api scaffold` prints a stub for every handler a server needs.
 - **[Device info and reports](cli_reference.md#ww-info)**: `ww info` for any device; `ww report` adds counters, logs and crash data in one file.
+- **[Crash call chain](std_library/device_contract.md#crash-call-chain)**: `ww report` names a panic's or fault's call chain as `file:line` frames, inlined functions included, from the firmware's ELF, also when panics carry no location.
 - **[Safe to look at](cli_reference.md#untrusted-device-and-hub-strings)**: A device or another program can't write terminal escape sequences into what `ww` prints: control characters and bidi tricks in a product string, name or label always show up as plain text.
 - **[Recording a board rework](std_library/ww_board_info.md#recording-a-rework)**: `ww board rework set 7` / `clear 7` record a rework done on the bench, on any device that keeps the list; an unknown number is refused with the numbers the firmware knows.
 - **[Flashing checks the board's reworks](cli_reference.md#checking-the-boards-reworks)**: `ww dfu rp flash` and `ww dfu stm32 flash` read the reworks done on the board through its ROM bootloader, compare them with the ones the new image knows, and ask before writing an image that doesn't know one. <span class="ww-status">hardware check open</span>

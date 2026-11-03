@@ -74,6 +74,13 @@ gid-lock:
 features-page:
     FEATURES_PAGE=update cargo nextest run -p features_page
 
+# Rebuild the crash symbolizer's test ELFs from ww_report/tests/crash_fw (CLT-59); recheck the tests' addresses with `llvm-objdump -d` after
+[working-directory('ww_report/tests/crash_fw')]
+crash-fw-elf:
+    cargo build --release
+    cp target/thumbv6m-none-eabi/release/crash_fw ../crash_fw.elf
+    llvm-objcopy --strip-debug ../crash_fw.elf ../crash_fw_nodebug.elf
+
 # Regenerate the WireWeaver and ShrinkWrap logos in docs/assets (light, dark, 2x PNG; needs rsvg-convert)
 logos:
     uv run docs/assets/src/logos.py

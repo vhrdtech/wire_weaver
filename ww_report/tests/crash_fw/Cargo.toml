@@ -1,0 +1,19 @@
+# The firmware behind tests/crash_fw.elf, the ELF the crash symbolizer is tested with (CLT-59): a few panics on
+# thumbv6m, built as release firmware is (-Zlocation-detail=none, trim-paths). Rebuild with `just crash-fw-elf`.
+
+[package]
+name = "crash_fw"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# standalone crate: an embedded target, not part of the root workspace
+[workspace]
+
+[profile.release]
+codegen-units = 1
+debug = 2
+lto = "fat"
+opt-level = "z"
+panic = "abort"
+trim-paths = "all"

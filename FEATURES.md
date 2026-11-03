@@ -1187,6 +1187,15 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `docs/std_library/device_contract.md`, `tests/device_report`. The stored log is a stream and streams open on the
   absolute path only (CLT-23), so `ww report` reads the device's introspection data for the log's path; `ww info`
   needs none. Not yet: fetching the release archive by itself.
+- ✅ **CLT-59 Crash call chain as `file:line`** · `v0.5` — firmware built with `-Zlocation-detail=none` has no
+  `file:line` in its panic messages, so `ww report` decodes the crash record's addresses with the ELF's DWARF
+  (`addr2line`, `gimli`, pure Rust): a fault's `pc` exactly, its `lr` and the stack's return addresses at the call
+  before them, inlined frames innermost first, demangled names, shortened `trim-paths` paths; stack words that are
+  no return address (Thumb bit, `.text`, after a `BL`/`BLX`, read from the ELF's code, the rule of
+  `bedrock_crash::is_return_address`) are dropped; the panic machinery is passed over to mark the panic site.
+  `ww_report::crash` (`Symbolizer`, `CrashAddresses`, `CrashFrames`, serializable) for other host tools,
+  `docs/std_library/device_contract.md#crash-call-chain`, tests against a real thumbv6m ELF
+  (`ww_report/tests/crash_frames.rs`, `just crash-fw-elf`).
 - 🐛 **CLT-30 Link setup gives up too early on slow RTT probes** — the client sends `GetDeviceInfo` 5 times 50 ms
   apart (`LINK_SETUP_RETRIES` / `LINK_SETUP_RETRY_INTERVAL` in `event_loop/core/tx.rs`), 250 ms for every transport.
   Through a J-Link on omarchy-m1 (aarch64, probe-rs, each RTT write ~17 ms) most connects fail with "LinkSetup was

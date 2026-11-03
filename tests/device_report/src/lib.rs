@@ -24,6 +24,7 @@ mod tests {
         Version,
     };
     use ww_report::clients::Contract;
+    use ww_report::crash::Source;
     use ww_report::info::{Part, collect_info};
     use ww_report::report::{ReportOptions, collect_report, render_report};
     use ww_stream::store::{FullPolicy, RamRing};
@@ -57,7 +58,7 @@ mod tests {
             .expect("a function in the fixture");
         (
             s.address() as u32 + 4,
-            rustc_demangle::demangle(s.name().unwrap()).to_string(),
+            format!("{:#}", rustc_demangle::demangle(s.name().unwrap())),
         )
     }
 
@@ -553,14 +554,16 @@ mod tests {
             assert!(line.contains(&format!("sample {value}")), "{line}");
         }
 
-        let symbols = report.reset_symbols.value().expect("symbols");
-        // pc, lr, then the stack
-        assert_eq!(symbols.len(), 5);
-        assert_eq!(symbols[0].function.as_deref(), Some(function.as_str()));
-        assert_eq!(symbols[0].offset, 4);
-        // a thumb return address (bit 0 set) finds the same function
-        assert_eq!(symbols[2].function.as_deref(), Some(function.as_str()));
-        assert_eq!(symbols[3].function, None);
+        let crash = report.crash.value().expect("crash frames");
+        // the fixture has no DWARF: the symbol table names the program counter's function
+        assert!(crash.no_debug_info);
+        assert_eq!(crash.sites[0].source, Source::Pc);
+        assert_eq!(
+            crash.sites[0].frames[0].function.as_deref(),
+            Some(function.as_str())
+        );
+        // the record's stack words are no return addresses (no `BL` before them): dropped
+        assert_eq!(crash.dropped.len(), 3);
 
         let text = render_report(&report);
         assert!(text.contains("report_fw 1.2.3-rc.1"), "{text}");
@@ -602,7 +605,7 @@ mod tests {
             other => panic!("{other:?}"),
         }
         assert!(matches!(report.log, Part::Error(_)));
-        assert!(matches!(report.reset_symbols, Part::Error(_)));
+        assert!(matches!(report.crash, Part::Error(_)));
         let text = render_report(&report);
         assert!(
             text.contains("unavailable: No ELF with the device's build id"),

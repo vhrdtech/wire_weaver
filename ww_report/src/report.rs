@@ -3,9 +3,9 @@
 
 use crate::clients::Contract;
 use crate::counters::{self, CountersReport};
+use crate::crash::{CrashAddresses, CrashFrames, Symbolizer};
 use crate::info::{DeviceInfo, LastReset, Part, collect_info};
 use crate::log::{self, LogReport};
-use crate::symbols::{Located, Symbols};
 use defmt_decoder::Table;
 use serde::Serialize;
 use std::fmt::Write;
@@ -38,8 +38,8 @@ pub struct Elf {
 pub struct Report {
     pub tool: String,
     pub info: DeviceInfo,
-    /// ELF used for the last reset, with the crash's addresses named
-    pub reset_symbols: Part<Vec<Located>>,
+    /// The last reset's call chain, decoded with the ELF of the firmware that crashed (CLT-59)
+    pub crash: Part<CrashFrames>,
     pub counters: Part<CountersReport>,
     pub log: Part<LogReport>,
     /// Things worth knowing: an ELF that could not be checked, one that was not found
@@ -56,8 +56,8 @@ pub async fn collect_report(contract: &Contract, options: &ReportOptions) -> Rep
         .map(|f| f.build_id.clone())
         .unwrap_or_default();
 
-    let reset_symbols = match info.last_reset.value() {
-        Some(reset) => reset_symbols(reset, &fw_id, options, &mut notes),
+    let crash = match info.last_reset.value() {
+        Some(reset) => crash_frames(reset, &fw_id, options, &mut notes),
         None => Part::NotImplemented,
     };
 
@@ -81,7 +81,7 @@ pub async fn collect_report(contract: &Contract, options: &ReportOptions) -> Rep
     Report {
         tool: options.tool.clone(),
         info,
-        reset_symbols,
+        crash,
         counters,
         log,
         notes,
@@ -114,18 +114,13 @@ fn resolve(
     }
 }
 
-fn reset_symbols(
+fn crash_frames(
     reset: &LastReset,
     fw_id: &str,
     options: &ReportOptions,
     notes: &mut Vec<String>,
-) -> Part<Vec<Located>> {
-    let addresses: Vec<u32> = reset
-        .fault_addresses
-        .iter()
-        .chain(&reset.stack)
-        .copied()
-        .collect();
+) -> Part<CrashFrames> {
+    let addresses = CrashAddresses::from_last_reset(reset);
     if addresses.is_empty() {
         return Part::NotImplemented;
     }
@@ -139,8 +134,8 @@ fn reset_symbols(
         .filter_map(|i| u8::from_str_radix(&id_hex[2 * i..2 * i + 2], 16).ok())
         .collect();
     match resolve(options, &id, "crash record", notes) {
-        Ok(path) => match Symbols::load(&path) {
-            Ok(symbols) => Part::Value(addresses.iter().map(|a| symbols.locate(*a)).collect()),
+        Ok(path) => match Symbolizer::load(&path) {
+            Ok(symbolizer) => Part::Value(symbolizer.symbolize(&addresses)),
             Err(e) => Part::Error(format!("{e:#}")),
         },
         Err(e) => Part::Error(e),
@@ -354,25 +349,13 @@ pub fn render_report(report: &Report) -> String {
             if !r.message.is_empty() {
                 let _ = writeln!(out, "Message: {}", r.message);
             }
-            match &report.reset_symbols {
-                Part::Value(located) => {
-                    out.push_str("\n```text\n");
-                    let n_fault = r.fault_addresses.len();
-                    for (i, l) in located.iter().enumerate() {
-                        let what = if i < n_fault { "fault" } else { "stack" };
-                        match &l.function {
-                            Some(f) => {
-                                let _ = writeln!(
-                                    out,
-                                    "{what} {:#010x}  {f}+{:#x}",
-                                    l.address, l.offset
-                                );
-                            }
-                            None => {
-                                let _ = writeln!(out, "{what} {:#010x}", l.address);
-                            }
-                        }
+            match &report.crash {
+                Part::Value(frames) => {
+                    if let Some(summary) = frames.summary() {
+                        let _ = writeln!(out, "{summary}");
                     }
+                    out.push_str("\n```text\n");
+                    out.push_str(&frames.render());
                     out.push_str("```\n");
                 }
                 Part::Error(e) => {

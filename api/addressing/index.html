@@ -2401,6 +2401,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-resolves-a-global-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Who resolves a global path
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-report" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5587,6 +5598,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#who-resolves-a-global-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Who resolves a global path
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#api-report" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5750,11 +5772,11 @@ trait, or read the firmware version of any device with <code>ww_firmware_info</c
 the trait's crate name and version (<code>FullVersion</code>). That takes 8 to 16 bytes or more, depending on the crate name,
 where a path takes a few: costly on a constrained link, or when many calls share one packet.</p>
 <p>The request carries the trait's crate name and version (<code>FullVersion</code>), the trait's name in that crate (a crate can
-define several, <code>ww_dfu</code> has five) and the path from the trait's root. The server finds the trait wherever it sits in
-its API tree and continues from there. It answers <code>ErrorKind::TraitNotFound</code> when it doesn't implement the trait, only
-implements an incompatible version of its crate (major and, before 1.0, minor have to match), or only implements it
-under a resource array (<code>ww_impl!(port[]: ww_gpio::Bank)</code>: a global path can't select an index). When a trait is
-implemented several times, the first one in the tree (depth first, in resource id order) answers.</p>
+define several, <code>ww_dfu</code> has five) and the path from the trait's root. The trait is found wherever it sits in the
+device's API tree and the request continues from there: the trait's crate must be the requested one in a protocol
+compatible version (major and, before 1.0, minor have to match) and its name the requested one. When a trait is
+implemented several times, the first one in the tree (depth first, in resource id order) answers. Who finds it depends
+on whether the device has introspection, see <a href="#who-resolves-a-global-path">Who resolves a global path</a>.</p>
 <p>Global paths don't depend on the user API or its version, which makes them the way to talk to a device whose API the
 host doesn't know: a host built against a new API version can still reboot a device running an old one into its
 updater (<code>ww_dfu::BootControl</code>) or read its info traits. On the host, connect with <code>traits_only</code> and call through a
@@ -5811,16 +5833,72 @@ model), so moving a trait to another module, reordering traits or adding a sibli
 a move to another crate keeps the id (the old name goes into <code>aliases</code>), ids are never reused (a removed trait is
 marked <code>retired</code>), and <code>assigned_ids.lock</code> keeps every id ever assigned, checked by a test. <code>ww api check</code> reports a
 trait whose id changed or disappeared as a breaking change.</p>
-<p>A server serves a <code>GlobalCompact</code> path like a <code>GlobalFull</code> one: it finds the trait by its id wherever it sits in the
-API tree, checks that the requested version is protocol compatible with its own (same major, and same minor before
-1.0), and answers <code>ErrorKind::TraitNotFound</code> otherwise, also for an id it doesn't know, a crate's id or a trait under
-a resource array. Serving it costs 64 bytes of flash and about 170 instructions more than an absolute path on a
-Cortex-M3 (<code>GlobalFull</code>: about 790), see <code>examples_mcu/mcu_qemu/src/bin/global_paths.rs</code>.</p>
+<p>A <code>GlobalCompact</code> path is resolved like a <code>GlobalFull</code> one: the trait is found by its id wherever it sits in the
+API tree, the requested version must be protocol compatible with the device's (same major, and same minor before
+1.0), and an id the device doesn't know, a crate's id or an incompatible version is answered with
+<code>ErrorKind::TraitNotFound</code>. A server serving it by itself spends 64 bytes of flash and about 170 instructions more
+than for an absolute path on a Cortex-M3, see <code>examples_mcu/mcu_qemu/src/bin/global_paths.rs</code>.</p>
 <p>The host prefers the compact form: a global call to a trait the registry knows goes out with its id, whether the
 client asked for <code>GlobalFull</code> or not. A device built before the trait had an id answers <code>TraitNotFound</code>; the client
 then sends the same request again with <code>GlobalFull</code> and keeps using it for that trait for the rest of the
 connection. The tap decoder, <code>ww --monitor=api</code> and <code>ww explain</code> name compact calls through the registry and decode
 them from the trait's snapshot.</p>
+<h2 id="who-resolves-a-global-path">Who resolves a global path<a class="headerlink" href="#who-resolves-a-global-path" title="Permanent link">&para;</a></h2>
+<p>A device with introspection resolves no global path itself, the client does (SRV-53). Its introspection data already
+names every trait with its crate and version, so the client finds the trait there and sends the request with the
+trait's absolute path. The bytes a lookup would take on the device go to the introspection data instead, docs
+included, which is far more useful to a user than a second way to address traits:</p>
+<ul>
+<li>When the client knows the device's API (a dynamic or generated client gets it at connect, from the local cache or
+  the device), a global call goes out with the absolute path right away. A capture then names it by the device's API
+  (<code>user.name</code> instead of <code>ww_user_info::UserInfo.name</code>).</li>
+<li>On a <code>traits_only</code> connection the client doesn't know it: the call goes out with its global path, the device
+  answers <code>TraitNotFound</code> (to the compact path, then to the full one), and the client gets the introspection data
+  once (from the local cache, else from the device), finds the trait and sends the call again with the absolute path.
+  Later calls on that connection are resolved at once. A trait the data doesn't have is answered with
+  <code>TraitNotFound</code>, as before.</li>
+<li>A trait under a resource array becomes reachable this way, at index 0 (<code>[port, 0, ..]</code>), which the device's own
+  lookup can't do.</li>
+</ul>
+<p>Trait clients, <code>DynClient::global_attachment</code>, the <code>ww</code> commands and the hub work the same either way.</p>
+<p>A device without introspection resolves global paths itself, without names in its flash: it has a <code>const</code> table of
+the reachable traits, each the 32-bit FNV-1a hash of its crate and trait name (<code>ww_global::trait_hash</code>), its crate's
+major and minor version and its absolute path. It hashes the crate and trait name of a <code>GlobalFull</code> request (one
+multiply per byte, no 64-bit arithmetic on a Cortex-M0), finds the entry and checks the version after the hash
+matched. Two traits of one API with the same hash are a compile error of <code>ww_codegen!</code>; rename one, or serve compact
+ids only. A trait under a resource array is not in the table: a global path can't select an index. <code>GlobalCompact</code>
+paths are served by the traits' <code>ww_global</code> ids, as above.</p>
+<p><code>ww_codegen!(.., global_paths = "..")</code> chooses differently from these defaults:</p>
+<table>
+<thead>
+<tr>
+<th><code>global_paths</code></th>
+<th><code>GlobalFull</code></th>
+<th><code>GlobalCompact</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"full"</code></td>
+<td>by hash</td>
+<td>by <code>ww_global</code> id</td>
+</tr>
+<tr>
+<td><code>"compact"</code></td>
+<td><code>TraitNotFound</code></td>
+<td>by <code>ww_global</code> id</td>
+</tr>
+<tr>
+<td><code>"none"</code></td>
+<td><code>TraitNotFound</code></td>
+<td><code>TraitNotFound</code></td>
+</tr>
+</tbody>
+</table>
+<p>Not given, it is <code>"full"</code> without introspection and <code>"none"</code> with it.</p>
+<p>Per trait reachable this way, a server without introspection spends 80 bytes at <code>fw-z</code> on a Cortex-M0+ (its level
+included), 40 bytes less than matching the names did; one with introspection carries no lookup at all, 120-156 bytes
+less. See <a href="../../articles/flash_budget/#global-trait-paths-by-hash-srv-53">What a server costs in flash</a>.</p>
 <h2 id="api-report">API report<a class="headerlink" href="#api-report" title="Permanent link">&para;</a></h2>
 <p>TODO: export a file describing all levels of API with IDs (DOC-5).</p>
 

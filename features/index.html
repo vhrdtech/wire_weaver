@@ -6539,7 +6539,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   <code>tests/global_ids</code> and <code>assigned_ids.lock</code>), the API model carries it (<code>ApiLevel::compact_id</code>), the client sends
   compact paths and falls back to <code>GlobalFull</code> for devices built before an id existed, the tap decoder and
   <code>ww explain</code> name compact calls; 64 B of flash on a Cortex-M3 (<code>examples_mcu/mcu_qemu</code> <code>qemu-global-paths</code>).
-  Missing: traits under a resource array.</li>
+  Since SRV-53 a server with introspection leaves global paths to the client, which resolves them from the
+  introspection data (traits under a resource array at index 0 too); one without finds <code>GlobalFull</code> traits by hash.
+  Missing: traits under a resource array on a device without introspection.</li>
 <li>⛔ <strong>API-22 Implement the same trait several times → enum selector</strong> · <code>v0.5.x</code> — stalled. At least print a proper error
   when a trait is implemented twice (<code>tests/traits_api</code>).</li>
 <li>⛔ <strong>API-23 Index chain array → named arguments</strong> · <code>v0.5.x</code> — stalled. Generating ad-hoc structs with named index
@@ -6952,31 +6954,33 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at <code>fw-3</code> sync. Instructions per
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   <code>docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55</code>.</li>
-<li>📋 <strong>SRV-53 Global trait paths without names in flash</strong> · <code>v0.5</code> — flash diet: <code>ww_global_trait_path</code> matches
+<li>✅ <strong>SRV-53 Global trait paths without names in flash</strong> · <code>v0.5</code> — flash diet: <code>ww_global_trait_path</code> matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
-  240 B of names in Donguru). The person's decision (3 Nov 2026):<ol>
-<li>Without introspection, a device finds a <code>GlobalFull</code> trait by a 32-bit hash (FNV-1a) of crate id and trait
-   name, computed from the request, in a const table of (hash, version rule, absolute path): no names in flash.
-   A hash collision within one API is a build-time error in codegen. <code>GlobalCompact</code> stays as it is; compact
-   ids only is an opt-in <code>ww_codegen!(.., global_paths = "compact")</code> on top.</li>
-<li>With introspection (<code>introspect</code> on, with or without docs) the device has no global lookup at all: the table
-   and both lookup functions are left out and only absolute paths are served, a global path gets
-   <code>TraitNotFound</code>. The client resolves a global path to an absolute one from the introspection data (crate,
-   <code>FullVersion::is_protocol_compatible</code>, first match depth first, so traits under resource arrays become
-   reachable too), caches it per API, and on <code>TraitNotFound</code> for a global path fetches introspection and asks
-   again with the absolute path. Generic tools (<code>ww dfu flash</code>, device info, the hub's envelope) keep working
-   through the client library unchanged, tested end to end. Why: the bytes go to introspection itself, docs
-   included, which is far more useful to users than a second way to address traits, and they make "introspect
-   with docs" affordable on tight MCUs.</li>
+  240 B of names in Donguru). The person's decision (3 Nov 2026), as built:<ol>
+<li>Without introspection, a device finds a <code>GlobalFull</code> trait by a 32-bit FNV-1a hash of crate id and trait name
+   (<code>ww_global::trait_hash</code>), computed from the request, in a const table of (hash, major, minor, absolute path)
+   looked up by <code>ww_client_server::dispatch::global_full_path</code>: no names in flash. A hash collision within one
+   API is a <code>compile_error!</code> of codegen. <code>GlobalCompact</code> stays as it is; <code>ww_codegen!(.., global_paths =
+   "compact")</code> serves compact ids only, <code>"none"</code> no global paths, <code>"full"</code> both whatever the introspection.</li>
+<li>With introspection (<code>introspect</code> on, with or without docs) the device has no global lookup at all, a global
+   path gets <code>TraitNotFound</code>. The client resolves a global path to an absolute one from the introspection data
+   (<code>wire_weaver_client</code> <code>global_paths</code>: crate, <code>FullVersion::is_protocol_compatible</code>, name, first match depth
+   first, traits under resource arrays at index 0), caches it per connection, and on <code>TraitNotFound</code> for a
+   <code>GlobalFull</code> path (a <code>traits_only</code> connection) gets the introspection data once and asks again with the
+   absolute path. Trait clients, <code>ww</code> commands and the hub work unchanged (<code>tests/cross_version</code>, the hub's
+   clock sync). Why: the bytes go to introspection itself, docs included, which is far more useful to users
+   than a second way to address traits, and they make "introspect with docs" affordable on tight MCUs.</li>
 <li>The hash path stays because it is for more than <code>ww_client_server</code> (point to point): a future mesh broadcast
    or multicast can't resolve per device and will address traits by these hashes.
-  The hash is 32-bit FNV-1a computed on the device over the incoming crate id and trait name (one <code>MULS</code> per byte
-  on an M0; a 64-bit FNV would pull in <code>__aeabi_lmul</code>), table entries are <code>u32</code>, and the version check stays after
-  the hash match. Not SHA-256 on the device (<code>ww_self::signature::api_hash</code> stays build-time only). Idea for later,
-  not this piece: for mesh broadcast or multicast the client could send the hash itself (a new <code>PathKind</code>
+  TEST-30 (<code>Globals*</code> kind) on a Cortex-M0+: servers with introspection 120-156 B smaller at the floor; without,
+  one more global-path trait 120 → 80 B at <code>fw-z</code> sync, 131 → 114 B at <code>fw-3</code>, no names in flash. Same reply bytes
+  (TEST-31, golden servers on <code>global_paths = "full"</code>, a case for an incompatible version). Real firmware against
+  master 512f59e (release <code>z</code>, text + data): Donguru 314,892 → 312,476 B (−2,416), donguru_template 132,148 →
+  130,280 B (−1,868). Not measured: the instructions of a <code>GlobalFull</code> request (no QEMU on the PC). Found on the way: an async server without introspection and only sync handlers didn't compile. Idea for
+  later, not this piece: for mesh broadcast or multicast the client could send the hash itself (a new <code>PathKind</code>
   variant), so the device hashes nothing and requests shrink; that is a wire change (<code>PathKind</code> is
-  <code>final_structure</code>) and needs its own EVO item when mesh comes.
-  Measured with TEST-30 and on Donguru (introspection on).</li>
+  <code>final_structure</code>) and needs its own EVO item when mesh comes. See
+  <code>docs/articles/flash_budget.md#global-trait-paths-by-hash-srv-53</code>.</li>
 </ol>
 </li>
 </ul>
@@ -8392,8 +8396,9 @@ observing), SRV-46 (peer identity).
   reports its before/after with, on the same firmware: <code>just flash-budget</code> (<code>examples_mcu/fw_budget --flash</code>) builds
   servers of the roots of <code>tests/flash_budget_api</code> (<code>qemu-flash-*</code> in <code>examples_mcu/mcu_qemu</code>, <code>thumbv6m-none-eabi</code>,
   <code>fw-z</code> and <code>fw-3</code>, sync and <code>use_async</code>) and prints the floor, the bytes of one more resource of each kind (calls
-  with and without arguments, properties, streams, calls with types of their own; 16 against 8 at the root) and
-  checks for the observe <code>Series</code> codec, <code>shrink_wrap::Error</code>'s <code>Debug</code> names and the trait path lookup by name.
+  with and without arguments, properties, streams, calls with types of their own, traits reached by a global path
+  with introspection off; 16 against 8 at the root) and checks for the observe <code>Series</code> codec, <code>shrink_wrap::Error</code>'s
+  <code>Debug</code> names and the trait path lookup by name with its names in flash.
   Baseline of 3 Nov 2026 at <code>fw-z</code>, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
   call with its own types; the <code>Series</code> codec is in every server (3,796 B). <code>just dispatch-budget</code> (<code>--requests</code>,
   <code>qemu-dispatch-requests</code>) adds the instructions per request of the <code>BaseOnly</code> server on a Cortex-M3 under QEMU,

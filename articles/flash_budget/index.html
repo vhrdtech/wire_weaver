@@ -5548,6 +5548,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#global-trait-paths-by-hash-srv-53" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Global trait paths by hash (SRV-53)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5743,6 +5754,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#global-trait-paths-by-hash-srv-53" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Global trait paths by hash (SRV-53)
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5802,10 +5824,11 @@
 <li><code>Calls8</code> / <code>Calls16</code>, <code>CallsArgs8</code> / <code>CallsArgs16</code>, <code>Props8</code> / <code>Props16</code>, <code>Streams8</code> / <code>Streams16</code>: that level plus 8 or 16 resources of one kind at the root. They all use the same two types, so serdes is paid once and <code>(size(*16) - size(*8)) / 8</code> is the dispatcher's own cost of one more resource of that kind.</li>
 <li><code>Typed8</code> / <code>Typed16</code>: calls with an argument and an output of their own types, as in a real API, so each one's serdes is in its cost too.</li>
 <li><code>MaxLenBounds8</code> / <code>MaxLenBounds16</code> (SW-72): read-write properties of <code>MaxLen&lt;&amp;'i str, N&gt;</code>, a different bound each (4, 8, .., 64), as a real API's bounded fields rarely share one <code>N</code>. Excluded from the mean below, like <code>Typed*</code>: its per-resource type differs by resource too.</li>
+<li><code>Globals8</code> / <code>Globals16</code> (SRV-53): 8 or 16 traits of one method each (<code>GlobalTraitN</code>), built with introspection off, so the server answers <code>GlobalFull</code> paths to them itself: the cost of one more trait in its global path lookup, its level included. Excluded from the mean too.</li>
 </ul>
 <p>Two things keep the numbers honest. The request the server gets and every value a handler returns go through <code>core::hint::black_box</code>, so the compiler can't drop an arm it would know is never taken. Each handler is <code>#[inline(never)]</code> with a body of its own (a static it touches): identical handlers would be merged by LLVM, and the arms calling them with them.</p>
 <p>Comparing two sizes that both have resources at the root matters. Against <code>BaseOnly</code>, whose root holds only a nested level, adding resources changes the root level's code shape too, and the inliner's choices with it: the server function shrank by 560 B when 16 calls were added in one early try.</p>
-<p>The run also checks the largest server for code a firmware should not carry unless it asks for it: the <code>Series</code> codec of observe (SRV-54), <code>core::fmt</code> <code>Debug</code> of <code>shrink_wrap::Error</code> with its variant names (SW-69), and the global trait path lookup by name (SRV-53).</p>
+<p>The run also checks servers for code a firmware should not carry unless it asks for it: the largest one for the <code>Series</code> codec of observe (SRV-54) and <code>core::fmt</code> <code>Debug</code> of <code>shrink_wrap::Error</code> with its variant names (SW-69), <code>Globals16</code> for the global trait path lookup by name and the crate and trait names in flash (SRV-53).</p>
 <h2 id="baseline">Baseline<a class="headerlink" href="#baseline" title="Permanent link">&para;</a></h2>
 <p>Measured 3 Nov 2026 on wire_weaver master of that day (5e695078) plus the harness, bytes:</p>
 <table>
@@ -6638,6 +6661,97 @@
 </table>
 <p>The <code>MaxLen</code> kind is below its cost before SRV-51 (236, 206, 324 and 292 B) except at <code>z</code> with <code>use_async</code>, 24 B above. A call with types of its own is 23 B dearer at <code>fw-3</code> sync. The harness's resources share their types, so the per-type copies SRV-55 removes are few there; a real API has a type per resource or two.</p>
 <p>Instructions per request (<code>just dispatch-budget</code>, Cortex-M3 under QEMU) are within 1.5 % of SRV-52 in every cell. A call without arguments or output costs 17-23 more (2284 → 2307 at <code>z</code> sync, 1375 → 1395 at <code>fw-3</code> sync, 1.0-1.5 %); every other request is within 0.3 %. The thunk is one indirect call per reply. The reply bytes are the same (TEST-31 and the replies' hashes).</p>
+<h2 id="global-trait-paths-by-hash-srv-53">Global trait paths by hash (SRV-53)<a class="headerlink" href="#global-trait-paths-by-hash-srv-53" title="Permanent link">&para;</a></h2>
+<p>Every server had a function that matched the crate and trait names of a <code>GlobalFull</code> request against every trait of its API as strings, with a version check per arm, and the names in flash (862 B of code and 240 B of names in Donguru). Now a server with introspection has no global lookup at all: the client resolves a global path from the introspection data and sends the absolute one. A server without introspection keeps a <code>const</code> table of the reachable traits, each a 32-bit FNV-1a hash of crate and trait name, the crate's major and minor and the trait's path, looked up by one shared function, <code>ww_client_server::dispatch::global_full_path</code>, that hashes the request's names. See <a href="../../api/addressing/#who-resolves-a-global-path">Addressing</a>.</p>
+<p>Measured 3 Nov 2026 against SRV-52 (master <code>f5f88ea4</code> plus the <code>Globals*</code> kind), in the same worktree, bytes:</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m</th>
+<th style="text-align: right;">z, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">z, async before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, sync before</th>
+<th style="text-align: right;">after</th>
+<th style="text-align: right;">3, async before</th>
+<th style="text-align: right;">after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>floor, one method (introspection on)</td>
+<td style="text-align: right;">14566</td>
+<td style="text-align: right;">14410</td>
+<td style="text-align: right;">15694</td>
+<td style="text-align: right;">15554</td>
+<td style="text-align: right;">20474</td>
+<td style="text-align: right;">20354</td>
+<td style="text-align: right;">21598</td>
+<td style="text-align: right;">21454</td>
+</tr>
+<tr>
+<td>8 resources, two of each kind (introspection on)</td>
+<td style="text-align: right;">17434</td>
+<td style="text-align: right;">17166</td>
+<td style="text-align: right;">18326</td>
+<td style="text-align: right;">18082</td>
+<td style="text-align: right;">23718</td>
+<td style="text-align: right;">23330</td>
+<td style="text-align: right;">24622</td>
+<td style="text-align: right;">24366</td>
+</tr>
+<tr>
+<td>one more trait reached by a global path, introspection off</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: right;">80</td>
+<td style="text-align: right;">128</td>
+<td style="text-align: right;">87</td>
+<td style="text-align: right;">131</td>
+<td style="text-align: right;">114</td>
+<td style="text-align: right;">280</td>
+<td style="text-align: right;">268</td>
+</tr>
+<tr>
+<td>mean of the four shared-type kinds</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">89</td>
+<td style="text-align: right;">88</td>
+<td style="text-align: right;">88</td>
+<td style="text-align: right;">104</td>
+<td style="text-align: right;">104</td>
+<td style="text-align: right;">96</td>
+<td style="text-align: right;">100</td>
+</tr>
+</tbody>
+</table>
+<p>The servers with introspection are 120-156 B smaller at the floor, 244-388 B with the eight resources, whose lookup had two traits (the root and <code>Base</code>) instead of one. Without introspection one more trait costs 80 B instead of 120 B at <code>z</code> sync, and no crate or trait name is in flash (<code>GlobalTrait15</code> and <code>flash_budget_api</code> were before). The means moved by 0-4 B, within the per-kind noise the baseline describes. Instructions per <code>GlobalFull</code> request were not measured again (no QEMU on the PC that ran this); the hash is one multiply per byte of the names, where the string match compared them with every trait's.</p>
+<p>Real firmware, release (<code>z</code>), introspection as each ships (on, so no global lookup), text + data in bytes, both builds in the same paths, master <code>512f59e</code> (SRV-55) against this change:</p>
+<table>
+<thead>
+<tr>
+<th>firmware</th>
+<th style="text-align: right;">512f59e (SRV-55)</th>
+<th style="text-align: right;">SRV-53</th>
+<th style="text-align: right;">change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Donguru, typec_dongle 9427643</td>
+<td style="text-align: right;">314,892</td>
+<td style="text-align: right;">312,476</td>
+<td style="text-align: right;">-2,416</td>
+</tr>
+<tr>
+<td>donguru_template 856c389</td>
+<td style="text-align: right;">132,148</td>
+<td style="text-align: right;">130,280</td>
+<td style="text-align: right;">-1,868</td>
+</tr>
+</tbody>
+</table>
+<p>Both lose more than the 1,102 B the lookup had in Donguru on SRV-52; where the rest comes from was not broken down by symbol.</p>
 
 
 

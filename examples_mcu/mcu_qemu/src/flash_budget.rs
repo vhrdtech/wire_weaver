@@ -97,6 +97,29 @@ macro_rules! props {
     )*};
 }
 
+/// Getters and setters of `MaxLen<&str, N>` properties, a different bound each (SW-72): every `N` is its own
+/// monomorphisation of the bound check, as Donguru's `&str` fields at N = 16, 32, 64, 128 are.
+macro_rules! maxlen_props {
+    ($(($get:ident, $set:ident, $n:literal)),* $(,)?) => {$(
+        #[inline(never)]
+        fn $set(
+            &mut self,
+            _cx: &mut Context<'_, impl Out>,
+            value: MaxLen<&'_ str, $n>,
+        ) -> SetResult<()> {
+            $crate::flash_budget::distinct!();
+            $crate::flash_budget::black_box(value);
+            $crate::flash_budget::black_box(SetResult::Set)
+        }
+
+        #[inline(never)]
+        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<MaxLen<&'_ str, $n>, ()> {
+            $crate::flash_budget::distinct!();
+            $crate::flash_budget::black_box(GetResult::Value(MaxLen::new_unchecked("x")))
+        }
+    )*};
+}
+
 /// Open, close and sideband handlers of streams.
 macro_rules! streams {
     ($(($open:ident, $close:ident, $sideband:ident)),* $(,)?) => {$(

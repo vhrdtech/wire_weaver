@@ -15,7 +15,7 @@ const BASE: u64 = 8;
 const PROFILES: [&str; 2] = ["fw-z", "fw-3"];
 
 /// The pairs of bins, 8 and 16 resources of one kind at the root (`qemu-flash-<kind>8` / `16`), and the kind.
-const KINDS: [(&str, &str); 5] = [
+const KINDS: [(&str, &str); 6] = [
     ("qemu-flash-calls", "call, no arguments or output"),
     ("qemu-flash-calls-args", "call, an argument and an output"),
     ("qemu-flash-props", "property, read and write"),
@@ -23,6 +23,10 @@ const KINDS: [(&str, &str); 5] = [
     (
         "qemu-flash-typed",
         "call, argument and output types of its own",
+    ),
+    (
+        "qemu-flash-maxlen",
+        "property of MaxLen<&str, N>, a different N each (SW-72)",
     ),
 ];
 
@@ -96,20 +100,19 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
         base as i64 - floor as i64,
         (base as i64 - floor as i64) / BASE as i64
     );
-    let (mut sum, mut typed) = (0.0, 0.0);
+    let mut sum = 0.0;
     for (bin, kind) in KINDS {
         let (fewer, more) = (size(&format!("{bin}8"))?, size(&format!("{bin}16"))?);
         let per = (more as i64 - fewer as i64) as f64 / EXTRA as f64;
-        if bin == "qemu-flash-typed" {
-            typed = per;
+        if bin != "qemu-flash-typed" && bin != "qemu-flash-maxlen" {
+            sum += per;
         }
-        sum += per;
         println!("  {:<46} {per:>7.0} B", format!("one more {kind}"));
     }
     println!(
         "  {:<46} {:>7.0} B",
         "mean of the four kinds of shared types",
-        (sum - typed) / 4.0
+        sum / 4.0
     );
     let largest = dir.join("qemu-flash-streams16");
     for check in &CHECKS {

@@ -268,3 +268,17 @@ path = "src/bin/flash_typed16.rs"
 test = false
 doctest = false
 bench = false
+
+[[bin]]
+name = "qemu-flash-maxlen8"
+path = "src/bin/flash_maxlen8.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-maxlen16"
+path = "src/bin/flash_maxlen16.rs"
+test = false
+doctest = false
+bench = false

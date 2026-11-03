@@ -11,9 +11,12 @@
 //!   only the arms differ (against [BaseOnly], whose root holds only a level, the root's code changes shape too).
 //! - `Typed8` / `Typed16`: calls with an argument and an output of their own types (`InN`, `OutN`), as in a real
 //!   API, so their serdes is paid per resource too.
+//! - `MaxLenBounds8` / `MaxLenBounds16` (SW-72): read-write properties of `MaxLen<&'i str, N>`, each resource a
+//!   different bound, as a real API's bounded strings and lists rarely share one `N`.
 //!
 //! Every resource of the first four kinds uses the same types, so their serdes is paid once, in [BaseOnly]: the
-//! differences are the dispatcher's own bytes per resource. `Typed*` adds each resource's serdes.
+//! differences are the dispatcher's own bytes per resource. `Typed*` adds each resource's serdes, `MaxLenBounds*`
+//! each resource's own `MaxLen<_, N>` monomorphisation.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use wire_weaver::prelude::*;
@@ -232,6 +235,43 @@ pub trait Typed16 {
     fn x13(arg: In13) -> Out13;
     fn x14(arg: In14) -> Out14;
     fn x15(arg: In15) -> Out15;
+}
+
+/// [Base] and 8 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72): every bound is
+/// monomorphised on its own, as `&str` at N = 16, 32, 64, 128 is in Donguru.
+#[ww_api_root]
+pub trait MaxLenBounds8 {
+    ww_impl!(base: Base);
+    property!(rw x0: MaxLen<&'i str, 4>);
+    property!(rw x1: MaxLen<&'i str, 8>);
+    property!(rw x2: MaxLen<&'i str, 12>);
+    property!(rw x3: MaxLen<&'i str, 16>);
+    property!(rw x4: MaxLen<&'i str, 20>);
+    property!(rw x5: MaxLen<&'i str, 24>);
+    property!(rw x6: MaxLen<&'i str, 28>);
+    property!(rw x7: MaxLen<&'i str, 32>);
+}
+
+/// [Base] and 16 read-write properties of `MaxLen<&'i str, N>`, a different `N` each (SW-72).
+#[ww_api_root]
+pub trait MaxLenBounds16 {
+    ww_impl!(base: Base);
+    property!(rw x0: MaxLen<&'i str, 4>);
+    property!(rw x1: MaxLen<&'i str, 8>);
+    property!(rw x2: MaxLen<&'i str, 12>);
+    property!(rw x3: MaxLen<&'i str, 16>);
+    property!(rw x4: MaxLen<&'i str, 20>);
+    property!(rw x5: MaxLen<&'i str, 24>);
+    property!(rw x6: MaxLen<&'i str, 28>);
+    property!(rw x7: MaxLen<&'i str, 32>);
+    property!(rw x8: MaxLen<&'i str, 36>);
+    property!(rw x9: MaxLen<&'i str, 40>);
+    property!(rw x10: MaxLen<&'i str, 44>);
+    property!(rw x11: MaxLen<&'i str, 48>);
+    property!(rw x12: MaxLen<&'i str, 52>);
+    property!(rw x13: MaxLen<&'i str, 56>);
+    property!(rw x14: MaxLen<&'i str, 60>);
+    property!(rw x15: MaxLen<&'i str, 64>);
 }
 
 /// The argument of `x0` of the `Typed*` roots.

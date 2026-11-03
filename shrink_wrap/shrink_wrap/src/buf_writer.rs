@@ -688,8 +688,14 @@ impl<'i> BufWriter<'i> {
     /// CPUs (docs/serdes/code_size.md). A write that fails writes nothing, and the writes after it go on.
     #[inline]
     pub fn latched(&mut self) -> Result<(), Error> {
-        match self.latch.take() {
-            Some(e) => Err(e),
+        // not `self.latch.take()`, which stores `None` back also when there is nothing to clear: the derive calls
+        // this from a few hundred places in a firmware (SW-74, 1 KB less on a Cortex-M33, 0.2 KB more on an M0+,
+        // where the store on the error path is not shared). Out of line it is larger on both: the call costs more.
+        match self.latch {
+            Some(e) => {
+                self.latch = None;
+                Err(e)
+            }
             None => Ok(()),
         }
     }

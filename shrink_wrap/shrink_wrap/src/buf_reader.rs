@@ -3,6 +3,7 @@ use crate::nib32::UNib32;
 use crate::vlq32::UVlq32;
 use crate::vlq64::UVlq64;
 use crate::{DeserializeShrinkWrap, DeserializeShrinkWrapOwned, ElementSize, Error, Nibble};
+use core::mem::MaybeUninit;
 
 /// Buffer reader that treats input as a stream of bits, nibbles or bytes.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -363,8 +364,14 @@ impl<'i> BufReader<'i> {
     /// `latched()` returned `Ok`, in particular not as a loop bound.
     #[inline]
     pub fn latched(&mut self) -> Result<(), Error> {
-        match self.latch.take() {
-            Some(e) => Err(e),
+        // not `self.latch.take()`, which stores `None` back also when there is nothing to clear: the derive calls
+        // this from a few hundred places in a firmware (SW-74, 1 KB less on a Cortex-M33, 0.2 KB more on an M0+,
+        // where the store on the error path is not shared). Out of line it is larger on both: the call costs more.
+        match self.latch {
+            Some(e) => {
+                self.latch = None;
+                Err(e)
+            }
             None => Ok(()),
         }
     }
@@ -642,9 +649,10 @@ impl<'i> BufReader<'i> {
     pub fn read<T: DeserializeShrinkWrap<'i>>(&mut self) -> Result<T, Error> {
         match T::ELEMENT_SIZE {
             ElementSize::Unsized => {
-                let size = self.read_rev_len()?;
-                let mut rd_split = self.split(size)?;
-                T::des_shrink_wrap(&mut rd_split)
+                let mut rd_split = MaybeUninit::uninit();
+                self.split_sized(&mut rd_split)?;
+                // SAFETY: split_sized initialized it, it returned Ok
+                T::des_shrink_wrap(unsafe { rd_split.assume_init_mut() })
             }
             ElementSize::UnsizedFinalStructure => self.read_nested(T::des_shrink_wrap),
             ElementSize::SelfDescribing | ElementSize::Sized { .. } => T::des_shrink_wrap(self),
@@ -656,15 +664,28 @@ impl<'i> BufReader<'i> {
     pub fn read_owned<T: DeserializeShrinkWrapOwned>(&mut self) -> Result<T, Error> {
         match T::ELEMENT_SIZE {
             ElementSize::Unsized => {
-                let size = self.read_rev_len()?;
-                let mut rd_split = self.split(size)?;
-                T::des_shrink_wrap_owned(&mut rd_split)
+                let mut rd_split = MaybeUninit::uninit();
+                self.split_sized(&mut rd_split)?;
+                // SAFETY: split_sized initialized it, it returned Ok
+                T::des_shrink_wrap_owned(unsafe { rd_split.assume_init_mut() })
             }
             ElementSize::UnsizedFinalStructure => self.read_nested(T::des_shrink_wrap_owned),
             ElementSize::SelfDescribing | ElementSize::Sized { .. } => {
                 T::des_shrink_wrap_owned(self)
             }
         }
+    }
+
+    /// The reader of a value written behind its size ([BufWriter::write](crate::BufWriter::write) of an `Unsized`
+    /// one): the size from the back, then [split](Self::split), into `out`, which is initialized when it returns
+    /// `Ok`. One non-generic copy for every [read](Self::read) of such a value, and the reader is written in place:
+    /// `self.split(size)?` in `read` copied it out of its `Result` again at each type's copy of `read` (SW-74).
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    fn split_sized(&mut self, out: &mut MaybeUninit<Self>) -> Result<(), Error> {
+        let size = self.read_rev_len()?;
+        out.write(self.split(size)?);
+        Ok(())
     }
 
     /// Align to byte and split off a BufReader which can read up to the len bytes.

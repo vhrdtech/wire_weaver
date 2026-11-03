@@ -9,6 +9,8 @@ only-plain = []
 only-fixed = []
 # the call gate bench (SRV-50) with `call_gate = true`
 call-gate = []
+# the same with every trait's items asked one by one (`call_gate_items`)
+call-gate-items = ["call-gate"]
 
 [dependencies]
 cortex-m = "0.7"

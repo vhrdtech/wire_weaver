@@ -1,7 +1,9 @@
 //! Cost of the server's call gate on the device (SRV-50): a server of `tests/dfu_api` (the five `ww_dfu` traits at
-//! the root) built without the gate and with `call_gate = true` (feature `call-gate`), whose gate admits
-//! `ww_dfu::BootControl` and `ww_dfu::UpdateNode` while guarded and refuses the rest, as a guarded board does. Each
-//! request is bracketed by `mark_start` / `mark_end` for `qemu_icount`, the first bracket is empty (calibration):
+//! the root) built without the gate, with `call_gate = true` (feature `call-gate`: each trait level asked before a
+//! request goes into it) and with every trait's items asked one by one too (feature `call-gate-items`, all five in
+//! `call_gate_items`). Its gate admits `ww_dfu::BootControl` and `ww_dfu::UpdateNode` while guarded and refuses
+//! the rest, as a guarded board does. Each request is bracketed by `mark_start` / `mark_end` for `qemu_icount`, the
+//! first bracket is empty (calibration):
 //!
 //! 1. `BootControl::boot_state`, not guarded: the gate admits at once
 //! 2. `BootControl::boot_state`, guarded: admitted by its trait (two string compares)
@@ -9,27 +11,32 @@
 //! 4. `Inventory::layout`, guarded: refused, `ErrorKind::Refused` with a 31-byte reason
 //!
 //! ```text
-//! cargo build --profile fw-z --bin qemu-call-gate [--features call-gate]
+//! cargo build --profile fw-z --bin qemu-call-gate [--features call-gate | --features call-gate-items]
 //! cd ../qemu_icount && cargo run --release -- cortex-m3 lm3s6965evb ../mcu_qemu/target/thumbv7m-none-eabi/fw-z/qemu-call-gate
 //! ```
 //!
 //! Measured 3 Nov 2026 (Cortex-M3 under QEMU, instructions, not cycles), at `fw-z` (`opt-level = "z"`, fat LTO, the
-//! profile firmware ships with) and `fw-3`:
+//! profile firmware ships with) and `fw-3`; "level" is `call-gate`, "items" is `call-gate-items`:
 //!
-//! | request                          | off, z | gate, z | off, 3 | gate, 3 |
-//! |----------------------------------|-------:|--------:|-------:|--------:|
-//! | 1. `boot_state`, not guarded     |   1802 |    1835 |   1035 |    1073 |
-//! | 2. `boot_state`, guarded         |   1802 |    1863 |   1035 |    1088 |
-//! | 3. `layout`, not guarded         |   2135 |    2176 |   1275 |    1306 |
-//! | 4. `layout`, guarded (refused)   |   2135 |    2552 |   1275 |    1624 |
+//! | request                          | off, z | level, z | items, z | off, 3 | level, 3 | items, 3 |
+//! |----------------------------------|-------:|---------:|---------:|-------:|---------:|---------:|
+//! | 1. `boot_state`, not guarded     |   1802 |     1834 |     1864 |   1035 |     1064 |     1102 |
+//! | 2. `boot_state`, guarded         |   1802 |     1862 |     1920 |   1035 |     1079 |     1132 |
+//! | 3. `layout`, not guarded         |   2135 |     2172 |     2206 |   1275 |     1299 |     1336 |
+//! | 4. `layout`, guarded (refused)   |   2135 |     2539 |     2543 |   1275 |     1615 |     1618 |
 //!
-//! The gate costs 33-41 instructions per request at `z` when it admits (61 when it compares a trait: a pointer
-//! compare per name, the linker merges the firmware's `TraitId` strings with the generated ones); a refusal
-//! replaces the handler with writing the reason. Flash: 35150 -> 35922 B text at `z` (+772 B), 55018 -> 56734 B at
-//! `3` (+1716 B), for the 21 items of the five traits: a `Target` (16 B) and its path per item, one shared
-//! `ww_gate_refused`, the op and observe helpers. Without `call_gate` nothing is generated: `qemu-global-paths` was
-//! the same against the commit before SRV-50 but 4 B of text (the new `ErrorKind::Refused` arm of `Error`'s
-//! serializer) and 2 instructions on its `TraitNotFound` answer.
+//! | text, B | off   | level         | items         |
+//! |---------|------:|--------------:|--------------:|
+//! | `fw-z`  | 35150 | 35786 (+636)  | 36062 (+912)  |
+//! | `fw-3`  | 55018 | 55554 (+536)  | 56974 (+1956) |
+//!
+//! The level gate costs 32-37 instructions per request at `z` when it admits (60 when it compares a trait: a pointer
+//! compare per name, the linker merges the firmware's `TraitId` strings with the generated ones); asking the item
+//! as well adds about 30 more. A refusal replaces the handler with writing the reason. Flash of the level gate is
+//! mostly fixed: one shared `ww_gate_refused`, the op helper and a `Target` per trait level; asking the 21 items one
+//! by one adds 276 B at `z` and 1420 B at `3` (a `Target`, its path and the check per item). Without `call_gate`
+//! nothing is generated: `qemu-global-paths` was the same against the commit before SRV-50 but 4 B of text (the new
+//! `ErrorKind::Refused` arm of `Error`'s serializer) and 2 instructions on its `TraitNotFound` answer.
 #![no_main]
 #![no_std]
 
@@ -490,7 +497,7 @@ pub mod api_impl {
     );
 }
 
-#[cfg(feature = "call-gate")]
+#[cfg(all(feature = "call-gate", not(feature = "call-gate-items")))]
 pub mod api_impl {
     wire_weaver::ww_codegen!(
         dfu_api :: DfuDevice for super::ServerState,
@@ -498,5 +505,17 @@ pub mod api_impl {
         method_model = "_=immediate",
         property_model = "_=get_set",
         call_gate = true,
+    );
+}
+
+#[cfg(feature = "call-gate-items")]
+pub mod api_impl {
+    wire_weaver::ww_codegen!(
+        dfu_api :: DfuDevice for super::ServerState,
+        server = true, no_alloc = true, use_async = false,
+        method_model = "_=immediate",
+        property_model = "_=get_set",
+        call_gate = true,
+        call_gate_items = "node, boot, inventory, stage, bulk",
     );
 }

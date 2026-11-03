@@ -685,7 +685,7 @@ impl<'i> BufReader<'i> {
     /// one): the size from the back, then [split](Self::split), into `out`, which is initialized when it returns
     /// `Ok`. One non-generic copy for every [read](Self::read) of such a value, and the reader is written in place:
     /// `self.split(size)?` in `read` copied it out of its `Result` again at each type's copy of `read` (SW-74).
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
     #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
     fn split_sized(&mut self, out: &mut MaybeUninit<Self>) -> Result<(), Error> {
         let size = self.read_rev_len()?;

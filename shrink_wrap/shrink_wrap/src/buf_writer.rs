@@ -1004,7 +1004,7 @@ impl<'i> BufWriter<'i> {
     /// the builder and reported by [end_unsized](Self::end_unsized) (or before it, by the value's own write that
     /// doesn't fit either). The builder is two words and comes back in registers, where the `Result` of `new` was
     /// copied out of memory at every type's copy of `write` (SW-74).
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
     #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
     fn begin_unsized(&mut self) -> UnsizedBuilder {
         UnsizedBuilder::new(self).unwrap_or(UnsizedBuilder {
@@ -1014,7 +1014,7 @@ impl<'i> BufWriter<'i> {
     }
 
     /// [UnsizedBuilder::finish] of a builder from [begin_unsized](Self::begin_unsized).
-    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
     #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
     fn end_unsized(&mut self, builder: UnsizedBuilder) -> Result<(), Error> {
         if builder.unsized_start_idx == usize::MAX {

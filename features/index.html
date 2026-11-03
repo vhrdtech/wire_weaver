@@ -6455,10 +6455,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   (DER-25), with the self-describing skip path. A fieldless enum with dense tags decodes through a const table
   (tag -&gt; variant) and one shared lookup instead, in the derive, so every such enum gains, not only <code>Prefix</code>. Same
   bytes on the wire (the conformance corpus proves it). Est. Prefix ~100 B instead of 574 B.</li>
-<li>📋 <strong>SW-72 <code>MaxLen&lt;_, N&gt;</code> checks through one helper</strong> · <code>v0.5</code> — flash diet: ser <code>MaxLen&lt;_, N&gt;</code> is monomorphised
+<li>✅ <strong>SW-72 <code>MaxLen&lt;_, N&gt;</code> checks through one helper</strong> · <code>v0.5</code> — flash diet: ser <code>MaxLen&lt;_, N&gt;</code> was monomorphised
   per bound (9 instances, 296 B in Donguru: <code>&amp;str</code> for N = 16, 32, 64, 128, <code>RefVec&lt;u8&gt;</code> for 16, 20, 32, 512) though
-  the bodies differ only in N. A non-generic <code>check_max(len, max)</code> with a thin generic wrapper keeps one copy. Est.
-  200-250 B.</li>
+  the bodies differ only in N. <code>new</code>, <code>ser_shrink_wrap</code>, <code>ser_shrink_wrap_owned</code> and <code>des_shrink_wrap</code>'s <code>check_len</code>
+  now share one <code>check_max_len(len, max)</code> (<code>shrink_wrap/shrink_wrap/src/max_len.rs</code>); same error and bytes on the
+  wire. Measured on TEST-30's <code>flash-budget</code> harness (added <code>MaxLenBounds8</code>/<code>16</code> to <code>tests/flash_budget_api</code>,
+  the API had no <code>MaxLen</code> before): <code>#[inline(never)]</code>, as the item asked for, does <strong>not</strong> save the estimated
+  200-250 B — it costs 10 to 53 B more per bounded resource on thumbv6m, <code>fw-z</code>/<code>fw-3</code>, because a different <code>N</code>
+  still has to reach the call as an argument, so nothing byte-identical is left to merge, and the call itself is
+  overhead a plain inlined <code>if len &gt; max</code> didn't pay. Left as a plain <code>fn</code> (no <code>#[inline(never)]</code>): the compiler
+  folds it back in at every site, so the result is one copy of the logic in source and the same bytes as before
+  in the binary, not fewer. <code>docs/articles/flash_budget.md</code> has the numbers.</li>
 <li>💡 <strong>SW-73 Panic-free indexing in BufReader / BufWriter</strong> — flash diet, to evaluate: the slice indexing and
   <code>copy_from_slice</code> in shrink_wrap's reader and writer keep panic paths (670 B of file paths, <code>copy_from_slice</code> 636 B
   and <code>index</code>/<code>index_mut</code> about 2 KB in Donguru's isolated build) though the reader and writer already report

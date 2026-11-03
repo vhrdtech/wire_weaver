@@ -5504,6 +5504,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sw-72-maxlen_-ns-bound-check-through-one-helper" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SW-72: <code>MaxLen&lt;_, N&gt;</code>'s bound check through one helper
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5655,6 +5666,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sw-72-maxlen_-ns-bound-check-through-one-helper" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SW-72: <code>MaxLen&lt;_, N&gt;</code>'s bound check through one helper
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5712,6 +5734,7 @@
 <li><code>BaseOnly</code>: a trait level with two resources of each kind (calls with and without arguments, a read-write property, a stream).</li>
 <li><code>Calls8</code> / <code>Calls16</code>, <code>CallsArgs8</code> / <code>CallsArgs16</code>, <code>Props8</code> / <code>Props16</code>, <code>Streams8</code> / <code>Streams16</code>: that level plus 8 or 16 resources of one kind at the root. They all use the same two types, so serdes is paid once and <code>(size(*16) - size(*8)) / 8</code> is the dispatcher's own cost of one more resource of that kind.</li>
 <li><code>Typed8</code> / <code>Typed16</code>: calls with an argument and an output of their own types, as in a real API, so each one's serdes is in its cost too.</li>
+<li><code>MaxLenBounds8</code> / <code>MaxLenBounds16</code> (SW-72): read-write properties of <code>MaxLen&lt;&amp;'i str, N&gt;</code>, a different bound each (4, 8, .., 64), as a real API's bounded fields rarely share one <code>N</code>. Excluded from the mean below, like <code>Typed*</code>: its per-resource type differs by resource too.</li>
 </ul>
 <p>Two things keep the numbers honest. The request the server gets and every value a handler returns go through <code>core::hint::black_box</code>, so the compiler can't drop an arm it would know is never taken. Each handler is <code>#[inline(never)]</code> with a body of its own (a static it touches): identical handlers would be merged by LLVM, and the arms calling them with them.</p>
 <p>Comparing two sizes that both have resources at the root matters. Against <code>BaseOnly</code>, whose root holds only a nested level, adding resources changes the root level's code shape too, and the inliner's choices with it: the server function shrank by 560 B when 16 calls were added in one early try.</p>
@@ -5942,6 +5965,50 @@
 <p>Of the floor's 11.8 KB at <code>z</code> (sync), the events written in place are about 11.2 KB and the lazy <code>Observe</code> body about 0.46 KB (0.87 KB at <code>3</code>), measured as two steps on ff395f1a. The 8-resource servers lose 1 KB less than the floor: their stream links the <code>StreamHead</code> writer again, which the floor carried before only through <code>Event</code>'s serializer. The per-resource cells stay within the inliner's noise. Firmware that observes is unchanged: <code>qemu-foc-observe</code> prints the same as before.</p>
 <h2 id="sw-70-the-bit-helpers-as-hints">SW-70: the bit helpers as hints<a class="headerlink" href="#sw-70-the-bit-helpers-as-hints" title="Permanent link">&para;</a></h2>
 <p>Measured 3 Nov 2026 against the harness alone (commit <code>67c1dd91</code>, with the SW-70 change on top of it): the private helpers of the bit writer and reader are <code>#[inline]</code> instead of <code>#[inline(always)]</code> unless the firmware asks otherwise with <code>--cfg shrink_wrap_hot</code> (<a href="../../serdes/code_size/#hot-paths-at-opt-level-z">Hot paths at opt-level z</a>). The floor at <code>fw-z</code>: 26350 → 25610 B sync, 27174 → 26434 B async (−740 B), the <code>Series</code> codec in it 3796 → 3224 B; <code>fw-3</code> unchanged; every per-resource cell unchanged. With <code>shrink_wrap_hot="inline"</code> the same bytes as before, with <code>"optimize"</code> (nightly) +208 B. Lists of plain numbers share one non-generic length-and-bytes path: no list in these servers, Donguru 157728 → 157640 B at <code>z</code> and 229344 → 228452 B at <code>3</code>.</p>
+<h2 id="sw-72-maxlen_-ns-bound-check-through-one-helper">SW-72: <code>MaxLen&lt;_, N&gt;</code>'s bound check through one helper<a class="headerlink" href="#sw-72-maxlen_-ns-bound-check-through-one-helper" title="Permanent link">&para;</a></h2>
+<p><code>tests/flash_budget_api</code> had no <code>MaxLen</code> field before this item, so it got <code>MaxLenBounds8</code> / <code>MaxLenBounds16</code> (above) to measure against. Before and after, measured in the same worktree (absolute path length affects panic-location strings, so a cross-worktree comparison is noise; the mean of the four shared-type kinds above is identical in both runs, confirming the rest of the build is deterministic):</p>
+<table>
+<thead>
+<tr>
+<th>thumbv6m, one more <code>MaxLen&lt;&amp;str, N&gt;</code> property</th>
+<th style="text-align: right;">z, sync</th>
+<th style="text-align: right;">z, async</th>
+<th style="text-align: right;">3, sync</th>
+<th style="text-align: right;">3, async</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>before: <code>if len &gt; N</code> written at each of the four call sites</td>
+<td style="text-align: right;">236 B</td>
+<td style="text-align: right;">206 B</td>
+<td style="text-align: right;">324 B</td>
+<td style="text-align: right;">292 B</td>
+</tr>
+<tr>
+<td>after: shared <code>check_max_len(len, max)</code>, plain <code>fn</code></td>
+<td style="text-align: right;">236 B</td>
+<td style="text-align: right;">206 B</td>
+<td style="text-align: right;">324 B</td>
+<td style="text-align: right;">292 B</td>
+</tr>
+<tr>
+<td>after, <code>#[inline(never)]</code> on <code>check_max_len</code> (what the item asked for)</td>
+<td style="text-align: right;">246 B</td>
+<td style="text-align: right;">205 B</td>
+<td style="text-align: right;">377 B</td>
+<td style="text-align: right;">337 B</td>
+</tr>
+<tr>
+<td><code>#[inline(never)]</code> vs before</td>
+<td style="text-align: right;">+10 B</td>
+<td style="text-align: right;">−1 B</td>
+<td style="text-align: right;">+53 B</td>
+<td style="text-align: right;">+45 B</td>
+</tr>
+</tbody>
+</table>
+<p>The estimate (9 monomorphised copies on Donguru, "est. 200-250 B" in FEATURES.md) assumed the duplicated copies could be merged away. They can't: each copy still needs its own <code>N</code> to compare against, baked in as a call argument either way, so nothing byte-identical is left for the linker or <code>MergeFunctions</code> to fold. Forcing the check out of line with <code>#[inline(never)]</code> only adds the call's own overhead (argument setup, branch-and-link, the <code>?</code> on its <code>Result</code>) on top of a comparison that was already about as small as an immediate compare gets — and costs more of it at <code>fw-3</code>, where the optimizer would otherwise have inlined a function this small for free. Left as a plain <code>fn</code>, the compiler inlines it back at every site, landing on the exact bytes the duplicated form already had: one copy in the source to read and maintain, not a smaller binary. Shipped as the plain <code>fn</code>.</p>
 
 
 

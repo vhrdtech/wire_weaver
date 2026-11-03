@@ -159,12 +159,9 @@ macro_rules! base_handlers {
     };
 }
 
-/// The bin's `main` and server struct, with `ww_codegen!` for `flash_budget_api::$root`.
-macro_rules! flash_budget_server {
+/// The server struct, `ww_codegen!` for `flash_budget_api::$root` and `serve`, which handles one request.
+macro_rules! flash_budget_server_impl {
     ($root:ident) => {
-        use cortex_m_rt::entry;
-        use cortex_m_semihosting::debug;
-
         pub struct ServerState {}
 
         #[cfg(not(feature = "flash-async"))]
@@ -230,6 +227,16 @@ macro_rules! flash_budget_server {
             };
             r.map(|b| b.len()).ok()
         }
+    };
+}
+
+/// The bin's `main` and server struct, with `ww_codegen!` for `flash_budget_api::$root`.
+macro_rules! flash_budget_server {
+    ($root:ident) => {
+        use cortex_m_rt::entry;
+        use cortex_m_semihosting::debug;
+
+        flash_budget_server_impl!($root);
 
         #[entry]
         fn main() -> ! {

@@ -5,8 +5,8 @@
 //! ```text
 //! cargo run --release -- --elf [--targets T1,T2]     # plain against Fixed code per function, see elf_diff.rs
 //! cargo run --release -- --flash [--targets T1,T2]   # flash of a server: floor and bytes per resource (TEST-30)
-
 //! cargo run --release -- --attribute ELF [--gen GENERATED.rs] [--top N]   # bytes by inlined frame, see attribute.rs
+//! cargo run --release -- --requests [--qemu-host HOST] # instructions per request of a server (TEST-30)
 //! cargo run --release -- [--profile fw-z|fw-3] [--qemu-host HOST] [--cycles [--chip CHIP]] [--bin-dir DIR]
 //! ```
 //!
@@ -20,6 +20,7 @@
 mod attribute;
 mod elf_diff;
 mod flash;
+mod requests;
 
 use object::{Object, ObjectSection, ObjectSymbol};
 use std::collections::BTreeMap;
@@ -50,6 +51,8 @@ struct Args {
     elf: bool,
     /// The flash budget of a server (TEST-30, `flash.rs`) instead of the units budget.
     flash: bool,
+    /// Instructions per request of a server (TEST-30, `requests.rs`) instead of the units budget.
+    requests: bool,
     targets: Vec<String>,
     /// Attribute the bytes of this ELF to inlined frames (TEST-32) instead of running anything.
     attribute: Option<PathBuf>,
@@ -65,6 +68,7 @@ fn parse_args() -> Res<Args> {
         chip: "STM32H725IGKx".into(),
         elf: false,
         flash: false,
+        requests: false,
         targets: ELF_TARGETS.iter().map(|t| t.to_string()).collect(),
         attribute: None,
         generated: None,
@@ -83,10 +87,10 @@ fn parse_args() -> Res<Args> {
                 args.flash = true;
                 args.targets = vec!["thumbv6m-none-eabi".into()];
             }
-
             "--attribute" => args.attribute = Some(value("--attribute")?.into()),
             "--gen" => args.generated = Some(value("--gen")?.into()),
             "--top" => args.top = value("--top")?.parse()?,
+            "--requests" => args.requests = true,
             "--targets" => {
                 args.targets = value("--targets")?.split(',').map(str::to_string).collect()
             }
@@ -169,6 +173,9 @@ fn run(args: &Args) -> Res<()> {
     if args.flash {
         return flash::run(&args.targets, &qemu_dir);
     }
+    if args.requests {
+        return requests::run(&root, &qemu_dir, args.qemu_host.as_deref());
+    }
     eprintln!("building {QEMU_BIN} at profile {}", args.profile);
     let elf = qemu_dir
         .join("target/thumbv7m-none-eabi")
@@ -246,16 +253,16 @@ pub fn flash_size(elf: &Path) -> Res<u64> {
 
 /// What a case cost: cold run and warm run (the smallest of the others), for `ops` operations.
 #[derive(Clone, Debug, PartialEq)]
-struct Cost {
-    label: String,
-    ops: u64,
-    cold: u64,
-    warm: u64,
+pub(crate) struct Cost {
+    pub label: String,
+    pub ops: u64,
+    pub cold: u64,
+    pub warm: u64,
 }
 
 /// Instructions from `qemu_icount`'s output: the `bracket=N <label> run=R ops=K` lines the bin prints, then the
 /// `bracket N: X instructions` lines the tool prints (N counts from 1).
-fn parse_icount(text: &str) -> Res<Vec<Cost>> {
+pub(crate) fn parse_icount(text: &str) -> Res<Vec<Cost>> {
     let mut brackets: Vec<(String, u64, u64)> = Vec::new(); // label, run, ops
     let mut counts: BTreeMap<usize, u64> = BTreeMap::new();
     for line in text.lines() {
@@ -311,7 +318,7 @@ fn collect(samples: impl Iterator<Item = (String, u64, u64, u64)>) -> Vec<Cost> 
 }
 
 /// Runs `qemu_icount` on the ELF, here or on `host` over ssh.
-fn qemu_icount(root: &Path, elf: &Path, host: Option<&str>) -> Res<String> {
+pub(crate) fn qemu_icount(root: &Path, elf: &Path, host: Option<&str>) -> Res<String> {
     let args = ["cortex-m3", "lm3s6965evb"];
     let limits = [
         "--max-insns=50000000".to_string(),

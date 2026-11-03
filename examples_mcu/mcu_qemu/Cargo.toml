@@ -193,6 +193,13 @@ doctest = false
 bench = false
 
 [[bin]]
+name = "qemu-dispatch-requests"
+path = "src/bin/dispatch_requests.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
 name = "qemu-flash-base-only"
 path = "src/bin/flash_base_only.rs"
 test = false

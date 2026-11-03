@@ -15,6 +15,8 @@ just flash-budget --targets thumbv7em-none-eabihf   # other cores
 
 It builds the `qemu-flash-*` bins of `examples_mcu/mcu_qemu` and reads the flash of each ELF: every allocated section with contents (code, read-only data, vector table). Nothing runs, so no QEMU and no board are needed. Each build is done at both profiles firmware ships with, `fw-z` (fat LTO, one codegen unit, `opt-level = "z"`) and `fw-3` (the same at `opt-level = 3`), and with both server flavours: `use_async = false`, and `use_async = true` with sync handlers (`handler_model = "_=sync"`), as Donguru's firmware is built.
 
+`just dispatch-budget` is the same server in instructions: `qemu-dispatch-requests` runs the `BaseOnly` server under QEMU (Cortex-M3, `lm3s6965evb`, counted by `qemu_icount`) on one request of each kind (a call with and without arguments, a property read and write, a stream open and close, a bad path, a request kind the resource doesn't take) and prints the instructions from `process_request_bytes` to its reply, with the reply's length and hash, at `fw-z` and `fw-3`, sync and `use_async`. `--qemu-host HOST` runs QEMU on another PC.
+
 ## How it measures
 
 The servers are the roots of `tests/flash_budget_api`:

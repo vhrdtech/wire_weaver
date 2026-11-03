@@ -295,6 +295,12 @@ flash-budget *args:
 flash-attribute elf *args:
     cargo run -q --release -- --attribute {{ absolute_path(elf) }} {{ args }}
 
+# Instructions per request of a server (TEST-30): one request of each kind through the dispatcher of the flash budget's
+# `BaseOnly` server on a Cortex-M3 under QEMU at `fw-z` and `fw-3`, sync and `use_async`; `--qemu-host HOST` runs QEMU there
+[working-directory('examples_mcu/fw_budget')]
+dispatch-budget *args:
+    cargo run -q --release -- --requests {{ args }}
+
 # header text:
 #     @printf "\033[34m\033[1m%s\033[0m\n" "{{ text }}"
 

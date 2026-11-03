@@ -2573,7 +2573,9 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   with and without arguments, properties, streams, calls with types of their own; 16 against 8 at the root) and
   checks for the observe `Series` codec, `shrink_wrap::Error`'s `Debug` names and the trait path lookup by name.
   Baseline of 3 Nov 2026 at `fw-z`, sync: floor 26,286 B, 52-496 B per resource by kind (mean 245 B), 438 B for a
-  call with its own types; the `Series` codec is in every server (3,796 B). See `docs/articles/flash_budget.md`.
+  call with its own types; the `Series` codec is in every server (3,796 B). `just dispatch-budget` (`--requests`,
+  `qemu-dispatch-requests`) adds the instructions per request of the `BaseOnly` server on a Cortex-M3 under QEMU,
+  one request of each kind, with each reply's length and hash. See `docs/articles/flash_budget.md`.
 - ✅ **TEST-31 Golden reply bytes of the dispatcher** — guards SRV-51, SRV-52 and SRV-53: `tests/dispatch_golden_api`
   (one resource of every kind: calls with and without arguments and outputs, `Deferred`, `Unimplemented`, property
   get/set with a user error, `const`, a stream, a plain sink, an array with an index chain, `ww_user_info::UserInfo`

@@ -1719,7 +1719,8 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   passes `program = false` (nothing written, the would-be outcome printed). `UnknownRework` is shown with the
   numbers the firmware knows, read from `REWORKS`: `unknown rework 7: this firmware knows 1-5, 8; update firmware
   first`; `Conflict` and `ProductionRecord` print the device's own message. `wire_weaver_cli` `cmd::board`. The
-  first device is usb_io_fw PLAT-17.
+  first device is usb_io_fw PLAT-17. Tested on B200A 027 (3 Nov 2026, firmware 0.10.29, `ww` feb97a85): `set` /
+  `clear` with and without `--dry-run`, `set 9` refused with the known numbers, nothing stored.
 - 🧪 **TOOL-16 `ww sync`** — several devices kept on the host's UTC at once (STD-49, crate `ww_clock_sync`): devices
   by serial or label parts (or every device the selection matches), a live table per device (state, followed source,
   rate in ppm, shortest round trip, the residual offset measured with `shared_now`, samples), `--mode` writes the

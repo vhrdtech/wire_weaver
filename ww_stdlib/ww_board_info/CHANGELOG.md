@@ -1,6 +1,27 @@
 ## Unreleased
 
+### ⚠️ Breaking
+
+- The rework guard (STD-101) replaces "runs on its safe features": a firmware with an applied rework it doesn't know
+  boots guarded. Devices implementing `BoardInfo` without the guard add `"board.GUARD"`,
+  `"board.allow_unknown_reworks"` and `"board.clear_unknown_reworks_allowance"` (their paths) to `omit`.
+  `ReworkError::Guarded { id }` appended. Still 0.3.0 (never published).
+
 ### 🚀 Features
+
+- `BoardInfo::GUARD` (STD-101), `#[optional]` const item `GuardSummary { state: GuardState, unknown, allowance:
+  Option<Allowance> }`: `GuardState` `Normal`, `Guarded` (identity, info, updates and reading the record only, outputs
+  safe), `Allowed` (unknown reworks covered by an allowance for this image).
+- `BoardInfo::allow_unknown_reworks(image: ImageId, reworks, program)` and `clear_unknown_reworks_allowance(program)`
+  (STD-101), `#[optional]`: store or erase the allowance that lets one image run with named unknown reworks.
+  `ImageId([u8; 8])` is the first 8 bytes of the image's GNU build id (`ImageId::from_build_id`, `Display` as hex).
+- Module `guard` (STD-101, `no_std`): `decide(known, applied, allowance, own) -> Decision { guard: Guard,
+  erase_allowance }`, `StoredAllowance` (two `u64`, what a board stores), `allowance_from_request`, `GuardReport`
+  (serves `GUARD`).
+- Module `image` (STD-101): the record of the reworks an image knows, in the image (magic `WWREWORK`, CRC-32, a
+  48-byte entry per board revision). `image_reworks!` builds it as a `static` from `ReworkTable` consts,
+  `ImageReworks::known` reads it back in firmware, `ImageTable::find` / `parse` / `entries` / `known` read it from
+  image bytes, `check` (`Check::Ok`, `Lacking`, `OtherBoard`, `NoRecord`) is the comparison every flasher makes.
 
 - `BoardInfo::REWORKS` (STD-24, STD-98), `#[optional]` const item `MaxLen<RefVec<Rework>, MAX_REWORKS>` (16), with
   `Rework { id: ReworkId, title: Option<MaxLen<&str, 48>>, applied: bool }`: which reworks of a bring-up board unit

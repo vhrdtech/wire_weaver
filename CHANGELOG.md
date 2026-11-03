@@ -13,6 +13,8 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 
 ### Added
 
+- The rework guard (STD-101): a firmware never runs a board with a rework it doesn't know. It boots guarded (`BoardInfo::GUARD`) unless an allowance bound to its own image's build id covers the reworks (`allow_unknown_reworks`, `clear_unknown_reworks_allowance`); `ww_board_info::guard` decides, `ww_board_info::image` carries the reworks an image knows inside the image so flashers compare before writing. Replaces "runs on its safe features". Breaking for `ww_board_info` 0.3.0 (never published): devices without the guard omit the new items. See `ww_stdlib/ww_board_info/CHANGELOG.md`, `ww_stdlib/ww_firmware_info/CHANGELOG.md`.
+
 - `exact_units` taken at b114829 (STD-99, LVL-3): levels and their rates as quantities (`Neper`, `Decibel`, a loss
   base so a cable's dB/100 m never flips sign, damping, Beer-Lambert, dB/(cm·MHz) for ultrasound), reachable as
   `ww_si::..` through the existing `units` re-export; the crate walker learns the new `unit!` syntax

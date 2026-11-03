@@ -322,6 +322,7 @@ They are shared, so a tool that knows one of them works with every device that i
 
 - STD-24 | Device contract | What every device answers: firmware, board, ids, user label and last reset. | std_library/device_contract.md
 - STD-98 | Recording a board rework | After a rework on the bench, any host records it by number on any device serving `ww_board_info`; a firmware refuses numbers it doesn't know and reports ones it finds in its record. | std_library/ww_board_info.md#recording-a-rework
+- STD-101 | The rework guard | A firmware never runs a board with a rework it doesn't know: it boots guarded unless the user allowed that rework for this very image, and an image tells flashers which reworks it knows. | std_library/ww_board_info.md#the-rework-guard
 - STD-16 | Common errors | `CommonError` (`Busy`, `Timeout`, `InvalidArgument`, ...) shared by all APIs. | std_library/ww_error.md
 - STD-3, STD-23 | Units and numbers | `ww_si` quantities like volts, hertz and seconds, `ww_numeric` values. | std_library/ww_si.md
 - STD-38 | Units checked by the compiler | One generic quantity type with the unit in the type: `Volt * Ampere` is a `Watt`, `Volt + Ampere` doesn't build, `3300 mV` prints itself. | std_library/ww_si.md#unit-algebra

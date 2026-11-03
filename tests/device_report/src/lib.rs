@@ -373,7 +373,12 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BUILD_ID=fn,IDS=fn,BOARD=fn,DEFMT=fn,INFO=fn",
-                omit = ["board.set_reworks"],
+                omit = [
+                    "board.set_reworks",
+                    "board.GUARD",
+                    "board.allow_unknown_reworks",
+                    "board.clear_unknown_reworks_allowance",
+                ],
             );
         }
 

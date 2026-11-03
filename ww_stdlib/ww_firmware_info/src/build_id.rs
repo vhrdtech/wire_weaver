@@ -18,6 +18,28 @@ pub fn parse_build_id_note(note: &[u8]) -> Option<&[u8]> {
     note.get(name_end..name_end.checked_add(descsz)?)
 }
 
+/// The build id inside an image's bytes, as a flasher holds them before writing (a raw binary, the flash contents of
+/// an ELF or a UF2): the GNU build note found by its header (`namesz` 4, `type` 3, `GNU\0`). `None` when there is no
+/// such note, or more than one (an image built from two notes can't be told apart). Its first 8 bytes are the
+/// `ww_board_info::ImageId` the rework guard binds an allowance to (STD-101).
+pub fn find_build_id(image: &[u8]) -> Option<&[u8]> {
+    let mut found = None;
+    for at in 0..image.len().saturating_sub(16) {
+        let head = &image[at..at + 16];
+        if head[0..4] == [4, 0, 0, 0]
+            && head[8..12] == [3, 0, 0, 0]
+            && head[12..16] == *b"GNU\0"
+            && let Some(id) = parse_build_id_note(&image[at..])
+        {
+            if found.is_some() {
+                return None;
+            }
+            found = Some(id);
+        }
+    }
+    found
+}
+
 /// Build id of the running image: the bytes of the GNU build note the linker wrote, empty when there is none.
 ///
 /// Needs the `__build_id_start` / `__build_id_end` symbols from the firmware's linker script, see the
@@ -50,6 +72,24 @@ mod tests {
             parse_build_id_note(&note),
             Some(&(0..20u8).collect::<Vec<_>>()[..])
         );
+    }
+
+    #[test]
+    fn found_in_an_image() {
+        let mut note = vec![4, 0, 0, 0, 20, 0, 0, 0, 3, 0, 0, 0];
+        note.extend_from_slice(b"GNU\0");
+        note.extend(0..20u8);
+        let mut image = vec![0xff; 100];
+        image.extend(&note);
+        image.extend([0xff; 50]);
+        assert_eq!(
+            find_build_id(&image),
+            Some(&(0..20u8).collect::<Vec<_>>()[..])
+        );
+        assert_eq!(find_build_id(&image[..100]), None);
+        // two notes: can't tell which one is the image's
+        image.extend(&note);
+        assert_eq!(find_build_id(&image), None);
     }
 
     #[test]

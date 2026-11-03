@@ -121,8 +121,8 @@ impl<'a> ReworkTable<'a> {
             .fold(ReworkSet::EMPTY, |s, r| s.with(r.id, true))
     }
 
-    /// The applied numbers this firmware doesn't know (written by a newer one): while there is one, the board runs
-    /// on its safe features.
+    /// The applied numbers this firmware doesn't know (written by a newer one): while there is one, the board boots
+    /// guarded ([crate::guard]).
     pub fn unknown(&self, applied: ReworkSet) -> ReworkSet {
         ReworkSet(applied.0 & !self.known().0)
     }

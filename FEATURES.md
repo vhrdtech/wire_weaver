@@ -909,6 +909,11 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   `WIRE_WEAVER_REEXPORTS` in the crate walker is partly there), and `wire_weaver_usb_embassy` building in the
   root workspace or merging into `ww_device`. Separately consider making `wire_weaver`'s `std` default off.
 
+- 📋 **SRV-50 Server call gate** · `v0.5` — a `ww_codegen!` option that lets the server refuse a request before
+  its handler runs, decided by the firmware by global trait identity (resource path as fallback), with a refusal
+  error carrying the reason (`board guarded: unknown rework 9`) that clients and `ww` show. For the rework guard
+  (STD-101): identity, info, DFU and reading the record pass, everything else is refused. No code when off.
+
 - 📋 **SRV-9 Handle USB suspend/resume** · `v0.5` — run until suspend, wait for resume, loop
   (`mcu/wire_weaver_usb_embassy`). Later (`v0.5.x`): detect the host going to sleep and keep the connection,
   informing the device.
@@ -1768,6 +1773,16 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   anyway); completions of the subcommands, `keep` durations and device keys with help texts; colour off without a
   TTY or with `NO_COLOR`; `lend DEVICE -- CMD` (SRV-32). Open: `ww list` asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).
+- 📋 **TOOL-29 Flashers check the board's reworks** · `v0.5` — `ww dfu rp flash`, `ww dfu stm32 flash` and `ww dfu
+  flash` read the board's applied reworks from the running device and the reworks the new image knows from the image
+  (`ww_board_info::image`, STD-101), and warn with the list when the image lacks one; only if the user agrees (or
+  `--allow-unknown-reworks` names exactly those numbers) the allowance is stored for the image's build id, then it is
+  written; otherwise a stored allowance is cleared. Also warns about an image for another board or from before the
+  guard. Given the serial of a running device, `ww dfu rp flash` / `stm32 flash` reboot it into the boot ROM
+  themselves, so the check runs first.
+- 📋 **TOOL-30 `ww info` shows the rework guard; `ww board rework allow`** · `v0.5` — `GUARD` in `ww info` /
+  `ww report` (guarded and why, allowed for this image, an allowance stored for another image), `ww board rework
+  allow N...` / `disallow` for the post-flash path (STD-101), the guarded refusal printed plainly.
 - 📋 **TOOL-23 Doc-comment / sentinel / bounds hints for `ww api check`** — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest `Bounds`/niche forms too, not only the name suffix. Needs STD-64, STD-66
@@ -1896,12 +1911,26 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
 - ✅ **STD-98 Recording a board rework** · `v0.5` — `ww_board_info` reworks are numbers, `ReworkId(u16)` per board
     revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
     `Rework.title: Option<..>`, `None` for an applied number the firmware doesn't know (written by a newer one: the
-    board runs on its safe features). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
+    board boots guarded since STD-101). Optional `BoardInfo::set_reworks(changes, program)`: all changes or none, dry
     run, `ReworkChange` (`Unchanged`, `WouldWrite`, `Written` from the next boot), `ReworkError` (`UnknownRework`, never
     stored; `Conflict`; `ProductionRecord`; `Common`). `ww_board_info::table` (`no_std`) answers both from the
     firmware's table (`ReworkTable`, `ReworkSet`, `apply`, `list`, `unknown`, `known_ids`). `ww info` prints unknown
     ones. Docs `docs/std_library/ww_board_info.md#recording-a-rework`, tests `tests/board_info`, `tests/device_report`.
     The `ww board rework` command is TOOL-28; the first device is usb_io_fw PLAT-17.
+- ✅ **STD-101 The rework guard** · `v0.5` — a firmware never runs a board with a rework it doesn't know (Roman,
+    3 Nov 2026; replaces "runs on its safe features"). Optional `BoardInfo::GUARD` (`GuardSummary`: `GuardState`
+    `Normal` / `Guarded` / `Allowed`, the unknown numbers, the stored `Allowance`), optional
+    `allow_unknown_reworks(image: ImageId, reworks, program)` and `clear_unknown_reworks_allowance(program)`,
+    `ReworkError::Guarded`. `ImageId` is the first 8 bytes of the image's GNU build id, so an allowance is void for
+    every other image whichever tool flashed it, and an image erases another image's allowance at boot.
+    `ww_board_info::guard` (`no_std`): `decide`, `StoredAllowance` (two `u64`), `GuardReport`.
+    `ww_board_info::image`: the reworks an image knows as a record in the image (magic `WWREWORK`, CRC-32),
+    `image_reworks!` from `ReworkTable` consts, read back by the firmware at boot, `ImageTable::find` for flashers and
+    `check` (`Ok`, `Lacking`, `OtherBoard`, `NoRecord`); `ww_firmware_info::find_build_id`. Docs
+    `docs/std_library/ww_board_info.md#the-rework-guard`, tests `tests/board_info` and the crates' unit tests. The
+    gate that refuses calls while guarded is SRV-50, flashers TOOL-29, `ww info` and `ww board rework allow`
+    TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the guard: deployed firmware
+    can't learn it.
 - 🧪 **STD-26 `ww_log` defmt over reliable streams** · `v0.5` — `ww_log_bare_metal` renamed `ww_log`.
     `LogDefmt { const DEFMT (encoding, build id); frames() }`: a reliable stream whose unit is one `defmt` frame,
     whole frames per item (up to 512 B), so `lost` is the exact number of dropped messages and logs from before the

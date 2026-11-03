@@ -6,10 +6,16 @@ mod tests {
     use tests_common::TestDevice;
     use wire_weaver::prelude::*;
     use ww_board_info::{
-        BoardSummary, RevisionSource, ReworkChange, ReworkError, ReworkErrorOwned, ReworkId,
-        ReworkState,
+        BoardSummary, GuardState, ImageId, RevisionSource, ReworkChange, ReworkError,
+        ReworkErrorOwned, ReworkId, ReworkState,
+        guard::{self, GuardReport, StoredAllowance},
         table::{ReworkDef, ReworkSet, ReworkTable},
     };
+
+    /// The running image's id: the first 8 bytes of its build id.
+    const OWN: ImageId = ImageId([0x3f, 0xa2, 1, 2, 3, 4, 5, 6]);
+    /// Another image's.
+    const OTHER: ImageId = ImageId([0x91, 0xc0, 1, 2, 3, 4, 5, 6]);
 
     /// The firmware's rework table: rework 6 of the board's list is no rework, 2 and 4 rewire the same lines.
     const TABLE: ReworkTable = ReworkTable::new(
@@ -39,17 +45,62 @@ mod tests {
             pub production: bool,
             /// `REWORKS` as served: the table and the record at boot
             pub list: Vec<Rework<'static>>,
+            /// The stored allowance, shared with the test
+            pub allowance: Arc<Mutex<StoredAllowance>>,
+            /// `GUARD` as served: decided at boot
+            pub guard: GuardReport,
         }
 
         impl Server {
             pub fn new(revision_source: RevisionSource, known: bool, applied: ReworkSet) -> Self {
+                Self::boot(revision_source, known, applied, StoredAllowance::NONE)
+            }
+
+            /// Boot as a firmware does: decide, erase an allowance for another image.
+            pub fn boot(
+                revision_source: RevisionSource,
+                known: bool,
+                applied: ReworkSet,
+                mut allowance: StoredAllowance,
+            ) -> Self {
+                let decision = guard::decide(TABLE.known(), applied, allowance, Some(OWN));
+                if decision.erase_allowance {
+                    allowance = StoredAllowance::NONE;
+                }
                 Server {
                     revision_source,
                     known,
                     record: Arc::new(Mutex::new(applied)),
                     production: false,
                     list: TABLE.list(applied).collect(),
+                    allowance: Arc::new(Mutex::new(allowance)),
+                    guard: GuardReport::new(decision.guard, allowance, Some(OWN)),
                 }
+            }
+
+            fn board_allow_unknown_reworks(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                image: ImageId,
+                reworks: MaxLen<RefVec<'_, ReworkId>, 16>,
+                program: bool,
+            ) -> RpcResult<Result<ReworkChange, ReworkError<'_>>> {
+                let new = match guard::allowance_from_request(
+                    image,
+                    reworks.iter().map_while(Result::ok),
+                ) {
+                    Ok(new) => new,
+                    Err(id) => return Ready(Err(ReworkError::UnknownRework { id })),
+                };
+                Ready(Ok(store(&self.allowance, new, program)))
+            }
+
+            fn board_clear_unknown_reworks_allowance(
+                &mut self,
+                _cx: &mut Context<'_, impl BlockingEventOut>,
+                program: bool,
+            ) -> RpcResult<Result<ReworkChange, ReworkError<'_>>> {
+                Ready(Ok(store(&self.allowance, StoredAllowance::NONE, program)))
             }
 
             fn board_set_reworks(
@@ -58,6 +109,12 @@ mod tests {
                 changes: MaxLen<RefVec<'_, ReworkState>, 16>,
                 program: bool,
             ) -> RpcResult<Result<ReworkChange, ReworkError<'_>>> {
+                // guarded: reading the record only
+                if let Some(id) = self.guard.guard.unknown().iter().next()
+                    && !self.guard.guard.runs_board()
+                {
+                    return Ready(Err(ReworkError::Guarded { id }));
+                }
                 if self.production {
                     return Ready(Err(ReworkError::ProductionRecord));
                 }
@@ -75,6 +132,22 @@ mod tests {
                     *record = applied;
                     ReworkChange::Written
                 }))
+            }
+        }
+
+        fn store(
+            stored: &Mutex<StoredAllowance>,
+            new: StoredAllowance,
+            program: bool,
+        ) -> ReworkChange {
+            let mut stored = stored.lock().unwrap();
+            if *stored == new {
+                ReworkChange::Unchanged
+            } else if !program {
+                ReworkChange::WouldWrite
+            } else {
+                *stored = new;
+                ReworkChange::Written
             }
         }
 
@@ -100,6 +173,10 @@ mod tests {
             fn board_reworks(&self) -> MaxLen<RefVec<'_, Rework<'_>>, 16> {
                 MaxLen::new_unchecked(RefVec::Slice { slice: &self.list })
             }
+
+            fn board_guard(&self) -> ww_board_info::GuardSummary<'_> {
+                self.guard.summary()
+            }
         }
 
         pub mod api_impl {
@@ -108,7 +185,7 @@ mod tests {
                 server = true, no_alloc = true, use_async = false,
                 method_model = "_=immediate",
                 property_model = "_=get_set",
-                const_model = "BOARD|REWORKS=fn",
+                const_model = "BOARD|REWORKS|GUARD=fn",
             );
         }
 
@@ -156,7 +233,13 @@ mod tests {
                 method_model = "_=immediate",
                 property_model = "_=get_set",
                 const_model = "BOARD=fn",
-                omit = ["board.REWORKS", "board.set_reworks"],
+                omit = [
+                    "board.REWORKS",
+                    "board.set_reworks",
+                    "board.GUARD",
+                    "board.allow_unknown_reworks",
+                    "board.clear_unknown_reworks_allowance",
+                ],
             );
         }
 
@@ -317,7 +400,24 @@ mod tests {
         assert_eq!(list.len(), 5);
         assert!(list[2].2);
         assert_eq!(list[4], (7, None, true));
-        // undoing it is refused too: this firmware can't judge it
+        // the board is guarded: reading the record only
+        assert_eq!(
+            set_reworks(&client, &[change(7, false)], true).await,
+            Err(ReworkErrorOwned::Guarded { id: ReworkId(7) })
+        );
+        drop(client);
+        drop(device);
+        // allowed for this image: undoing it is still refused, this firmware can't judge it
+        let device = start_server(
+            "board_info/unknown_applied_allowed",
+            server::Server::boot(
+                RevisionSource::Provisional,
+                true,
+                set(&[3, 7]),
+                StoredAllowance::new(OWN, set(&[7])),
+            ),
+        );
+        let client = connect(&device).await;
         assert_eq!(
             set_reworks(&client, &[change(7, false)], true).await,
             Err(ReworkErrorOwned::UnknownRework { id: ReworkId(7) })
@@ -451,6 +551,109 @@ mod tests {
             ),
             "{err:?}"
         );
+    }
+
+    async fn allow(
+        client: &StdClient,
+        image: ImageId,
+        ids: &[u16],
+        program: bool,
+    ) -> Result<ReworkChange, ReworkErrorOwned> {
+        let ids = ids.iter().map(|&id| ReworkId(id)).collect();
+        match client
+            .board()
+            .allow_unknown_reworks(image, MaxLen::new_unchecked(ids), program)
+            .call()
+            .await
+        {
+            Ok(change) => Ok(change),
+            Err(wire_weaver_client::CallError::Device(e)) => Err(e),
+            Err(e) => panic!("allow_unknown_reworks: {e:?}"),
+        }
+    }
+
+    /// A record with a rework this firmware doesn't know: guarded, `set_reworks` refused, an allowance for the
+    /// running image stored for the next boot, which then runs normally.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn guarded_then_allowed() {
+        let server = server::Server::new(RevisionSource::Provisional, true, set(&[1, 7]));
+        let allowance = server.allowance.clone();
+        let device = start_server("board_info/guarded", server);
+        let client = connect(&device).await;
+        let g = client.board().read_GUARD().read().await.unwrap();
+        assert_eq!(g.state, GuardState::Guarded);
+        assert_eq!(g.unknown.iter().map(|id| id.0).collect::<Vec<_>>(), [7]);
+        assert!(g.allowance.is_none());
+        assert_eq!(
+            set_reworks(&client, &[change(3, true)], true).await,
+            Err(ReworkErrorOwned::Guarded { id: ReworkId(7) })
+        );
+        assert_eq!(
+            allow(&client, OWN, &[7], false).await,
+            Ok(ReworkChange::WouldWrite)
+        );
+        assert!(
+            allowance.lock().unwrap().is_none(),
+            "a dry run writes nothing"
+        );
+        assert_eq!(
+            allow(&client, OWN, &[7], true).await,
+            Ok(ReworkChange::Written)
+        );
+        assert_eq!(
+            allow(&client, OWN, &[64], true).await,
+            Err(ReworkErrorOwned::UnknownRework { id: ReworkId(64) })
+        );
+        let stored = *allowance.lock().unwrap();
+        drop(client);
+        drop(device);
+
+        // next boot
+        let server = server::Server::boot(RevisionSource::Provisional, true, set(&[1, 7]), stored);
+        let device = start_server("board_info/allowed", server);
+        let client = connect(&device).await;
+        let g = client.board().read_GUARD().read().await.unwrap();
+        assert_eq!(g.state, GuardState::Allowed);
+        let a = g.allowance.unwrap();
+        assert_eq!(a.image, OWN);
+        assert!(a.for_running_image);
+        assert_eq!(a.reworks.iter().map(|id| id.0).collect::<Vec<_>>(), [7]);
+        assert_eq!(
+            set_reworks(&client, &[change(3, true)], false).await,
+            Ok(ReworkChange::WouldWrite)
+        );
+    }
+
+    /// A flasher stores the allowance for the image it is about to write: the running image shows it as not its own;
+    /// an image that finds another image's allowance at boot erases it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn allowance_for_another_image() {
+        let server = server::Server::new(RevisionSource::Provisional, true, set(&[1]));
+        let allowance = server.allowance.clone();
+        let device = start_server("board_info/allow_other", server);
+        let client = connect(&device).await;
+        assert_eq!(
+            client.board().read_GUARD().read().await.unwrap().state,
+            GuardState::Normal
+        );
+        assert_eq!(
+            allow(&client, OTHER, &[9], true).await,
+            Ok(ReworkChange::Written)
+        );
+        let stored = *allowance.lock().unwrap();
+        assert_eq!(stored.image_id(), Some(OTHER));
+        // flashing failed, the same image boots again: the allowance isn't its own, it goes
+        let server = server::Server::boot(RevisionSource::Provisional, true, set(&[1]), stored);
+        assert!(server.allowance.lock().unwrap().is_none());
+        // cleared by a flasher
+        let clear = client
+            .board()
+            .clear_unknown_reworks_allowance(true)
+            .call()
+            .await
+            .unwrap();
+        assert_eq!(clear, ReworkChange::Written);
+        assert!(allowance.lock().unwrap().is_none());
     }
 
     #[test]

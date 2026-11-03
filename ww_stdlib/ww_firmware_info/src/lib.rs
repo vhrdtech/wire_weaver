@@ -67,7 +67,7 @@ mod last_reset;
 
 #[cfg(all(feature = "build-id", not(feature = "std")))]
 pub use build_id::build_id;
-pub use build_id::parse_build_id_note;
+pub use build_id::{find_build_id, parse_build_id_note};
 pub use last_reset::*;
 
 /// Longest build id carried on the wire (sha1 is 20 bytes, `--build-id=sha256` 32).

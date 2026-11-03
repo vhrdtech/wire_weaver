@@ -1,5 +1,10 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `find_build_id(image)` (STD-101): the GNU build id inside an image's bytes (raw binary, an ELF's or UF2's flash
+  contents), found by its note header; `None` for none or two. A flasher binds a rework allowance to it.
+
 ### ⚠️ Breaking
 
 - Reworked (STD-24, never published): `crc`, `sha256` and the `bedrock_build_info` stream are gone. `FirmwareInfo` is

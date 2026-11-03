@@ -132,7 +132,8 @@ the consumers; a consumer that can't express a case gets a gap mark naming a `FE
 skip. New case: `"bytes": "?"` plus the Rust value in `tests/conformance/src/derive.rs`, then `just
 conformance-update`. Golden bytes don't change once in: `frozen_bytes` (TEST-24) fails when a case sealed at the merge
 base (or `CONFORMANCE_BASE`) changed or disappeared; the only escape is a new `"wire_change": "EVO-n / reason"` on
-the case with that `EVO-n` item and a breaking CHANGELOG entry. `coverage` (TEST-25) fails when a wire-relevant
+the case with that `EVO-n` item and a breaking CHANGELOG entry. Until `~/git/tpm/area/ops/in-use.md` lists the format, such a change needs no other
+reason than a better design. `coverage` (TEST-25) fails when a wire-relevant
 `ww_self::Type` variant or derive directive has no case and no gap in `tests/conformance/src/coverage.rs`.
 
 ## Proper fixes, never a lost capability
@@ -249,7 +250,8 @@ break cascades, which framework code is wire-defining (`ww_framer`, `ww_link`, `
 which version position to bump. Types default to unsized and evolvable (fields appended with `#[default = ..]`);
 `final_structure`, `self_describing` and `sized` trade that for size and can't be undone. A type used in an API is
 part of its SemVer contract. Use `ww api check` / `ww api diff` rather than eyeballing. Tell the user when a change
-breaks the wire and which deployed devices and hosts it affects.
+breaks the wire. Which devices and hosts that affects comes from `~/git/tpm/area/ops/in-use.md`; nothing listed means
+a break costs only its CHANGELOG entry and its `EVO-n` item.
 
 `ElementSize::Sized { size_bits }` is the bits of the value's own fields, padding excluded (`struct { a: bool, b: u8 }`
 is 9 bits in 2 bytes): for byte counts, run a real `to_ww_bytes()`.

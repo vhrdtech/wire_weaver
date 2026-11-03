@@ -986,16 +986,37 @@ impl<'i> BufWriter<'i> {
     /// deserialized with [des_shrink_wrap](crate::DeserializeShrinkWrap::des_shrink_wrap).
     /// (because of the additional size written by write and expected by the read).
     pub fn write<T: SerializeShrinkWrap>(&mut self, val: &T) -> Result<(), Error> {
-        let unsized_builder = if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
-            Some(UnsizedBuilder::new(self)?)
+        if matches!(T::ELEMENT_SIZE, ElementSize::Unsized) {
+            let builder = self.begin_unsized();
+            val.ser_shrink_wrap(self)?;
+            self.end_unsized(builder)
         } else {
-            None
-        };
-        val.ser_shrink_wrap(self)?;
-        if let Some(builder) = unsized_builder {
-            builder.finish(self)?;
+            val.ser_shrink_wrap(self)
         }
-        Ok(())
+    }
+
+    /// [UnsizedBuilder::new] for [write](Self::write), which can't fail: a size slot that doesn't fit is marked in
+    /// the builder and reported by [end_unsized](Self::end_unsized) (or before it, by the value's own write that
+    /// doesn't fit either). The builder is two words and comes back in registers, where the `Result` of `new` was
+    /// copied out of memory at every type's copy of `write` (SW-74).
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    fn begin_unsized(&mut self) -> UnsizedBuilder {
+        UnsizedBuilder::new(self).unwrap_or(UnsizedBuilder {
+            size_slot_pos: RevPos(0),
+            unsized_start_idx: usize::MAX,
+        })
+    }
+
+    /// [UnsizedBuilder::finish] of a builder from [begin_unsized](Self::begin_unsized).
+    #[cfg_attr(shrink_wrap_hot = "inline", inline(always))]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
+    fn end_unsized(&mut self, builder: UnsizedBuilder) -> Result<(), Error> {
+        if builder.unsized_start_idx == usize::MAX {
+            // the only error of write_rev_len(0)
+            return Err(Error::OutOfBoundsRev);
+        }
+        builder.finish(self)
     }
 
     /// Encode some of the numbers previously written to the back of the buffer (for example,
@@ -1821,6 +1842,27 @@ mod tests {
         let mut rd = BufReader::new(bytes);
         let decoded: DummyUnsized = rd.read().unwrap();
         assert_eq!(decoded.0, 0xAB);
+    }
+
+    #[test]
+    fn write_unsized_without_room_for_its_size() {
+        // the value fits, its size slot doesn't: reported after the value is written
+        let mut buf = [0u8; 1];
+        let mut wr = BufWriter::new(&mut buf);
+        assert_eq!(wr.write(&DummyUnsized(0xAB)), Err(Error::OutOfBoundsRev));
+        // neither fits: the value's own error comes first
+        let mut wr = BufWriter::new(&mut []);
+        assert!(wr.write(&DummyUnsized(0xAB)).is_err());
+        // nothing is left behind for a later finish
+        let mut buf = [0u8; 4];
+        let mut wr = BufWriter::new(&mut buf);
+        let state = wr.save_state();
+        wr.write_u16(0).unwrap();
+        wr.write_u8(0).unwrap();
+        assert_eq!(wr.write(&DummyUnsized(0xAB)), Err(Error::OutOfBoundsRev));
+        wr.restore_state(state);
+        wr.write_u8(0xCD).unwrap();
+        assert_eq!(wr.finish().unwrap(), &[0xCD]);
     }
 
     #[test]

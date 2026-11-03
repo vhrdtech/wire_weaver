@@ -1634,8 +1634,6 @@
       
         
       
-        
-      
     
     
     
@@ -1776,33 +1774,6 @@
     
   
   Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/call_gate/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Call gate
 
     
   </span>
@@ -6643,19 +6614,6 @@ planned, for humans and AI agents alike. It replaces the external task tracker.<
   Host side <code>Decoder</code> (feature <code>std</code>, lz4_flex with the last 64 KiB as dictionary). Same ratios as the lz4s bench of
   P2534 (within 0.1 %); tests <code>ww_lz4/tests</code> (round trips against lz4_flex, random chunking, untrusted blocks) and
   <code>just test-lz4-c</code> (C liblz4 decodes the blocks). Device and host user: API-55.
-- ✅ <strong>SRV-50 server-call-gate Call gate: refuse calls outside allowed traits</strong> · <code>v0.5</code> — <code>ww_codegen!(..,
-  call_gate = true)</code>: the generated dispatcher asks the server struct (<code>wire_weaver::gate::CallGate::admit</code>) for a
-  trait level before a request goes into it, with a <code>Target</code> naming its trait as a <code>TraitId</code> (a global trait matches
-  wherever it sits; the dotted path for a project's own traits) and the request's <code>Op</code>. The items of the root level
-  and of the levels named in <code>call_gate_items = "crate::Trait, path"</code> are asked one by one too (calls, property and
-  <code>const</code> reads and writes, stream and sink opens and traffic, sink writes, array indices, each index of a multi
-  request); an observe request asks its levels and, where items are asked, each observed property; introspection
-  never. A refusal is <code>ww_client_server::ErrorKind::Refused(reason)</code> (appended, an older host reads <code>Unknown(17)</code>)
-  at error site 10 (<code>GATE</code>, 60 <code>OBSERVE_GATE</code>), <code>wire_weaver_client::Error::Refused</code> on the host, <code>ww</code> points at
-  <code>ww info</code>. Nothing generated without it; with it 32-60 instructions per admitted request and 636 B of flash for
-  five traits (+276 B with their 21 items asked) on a Cortex-M3 at <code>z</code> (<code>examples_mcu/mcu_qemu</code> bin
-  <code>qemu-call-gate</code>). <code>ww api scaffold --call-gate [--call-gate-items]</code>. For guarded boards (STD-101, usb_io_fw
-  PLAT-18). <code>docs/api/call_gate.md</code>, tests <code>tests/call_gate</code>, conformance <code>client_server.error.refused</code>.
 - ✅ <strong>SRV-34 per-resource-claims Per-resource claims through the hub</strong> · <code>v0.5.x</code> — typed metadata attributes,
     carried in introspection as data (<code>ww_self::Meta</code> on <code>ApiItem</code> and <code>ApiLevel</code>), checked when the API is loaded:
     <code>#[claim(exclusive | shared | observe)]</code> on a <code>ww_impl!</code> or trait definition (the root is always claimable),
@@ -7571,24 +7529,28 @@ observing), SRV-46 (peer identity).
   anyway); completions of the subcommands, <code>keep</code> durations and device keys with help texts; colour off without a
   TTY or with <code>NO_COLOR</code>; <code>lend DEVICE -- CMD</code> (SRV-32). Open: <code>ww list</code> asks a running hub and doesn't start one; the skill tree entry
   (P2618#21oct-2209).</li>
-<li>🧪 <strong>TOOL-29 Flashers check the board's reworks</strong> · <code>v0.5</code> — <code>ww dfu rp flash</code> and <code>ww dfu stm32 flash</code>, given
-  the serial of a running device, read the board's name, revision, applied reworks and guard there (<code>BOARD</code>,
-  <code>REWORKS</code>, <code>GUARD</code>) and the reworks the new image knows and its build id from the image (<code>ww_board_info::image</code>,
-  STD-101), and warn with the list when the image lacks one; only if the user agrees (or <code>--allow-unknown-reworks</code>
-  names exactly those numbers) the allowance is stored for the image's <code>ImageId</code>, otherwise a stored allowance is
-  cleared. Then they reboot the device into the boot ROM themselves (<code>BootControl::reboot(Updater)</code>, an A/B device
-  only), wait for it (<code>--wait</code>, 10 s by default) and write. An image for another board, without a record (from
-  before the guard) or with an unreadable one, and one that boots guarded because nothing can be stored, are asked
-  about too (<code>--yes</code>); without a terminal every question is refused. A device already in the boot ROM, or firmware
-  without <code>REWORKS</code>, can't be checked: a note, then the post-flash path (TOOL-30). The check as a library:
-  <code>ww_report::rework_check</code> (<code>ImageReworks::from_flash</code>, <code>read_board</code>, <code>verdict</code>, <code>store_allowance</code>,
-  <code>clear_allowance</code>). <code>docs/cli_reference.md#checking-the-boards-reworks</code>. Tests: <code>ww_report</code> <code>rework_check::tests</code>,
-  <code>wire_weaver_cli</code> <code>cmd::rework_check::tests</code>, end to end on the guard server in <code>tests/board_info</code>
-  (<code>flasher_check_*</code>). <code>ww dfu flash</code> (the <code>ww-chunky</code> plugin) calling the same library is tpm P2401#3nov-0105d.
-  Hardware check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).</li>
-<li>📋 <strong>TOOL-30 <code>ww info</code> shows the rework guard; <code>ww board rework allow</code></strong> · <code>v0.5</code> — <code>GUARD</code> in <code>ww info</code> /
-  <code>ww report</code> (guarded and why, allowed for this image, an allowance stored for another image), <code>ww board rework
-  allow N...</code> / <code>disallow</code> for the post-flash path (STD-101), the guarded refusal printed plainly.</li>
+<li>🧪 <strong>TOOL-29 Flashers check the board's reworks</strong> · <code>v0.5</code> — <code>ww dfu rp flash</code> and <code>ww dfu stm32 flash</code> check
+  with the chip in its ROM bootloader (user, 3 Nov 2026: a board with an unknown rework refuses to boot and sits
+  there). Given the serial of a running device they reboot it there first (<code>BootControl::reboot(Updater)</code>, an A/B
+  device only, the titles of its <code>REWORKS</code> kept for the question). In the ROM they read the new image's table,
+  locator and build id from the file (<code>ww_board_info::image</code>, STD-101), the table of the image in flash (the board's
+  name, <code>--board</code> when no image names exactly one) and the bench record and allowance from the settings store
+  (PICOBOOT read, DfuSe upload), and warn with the list when the image lacks a rework; only if the user agrees (or
+  <code>--allow-unknown-reworks</code> names exactly those numbers) the allowance is stored for the image's <code>ImageId</code> through
+  the ROM (the store's own erases and writes replayed, read back), otherwise a stored one is cleared. An image for
+  another board, without a table or with an unreadable one, or without a build id, is asked about too (<code>--yes</code>);
+  without a terminal every question is refused. An STM32 whose bootloader can't read its flash (readout
+  protection) is written only with <code>--yes</code>. The check as a library: <code>ww_report::rework_check</code> (<code>RomFlash</code>,
+  <code>ImageReworks</code>, <code>scan_installed</code>, <code>read_board</code>, <code>verdict</code>, <code>set_allowance</code>).
+  <code>docs/cli_reference.md#checking-the-boards-reworks</code>. Tests: <code>ww_report</code> <code>rework_check::tests</code> (the whole check on
+  a chip in RAM), <code>wire_weaver_cli</code> <code>cmd::rework_check::tests</code>. <code>ww dfu flash</code> (the <code>ww-chunky</code> plugin, a running
+  app, no ROM at hand) compares with the app's <code>REWORKS</code> and refuses a lacking image: tpm P2401#3nov-0105d. Hardware
+  check open: an RP2350 or STM32 board with a guarding firmware (usb_io_fw PLAT-18).</li>
+<li>📋 <strong>TOOL-30 <code>ww info</code> and <code>ww board rework allow</code> in the ROM bootloader</strong> · <code>v0.5</code> — on a board in BOOTSEL / ROM
+  DFU, <code>ww info</code> reads the image in flash (build id, table) and the bench record through the ROM (<code>ww_report::
+  rework_check</code>, TOOL-29): board, revision, reworks applied, the ones the installed image knows, the allowance and the
+  verdict (<code>this image refuses to boot: unknown rework 9</code>). <code>ww board rework allow N...</code> stores the allowance for the
+  installed image there, <code>disallow</code> clears it (STD-101).</li>
 <li>📋 <strong>TOOL-23 Doc-comment / sentinel / bounds hints for <code>ww api check</code></strong> — the bigger version of TOOL-22's
   name-suffix hint: read a doc comment that states a unit, scale, range or sentinel ("in µs", "0..=65535 = 0..100
   %", "127 = not available") and suggest <code>Bounds</code>/niche forms too, not only the name suffix. Needs STD-64, STD-66
@@ -7719,27 +7681,32 @@ observing), SRV-46 (peer identity).
     items come from the introspection data; properties cannot carry <code>#[errors]</code> yet.</li>
 <li>✅ <strong>STD-98 Recording a board rework</strong> · <code>v0.5</code> — <code>ww_board_info</code> reworks are numbers, <code>ReworkId(u16)</code> per board
     revision (Roman, 2 Nov 2026), so a record keeps a bit per number and the titles stay in the firmware.
-    <code>Rework.title: Option&lt;..&gt;</code>, <code>None</code> for an applied number the firmware doesn't know (written by a newer one: the
-    board boots guarded since STD-101). Optional <code>BoardInfo::set_reworks(changes, program)</code>: all changes or none, dry
+    <code>Rework.title: Option&lt;..&gt;</code>, <code>None</code> for an applied number the firmware doesn't know (written by a newer one: since
+    STD-101 the board refuses to boot unless an allowance for its image covers it). Optional <code>BoardInfo::set_reworks(changes, program)</code>: all changes or none, dry
     run, <code>ReworkChange</code> (<code>Unchanged</code>, <code>WouldWrite</code>, <code>Written</code> from the next boot), <code>ReworkError</code> (<code>UnknownRework</code>, never
     stored; <code>Conflict</code>; <code>ProductionRecord</code>; <code>Common</code>). <code>ww_board_info::table</code> (<code>no_std</code>) answers both from the
     firmware's table (<code>ReworkTable</code>, <code>ReworkSet</code>, <code>apply</code>, <code>list</code>, <code>unknown</code>, <code>known_ids</code>). <code>ww info</code> prints unknown
     ones. Docs <code>docs/std_library/ww_board_info.md#recording-a-rework</code>, tests <code>tests/board_info</code>, <code>tests/device_report</code>.
     The <code>ww board rework</code> command is TOOL-28; the first device is usb_io_fw PLAT-17.</li>
 <li>✅ <strong>STD-101 The rework guard</strong> · <code>v0.5</code> — a firmware never runs a board with a rework it doesn't know (Roman,
-    3 Nov 2026; replaces "runs on its safe features"). Optional <code>BoardInfo::GUARD</code> (<code>GuardSummary</code>: <code>GuardState</code>
-    <code>Normal</code> / <code>Guarded</code> / <code>Allowed</code>, the unknown numbers, the stored <code>Allowance</code>), optional
-    <code>allow_unknown_reworks(image: ImageId, reworks, program)</code> and <code>clear_unknown_reworks_allowance(program)</code>,
-    <code>ReworkError::Guarded</code>. <code>ImageId</code> is the first 8 bytes of the image's GNU build id, so an allowance is void for
-    every other image whichever tool flashed it, and an image erases another image's allowance at boot.
-    <code>ww_board_info::guard</code> (<code>no_std</code>): <code>decide</code>, <code>StoredAllowance</code> (two <code>u64</code>), <code>GuardReport</code>.
-    <code>ww_board_info::image</code>: the reworks an image knows as a record in the image (magic <code>WWREWORK</code>, CRC-32),
-    <code>image_reworks!</code> from <code>ReworkTable</code> consts, read back by the firmware at boot, <code>ImageTable::find</code> for flashers and
-    <code>check</code> (<code>Ok</code>, <code>Lacking</code>, <code>OtherBoard</code>, <code>NoRecord</code>); <code>ww_firmware_info::find_build_id</code>. Docs
-    <code>docs/std_library/ww_board_info.md#the-rework-guard</code>, tests <code>tests/board_info</code> and the crates' unit tests. The
-    gate that refuses calls while guarded is SRV-50, flashers TOOL-29, <code>ww info</code> and <code>ww board rework allow</code>
-    TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the guard: deployed firmware
-    can't learn it.</li>
+    3 Nov 2026; replaces "runs on its safe features"). It refuses to boot: first thing in <code>main</code>, before any board
+    init, it reads the bench record and the allowance from flash; with an applied rework it doesn't know and no
+    allowance for this very image, it blinks the shared code (embedded_bedrock <code>bedrock_led::code</code> 1) and reboots
+    into the ROM bootloader. No guarded running state, no API items for it (the first plan's <code>GUARD</code>, allowance calls
+    and SRV-50's gate went before any release). <code>ImageId</code> is the first 8 bytes of the image's GNU build id, so an
+    allowance is void for every other image whichever tool flashed it; only <code>ww</code> writes it, through the ROM, and
+    clears it with the next flashing that needs none. <code>ww_board_info::guard</code> (<code>no_std</code>): <code>boot_check</code> (reads through
+    the image's locator: the firmware and the flasher read the same place), <code>read_bench</code>, <code>decide</code> (<code>Run</code>,
+    <code>RunAllowed</code>, <code>Refuse</code>), <code>StoredAllowance</code>, <code>AllowanceGroup</code> (a <code>ww_settings</code> group). <code>ww_board_info::image</code>
+    (format 2): the table in the image (magic <code>WWREWORK</code>, CRC-32) with the <code>Locator</code> of the bench record (the settings
+    store's range, word and page size, the record's key and slots, the allowance's key) and per board revision the
+    reworks the image knows; <code>image_reworks!</code>, <code>ImageTable::find</code> / <code>locator</code> / <code>board_names</code>, <code>check</code>.
+    <code>ww_board_info::record</code> (feature <code>host</code>): read the record from a store's bytes, <code>set_allowance</code> answers the flash
+    operations to replay through the ROM. <code>ww_settings</code>: <code>mapped::MappedFlash</code> (a store read before any driver),
+    <code>dump::run_on_image</code> with <code>StoreJob</code>, <code>FakeFlash::record_ops</code>. <code>ww_firmware_info::find_build_id</code>. Docs
+    <code>docs/std_library/ww_board_info.md#the-rework-guard</code>, tests the crates' unit tests. Flashers TOOL-29, <code>ww info</code>
+    and <code>ww board rework allow</code> TOOL-30, the first device usb_io_fw PLAT-18. Holds from the first firmware with the
+    guard: deployed firmware can't learn it.</li>
 <li>🧪 <strong>STD-26 <code>ww_log</code> defmt over reliable streams</strong> · <code>v0.5</code> — <code>ww_log_bare_metal</code> renamed <code>ww_log</code>.
     <code>LogDefmt { const DEFMT (encoding, build id); frames() }</code>: a reliable stream whose unit is one <code>defmt</code> frame,
     whole frames per item (up to 512 B), so <code>lost</code> is the exact number of dropped messages and logs from before the
@@ -8115,7 +8082,8 @@ observing), SRV-46 (peer identity).
   origin/master</code>, falling back to local <code>master</code>) — a hand edit or a reset to <code>"?"</code> re-sealed silently before this,
   <code>CONFORMANCE=update</code> on its own only refuses to overwrite a filled-in case. <code>"wire_change": "EVO-n / reason"</code> on
   a case is the escape for a deliberate wire break (needs the matching <code>EVO-n</code> item and a <code>**Breaking:**</code>
-  CHANGELOG entry), shown in the matrix report. Depends only on the repo's own git: without git, or without the
+  CHANGELOG entry), shown in the matrix report; a case of a wire feature removed before any release goes into the
+  corpus's <code>withdrawn</code> list (name and <code>"ID / reason"</code>, the name stays taken). Depends only on the repo's own git: without git, or without the
   corpus at the merge base (a shallow clone, or the corpus being new), the guard says so and passes rather than
   failing a check it can't run; CI's <code>test</code> and <code>coverage</code> jobs fetch full history so it actually runs there.
   <code>tests/conformance/src/frozen.rs</code>, <code>tests/matrix.rs::frozen_bytes</code>. See <code>docs/serdes/conformance.md</code>.</li>
@@ -8199,6 +8167,11 @@ observing), SRV-46 (peer identity).
 </ul>
 <h2 id="dropped-and-superseded">Dropped and superseded<a class="headerlink" href="#dropped-and-superseded" title="Permanent link">&para;</a></h2>
 <ul>
+<li><strong>SRV-50 Server call gate</strong> — removed before any release (user, 3 Nov 2026): a board with a rework its firmware
+  doesn't know no longer runs guarded but refuses to boot (STD-101), so nothing is left to gate. It was
+  <code>ww_codegen!(.., call_gate = true)</code>, a <code>CallGate::admit</code> question per trait level (and per item where named) before
+  dispatch, the refusal <code>ErrorKind::Refused(reason)</code> at error site 10; 32-60 instructions per request and 636 B of
+  flash on a Cortex-M3, 6.2 KB on usb_io_fw. Its conformance case <code>client_server.error.refused</code> is withdrawn.</li>
 <li><strong>CLT-37 No millisecond per request from the accumulation window</strong> — superseded by request priority (CLT-50)
   and the fine window timer (CLT-53) (user, 27 Oct 2026). CLT-37 flushed whatever accumulated as soon as the tx
   task had nothing else waiting, for windows under 1 ms (<code>TxInput::Idle</code>, <code>TxCore::wants_idle_flush</code>, removed), so

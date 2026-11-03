@@ -1762,8 +1762,6 @@
       
         
       
-        
-      
     
     
     
@@ -1904,33 +1902,6 @@
     
   
   Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../api/call_gate/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Call gate
 
     
   </span>
@@ -5906,6 +5877,11 @@ with the matching <code>EVO-n</code> item in <code>FEATURES.md</code> and a <cod
 that the matrix report also shows (a "Wire changes" section, <code>just conformance-update</code> writes it). Once the branch
 carrying the change lands on main, the mark has done its job and the next guard run treats the new bytes as sealed
 again; remove it once that is true (it is harmless to leave, but do not reuse it for a later, unrelated change).</p>
+<p>A case can't simply be deleted either. When the wire feature it covers is removed before it reached a release (no
+device or host out there speaks it), the case goes into the corpus's top-level <code>withdrawn</code> list as <code>{"name": ...,
+"reason": "ID / reason"}</code>, naming the <code>FEATURES.md</code> item that went (it moves to <em>Dropped and superseded</em>). The guard
+then lets the sealed case disappear; the name stays taken, so a case of that name fails while it is withdrawn. A
+feature that did reach a release is not withdrawn: its bytes stay, and a removal is a breaking <code>EVO-n</code> change.</p>
 <h2 id="coverage-guard">Coverage guard<a class="headerlink" href="#coverage-guard" title="Permanent link">&para;</a></h2>
 <p>A corpus can go stale the other way too: a wire feature lands without ever being exercised by a case, or a case
 that used to be the only cover for a feature is deleted. The <code>coverage</code> test (<code>tests/matrix.rs</code>,

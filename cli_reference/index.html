@@ -1636,8 +1636,6 @@
       
         
       
-        
-      
     
     
     
@@ -1778,33 +1776,6 @@
     
   
   Optional items
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-                
-              
-                
-                  
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../api/call_gate/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Call gate
 
     
   </span>
@@ -6937,7 +6908,7 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 </span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">                  </span><span class="c1"># erase, write, verify, reboot into the new image</span>
 </span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>target/thumbv8m.main-none-eabihf/release/app<span class="w"> </span>-s<span class="w"> </span>E661<span class="w">  </span><span class="c1"># an ELF works too, no objcopy needed</span>
 </span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.uf2<span class="w"> </span>-s<span class="w"> </span>E661640843522C2F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.elf<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span>--follow<span class="w">          </span><span class="c1"># a running device: reworks checked, rebooted into BOOTSEL, written</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>flash<span class="w"> </span>app.elf<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span>--follow<span class="w">          </span><span class="c1"># a running device: rebooted into BOOTSEL, reworks checked, written</span>
 </span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>ww<span class="w"> </span>dfu<span class="w"> </span>rp<span class="w"> </span>reboot<span class="w"> </span>-s<span class="w"> </span>E661<span class="w"> </span><span class="o">[</span>--bootsel<span class="o">]</span><span class="w">             </span><span class="c1"># reboot (RP2350), into BOOTSEL again with --bootsel</span>
 </span></code></pre></div>
 <table>
@@ -6982,7 +6953,12 @@ the host. Used to flash an RP2350 whose app rebooted itself into the boot ROM (<
 <tr>
 <td><code>--yes</code></td>
 <td></td>
-<td>Write an image for another board, from before the rework guard, or that boots guarded, without asking</td>
+<td>Write an image for another board, from before the rework guard, or that refuses to boot, without asking</td>
+</tr>
+<tr>
+<td><code>--board &lt;NAME&gt;</code></td>
+<td></td>
+<td>The board's name, when neither the image in flash nor the new one names exactly one</td>
 </tr>
 </tbody>
 </table>
@@ -6993,34 +6969,40 @@ an error.</p>
 <p><code>--serial</code> selects the device as for other commands; part of it is enough when only one matches, <code>--wait</code> and
 <code>--follow</code> need the full one. See <a href="../transport/follow_reboot/">following a reboot</a>.</p>
 <h4 id="checking-the-boards-reworks">Checking the board's reworks<a class="headerlink" href="#checking-the-boards-reworks" title="Permanent link">&para;</a></h4>
-<p>A firmware never runs a board with a rework it doesn't know: it boots guarded
-(<a href="../std_library/ww_board_info/#the-rework-guard">the rework guard</a>, STD-101). So <code>ww dfu rp flash</code> and <code>ww dfu stm32
-flash</code> check before they write (TOOL-29). Given the serial of a running WireWeaver device (part of it is enough),
-they:</p>
+<p>A firmware never runs a board with a rework it doesn't know: it refuses to boot, blinks an error code and goes back
+to its ROM bootloader (<a href="../std_library/ww_board_info/#the-rework-guard">the rework guard</a>, STD-101). So <code>ww dfu rp
+flash</code> and <code>ww dfu stm32 flash</code> check before they write (TOOL-29), with the chip in its ROM bootloader:</p>
 <ol>
-<li>Read the board's name, revision, applied reworks and guard from the device (<code>ww_board_info::BoardInfo</code>).</li>
-<li>Read the reworks the new image knows from the image itself (its rework record) and its build id.</li>
+<li>Given the serial of a running WireWeaver device (part of it is enough), reboot it into the boot ROM
+   (<code>ww_dfu::BootControl::reboot(Updater)</code>) and wait for it (<code>--wait</code>, 10 s by default). A device already there is
+   checked as it is.</li>
+<li>Read the reworks the new image knows from the image itself (its rework table), where its board record is, and its
+   build id.</li>
+<li>Read the board through the ROM: the table of the image in flash (the board's name), then the bench record and the
+   allowance from the settings store (PICOBOOT read on the RP2350, DFU upload on an STM32).</li>
 <li>Compare. When the image lacks an applied rework, show the list and ask. Only if you agree (or
-   <code>--allow-unknown-reworks</code> names exactly those numbers) is the allowance stored on the device for the new image's
-   build id. Otherwise a stored allowance is cleared.</li>
-<li>Reboot the device into its boot ROM (<code>ww_dfu::BootControl::reboot(Updater)</code>), wait for it (<code>--wait</code>, 10 s by
-   default) and write the image.</li>
+   <code>--allow-unknown-reworks</code> names exactly those numbers) is the allowance stored for the new image's build id,
+   through the ROM. Otherwise a stored allowance is cleared.</li>
+<li>Write the image.</li>
 </ol>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ ww dfu rp flash target/thumbv8m.main-none-eabihf/release/app -s E661 --follow
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>image 182304 bytes in 1 segment(s) from 0x10000000
-</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>board B200 B, reworks 1, 7, normal
-</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>warning the image doesn&#39;t know rework(s) 7 applied on the board: it boots guarded unless they are allowed for image 5e5e5e5e5e5e5e5e
-</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>allow rework(s) 7 for this image and write it? [y/N] y
-</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>✔ rework(s) 7 allowed for image 5e5e5e5e5e5e5e5e
-</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>✔ rebooting into BOOTSEL
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>✔ rebooting into BOOTSEL
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>found E661640843522C2F BOOTSEL
+</span><span id="__span-20-5"><a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>board B200 A, reworks 1, 5, 9, allowance none
+</span><span id="__span-20-6"><a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a>warning the image doesn&#39;t know rework(s) 9 applied on the board: it refuses to boot unless they are allowed for image 5e5e5e5e5e5e5e5e
+</span><span id="__span-20-7"><a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a>  rework 9: SD level shifter bypass
+</span><span id="__span-20-8"><a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>allow rework(s) 9 for this image and write it? [y/N] y
+</span><span id="__span-20-9"><a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>✔ rework(s) 9 allowed for image 5e5e5e5e5e5e5e5e
 </span></code></pre></div>
-<p>The check also warns about an image for another board, an image without a rework record (built before the guard: it
-would run the board as built, ignoring its reworks) and a record it can't read; <code>--yes</code> writes those without
-asking. Without a terminal, every question is refused: a script passes <code>--allow-unknown-reworks</code> or <code>--yes</code>.</p>
-<p>The board can't be checked when the device is in its boot ROM already, or when its firmware doesn't serve the
-reworks (from before STD-98). The flasher then says so and writes. A guarding image then boots guarded if it lacks a
-rework, and <code>ww board rework allow</code> stores the allowance for it (TOOL-30). A device whose updater is its own (not
-A/B) is refused: it updates with <a href="#ww-dfu-flash"><code>ww dfu flash</code></a>.</p>
+<p>The titles come from the running firmware when the flash starts from one; a board already in the ROM shows the
+numbers. The check also warns about an image for another board, an image without a rework table (built before the
+guard: it would run the board as built, ignoring its reworks) and a table it can't read; <code>--yes</code> writes those
+without asking. Without a terminal, every question is refused: a script passes <code>--allow-unknown-reworks</code> or
+<code>--yes</code>. When neither image names exactly one board, <code>--board</code> names it.</p>
+<p>An STM32 with readout protection doesn't let the bootloader read its flash: the board can't be checked, and the
+image is written only with <code>--yes</code>. It still refuses to boot on a rework it doesn't know. A device whose updater is
+its own (not A/B) is refused: it updates with <a href="#ww-dfu-flash"><code>ww dfu flash</code></a>.</p>
 <h3 id="ww-dfu-stm32"><code>ww dfu stm32</code><a class="headerlink" href="#ww-dfu-stm32" title="Permanent link">&para;</a></h3>
 <p>The STM32 system bootloader in DFU mode (ROM DFU with the DfuSe extension, <code>0483:df11</code>), from <code>stm32_dfu_host</code>: no
 WireWeaver on the device, no dfu-util on the host. Used to flash an STM32 whose app rebooted itself into the ROM
@@ -7029,13 +7011,13 @@ bootloader, and to follow it back into the new firmware.</p>
 </span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>info<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">                         </span><span class="c1"># the alt settings and their memory layout</span>
 </span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>bootloader.elf<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">         </span><span class="c1"># erase, write, verify, jump to the start of flash</span>
 </span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>bootloader.elf<span class="w"> </span>-s<span class="w"> </span>3A0B1C2D4E5F<span class="w"> </span>--wait<span class="w"> </span><span class="m">10</span><span class="w"> </span>--follow
-</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>app.elf<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w"> </span>--follow<span class="w">       </span><span class="c1"># a running device: reworks checked, rebooted into the bootloader</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>flash<span class="w"> </span>app.elf<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w"> </span>--follow<span class="w">       </span><span class="c1"># a running device: rebooted into the bootloader, reworks checked</span>
 </span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span><span class="nb">read</span><span class="w"> </span>0x08060000<span class="w"> </span>0x80<span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">         </span><span class="c1"># hexdump; -o FILE writes the raw bytes</span>
 </span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>ww<span class="w"> </span>dfu<span class="w"> </span>stm32<span class="w"> </span>erase<span class="w"> </span>--sectors<span class="w"> </span><span class="m">3</span>..<span class="o">=</span><span class="m">5</span><span class="w"> </span>-s<span class="w"> </span>3A0B<span class="w">        </span><span class="c1"># sectors by index (A..B excludes B, A..=B includes it)</span>
 </span></code></pre></div>
 <p>All options, and what the firmware does before the reboot:
 <a href="../transport/follow_reboot/#stm32-system-bootloader-rom-dfu">STM32 system bootloader</a>. <code>flash</code> checks the board's
-reworks against the image first, with the same <code>--allow-unknown-reworks</code> and <code>--yes</code> as
+reworks against the image in the bootloader first, with the same <code>--allow-unknown-reworks</code>, <code>--yes</code> and <code>--board</code> as
 <a href="#checking-the-boards-reworks"><code>ww dfu rp flash</code></a>.</p>
 <h2 id="ww-counters"><code>ww counters</code><a class="headerlink" href="#ww-counters" title="Permanent link">&para;</a></h2>
 <p>The <code>cnt</code> counters of any device implementing <a href="../std_library/ww_counters/"><code>ww_counters::Counters</code></a> anywhere in its

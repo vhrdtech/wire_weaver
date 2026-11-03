@@ -190,9 +190,20 @@ impl<'i, T: DeserializeShrinkWrap<'i> + LenBounded, const N: usize> DeserializeS
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
 
     fn des_shrink_wrap<'di>(rd: &'di mut BufReader<'i>) -> Result<Self, Error> {
-        check_len(rd, N)?;
-        Ok(MaxLen(T::des_shrink_wrap(rd)?))
+        Ok(MaxLen(des_bounded(rd, N)?))
     }
+}
+
+/// A [LenBounded] `T` of at most `max_len` elements: one copy per `T`, not per `MaxLen<T, N>` (SRV-55). Bounds
+/// rarely repeat in an API, and inlined into each `N`'s decoder `T`'s decoder (a `&str`'s, a list's) was one
+/// copy per bound.
+#[inline(never)]
+fn des_bounded<'i, T: DeserializeShrinkWrap<'i>>(
+    rd: &mut BufReader<'i>,
+    max_len: usize,
+) -> Result<T, Error> {
+    check_len(rd, max_len)?;
+    T::des_shrink_wrap(rd)
 }
 
 impl<T: DeserializeShrinkWrapOwned + LenBounded, const N: usize> DeserializeShrinkWrapOwned

@@ -404,6 +404,11 @@ pub struct TailSizeSlot {
 impl<'i> BufWriter<'i> {
     /// Create a new BufWriter from the provided mutable slice.
     /// `buf` does not need to be initialized to zero.
+    // Out of line unless `shrink_wrap_hot="inline"` (SW-74): inlined it is about 20 bytes of stores at each of
+    // the dozens of places a firmware makes one (a copy per type of `dispatch::des`, `to_ww_bytes`, ..), a call
+    // is about 8.
+    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
     pub fn new(buf: &'i mut [u8]) -> Self {
         let len_bytes = buf.len();
         Self {

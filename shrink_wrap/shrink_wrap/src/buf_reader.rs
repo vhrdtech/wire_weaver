@@ -37,6 +37,11 @@ pub struct Cursors {
 
 impl<'i> BufReader<'i> {
     /// Create a new BufReader from the provided slice.
+    // Out of line unless `shrink_wrap_hot="inline"` (SW-74): inlined it is about 20 bytes of stores at each of
+    // the dozens of places a firmware makes one (a copy per type of `dispatch::des`, `to_ww_bytes`, ..), a call
+    // is about 8.
+    #[cfg_attr(shrink_wrap_hot = "inline", inline)]
+    #[cfg_attr(not(shrink_wrap_hot = "inline"), inline(never))]
     pub fn new(buf: &'i [u8]) -> Self {
         let len_bytes = buf.len();
         Self {

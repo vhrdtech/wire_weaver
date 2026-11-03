@@ -3,8 +3,11 @@
 //!
 //! The generated code calls these; they are public for it, not meant to be called by hand. Each takes the
 //! handler's whole result and does what every arm did with it: start the reply's event kind, serialize the value,
-//! write a user error, or answer `Unimplemented`. They are generic over the value and user error types, so a
-//! firmware has one copy per type, not one per resource.
+//! write a user error, or answer `Unimplemented`.
+//!
+//! A firmware has one copy of each path, whatever the types of its resources (SRV-55): the generic entry points are
+//! `#[inline(always)]` and only match the result and hand the value on as an [ErasedValue], a pointer and the
+//! type's serializer. What is left per type is that serializer's thunk, [des] and the type's own serdes.
 //!
 //! Errors are written where they happen (SRV-52): [err] rewinds the writer to where the reply starts
 //! ([Dispatch::before]) and writes the [Error] there, and the level returns [WrAction::WrittenErr]. Nothing but a
@@ -13,9 +16,12 @@
 use crate::builder::ErrorBuilder;
 use crate::stream::StreamOpened;
 use crate::{Error, ErrorKind, ErrorKindDiscriminants, Request, StreamSideband, err_seq};
+use core::marker::PhantomData;
 use wire_weaver::shrink_wrap::{
-    BufReader, BufWriter, DeserializeShrinkWrap, Error as ShrinkWrapError, RefVec,
-    SerializeShrinkWrap, buf_writer::BufWriterState, nib32::UNib32,
+    BufReader, BufWriter, DeserializeShrinkWrap, ElementSize, Error as ShrinkWrapError, RefVec,
+    SerializeShrinkWrap,
+    buf_writer::{BufWriterState, UnsizedBuilder},
+    nib32::UNib32,
 };
 use wire_weaver::{GetResult, RpcResult, SetResult};
 
@@ -141,27 +147,107 @@ pub fn start<const MULTI: bool>(
     }
 }
 
+/// A value to write with its type erased (SRV-55): a pointer to it and its type's serializer. The reply paths take
+/// this instead of being generic over the value's type, so a firmware has one copy of each path; what it has per
+/// type is only a small thunk around the type's own `ser_shrink_wrap`.
+///
+/// `SerializeShrinkWrap` has associated constants and isn't dyn-compatible, and a `&dyn` of a helper trait would
+/// add a vtable per type to flash: a plain `fn` pointer is the smallest handle.
+#[derive(Clone, Copy)]
+pub struct ErasedValue<'a> {
+    value: *const (),
+    ser: ErasedSer,
+    _value: PhantomData<&'a ()>,
+}
+
+type ErasedSer = unsafe fn(*const (), &mut BufWriter<'_>) -> Result<(), ShrinkWrapError>;
+
+impl<'a> ErasedValue<'a> {
+    /// `value` and its type's serializer.
+    #[inline(always)]
+    pub fn new<T: SerializeShrinkWrap>(value: &'a T) -> Self {
+        ErasedValue {
+            value: (value as *const T).cast(),
+            ser: ser_erased::<T>,
+            _value: PhantomData,
+        }
+    }
+
+    /// The value as the root of what follows, [SerializeShrinkWrap::ser_shrink_wrap].
+    #[inline(always)]
+    fn ser(self, wr: &mut BufWriter<'_>) -> Result<(), ShrinkWrapError> {
+        // SAFETY: `value` and `ser` were made together by `new` from a `&'a T` and `ser_erased::<T>`, and the
+        // `'a` of `self` keeps that reference alive
+        unsafe { (self.ser)(self.value, wr) }
+    }
+
+    /// The value as an element, [BufWriter::write]: an unsized one (`is_unsized`) behind its size.
+    #[inline(always)]
+    fn write(self, wr: &mut BufWriter<'_>, is_unsized: bool) -> Result<(), ShrinkWrapError> {
+        if is_unsized {
+            let builder = UnsizedBuilder::new(wr)?;
+            self.ser(wr)?;
+            builder.finish(wr)
+        } else {
+            self.ser(wr)
+        }
+    }
+}
+
+/// `T` is [ElementSize::Unsized]: as an element (of a multi request, in a user error) it is written behind its
+/// size. Not in [ErasedValue], which is then two words: a separate argument is dropped by LLVM from the paths that
+/// don't use it (every value path of a server without `multi_req`), a field is built at every call site.
+#[inline(always)]
+const fn is_unsized<T: SerializeShrinkWrap>() -> bool {
+    matches!(T::ELEMENT_SIZE, ElementSize::Unsized)
+}
+
+/// The per-type part of an [ErasedValue].
+///
+/// # Safety
+/// `value` points to a live `T`.
+unsafe fn ser_erased<T: SerializeShrinkWrap>(
+    value: *const (),
+    wr: &mut BufWriter<'_>,
+) -> Result<(), ShrinkWrapError> {
+    // SAFETY: the caller's contract
+    unsafe { &*value.cast::<T>() }.ser_shrink_wrap(wr)
+}
+
 /// Writes an answer's value: as the root of what follows, or as an element of a multi request.
 #[inline(always)]
-fn ser_value<const MULTI: bool, T: SerializeShrinkWrap>(
+fn ser_value<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    value: &T,
+    value: ErasedValue<'_>,
+    is_unsized: bool,
 ) -> Result<(), ShrinkWrapError> {
     if d.in_multi() {
-        wr.write(value)
+        value.write(wr, is_unsized)
     } else {
-        value.ser_shrink_wrap(wr)
+        value.ser(wr)
     }
 }
 
 /// An `Ok` answer with `value`: the event kind started, the value written (`err_seq` names the site when it doesn't
 /// fit). A read of a property or a constant, the valid indices of an array.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_value<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
     value: &T,
+    err_seq: u32,
+) -> WrAction {
+    reply_erased(wr, d, ErasedValue::new(value), is_unsized::<T>(), err_seq)
+}
+
+/// [reply_value] of an [ErasedValue]: the one copy every value type shares.
+#[inline(never)]
+fn reply_erased<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    value: ErasedValue<'_>,
+    is_unsized: bool,
     err_seq: u32,
 ) -> WrAction {
     if start(wr, d).is_err() {
@@ -172,7 +258,7 @@ pub fn reply_value<const MULTI: bool, T: SerializeShrinkWrap>(
             ErrorKindDiscriminants::ResponseSerFailed,
         );
     }
-    if ser_value(wr, d, value).is_err() {
+    if ser_value(wr, d, value, is_unsized).is_err() {
         return err(wr, d, err_seq, ErrorKindDiscriminants::ResponseSerFailed);
     }
     WrAction::WrittenOk
@@ -180,7 +266,7 @@ pub fn reply_value<const MULTI: bool, T: SerializeShrinkWrap>(
 
 /// A call's answer from its handler's result: the output (not written when the request's seq is 0, no answer is
 /// sent), nothing for a deferred call (it answers later), or `Unimplemented`.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_call<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -188,37 +274,57 @@ pub fn reply_call<const MULTI: bool, T: SerializeShrinkWrap>(
 ) -> WrAction {
     match result {
         RpcResult::Ready(output) => {
-            if start(wr, d).is_err() {
-                return err(
-                    wr,
-                    d,
-                    err_seq::REPLY_START,
-                    ErrorKindDiscriminants::ResponseSerFailed,
-                );
-            }
-            if d.request.seq.0 != 0 && ser_value(wr, d, &output).is_err() {
-                return err(
-                    wr,
-                    d,
-                    err_seq::method::OUTPUT,
-                    ErrorKindDiscriminants::ResponseSerFailed,
-                );
-            }
-            WrAction::WrittenOk
+            reply_output(wr, d, ErasedValue::new(&output), is_unsized::<T>())
         }
         RpcResult::Deferred => WrAction::Deferred,
-        RpcResult::Unimplemented => err(
+        RpcResult::Unimplemented => unimplemented_call(wr, d),
+    }
+}
+
+/// A call's output as its answer, not written when the request's seq is 0 (no answer is sent).
+#[inline(never)]
+fn reply_output<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    output: ErasedValue<'_>,
+    is_unsized: bool,
+) -> WrAction {
+    if start(wr, d).is_err() {
+        return err(
             wr,
             d,
-            err_seq::method::HANDLER,
-            ErrorKindDiscriminants::Unimplemented,
-        ),
+            err_seq::REPLY_START,
+            ErrorKindDiscriminants::ResponseSerFailed,
+        );
     }
+    if d.request.seq.0 != 0 && ser_value(wr, d, output, is_unsized).is_err() {
+        return err(
+            wr,
+            d,
+            err_seq::method::OUTPUT,
+            ErrorKindDiscriminants::ResponseSerFailed,
+        );
+    }
+    WrAction::WrittenOk
+}
+
+/// A method's handler answered `Unimplemented`.
+#[inline(never)]
+fn unimplemented_call<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+) -> WrAction {
+    err(
+        wr,
+        d,
+        err_seq::method::HANDLER,
+        ErrorKindDiscriminants::Unimplemented,
+    )
 }
 
 /// A property read's answer from its getter's result: the value, the user error `E` written in place, or
 /// `Unimplemented` written in place.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_get<const MULTI: bool, T: SerializeShrinkWrap, E: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -226,13 +332,15 @@ pub fn reply_get<const MULTI: bool, T: SerializeShrinkWrap, E: SerializeShrinkWr
 ) -> WrAction {
     match result {
         GetResult::Value(value) => reply_value(wr, d, &value, err_seq::property::VALUE),
-        GetResult::GetError(user_err) => write_user_error(wr, d, &user_err),
+        GetResult::GetError(user_err) => {
+            write_user_error(wr, d, ErasedValue::new(&user_err), is_unsized::<E>())
+        }
         GetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
 
 /// [reply_get] of a property without a user error type: its errors are an empty [ErrorKind::UserBytes].
-#[inline(never)]
+#[inline(always)]
 pub fn reply_get_unit_err<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -248,7 +356,7 @@ pub fn reply_get_unit_err<const MULTI: bool, T: SerializeShrinkWrap>(
 /// A property write's answer from its setter's result: an `Ok` with nothing, the user error `E` written in place,
 /// or `Unimplemented`. User errors are always sent back, even when seq is 0: they won't reach a call site, but
 /// they show up in logs.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_set<const MULTI: bool, E: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -256,7 +364,9 @@ pub fn reply_set<const MULTI: bool, E: SerializeShrinkWrap>(
 ) -> WrAction {
     match result {
         SetResult::Set => reply_ok(wr, d),
-        SetResult::SetError(user_err) => write_user_error(wr, d, &user_err),
+        SetResult::SetError(user_err) => {
+            write_user_error(wr, d, ErasedValue::new(&user_err), is_unsized::<E>())
+        }
         SetResult::Unimplemented => unimplemented_property(wr, d),
     }
 }
@@ -290,6 +400,7 @@ pub fn reply_ok<const MULTI: bool>(wr: &mut BufWriter<'_>, d: &Dispatch<'_, MULT
 }
 
 /// A getter or setter answered `Unimplemented`.
+#[inline(never)]
 fn unimplemented_property<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -302,18 +413,20 @@ fn unimplemented_property<const MULTI: bool>(
     )
 }
 
-/// A user error of type `E` written in place, inside [ErrorKind::UserBytes].
-fn write_user_error<const MULTI: bool, E: SerializeShrinkWrap>(
+/// A user error written in place, inside [ErrorKind::UserBytes].
+#[inline(never)]
+fn write_user_error<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
-    user_err: &E,
+    user_err: ErasedValue<'_>,
+    is_unsized: bool,
 ) -> WrAction {
     let es = err_seq::USER_ERROR;
     let failed = |wr: &mut BufWriter<'_>| err(wr, d, es, ErrorKindDiscriminants::ResponseSerFailed);
     let Ok(builder) = ErrorBuilder::new(es, wr) else {
         return failed(wr);
     };
-    if wr.write(user_err).is_err() {
+    if user_err.write(wr, is_unsized).is_err() {
         return failed(wr);
     }
     match builder.finish_with_kind(ErrorKindDiscriminants::UserBytes, wr) {
@@ -323,6 +436,7 @@ fn write_user_error<const MULTI: bool, E: SerializeShrinkWrap>(
 }
 
 /// The user error of a property without a user error type, written in place: an empty [ErrorKind::UserBytes].
+#[inline(never)]
 fn write_unit_user_error<const MULTI: bool>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
@@ -344,12 +458,23 @@ fn write_unit_user_error<const MULTI: bool>(
 }
 
 /// A stream open's answer: the session in `opened` (its head) and the stream function's `output`.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_opened<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
     opened: &StreamOpened<'_>,
     output: &T,
+) -> WrAction {
+    reply_opened_erased(wr, d, opened, ErasedValue::new(output))
+}
+
+/// [reply_opened] of an [ErasedValue].
+#[inline(never)]
+fn reply_opened_erased<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    opened: &StreamOpened<'_>,
+    output: ErasedValue<'_>,
 ) -> WrAction {
     if start(wr, d).is_err() {
         return err(
@@ -359,7 +484,7 @@ pub fn reply_opened<const MULTI: bool, T: SerializeShrinkWrap>(
             ErrorKindDiscriminants::ResponseSerFailed,
         );
     }
-    if opened.ser_head(wr).is_err() || output.ser_shrink_wrap(wr).is_err() {
+    if opened.ser_head(wr).is_err() || output.ser(wr).is_err() {
         return err(
             wr,
             d,
@@ -372,27 +497,37 @@ pub fn reply_opened<const MULTI: bool, T: SerializeShrinkWrap>(
 
 /// The open answer of a plain stream (no session, nothing kept) from its stream function's result: the closed
 /// head and the output; a stream function can't defer, a deferred one is refused.
-#[inline(never)]
+#[inline(always)]
 pub fn reply_open_plain<const MULTI: bool, T: SerializeShrinkWrap>(
     wr: &mut BufWriter<'_>,
     d: &Dispatch<'_, MULTI>,
     result: RpcResult<T>,
 ) -> WrAction {
     match result {
-        RpcResult::Ready(output) => reply_opened(wr, d, &StreamOpened::closed(), &output),
-        RpcResult::Deferred => err(
-            wr,
-            d,
-            err_seq::stream::OPEN,
-            ErrorKindDiscriminants::OperationNotSupported,
-        ),
-        RpcResult::Unimplemented => err(
-            wr,
-            d,
-            err_seq::stream::OPEN,
-            ErrorKindDiscriminants::Unimplemented,
-        ),
+        RpcResult::Ready(output) => reply_opened_plain(wr, d, ErasedValue::new(&output)),
+        RpcResult::Deferred => refuse_open(wr, d, ErrorKindDiscriminants::OperationNotSupported),
+        RpcResult::Unimplemented => refuse_open(wr, d, ErrorKindDiscriminants::Unimplemented),
     }
+}
+
+/// [reply_opened] with the closed head of a plain stream, built here once instead of at every call site.
+#[inline(never)]
+fn reply_opened_plain<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    output: ErasedValue<'_>,
+) -> WrAction {
+    reply_opened_erased(wr, d, &StreamOpened::closed(), output)
+}
+
+/// A plain stream's open refused: its function deferred or is unimplemented.
+#[inline(never)]
+fn refuse_open<const MULTI: bool>(
+    wr: &mut BufWriter<'_>,
+    d: &Dispatch<'_, MULTI>,
+    kind: ErrorKindDiscriminants,
+) -> WrAction {
+    err(wr, d, err_seq::stream::OPEN, kind)
 }
 
 /// A plain sink's or stream's answer to a sideband: the sideband handler's answer with the resource's path, or

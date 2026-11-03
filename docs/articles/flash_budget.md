@@ -185,4 +185,38 @@ Instructions per request, `just dispatch-budget` (Cortex-M3 under QEMU), warm ru
 
 At `z` the answers take 6-8 % fewer instructions than before SRV-51, the error paths 0.4-0.6 % more; at `fw-3` everything is within 3 %. The future of `process_request_bytes` in the `use_async` server is 528 B, 16 B more than before (512 B): the context the root keeps across its await.
 
-One kind got dearer through SRV-51 and SRV-52, measured on master with SW-72's `MaxLenBounds` kind: a `MaxLen<&str, N>` property with a different `N` each costs 309 B at `z` sync (236 B before), 316 B async (206 B), 526 B at `fw-3` sync (324 B) and 516 B async (292 B). The shared paths are generic over the value type, so every distinct type gets its own `des`, `reply_value` and `reply_get_unit_err`: 164 B per type at `z`, 360 B at `fw-3`, where `des` inlines the whole `&str` decoder. Calls with types of their own got cheaper all the same (300 → 96 B at `z`), as their serdes is per type anyway. Making the value paths take `&dyn` serializers is SRV-55; making `des` a plain `#[inline]` was tried and is no fix (`MaxLen` 526 → 478 B at `fw-3`, but a call with its own types 107 → 196 B).
+One kind got dearer through SRV-51 and SRV-52, measured on master with SW-72's `MaxLenBounds` kind: a `MaxLen<&str, N>` property with a different `N` each costs 309 B at `z` sync (236 B before), 316 B async (206 B), 526 B at `fw-3` sync (324 B) and 516 B async (292 B). The shared paths are generic over the value type, so every distinct type gets its own `des`, `reply_value` and `reply_get_unit_err`: 164 B per type at `z`, 360 B at `fw-3`, where `des` inlines the whole `&str` decoder. Calls with types of their own got cheaper all the same (300 → 96 B at `z`), as their serdes is per type anyway. Making the value paths take erased serializers is [SRV-55](#reply-paths-without-a-copy-per-type-srv-55); making `des` a plain `#[inline]` was tried and is no fix (`MaxLen` 526 → 478 B at `fw-3`, but a call with its own types 107 → 196 B).
+
+## Reply paths without a copy per type (SRV-55)
+
+After SRV-51 and SRV-52 the shared reply paths (`reply_call`, `reply_value`, `reply_get`, ...) were generic over the value type, so a firmware had one copy of each path per type, with the type's serializer inlined in it. In Donguru (typec_dongle) that was 177 functions and 25.8 KB, and the firmware was 14.2 KB larger than before SRV-51. Three changes take that back:
+
+1. The generic entry points in `ww_client_server::dispatch` are `#[inline(always)]`. They only match the handler's result and pass the value on as an `ErasedValue`: a pointer to it and a `fn` pointer to a small thunk around its type's `ser_shrink_wrap`. Each path behind them is compiled once per server mode. `SerializeShrinkWrap` has associated constants and is not dyn-compatible, and a `&dyn` of a helper trait would add a 16 B vtable per type, so the handle is a plain `fn` pointer. Whether the type is unsized is a separate `bool` argument, not a field: LLVM drops it from every path of a server without `multi_req`.
+2. `MaxLen<T, N>` decodes through `des_bounded::<T>(rd, N)` (`#[inline(never)]` in `shrink_wrap`), one copy per `T` instead of one per bound: a `&str` decoder used to be inlined into each `N`'s `des`.
+3. `ww_device::Server::handle` polls its state machine in a function of its own (`PollOutOfLine`). Once the dispatcher got smaller, LLVM inlined `handle` into Donguru's server task, and with it what both call (`poll_properties`, `observe_request`, the writers): the task went from 24.6 KB to 45.0 KB while `handle`'s 14.2 KB went away, 6.2 KB more in all.
+
+Making the per-type wrappers `#[inline(never)]` instead (one small function per type that matches and calls the erased path) was tried and is 7.5 KB worse in Donguru: LLVM inlines the serializer thunks back into them. `des` stays generic: it is the type's decoder and a `BufReader`, nothing to share.
+
+Real firmware, text + data in bytes, every build in the same paths (so that panic locations weigh the same):
+
+| firmware                                      | c440491 (before SRV-51) | f5f88ea (SRV-52) |  SRV-55 |
+|-----------------------------------------------|------------------------:|-----------------:|--------:|
+| Donguru, typec_dongle 1965884, release (`z`)  |                 317,996 |          332,184 | 314,972 |
+| Donguru, its dev profile (`opt-level = 3`), FLASH overflowed by |   6,148 |           16,532 |     960 |
+| donguru_template 856c389, release (`z`)       |                         |          135,676 | 132,164 |
+
+In Donguru `ww_client_server::dispatch` went from 177 functions and 25,790 B to 116 and 15,556 B. 52 of them are the serializer thunks (7,978 B), 50 are `des` (6,576 B): what is left per type is the type's own serdes. In donguru_template the dispatch functions went from 11,260 B to 9,270 B.
+
+TEST-30 (`just flash-budget`, thumbv6m), SRV-52 → SRV-55, bytes:
+
+| thumbv6m                           | z, sync SRV-52 | SRV-55 | z, async SRV-52 | SRV-55 | 3, sync SRV-52 | SRV-55 | 3, async SRV-52 | SRV-55 |
+|------------------------------------|------:|------:|------:|------:|------:|------:|------:|------:|
+| floor, one method                  | 14514 | 14418 | 15646 | 15462 | 20458 | 20262 | 21582 | 21306 |
+| 8 resources, two of each kind      | 17378 | 17402 | 18266 | 18250 | 23698 | 23606 | 24602 | 24530 |
+| mean of the four shared-type kinds |    86 |    86 |    88 |    86 |   104 |   102 |    96 |   100 |
+| call with types of its own         |    96 |    94 |    96 |    99 |   107 |   130 |    98 |    96 |
+| `MaxLen<&str, N>` property, a different `N` each | 309 | 194 | 316 | 230 | 526 | 256 | 516 | 242 |
+
+The `MaxLen` kind is below its cost before SRV-51 (236, 206, 324 and 292 B) except at `z` with `use_async`, 24 B above. A call with types of its own is 23 B dearer at `fw-3` sync. The harness's resources share their types, so the per-type copies SRV-55 removes are few there; a real API has a type per resource or two.
+
+Instructions per request (`just dispatch-budget`, Cortex-M3 under QEMU) are within 1.5 % of SRV-52 in every cell. A call without arguments or output costs 17-23 more (2284 → 2307 at `z` sync, 1375 → 1395 at `fw-3` sync, 1.0-1.5 %); every other request is within 0.3 %. The thunk is one indirect call per reply. The reply bytes are the same (TEST-31 and the replies' hashes).

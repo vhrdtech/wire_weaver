@@ -284,6 +284,7 @@ from `Cargo.toml` at the time; only 0.4.0 was published to crates.io.
 - Smaller decoders for enums mixing unit variants and variants with fields (SW-71), the same bytes: `exact_units::Prefix` from 624 to 324 B on a Cortex-M0+ at `opt-level = "z"`. See `shrink_wrap/` CHANGELOG.
 - The generated dispatcher of a `no_alloc` server keeps only decode, call and a shared reply path per resource (SRV-51): 86 B instead of 238 B per resource on a Cortex-M0+ at `opt-level = "z"`, same reply bytes. `just dispatch-budget` counts instructions per request (TEST-30). See `wire_weaver_core/` and `ww_client_server/` CHANGELOGs.
 - The generated dispatcher writes errors where they happen instead of passing a `Result` up the levels (SRV-52): a further 316-600 B off the TEST-30 server, and 6-8 % fewer instructions per request at `opt-level = "z"` than before SRV-51. See `wire_weaver_core/` and `ww_client_server/` CHANGELOGs.
+- The dispatcher's reply paths have one copy for every type instead of one per value type, and `MaxLen` one decoder per element type (SRV-55): Donguru's firmware 17.2 KB smaller, below its size before SRV-51; instructions per request within 1.5 %. See `ww_client_server/`, `shrink_wrap/` and `ww_device/` CHANGELOGs.
 
 ### Changed
 

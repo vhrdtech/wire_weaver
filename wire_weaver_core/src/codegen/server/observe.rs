@@ -5,6 +5,11 @@
 //! A level is observable when it isn't under a resource array (the bound of an array's indices is not known yet,
 //! API-29): `Observe` on a level under an array answers `OperationNotSupported`. Properties are observable when
 //! declared with `+observe`, not in an array themselves and not `#[optional]`.
+//!
+//! `+batched` (API-39) says two things that this file keeps apart. [Prop::batched] is the property's wire shape, the
+//! `Batched` slot of its level's update, part of the API. [Prop::samples] is that this server takes samples of it,
+//! with a batcher, an outbox and the `Series` encoder: the device's choice, `observe_samples = false` turns it off for
+//! a firmware without a producer of rows (SRV-56).
 
 use crate::codegen::CodegenBundle;
 use crate::codegen::omit::Omissions;
@@ -43,21 +48,23 @@ struct Prop {
     dotted: String,
     ty: TypeOwned,
     model: PropertyModelKind,
-    /// `+batched` (API-39)
+    /// `+batched` (API-39): written as a `Batched`, what the API says
     batched: bool,
+    /// `+batched` and this server takes samples of it, `Samples` mode included, unless `observe_samples = false`
+    samples: bool,
 }
 
 impl Level {
-    fn has_batched(&self) -> bool {
-        self.props.iter().any(|p| p.batched)
+    fn has_samples(&self) -> bool {
+        self.props.iter().any(|p| p.samples)
     }
 
-    /// Table slots of the `+batched` properties, in order: column `c` of the level's rows is slot `batched_ks()[c]`.
-    fn batched_ks(&self) -> Vec<usize> {
+    /// Table slots of the sampled properties, in order: column `c` of the level's rows is slot `sample_ks()[c]`.
+    fn sample_ks(&self) -> Vec<usize> {
         self.props
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.batched)
+            .filter(|(_, p)| p.samples)
             .map(|(k, _)| k)
             .collect()
     }
@@ -119,6 +126,7 @@ impl Observe {
         api_bundle: &CodegenBundle,
         omissions: &Omissions,
         property_model: &PropertyModel,
+        observe_samples: bool,
     ) -> Self {
         let mut observe = Observe {
             levels: vec![],
@@ -129,6 +137,7 @@ impl Observe {
             &api_bundle.root,
             omissions,
             property_model,
+            observe_samples,
             &[],
             None,
             "root",
@@ -144,6 +153,7 @@ impl Observe {
         level: &ApiLevelOwned,
         omissions: &Omissions,
         property_model: &PropertyModel,
+        observe_samples: bool,
         item_path: &[String],
         prefix: Option<&String>,
         chain: &str,
@@ -176,6 +186,7 @@ impl Observe {
                         ident,
                         ty: ty.clone(),
                         batched: batched.is_some(),
+                        samples: batched.is_some() && observe_samples,
                     });
                 }
                 ApiItemKindOwned::Trait { .. } => {
@@ -192,6 +203,7 @@ impl Observe {
                             item.get_as_level(api_bundle).unwrap(),
                             omissions,
                             property_model,
+                            observe_samples,
                             &item_path,
                             Some(&prefix),
                             &format!("{chain}_{}", item.ident),
@@ -224,7 +236,7 @@ impl Observe {
             match self
                 .levels
                 .iter_mut()
-                .find(|l| l.field == name && l.has_batched())
+                .find(|l| l.field == name && l.has_samples())
             {
                 Some(level) => level.cells = true,
                 None => {
@@ -247,7 +259,7 @@ impl Observe {
     /// `ObserveState` fields of the levels with `+batched` properties: what `observe_cells` can name.
     pub(crate) fn batched_levels(&self) -> Vec<String> {
         self.tables()
-            .filter(|l| l.has_batched())
+            .filter(|l| l.has_samples())
             .map(|l| l.field.to_string())
             .collect()
     }
@@ -274,10 +286,10 @@ impl Observe {
         self.levels.iter().filter(|l| !l.props.is_empty())
     }
 
-    /// Whether any observable property is `+batched` (API-39): `ObserveBatches`, the samplers and the outboxes
-    /// are generated only then.
-    pub(crate) fn has_batched(&self) -> bool {
-        self.tables().any(Level::has_batched)
+    /// Whether this server takes samples of any observable property (API-39): `ObserveBatches`, the samplers and
+    /// the outboxes are generated only then.
+    pub(crate) fn has_samples(&self) -> bool {
+        self.tables().any(Level::has_samples)
     }
 
     /// `<Trait>` names of the level types (`<Trait>Update`, `<Trait>Samples`), one per table level in order, with
@@ -340,7 +352,7 @@ impl Observe {
                 ));
             }
         }
-        let batched = self.has_batched();
+        let batched = self.has_samples();
         let (
             state_def,
             state_impl,
@@ -368,10 +380,10 @@ impl Observe {
                 {
                     let gates = self
                         .tables()
-                        .filter(|l| l.has_batched())
+                        .filter(|l| l.has_samples())
                         .map(|l| gate_ident(&l.batches()));
                     // rows taken before the gates closed go too: a later observer would get them with old times
-                    let drop_rows = self.tables().filter(|l| l.has_batched()).map(|l| {
+                    let drop_rows = self.tables().filter(|l| l.has_samples()).map(|l| {
                         let batches = l.batches();
                         if l.cells {
                             let src = l.src();
@@ -395,10 +407,10 @@ impl Observe {
         };
         let outboxes: Vec<Ident> = self
             .tables()
-            .filter(|l| l.has_batched())
+            .filter(|l| l.has_samples())
             .map(Level::outbox)
             .collect();
-        let outbox_docs = self.tables().filter(|l| l.has_batched()).map(|l| {
+        let outbox_docs = self.tables().filter(|l| l.has_samples()).map(|l| {
             format!(
                 " Encoded batches of `{}`'s samples, waiting to be sent",
                 l.trait_name
@@ -553,7 +565,7 @@ impl Observe {
                     next = Some(next.map_or(at, |n: u64| n.min(at)));
                 }
             };
-            if !level.has_batched() {
+            if !level.has_samples() {
                 return quote! {{
                     let at = self.#field.next_wake(now_us, &|_| false);
                     #min
@@ -687,7 +699,7 @@ impl Observe {
         let level = levels.iter().enumerate().map(|(i, level)| {
             let pat = pat(i);
             let field = &level.field;
-            let oldest = if level.has_batched() {
+            let oldest = if level.has_samples() {
                 let outbox = level.outbox();
                 quote! { self.#outbox.oldest() }
             } else {
@@ -698,7 +710,7 @@ impl Observe {
         let oldest = levels
             .iter()
             .enumerate()
-            .filter(|(_, l)| l.has_batched())
+            .filter(|(_, l)| l.has_samples())
             .map(|(i, level)| {
                 let outbox = level.outbox();
                 quote! { #i => self.#outbox.oldest(), }
@@ -706,7 +718,7 @@ impl Observe {
         let remove = levels
             .iter()
             .enumerate()
-            .filter(|(_, l)| l.has_batched())
+            .filter(|(_, l)| l.has_samples())
             .map(|(i, level)| {
                 let outbox = level.outbox();
                 quote! { #i => self.#outbox.remove_oldest(), }
@@ -795,14 +807,14 @@ impl Observe {
             .map(|(_, (base, _))| base)
             .collect();
         for (level, (base, first)) in self.tables().zip(bases) {
-            if !level.has_batched() {
+            if !level.has_samples() {
                 continue;
             }
             let samples = Ident::new(&format!("{base}Samples"), Span::call_site());
             let samples_store = Ident::new(&format!("{base}SamplesStore"), Span::call_site());
             let row = Ident::new(&format!("{base}Row"), Span::call_site());
             let row_store = Ident::new(&format!("{base}RowStore"), Span::call_site());
-            let props: Vec<&Prop> = level.props.iter().filter(|p| p.batched).collect();
+            let props: Vec<&Prop> = level.props.iter().filter(|p| p.samples).collect();
             let idents: Vec<&Ident> = props.iter().map(|p| &p.ident).collect();
             let ptys: Vec<TokenStream> = props.iter().map(|p| item_ty(p)).collect();
             let columns = props.len();
@@ -1478,18 +1490,18 @@ impl Observe {
             let n = level.props.len();
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
-            let batched = level.props.iter().map(|p| p.batched);
+            let samples = level.props.iter().map(|p| p.samples);
             let desc = quote! {
                 const DESC: ww_stream::observe::LevelDesc<'static> = ww_stream::observe::LevelDesc {
                     item_count: #item_count,
                     observable: &[#(#indices),*],
-                    batched: &[#(#batched),*],
+                    batched: &[#(#samples),*],
                 };
             };
             let field = &level.field;
             // the level's sampler takes rows while any property is in `Samples` mode, on the level's grid; columns of
             // the others leave the waiting batches (API-39)
-            let sync_gates = maybe_quote_cl(level.has_batched(), || {
+            let sync_gates = maybe_quote_cl(level.has_samples(), || {
                 let outbox = level.outbox();
                 let gate = gate_ident(&level.batches());
                 quote! {
@@ -1618,12 +1630,12 @@ impl Observe {
         let descs = levels.iter().map(|level| {
             let item_count = level.item_count;
             let indices = level.props.iter().map(|p| p.index);
-            let batched = level.props.iter().map(|p| p.batched);
+            let samples = level.props.iter().map(|p| p.samples);
             quote! {
                 ww_stream::observe::LevelDesc {
                     item_count: #item_count,
                     observable: &[#(#indices),*],
-                    batched: &[#(#batched),*],
+                    batched: &[#(#samples),*],
                 }
             }
         });
@@ -1677,7 +1689,7 @@ impl Observe {
                 if is_async(p) {
                     // a `+batched` property in `Samples` mode is sent as a column of its level's batch, never read
                     let not_column = maybe_quote(
-                        p.batched,
+                        p.samples,
                         quote! { && self.observe_state().#field.samples(#k).is_none() },
                     );
                     let read = quote! {
@@ -1770,7 +1782,7 @@ impl Observe {
                 };
                 measure.push(quote! { (#i, #k) => #size_one, });
                 // in `Samples` mode its column of the level's oldest batch
-                if p.batched {
+                if p.samples {
                     write.push(quote! {
                         (#i, #k) if column => {
                             let state = self.observe_state();
@@ -1787,12 +1799,12 @@ impl Observe {
                 read_unbounded.push(quote! { #i => { #(#unbounded_i)* } });
                 read_chosen.push(quote! { #i => { #(#chosen_i)* } });
             }
-            if level.has_batched() {
+            if level.has_samples() {
                 let body = self.encode_batches(level);
                 encode.push(quote! { #i => { #body } });
             }
         }
-        let has_batched = self.has_batched();
+        let has_samples = self.has_samples();
         let encode = maybe_quote_cl(!encode.is_empty(), || {
             quote! {
                 // the level's sealed rows into its outbox, encoded once
@@ -1821,7 +1833,7 @@ impl Observe {
             }
         });
         // the level's oldest batch of samples (API-39), offered whole by a slot in `Samples` mode
-        let batch_offer = if has_batched {
+        let batch_offer = if has_samples {
             quote! {
                 let mut batch_ks = [0usize; #max_n];
                 let offer = self
@@ -1833,7 +1845,7 @@ impl Observe {
             quote! { let offer = None; }
         };
         // the time column of a batch goes into the event's head, `sample_times`
-        let sample_times = if has_batched {
+        let sample_times = if has_samples {
             quote! {
                 let sample_times = if update.has_sample_times() {
                     self.observe_state().oldest_batch(level).map(|batch| batch.time)
@@ -1846,7 +1858,7 @@ impl Observe {
         };
         // a sent batch leaves the outbox, one that never fits a message goes as missed; while more wait (and the
         // budget lasts), another update
-        let next = if has_batched {
+        let next = if has_samples {
             quote! {
                 let state = self.observe_state();
                 let more = if sent.is_some() && round.has_batch() {
@@ -1867,10 +1879,10 @@ impl Observe {
         } else {
             quote! { break; }
         };
-        let rounds = maybe_quote(has_batched, quote! { let mut rounds = 0usize; });
+        let rounds = maybe_quote(has_samples, quote! { let mut rounds = 0usize; });
         // the batch's columns are written in slot order: each lookup goes on from the last one
-        let column_cursor = maybe_quote(has_batched, quote! { let mut column_at = 0usize; });
-        let (scratch_generic, scratch_arg, scratch_doc) = if has_batched {
+        let column_cursor = maybe_quote(has_samples, quote! { let mut column_at = 0usize; });
+        let (scratch_generic, scratch_arg, scratch_doc) = if has_samples {
             let doc = " Batches of `+batched` properties observed in `Samples` mode (API-39) are encoded into their \
                 level's outbox first (`scratch` is where one column of a batch is rebuilt at a time: \
                 `ww_stream::batch::scratch_bytes::<T>(OBSERVE_BATCH)` of the biggest of `ww_stream::observe::Second` \
@@ -1997,8 +2009,8 @@ impl Observe {
     fn encode_batches(&self, level: &Level) -> TokenStream {
         let field = &level.field;
         let outbox = level.outbox();
-        let batched_ks = level.batched_ks();
-        let columns = batched_ks.len();
+        let sample_ks = level.sample_ks();
+        let columns = sample_ks.len();
         let column_ids: Vec<usize> = (0..columns).collect();
         let batches = level.batches();
         let src = level.src();
@@ -2058,10 +2070,10 @@ impl Observe {
             match state.#field.level_samples() {
                 Some((_, max_age)) => {
                     // column `c` of the rows is the property in table slot `SLOTS[c]`
-                    const SLOTS: [u16; #columns] = [#(#batched_ks as u16),*];
+                    const SLOTS: [u16; #columns] = [#(#sample_ks as u16),*];
                     let mut columns: ww_stream::batch::Columns = 0;
                     #(
-                        if state.#field.samples(#batched_ks).is_some() {
+                        if state.#field.samples(#sample_ks).is_some() {
                             columns |= 1 << #column_ids;
                         }
                     )*

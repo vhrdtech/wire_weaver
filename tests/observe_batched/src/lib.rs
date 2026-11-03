@@ -40,6 +40,8 @@ mod tests {
     enum Variant {
         Sampler,
         Cells,
+        /// `observe_samples = false` (SRV-56): the same API, no samples taken
+        NoSamples,
     }
     /// Where batches are rebuilt while they are encoded, one column at a time: the biggest column type
     const SB: usize = scratch_for(N);
@@ -464,6 +466,22 @@ mod tests {
                         cells_server::api_impl::api_hash(),
                     )
                 }
+                Variant::NoSamples => {
+                    let server = no_samples_server::Server {
+                        mode: 0,
+                        current: 0,
+                        observe: no_samples_server::api_impl::ObserveState::new(LIMITS),
+                        clock: clock.clone(),
+                        polled: polled.clone(),
+                        buf: vec![0; buf_len],
+                    };
+                    tests_common::start_device_async(
+                        &format!("{path}/no_samples"),
+                        server,
+                        observe_batched_api::OBSERVE_BATCHED_FULL_GID,
+                        no_samples_server::api_impl::api_hash(),
+                    )
+                }
             };
             let client = Client::config(|c| c.in_process_path(device.path()))
                 .connect()
@@ -610,6 +628,98 @@ mod tests {
         ObserveMode::Samples {
             every_us: UNib32(every_us),
             max_age_us: UNib32(max_age_us),
+        }
+    }
+
+    /// The same API on a firmware that takes no samples (`observe_samples = false`, SRV-56): no `ObserveBatches`, no
+    /// samplers or scratch, `poll_properties` and `ObserveState` as for an API without `+batched` properties. Naming
+    /// `api_impl::ObserveBatches` here doesn't compile.
+    mod no_samples_server {
+        use super::*;
+        use tests_common::TestProcessEventsAsync;
+
+        pub struct Server {
+            pub mode: u8,
+            pub current: i32,
+            pub observe: api_impl::ObserveState,
+            pub clock: Arc<AtomicU64>,
+            pub polled: Arc<AtomicU64>,
+            pub buf: Vec<u8>,
+        }
+
+        impl Server {
+            fn observe_state(&mut self) -> &mut api_impl::ObserveState {
+                &mut self.observe
+            }
+
+            async fn get_current(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<i32, ()> {
+                GetResult::Value(self.current)
+            }
+
+            async fn get_reading(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<Reading, ()> {
+                GetResult::Value(reading(self.current))
+            }
+
+            async fn changed_mode(&mut self, _cx: &mut Context<'_, impl EventOut>) {}
+
+            async fn get_slow_temp(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+            ) -> GetResult<f32, ()> {
+                GetResult::Value(temp(self.current))
+            }
+
+            async fn sample(
+                &mut self,
+                _cx: &mut Context<'_, impl EventOut>,
+                count: u32,
+                _t0_us: u32,
+                _dt_us: u32,
+                first: i32,
+            ) -> RpcResult<()> {
+                self.current = first + count as i32 - 1;
+                RpcResult::Ready(())
+            }
+        }
+
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                observe_batched_api :: ObserveBatched for super::Server,
+                server = true, no_alloc = true, use_async = true,
+                method_model = "_=immediate",
+                property_model = "mode=value_on_changed, _=get_set",
+                observe_samples = false,
+                // debug_to_file = "../../target/tests_observe_batched_no_samples_server.rs"
+            );
+        }
+
+        impl TestProcessEventsAsync for Server {
+            type Medium = ();
+
+            async fn process_request_bytes<'a>(
+                &mut self,
+                bytes: &[u8],
+                scratch: &'a mut [u8],
+                out: &mut impl EventOut,
+                medium: (),
+            ) -> Result<&'a [u8], ShrinkWrapError> {
+                self.process_request_bytes(bytes, scratch, out, medium)
+                    .await
+            }
+
+            async fn poll(&mut self, out: &mut impl EventOut, _now_ms: u64) {
+                let now = self.clock.load(Ordering::Relaxed);
+                let mut buf = core::mem::take(&mut self.buf);
+                _ = self.poll_properties(out, (), now, &mut buf).await;
+                self.buf = buf;
+                self.polled.store(now, Ordering::Relaxed);
+            }
         }
     }
 
@@ -1523,6 +1633,136 @@ mod tests {
             .unwrap();
         assert_eq!(current_samples(&mut queue), [0, 1, 2], "cells");
         assert_eq!(c.observe.next_wake(6_000), None);
+    }
+
+    /// `Samples` on a server that takes none (SRV-56) is refused entry by entry with `ModeNotSupported`, as for a
+    /// property without `+batched`, and the rest of the request applies: other modes of the same `+batched`
+    /// properties stay `Batched::One` values, with nothing lost and no `sample_times`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_samples_refuses_the_mode_and_serves_the_rest() {
+        let mut b = Bench::start(Variant::NoSamples, "observe_batched/refused", 512).await;
+        let periodic = ObserveMode::Periodic {
+            every_us: UNib32(1_000),
+        };
+        let (granted, refused) = b
+            .observe(
+                &[],
+                &[entry(CURRENT, samples(0, 1_000)), entry(READING, periodic)],
+                None,
+            )
+            .await;
+        assert_eq!(
+            refused,
+            [ObserveRefused {
+                index: UNib32(CURRENT),
+                reason: ObserveRefusal::ModeNotSupported
+            }]
+        );
+        assert_eq!(granted, [entry(READING, periodic)]);
+        let (_, refused) = b
+            .observe(&[SLOW], &[entry(TEMP, samples(0, 1_000))], None)
+            .await;
+        assert_eq!(refused.len(), 1);
+        b.sample(4, 0, 100, 7).await;
+        b.run(1_000, 4_000, 1_000).await;
+        let updates = b.drain().await;
+        assert!(!updates.is_empty());
+        for u in &updates {
+            assert_eq!(u.path, [] as [u32; 0], "{u:?}");
+            assert_eq!(u.sample_times, None, "{u:?}");
+            assert_eq!(u.missed, 0, "{u:?}");
+            assert!(u.current().is_empty(), "{u:?}");
+            let slot = ObserveBatchedUpdate::from_ww_bytes(&u.data).unwrap();
+            assert!(matches!(slot.reading, Some(Batched::One(_))), "{u:?}");
+        }
+    }
+
+    /// The switch is the device's alone (SRV-56): the same API identity and introspection, and, for anything but
+    /// `Samples`, byte for byte the updates of a server that takes samples.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_samples_keeps_the_api_and_the_bytes() {
+        assert_eq!(
+            server::api_impl::API_HASH_NO_DOCS,
+            no_samples_server::api_impl::API_HASH_NO_DOCS
+        );
+        assert_eq!(
+            server::api_impl::API_HASH_WITH_DOCS,
+            no_samples_server::api_impl::API_HASH_WITH_DOCS
+        );
+        let mut got = vec![];
+        let mut bundles = vec![];
+        for variant in [Variant::Sampler, Variant::NoSamples] {
+            let mut b = Bench::start(variant, "observe_batched/one_bytes", 512).await;
+            bundles.push(
+                b.client
+                    .cmd
+                    .device_introspect()
+                    .expect("introspection enabled")
+                    .api_bundle
+                    .clone(),
+            );
+            let periodic = ObserveMode::Periodic {
+                every_us: UNib32(1_000),
+            };
+            b.observe(
+                &[],
+                &[
+                    entry(CURRENT, periodic),
+                    entry(READING, periodic),
+                    entry(MODE, periodic),
+                ],
+                None,
+            )
+            .await;
+            b.sample(4, 0, 100, 7).await;
+            b.at(1_000).await;
+            let first = b.drain().await.remove(0);
+            got.push((first.path, first.sample_times, first.missed, first.data));
+        }
+        assert_eq!(got[0], got[1]);
+        assert_eq!(format!("{:?}", bundles[0]), format!("{:?}", bundles[1]));
+    }
+
+    /// What a host sees (SRV-56): the generated client and the dynamic one subscribe, and `Granted::refused` says
+    /// that the device takes no samples; introspection still lists the property as `+batched`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn no_samples_host_reads_the_refusal() {
+        use client::api_client::observe_batched_api_observe_batched::ObserveBatchedObserve;
+        use std::collections::BTreeMap;
+        use wire_weaver_client::DynResource;
+        use wire_weaver_client::observe::samples;
+        let b = Bench::start(Variant::NoSamples, "observe_batched/host_refused", 512).await;
+        let cfg = ObserveBatchedObserve::default().samples(Duration::from_millis(5));
+        let level = b.client.observe(cfg).subscribe().await.unwrap();
+        let granted = level.granted().unwrap();
+        let refused: Vec<_> = granted
+            .refused
+            .iter()
+            .map(|r| (r.index.0, r.reason))
+            .collect();
+        assert_eq!(
+            refused,
+            [
+                (CURRENT, ObserveRefusal::ModeNotSupported),
+                (READING, ObserveRefusal::ModeNotSupported)
+            ]
+        );
+        assert_eq!(granted.modes.current, None);
+        drop(level);
+
+        let bundle = b
+            .client
+            .cmd
+            .device_introspect()
+            .expect("introspection enabled")
+            .api_bundle
+            .clone();
+        let root = DynResource::root(bundle);
+        let entries = BTreeMap::from([(CURRENT, samples(Duration::from_millis(5)))]);
+        let observer = root.observe(&b.client.cmd, entries).await.unwrap();
+        let granted = observer.granted().unwrap();
+        assert_eq!(granted.refused.len(), 1);
+        assert_eq!(granted.refused[0].reason, ObserveRefusal::ModeNotSupported);
     }
 
     /// The host can't tell the two apart: the same samples, sealed at the same rows (a full batch per poll), give

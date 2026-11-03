@@ -11,7 +11,7 @@ use human_repr::HumanCount;
 use std::collections::HashMap;
 use std::time::Instant;
 use wire_weaver::shrink_wrap::UNib32;
-use wire_weaver_client::observe::ObserveMode;
+use wire_weaver_client::observe::{ObserveMode, ObserveRefused};
 use wire_weaver_client::ww_self::TypeOwned;
 use wire_weaver_client::{DynClient, DynResource, seconds};
 
@@ -28,6 +28,20 @@ pub(crate) struct ObserveArgs {
     /// Observe every sample of the level's `+batched` properties, sent in batches at most this old
     #[arg(long, value_name = "MS")]
     samples: Option<u64>,
+}
+
+/// The entries a device didn't apply, by property name: `reading: ModeNotSupported`.
+fn refusals(props: &[(u32, String, TypeOwned)], refused: &[ObserveRefused]) -> Vec<String> {
+    refused
+        .iter()
+        .map(|r| {
+            let name = props.iter().find(|(index, ..)| *index == r.index.0);
+            match name {
+                Some((_, name, _)) => format!("{}: {:?}", escape(name), r.reason),
+                None => format!("#{}: {:?}", r.index.0, r.reason),
+            }
+        })
+        .collect()
 }
 
 pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()> {
@@ -96,6 +110,17 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
         .await
         .context("observe request")?;
     if let Some(granted) = observer.granted() {
+        let refused = refusals(&props, &granted.refused);
+        if args.samples.is_some() && !refused.is_empty() {
+            bail!(
+                "'{}': the device refused {}: a firmware without samples (`observe_samples = false`) refuses `Samples`",
+                display_path(&args.path),
+                refused.join(", ")
+            );
+        }
+        for refused in refused {
+            eprintln!("{} {refused}", style("refused:").yellow());
+        }
         println!(
             "{} {}/s",
             style("budget:").dim(),
@@ -148,4 +173,25 @@ pub(crate) async fn observe(args: ObserveArgs, device: &DynClient) -> Result<()>
 
 fn micros(ms: u64) -> UNib32 {
     UNib32(ms.saturating_mul(1000).min(u32::MAX as u64) as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wire_weaver_client::observe::ObserveRefusal;
+    use wire_weaver_client::ww_self::TypeOwned;
+
+    /// A refused entry is named by its property, and by its index when the level doesn't list it.
+    #[test]
+    fn refusals_name_the_property() {
+        let props = vec![(1, "reading".to_string(), TypeOwned::Bool)];
+        let refused = |index| ObserveRefused {
+            index: UNib32(index),
+            reason: ObserveRefusal::ModeNotSupported,
+        };
+        assert_eq!(
+            refusals(&props, &[refused(1), refused(7)]),
+            ["reading: ModeNotSupported", "#7: ModeNotSupported"]
+        );
+    }
 }

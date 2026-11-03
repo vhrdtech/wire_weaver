@@ -79,6 +79,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) observe_cells: String,
 
+    /// `false`: this firmware takes no samples of its `+batched` properties (SRV-56): no batcher, outbox or `Series`
+    /// encoder, the API and the wire stay, `Samples` mode is refused with `ModeNotSupported`. Default `true`.
+    #[darling(default)]
+    pub(crate) observe_samples: Option<bool>,
+
     /// `omit = ["a.b", ..]` and `omit_if(<cfg>) = [..]`, parsed before darling (`omit_if(..) = ..` is not a `Meta`).
     #[darling(skip)]
     pub(crate) omit: Vec<Omit>,

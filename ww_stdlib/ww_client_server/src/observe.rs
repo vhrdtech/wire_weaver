@@ -55,7 +55,8 @@ pub enum ObserveMode {
     OnChangeOrBeat { min_us: UNib32, max_us: UNib32 },
     /// Every sample the device takes (`every_us = 0`), or the first one in each `every_us`, sent in batches that
     /// are at most `max_age_us` old (API-39): the host's choice of latency against overhead. Only properties
-    /// declared `+observe+batched` take it ([ObserveRefusal::ModeNotSupported] otherwise); their samples come in
+    /// declared `+observe+batched` take it, on a device that takes samples of them ([ObserveRefusal::ModeNotSupported]
+    /// otherwise, also from a firmware built with `observe_samples = false`); their samples come in
     /// [Batched::Samples] slots. The `Samples` entries of a level share one setting: the device grants each of them
     /// the smallest `every_us` and the smallest `max_age_us` of them all.
     Samples {

@@ -330,7 +330,8 @@ let observe: &'static mut State = State::init(STATE.uninit(), ObserveLimits::DEF
   times, sample `i` taken at time `i`. An update that carries only batches has no head `t`, one with `One` values or
   plain properties has it as before. Rows carry every value of the level, so a property switched into `Samples`
   also gets the rows not sent yet, each at its time; one switched out leaves the waiting batches.
-- **Limits**: `Samples` is refused for a property without `+batched` (`ModeNotSupported`); `max_age_us` is
+- **Limits**: `Samples` is refused for a property without `+batched`, and on a firmware
+  [that takes no samples](#a-firmware-that-takes-no-samples) (`ModeNotSupported`); `max_age_us` is
   clamped to `ObserveLimits::samples_max_age_us` (1 ms to 10 s by default); `every_us` decimates on the device's
   grid (the first sample in each `every_us`), 0 is every sample, and is raised to
   `ObserveLimits::samples_min_every_us` (0, every sample, by default). The `Samples` entries of a level share one
@@ -405,6 +406,48 @@ w.commit(Second::micro(now_us));
 
 `ww api scaffold --observe-cells root_foc` writes the `static`, the `ObserveState` type and the `ww_codegen!`
 argument.
+
+### A firmware that takes no samples
+
+`+batched` says two things: the API's shape, a `Batched<T>` slot, and that a device can keep every sample. The second
+is the device's choice. A firmware that never produces a row (samples are an optional feature of the image, say)
+turns it off with `ww_codegen!(.., observe_samples = false)`:
+
+```rust
+// ww_codegen!(power_api::Power for Device, server = true, .., observe_samples = false)
+let observe = api_impl::ObserveState::init(STATE.uninit(), ObserveLimits::DEFAULT);
+server.poll_properties(&mut ww_server.sink(), medium, now_us, &mut buf).await?;
+```
+
+- **What is left out**: `ObserveBatches`, the samplers, the outboxes and the scratch. `ObserveState` and
+  `poll_properties` are those of an API without `+batched` properties, so no batcher, outbox or `Series` encoder is
+  linked. Nothing has to be stripped by the linker: the code isn't generated, and asking for samples of a build
+  without them doesn't compile.
+- **What stays**: everything a host can see of the API. The property is still `batched: Some(SharedClock)` in
+  introspection, the API hash and snapshot are the same, and the other modes send `Batched::One`, byte for byte what a
+  server that takes samples sends. Clients and hosts built for the API work unchanged.
+- **The `Samples` mode is refused**, as for a property without `+batched`: the entry is listed in
+  `ObserveGranted::refused` with `ModeNotSupported`, and the rest of the request applies. The request as a whole
+  doesn't fail, since nothing is wrong with it. `OperationNotSupported` is for a level that can't be observed at all,
+  and this level can.
+- **What a host does**: a host can't tell from introspection whether a device takes samples, it finds out from the
+  answer. `.subscribe()` succeeds and `Granted::refused` names the property, so check it after asking for samples,
+  otherwise the observer just never gets a sample. `ww observe --samples` fails with the refusal and Python has
+  `Observer.refused`.
+- **Observers of one level** merge into `Samples` if any of them asks for it, so on such a device one observer's
+  refused `Samples` also takes the property away from another observer of the level that asked for a period.
+- **Which arguments go with it**: `observe_batch`, `observe_outbox` and `observe_cells` size or place batches that
+  no longer exist, and with `observe_samples = false` each is a compile error. On an API without `+batched` properties
+  the switch changes nothing.
+- **Why here, and not in the API or in a type**: the API crate is shared with every client, so an attribute there
+  would change the API for a choice one image makes. A type parameter would leave the batches in the signatures of
+  `ObserveState` and `poll_properties` for a firmware that has none. The firmware's own `ww_codegen!` call is where
+  the device's other choices about batches are made (`observe_cells`, `observe_batch`), and it is fixed at build time.
+- **Cost**: on a Cortex-M0+ at `opt-level = "z"` the switch saves about 20 KB of flash on a level of four properties,
+  and the `Batched` slots cost 72-80 B over plain ones
+  ([flash budget](../articles/flash_budget.md#no-samples-no-encoder-srv-56)).
+
+`ww api scaffold --no-observe-samples` writes the argument and the state without batches.
 
 ### Host side
 

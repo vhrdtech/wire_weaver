@@ -1,5 +1,9 @@
 ## Unreleased
 
+### 🚀 Features
+
+- `Observer.refused` (SRV-56): the properties a device did not apply as `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware that takes no samples.
+
 ### ⚠️ Breaking
 
 - `Quantity.prefix` is a `str` of any scale (`"Kibi"` for a binary one, a `Fixed`'s other scale by its symbol or factor, `"2⁻¹⁵"`) and `Quantity.exponent` is `None` for a scale that is no power of ten (CLT-54).

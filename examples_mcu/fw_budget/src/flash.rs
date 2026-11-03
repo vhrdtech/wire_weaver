@@ -43,11 +43,26 @@ struct Check {
     strings: &'static [&'static str],
 }
 
-const CHECKS: [Check; 3] = [
+/// Servers of the same 4 observed properties at the root, with the `qemu-flash-observed` bin as their reference.
+const OBSERVED: [(&str, &str); 2] = [
+    ("qemu-flash-batched", "+batched, takes samples"),
+    (
+        "qemu-flash-batched-no-samples",
+        "+batched, observe_samples = false (SRV-56)",
+    ),
+];
+
+const CHECKS: [Check; 4] = [
     Check {
         what: "observe: the Series codec (SRV-54)",
         bin: "qemu-flash-streams16",
         symbols: &["shrink_wrap::series::"],
+        strings: &[],
+    },
+    Check {
+        what: "observe_samples = false: batcher, outbox, Series (SRV-56)",
+        bin: "qemu-flash-batched-no-samples",
+        symbols: &["shrink_wrap::series::", "ww_stream::batch::"],
         strings: &[],
     },
     Check {
@@ -81,6 +96,8 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
         bins.push(format!("{bin}8"));
         bins.push(format!("{bin}16"));
     }
+    bins.push("qemu-flash-observed".into());
+    bins.extend(OBSERVED.iter().map(|(bin, _)| bin.to_string()));
     let mut cmd = cargo(qemu_dir);
     cmd.args(["build", "--profile", profile, "--target", target]);
     for bin in &bins {
@@ -123,6 +140,19 @@ fn print_one(qemu_dir: &Path, target: &str, profile: &str, async_: bool) -> Res<
         "mean of the four kinds of shared types",
         sum / 4.0
     );
+    let observed = size("qemu-flash-observed")?;
+    println!(
+        "  {:<46} {observed:>7} B",
+        "8 resources and 4 observed properties"
+    );
+    for (bin, kind) in OBSERVED {
+        let bytes = size(bin)?;
+        println!(
+            "  {:<46} {bytes:>7} B  ({:+} B)",
+            kind,
+            bytes as i64 - observed as i64
+        );
+    }
     for check in &CHECKS {
         let elf = dir.join(check.bin);
         let (syms, bytes) = crate::symbols(&elf, check.symbols)?;

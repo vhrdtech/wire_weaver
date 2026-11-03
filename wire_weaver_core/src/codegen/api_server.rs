@@ -61,6 +61,9 @@ pub struct GenServerConfig {
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
+    /// Whether the server takes samples of `+batched` properties (`observe_samples = false`, SRV-56: no batcher,
+    /// outbox or `Series` encoder, the slots stay `Batched`, `Samples` mode refused with `ModeNotSupported`).
+    pub observe_samples: bool,
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
@@ -153,6 +156,9 @@ pub struct GenServerConfigRaw {
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`):
     /// `observe_cells = "root_foc, .."`. The others keep `<Level>Sampler::sample`.
     pub observe_cells: Vec<String>,
+    /// Whether the server takes samples of `+batched` properties (`observe_samples = false`, SRV-56: no batcher,
+    /// outbox or `Series` encoder, the slots stay `Batched`, `Samples` mode refused with `ModeNotSupported`).
+    pub observe_samples: bool,
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
@@ -177,6 +183,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_batch: config.observe_batch,
             observe_outbox: config.observe_outbox,
             observe_cells: config.observe_cells,
+            observe_samples: config.observe_samples,
             crate_paths: config.crate_paths,
             global_paths: config.global_paths,
         }
@@ -235,8 +242,21 @@ pub fn gen_server(
         Some(path) => quote! { #path },
         None => quote! { () },
     };
-    let mut observe = Observe::collect(api_bundle, &omissions, &config.property_model);
-    let cells_errors = observe.use_cells(&config.observe_cells);
+    let mut observe = Observe::collect(
+        api_bundle,
+        &omissions,
+        &config.property_model,
+        config.observe_samples,
+    );
+    let cells_errors = if config.observe_samples {
+        observe.use_cells(&config.observe_cells)
+    } else {
+        no_samples_errors(
+            config.observe_batch,
+            config.observe_outbox,
+            &config.observe_cells,
+        )
+    };
     let cx = ApiServerCGContext {
         observable: observe.observable(),
         ident_prefix: None,
@@ -534,6 +554,26 @@ struct PolledStream {
     path: Vec<u32>,
     delivery: Delivery,
     batched: bool,
+}
+
+/// `observe_samples = false` (SRV-56) generates no batches: an argument that sizes or places them is a contradiction.
+fn no_samples_errors(
+    observe_batch: Option<usize>,
+    observe_outbox: Option<usize>,
+    observe_cells: &[String],
+) -> TokenStream {
+    let args = [
+        ("observe_batch", observe_batch.is_some()),
+        ("observe_outbox", observe_outbox.is_some()),
+        ("observe_cells", !observe_cells.is_empty()),
+    ];
+    let errors = args.iter().filter(|(_, given)| *given).map(|(arg, _)| {
+        let msg = format!(
+            "{arg} has nothing to do with observe_samples = false: no batches are generated"
+        );
+        quote! { compile_error!(#msg); }
+    });
+    quote! { #(#errors)* }
 }
 
 /// Streams of the API `poll_streams` sends for, or an error message for one it can't send.

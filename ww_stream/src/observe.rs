@@ -110,7 +110,8 @@ pub struct LevelDesc<'a> {
     /// Number of resource indices of the level (largest one + 1), properties or not.
     pub item_count: u32,
     pub observable: &'a [u32],
-    /// `+batched` (API-39): the slot takes `Samples` mode, its value is written as a `Batched`.
+    /// The server takes samples of the slot (API-39): it takes `Samples` mode, refused with `ModeNotSupported`
+    /// otherwise. False for a `+batched` property on a server with `observe_samples = false` (SRV-56).
     pub batched: &'a [bool],
 }
 

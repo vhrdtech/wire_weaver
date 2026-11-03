@@ -293,6 +293,26 @@ impl Observer {
             .map(|g| g.budget)
     }
 
+    /// Properties the device did not apply, `{name: reason}`, e.g. `{"reading": "ModeNotSupported"}` from a firmware
+    /// that takes no samples; empty before the device answered or after `close()`.
+    #[getter]
+    fn refused(&self) -> std::collections::BTreeMap<String, String> {
+        let observer = self.observer.lock().expect("not poisoned");
+        let Some(granted) = observer.as_ref().and_then(|o| o.granted()) else {
+            return Default::default();
+        };
+        let props = self.res.observable_properties().unwrap_or_default();
+        granted
+            .refused
+            .iter()
+            .map(|r| {
+                let name = props.iter().find(|(index, ..)| *index == r.index.0);
+                let name = name.map_or_else(|| format!("#{}", r.index.0), |(_, n, _)| n.clone());
+                (name, format!("{:?}", r.reason))
+            })
+            .collect()
+    }
+
     /// Updates dropped because this observer's queue on the host was full.
     #[getter]
     fn dropped(&self) -> u64 {

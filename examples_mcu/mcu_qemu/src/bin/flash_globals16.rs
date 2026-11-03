@@ -15,5 +15,8 @@ flash_budget_server!(Globals16, introspect = "disabled");
 
 impl ServerState {
     base_handlers!();
-    calls!(g0_m, g1_m, g2_m, g3_m, g4_m, g5_m, g6_m, g7_m, g8_m, g9_m, g10_m, g11_m, g12_m, g13_m, g14_m, g15_m, );
+    calls!(
+        g0_m, g1_m, g2_m, g3_m, g4_m, g5_m, g6_m, g7_m, g8_m, g9_m, g10_m, g11_m, g12_m, g13_m,
+        g14_m, g15_m,
+    );
 }

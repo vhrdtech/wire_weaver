@@ -10,7 +10,9 @@ repository.workspace = true
 
 [features]
 default = ["std"]
-std = ["wire_weaver/std"]
+std = ["wire_weaver/std", "ww_si/std"]
 
 [dependencies]
 wire_weaver = { workspace = true }
+# a `+batched` property's wire form names `ww_si::Timed`
+ww_si = { workspace = true, features = ["i32"] }

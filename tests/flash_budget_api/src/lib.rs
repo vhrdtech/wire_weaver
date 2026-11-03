@@ -16,6 +16,8 @@
 //! - `Globals8` / `Globals16` (SRV-53): [Base] and 8 or 16 traits of one method each (`GlobalTraitN`), served with
 //!   introspection off, so the device answers `GlobalFull` paths to them itself: the cost of one more trait in its
 //!   global path lookup, on top of its level.
+//! - [Observed4] / [Batched4]: [Base] and 4 observed properties, plain or `+batched`. [Batched4] is built twice, with
+//!   samples and with `observe_samples = false` (SRV-56), what that switch saves and what the `Batched` slots cost.
 //!
 //! Every resource of the first four kinds uses the same types, so their serdes is paid once, in [BaseOnly]: the
 //! differences are the dispatcher's own bytes per resource. `Typed*` adds each resource's serdes, `MaxLenBounds*`
@@ -632,4 +634,24 @@ pub trait GlobalTrait14 {
 #[ww_trait]
 pub trait GlobalTrait15 {
     fn m();
+}
+
+/// [Base] and 4 plain observed properties.
+#[ww_api_root]
+pub trait Observed4 {
+    ww_impl!(base: Base);
+    property!(ro+observe x0: i32);
+    property!(ro+observe x1: i32);
+    property!(ro+observe x2: i32);
+    property!(ro+observe x3: i32);
+}
+
+/// [Base] and 4 `+batched` observed properties, the same resources as [Observed4].
+#[ww_api_root]
+pub trait Batched4 {
+    ww_impl!(base: Base);
+    property!(ro+observe+batched x0: i32);
+    property!(ro+observe+batched x1: i32);
+    property!(ro+observe+batched x2: i32);
+    property!(ro+observe+batched x3: i32);
 }

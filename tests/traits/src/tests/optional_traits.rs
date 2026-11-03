@@ -376,6 +376,7 @@ fn scaffold_leaves_out_omitted_traits() {
         medium: None,
         omit: vec![],
         observe_cells: vec![],
+        observe_samples: true,
     };
     let code = wire_weaver_core::gen_server_scaffold(&bundle, &config).unwrap();
     for expected in [

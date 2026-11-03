@@ -92,6 +92,11 @@ pub enum ApiCommand {
         #[arg(long, value_delimiter = ',', value_name = "LEVEL")]
         observe_cells: Vec<String>,
 
+        /// This firmware takes no samples of its `+batched` properties (SRV-56): `observe_samples = false` in
+        /// ww_codegen!, no batcher, outbox or `Series` encoder; `Samples` mode is refused with `ModeNotSupported`
+        #[arg(long)]
+        no_observe_samples: bool,
+
         /// Write to a file instead of stdout, refuses to overwrite an existing one
         #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
@@ -206,6 +211,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
             medium,
             omit,
             observe_cells,
+            no_observe_samples,
             output,
         } => scaffold::scaffold(
             path,
@@ -221,6 +227,7 @@ pub(crate) fn api(cmd: ApiCommand) -> Result<()> {
                 medium,
                 omit,
                 observe_cells,
+                observe_samples: !no_observe_samples,
             },
             output,
         ),

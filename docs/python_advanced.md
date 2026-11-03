@@ -42,6 +42,7 @@ with m.observe({"speed": 10, "current": None}) as obs:  # speed periodically eve
     for u in obs:
         print(u["values"], u["t"], u["missed"])     # {"speed": 1500, "current": 3}, seconds or None, due sends that missed budget
 obs.budget                                          # bytes/s the device applies to the whole level
+obs.refused                                         # {"reading": "ModeNotSupported"}: what the device did not apply
 ```
 
 Every sample of `+batched` properties ([Every sample](api/observing.md#every-sample-batched)) comes item by item,

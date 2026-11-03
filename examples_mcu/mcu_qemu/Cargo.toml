@@ -304,6 +304,27 @@ doctest = false
 bench = false
 
 [[bin]]
+name = "qemu-flash-observed"
+path = "src/bin/flash_observed.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-batched"
+path = "src/bin/flash_batched.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
+name = "qemu-flash-batched-no-samples"
+path = "src/bin/flash_batched_no_samples.rs"
+test = false
+doctest = false
+bench = false
+
+[[bin]]
 name = "qemu-flash-globals8"
 path = "src/bin/flash_globals8.rs"
 test = false

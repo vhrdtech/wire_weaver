@@ -40,6 +40,8 @@ pub struct ServerScaffoldConfig {
     /// Levels sampled through observe cells (API-50), by their `ObserveState` field (`root_foc`): passed on to
     /// `ww_codegen!(.., observe_cells = "..")`, with a `static` `<Level>Cells` each.
     pub observe_cells: Vec<String>,
+    /// `false`: `ww_codegen!(.., observe_samples = false)` (SRV-56), no samples of `+batched` properties taken.
+    pub observe_samples: bool,
 }
 
 /// Generates Rust source of a server struct, an impl block with a stub for every handler, each returning
@@ -75,7 +77,17 @@ pub fn gen_server_scaffold(
 
     let omit: Vec<Omit> = config.omit.iter().map(Omit::always).collect();
     let omissions = Omissions::resolve(api_bundle, &omit).map_err(|e| anyhow!(e))?;
-    let mut observed = super::observe::Observe::collect(api_bundle, &omissions, &property_model);
+    let mut observed = super::observe::Observe::collect(
+        api_bundle,
+        &omissions,
+        &property_model,
+        config.observe_samples,
+    );
+    if !config.observe_samples && !config.observe_cells.is_empty() {
+        return Err(anyhow!(
+            "--observe-cells has nothing to do with --no-observe-samples: no batches are generated"
+        ));
+    }
     if !observed.use_cells(&config.observe_cells).is_empty() {
         return Err(anyhow!(
             "--observe-cells: {:?} names a level without +batched properties; levels: {}",
@@ -90,7 +102,7 @@ pub fn gen_server_scaffold(
         "api_impl::ObserveState"
     };
     let observe = observed.is_enabled();
-    let observe_batched = observed.has_batched();
+    let observe_batched = observed.has_samples();
 
     let root = &api_bundle.root;
     let crate_name = root.crate_name(api_bundle)?.replace('-', "_");
@@ -207,6 +219,11 @@ pub fn gen_server_scaffold(
     } else {
         String::new()
     };
+    let observe_samples = if config.observe_samples {
+        String::new()
+    } else {
+        "observe_samples = false,\n".to_string()
+    };
     // a static ring per cells level: the control loop or interrupt keeps its writer
     let mut statics = String::new();
     if observe {
@@ -261,7 +278,7 @@ pub fn gen_server_scaffold(
          server = true, no_alloc = {}, use_async = {},\n\
          {handler_model}method_model = {method_model_str:?},\n\
          property_model = {property_model_str:?},\n\
-         {const_model}{omit}{medium}{observe_batch}{observe_cells});\n\
+         {const_model}{omit}{medium}{observe_batch}{observe_cells}{observe_samples});\n\
          }}",
         config.no_alloc, config.use_async
     )?;
@@ -876,6 +893,7 @@ mod tests {
             medium: None,
             omit: vec![],
             observe_cells: observe_cells.iter().map(|s| s.to_string()).collect(),
+            observe_samples: true,
         }
     }
 
@@ -936,6 +954,33 @@ mod tests {
             !code.contains("UserDefined <") && !code.contains("ListedError <"),
             "{code}"
         );
+    }
+
+    /// `--no-observe-samples` (SRV-56): the argument in `ww_codegen!`, none of what batches need, and cells are a
+    /// contradiction.
+    #[test]
+    fn no_observe_samples() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/observe_batched_api");
+        let bundle = crate::load(&crate_path, Some("ObserveBatched".into()), false).unwrap();
+        let none = ServerScaffoldConfig {
+            observe_samples: false,
+            ..config(&[])
+        };
+        let code = gen_server_scaffold(&bundle, &none).unwrap();
+        assert!(code.contains("observe_samples = false,"), "{code}");
+        assert!(
+            code.contains("pub observe: api_impl::ObserveState,"),
+            "{code}"
+        );
+        assert!(code.contains("fn get_current"), "{code}");
+        for absent in ["observe_batch =", "ObserveBatches", "samplers"] {
+            assert!(!code.contains(absent), "{absent}\n{code}");
+        }
+        let cells = ServerScaffoldConfig {
+            observe_samples: false,
+            ..config(&["root"])
+        };
+        assert!(gen_server_scaffold(&bundle, &cells).is_err());
     }
 
     /// `observe_cells` (API-50): a static ring per level, its reader in `ObserveBatches::new`, the argument in

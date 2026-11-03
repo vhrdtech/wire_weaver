@@ -1171,9 +1171,17 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   shared-type mean where SRV-52 left it (86-102 B), a call with its own types +23 B at `fw-3` sync. Instructions per
   request within 1.5 %, same reply bytes (TEST-31), same handlers. See
   `docs/articles/flash_budget.md#reply-paths-without-a-copy-per-type-srv-55`.
-- 📋 **SRV-56 No observe encoder without a row producer** — a firmware with a `+batched` property links the whole
+- 🚧 **SRV-56 No observe encoder without a row producer** — a firmware with a `+batched` property links the whole
   batch encoder even when it never produces a row. Measured on Donguru (typec_dongle 61bca76, wire_weaver 753d5f7,
   release at `z`, text+data): 289,580 B with `meter-samples` off, 293,780 B with it on.
+  - **Done: `observe_samples = false`.** A `ww_codegen!` argument, so the choice stays in the firmware that makes it
+    and the shared API crate doesn't change. No batcher, outbox, scratch or `Series` encoder; `ObserveState` and
+    `poll_properties` are those of an API without `+batched`. API hash, snapshot, introspection and `Batched::One`
+    bytes are the same (test `no_samples_keeps_the_api_and_the_bytes`). `Samples` is refused per entry with
+    `ModeNotSupported`, the rest of the request applies. Donguru with `meter-samples` off: 266,404 B, -23,176 B
+    text+data, -3,392 B RAM, no `series::` or `ww_stream::batch::` symbol left, 136 B over the experiment below.
+    TEST-30 has the kind: `docs/articles/flash_budget.md#no-samples-no-encoder-srv-56`. Not run on a board.
+  - **Open: `observe_rows = "uniform"`**, the second switch below.
   - **Cost with no producer.** With `meter-samples` off the firmware calls no sampler and has no cells, so from the
     code no row can reach the encoder. Dropping `+batched` from `meter.reading` as an experiment gave 266,268 B:
     -23,312 B text+data, -3,392 B RAM, no `series::` symbol left. That experiment changes the slot's wire type, so
@@ -1185,12 +1193,13 @@ planned, for humans and AI agents alike. It replaces the external task tracker.
   - **Where the flash goes.** Each column type carries the column writer and the item-by-item fallback for rows whose
     tags change, each as a write copy and a count copy. Stubbing the fallback out as an experiment saved 12,332 B with
     `meter-samples` off and 11,732 B with it on. Without a fallback, rows with changing tags can't be encoded.
-  - **Idea: codegen switches.** `observe_samples = false` would keep the slot's `Batched` wire shape, take no
-    `Samples` mode and generate no batcher, outbox or encoder. `observe_rows = "uniform"` would write columns only: a
-    batch with a tag change would go and count as missed, as a value that doesn't serialize does today. Not built, and
-    the Series encoders stay as they are for now.
-  - **Not measured.** Instructions per row, and any run on a board. Today's answer to a `Samples` request on a build
-    with no producer was read from the code only: it looks accepted, with no rows ever sent.
+  - **Idea: the second switch.** `observe_rows = "uniform"` would write columns only: a batch with a tag change would
+    go and count as missed, as a value that doesn't serialize does today. Not built, and the Series encoders stay as
+    they are for now.
+  - **Not measured.** Instructions per row of `observe_rows`.
+  - **Known limit.** Observers of one level merge into `Samples` if any asks for it, so a refused `Samples` also takes
+    the property from another observer of the level that asked for a period. A device with no producer behaved the
+    same before the switch, granting `Samples` and sending nothing; now the refusal says why.
 - ✅ **SRV-53 Global trait paths without names in flash** · `v0.5` — flash diet: `ww_global_trait_path` matched
   the crate and trait names of every trait in the API as strings, with a version guard per arm (862 B of code and
   240 B of names in Donguru). The person's decision (3 Nov 2026), as built:

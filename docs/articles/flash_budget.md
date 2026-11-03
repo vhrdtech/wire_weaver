@@ -23,6 +23,7 @@ The servers are the roots of `tests/flash_budget_api`:
 
 - `Floor`: one method, what any server costs.
 - `BaseOnly`: a trait level with two resources of each kind (calls with and without arguments, a read-write property, a stream).
+- `Observed4` / `Batched4` (SRV-56): that level plus 4 observed properties, plain or `+batched`. `Batched4` is built with samples and with `observe_samples = false`. These servers also run `poll_properties`, so what observing needs is linked.
 - `Calls8` / `Calls16`, `CallsArgs8` / `CallsArgs16`, `Props8` / `Props16`, `Streams8` / `Streams16`: that level plus 8 or 16 resources of one kind at the root. They all use the same two types, so serdes is paid once and `(size(*16) - size(*8)) / 8` is the dispatcher's own cost of one more resource of that kind.
 - `Typed8` / `Typed16`: calls with an argument and an output of their own types, as in a real API, so each one's serdes is in its cost too.
 - `MaxLenBounds8` / `MaxLenBounds16` (SW-72): read-write properties of `MaxLen<&'i str, N>`, a different bound each (4, 8, .., 64), as a real API's bounded fields rarely share one `N`. Excluded from the mean below, like `Typed*`: its per-resource type differs by resource too.
@@ -85,6 +86,22 @@ Server code stopped serializing whole `Event`s: the reply of a deferred method, 
 | `Series` codec                    |  3796 |     0 |  3796 |     0 | 16286 |     0 | 16286 |     0 |
 
 Of the floor's 11.8 KB at `z` (sync), the events written in place are about 11.2 KB and the lazy `Observe` body about 0.46 KB (0.87 KB at `3`), measured as two steps on ff395f1a. The 8-resource servers lose 1 KB less than the floor: their stream links the `StreamHead` writer again, which the floor carried before only through `Event`'s serializer. The per-resource cells stay within the inliner's noise. Firmware that observes is unchanged: `qemu-foc-observe` prints the same as before.
+
+## No samples, no encoder (SRV-56)
+
+A `+batched` property links a batcher, an outbox and the `Series` encoder for every column of its level, also on a firmware that never produces a row. [`observe_samples = false`](../api/observing.md#a-firmware-that-takes-no-samples) leaves them out and keeps the property's `Batched` slot, its API and its wire shape. Three servers with the same 8 resources and 4 observed properties of `i32`, flash of the whole image on thumbv6m, bytes:
+
+| thumbv6m                                   | z, sync | z, async | 3, sync | 3, async |
+|--------------------------------------------|--------:|---------:|--------:|---------:|
+| plain `+observe`                           |   29758 |    31098 |   44558 |    46814 |
+| `+batched`, takes samples                  |   50174 |    51514 |   79798 |    82818 |
+| `+batched`, `observe_samples = false`      |   29838 |    31170 |   44802 |    47082 |
+| what the switch saves                      |   20336 |    20344 |   34996 |    35736 |
+| what the `Batched` slots cost over plain   |      80 |       72 |     244 |      268 |
+
+No sampler runs in these bins, so the middle row is what a firmware without a producer of rows paid before. No symbol of `shrink_wrap::series` or `ww_stream::batch` is left with the switch, and `just flash-budget` checks that.
+
+Donguru (typec_dongle, `use_async`, release at `opt-level = "z"`) with its `meter-samples` feature off went from 289,580 B to 266,404 B of text and data (−23,176 B) and 3,392 B less RAM. Dropping `+batched` from the API, which changes the wire, gave 266,268 B: keeping the wire shape costs 136 B. With `meter-samples` on the image keeps the same sizes, as it doesn't use the switch.
 
 ## SW-70: the bit helpers as hints
 

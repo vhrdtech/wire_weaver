@@ -148,6 +148,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
                     .collect(),
+                observe_samples: args.ext.observe_samples.unwrap_or(true),
                 crate_paths: crate_paths.clone(),
                 global_paths,
             },

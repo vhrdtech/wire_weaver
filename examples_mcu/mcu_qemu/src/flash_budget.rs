@@ -235,6 +235,130 @@ macro_rules! flash_budget_server_impl {
     };
 }
 
+/// Getters of `i32` observed properties, the same for plain and `+batched` ones.
+macro_rules! observed {
+    ($($get:ident),* $(,)?) => {$(
+        #[inline(never)]
+        fn $get(&mut self, _cx: &mut Context<'_, impl Out>) -> GetResult<i32, ()> {
+            $crate::flash_budget::distinct!();
+            $crate::flash_budget::black_box(GetResult::Value(1))
+        }
+    )*};
+}
+
+/// The bin's `main` and a server of `flash_budget_api::$root` that observes: its `ObserveState` of type `$state`, built
+/// in place by `$init`, and `serve` also runs `poll_properties`, with `$scratch` when the server takes samples. No
+/// sampler runs, so a `+batched` server is what a firmware without a producer of rows costs. `$args` are more arguments
+/// of `ww_codegen!`.
+macro_rules! flash_budget_observe_server {
+    (
+        $root:ident,
+        [$($args:tt)*],
+        state: $state:ty,
+        init: $init:expr
+        $(, scratch: $scratch:expr)?
+    ) => {
+        use cortex_m_rt::entry;
+        use cortex_m_semihosting::debug;
+        use $crate::flash_budget::Out;
+
+        pub struct ServerState {
+            observe: &'static mut $state,
+        }
+
+        impl ServerState {
+            fn observe_state(&mut self) -> &mut $state {
+                &mut *self.observe
+            }
+        }
+
+        #[cfg(not(feature = "flash-async"))]
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                flash_budget_api :: $root for super::ServerState,
+                server = true, no_alloc = true, use_async = false,
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                introspect = "no_docs",
+                $($args)*
+            );
+        }
+
+        #[cfg(feature = "flash-async")]
+        pub mod api_impl {
+            wire_weaver::ww_codegen!(
+                flash_budget_api :: $root for super::ServerState,
+                server = true, no_alloc = true, use_async = true,
+                handler_model = "_=sync",
+                method_model = "_=immediate",
+                property_model = "_=get_set",
+                introspect = "no_docs",
+                $($args)*
+            );
+        }
+
+        struct DummyTx;
+        #[cfg(not(feature = "flash-async"))]
+        impl wire_weaver::BlockingMessageSink for DummyTx {
+            fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+                $crate::flash_budget::distinct!();
+                $crate::flash_budget::black_box(message);
+                Ok(())
+            }
+        }
+        #[cfg(feature = "flash-async")]
+        impl wire_weaver::MessageSink for DummyTx {
+            async fn send(&mut self, message: &[u8]) -> Result<(), ()> {
+                $crate::flash_budget::distinct!();
+                $crate::flash_budget::black_box(message);
+                Ok(())
+            }
+        }
+
+        #[inline(never)]
+        fn serve(request: &[u8], now_us: u64) -> Option<usize> {
+            let mut scratch = [0u8; 256];
+            let mut event_scratch = [0u8; 256];
+            let mut buf = [0u8; 256];
+            let mut server = ServerState { observe: $init };
+            let mut out = EventWriter::new(DummyTx, &mut event_scratch);
+            #[cfg(not(feature = "flash-async"))]
+            let len = {
+                let len = server
+                    .process_request_bytes(request, &mut scratch, &mut out, ())
+                    .map(|b| b.len())
+                    .ok();
+                _ = server.poll_properties(&mut out, (), now_us, &mut buf $(, $scratch)?);
+                len
+            };
+            #[cfg(feature = "flash-async")]
+            let len = {
+                let mut cx = core::task::Context::from_waker(core::task::Waker::noop());
+                let len = {
+                    let mut fut = core::pin::pin!(server.process_request_bytes(request, &mut scratch, &mut out, ()));
+                    match fut.as_mut().poll(&mut cx) {
+                        core::task::Poll::Ready(r) => r.map(|b| b.len()).ok(),
+                        core::task::Poll::Pending => None,
+                    }
+                };
+                let mut fut = core::pin::pin!(server.poll_properties(&mut out, (), now_us, &mut buf $(, $scratch)?));
+                _ = fut.as_mut().poll(&mut cx);
+                len
+            };
+            len
+        }
+
+        #[entry]
+        fn main() -> ! {
+            let mut request = [0u8; 64];
+            let request = $crate::flash_budget::black_box(&mut request[..]);
+            $crate::flash_budget::black_box(serve(request, $crate::flash_budget::black_box(0)));
+            debug::exit(debug::EXIT_SUCCESS);
+            loop {}
+        }
+    };
+}
+
 /// The bin's `main` and server struct, with `ww_codegen!` for `flash_budget_api::$root`.
 macro_rules! flash_budget_server {
     ($root:ident $(, introspect = $introspect:literal)?) => {

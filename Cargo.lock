@@ -1970,6 +1970,7 @@ name = "flash_budget_api"
 version = "0.1.0"
 dependencies = [
  "wire_weaver",
+ "ww_si",
 ]
 
 [[package]]

@@ -12,7 +12,7 @@ use ww_dfu::BootTarget;
 use ww_stm32_dfu::proto::{ROM_DFU_PID, ST_VID};
 use ww_stm32_dfu::sim::SimStm32Dfu;
 
-use crate::{APP_PID, APP_VID, App, Mode, REENUMERATE, bootable_with, run_app};
+use crate::{APP_PID, APP_VID, App, Mode, REENUMERATE, app_on_bus, bootable_with, run_app};
 
 pub const FLASH: u32 = 0x0800_0000;
 
@@ -84,9 +84,10 @@ async fn device_thread(
             bootable_with(|a, n| sim.memory(a, n), FLASH)
         };
         if let Some(version) = image {
+            let usb = app_on_bus(&serial);
             *mode.lock().unwrap() = Mode::App(version);
             _ = boots.send(Mode::App(version));
-            let Some(into) = run_app(App::new(version), &serial, &mut stop).await else {
+            let Some(into) = run_app(App::new(version), usb, &mut stop).await else {
                 return;
             };
             *mode.lock().unwrap() = Mode::Off;

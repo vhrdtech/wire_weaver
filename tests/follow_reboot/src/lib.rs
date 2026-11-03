@@ -146,13 +146,14 @@ async fn device_thread(
         let image = if to_bootsel { None } else { bootable(&sim) };
         let into = match image {
             Some(version) => {
+                let usb = app_on_bus(&serial);
                 *mode.lock().unwrap() = Mode::App(version);
                 _ = boots.send(Mode::App(version));
                 let app = App {
                     version,
                     reboot: None,
                 };
-                let Some(into) = run_app(app, &serial, &mut stop).await else {
+                let Some(into) = run_app(app, usb, &mut stop).await else {
                     return;
                 };
                 *mode.lock().unwrap() = Mode::Off;
@@ -288,17 +289,23 @@ impl WireWeaverAsyncApiBackend for Backend {
     }
 }
 
-/// Run the app until it is asked to reboot, `None` when stopped.
+/// Put the app on the simulated USB at the path of its serial number. Call it before announcing the boot: a host that
+/// hears of the device connects at once, and a device not on the bus yet is `No devices found`.
+pub fn app_on_bus(serial: &str) -> (in_process::UsbSink, in_process::UsbSource) {
+    in_process::usb_device(serial, USB_PACKET)
+}
+
+/// Run the app on `usb` until it is asked to reboot, `None` when stopped.
 pub async fn run_app(
     app: App,
-    serial: &str,
+    usb: (in_process::UsbSink, in_process::UsbSource),
     stop: &mut mpsc::UnboundedReceiver<()>,
 ) -> Option<BootTarget> {
     let mut tx_buf = vec![0u8; USB_PACKET];
     let mut rx_buf = vec![0u8; MAX_MESSAGE + USB_PACKET];
     let mut scratch = vec![0u8; MAX_MESSAGE];
     let mut event_scratch = vec![0u8; MAX_MESSAGE];
-    let (sink, source) = in_process::usb_device(serial, USB_PACKET);
+    let (sink, source) = usb;
     let tx = ww_device::FramedTx::new(sink, &mut tx_buf);
     let rx = ww_device::FramedRx::new(source, &mut rx_buf);
     let config = LinkConfig::new(

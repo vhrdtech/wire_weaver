@@ -6154,7 +6154,7 @@ transcript shows a host that restarts half way.</p>
 WRITE hash, index ranges), the image against the descriptor in <code>finish</code>.</p>
 <h4 id="transcript_1">Transcript<a class="headerlink" href="#transcript_1" title="Permanent link">&para;</a></h4>
 <p>The host sends three segments, restarts (a new connection), resumes at byte 192 and continues the <code>plan</code> sink's
-session at segment 3, gets one <code>Complete</code>, finishes, reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over UDP on localhost.</p>
+session at segment 3, gets one <code>Complete</code>, finishes, reboots and confirms. Test: <code>swap_freight_2c_app_bulk</code> over simulated UDP.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>   ── device runs the app
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>→ node.node()
@@ -6359,7 +6359,7 @@ starts over.</p>
 the descriptor in <code>finish</code>.</p>
 <h4 id="transcript_2">Transcript<a class="headerlink" href="#transcript_2" title="Permanent link">&para;</a></h4>
 <p>A <strong>plain full image</strong>: four ERASE and seven WRITE, no COPY, so the host needs no manifest. Then the reboot, the
-trial and the confirm. Test: <code>flip_shuttle_2r_app_step</code> over WebSocket on localhost.</p>
+trial and the confirm. Test: <code>flip_shuttle_2r_app_step</code> over simulated WebSocket.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>   ── device runs the app
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>→ node.node()

@@ -5741,10 +5741,15 @@ one and the change is looked at. So the bytes here are the bytes the current cod
   <code>02 dst src hash</code>, <code>03 dst hash len data</code>), so the step bytes in the transcripts are readable. Hashes are SHA-256
   truncated to 8 bytes, as in chunky's format 2. The real records are in
   <a href="#the-other-side-chunky">The other side: chunky</a>.</li>
-<li><strong>The links</strong> are the real ones from <code>ww_device</code> up: WebSocket and UDP on localhost through <code>wire_weaver_client</code>'s
-  <code>ws</code> and <code>udp</code> transports; USB is simulated by <code>wire_weaver_client::in_process::usb_device</code>, which runs the real USB
-  framing on both ends with full-speed (64 B) or high-speed (512 B) packets, but not USB itself (enumeration, data
-  toggles, NAKs). RTT is not used: with a debug probe attached a device is flashed directly, without a bootloader.</li>
+<li><strong>The links</strong> are the real ones from <code>ww_device</code> up, simulated below that by <code>wire_weaver_client::in_process</code>:
+  USB by <code>usb_device</code>, which runs the real USB framing on both ends with full-speed (64 B) or high-speed (512 B)
+  packets, but not USB itself (enumeration, data toggles, NAKs); UDP by <code>udp_device</code>, the real UDP framing and
+  <code>ww_device::udp</code> without the kernel; WebSocket by <code>ws_device</code>, the <code>ws</code> transport's client and <code>ww_device::ws</code> over
+  an in-memory pipe. With nothing in a kernel, every scenario runs on tokio's paused clock, so the packing of
+  messages into packets and datagrams and the order of both ends' frames are the same on every run, however loaded
+  the PC is. Two tests run a scenario over real sockets on localhost, through the <code>udp</code> and <code>ws</code> transports, and
+  check its outcome only: <code>parcel_freight_1s_app_bulk_over_udp_sockets</code>, <code>pit_stop_freight_1l_upd_bulk_over_tcp</code>.
+  RTT is not used: with a debug probe attached a device is flashed directly, without a bootloader.</li>
 <li><strong>Changing a scenario's link</strong> is one line, <code>const LINK: Link = ...</code> in its test (UART and CAN will join <code>Link</code>).</li>
 </ul>
 <h2 id="the-other-side-chunky">The other side: chunky<a class="headerlink" href="#the-other-side-chunky" title="Permanent link">&para;</a></h2>

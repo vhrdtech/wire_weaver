@@ -6154,7 +6154,7 @@ against the descriptor.</p>
 <h4 id="transcript_1">Transcript<a class="headerlink" href="#transcript_1" title="Permanent link">&para;</a></h4>
 <p>Half the plan, then the app answers <code>node</code> in the middle of the download (still version 1, <code>Confirmed</code>), the rest,
 one <code>Complete</code>, <code>finish</code> into <code>PlanStored</code>, the reboot and the bootloader's apply. Test: <code>parcel_freight_1s_app_bulk</code>
-over UDP on localhost.</p>
+over simulated UDP.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>   ── device runs the app
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>   ── link up: dfu_app_api (link setup not shown, same on every link)
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>→ node.node()
@@ -6668,7 +6668,7 @@ its session record); bytes of a step that was not complete are sent again.</p>
 source hash, WRITE hash), the image against the descriptor.</p>
 <h4 id="transcript_3">Transcript<a class="headerlink" href="#transcript_3" title="Permanent link">&para;</a></h4>
 <p>The lean app reboots into the updater; the in-place delta goes in 32-byte segments in one stream, one <code>Complete</code>,
-<code>finish</code> into <code>Confirmed</code>, and the new app starts. Test: <code>pit_stop_freight_1l_upd_bulk</code> over WebSocket on localhost.</p>
+<code>finish</code> into <code>Confirmed</code>, and the new app starts. Test: <code>pit_stop_freight_1l_upd_bulk</code> over simulated WebSocket.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>   ── device runs the app
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>   ── link up: dfu_lean_app_api (link setup not shown, same on every link)
 </span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>→ node.node()

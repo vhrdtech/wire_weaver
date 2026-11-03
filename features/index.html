@@ -7349,7 +7349,7 @@ observing), SRV-46 (peer identity).
   1 byte overhead, CRC, recovery from missed frames, fuzzed.</li>
 <li>✅ <strong>TR-2 <code>ww_link</code></strong>: link setup, device info, API version exchange.</li>
 <li>✅ <strong>TR-3 USB</strong>, <strong>RTT</strong>, <strong>WebSocket</strong>, <strong>UDP</strong> and <strong>in-process</strong> (messages, or simulated USB: real USB framing
-  and packet sizes, <code>in_process::usb_device</code>).</li>
+  and packet sizes, <code>in_process::usb_device</code>; simulated UDP, TR-21; simulated WebSocket, TR-22).</li>
 <li>✅ <strong>TR-4 USB CDC-NCM</strong>: WebSocket over a USB network adapter, with a DHCP server so the host gets an address by
   itself, ping and a hello page over HTTP (<code>examples_mcu/rp2</code>, <code>ww_ws_ncm</code>); UDP the same way (<code>ww_udp_ncm</code>).</li>
 <li>✅ <strong>TR-14 Link tap</strong> · <code>v0.5</code> — what crosses a link, recorded at the transport edge (<code>docs/transport/tap.md</code>):
@@ -7374,6 +7374,18 @@ observing), SRV-46 (peer identity).
   (<code>SeqPrefix</code> as a diagnostic, <code>wire_weaver_usb_embassy</code> feature <code>seq-prefix</code>, told by the interface protocol),
   UDP with <code>SeqPrefix</code> and a CRC-32 (<code>ww_block</code>'s) on every message. <code>ww stats</code> / <code>ww monitor</code> show the prefix.
   Wire change of the link (<code>docs/evolution/crate_layers.md</code>).</li>
+<li>✅ <strong>TR-21 Simulated UDP</strong> · <code>v0.5</code> — <code>in_process::udp_device</code> (<code>docs/transport/udp.md#simulated-udp-in-tests</code>):
+  UDP datagrams without the kernel, with the host's UDP framing and <code>ww_device::udp</code> on the device (<code>UdpPort</code>, a new
+  host address per connection), so tests on tokio's paused clock drive the accumulation windows and link setup
+  retries exactly. <code>tests/dfu_scenarios</code> runs its UDP scenarios on it: their transcripts no longer depend on how
+  loaded the machine is (a burst split across datagrams, a link setup retry shifting every frame counter after a
+  reboot). <code>in_process::tests::host_and_device_talk_over_simulated_udp</code>, <code>ww_tap::Medium::InProcessUdp</code>.</li>
+<li>✅ <strong>TR-22 Simulated WebSocket</strong> · <code>v0.5</code> — <code>in_process::ws_device</code> (features <code>in_process</code> and <code>ws</code>,
+  <code>docs/transport/websocket.md#simulated-websocket-in-tests</code>): the <code>ws</code> transport's own client and <code>ww_device::ws</code> over
+  an in-memory pipe (<code>WsPort</code>), so tests on tokio's paused clock decide the order of both ends' frames.
+  <code>tests/dfu_scenarios</code> runs its WebSocket scenarios on it, and their transcripts no longer swap a host frame and a
+  device frame on a loaded machine. <code>in_process::tests::host_and_device_talk_over_simulated_ws</code>,
+  <code>ww_tap::Medium::InProcessWebSocket</code>.</li>
 <li>💡 <strong>TR-5 USB CDC-NCM extras</strong> — test on Windows, macOS, iOS and Android; serve files from an SD card over HTTP;
   mass storage with a README.</li>
 <li>📋 <strong>TR-6 CAN</strong> · <code>v0.5.x</code> — server and client, using CANopen (<code>docs/transport/overview.md</code>).</li>

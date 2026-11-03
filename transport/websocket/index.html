@@ -4477,6 +4477,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulated-websocket-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulated WebSocket in tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-format" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5585,6 +5596,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulated-websocket-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulated WebSocket in tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wire-format" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5679,6 +5701,16 @@ They run the same <a href="../ww_link/#how-the-device-runs-it">Server</a> loop a
 adapter, runs <code>embassy-net</code> with a static address and a small DHCP server (<code>edge-dhcp</code>), so the host is configured
 automatically, and serves the blinky API at <code>ws://192.168.7.1:8080/ww</code>. Run it with <code>just run rp2 ww_ws_ncm</code> from
 <code>examples_mcu/rp2</code>, then blink from the host with <code>cargo run -p blinky --features ws --example blinky_ws</code>.</p>
+<h2 id="simulated-websocket-in-tests">Simulated WebSocket in tests<a class="headerlink" href="#simulated-websocket-in-tests" title="Permanent link">&para;</a></h2>
+<p>With the client's <code>in_process</code> and <code>ws</code> features, <code>wire_weaver_client::in_process::ws_device(path)</code> registers a device
+that speaks WebSocket over an in-memory pipe instead of TCP (TR-22). The host connects with
+<code>ClientConfig::in_process_path(path)</code> and runs the <code>ws</code> transport's own client over the pipe: the same handshake, one
+binary message per link message. The device serves the returned <code>WsPort</code> with <code>WsConnection</code>, <code>WsTx</code> and <code>WsRx</code>, as
+it would a TCP socket.</p>
+<p>Nothing waits in a kernel, so a test on tokio's paused clock (<code>start_paused</code>) drives both ends exactly, and the order
+of the host's and the device's frames is the same on every run. <code>tests/dfu_scenarios</code> pins its WebSocket transcripts
+this way (<code>1L-UPD-BULK</code>, <code>2R-APP-STEP</code>) and keeps one run over a real TCP socket, which checks that the update gets
+through. The same holds for UDP, see <a href="../udp/#simulated-udp-in-tests">Simulated UDP in tests</a>.</p>
 <h2 id="wire-format">Wire format<a class="headerlink" href="#wire-format" title="Permanent link">&para;</a></h2>
 <p>Each <a href="../ww_link/">ww_link</a> message is one binary WebSocket message:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>| kind: u8 | payload ... |

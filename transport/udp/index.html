@@ -4504,6 +4504,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulated-udp-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulated UDP in tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reliability" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5596,6 +5607,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulated-udp-in-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulated UDP in tests
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reliability" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5711,6 +5733,19 @@ use a medium with access control.</p>
 <li>The medium is not <code>Send</code> (the peer is kept in a <code>Cell</code>), as with the other <code>embassy</code> based media; on <code>tokio</code>, run
   it on a <code>LocalSet</code>. <code>wire_weaver_client/src/udp.rs</code> has a device on <code>tokio::net::UdpSocket</code> in its tests.</li>
 </ul>
+<h2 id="simulated-udp-in-tests">Simulated UDP in tests<a class="headerlink" href="#simulated-udp-in-tests" title="Permanent link">&para;</a></h2>
+<p><code>wire_weaver_client::in_process::udp_device(path)</code> registers a device that speaks UDP datagrams without the kernel
+(TR-21). The host connects with <code>ClientConfig::in_process_path(path)</code> and packs messages exactly as the <code>udp</code>
+transport does: frame counter, CRC-32 on every message, datagrams of at most <code>UDP_MAX_DATAGRAM_LEN</code>. The device serves
+the returned <code>UdpPort</code> with <code>UdpConnection</code>, <code>UdpSink</code> and <code>UdpSource</code>, as it would a real socket. Every connection is
+a new host address, so a reconnect is a peer takeover, as over UDP.</p>
+<p>A test on tokio's paused clock (<code>start_paused</code>) can't use a real socket: the runtime cannot see a datagram that is
+still in the kernel, so the clock can jump past it. On the simulated socket a datagram is in the device's queue as soon
+as it is sent. The paused clock then drives both ends' accumulation windows and the host's link setup retries
+exactly, so which messages share a datagram, and every frame counter after that, is the same on every run, however
+loaded the machine is. <code>tests/dfu_scenarios</code> pins its UDP transcripts this way (<code>1S-APP-BULK</code>, <code>2C-APP-BULK</code>) and
+keeps one run of the same scenario over real sockets, which checks that the update gets through. WebSocket has the
+same, see <a href="../websocket/#simulated-websocket-in-tests">Simulated WebSocket in tests</a>.</p>
 <p><code>examples_mcu/rp2</code> has a complete example, <code>ww_udp_ncm</code>: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs <code>embassy-net</code> with a static address and a small DHCP server, so the host is configured automatically,
 and serves the blinky API at <code>192.168.7.1:9000</code>. Run it with <code>just run rp2 ww_udp_ncm</code> from <code>examples_mcu/rp2</code>,

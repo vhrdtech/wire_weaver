@@ -11,7 +11,13 @@ documentation = "https://vhrdtech.github.io/wire_weaver"
 [features]
 default = ["std"]
 std = ["dep:futures-core", "shrink_wrap/std", "ww_error/std", "ww_version/std"]
-defmt = ["dep:defmt", "exact_units/defmt", "shrink_wrap/defmt", "ww_error/defmt", "ww_version/defmt"]
+defmt = [
+    "dep:defmt",
+    "exact_units/defmt",
+    "shrink_wrap/defmt",
+    "ww_error/defmt",
+    "ww_version/defmt",
+]
 serde = ["shrink_wrap/serde"]
 
 [dependencies]

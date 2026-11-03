@@ -97,7 +97,7 @@ as `Sideband(Close)`. The [local trait](local_trait.md) maps the stream form to 
 there, so a local implementation and the client look the same to a call site:
 
 ```rust
-let mut rows = archive.scan(filter).await?; // ItemStream<ReadingOwned>
+let mut rows = archive.scan(&CallContext::local(), filter).await?; // ItemStream<ReadingOwned>
 while let Some(row) = rows.next().await {
     show(row?);
 }

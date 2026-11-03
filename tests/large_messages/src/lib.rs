@@ -9,9 +9,10 @@ use local::Results;
 use tests_common::{
     MAX_MESSAGE_LEN, TestDevice, TestProcessEventsAsync, start_device_async_with_limit,
 };
+use wire_weaver::CallContext;
+use wire_weaver::call::{self, ItemStream, item_stream};
 use wire_weaver::prelude::*;
-use wire_weaver_client::local::{ItemStream, item_stream};
-use wire_weaver_client::{Error, StreamError};
+use wire_weaver_client::Error;
 use ww_client_server::StreamSideband;
 
 const LIMIT: usize = 64 * 1024;
@@ -259,36 +260,49 @@ fn assert_over_limit(error: Error, side: &str, set_by: &str, device: usize, host
 struct LocalArchive;
 
 impl Results for LocalArchive {
-    async fn table(&self, rows: RowCount) -> Result<Vec<ReadingOwned>, Error> {
+    async fn table(
+        &self,
+        _cx: &CallContext,
+        rows: RowCount,
+    ) -> Result<Vec<ReadingOwned>, call::Error> {
         Ok(table(rows))
     }
 
-    async fn table_later(&self, rows: RowCount) -> Result<Vec<ReadingOwned>, Error> {
+    async fn table_later(
+        &self,
+        _cx: &CallContext,
+        rows: RowCount,
+    ) -> Result<Vec<ReadingOwned>, call::Error> {
         Ok(table(rows))
     }
 
-    async fn read_last_table(&self) -> Result<Vec<ReadingOwned>, Error> {
+    async fn read_last_table(&self, _cx: &CallContext) -> Result<Vec<ReadingOwned>, call::Error> {
         Ok(vec![])
     }
 
-    async fn scan(&self, rows: RowCount) -> Result<ItemStream<ReadingOwned>, Error> {
-        let rows = table(rows).into_iter().map(Ok::<_, StreamError>);
+    async fn scan(
+        &self,
+        _cx: &CallContext,
+        rows: RowCount,
+    ) -> Result<ItemStream<ReadingOwned>, call::Error> {
+        let rows = table(rows).into_iter().map(Ok::<_, call::Error>);
         Ok(item_stream(futures_lite::stream::iter(rows)))
     }
 
     async fn page(
         &self,
+        _cx: &CallContext,
         rows: RowCount,
         cursor: Option<Cursor>,
         limit: RowCount,
-    ) -> Result<PageOwned, Error> {
+    ) -> Result<PageOwned, call::Error> {
         Ok(page(rows, cursor, limit))
     }
 }
 
 /// How many rows a scan gives, in order, ending by itself when the stream closes.
 async fn scan_all(results: &impl Results, n: u32) -> u32 {
-    let mut stream = results.scan(rows(n)).await.unwrap();
+    let mut stream = results.scan(&CallContext::local(), rows(n)).await.unwrap();
     let mut seen = 0;
     while let Some(item) = stream.next().await {
         assert_eq!(item.unwrap(), row(seen));
@@ -301,7 +315,10 @@ async fn scan_all(results: &impl Results, n: u32) -> u32 {
 async fn page_all(results: &impl Results, n: u32) -> Vec<ReadingOwned> {
     let (mut all, mut cursor) = (vec![], None);
     loop {
-        let page = results.page(rows(n), cursor, rows(50)).await.unwrap();
+        let page = results
+            .page(&CallContext::local(), rows(n), cursor, rows(50))
+            .await
+            .unwrap();
         all.extend(page.rows);
         cursor = page.next;
         if cursor.is_none() {

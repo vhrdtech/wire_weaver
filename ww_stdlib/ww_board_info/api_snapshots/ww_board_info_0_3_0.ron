@@ -1,6 +1,6 @@
 // ww_board_info 0.3.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: edddef2ac208767e080dce7ce47d17292a1fa1a458e4aceeb5d2cce635028a9f
+// shrink_wrap sha256: 787808dc6ab9c049746b3f9eac9321217565eeae0f517fde8727fa1e3bf02f6c
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "PCB and PCBA information (STD-24).",
     "",
@@ -202,7 +202,7 @@
             "Reworks the record has applied and this firmware doesn\'t know; empty in [GuardState::Normal].",
         ], slot: None, series_opaque: false),
         (ident: Some("allowance"), default: None, since: None, ty: Option(some_ty: OutOfLine(type_idx: 11)), docs: [
-            "The stored allowance, if any.",
+            "The stored allowance, if any, as of the connection\'s first read of `GUARD`.",
         ], slot: None, series_opaque: false),
     ]), sparse: false, path: None, instance_of: None, extra: None)), crate_idx: 0),
 ], traits: [
@@ -232,7 +232,10 @@
         (id: 3, kind: Property(ty: OutOfLine(type_idx: 12), access: Const, write_err_ty: None, errors: None, batched: None), multiplicity: Flat, since: Some((major: 0, minor: 3, patch: 0)), ident: "GUARD", docs: [
             "Whether the board runs normally or guarded, and why (STD-101): a firmware boots guarded when the record has a",
             "rework applied it doesn\'t know, unless an allowance for this very image covers it. Guarded, it serves identity,",
-            "info, updates and reading the record only, with every output in its safe state. Decided once at boot.",
+            "info, updates and reading the record only, with every output in its safe state. Decided once at boot. A host",
+            "reads it once per connection (a const item): after [BoardInfo::allow_unknown_reworks] or",
+            "[BoardInfo::clear_unknown_reworks_allowance] it trusts the [ReworkChange] they return, never a second read",
+            "of `GUARD` on the same connection; a new connection shows the stored allowance.",
         ], optional: Some((group: None)), meta: None),
         (id: 4, kind: Method(args: [
             (ident: "image", ty: OutOfLine(type_idx: 10)),

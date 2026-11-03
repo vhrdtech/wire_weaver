@@ -140,6 +140,10 @@ fn clear_unknown_reworks_allowance(program: bool) -> Result<ReworkChange, Rework
 | `Guarded` | A rework applied is unknown, and no allowance for this image covers it |
 | `Allowed` | Unknown reworks, but the allowance for this image covers every one: the board runs normally |
 
+`GUARD` is a const item, so a host reads it once per connection. After `allow_unknown_reworks` or
+`clear_unknown_reworks_allowance` a host trusts the `ReworkChange` they return (`Written`), never a second read of
+`GUARD` on the same connection. A new connection shows the stored allowance.
+
 The allowance is built so it can't get stuck:
 
 * It is bound to one image by its `ImageId`, the first 8 bytes of the GNU build id. Any other image ignores it,

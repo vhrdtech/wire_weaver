@@ -49,7 +49,10 @@ pub trait BoardInfo {
 
     /// Whether the board runs normally or guarded, and why (STD-101): a firmware boots guarded when the record has a
     /// rework applied it doesn't know, unless an allowance for this very image covers it. Guarded, it serves identity,
-    /// info, updates and reading the record only, with every output in its safe state. Decided once at boot.
+    /// info, updates and reading the record only, with every output in its safe state. Decided once at boot. A host
+    /// reads it once per connection (a const item): after [BoardInfo::allow_unknown_reworks] or
+    /// [BoardInfo::clear_unknown_reworks_allowance] it trusts the [ReworkChange] they return, never a second read
+    /// of `GUARD` on the same connection; a new connection shows the stored allowance.
     #[optional]
     #[since = "0.3.0"]
     const GUARD: GuardSummary<'i>;
@@ -201,7 +204,7 @@ pub struct GuardSummary<'i> {
     pub state: GuardState,
     /// Reworks the record has applied and this firmware doesn't know; empty in [GuardState::Normal].
     pub unknown: MaxLen<RefVec<'i, ReworkId>, MAX_REWORKS>,
-    /// The stored allowance, if any.
+    /// The stored allowance, if any, as of the connection's first read of `GUARD`.
     pub allowance: Option<Allowance<'i>>,
 }
 

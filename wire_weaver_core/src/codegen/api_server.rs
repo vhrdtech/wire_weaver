@@ -293,7 +293,7 @@ pub fn gen_server(
     let observe_gate = maybe_quote_cl(config.call_gate, || {
         let es = fixed_err_seq("OBSERVE_GATE");
         quote! {
-            if let Err(reason) = self.ww_gate_observe(path) {
+            if let Err(reason) = self.ww_gate_observe(path, cfg) {
                 wr.write(&Error::new(#es, ErrorKind::Refused(reason)))?;
                 event_builder.finish(false, &mut wr);
                 return wr.finish_and_take();
@@ -301,7 +301,12 @@ pub fn gen_server(
         }
     });
     let gate_fns = maybe_quote_cl(config.call_gate, || {
-        gate_fns(api_bundle, &omissions, observe.is_enabled())
+        gate_fns(
+            api_bundle,
+            &omissions,
+            observe.is_enabled(),
+            &config.call_gate_items,
+        )
     });
     let observe_arm = maybe_quote_cl(observe.is_enabled(), || {
         quote! {
@@ -1629,7 +1634,12 @@ fn check_gate_items(
 
 /// The server's own helpers of the call gate (SRV-50): the [wire_weaver::gate::Op] of a request kind, and with
 /// observing, the gate of an observe request by the observed level's path.
-fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) -> TokenStream {
+fn gate_fns(
+    api_bundle: &CodegenBundle,
+    omissions: &Omissions,
+    observe: bool,
+    call_gate_items: &[String],
+) -> TokenStream {
     let observe_gate = maybe_quote_cl(observe, || {
         let mut levels = vec![];
         gate_levels_recursive(
@@ -1658,18 +1668,61 @@ fn gate_fns(api_bundle: &CodegenBundle, omissions: &Omissions, observe: bool) ->
                     )?;
                 }
             });
+            // a level whose items ask one by one asks for each observed property too
+            let level = chain[chain.len() - 1];
+            let items = names.is_empty() || gate_items_of(api_bundle, level, names, call_gate_items);
+            let observed: Vec<TokenStream> = level
+                .items
+                .iter()
+                .filter(|item| {
+                    items
+                        && matches!(
+                            item.kind,
+                            ApiItemKindOwned::Property {
+                                access: PropertyAccess::ReadOnly { observe: true }
+                                    | PropertyAccess::ReadWrite { observe: true },
+                                ..
+                            }
+                        )
+                })
+                .map(|item| {
+                    let id = item.id.0;
+                    let path = dotted(names, &item.ident);
+                    quote! { #id => &wire_weaver::gate::Target { trait_id: &TRAIT_ID, path: #path, level: false }, }
+                })
+                .collect();
+            let entries = maybe_quote_cl(!observed.is_empty(), || {
+                let trait_id = gate_trait_id(api_bundle, level);
+                quote! {
+                    const TRAIT_ID: wire_weaver::gate::TraitId = #trait_id;
+                    // a malformed entry or an index that is no observed property: answered by `observe_request`
+                    for entry in cfg.entries.iter().flatten() {
+                        let target = match entry.index.0 {
+                            #(#observed)*
+                            _ => continue,
+                        };
+                        wire_weaver::gate::CallGate::admit(self, target, wire_weaver::gate::Op::Observe)?;
+                    }
+                }
+            });
             quote! {
                 [#(UNib32(#ids)),*] => {
                     #(#asks)*
+                    #entries
                     Ok(())
                 }
             }
         });
         quote! {
             /// The call gate of an observe request on the level at `path`: the trait levels on the way to it, as a
-            /// request to one of its items asks, or the root level itself; a path that is no level is answered by
-            /// `observe_request`.
-            fn ww_gate_observe(&self, path: &[UNib32]) -> Result<(), &str> {
+            /// request to one of its items asks, or the root level itself, then each observed property where the
+            /// level's items ask one by one; a path that is no level is answered by `observe_request`.
+            fn ww_gate_observe(
+                &self,
+                path: &[UNib32],
+                cfg: &ww_client_server::observe::ObserveRequest<'_>,
+            ) -> Result<(), &str> {
+                #![allow(unused_variables)]
                 match path {
                     #(#arms)*
                     _ => Ok(()),
@@ -3121,5 +3174,78 @@ fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStrea
         quote! {
             #ident.ser_shrink_wrap(wr).map_err(|_| Error::response_ser_failed(#es))?;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    /// `call_gate_items` (SRV-50) names levels by trait or by path; an unknown name, or the argument without
+    /// `call_gate`, is an error that lists the levels.
+    #[test]
+    fn call_gate_items_names_levels() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/call_gate_api");
+        let bundle = crate::load(&crate_path, Some("CallGateTest".into()), false).unwrap();
+        let paths = crate::transform::CratePaths::default();
+        let bundle = CodegenBundle::new(&bundle, &paths);
+        let items = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+        for ok in [
+            &[][..],
+            &["call_gate_api::Motor"],
+            &["motor", "ww_user_info::UserInfo"],
+            &["channel"],
+        ] {
+            assert_eq!(
+                check_gate_items(&bundle, true, &items(ok)),
+                Ok(()),
+                "{ok:?}"
+            );
+        }
+        let e =
+            check_gate_items(&bundle, true, &items(&["motor", "call_gate_api::Pump"])).unwrap_err();
+        assert!(
+            e.contains("\"call_gate_api::Pump\"") && !e.contains("\"motor\""),
+            "{e}"
+        );
+        for level in [
+            "call_gate_api::Motor",
+            "motor",
+            "channel",
+            "user",
+            "ww_user_info::UserInfo",
+        ] {
+            assert!(e.contains(level), "{level} not listed: {e}");
+        }
+        let e = check_gate_items(&bundle, false, &items(&["motor"])).unwrap_err();
+        assert!(e.contains("call_gate = true"), "{e}");
+    }
+
+    /// The levels whose items ask one by one: named by trait, wherever it sits, or by path.
+    #[test]
+    fn gate_items_of_level() {
+        let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/call_gate_api");
+        let bundle = crate::load(&crate_path, Some("CallGateTest".into()), false).unwrap();
+        let paths = crate::transform::CratePaths::default();
+        let bundle = CodegenBundle::new(&bundle, &paths);
+        let motor = bundle
+            .root
+            .items
+            .iter()
+            .find(|i| i.ident == "motor")
+            .unwrap()
+            .get_as_level(&bundle)
+            .unwrap();
+        let path = ["motor".to_string()];
+        assert!(gate_items_of(
+            &bundle,
+            motor,
+            &path,
+            &["call_gate_api::Motor".into()]
+        ));
+        assert!(gate_items_of(&bundle, motor, &path, &["motor".into()]));
+        assert!(!gate_items_of(&bundle, motor, &path, &["channel".into()]));
+        assert!(!gate_items_of(&bundle, motor, &path, &[]));
     }
 }

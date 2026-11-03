@@ -1,7 +1,9 @@
 //! The server's call gate (SRV-50) end to end: a server generated with `call_gate = true` on `ww_device::Server`
-//! through `tests_common::start_device`, the generated client through the real host event loop. While guarded the
-//! gate admits `ww_user_info::UserInfo` and `motor.stop` and refuses the rest, streams and sinks at open; the guard
-//! flips at run time. Observe and multi requests go to `process_request_bytes` as raw requests.
+//! through `tests_common::start_device`, the generated client through the real host event loop. The gate is asked
+//! for a trait level before a request goes into it, and item by item on the root level and on `motor`, named in
+//! `call_gate_items`. While guarded it admits `ww_user_info::UserInfo`, the `motor` level and of its items only
+//! `stop`, and refuses the `channel` level and the root items; streams and sinks at open. The guard flips at run
+//! time. Observe and multi requests go to `process_request_bytes` as raw requests.
 
 #[cfg(test)]
 mod tests {
@@ -47,12 +49,14 @@ mod tests {
             pub observe: api_impl::ObserveState,
         }
 
-        /// The firmware's side of the gate: while guarded, the info trait and `motor.stop` only.
+        /// The firmware's side of the gate: while guarded, the info trait, and the `motor` level with only its `stop`
+        /// item (its items are asked one by one through `call_gate_items`).
         impl CallGate for Server {
             fn admit(&self, target: &Target, op: Op) -> Result<(), &str> {
                 self.seen.asked.lock().unwrap().push((*target, op));
                 if !self.seen.guarded.load(Ordering::SeqCst)
                     || target.is_in(&USER_INFO)
+                    || (target.level && target.is_in(&MOTOR))
                     || target.is(&MOTOR, "stop")
                 {
                     Ok(())
@@ -200,6 +204,7 @@ mod tests {
                 property_model = "_=get_set",
                 multi_req = true,
                 call_gate = true,
+                call_gate_items = "call_gate_api::Motor",
                 // debug_to_file = "../../target/tests_call_gate_server.rs"
             );
         }
@@ -337,21 +342,38 @@ mod tests {
         client.motor().stop().call().await.unwrap();
         assert_eq!(count(&seen.commands), 0);
 
-        // what the gate was asked: the item, its trait, its path and what the request does
+        // what the gate was asked: a level before a request goes into it, the items of the root level, and the
+        // items of `motor`, named in `call_gate_items`; with its path and what the request does
         let asked = seen.asked.lock().unwrap().clone();
-        let has = |path: &str, op: Op| asked.iter().any(|(t, o)| t.path == path && *o == op);
-        for (path, op) in [
-            ("user.name", Op::Read),
-            ("user.name", Op::Write),
-            ("user.CAPABILITIES", Op::Read),
-            ("motor.start", Op::Call),
-            ("motor.enabled", Op::Write),
-            ("channel.pulse", Op::Call),
-            ("channel", Op::Read),
-            ("motor.events", Op::StreamOpen),
+        let has = |path: &str, level: bool, op: Op| {
+            asked
+                .iter()
+                .any(|(t, o)| t.path == path && t.level == level && *o == op)
+        };
+        for (path, level, op) in [
+            ("user", true, Op::Read),
+            ("user", true, Op::Write),
+            ("motor", true, Op::Call),
+            ("motor.start", false, Op::Call),
+            ("motor", true, Op::Write),
+            ("motor.enabled", false, Op::Write),
+            ("motor.events", false, Op::StreamOpen),
+            ("channel", true, Op::Call),
+            ("channel", false, Op::Read),
         ] {
-            assert!(has(path, op), "{path} {op:?} not asked: {asked:?}");
+            assert!(
+                has(path, level, op),
+                "{path} level={level} {op:?} not asked: {asked:?}"
+            );
         }
+        assert!(
+            !asked.iter().any(|(t, _)| t.path.starts_with("user.")),
+            "the items of a level not in call_gate_items are not asked: {asked:?}"
+        );
+        assert!(
+            !asked.iter().any(|(t, _)| t.path == "channel.pulse"),
+            "a refused level is asked before its items: {asked:?}"
+        );
         let start = asked
             .iter()
             .find(|(t, _)| t.path == "motor.start")
@@ -359,14 +381,25 @@ mod tests {
             .0;
         assert_eq!(*start.trait_id, MOTOR);
         assert_eq!(start.item(), Some("start"));
-        let indices = asked.iter().find(|(t, _)| t.path == "channel").unwrap().0;
+        let indices = asked
+            .iter()
+            .find(|(t, _)| t.path == "channel" && !t.level)
+            .unwrap()
+            .0;
         assert_eq!(
             *indices.trait_id,
             TraitId::new("call_gate_api", "CallGateTest"),
-            "an array is an item of the trait it is defined in"
+            "the valid indices of an array are an item of the trait it is defined in"
         );
-        let name = asked.iter().find(|(t, _)| t.path == "user.name").unwrap().0;
-        assert_eq!(*name.trait_id, USER_INFO);
+        let channel = asked
+            .iter()
+            .find(|(t, _)| t.path == "channel" && t.level)
+            .unwrap()
+            .0;
+        assert_eq!(*channel.trait_id, TraitId::new("call_gate_api", "Channel"));
+        assert_eq!(channel.item(), None);
+        let user = asked.iter().find(|(t, _)| t.path == "user").unwrap().0;
+        assert_eq!(*user.trait_id, USER_INFO);
     }
 
     /// The gate is asked on every request, so the device's state decides at once: refused while guarded, served
@@ -451,7 +484,8 @@ mod tests {
             process(server, &[UNib32(MOTOR_ID)], RequestKind::Observe { cfg })
         }
 
-        /// An observe request asks the gate for the observed trait level, refused with its own site.
+        /// An observe request asks the gate for the observed trait level and, where the level's items ask one by one, for
+        /// each observed property; refused with its own site.
         #[test]
         fn observe_is_asked_for_the_level() {
             let seen = Arc::new(Seen::default());
@@ -474,6 +508,17 @@ mod tests {
                     trait_id: &MOTOR,
                     path: "motor",
                     level: true,
+                }
+            );
+            assert_eq!(op, Op::Observe);
+            // `motor` asks item by item (`call_gate_items`): the level is admitted, the observed property refused
+            let (target, op) = seen.asked.lock().unwrap()[1];
+            assert_eq!(
+                target,
+                Target {
+                    trait_id: &MOTOR,
+                    path: "motor.running",
+                    level: false,
                 }
             );
             assert_eq!(op, Op::Observe);
@@ -519,10 +564,13 @@ mod tests {
             assert_eq!(count(&seen.pulses), 0);
             let asked = seen.asked.lock().unwrap();
             assert_eq!(asked.len(), 2);
+            // `channel[]` is an array of `Channel` levels: each index asks for its level
             assert!(
-                asked
-                    .iter()
-                    .all(|(t, op)| t.path == "channel.pulse" && *op == Op::Call)
+                asked.iter().all(|(t, op)| t.path == "channel"
+                    && t.level
+                    && *t.trait_id == TraitId::new("call_gate_api", "Channel")
+                    && *op == Op::Call),
+                "{asked:?}"
             );
         }
     }

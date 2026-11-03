@@ -605,3 +605,38 @@ mod tests {
         assert_eq!(bytes, ex.finish_and_take().unwrap());
     }
 }
+
+/// A trait a `GlobalFull` path reaches on a server without introspection (SRV-53): the trait's
+/// [ww_global::trait_hash], the version of its crate the server was built with, and the trait's absolute path. The
+/// generated server has a `const` table of these instead of the crate and trait names.
+#[derive(Clone, Copy, Debug)]
+pub struct GlobalTrait {
+    /// [ww_global::trait_hash] of the crate id and trait name.
+    pub hash: u32,
+    /// Major version of the trait's crate.
+    pub major: u16,
+    /// Minor version of the trait's crate: before 1.0 it has to match too.
+    pub minor: u16,
+    /// Absolute path of the trait in the API tree.
+    pub path: &'static [UNib32],
+}
+
+/// Absolute path of the trait `trait_name` of `gid`'s crate in `table`, None when the table has no such trait or
+/// only an incompatible version of it (another major, or another minor before 1.0, as
+/// `FullVersion::is_protocol_compatible`). Hashes the crate id and trait name of the request, one multiply per byte.
+#[inline(never)]
+pub fn global_full_path(
+    table: &'static [GlobalTrait],
+    gid: &wire_weaver::ww_version::FullVersion<'_>,
+    trait_name: &str,
+) -> Option<&'static [UNib32]> {
+    let hash = ww_global::trait_hash(gid.crate_id, trait_name);
+    let t = table.iter().find(|t| t.hash == hash)?;
+    let (major, minor) = (gid.version.major.0, gid.version.minor.0);
+    let compatible = if t.major >= 1 {
+        major == t.major as u32
+    } else {
+        major == 0 && minor == t.minor as u32
+    };
+    compatible.then_some(t.path)
+}

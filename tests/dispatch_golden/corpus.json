@@ -184,6 +184,16 @@
       "note": "Channel sits under channel[], a resource array: it can't be reached by a global path (PathKind::GlobalFull's own doc), so this is TraitNotFound."
     },
     {
+      "name": "global.full_incompatible_version",
+      "steps": [
+        {
+          "request": "80808080014277775f757365725f696e666f110055736572496e666f12010949",
+          "reply": "0108600e01"
+        }
+      ],
+      "note": "UserInfo by GlobalFull with another major version of ww_user_info: the trait's hash matches (SRV-53), its version doesn't, so this is TraitNotFound."
+    },
+    {
       "name": "error.bad_path",
       "steps": [
         {

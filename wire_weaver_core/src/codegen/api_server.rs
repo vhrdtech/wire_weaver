@@ -64,12 +64,56 @@ pub struct GenServerConfig {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// Which global trait paths the server resolves itself (SRV-53), `global_paths = ".."`.
+    pub global_paths: GlobalPaths,
 }
 
 pub enum IntrospectMode {
     Disabled,
     NoDocs,
     WithDocs,
+}
+
+/// Which global trait paths (`PathKind::GlobalFull`, `PathKind::GlobalCompact`, API-20) a server resolves itself
+/// (SRV-53): `ww_codegen!(.., global_paths = "full" | "compact" | "none")`. A path it doesn't resolve is answered
+/// with `TraitNotFound`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum GlobalPaths {
+    /// [GlobalPaths::Full] without introspection, [GlobalPaths::None] with it: a client resolves a global path to
+    /// an absolute one from the introspection data, so the device carries no lookup.
+    #[default]
+    Auto,
+    /// `GlobalFull` paths by a `const` table of the traits' [ww_global::trait_hash] (no crate or trait names in
+    /// flash), `GlobalCompact` paths by the traits' `ww_global` ids.
+    Full,
+    /// Only `GlobalCompact` paths, by the traits' `ww_global` ids.
+    Compact,
+    /// No global paths.
+    None,
+}
+
+impl GlobalPaths {
+    /// From the `global_paths` argument of `ww_codegen!`, `""` is [GlobalPaths::Auto].
+    pub fn parse(s: &str) -> Result<Self, String> {
+        match s {
+            "" | "auto" => Ok(GlobalPaths::Auto),
+            "full" => Ok(GlobalPaths::Full),
+            "compact" => Ok(GlobalPaths::Compact),
+            "none" => Ok(GlobalPaths::None),
+            u => Err(format!(
+                "Unknown global_paths '{u}', supported: \"auto\" or \"\", \"full\", \"compact\" and \"none\""
+            )),
+        }
+    }
+
+    /// What `Auto` is for a server with or without introspection.
+    fn resolve(self, introspect: bool) -> Self {
+        match self {
+            GlobalPaths::Auto if introspect => GlobalPaths::None,
+            GlobalPaths::Auto => GlobalPaths::Full,
+            other => other,
+        }
+    }
 }
 
 /// API server code generation configuration.
@@ -112,6 +156,8 @@ pub struct GenServerConfigRaw {
     /// How the generated code names crates it doesn't depend on (API-60), from [crate::load_dep_with_paths];
     /// default: every crate by its own name.
     pub crate_paths: crate::transform::CratePaths,
+    /// Which global trait paths the server resolves itself (SRV-53), `global_paths = ".."`.
+    pub global_paths: GlobalPaths,
 }
 
 impl From<GenServerConfig> for GenServerConfigRaw {
@@ -132,6 +178,7 @@ impl From<GenServerConfig> for GenServerConfigRaw {
             observe_outbox: config.observe_outbox,
             observe_cells: config.observe_cells,
             crate_paths: config.crate_paths,
+            global_paths: config.global_paths,
         }
     }
 }
@@ -307,11 +354,12 @@ pub fn gen_server(
         }
     };
     let consts_trait = consts_trait(api_bundle, &omissions, &cx);
-    let global_trait_path = global_trait_path(api_bundle);
-    let (es1, es2) = (
-        fixed_err_seq("REQUEST_TRAIT_NOT_FOUND"),
-        fixed_err_seq("REQUEST_PATH_TOO_DEEP"),
-    );
+    let es2 = fixed_err_seq("REQUEST_PATH_TOO_DEEP");
+    let (global_path_arms, global_trait_path) =
+        match global_trait_path(api_bundle, config.global_paths.resolve(introspect_enabled)) {
+            Ok(global) => global,
+            Err(e) => return quote! { compile_error!(#e); },
+        };
     let server_struct_path = config.server_struct_path;
     let multi = cx.multi_req;
     let maybe_multi_req = maybe_quote_cl(cx.multi_req, || multi_req_handlers(&root_await));
@@ -393,26 +441,7 @@ pub fn gen_server(
                 // a global trait path continues from wherever the trait sits in this API (API-20)
                 let (base, path): (&[UNib32], _) = match &request.path_kind {
                     PathKind::Absolute { path } => (&[], path),
-                    PathKind::GlobalFull { gid, trait_name, path_from_trait } => {
-                        match ww_global_trait_path(gid, trait_name) {
-                            Some(base) => (base, path_from_trait),
-                            None => {
-                                wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
-                                event_builder.finish(false, &mut wr);
-                                return wr.finish_and_take();
-                            }
-                        }
-                    }
-                    PathKind::GlobalCompact { gid, path_from_trait } => {
-                        match ww_global_compact_trait_path(gid) {
-                            Some(base) => (base, path_from_trait),
-                            None => {
-                                wr.write(&Error::new(#es1, ErrorKind::TraitNotFound))?;
-                                event_builder.finish(false, &mut wr);
-                                return wr.finish_and_take();
-                            }
-                        }
-                    }
+                    #global_path_arms
                 };
 
                 const MAX_DEPTH: usize = 16; // TODO: calculate max depth
@@ -889,49 +918,127 @@ fn poll_streams_fn(
     }
 }
 
-/// Absolute path of every global trait in the API tree, for requests with a global trait path (API-20), by crate and
-/// trait name (`GlobalFull`) or by the trait's `ww_global` id (`GlobalCompact`).
+/// How the server resolves global trait paths (API-20, SRV-53): the arms of `process_request_bytes` for
+/// `PathKind::GlobalFull` and `PathKind::GlobalCompact`, and the items they use. A path the server doesn't resolve
+/// is answered with `TraitNotFound`.
 ///
-/// Traits under a resource array are left out (a global path can't select an index), and when a trait is implemented
-/// several times, the first one in depth first, id order is used. A trait matches when the requested crate version is
-/// protocol compatible with the one this API was built with (same major, and same minor before 1.0).
-fn global_trait_path(api_bundle: &CodegenBundle) -> TokenStream {
-    let mut traits = vec![];
-    global_traits_recursive(api_bundle, &api_bundle.root, &mut vec![], &mut traits);
-    let version_check = |gid: TokenStream, crate_version: &FullVersionOwned| {
-        let (major, minor) = (crate_version.version.major.0, crate_version.version.minor.0);
-        if major >= 1 {
-            quote! { #gid.major.0 == #major }
-        } else {
-            quote! { #gid.major.0 == 0 && #gid.minor.0 == #minor }
+/// `GlobalFull` paths are looked up by [ww_global::trait_hash] of the request's crate id and trait name in a
+/// `const` table (no names in flash), `GlobalCompact` paths by the traits' `ww_global` ids. Traits under a resource
+/// array are left out (a global path can't select an index), and when a trait is implemented several times, the
+/// first one in depth first, id order is used. A trait matches when the requested crate version is protocol
+/// compatible with the one this API was built with (same major, and same minor before 1.0). Two traits of the API
+/// with the same hash are an error.
+fn global_trait_path(
+    api_bundle: &CodegenBundle,
+    global_paths: GlobalPaths,
+) -> Result<(TokenStream, TokenStream), String> {
+    let es = fixed_err_seq("REQUEST_TRAIT_NOT_FOUND");
+    let not_found = quote! {{
+        wr.write(&Error::new(#es, ErrorKind::TraitNotFound))?;
+        event_builder.finish(false, &mut wr);
+        return wr.finish_and_take();
+    }};
+    let compact_arm = quote! {
+        PathKind::GlobalCompact { gid, path_from_trait } => {
+            match ww_global_compact_trait_path(gid) {
+                Some(base) => (base, path_from_trait),
+                None => #not_found
+            }
         }
     };
-    let arms = traits.iter().map(|t| {
-        let crate_id = t.crate_version.crate_id.as_str();
-        let trait_name = t.trait_name.as_str();
-        let path = &t.path;
-        let version_check = version_check(quote! { gid.version }, &t.crate_version);
-        quote! {
-            (#crate_id, #trait_name) if #version_check => Some(&[#(UNib32(#path)),*]),
+    let mut traits = vec![];
+    global_traits_recursive(api_bundle, &api_bundle.root, &mut vec![], &mut traits);
+    let (arms, items) = match global_paths {
+        GlobalPaths::Auto => unreachable!("resolved by the caller"),
+        GlobalPaths::None => (
+            quote! { PathKind::GlobalFull { .. } | PathKind::GlobalCompact { .. } => #not_found },
+            quote! {},
+        ),
+        GlobalPaths::Compact => (
+            quote! {
+                PathKind::GlobalFull { .. } => #not_found
+                #compact_arm
+            },
+            global_compact_lookup(&traits),
+        ),
+        GlobalPaths::Full => {
+            let table = global_full_table(&traits)?;
+            let compact = global_compact_lookup(&traits);
+            (
+                quote! {
+                    PathKind::GlobalFull { gid, trait_name, path_from_trait } => {
+                        match ww_client_server::dispatch::global_full_path(WW_GLOBAL_TRAITS, gid, trait_name) {
+                            Some(base) => (base, path_from_trait),
+                            None => #not_found
+                        }
+                    }
+                    #compact_arm
+                },
+                quote! { #table #compact },
+            )
         }
-    });
+    };
+    Ok((arms, items))
+}
+
+/// The `const` table `GlobalFull` paths are looked up in (SRV-53), or an error naming two traits whose hashes
+/// collide, or a crate version that doesn't fit.
+fn global_full_table(traits: &[GlobalTrait]) -> Result<TokenStream, String> {
+    let mut entries = vec![];
+    for (i, t) in traits.iter().enumerate() {
+        let crate_id = t.crate_version.crate_id.as_str();
+        let hash = ww_global::trait_hash(crate_id, &t.trait_name);
+        if let Some(other) = traits[..i]
+            .iter()
+            .find(|o| ww_global::trait_hash(o.crate_version.crate_id.as_str(), &o.trait_name) == hash)
+        {
+            return Err(format!(
+                "global trait paths (SRV-53): {crate_id}::{} and {}::{} have the same hash {hash:#010x}, \
+                 rename one of the traits or use global_paths = \"compact\"",
+                t.trait_name, other.crate_version.crate_id, other.trait_name
+            ));
+        }
+        let v = &t.crate_version.version;
+        let (Ok(major), Ok(minor)) = (u16::try_from(v.major.0), u16::try_from(v.minor.0)) else {
+            return Err(format!(
+                "global trait paths (SRV-53): {crate_id} {}.{} has a major or minor version above {}",
+                v.major.0,
+                v.minor.0,
+                u16::MAX
+            ));
+        };
+        let path = &t.path;
+        entries.push(quote! {
+            ww_client_server::dispatch::GlobalTrait {
+                hash: #hash, major: #major, minor: #minor, path: &[#(UNib32(#path)),*]
+            }
+        });
+    }
+    Ok(quote! {
+        /// Traits a `GlobalFull` path reaches, by the hash of their crate and name (SRV-53).
+        const WW_GLOBAL_TRAITS: &[ww_client_server::dispatch::GlobalTrait] = &[#(#entries),*];
+    })
+}
+
+/// `ww_global_compact_trait_path`: absolute path of a trait by its `ww_global` id.
+fn global_compact_lookup(traits: &[GlobalTrait]) -> TokenStream {
+    let version_check = |crate_version: &FullVersionOwned| {
+        let (major, minor) = (crate_version.version.major.0, crate_version.version.minor.0);
+        if major >= 1 {
+            quote! { gid.major.0 == #major }
+        } else {
+            quote! { gid.major.0 == 0 && gid.minor.0 == #minor }
+        }
+    };
     let compact_arms = traits.iter().filter_map(|t| {
         let id = t.compact_id?;
         let path = &t.path;
-        let version_check = version_check(quote! { gid }, &t.crate_version);
+        let version_check = version_check(&t.crate_version);
         Some(quote! {
             #id if #version_check => Some(&[#(UNib32(#path)),*]),
         })
     });
     quote! {
-        /// Absolute path of a global trait in this API, None if it's not implemented in a compatible version.
-        fn ww_global_trait_path(gid: &wire_weaver::ww_version::FullVersion<'_>, trait_name: &str) -> Option<&'static [UNib32]> {
-            match (gid.crate_id, trait_name) {
-                #(#arms)*
-                _ => None,
-            }
-        }
-
         /// Absolute path of a global trait in this API by its `ww_global` id, None if it's not implemented in a
         /// compatible version or has no id.
         #[allow(unused_variables)]
@@ -3141,5 +3248,58 @@ fn ser_value(multi_req: bool, ident: TokenStream, es: TokenStream) -> TokenStrea
         quote! {
             __ww_try!(wr, d, #ident.ser_shrink_wrap(wr), #es, ResponseSerFailed);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ww_version::VersionOwned;
+
+    fn global_trait(crate_id: &str, trait_name: &str, path: &[u32]) -> GlobalTrait {
+        GlobalTrait {
+            path: path.to_vec(),
+            crate_version: FullVersionOwned::new(crate_id.into(), VersionOwned::new(0, 3, 1)),
+            trait_name: trait_name.into(),
+            compact_id: None,
+        }
+    }
+
+    #[test]
+    fn global_table_has_hashes_not_names() {
+        let table = global_full_table(&[
+            global_trait("my_api", "Trait1", &[0]),
+            global_trait("my_api", "Trait2", &[1, 2]),
+        ])
+        .unwrap()
+        .to_string();
+        let hash = ww_global::trait_hash("my_api", "Trait2");
+        assert!(table.contains(&format!("{hash}u32")), "{table}");
+        assert!(!table.contains("Trait2") && !table.contains("my_api"), "{table}");
+    }
+
+    #[test]
+    fn global_hash_collision_is_an_error() {
+        // found by brute force: FNV-1a of "my_api", 0xff, then the trait name is 0x9d738fa3 for both
+        assert_eq!(
+            ww_global::trait_hash("my_api", "Trait268817"),
+            ww_global::trait_hash("my_api", "Trait1018190")
+        );
+        let e = global_full_table(&[
+            global_trait("my_api", "Trait268817", &[0]),
+            global_trait("my_api", "Trait1018190", &[1]),
+        ])
+        .unwrap_err();
+        assert!(e.contains("my_api::Trait1018190 and my_api::Trait268817"), "{e}");
+        assert!(e.contains("0x9d738fa3"), "{e}");
+    }
+
+    #[test]
+    fn global_paths_auto_follows_introspection() {
+        assert_eq!(GlobalPaths::Auto.resolve(true), GlobalPaths::None);
+        assert_eq!(GlobalPaths::Auto.resolve(false), GlobalPaths::Full);
+        assert_eq!(GlobalPaths::Compact.resolve(true), GlobalPaths::Compact);
+        assert_eq!(GlobalPaths::parse("").unwrap(), GlobalPaths::Auto);
+        assert!(GlobalPaths::parse("names").is_err());
     }
 }

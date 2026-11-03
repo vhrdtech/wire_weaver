@@ -187,6 +187,8 @@ pub mod api_impl {
         method_model = "deferred=deferred, _=immediate",
         property_model = "_=get_set",
         introspect = "no_docs",
+        // the device resolves global paths itself, by the traits' hashes (SRV-53), as without introspection
+        global_paths = "full",
     );
 }
 

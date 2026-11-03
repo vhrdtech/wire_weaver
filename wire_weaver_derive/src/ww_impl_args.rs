@@ -58,6 +58,11 @@ pub(crate) struct ImplExtArgs {
     #[darling(default)]
     pub(crate) multi_req: bool,
 
+    /// Which global trait paths the server resolves itself (SRV-53): `"full"`, `"compact"`, `"none"`; empty: `"full"`
+    /// without introspection, `"none"` with it.
+    #[darling(default)]
+    pub(crate) global_paths: String,
+
     #[darling(default)]
     pub(crate) medium: String,
 

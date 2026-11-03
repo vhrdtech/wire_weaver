@@ -5,8 +5,10 @@
 
 mod gid;
 mod registry;
+mod trait_hash;
 
 pub use gid::GlobalTypeId;
 pub use registry::{Entry, EntryKind, crate_id, entry, trait_id};
+pub use trait_hash::trait_hash;
 
 include!(concat!(env!("OUT_DIR"), "/gid.rs"));

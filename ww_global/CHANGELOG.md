@@ -8,6 +8,8 @@
 
 ### 🚀 Features
 
+* `trait_hash(crate_id, trait_name)`: the 32-bit FNV-1a hash of a trait's crate and name (SRV-53), a `const fn`. A server without introspection finds the trait a `GlobalFull` path names by it, codegen refuses an API in which two traits hash the same.
+
 * `WW_CLIENT_SERVER` global id (513).
 * Trait ids (API-20): one id per `crate::Trait` for every public trait in `ww_stdlib`, in the same number space as
   the crate ids (0-7 `ww_log` and `ww_log::LogDefmt`, 8-63 device contract and common IO, 64-511 the rest, 512+ link

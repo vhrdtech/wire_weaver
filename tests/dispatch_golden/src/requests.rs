@@ -136,6 +136,21 @@ pub fn build(name: &str, step: usize) -> Vec<u8> {
             },
             RequestKind::Read,
         ),
+        ("global.full_incompatible_version", 0) => {
+            let mut gid = USER_INFO_FULL_GID;
+            gid.version.major = UNib32(gid.version.major.0 + 1);
+            request(
+                1,
+                PathKind::GlobalFull {
+                    gid,
+                    trait_name: "UserInfo",
+                    path_from_trait: RefVec::Slice {
+                        slice: &[UNib32(1)],
+                    },
+                },
+                RequestKind::Read,
+            )
+        }
         ("global.missing_trait", 0) => request(
             1,
             PathKind::GlobalFull {

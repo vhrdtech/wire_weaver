@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use syn::Ident;
 use wire_weaver_core::codegen::api_client::GenClientConfigRaw;
-use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, IntrospectMode};
+use wire_weaver_core::codegen::api_server::{GenServerConfigRaw, GlobalPaths, IntrospectMode};
 use wire_weaver_core::codegen::local_trait::{gen_local_trait, gen_local_trait_client_impl};
 use wire_weaver_core::const_model::ConstModel;
 use wire_weaver_core::handler_model::HandlerModel;
@@ -116,6 +116,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                 ));
             }
         };
+        let global_paths = GlobalPaths::parse(&args.ext.global_paths)?;
         let medium = if args.ext.medium.is_empty() {
             None
         } else {
@@ -148,6 +149,7 @@ fn api_inner(args: ApiArgs) -> Result<TokenStream, String> {
                     .filter(|s| !s.is_empty())
                     .collect(),
                 crate_paths: crate_paths.clone(),
+                global_paths,
             },
         );
         codegen_ts.append_all(ts);

@@ -28,15 +28,18 @@ fn run(scenario: impl Future<Output = ()>) {
 
 /// Start the device and wait until it runs `fw`.
 ///
-/// Over the simulated USB and UDP everything is inside the runtime, so time is paused: the clock jumps ahead whenever
-/// all tasks wait, timeouts don't depend on how loaded the machine is, and a timeout (the host's or the device's) only
-/// fires when nothing else can happen. The accumulation windows of both ends and the host's link setup retries run on
-/// it too, so which messages share a packet or datagram, and the frame counters after it, are the same every run.
-/// WebSocket and [Link::UdpSocket] go through real sockets the runtime can't see into, a paused clock could jump past
-/// bytes still in the kernel, so they keep the real clock.
+/// Over the simulated USB, UDP and WebSocket everything is inside the runtime, so time is paused: the clock jumps
+/// ahead whenever all tasks wait, timeouts don't depend on how loaded the machine is, and a timeout (the host's or the
+/// device's) only fires when nothing else can happen. The accumulation windows of both ends and the host's link setup
+/// retries run on it too, so which messages share a packet or datagram, the frame counters after it and the order of
+/// both ends' frames are the same every run. [Link::UdpSocket] and [Link::WebSocketTcp] go through real sockets the
+/// runtime can't see into, a paused clock could jump past bytes still in the kernel, so they keep the real clock.
 async fn start(code: &str, link: Link, flash: Flash, fw: Firmware) -> Device {
     let _ = tracing_subscriber::fmt::try_init();
-    if matches!(link, Link::UsbFullSpeed | Link::UsbHighSpeed | Link::Udp) {
+    if matches!(
+        link,
+        Link::UsbFullSpeed | Link::UsbHighSpeed | Link::Udp | Link::WebSocket
+    ) {
         tokio::time::pause();
     }
     let mut dev = Device::start(code, link, flash).await;
@@ -540,49 +543,64 @@ fn pit_stop_freight_1l_upd_bulk() {
     run(async {
         const CODE: &str = "1L-UPD-BULK";
         const LINK: Link = Link::WebSocket;
-        let mut dev = start(
-            CODE,
-            LINK,
-            Flash::new(Profile::InPlace, &v1(), 0),
-            Firmware::LeanApp,
-        )
-        .await;
-        let app = connect!(LeanAppClient, &dev.addr);
-        app.node().node().call().await.unwrap();
-        app.boot().reboot(BootTarget::Updater).call().await.unwrap();
-        drop(app);
-
-        assert_eq!(dev.booted().await, Firmware::Updater);
-        let host = connect!(UpdaterClient, &dev.addr);
-        host.node().node().call().await.unwrap();
-        let max_piece = host.stage().limits().call().await.unwrap().max_piece;
-        let plan = Plan::in_place(&v1(), &v2());
-        let total = plan.body.len() as u32;
-        let bulk = host.bulk();
-        bulk.begin_bulk(Target::Live, header(&plan), total, 0)
-            .call()
-            .await
-            .unwrap();
-        let mut acks = bulk.plan_ack().call().await.unwrap();
-        let sink = send_bulk!(bulk, plan, 0, total, max_piece);
-        let ack = acks.recv().await.unwrap();
-        assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
-        assert_eq!(
-            host.stage().finish().call().await.unwrap(),
-            BootState::Confirmed
-        );
-        host.boot().reboot(BootTarget::App).call().await.unwrap();
-        drop(acks);
-        drop(sink);
-        drop(host);
-
-        assert_eq!(dev.booted().await, Firmware::LeanApp);
-        let app = connect!(LeanAppClient, &dev.addr);
-        let node = app.node().node().call().await.unwrap();
-        assert_eq!(
-            (node.app_version, node.last_result.outcome),
-            (Some(2), Outcome::Confirmed)
-        );
+        let dev = pit_stop_freight(CODE, LINK).await;
         check_or_update(CODE, &dev.rec.transcript(LINK.units()));
     })
+}
+
+/// 1L-UPD-BULK over a real TCP socket on localhost: the scenario's transcript is pinned over the simulated WebSocket
+/// (whose timing the paused clock drives), this checks that the `ws` medium and transport get the update through too.
+#[test]
+fn pit_stop_freight_1l_upd_bulk_over_tcp() {
+    run(async {
+        pit_stop_freight("1L-UPD-BULK-tcp", Link::WebSocketTcp).await;
+    })
+}
+
+/// The 1L-UPD-BULK scenario on `link`, until the new image runs confirmed.
+async fn pit_stop_freight(code: &str, link: Link) -> Device {
+    let mut dev = start(
+        code,
+        link,
+        Flash::new(Profile::InPlace, &v1(), 0),
+        Firmware::LeanApp,
+    )
+    .await;
+    let app = connect!(LeanAppClient, &dev.addr);
+    app.node().node().call().await.unwrap();
+    app.boot().reboot(BootTarget::Updater).call().await.unwrap();
+    drop(app);
+
+    assert_eq!(dev.booted().await, Firmware::Updater);
+    let host = connect!(UpdaterClient, &dev.addr);
+    host.node().node().call().await.unwrap();
+    let max_piece = host.stage().limits().call().await.unwrap().max_piece;
+    let plan = Plan::in_place(&v1(), &v2());
+    let total = plan.body.len() as u32;
+    let bulk = host.bulk();
+    bulk.begin_bulk(Target::Live, header(&plan), total, 0)
+        .call()
+        .await
+        .unwrap();
+    let mut acks = bulk.plan_ack().call().await.unwrap();
+    let sink = send_bulk!(bulk, plan, 0, total, max_piece);
+    let ack = acks.recv().await.unwrap();
+    assert_eq!((ack.have, ack.status), (total, BulkStatus::Complete));
+    assert_eq!(
+        host.stage().finish().call().await.unwrap(),
+        BootState::Confirmed
+    );
+    host.boot().reboot(BootTarget::App).call().await.unwrap();
+    drop(acks);
+    drop(sink);
+    drop(host);
+
+    assert_eq!(dev.booted().await, Firmware::LeanApp);
+    let app = connect!(LeanAppClient, &dev.addr);
+    let node = app.node().node().call().await.unwrap();
+    assert_eq!(
+        (node.app_version, node.last_result.outcome),
+        (Some(2), Outcome::Confirmed)
+    );
+    dev
 }

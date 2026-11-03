@@ -219,6 +219,8 @@ pub enum Medium {
     LocalSocket,
     /// In-process with simulated UDP datagrams.
     InProcessUdp,
+    /// In-process WebSocket over an in-memory pipe; messages as they are.
+    InProcessWebSocket,
 }
 
 /// How frames are packed (`ww_framer`), see `ww_link` for each medium's configuration.

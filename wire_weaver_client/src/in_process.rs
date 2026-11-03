@@ -41,6 +41,13 @@
 //! connection is a new host address, so a reconnect is a peer takeover as over UDP. Only the kernel is left out: a
 //! datagram is in the device's queue as soon as it is sent, so tokio's paused clock (`start_paused`) drives the
 //! accumulation windows and link setup retries of both ends exactly, which it can't over a real socket.
+//!
+//! # Simulated WebSocket
+//!
+//! With the `ws` feature, a device registered with [ws_device] speaks WebSocket over an in-memory pipe: the host runs
+//! the `ws` transport's own client (handshake, one binary message per link message) and the device serves the returned
+//! [WsPort] with `ww_device::ws`, as it would a TCP socket. As with simulated UDP, nothing waits in a kernel, so the
+//! paused clock decides the order in which both ends' frames go out.
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
@@ -81,6 +88,9 @@ enum Medium {
     Usb(UsbPacket),
     /// [udp_device]: messages are framed into datagrams, each moved as one [Message] with kind 0
     Udp(UdpHosts),
+    /// [ws_device]: each connection is a new in-memory pipe, the device's end goes here
+    #[cfg(feature = "ws")]
+    Ws(mpsc::UnboundedSender<tokio::io::DuplexStream>),
 }
 
 /// Where the hosts of a [udp_device] send datagrams, and where the device's replies to each go
@@ -433,6 +443,74 @@ impl Drop for UdpPort {
     }
 }
 
+/// Register a device under `path` that speaks WebSocket over an in-memory pipe, see
+/// [Simulated WebSocket](self#simulated-websocket). The device serves the returned socket with `ww_device::ws`, as it
+/// does a TCP socket. A device already registered under the same path is replaced.
+#[cfg(feature = "ws")]
+pub fn ws_device(path: &str) -> WsPort {
+    let (pipes_tx, pipes) = mpsc::unbounded_channel();
+    let (connections_tx, _) = register(path, Medium::Ws(pipes_tx));
+    WsPort {
+        path: path.to_string(),
+        connections_tx,
+        pipes,
+        pipe: None,
+    }
+}
+
+/// Bytes each way an in-memory WebSocket pipe holds before a write waits for the reader, as a TCP socket's buffers.
+#[cfg(feature = "ws")]
+const WS_PIPE_LEN: usize = 64 * 1024;
+
+/// The listening socket of a simulated WebSocket device, see [ws_device]. Dropping it unregisters the device.
+#[cfg(feature = "ws")]
+pub struct WsPort {
+    path: String,
+    /// To tell whether the registry entry is still this device's on drop
+    connections_tx: mpsc::UnboundedSender<Connection>,
+    pipes: mpsc::UnboundedReceiver<tokio::io::DuplexStream>,
+    /// The connected host's pipe
+    pipe: Option<tokio::io::DuplexStream>,
+}
+
+#[cfg(feature = "ws")]
+impl ww_device::ws::Socket for WsPort {
+    type Error = std::io::Error;
+
+    /// Cancel-safe: tokio's recv() does not lose a pipe when dropped.
+    async fn accept(&mut self) {
+        self.pipe = None;
+        match self.pipes.recv().await {
+            Some(pipe) => self.pipe = Some(pipe),
+            // cannot happen, the registry holds the sender while the device is registered
+            None => core::future::pending().await,
+        }
+    }
+
+    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        use tokio::io::AsyncReadExt;
+        match self.pipe.as_mut() {
+            Some(pipe) => pipe.read(buf).await,
+            None => Ok(0),
+        }
+    }
+
+    async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        use tokio::io::AsyncWriteExt;
+        match self.pipe.as_mut() {
+            Some(pipe) => pipe.write(bytes).await,
+            None => Err(std::io::ErrorKind::NotConnected.into()),
+        }
+    }
+}
+
+#[cfg(feature = "ws")]
+impl Drop for WsPort {
+    fn drop(&mut self) {
+        unregister(&self.path, &self.connections_tx);
+    }
+}
+
 /// [ww_device::Clock] on top of tokio's timer, for devices running on the host.
 #[derive(Copy, Clone)]
 pub struct TokioClock(tokio::time::Instant);
@@ -547,6 +625,26 @@ impl Transport for InProcessTransport {
             .get(path.as_str())
             .map(|r| (r.connections.clone(), r.medium.clone()))
             .ok_or_else(|| format!("in-process device '{path}' is gone"))?;
+        #[cfg(feature = "ws")]
+        if let Medium::Ws(pipes) = &medium {
+            let (host, device) = tokio::io::duplex(WS_PIPE_LEN);
+            pipes
+                .send(device)
+                .map_err(|_| format!("in-process device '{path}' is gone"))?;
+            let url = format!("ws://in-process/{path}");
+            let opened = crate::ws::handshake(&url, host, max_message_len).await?;
+            let mut tap = tap;
+            tap.session(&crate::tap::host_session(
+                ww_tap::Medium::InProcessWebSocket,
+                ww_tap::Framer::None,
+                0,
+                &path,
+            ));
+            return Ok(Opened {
+                tx: HostTx::Ws(opened.tx),
+                rx: HostRx::Ws(opened.rx),
+            });
+        }
         let (to_host, to_host_rx) = mpsc::unbounded_channel();
         let to_device = match &medium {
             Medium::Udp(hosts) => {
@@ -556,6 +654,8 @@ impl Transport for InProcessTransport {
                 hosts.to_host.lock().unwrap().insert(addr, to_host);
                 ToDevice::Udp(hosts.to_device.clone(), addr)
             }
+            #[cfg(feature = "ws")]
+            Medium::Ws(_) => unreachable!("connected above"),
             Medium::Messages | Medium::Usb(_) => {
                 let (to_device_tx, to_device) = mpsc::unbounded_channel();
                 device
@@ -581,9 +681,13 @@ impl Transport for InProcessTransport {
             Medium::Messages => {
                 crate::tap::host_session(ww_tap::Medium::InProcess, ww_tap::Framer::None, 0, &path)
             }
+            #[cfg(feature = "ws")]
+            Medium::Ws(_) => unreachable!("connected above"),
         });
         let (tx_framer, rx_framer) = match &medium {
             Medium::Messages => (None, None),
+            #[cfg(feature = "ws")]
+            Medium::Ws(_) => unreachable!("connected above"),
             Medium::Usb(p) => (
                 Some(TxFramer::Usb(UsbTxFramer::new(p.seq_prefix, p.max_size))),
                 Some(RxFramer::Usb(UsbRxFramer::new(
@@ -602,17 +706,17 @@ impl Transport for InProcessTransport {
             ),
         };
         Ok(Opened {
-            tx: HostTx {
+            tx: HostTx::Channel(ChannelTx {
                 to_device,
                 framer: tx_framer,
                 tap: tap.clone(),
-            },
-            rx: HostRx {
+            }),
+            rx: HostRx::Channel(ChannelRx {
                 from_device: to_host_rx,
                 message: None,
                 framer: rx_framer,
                 tap,
-            },
+            }),
         })
     }
 }
@@ -622,7 +726,65 @@ const MAX_RX_DATAGRAM_LEN: usize = 65_535;
 
 use crate::framing::{UsbRx as UsbRxFramer, UsbTx as UsbTxFramer};
 
-pub(crate) struct HostTx {
+/// Host tx half of an in-process connection
+pub(crate) enum HostTx {
+    Channel(ChannelTx),
+    #[cfg(feature = "ws")]
+    Ws(crate::ws::WsTx<tokio::io::DuplexStream>),
+}
+
+impl MessageTx for HostTx {
+    async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
+        match self {
+            HostTx::Channel(tx) => tx.write_message(kind, message).await,
+            #[cfg(feature = "ws")]
+            HostTx::Ws(tx) => tx.write_message(kind, message).await,
+        }
+    }
+
+    async fn flush(&mut self) -> Result<(), String> {
+        match self {
+            HostTx::Channel(tx) => tx.flush().await,
+            #[cfg(feature = "ws")]
+            HostTx::Ws(tx) => tx.flush().await,
+        }
+    }
+
+    async fn close(self) {
+        match self {
+            HostTx::Channel(tx) => tx.close().await,
+            #[cfg(feature = "ws")]
+            HostTx::Ws(tx) => tx.close().await,
+        }
+    }
+}
+
+/// Host rx half of an in-process connection
+pub(crate) enum HostRx {
+    Channel(ChannelRx),
+    #[cfg(feature = "ws")]
+    Ws(crate::ws::WsRx<tokio::io::DuplexStream>),
+}
+
+impl MessageRx for HostRx {
+    async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
+        match self {
+            HostRx::Channel(rx) => rx.read_message().await,
+            #[cfg(feature = "ws")]
+            HostRx::Ws(rx) => rx.read_message().await,
+        }
+    }
+
+    async fn close(self) {
+        match self {
+            HostRx::Channel(rx) => rx.close().await,
+            #[cfg(feature = "ws")]
+            HostRx::Ws(rx) => rx.close().await,
+        }
+    }
+}
+
+pub(crate) struct ChannelTx {
     to_device: ToDevice,
     /// Some for a simulated USB or UDP device: messages are packed into packets or datagrams
     framer: Option<TxFramer>,
@@ -711,7 +873,7 @@ fn send_packet(
     to_device.send((0, packet))
 }
 
-impl MessageTx for HostTx {
+impl MessageTx for ChannelTx {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
         let Some(framer) = self.framer.as_mut() else {
             return self.to_device.send((kind, message.to_vec()));
@@ -742,7 +904,7 @@ impl MessageTx for HostTx {
     }
 }
 
-pub(crate) struct HostRx {
+pub(crate) struct ChannelRx {
     from_device: mpsc::UnboundedReceiver<Message>,
     /// Last received message, returned borrowed
     message: Option<Message>,
@@ -751,7 +913,7 @@ pub(crate) struct HostRx {
     tap: ww_tap::RecorderLink,
 }
 
-impl MessageRx for HostRx {
+impl MessageRx for ChannelRx {
     async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
         if self.framer.is_none() {
             // cancel-safe: nothing is lost if recv() is dropped, the previous message is only replaced after it
@@ -854,6 +1016,42 @@ mod tests {
             serve(
                 ww_device::FramedTx::new(UdpSink::new(&conn), &mut tx_frame),
                 ww_device::FramedRx::new(UdpSource::new(&conn), rx.assembly_buf(DATAGRAM)),
+                events_tx,
+            )
+            .await
+        });
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(64);
+        let host = tokio::spawn(crate::event_loop::core::worker(
+            cmd_rx,
+            To(PATH.to_string()),
+        ));
+        talk((cmd_tx, events_rx, dev, host)).await
+    }
+
+    /// The device serves `ww_device::ws` over the in-memory pipe: the host's own WebSocket client on one end, on the
+    /// paused clock.
+    #[cfg(feature = "ws")]
+    #[tokio::test(start_paused = true)]
+    async fn host_and_device_talk_over_simulated_ws() {
+        tokio::task::LocalSet::new()
+            .run_until(talk_over_simulated_ws())
+            .await
+    }
+
+    #[cfg(feature = "ws")]
+    async fn talk_over_simulated_ws() {
+        const PATH: &str = "in_process/ws_talk";
+        let port = ws_device(PATH);
+        let (events_tx, events_rx) = mpsc::unbounded_channel();
+        // the medium is not Send (NoopRawMutex, as on embassy), run it on the test's LocalSet
+        let dev = tokio::task::spawn_local(async move {
+            use ww_device::ws::{WS_OVERHEAD, WsConnection, WsRx, WsTx};
+            let conn = WsConnection::new(port);
+            let mut tx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
+            let mut rx_buf = [0u8; DEV_MAX_MESSAGE + WS_OVERHEAD];
+            serve(
+                WsTx::new(&conn, &mut tx_buf),
+                WsRx::new(&conn, &mut rx_buf),
                 events_tx,
             )
             .await

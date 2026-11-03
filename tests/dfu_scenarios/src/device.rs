@@ -5,7 +5,8 @@
 //! The link is a one-line choice per scenario ([Link]). Every medium is the real one, from the `ww_device` side up:
 //! - USB: `ww_device`'s `FramedTx` / `FramedRx` with the USB framer configuration over the simulated USB of
 //!   `wire_weaver_client::in_process` (real packet sizes; no enumeration, toggles or NAKs);
-//! - WebSocket: `ww_device::ws` over a TCP socket on localhost, `wire_weaver_client`'s `ws` transport;
+//! - WebSocket: `ww_device::ws` over the simulated WebSocket of `wire_weaver_client::in_process` (the `ws` transport's
+//!   own client over an in-memory pipe), or over a TCP socket on localhost;
 //! - UDP: `ww_device::udp` over the simulated UDP of `wire_weaver_client::in_process` (real datagrams and framing;
 //!   no kernel), or over a UDP socket on localhost with `wire_weaver_client`'s `udp` transport.
 
@@ -34,8 +35,11 @@ pub enum Link {
     UsbFullSpeed,
     /// Simulated USB, 512-byte packets.
     UsbHighSpeed,
-    /// WebSocket on localhost.
+    /// Simulated WebSocket: as WebSocket on localhost, over an in-memory pipe instead of TCP, so the paused clock
+    /// drives it (see `scenarios::start`).
     WebSocket,
+    /// WebSocket on localhost, through a real TCP socket.
+    WebSocketTcp,
     /// Simulated UDP, one `ww_framer` frame per datagram: as UDP on localhost, without the kernel in between, so the
     /// paused clock drives it (see `scenarios::start`).
     Udp,
@@ -49,7 +53,9 @@ impl Link {
         match self {
             Link::UsbFullSpeed => "USB packets (full speed, 64 B max)",
             Link::UsbHighSpeed => "USB packets (high speed, 512 B max)",
-            Link::WebSocket => "WebSocket frames (host frames unmasked, mask key zeroed)",
+            Link::WebSocket | Link::WebSocketTcp => {
+                "WebSocket frames (host frames unmasked, mask key zeroed)"
+            }
             Link::Udp | Link::UdpSocket => "UDP datagrams",
         }
     }
@@ -116,7 +122,8 @@ enum End {
 /// The endpoint the device keeps across resets.
 enum Media {
     Usb { path: String, packet: usize },
-    WebSocket(TcpListener),
+    WebSocket(in_process::WsPort),
+    WebSocketTcp(RealWs),
     Udp(in_process::UdpPort),
     UdpSocket(RealUdp),
 }
@@ -137,9 +144,22 @@ impl Media {
                 )
             }
             Link::WebSocket => {
+                let path = format!("dfu/{name}");
+                (
+                    Media::WebSocket(in_process::ws_device(&path)),
+                    Addr::InProcess(path),
+                )
+            }
+            Link::WebSocketTcp => {
                 let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
                 let url = format!("ws://{}/ww", listener.local_addr().unwrap());
-                (Media::WebSocket(listener), Addr::WebSocket(url))
+                (
+                    Media::WebSocketTcp(RealWs {
+                        listener,
+                        stream: None,
+                    }),
+                    Addr::WebSocket(url),
+                )
             }
             Link::Udp => {
                 let path = format!("dfu/{name}");
@@ -158,7 +178,7 @@ impl Media {
 }
 
 async fn device_task(
-    media: Media,
+    mut media: Media,
     flash: Arc<Mutex<Flash>>,
     rec: Recorder,
     boots: mpsc::UnboundedSender<flash::Firmware>,
@@ -197,7 +217,7 @@ async fn device_task(
                     node,
                     plan_credit: firmware::plan_credit(),
                 };
-                run(fw, &media, &rec, &mut stop).await
+                run(fw, &mut media, &rec, &mut stop).await
             }
             flash::Firmware::LeanApp => {
                 let mut node = node;
@@ -209,7 +229,7 @@ async fn device_task(
                 };
                 run(
                     firmware::lean_app::LeanAppServer { node },
-                    &media,
+                    &mut media,
                     &rec,
                     &mut stop,
                 )
@@ -220,7 +240,7 @@ async fn device_task(
                     node,
                     plan_credit: firmware::plan_credit(),
                 };
-                run(fw, &media, &rec, &mut stop).await
+                run(fw, &mut media, &rec, &mut stop).await
             }
         };
         if let End::Stop = end {
@@ -231,7 +251,7 @@ async fn device_task(
 
 async fn run<F: Firmware>(
     fw: F,
-    media: &Media,
+    media: &mut Media,
     rec: &Recorder,
     stop: &mut mpsc::UnboundedReceiver<()>,
 ) -> End {
@@ -239,13 +259,14 @@ async fn run<F: Firmware>(
     let mut rx_buf = vec![0u8; 2 * MAX_MESSAGE];
     match media {
         Media::Usb { path, packet } => {
-            let (sink, source) = in_process::usb_device(path, *packet);
+            let packet = *packet;
+            let (sink, source) = in_process::usb_device(path, packet);
             let tx = ww_device::FramedTx::new(
                 TapPackets {
                     inner: sink,
                     rec: rec.clone(),
                 },
-                &mut tx_buf[..*packet],
+                &mut tx_buf[..packet],
             );
             let rx = ww_device::FramedRx::new(
                 TapPackets {
@@ -256,24 +277,35 @@ async fn run<F: Firmware>(
             );
             serve(fw, tx, rx, rec, stop).await
         }
-        Media::WebSocket(listener) => {
-            let conn = ww_device::ws::WsConnection::new(WsSocket {
-                listener,
-                stream: None,
-                rec: rec.clone(),
-                rx: WsSplitter::new(Dir::ToDevice),
-                tx: WsSplitter::new(Dir::ToHost),
-                tx_ahead: 0,
-            });
-            let tx = ww_device::ws::WsTx::new(&conn, &mut tx_buf);
-            let rx = ww_device::ws::WsRx::new(&conn, &mut rx_buf);
-            serve(fw, tx, rx, rec, stop).await
+        Media::WebSocket(socket) => serve_ws(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await,
+        Media::WebSocketTcp(socket) => {
+            serve_ws(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await
         }
         Media::Udp(socket) => serve_udp(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await,
         Media::UdpSocket(socket) => {
             serve_udp(fw, socket, &mut tx_buf, &mut rx_buf, rec, stop).await
         }
     }
+}
+
+async fn serve_ws<F: Firmware, S: ww_device::ws::Socket<Error = std::io::Error>>(
+    fw: F,
+    socket: &mut S,
+    tx_buf: &mut [u8],
+    rx_buf: &mut [u8],
+    rec: &Recorder,
+    stop: &mut mpsc::UnboundedReceiver<()>,
+) -> End {
+    let conn = ww_device::ws::WsConnection::new(WsTap {
+        inner: socket,
+        rec: rec.clone(),
+        rx: WsSplitter::new(Dir::ToDevice),
+        tx: WsSplitter::new(Dir::ToHost),
+        tx_ahead: 0,
+    });
+    let tx = ww_device::ws::WsTx::new(&conn, tx_buf);
+    let rx = ww_device::ws::WsRx::new(&conn, rx_buf);
+    serve(fw, tx, rx, rec, stop).await
 }
 
 async fn serve_udp<F: Firmware, S: ww_device::udp::DatagramSocket>(
@@ -392,10 +424,9 @@ impl<F: Firmware> WireWeaverAsyncApiBackend for Backend<F> {
     }
 }
 
-/// `ww_device::ws::Socket` on the device's listener, recording frames.
-struct WsSocket<'l> {
-    listener: &'l TcpListener,
-    stream: Option<TcpStream>,
+/// `ww_device::ws::Socket` on the device's listener (simulated or real), recording frames.
+struct WsTap<'l, S> {
+    inner: &'l mut S,
     rec: Recorder,
     rx: WsSplitter,
     tx: WsSplitter,
@@ -404,7 +435,39 @@ struct WsSocket<'l> {
     tx_ahead: usize,
 }
 
-impl ww_device::ws::Socket for WsSocket<'_> {
+impl<S: ww_device::ws::Socket<Error = std::io::Error>> ww_device::ws::Socket for WsTap<'_, S> {
+    type Error = std::io::Error;
+
+    async fn accept(&mut self) {
+        self.inner.accept().await;
+        self.rx = WsSplitter::new(Dir::ToDevice);
+        self.tx = WsSplitter::new(Dir::ToHost);
+        self.tx_ahead = 0;
+    }
+
+    async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf).await?;
+        self.rx.feed(&self.rec, &buf[..n]);
+        Ok(n)
+    }
+
+    async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        // a partial write is called again with the rest, which is recorded already
+        self.tx
+            .feed(&self.rec, &bytes[self.tx_ahead.min(bytes.len())..]);
+        let n = self.inner.write(bytes).await?;
+        self.tx_ahead = bytes.len() - n;
+        Ok(n)
+    }
+}
+
+/// A real TCP listener for [WsTap].
+struct RealWs {
+    listener: TcpListener,
+    stream: Option<TcpStream>,
+}
+
+impl ww_device::ws::Socket for RealWs {
     type Error = std::io::Error;
 
     async fn accept(&mut self) {
@@ -412,26 +475,16 @@ impl ww_device::ws::Socket for WsSocket<'_> {
         let (stream, _) = self.listener.accept().await.unwrap();
         stream.set_nodelay(true).unwrap();
         self.stream = Some(stream);
-        self.rx = WsSplitter::new(Dir::ToDevice);
-        self.tx = WsSplitter::new(Dir::ToHost);
-        self.tx_ahead = 0;
     }
 
     async fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         use tokio::io::AsyncReadExt;
-        let n = self.stream.as_mut().unwrap().read(buf).await?;
-        self.rx.feed(&self.rec, &buf[..n]);
-        Ok(n)
+        self.stream.as_mut().unwrap().read(buf).await
     }
 
     async fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         use tokio::io::AsyncWriteExt;
-        // a partial write is called again with the rest, which is recorded already
-        self.tx
-            .feed(&self.rec, &bytes[self.tx_ahead.min(bytes.len())..]);
-        let n = self.stream.as_mut().unwrap().write(bytes).await?;
-        self.tx_ahead = bytes.len() - n;
-        Ok(n)
+        self.stream.as_mut().unwrap().write(bytes).await
     }
 }
 

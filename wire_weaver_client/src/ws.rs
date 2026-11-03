@@ -11,6 +11,7 @@ use std::time::Duration;
 use anyhow::bail;
 use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{SinkExt, StreamExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
@@ -26,7 +27,8 @@ use crate::event_loop::transport::{MessageRx, MessageTx, Opened, Selected, Trans
 /// Closing handshake is not waited for longer than this, the other end might be gone already.
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(1);
 
-type Ws = WebSocketStream<MaybeTlsStream<TcpStream>>;
+/// The stream a WebSocket runs over: TCP here, an in-memory pipe for [in_process::ws_device](crate::in_process::ws_device)
+type TcpWs = MaybeTlsStream<TcpStream>;
 
 pub(crate) fn try_connect(
     c: &ValidatedConfig,
@@ -88,21 +90,49 @@ impl Transport for WsTransport {
         let (ws, _response) = connect(&url, max_message_len)
             .await
             .map_err(|e| format!("{url}: {e}"))?;
-        let (tx, rx) = ws.split();
         // one message per WebSocket message, no frames of its own
         let mut tap = tap;
         ww_tap::Tap::session(
             &mut tap,
             &crate::tap::host_session(ww_tap::Medium::WebSocket, ww_tap::Framer::None, 0, &url),
         );
-        Ok(Opened {
-            tx: WsTx(tx),
-            rx: WsRx {
-                rx,
-                message: Bytes::new(),
-            },
-        })
+        Ok(halves(ws))
     }
+}
+
+fn config(max_message_len: usize) -> WebSocketConfig {
+    // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
+    let max = max_message_len + 1;
+    WebSocketConfig::default()
+        .max_message_size(Some(max))
+        .max_frame_size(Some(max))
+}
+
+fn halves<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    ws: WebSocketStream<S>,
+) -> Opened<WsTx<S>, WsRx<S>> {
+    let (tx, rx) = ws.split();
+    Opened {
+        tx: WsTx(tx),
+        rx: WsRx {
+            rx,
+            message: Bytes::new(),
+        },
+    }
+}
+
+/// The client handshake over `stream`, for a WebSocket that doesn't run over TCP (`in_process::ws_device`).
+#[cfg(feature = "in_process")]
+pub(crate) async fn handshake<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
+    url: &str,
+    stream: S,
+    max_message_len: usize,
+) -> Result<Opened<WsTx<S>, WsRx<S>>, String> {
+    let (ws, _response) =
+        tokio_tungstenite::client_async_with_config(url, stream, Some(config(max_message_len)))
+            .await
+            .map_err(|e| format!("{url}: {e}"))?;
+    Ok(halves(ws))
 }
 
 async fn connect(
@@ -110,26 +140,21 @@ async fn connect(
     max_message_len: usize,
 ) -> Result<
     (
-        Ws,
+        WebSocketStream<TcpWs>,
         tokio_tungstenite::tungstenite::handshake::client::Response,
     ),
     tokio_tungstenite::tungstenite::Error,
 > {
-    // + kind byte, messages above what the host advertised in LinkSetup are an error anyway
-    let max = max_message_len + 1;
-    let config = WebSocketConfig::default()
-        .max_message_size(Some(max))
-        .max_frame_size(Some(max));
     // disable_nagle = true sets TCP_NODELAY. tungstenite keeps frames in its own write buffer until flush (or
     // write_buffer_size, 128 KiB), then writes them in one go, so batching is already done. With Nagle on, the
     // kernel would also hold back each flush while an earlier segment is unacknowledged, adding up to a
     // delayed-ACK timeout (~40 ms) of latency to requests.
-    tokio_tungstenite::connect_async_with_config(url, Some(config), true).await
+    tokio_tungstenite::connect_async_with_config(url, Some(config(max_message_len)), true).await
 }
 
-pub(crate) struct WsTx(SplitSink<Ws, Message>);
+pub(crate) struct WsTx<S = TcpWs>(SplitSink<WebSocketStream<S>, Message>);
 
-impl MessageTx for WsTx {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send + 'static> MessageTx for WsTx<S> {
     async fn write_message(&mut self, kind: u8, message: &[u8]) -> Result<(), String> {
         let mut bytes = Vec::with_capacity(1 + message.len());
         bytes.push(kind);
@@ -155,13 +180,13 @@ impl MessageTx for WsTx {
     }
 }
 
-pub(crate) struct WsRx {
-    rx: SplitStream<Ws>,
+pub(crate) struct WsRx<S = TcpWs> {
+    rx: SplitStream<WebSocketStream<S>>,
     /// Last received message, returned borrowed
     message: Bytes,
 }
 
-impl MessageRx for WsRx {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send + 'static> MessageRx for WsRx<S> {
     async fn read_message(&mut self) -> Result<(u8, &[u8]), String> {
         loop {
             // cancel-safe: a partially received message is kept in the WebSocketStream, not in the future

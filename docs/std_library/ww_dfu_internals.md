@@ -31,10 +31,15 @@ one and the change is looked at. So the bytes here are the bytes the current cod
   `02 dst src hash`, `03 dst hash len data`), so the step bytes in the transcripts are readable. Hashes are SHA-256
   truncated to 8 bytes, as in chunky's format 2. The real records are in
   [The other side: chunky](#the-other-side-chunky).
-- **The links** are the real ones from `ww_device` up: WebSocket and UDP on localhost through `wire_weaver_client`'s
-  `ws` and `udp` transports; USB is simulated by `wire_weaver_client::in_process::usb_device`, which runs the real USB
-  framing on both ends with full-speed (64 B) or high-speed (512 B) packets, but not USB itself (enumeration, data
-  toggles, NAKs). RTT is not used: with a debug probe attached a device is flashed directly, without a bootloader.
+- **The links** are the real ones from `ww_device` up, simulated below that by `wire_weaver_client::in_process`:
+  USB by `usb_device`, which runs the real USB framing on both ends with full-speed (64 B) or high-speed (512 B)
+  packets, but not USB itself (enumeration, data toggles, NAKs); UDP by `udp_device`, the real UDP framing and
+  `ww_device::udp` without the kernel; WebSocket by `ws_device`, the `ws` transport's client and `ww_device::ws` over
+  an in-memory pipe. With nothing in a kernel, every scenario runs on tokio's paused clock, so the packing of
+  messages into packets and datagrams and the order of both ends' frames are the same on every run, however loaded
+  the PC is. Two tests run a scenario over real sockets on localhost, through the `udp` and `ws` transports, and
+  check its outcome only: `parcel_freight_1s_app_bulk_over_udp_sockets`, `pit_stop_freight_1l_upd_bulk_over_tcp`.
+  RTT is not used: with a debug probe attached a device is flashed directly, without a bootloader.
 - **Changing a scenario's link** is one line, `const LINK: Link = ...` in its test (UART and CAN will join `Link`).
 
 ## The other side: chunky

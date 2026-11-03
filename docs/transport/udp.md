@@ -79,7 +79,8 @@ still in the kernel, so the clock can jump past it. On the simulated socket a da
 as it is sent. The paused clock then drives both ends' accumulation windows and the host's link setup retries
 exactly, so which messages share a datagram, and every frame counter after that, is the same on every run, however
 loaded the machine is. `tests/dfu_scenarios` pins its UDP transcripts this way (`1S-APP-BULK`, `2C-APP-BULK`) and
-keeps one run of the same scenario over real sockets, which checks that the update gets through.
+keeps one run of the same scenario over real sockets, which checks that the update gets through. WebSocket has the
+same, see [Simulated WebSocket in tests](websocket.md#simulated-websocket-in-tests).
 
 `examples_mcu/rp2` has a complete example, `ww_udp_ncm`: the board shows up on the host as a USB CDC-NCM Ethernet
 adapter, runs `embassy-net` with a static address and a small DHCP server, so the host is configured automatically,

@@ -107,7 +107,7 @@ against the descriptor.
 
 Half the plan, then the app answers `node` in the middle of the download (still version 1, `Confirmed`), the rest,
 one `Complete`, `finish` into `PlanStored`, the reboot and the bootloader's apply. Test: `parcel_freight_1s_app_bulk`
-over UDP on localhost.
+over simulated UDP.
 
 --8<-- "tests/dfu_scenarios/transcripts/1S-APP-BULK.md"
 
@@ -203,6 +203,6 @@ source hash, WRITE hash), the image against the descriptor.
 #### Transcript
 
 The lean app reboots into the updater; the in-place delta goes in 32-byte segments in one stream, one `Complete`,
-`finish` into `Confirmed`, and the new app starts. Test: `pit_stop_freight_1l_upd_bulk` over WebSocket on localhost.
+`finish` into `Confirmed`, and the new app starts. Test: `pit_stop_freight_1l_upd_bulk` over simulated WebSocket.
 
 --8<-- "tests/dfu_scenarios/transcripts/1L-UPD-BULK.md"

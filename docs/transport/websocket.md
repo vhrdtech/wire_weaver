@@ -54,6 +54,19 @@ adapter, runs `embassy-net` with a static address and a small DHCP server (`edge
 automatically, and serves the blinky API at `ws://192.168.7.1:8080/ww`. Run it with `just run rp2 ww_ws_ncm` from
 `examples_mcu/rp2`, then blink from the host with `cargo run -p blinky --features ws --example blinky_ws`.
 
+## Simulated WebSocket in tests
+
+With the client's `in_process` and `ws` features, `wire_weaver_client::in_process::ws_device(path)` registers a device
+that speaks WebSocket over an in-memory pipe instead of TCP (TR-22). The host connects with
+`ClientConfig::in_process_path(path)` and runs the `ws` transport's own client over the pipe: the same handshake, one
+binary message per link message. The device serves the returned `WsPort` with `WsConnection`, `WsTx` and `WsRx`, as
+it would a TCP socket.
+
+Nothing waits in a kernel, so a test on tokio's paused clock (`start_paused`) drives both ends exactly, and the order
+of the host's and the device's frames is the same on every run. `tests/dfu_scenarios` pins its WebSocket transcripts
+this way (`1L-UPD-BULK`, `2R-APP-STEP`) and keeps one run over a real TCP socket, which checks that the update gets
+through. The same holds for UDP, see [Simulated UDP in tests](udp.md#simulated-udp-in-tests).
+
 ## Wire format
 
 Each [ww_link](ww_link.md) message is one binary WebSocket message:

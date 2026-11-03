@@ -106,7 +106,7 @@ WRITE hash, index ranges), the image against the descriptor in `finish`.
 #### Transcript
 
 The host sends three segments, restarts (a new connection), resumes at byte 192 and continues the `plan` sink's
-session at segment 3, gets one `Complete`, finishes, reboots and confirms. Test: `swap_freight_2c_app_bulk` over UDP on localhost.
+session at segment 3, gets one `Complete`, finishes, reboots and confirms. Test: `swap_freight_2c_app_bulk` over simulated UDP.
 
 --8<-- "tests/dfu_scenarios/transcripts/2C-APP-BULK.md"
 
@@ -150,7 +150,7 @@ the descriptor in `finish`.
 #### Transcript
 
 A **plain full image**: four ERASE and seven WRITE, no COPY, so the host needs no manifest. Then the reboot, the
-trial and the confirm. Test: `flip_shuttle_2r_app_step` over WebSocket on localhost.
+trial and the confirm. Test: `flip_shuttle_2r_app_step` over simulated WebSocket.
 
 --8<-- "tests/dfu_scenarios/transcripts/2R-APP-STEP.md"
 

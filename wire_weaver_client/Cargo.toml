@@ -23,6 +23,8 @@ stm32_dfu = [
 ws = [
     "dep:tokio-tungstenite",
     "dep:futures-util",
+    "ww_device?/ws",
+    "tokio/io-util",
 ] # WebSocket (using tokio-tungstenite)
 udp = ["tokio/net"] # UDP, one ww_framer frame per datagram
 can = [] # CAN Bus using USB or Ethernet to CAN bridges or socketcan on Linux

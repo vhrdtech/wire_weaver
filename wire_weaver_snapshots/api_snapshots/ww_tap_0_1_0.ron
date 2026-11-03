@@ -1,6 +1,6 @@
 // ww_tap 0.1.0 traits and types, saved by `ww api save`.
 // Do not edit, bump the crate version and save a new snapshot instead.
-// shrink_wrap sha256: 9409815ff7c8ee2e849746891bc64c81f176f1554412b0cbc11f32871bf18711
+// shrink_wrap sha256: 6f0848ab4011875957ff30e72b9d43899c3e2d961b531ea0a702461b4e9fe768
 (magic: 2837124336, ww_self_version: (major: 0, minor: 3, patch: 0), root: (docs: [
     "The link tap: what crosses a wire_weaver link, recorded at the transport edge, for monitors, statistics and",
     "captures (TR-14).",
@@ -44,6 +44,9 @@
         (docs: [
             "In-process with simulated UDP datagrams.",
         ], ident: "InProcessUdp", fields: Unit, discriminant: 8, since: None),
+        (docs: [
+            "In-process WebSocket over an in-memory pipe; messages as they are.",
+        ], ident: "InProcessWebSocket", fields: Unit, discriminant: 9, since: None),
     ], path: None, instance_of: None, future_version: Some(Variant(ident: "Unknown", bits: None)))), crate_idx: 0),
     InLine(ty: Enum((size: Unsized, repr: BitAligned(4), crate_idx: 0, docs: [], ident: "FramerChecksum", generics: [], variants: [
         (docs: [], ident: "None", fields: Unit, discriminant: 0, since: None),

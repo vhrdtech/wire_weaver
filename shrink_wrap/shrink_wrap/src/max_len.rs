@@ -61,11 +61,20 @@ impl<T, const N: usize> MaxLen<T, N> {
 impl<T: LenBounded, const N: usize> MaxLen<T, N> {
     /// `value` if it has at most `N` elements, [Error::MaxLenExceeded] otherwise.
     pub fn new(value: T) -> Result<Self, Error> {
-        if value.bounded_len() > N {
-            return Err(Error::MaxLenExceeded);
-        }
+        check_max_len(value.bounded_len(), N)?;
         Ok(MaxLen(value))
     }
+}
+
+/// The bound check shared by every `MaxLen<_, N>` instance: `ser_shrink_wrap`, `ser_shrink_wrap_owned`, `new` and
+/// `des_shrink_wrap` (through [check_len]) all call this instead of each getting its own copy monomorphised per
+/// `N` (SW-72).
+#[inline(never)]
+fn check_max_len(len: usize, max: usize) -> Result<(), Error> {
+    if len > max {
+        return Err(Error::MaxLenExceeded);
+    }
+    Ok(())
 }
 
 impl<T, const N: usize> Deref for MaxLen<T, N> {
@@ -148,9 +157,7 @@ impl<T: SerializeShrinkWrap + LenBounded + ItemMaxSize, const N: usize> Serializ
     const MAX_SIZE: Option<MaxSize> = MaxSize::list(T::ITEM_MAX_SIZE, N);
 
     fn ser_shrink_wrap(&self, wr: &mut BufWriter) -> Result<(), Error> {
-        if self.0.bounded_len() > N {
-            return Err(Error::MaxLenExceeded);
-        }
+        check_max_len(self.0.bounded_len(), N)?;
         self.0.ser_shrink_wrap(wr)
     }
 }
@@ -162,9 +169,7 @@ impl<T: crate::SerializeShrinkWrapOwned + LenBounded, const N: usize>
     const ELEMENT_SIZE: ElementSize = T::ELEMENT_SIZE;
 
     fn ser_shrink_wrap_owned(&self, wr: &mut crate::BufWriterOwned) -> Result<(), Error> {
-        if self.0.bounded_len() > N {
-            return Err(Error::MaxLenExceeded);
-        }
+        check_max_len(self.0.bounded_len(), N)?;
         self.0.ser_shrink_wrap_owned(wr)
     }
 }
@@ -173,10 +178,7 @@ impl<T: crate::SerializeShrinkWrapOwned + LenBounded, const N: usize>
 /// reader and fail before the value itself is read (or allocated).
 fn check_len(rd: &BufReader<'_>, max_len: usize) -> Result<(), Error> {
     let mut peek = *rd;
-    if peek.read_rev_len()? > max_len {
-        return Err(Error::MaxLenExceeded);
-    }
-    Ok(())
+    check_max_len(peek.read_rev_len()?, max_len)
 }
 
 impl<'i, T: DeserializeShrinkWrap<'i> + LenBounded, const N: usize> DeserializeShrinkWrap<'i>

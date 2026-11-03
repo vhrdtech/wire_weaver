@@ -10,8 +10,8 @@ use wire_weaver::prelude::*;
 use ww_client_server::stream::StreamHead;
 use ww_gpio::IoPinEvent;
 use ww_gpio::{
-    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode,
-    PinCapabilities, Pull, Speed,
+    BankCapabilities, BankConfig, GpioError, IoPinEnabledEvents, Level, Mode, PinCapabilities,
+    Pull, Speed,
 };
 use ww_stream::tx::Counted;
 
